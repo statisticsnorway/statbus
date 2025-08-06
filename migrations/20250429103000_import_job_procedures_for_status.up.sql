@@ -3,7 +3,7 @@
 BEGIN;
 
 -- Procedure to analyse status_code and populate status_id (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.analyse_status(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_status(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_status$
 DECLARE
     v_job public.import_job;

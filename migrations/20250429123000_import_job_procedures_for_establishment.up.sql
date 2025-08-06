@@ -1,7 +1,7 @@
 BEGIN;
 
 -- Procedure to analyse base establishment data (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.analyse_establishment(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_establishment(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_establishment$
 DECLARE
     v_job public.import_job;
@@ -143,7 +143,7 @@ $analyse_establishment$;
 
 
 -- Procedure to operate (insert/update/upsert) base establishment data (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.process_establishment(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.process_establishment(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
 LANGUAGE plpgsql AS $process_establishment$
 DECLARE
     v_job public.import_job;
@@ -162,8 +162,8 @@ DECLARE
     error_message TEXT;
     v_batch_upsert_result RECORD;
     v_batch_result RECORD; -- Declaration for the loop variable used in demotion
-    v_batch_upsert_error_row_ids BIGINT[] := ARRAY[]::BIGINT[];
-    v_batch_upsert_success_row_ids BIGINT[] := ARRAY[]::BIGINT[];
+    v_batch_upsert_error_row_ids INTEGER[] := ARRAY[]::INTEGER[];
+    v_batch_upsert_success_row_ids INTEGER[] := ARRAY[]::INTEGER[];
     -- Removed v_has_*_col flags, will use v_job_mode
     v_select_enterprise_id_expr TEXT := 'NULL::INTEGER';
     v_select_legal_unit_id_expr TEXT := 'NULL::INTEGER';
@@ -220,7 +220,7 @@ BEGIN
         p_job_id, v_job_mode, v_data_table_name, v_select_legal_unit_id_expr, v_select_primary_for_legal_unit_expr, v_select_enterprise_id_expr, v_select_primary_for_enterprise_expr;
 
     CREATE TEMP TABLE temp_batch_data (
-        data_row_id BIGINT PRIMARY KEY,
+        data_row_id INTEGER PRIMARY KEY,
         tax_ident TEXT,
         legal_unit_id INT,
         primary_for_legal_unit BOOLEAN,
@@ -242,7 +242,7 @@ BEGIN
         edit_at TIMESTAMPTZ,
         edit_comment TEXT, -- Added
         action public.import_row_action_type,
-        founding_row_id BIGINT
+        founding_row_id INTEGER
     ) ON COMMIT DROP;
 
     v_select_list := format(
@@ -320,17 +320,17 @@ BEGIN
     END IF;
 
     CREATE TEMP TABLE temp_created_ests (
-        data_row_id BIGINT PRIMARY KEY,
+        data_row_id INTEGER PRIMARY KEY,
         new_establishment_id INT NOT NULL
     ) ON COMMIT DROP;
 
     CREATE TEMP TABLE temp_processed_action_ids (
-        data_row_id BIGINT PRIMARY KEY,
+        data_row_id INTEGER PRIMARY KEY,
         actual_establishment_id INT NOT NULL
     ) ON COMMIT DROP;
 
     CREATE TEMP TABLE temp_es_demotion_ops (
-        row_id BIGINT PRIMARY KEY, founding_row_id BIGINT, id INT NOT NULL, valid_after DATE NOT NULL, valid_to DATE NOT NULL,
+        row_id INTEGER PRIMARY KEY, founding_row_id INTEGER, id INT NOT NULL, valid_after DATE NOT NULL, valid_to DATE NOT NULL,
         name TEXT, birth_date DATE, death_date DATE, active BOOLEAN, sector_id INT, unit_size_id INT, status_id INT,
         legal_unit_id INT, primary_for_legal_unit BOOLEAN, enterprise_id INT, primary_for_enterprise BOOLEAN,
         data_source_id INT, invalid_codes JSONB, edit_by_user_id INT, edit_at TIMESTAMPTZ, edit_comment TEXT
@@ -501,8 +501,8 @@ BEGIN
         RAISE DEBUG '[Job %] process_establishment: Handling REPLACES for existing ESTs via batch_upsert.', p_job_id;
 
         CREATE TEMP TABLE temp_est_upsert_source (
-            row_id BIGINT PRIMARY KEY,
-            founding_row_id BIGINT,
+            row_id INTEGER PRIMARY KEY,
+            founding_row_id INTEGER,
             id INT,
             valid_after DATE NOT NULL,
             valid_to DATE NOT NULL,

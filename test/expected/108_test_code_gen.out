@@ -178,7 +178,7 @@ SELECT * FROM import_data_column_baseline;
       16 |        1 | edit_by_user_id                  | INTEGER                          | internal     | t           |               | f
       16 |        2 | edit_at                          | TIMESTAMPTZ                      | internal     | t           |               | f
       16 |        3 | edit_comment                     | TEXT                             | internal     | t           |               | f
-      17 |        1 | founding_row_id                  | BIGINT                           | internal     | t           |               | f
+      17 |        1 | founding_row_id                  | INTEGER                          | internal     | t           |               | f
       17 |        2 | state                            | public.import_data_state         | metadata     | f           | 'pending'     | f
       17 |        3 | last_completed_priority          | INTEGER                          | metadata     | f           | 0             | f
       17 |        4 | error                            | JSONB                            | metadata     | t           |               | f

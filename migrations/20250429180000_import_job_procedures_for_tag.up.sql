@@ -4,13 +4,13 @@
 BEGIN;
 
 -- Procedure to analyse tag data (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.analyse_tags(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_tags(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_tags$
 DECLARE
     v_job public.import_job;
     v_step RECORD;
     v_data_table_name TEXT;
-    v_error_row_ids BIGINT[] := ARRAY[]::BIGINT[];
+    v_error_row_ids INTEGER[] := ARRAY[]::INTEGER[];
     v_error_count INT := 0;
     v_update_count INT := 0;
     v_skipped_update_count INT := 0;
@@ -127,7 +127,7 @@ $analyse_tags$;
 
 
 -- Procedure to operate (insert/update/upsert) tag data (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.process_tags(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.process_tags(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
 LANGUAGE plpgsql AS $process_tags$
 DECLARE
     v_job public.import_job;
@@ -190,7 +190,7 @@ BEGIN
 
     -- Step 1: Fetch batch data into a temporary table
     CREATE TEMP TABLE temp_batch_data (
-        data_row_id BIGINT PRIMARY KEY,
+        data_row_id INTEGER PRIMARY KEY,
         legal_unit_id INT,
         establishment_id INT,
         tag_id INT,

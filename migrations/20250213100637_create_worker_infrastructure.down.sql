@@ -13,7 +13,7 @@ DROP FUNCTION IF EXISTS worker.notify_worker_about_deletes() CASCADE;
 DROP FUNCTION IF EXISTS worker.notify_worker_queue_change() CASCADE;
 
 -- Drop task enqueue functions
-DROP FUNCTION IF EXISTS worker.enqueue_check_table(TEXT, BIGINT);
+DROP FUNCTION IF EXISTS worker.enqueue_check_table(TEXT, INTEGER);
 DROP FUNCTION IF EXISTS worker.enqueue_deleted_row(TEXT, INT, INT, INT, DATE, DATE);
 DROP FUNCTION IF EXISTS worker.enqueue_derive_statistical_unit(INT[], INT[], INT[], DATE, DATE);
 DROP FUNCTION IF EXISTS worker.enqueue_derive_reports(DATE, DATE);

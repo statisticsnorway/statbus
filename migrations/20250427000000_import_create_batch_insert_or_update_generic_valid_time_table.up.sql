@@ -14,7 +14,7 @@ CREATE OR REPLACE FUNCTION import.batch_insert_or_update_generic_valid_time_tabl
     p_generated_columns_override TEXT[] DEFAULT NULL -- Explicit list of DB-generated columns
 )
 RETURNS TABLE (
-    source_row_id BIGINT,
+    source_row_id INTEGER,
     upserted_record_id INT,
     status TEXT,
     error_message TEXT
@@ -22,7 +22,7 @@ RETURNS TABLE (
 LANGUAGE plpgsql VOLATILE AS $batch_insert_or_update_generic_valid_time_table$
 DECLARE
     v_input_row_record RECORD;
-    v_current_source_row_id BIGINT;
+    v_current_source_row_id INTEGER;
     v_existing_id INT;
     v_existing_era_record RECORD;
     v_result_id INT;
@@ -37,7 +37,7 @@ DECLARE
     v_loop_error_message TEXT;
 
     v_founding_id_cache JSONB := '{}'::JSONB;
-    v_current_founding_row_id BIGINT;
+    v_current_founding_row_id INTEGER;
     v_initial_existing_id_is_null BOOLEAN;
 
     v_target_table_actual_columns TEXT[];
@@ -129,14 +129,14 @@ BEGIN -- Main function body starts here
         IF NOT (v_new_record_for_processing ? 'row_id') THEN
             RAISE EXCEPTION 'Source row ID column ''row_id'' not found in source table %.%', p_source_schema_name, p_source_table_name;
         END IF;
-        v_current_source_row_id := (v_new_record_for_processing->>'row_id')::BIGINT;
+        v_current_source_row_id := (v_new_record_for_processing->>'row_id')::INTEGER;
         v_existing_id := (v_new_record_for_processing->>p_id_column_name)::INT;
         v_initial_existing_id_is_null := (v_existing_id IS NULL);
 
         -- Attempt to use founding_row_id cache if v_existing_id is NULL
         IF v_initial_existing_id_is_null THEN
             IF v_new_record_for_processing ? 'founding_row_id' AND (v_new_record_for_processing->>'founding_row_id') IS NOT NULL THEN
-                v_current_founding_row_id := (v_new_record_for_processing->>'founding_row_id')::BIGINT;
+                v_current_founding_row_id := (v_new_record_for_processing->>'founding_row_id')::INTEGER;
                 IF v_founding_id_cache ? v_current_founding_row_id::TEXT THEN
                     v_existing_id := (v_founding_id_cache->>v_current_founding_row_id::TEXT)::INT;
                     v_new_record_for_processing := jsonb_set(v_new_record_for_processing, ARRAY[p_id_column_name], to_jsonb(v_existing_id), true);

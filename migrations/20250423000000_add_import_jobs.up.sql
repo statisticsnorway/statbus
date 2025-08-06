@@ -1326,7 +1326,7 @@ BEGIN
   -- 2. Create Data Table
   RAISE DEBUG '[Job %] Generating data table %', job.id, job.data_table_name;
   -- Add row_id as the first column and primary key
-  create_data_table_stmt := format('CREATE TABLE public.%I (row_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, ', job.data_table_name);
+  create_data_table_stmt := format('CREATE TABLE public.%I (row_id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY, ', job.data_table_name);
   add_separator := FALSE; -- Reset for data table columns
 
   -- Add columns based on import_data_column records associated with the steps linked to this job's definition
@@ -1796,7 +1796,7 @@ DECLARE
     proc_to_call REGPROC;
     rows_processed_in_tx INTEGER := 0;
     work_still_exists_for_phase BOOLEAN := FALSE; -- Indicates if rows for this phase still exist after processing
-    batch_row_ids BIGINT[]; -- Changed from TID[] to BIGINT[]
+    batch_row_ids INTEGER[];
     error_message TEXT;
     current_phase_data_state public.import_data_state;
     v_sql TEXT; -- Added declaration for v_sql

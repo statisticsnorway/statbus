@@ -210,7 +210,7 @@ Describing table for definition: legal_unit_job_provided (Job: t54_lu_tc, Data T
                                            Table "public.t54_lu_tc_data"
               Column              |           Type            | Collation | Nullable |           Default            
 ----------------------------------+---------------------------+-----------+----------+------------------------------
- row_id                           | bigint                    |           | not null | generated always as identity
+ row_id                           | integer                   |           | not null | generated always as identity
  valid_from                       | text                      |           |          | 
  valid_to                         | text                      |           |          | 
  derived_valid_after              | date                      |           |          | 
@@ -294,7 +294,7 @@ Describing table for definition: legal_unit_job_provided (Job: t54_lu_tc, Data T
  edit_by_user_id                  | integer                   |           |          | 
  edit_at                          | timestamp with time zone  |           |          | 
  edit_comment                     | text                      |           |          | 
- founding_row_id                  | bigint                    |           |          | 
+ founding_row_id                  | integer                   |           |          | 
  state                            | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority          | integer                   |           | not null | 0
  error                            | jsonb                     |           |          | 
@@ -325,7 +325,7 @@ Describing table for definition: legal_unit_source_dates (Job: t54_lu_sd, Data T
                                            Table "public.t54_lu_sd_data"
               Column              |           Type            | Collation | Nullable |           Default            
 ----------------------------------+---------------------------+-----------+----------+------------------------------
- row_id                           | bigint                    |           | not null | generated always as identity
+ row_id                           | integer                   |           | not null | generated always as identity
  valid_from                       | text                      |           |          | 
  valid_to                         | text                      |           |          | 
  derived_valid_after              | date                      |           |          | 
@@ -409,7 +409,7 @@ Describing table for definition: legal_unit_source_dates (Job: t54_lu_sd, Data T
  edit_by_user_id                  | integer                   |           |          | 
  edit_at                          | timestamp with time zone  |           |          | 
  edit_comment                     | text                      |           |          | 
- founding_row_id                  | bigint                    |           |          | 
+ founding_row_id                  | integer                   |           |          | 
  state                            | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority          | integer                   |           | not null | 0
  error                            | jsonb                     |           |          | 
@@ -440,7 +440,7 @@ Describing table for definition: establishment_for_lu_job_provided (Job: t54_est
                                          Table "public.t54_est_lu_tc_data"
               Column              |           Type            | Collation | Nullable |           Default            
 ----------------------------------+---------------------------+-----------+----------+------------------------------
- row_id                           | bigint                    |           | not null | generated always as identity
+ row_id                           | integer                   |           | not null | generated always as identity
  valid_from                       | text                      |           |          | 
  valid_to                         | text                      |           |          | 
  derived_valid_after              | date                      |           |          | 
@@ -524,7 +524,7 @@ Describing table for definition: establishment_for_lu_job_provided (Job: t54_est
  edit_by_user_id                  | integer                   |           |          | 
  edit_at                          | timestamp with time zone  |           |          | 
  edit_comment                     | text                      |           |          | 
- founding_row_id                  | bigint                    |           |          | 
+ founding_row_id                  | integer                   |           |          | 
  state                            | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority          | integer                   |           | not null | 0
  error                            | jsonb                     |           |          | 
@@ -555,7 +555,7 @@ Describing table for definition: establishment_for_lu_source_dates (Job: t54_est
                                          Table "public.t54_est_lu_sd_data"
               Column              |           Type            | Collation | Nullable |           Default            
 ----------------------------------+---------------------------+-----------+----------+------------------------------
- row_id                           | bigint                    |           | not null | generated always as identity
+ row_id                           | integer                   |           | not null | generated always as identity
  valid_from                       | text                      |           |          | 
  valid_to                         | text                      |           |          | 
  derived_valid_after              | date                      |           |          | 
@@ -639,7 +639,7 @@ Describing table for definition: establishment_for_lu_source_dates (Job: t54_est
  edit_by_user_id                  | integer                   |           |          | 
  edit_at                          | timestamp with time zone  |           |          | 
  edit_comment                     | text                      |           |          | 
- founding_row_id                  | bigint                    |           |          | 
+ founding_row_id                  | integer                   |           |          | 
  state                            | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority          | integer                   |           | not null | 0
  error                            | jsonb                     |           |          | 
@@ -670,7 +670,7 @@ Describing table for definition: establishment_without_lu_job_provided (Job: t54
                                         Table "public.t54_est_wolu_tc_data"
               Column              |           Type            | Collation | Nullable |           Default            
 ----------------------------------+---------------------------+-----------+----------+------------------------------
- row_id                           | bigint                    |           | not null | generated always as identity
+ row_id                           | integer                   |           | not null | generated always as identity
  valid_from                       | text                      |           |          | 
  valid_to                         | text                      |           |          | 
  derived_valid_after              | date                      |           |          | 
@@ -752,7 +752,7 @@ Describing table for definition: establishment_without_lu_job_provided (Job: t54
  edit_by_user_id                  | integer                   |           |          | 
  edit_at                          | timestamp with time zone  |           |          | 
  edit_comment                     | text                      |           |          | 
- founding_row_id                  | bigint                    |           |          | 
+ founding_row_id                  | integer                   |           |          | 
  state                            | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority          | integer                   |           | not null | 0
  error                            | jsonb                     |           |          | 
@@ -783,7 +783,7 @@ Describing table for definition: establishment_without_lu_source_dates (Job: t54
                                         Table "public.t54_est_wolu_sd_data"
               Column              |           Type            | Collation | Nullable |           Default            
 ----------------------------------+---------------------------+-----------+----------+------------------------------
- row_id                           | bigint                    |           | not null | generated always as identity
+ row_id                           | integer                   |           | not null | generated always as identity
  valid_from                       | text                      |           |          | 
  valid_to                         | text                      |           |          | 
  derived_valid_after              | date                      |           |          | 
@@ -865,7 +865,7 @@ Describing table for definition: establishment_without_lu_source_dates (Job: t54
  edit_by_user_id                  | integer                   |           |          | 
  edit_at                          | timestamp with time zone  |           |          | 
  edit_comment                     | text                      |           |          | 
- founding_row_id                  | bigint                    |           |          | 
+ founding_row_id                  | integer                   |           |          | 
  state                            | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority          | integer                   |           | not null | 0
  error                            | jsonb                     |           |          | 
@@ -896,7 +896,7 @@ Describing table for definition: generic_unit_stats_update_job_provided (Job: t5
                                         Table "public.t54_gus_jp_data"
            Column           |           Type            | Collation | Nullable |           Default            
 ----------------------------+---------------------------+-----------+----------+------------------------------
- row_id                     | bigint                    |           | not null | generated always as identity
+ row_id                     | integer                   |           | not null | generated always as identity
  valid_from                 | text                      |           |          | 
  valid_to                   | text                      |           |          | 
  derived_valid_after        | date                      |           |          | 
@@ -913,7 +913,7 @@ Describing table for definition: generic_unit_stats_update_job_provided (Job: t5
  edit_by_user_id            | integer                   |           |          | 
  edit_at                    | timestamp with time zone  |           |          | 
  edit_comment               | text                      |           |          | 
- founding_row_id            | bigint                    |           |          | 
+ founding_row_id            | integer                   |           |          | 
  state                      | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority    | integer                   |           | not null | 0
  error                      | jsonb                     |           |          | 
@@ -944,7 +944,7 @@ Describing table for definition: generic_unit_stats_update_source_dates (Job: t5
                                         Table "public.t54_gus_sd_data"
            Column           |           Type            | Collation | Nullable |           Default            
 ----------------------------+---------------------------+-----------+----------+------------------------------
- row_id                     | bigint                    |           | not null | generated always as identity
+ row_id                     | integer                   |           | not null | generated always as identity
  valid_from                 | text                      |           |          | 
  valid_to                   | text                      |           |          | 
  derived_valid_after        | date                      |           |          | 
@@ -961,7 +961,7 @@ Describing table for definition: generic_unit_stats_update_source_dates (Job: t5
  edit_by_user_id            | integer                   |           |          | 
  edit_at                    | timestamp with time zone  |           |          | 
  edit_comment               | text                      |           |          | 
- founding_row_id            | bigint                    |           |          | 
+ founding_row_id            | integer                   |           |          | 
  state                      | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority    | integer                   |           | not null | 0
  error                      | jsonb                     |           |          | 

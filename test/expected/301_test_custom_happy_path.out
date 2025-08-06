@@ -367,7 +367,7 @@ END $$;
                                                             Table "public.import_71_a1_lu_data"
               Column              |           Type            | Collation | Nullable |           Default            | Storage  | Stats target | Description 
 ----------------------------------+---------------------------+-----------+----------+------------------------------+----------+--------------+-------------
- row_id                           | bigint                    |           | not null | generated always as identity | plain    |              | 
+ row_id                           | integer                   |           | not null | generated always as identity | plain    |              | 
  valid_from                       | text                      |           |          |                              | extended |              | 
  valid_to                         | text                      |           |          |                              | extended |              | 
  derived_valid_after              | date                      |           |          |                              | plain    |              | 
@@ -455,7 +455,7 @@ END $$;
  edit_by_user_id                  | integer                   |           |          |                              | plain    |              | 
  edit_at                          | timestamp with time zone  |           |          |                              | plain    |              | 
  edit_comment                     | text                      |           |          |                              | extended |              | 
- founding_row_id                  | bigint                    |           |          |                              | plain    |              | 
+ founding_row_id                  | integer                   |           |          |                              | plain    |              | 
  state                            | import_data_state         |           | not null | 'pending'::import_data_state | plain    |              | 
  last_completed_priority          | integer                   |           | not null | 0                            | plain    |              | 
  error                            | jsonb                     |           |          |                              | extended |              | 

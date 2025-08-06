@@ -5,7 +5,7 @@
 BEGIN;
 
 -- Procedure to analyse activity data (handles both primary and secondary) (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.analyse_activity(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_activity(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_activity$
 DECLARE
     v_job public.import_job;
@@ -161,7 +161,7 @@ $analyse_activity$;
 
 
 -- Procedure to operate (insert/update/upsert) activity data (handles both primary and secondary) (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.process_activity(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.process_activity(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
 LANGUAGE plpgsql AS $process_activity$
 DECLARE
     v_job public.import_job;
@@ -181,8 +181,8 @@ DECLARE
     v_category_id_col TEXT;
     v_final_id_col TEXT;
     v_batch_upsert_result RECORD;
-    v_batch_upsert_error_row_ids BIGINT[] := ARRAY[]::BIGINT[];
-    v_batch_upsert_success_row_ids BIGINT[] := ARRAY[]::BIGINT[];
+    v_batch_upsert_error_row_ids INTEGER[] := ARRAY[]::INTEGER[];
+    v_batch_upsert_success_row_ids INTEGER[] := ARRAY[]::INTEGER[];
     v_job_mode public.import_mode;
     v_select_lu_id_expr TEXT;
     v_select_est_id_expr TEXT;
@@ -291,8 +291,8 @@ BEGIN
 
     -- Step 1: Fetch batch data into a temporary table (will now exclude rows marked 'skip' above)
     CREATE TEMP TABLE temp_batch_data (
-        data_row_id BIGINT PRIMARY KEY,
-        founding_row_id BIGINT, -- Added
+        data_row_id INTEGER PRIMARY KEY,
+        founding_row_id INTEGER, -- Added
         legal_unit_id INT,
         establishment_id INT,
         valid_after DATE, -- Added
@@ -344,7 +344,7 @@ BEGIN
 
     -- Temp table to store newly created activity_ids and their original data_row_id
     CREATE TEMP TABLE temp_created_acts (
-        data_row_id BIGINT PRIMARY KEY,
+        data_row_id INTEGER PRIMARY KEY,
         new_activity_id INT NOT NULL
     ) ON COMMIT DROP;
 
@@ -426,7 +426,7 @@ BEGIN
         RAISE DEBUG '[Job %] process_activity: Handling REPLACES for existing activities (type: %).', p_job_id, v_activity_type;
         -- Create temp source table for batch upsert
         CREATE TEMP TABLE temp_act_upsert_source (
-            row_id BIGINT PRIMARY KEY, -- Link back to original _data row
+            row_id INTEGER PRIMARY KEY, -- Link back to original _data row
             id INT, -- Target activity ID
             valid_after DATE NOT NULL, -- Changed
             valid_to DATE NOT NULL,

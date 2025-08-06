@@ -40,7 +40,7 @@ $$;
 -- This single procedure handles all `valid_time_from` modes by operating on the
 -- `valid_from` and `valid_to` source_input columns in the `_data` table, which are
 -- populated either from the source file or from job defaults during the prepare step.
-CREATE OR REPLACE PROCEDURE import.analyse_valid_time(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_valid_time(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_valid_time$
 DECLARE
     v_job public.import_job;

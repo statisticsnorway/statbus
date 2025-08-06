@@ -3,7 +3,7 @@
 BEGIN;
 
 -- Procedure to analyse base legal unit data
-CREATE OR REPLACE PROCEDURE import.analyse_legal_unit(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_legal_unit(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_legal_unit$
 DECLARE
     v_job public.import_job;
@@ -150,7 +150,7 @@ $analyse_legal_unit$;
 
 
 -- Procedure to operate (insert/update/upsert) base legal unit data (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.process_legal_unit(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.process_legal_unit(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
 LANGUAGE plpgsql AS $process_legal_unit$
 DECLARE
     v_job public.import_job;
@@ -170,8 +170,8 @@ DECLARE
     v_actually_updated_lu_count INT := 0;
     error_message TEXT;
     v_batch_result RECORD;
-    v_batch_error_row_ids BIGINT[] := ARRAY[]::BIGINT[];
-    v_batch_success_row_ids BIGINT[] := ARRAY[]::BIGINT[];
+    v_batch_error_row_ids INTEGER[] := ARRAY[]::INTEGER[];
+    v_batch_success_row_ids INTEGER[] := ARRAY[]::INTEGER[];
     rec_created_lu RECORD;
     rec_ident_type public.external_ident_type_active;
     rec_demotion RECORD;
@@ -203,7 +203,7 @@ BEGIN
     RAISE DEBUG '[Job %] process_legal_unit: Operation Type: %, User ID: %', p_job_id, v_strategy, v_edit_by_user_id;
 
     CREATE TEMP TABLE temp_batch_data (
-        data_row_id BIGINT PRIMARY KEY,
+        data_row_id INTEGER PRIMARY KEY,
         tax_ident TEXT, 
         name TEXT,
         typed_birth_date DATE,
@@ -224,7 +224,7 @@ BEGIN
         edit_comment TEXT, -- Added
         invalid_codes JSONB, -- Added
         action public.import_row_action_type,
-        founding_row_id BIGINT
+        founding_row_id INTEGER
     ) ON COMMIT DROP;
 
     v_sql := format($$
@@ -310,19 +310,19 @@ BEGIN
     END IF;
 
     CREATE TEMP TABLE temp_created_lus ( -- For 'insert' action
-        data_row_id BIGINT PRIMARY KEY,
+        data_row_id INTEGER PRIMARY KEY,
         new_legal_unit_id INT NOT NULL
     ) ON COMMIT DROP;
 
     CREATE TEMP TABLE temp_processed_action_lu_ids ( -- For 'replace' and 'update' actions
-        data_row_id BIGINT PRIMARY KEY,
+        data_row_id INTEGER PRIMARY KEY,
         actual_legal_unit_id INT NOT NULL
     ) ON COMMIT DROP;
 
     -- Temp table for REPLACE action
     CREATE TEMP TABLE temp_lu_replace_source (
-        row_id BIGINT PRIMARY KEY,
-        founding_row_id BIGINT,
+        row_id INTEGER PRIMARY KEY,
+        founding_row_id INTEGER,
         id INT,
         valid_after DATE NOT NULL, -- Changed from valid_from
         valid_to DATE NOT NULL,
@@ -345,8 +345,8 @@ BEGIN
 
     -- Temp table for UPDATE action (identical structure to replace)
     CREATE TEMP TABLE temp_lu_update_source (
-        row_id BIGINT PRIMARY KEY,
-        founding_row_id BIGINT,
+        row_id INTEGER PRIMARY KEY,
+        founding_row_id INTEGER,
         id INT,
         valid_after DATE NOT NULL, -- Changed from valid_from
         valid_to DATE NOT NULL,
@@ -369,8 +369,8 @@ BEGIN
 
     -- Temp table for demotion operations
     CREATE TEMP TABLE temp_lu_demotion_ops (
-        row_id BIGINT PRIMARY KEY, -- Can be a synthetic ID for this temp table if needed, or map to an existing LU ID
-        founding_row_id BIGINT,    -- Not strictly needed for demotion, but part of target table structure
+        row_id INTEGER PRIMARY KEY, -- Can be a synthetic ID for this temp table if needed, or map to an existing LU ID
+        founding_row_id INTEGER,    -- Not strictly needed for demotion, but part of target table structure
         id INT NOT NULL,           -- The ID of the LU in public.legal_unit to be demoted
         valid_after DATE NOT NULL,
         valid_to DATE NOT NULL,
@@ -576,8 +576,8 @@ BEGIN
         RAISE DEBUG '[Job %] process_legal_unit: Populated temp_lu_replace_source with % rows for action=replace.', p_job_id, v_intended_replace_lu_count;
 
         IF v_intended_replace_lu_count > 0 THEN
-            v_batch_error_row_ids := ARRAY[]::BIGINT[];
-            v_batch_success_row_ids := ARRAY[]::BIGINT[];
+            v_batch_error_row_ids := ARRAY[]::INTEGER[];
+            v_batch_success_row_ids := ARRAY[]::INTEGER[];
             RAISE DEBUG '[Job %] process_legal_unit: Calling batch_insert_or_replace_generic_valid_time_table for legal_unit (replace).', p_job_id;
             FOR v_batch_result IN
                 SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
@@ -672,8 +672,8 @@ BEGIN
         RAISE DEBUG '[Job %] process_legal_unit: Populated temp_lu_update_source with % rows for action=update.', p_job_id, v_intended_update_lu_count;
 
         IF v_intended_update_lu_count > 0 THEN
-            v_batch_error_row_ids := ARRAY[]::BIGINT[];
-            v_batch_success_row_ids := ARRAY[]::BIGINT[];
+            v_batch_error_row_ids := ARRAY[]::INTEGER[];
+            v_batch_success_row_ids := ARRAY[]::INTEGER[];
             -- Clear and reuse temp_processed_action_lu_ids for this action type if needed, or ensure it's empty.
             -- For simplicity, if external_idents are not re-processed for 'update', this might not be strictly needed for ID storage,
             -- but good for consistency if the _data table's legal_unit_id needs updating.

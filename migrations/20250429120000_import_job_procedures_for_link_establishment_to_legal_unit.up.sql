@@ -5,7 +5,7 @@ BEGIN;
 -- Procedure to analyse the link between establishment and legal unit (Batch Oriented)
 -- This procedure dynamically reads legal_unit_* identifier columns based on the snapshot
 -- and attempts to resolve them to a single legal_unit_id.
-CREATE OR REPLACE PROCEDURE import.analyse_link_establishment_to_legal_unit(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_link_establishment_to_legal_unit(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_link_establishment_to_legal_unit$
 DECLARE
     v_job public.import_job;
@@ -20,7 +20,7 @@ DECLARE
     v_skipped_update_count INT := 0;
     v_unpivot_sql TEXT := ''; 
     v_add_separator BOOLEAN := FALSE; 
-    v_error_row_ids BIGINT[] := ARRAY[]::BIGINT[];
+    v_error_row_ids INTEGER[] := ARRAY[]::INTEGER[];
     v_error_keys_to_clear_arr TEXT[] := ARRAY[]::TEXT[]; 
     v_fallback_error_key TEXT;
 BEGIN
@@ -64,7 +64,7 @@ BEGIN
 
     -- Step 1: Unpivot provided identifiers and lookup legal units
     CREATE TEMP TABLE temp_unpivoted_lu_idents (
-        data_row_id BIGINT,
+        data_row_id INTEGER,
         ident_code TEXT, -- e.g., 'legal_unit_tax_ident'
         ident_value TEXT,
         ident_type_id INT,
@@ -137,7 +137,7 @@ BEGIN
     END IF;
 
     -- Step 2: Identify and Aggregate Errors
-    CREATE TEMP TABLE temp_batch_errors (data_row_id BIGINT PRIMARY KEY, error_jsonb JSONB) ON COMMIT DROP;
+    CREATE TEMP TABLE temp_batch_errors (data_row_id INTEGER PRIMARY KEY, error_jsonb JSONB) ON COMMIT DROP;
 
     -- Check for rows missing any identifier, inconsistencies (multiple LUs found), or not found
     -- v_fallback_error_key is already calculated
@@ -149,7 +149,7 @@ BEGIN
                 COUNT(DISTINCT tui.resolved_lu_id) FILTER (WHERE tui.resolved_lu_id IS NOT NULL) AS distinct_lu_ids,
                 MAX(CASE WHEN tui.resolved_lu_id IS NOT NULL THEN 1 ELSE 0 END) AS found_lu,
                 array_agg(DISTINCT tui.ident_code) FILTER (WHERE tui.ident_value IS NOT NULL) as provided_input_ident_codes -- Get actual input column names used
-            FROM (SELECT unnest(%1$L::BIGINT[]) as data_row_id) orig
+            FROM (SELECT unnest(%1$L::INTEGER[]) as data_row_id) orig
             LEFT JOIN temp_unpivoted_lu_idents tui ON orig.data_row_id = tui.data_row_id
             GROUP BY orig.data_row_id
         )
@@ -259,7 +259,7 @@ BEGIN
     $$,
         v_data_table_name,                      /* %1$I */
         p_batch_row_ids,                        /* %2$L */
-        COALESCE(v_error_row_ids, ARRAY[]::BIGINT[]), /* %3$L */
+        COALESCE(v_error_row_ids, ARRAY[]::INTEGER[]), /* %3$L */
         v_step.priority,                        /* %4$L */
         v_error_keys_to_clear_arr,              /* %5$L */
         'analysing'::public.import_data_state   /* %6$L */

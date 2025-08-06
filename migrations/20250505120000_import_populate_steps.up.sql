@@ -129,7 +129,7 @@ WITH ordered_values AS (
         ('edit_info',         'edit_by_user_id',             'INTEGER',   'internal', true, NULL, false),
         ('edit_info',         'edit_at',                     'TIMESTAMPTZ','internal', true, NULL, false),
         ('edit_info',         'edit_comment',                'TEXT',      'internal', true, NULL, false),
-        ('metadata',          'founding_row_id',             'BIGINT',    'internal', true, NULL,          false), -- Added: For linking temporal records of the same entity
+        ('metadata',          'founding_row_id',             'INTEGER',    'internal', true, NULL,          false), -- Added: For linking temporal records of the same entity
         ('metadata',          'state',                       'public.import_data_state','metadata', false, '''pending''', false),
         ('metadata',          'last_completed_priority',     'INTEGER',   'metadata', false, '0',           false),
         ('metadata',          'error',                       'JSONB',     'metadata', true,  NULL,          false),

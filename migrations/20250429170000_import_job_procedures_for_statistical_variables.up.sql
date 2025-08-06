@@ -58,7 +58,7 @@ END;
 $$;
 
 -- Procedure to analyse statistical variable data (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.analyse_statistical_variables(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_statistical_variables(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_statistical_variables$
 DECLARE
     v_job public.import_job;
@@ -207,7 +207,7 @@ $analyse_statistical_variables$;
 
 
 -- Procedure to operate (insert/update/upsert) statistical variable data (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.process_statistical_variables(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.process_statistical_variables(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
 LANGUAGE plpgsql AS $process_statistical_variables$
 DECLARE
     v_job public.import_job;
@@ -228,8 +228,8 @@ DECLARE
     v_unpivot_sql TEXT := '';
     v_add_separator BOOLEAN := FALSE;
     v_batch_upsert_result RECORD;
-    v_batch_upsert_error_row_ids BIGINT[] := ARRAY[]::BIGINT[];
-    v_batch_upsert_success_row_ids BIGINT[] := ARRAY[]::BIGINT[];
+    v_batch_upsert_error_row_ids INTEGER[] := ARRAY[]::INTEGER[];
+    v_batch_upsert_success_row_ids INTEGER[] := ARRAY[]::INTEGER[];
     v_pk_col_name TEXT;
     v_stat_def RECORD;
     v_update_pk_sql TEXT := '';
@@ -330,7 +330,7 @@ BEGIN
     END;
 
     CREATE TEMP TABLE temp_batch_data (
-        data_row_id BIGINT, 
+        data_row_id INTEGER, 
         legal_unit_id INT,
         establishment_id INT,
         valid_after DATE, -- Added
@@ -434,7 +434,7 @@ BEGIN
     EXECUTE v_sql;
 
     CREATE TEMP TABLE temp_created_stats (
-        data_row_id BIGINT,
+        data_row_id INTEGER,
         stat_definition_id INT,
         new_stat_for_unit_id INT NOT NULL,
         PRIMARY KEY (data_row_id, stat_definition_id)
@@ -442,7 +442,7 @@ BEGIN
 
     -- Create temp source table for batch upsert (for replaces) *before* the inner BEGIN block
     CREATE TEMP TABLE temp_stat_upsert_source (
-        row_id BIGINT, 
+        row_id INTEGER, 
         id INT, 
         valid_after DATE NOT NULL, -- Changed
         valid_to DATE NOT NULL,

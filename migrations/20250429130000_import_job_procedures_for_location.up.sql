@@ -36,7 +36,7 @@ END;
 $try_cast_to_numeric_specific$;
 
 -- Procedure to analyse location data (handles both physical and postal) (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.analyse_location(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_location(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_location$
 DECLARE
     v_job public.import_job;
@@ -274,7 +274,7 @@ BEGIN
                     ),
             last_completed_priority = %9$L::INTEGER -- Always v_step.priority
         FROM lookups l
-        WHERE dt.row_id = l.data_row_id AND dt.row_id = ANY(%2$L::BIGINT[]) AND dt.action IS DISTINCT FROM 'skip';
+        WHERE dt.row_id = l.data_row_id AND dt.row_id = ANY(%2$L::INTEGER[]) AND dt.action IS DISTINCT FROM 'skip';
     $$,
         v_data_table_name,                      /* %1$I (target table) */
         p_batch_row_ids,                        /* %2$L (for lookups CTE and final WHERE) */
@@ -356,7 +356,7 @@ $analyse_location$;
 
 
 -- Procedure to operate (insert/update/upsert) location data (handles both physical and postal) (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.process_location(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.process_location(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
 LANGUAGE plpgsql AS $process_location$
 DECLARE
     v_job public.import_job;
@@ -376,8 +376,8 @@ DECLARE
     v_select_lu_id_expr TEXT;
     v_select_est_id_expr TEXT;
     v_batch_upsert_result RECORD;
-    v_batch_upsert_error_row_ids BIGINT[] := ARRAY[]::BIGINT[];
-    v_batch_upsert_success_row_ids BIGINT[] := ARRAY[]::BIGINT[];
+    v_batch_upsert_error_row_ids INTEGER[] := ARRAY[]::INTEGER[];
+    v_batch_upsert_success_row_ids INTEGER[] := ARRAY[]::INTEGER[];
     v_final_id_col TEXT;
     v_row RECORD; -- For debugging loop
 BEGIN
@@ -428,8 +428,8 @@ BEGIN
         p_job_id, v_job_mode, v_select_lu_id_expr, v_select_est_id_expr, v_data_table_name;
 
     CREATE TEMP TABLE temp_batch_data (
-        data_row_id BIGINT PRIMARY KEY,
-        founding_row_id BIGINT, -- Added to link rows of the same logical entity
+        data_row_id INTEGER PRIMARY KEY,
+        founding_row_id INTEGER, -- Added to link rows of the same logical entity
         legal_unit_id INT,
         establishment_id INT,
         valid_after DATE,
@@ -517,7 +517,7 @@ BEGIN
 
     -- Temp table to store newly created location_ids and their original data_row_id
     CREATE TEMP TABLE temp_created_locs (
-        data_row_id BIGINT PRIMARY KEY,
+        data_row_id INTEGER PRIMARY KEY,
         new_location_id INT NOT NULL
     ) ON COMMIT DROP;
 
@@ -610,7 +610,7 @@ BEGIN
         RAISE DEBUG '[Job %] process_location: Handling REPLACES/UPDATES for existing locations (type: %).', p_job_id, v_location_type;
         -- Create temp source table for batch upsert
         CREATE TEMP TABLE temp_loc_upsert_source (
-            row_id BIGINT PRIMARY KEY,
+            row_id INTEGER PRIMARY KEY,
             id INT,
             valid_after DATE NOT NULL, -- Changed
             valid_to DATE NOT NULL,

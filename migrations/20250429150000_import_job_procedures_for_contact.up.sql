@@ -4,7 +4,7 @@
 BEGIN;
 
 -- Procedure to analyse contact data (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.analyse_contact(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_contact(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_contact$ -- Function name remains the same, step name changed
 DECLARE
     v_job public.import_job;
@@ -63,7 +63,7 @@ $analyse_contact$;
 -- Procedure to operate (insert/update/upsert) contact data (Batch Oriented)
 -- Refactored to handle temporal nature correctly using MERGE for inserts
 -- and batch_insert_or_replace for replaces.
-CREATE OR REPLACE PROCEDURE import.process_contact(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.process_contact(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
 LANGUAGE plpgsql AS $process_contact$
 DECLARE
     v_job public.import_job;
@@ -80,8 +80,8 @@ DECLARE
     v_updated_existing_contact_count INT := 0;
     error_message TEXT;
     v_batch_upsert_result RECORD;
-    v_batch_upsert_error_row_ids BIGINT[] := ARRAY[]::BIGINT[];
-    v_batch_upsert_success_row_ids BIGINT[] := ARRAY[]::BIGINT[];
+    v_batch_upsert_error_row_ids INTEGER[] := ARRAY[]::INTEGER[];
+    v_batch_upsert_success_row_ids INTEGER[] := ARRAY[]::INTEGER[];
     v_job_mode public.import_mode;
     v_select_lu_id_expr TEXT := 'NULL::INTEGER'; 
     v_select_est_id_expr TEXT := 'NULL::INTEGER'; 
@@ -128,8 +128,8 @@ BEGIN
 
     -- Step 1: Fetch batch data into a temporary table, including action
     CREATE TEMP TABLE temp_batch_data (
-        data_row_id BIGINT PRIMARY KEY,
-        founding_row_id BIGINT, -- Added
+        data_row_id INTEGER PRIMARY KEY,
+        founding_row_id INTEGER, -- Added
         legal_unit_id INT,
         establishment_id INT,
         valid_after DATE, -- Added
@@ -187,7 +187,7 @@ BEGIN
 
     -- Temp table to store newly created contact IDs
     CREATE TEMP TABLE temp_created_contacts (
-        data_row_id BIGINT PRIMARY KEY,
+        data_row_id INTEGER PRIMARY KEY,
         new_contact_id INT NOT NULL
     ) ON COMMIT DROP;
 
@@ -267,7 +267,7 @@ BEGIN
         RAISE DEBUG '[Job %] process_contact: Handling REPLACES for existing contacts via batch_upsert.', p_job_id;
 
         CREATE TEMP TABLE temp_contact_upsert_source (
-            row_id BIGINT PRIMARY KEY, 
+            row_id INTEGER PRIMARY KEY, 
             id INT, 
             valid_after DATE NOT NULL, -- Changed
             valid_to DATE NOT NULL,

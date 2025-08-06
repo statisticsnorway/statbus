@@ -32,7 +32,7 @@ The import system is built around several key database tables and concepts:
     *   Defines the expected columns and their order (`priority`) in the source file (e.g., CSV) for a given `import_definition`.
 
 5.  **Data Columns (`import_data_column`)**:
-    *   Declaratively defines the *complete schema* of the intermediate `_data` table created specifically for each import job. This table includes a dedicated `row_id` column (e.g., `SERIAL` or `IDENTITY`) for stable row identification.
+    *   Declaratively defines the *complete schema* of the intermediate `_data` table created specifically for each import job. This table includes a dedicated `row_id` column (`INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY`) for stable row identification. The `INTEGER` type is sufficient for the number of rows in a single import and is more memory-efficient for batch processing than `BIGINT`.
     *   Specifies which columns (with `purpose='source_input'`) uniquely identify a row (`is_uniquely_identifying`) for the `UPSERT` logic during the prepare step.
     *   Columns have a defined `purpose` (enum `public.import_data_column_purpose`):
         *   `source_input`: Holds data directly mapped from the source file - always `TEXT`.
@@ -108,7 +108,7 @@ The import system is built around several key database tables and concepts:
 
 9.  **Job-Specific Tables & Snapshot**:
     *   `<job_slug>_upload`: Stores the raw data exactly as uploaded from the source file. Columns match `import_source_column`.
-    *   `<job_slug>_data`: The intermediate table structured according to `import_data_column`. This table includes a dedicated `row_id` column (e.g., `SERIAL` or `IDENTITY`) for stable row identification throughout the import process. It holds source data (`source_input`), analysis results (`internal`, including `operation` and `action`), final primary keys (`pk_id`), and row-level state and progress (`last_completed_priority`). The row-level state is managed by the `public.import_data_state` enum:
+    *   `<job_slug>_data`: The intermediate table structured according to `import_data_column`. This table includes a dedicated `row_id` column (`INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY`) for stable row identification throughout the import process. It holds source data (`source_input`), analysis results (`internal`, including `operation` and `action`), final primary keys (`pk_id`), and row-level state and progress (`last_completed_priority`). The row-level state is managed by the `public.import_data_state` enum:
         *   `pending`: Initial state for a row after data is moved from `_upload` to `_data` by `admin.import_job_prepare`.
         *   `analysing`: The row is currently being processed by one of the `analyse_procedure`s for an import step.
         *   `analysed`: The row has successfully completed all analysis steps and is awaiting user review (if `job.review=true`). If `job.review=false`, rows transition directly from `analysing` to `processing` (or `error`).
@@ -190,7 +190,7 @@ Creating a new import type involves defining the metadata in the database:
     *   Remember that the `_data` table will also have a system-managed `row_id` column for stable row identification during processing.
 
 3.  **Implement Procedures**: Write the PL/pgSQL functions named in the `import_step` records (`analyse_procedure`, `process_procedure`). These functions must:
-    *   Accept `(p_job_id INT, p_batch_row_ids INTEGER[])` (or appropriate array type for `row_id`).
+    *   Accept `(p_job_id INT, p_batch_row_ids INTEGER[])`. The `row_id`s for a single import are `INTEGER`, and batch arrays are consistently `INTEGER[]`. This is distinct from the `worker.tasks` queue, which uses `BIGINT` for its own `id` to ensure long-term scalability across the entire system.
     *   Read `definition_snapshot` from `import_job` if needed.
     *   Determine the job-specific `_data` table name.
     *   Read from/write to the `_data` table using dynamic SQL and `p_batch_row_ids` (e.g., `WHERE row_id = ANY(p_batch_row_ids)`).
@@ -309,10 +309,10 @@ Let's illustrate how to define an import for `legal_unit` data using the system.
         *   `error` (purpose: `metadata`, type: `JSONB`)
         *   `last_completed_priority` (purpose: `metadata`, type: `INT`)
     *   **And the `row_id` column (implicitly added):**
-        *   `row_id` (e.g., `SERIAL PRIMARY KEY` or `BIGSERIAL PRIMARY KEY`)
+        *   `row_id` (e.g., `INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY`)
 
 3.  **Implement Procedures**: Write the PL/pgSQL functions for each step (e.g., `admin.analyse_edit_info`, `admin.analyse_external_idents`, `admin.analyse_enterprise_link_for_legal_unit`, `admin.process_legal_unit`, etc.). These functions must:
-    *   Accept `(p_job_id INT, p_batch_row_ids INTEGER[])` (or appropriate array type for `row_id`).
+    *   Accept `(p_job_id INT, p_batch_row_ids INTEGER[])`.
     *   Read `definition_snapshot` from `import_job` if needed.
     *   Determine the job-specific `_data` table name.
     *   Read from/write to the `_data` table using dynamic SQL and `p_batch_row_ids` (e.g., `WHERE row_id = ANY(p_batch_row_ids)`).

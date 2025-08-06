@@ -4,7 +4,7 @@ BEGIN;
 
 
 -- Procedure to analyse external identifier data (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.analyse_external_idents(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_external_idents(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_external_idents$
 DECLARE
     v_job public.import_job;
@@ -19,7 +19,7 @@ DECLARE
     v_skipped_update_count INT := 0;
     v_unpivot_sql TEXT;
     v_add_separator BOOLEAN;
-    v_error_row_ids BIGINT[] := ARRAY[]::BIGINT[];
+    v_error_row_ids INTEGER[] := ARRAY[]::INTEGER[];
     v_error_keys_to_clear_arr TEXT[]; -- Will be populated dynamically
     v_has_lu_id_col BOOLEAN := FALSE;
     v_has_est_id_col BOOLEAN := FALSE;
@@ -91,7 +91,7 @@ BEGIN
 
     -- Step 1: Unpivot provided identifiers and lookup existing units
     CREATE TEMP TABLE temp_unpivoted_idents (
-        data_row_id BIGINT,
+        data_row_id INTEGER,
         source_ident_code TEXT, -- The code/column name from the _data table e.g. 'tax_ident'
         ident_value TEXT,
         ident_type_id INT,      -- Resolved ID from external_ident_type, NULL if source_ident_code is unknown
@@ -215,13 +215,13 @@ BEGIN
 
     -- Step 2: Identify and Aggregate Errors, Determine Operation and Action
     CREATE TEMP TABLE temp_batch_analysis (
-        data_row_id BIGINT PRIMARY KEY,
+        data_row_id INTEGER PRIMARY KEY,
         error_jsonb JSONB,
         resolved_lu_id INT,
         resolved_est_id INT,
         operation public.import_row_operation_type,
         action public.import_row_action_type,
-        derived_founding_row_id BIGINT
+        derived_founding_row_id INTEGER
     ) ON COMMIT DROP;
 
     v_sql := format($$
@@ -262,7 +262,7 @@ BEGIN
                         ELSE 'different unit type' -- Fallback for generic or unhandled modes
                     END || ': ' || tui.conflicting_unit_jsonb::TEXT
                 ) FILTER (WHERE tui.is_cross_type_conflict IS TRUE) AS cross_type_conflict_errors
-            FROM (SELECT unnest(%1$L::BIGINT[]) as data_row_id) orig -- %1$L is p_batch_row_ids
+            FROM (SELECT unnest(%1$L::INTEGER[]) as data_row_id) orig -- %1$L is p_batch_row_ids
             JOIN public.%2$I dt ON orig.data_row_id = dt.row_id      -- %2$I is v_data_table_name
             LEFT JOIN temp_unpivoted_idents tui ON orig.data_row_id = tui.data_row_id
             GROUP BY orig.data_row_id, dt.derived_valid_from
@@ -393,7 +393,7 @@ BEGIN
                     MAX(tui.resolved_est_id) FILTER (WHERE tui.resolved_est_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS final_est_id,
                     jsonb_object_agg(tui.source_ident_code, tui.ident_value) FILTER (WHERE tui.ident_type_id IS NOT NULL AND tui.ident_value IS NOT NULL) AS entity_signature
                     -- Removed cross_type_conflict_errors from debug query for simplicity as its construction changed
-                FROM (SELECT unnest(%1$L::BIGINT[]) as data_row_id) orig
+                FROM (SELECT unnest(%1$L::INTEGER[]) as data_row_id) orig
                 JOIN public.%2$I dt ON orig.data_row_id = dt.row_id
                 LEFT JOIN temp_unpivoted_idents tui ON orig.data_row_id = tui.data_row_id
                 GROUP BY orig.data_row_id, dt.derived_valid_from
@@ -404,7 +404,7 @@ BEGIN
                     ROW_NUMBER() OVER (PARTITION BY rc.entity_signature ORDER BY rc.derived_valid_from NULLS LAST, rc.data_row_id) as rn_in_batch_for_entity
                 FROM RowChecks rc
             )
-            SELECT obe.* FROM OrderedBatchEntities obe WHERE obe.data_row_id = ANY(%1$L::BIGINT[]) ORDER BY obe.entity_signature, obe.rn_in_batch_for_entity;
+            SELECT obe.* FROM OrderedBatchEntities obe WHERE obe.data_row_id = ANY(%1$L::INTEGER[]) ORDER BY obe.entity_signature, obe.rn_in_batch_for_entity;
         $$, p_batch_row_ids, v_data_table_name);
 
         RAISE DEBUG '[Job %] analyse_external_idents: Debugging OrderedBatchEntities logic with SQL: %', p_job_id, debug_sql;
@@ -464,7 +464,7 @@ BEGIN
         FROM temp_batch_analysis ru
         WHERE dt.row_id = ru.data_row_id
           AND dt.row_id = ANY(%L) AND dt.row_id != ALL(%L); -- Update only non-error rows from the original batch
-    $$, v_data_table_name, v_set_clause, p_batch_row_ids, COALESCE(v_error_row_ids, ARRAY[]::BIGINT[]));
+    $$, v_data_table_name, v_set_clause, p_batch_row_ids, COALESCE(v_error_row_ids, ARRAY[]::INTEGER[]));
     RAISE DEBUG '[Job %] analyse_external_idents: Updating non-error rows (success or strategy skips): %', p_job_id, v_sql;
     EXECUTE v_sql;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
@@ -504,7 +504,7 @@ $analyse_external_idents$;
 CREATE OR REPLACE PROCEDURE import.shared_upsert_external_idents_for_unit(
     p_job_id INT,
     p_data_table_name TEXT,
-    p_data_row_id BIGINT,
+    p_data_row_id INTEGER,
     p_unit_id INT,
     p_unit_type TEXT, -- 'legal_unit' or 'establishment'
     p_edit_by_user_id INT,

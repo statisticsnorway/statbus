@@ -4,7 +4,7 @@
 BEGIN;
 
 -- Procedure to analyse enterprise link (find existing enterprise for existing LUs)
-CREATE OR REPLACE PROCEDURE import.analyse_enterprise_link_for_legal_unit(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_enterprise_link_for_legal_unit(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_enterprise_link_for_legal_unit$
 DECLARE
     v_job public.import_job;
@@ -63,7 +63,7 @@ BEGIN
     -- Create a temporary table to hold analysis results for 'replace' actions
     -- Per user guidance, explicit DROP is at the end / exception, not at the beginning for multi-call-in-one-tx test scenario.
     CREATE TEMP TABLE temp_enterprise_analysis_results (
-        row_id BIGINT PRIMARY KEY,
+        row_id INTEGER PRIMARY KEY,
         resolved_enterprise_id INT,
         resolved_primary_for_enterprise BOOLEAN,
         is_error BOOLEAN DEFAULT FALSE,
@@ -178,7 +178,7 @@ $analyse_enterprise_link_for_legal_unit$;
 
 
 -- Procedure to process enterprise link (create enterprise for new LUs)
-CREATE OR REPLACE PROCEDURE import.process_enterprise_link_for_legal_unit(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.process_enterprise_link_for_legal_unit(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
 LANGUAGE plpgsql AS $process_enterprise_link_for_legal_unit$
 DECLARE
     v_job public.import_job;
@@ -212,7 +212,7 @@ BEGIN
 
     -- Step 1: Identify rows needing enterprise creation (new LUs, action = 'insert')
     CREATE TEMP TABLE temp_new_lu_for_enterprise_creation (
-        data_row_id BIGINT PRIMARY KEY, -- This will be the founding_row_id for the new LU entity
+        data_row_id INTEGER PRIMARY KEY, -- This will be the founding_row_id for the new LU entity
         lu_name TEXT,
         edit_by_user_id INT,
         edit_at TIMESTAMPTZ,
@@ -230,7 +230,7 @@ BEGIN
     -- Step 2: Create new enterprises for LUs in temp_new_lu_for_enterprise_creation and map them
     -- temp_created_enterprises.data_row_id will store the founding_row_id of the LU
     CREATE TEMP TABLE temp_created_enterprises (
-        data_row_id BIGINT PRIMARY KEY, -- Stores the founding_row_id of the LU
+        data_row_id INTEGER PRIMARY KEY, -- Stores the founding_row_id of the LU
         enterprise_id INT NOT NULL
     ) ON COMMIT DROP;
 

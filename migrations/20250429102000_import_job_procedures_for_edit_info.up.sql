@@ -3,7 +3,7 @@
 BEGIN;
 
 -- Procedure to analyse edit info (populate user and timestamp) (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.analyse_edit_info(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_edit_info(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_edit_info$
 DECLARE
     v_job public.import_job;

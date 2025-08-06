@@ -584,7 +584,7 @@ Triggers:
                                         Table "public.import_lu_2015_h_data"
               Column              |           Type            | Collation | Nullable |           Default            
 ----------------------------------+---------------------------+-----------+----------+------------------------------
- row_id                           | bigint                    |           | not null | generated always as identity
+ row_id                           | integer                   |           | not null | generated always as identity
  valid_from                       | text                      |           |          | 
  valid_to                         | text                      |           |          | 
  derived_valid_after              | date                      |           |          | 
@@ -668,7 +668,7 @@ Triggers:
  edit_by_user_id                  | integer                   |           |          | 
  edit_at                          | timestamp with time zone  |           |          | 
  edit_comment                     | text                      |           |          | 
- founding_row_id                  | bigint                    |           |          | 
+ founding_row_id                  | integer                   |           |          | 
  state                            | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority          | integer                   |           | not null | 0
  error                            | jsonb                     |           |          | 
@@ -738,7 +738,7 @@ Triggers:
                                         Table "public.import_es_2015_h_data"
               Column              |           Type            | Collation | Nullable |           Default            
 ----------------------------------+---------------------------+-----------+----------+------------------------------
- row_id                           | bigint                    |           | not null | generated always as identity
+ row_id                           | integer                   |           | not null | generated always as identity
  valid_from                       | text                      |           |          | 
  valid_to                         | text                      |           |          | 
  derived_valid_after              | date                      |           |          | 
@@ -822,7 +822,7 @@ Triggers:
  edit_by_user_id                  | integer                   |           |          | 
  edit_at                          | timestamp with time zone  |           |          | 
  edit_comment                     | text                      |           |          | 
- founding_row_id                  | bigint                    |           |          | 
+ founding_row_id                  | integer                   |           |          | 
  state                            | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority          | integer                   |           | not null | 0
  error                            | jsonb                     |           |          | 

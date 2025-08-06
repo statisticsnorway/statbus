@@ -4,7 +4,7 @@
 BEGIN;
 
 -- Procedure to analyse enterprise link for standalone establishments
-CREATE OR REPLACE PROCEDURE import.analyse_enterprise_link_for_establishment(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_enterprise_link_for_establishment(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_enterprise_link_for_establishment$
 DECLARE
     v_job public.import_job;
@@ -120,7 +120,7 @@ $analyse_enterprise_link_for_establishment$;
 
 
 -- Procedure to process enterprise link for standalone establishments (create enterprise for new ESTs)
-CREATE OR REPLACE PROCEDURE import.process_enterprise_link_for_establishment(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.process_enterprise_link_for_establishment(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
 LANGUAGE plpgsql AS $process_enterprise_link_for_establishment$
 DECLARE
     v_job public.import_job;
@@ -154,7 +154,7 @@ BEGIN
 
     -- Step 1: Identify rows needing enterprise creation (new standalone ESTs, action = 'insert')
     CREATE TEMP TABLE temp_new_est_for_enterprise_creation (
-        data_row_id BIGINT PRIMARY KEY, -- This will be the founding_row_id for the new EST entity
+        data_row_id INTEGER PRIMARY KEY, -- This will be the founding_row_id for the new EST entity
         est_name TEXT,
         edit_by_user_id INT,
         edit_at TIMESTAMPTZ,
@@ -172,7 +172,7 @@ BEGIN
     -- Step 2: Create new enterprises for ESTs in temp_new_est_for_enterprise_creation and map them
     -- temp_created_enterprises.data_row_id will store the founding_row_id of the EST
     CREATE TEMP TABLE temp_created_enterprises (
-        data_row_id BIGINT PRIMARY KEY, -- Stores the founding_row_id of the EST
+        data_row_id INTEGER PRIMARY KEY, -- Stores the founding_row_id of the EST
         enterprise_id INT NOT NULL
     ) ON COMMIT DROP;
 
