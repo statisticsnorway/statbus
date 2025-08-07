@@ -118,7 +118,6 @@ To start the Docker containers (which will include the database, API, and other 
 
 For the first run, you will need to set up the database and seed it with initial data:
 ```bash
-./devops/manage-statbus.sh activate_sql_saga
 ./devops/manage-statbus.sh create-db-structure
 ./devops/manage-statbus.sh create-users
 ```

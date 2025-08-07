@@ -372,9 +372,6 @@ case "$action" in
             fi
         done
     ;;
-    'activate_sql_saga' )
-        PGUSER=supabase_admin ./devops/manage-statbus.sh psql -c 'create extension sql_saga cascade;'
-      ;;
     'build-statbus-cli' )
         pushd cli
           shards build

@@ -334,7 +334,6 @@ ssh $DEPLOYMENT_USER@$HOST bash <<START_STATBUS
     fi
     cd ~/statbus
     ./devops/manage-statbus.sh start required
-    ./devops/manage-statbus.sh activate_sql_saga
     # Include the paths for building crystal installed with homebrew.
     source /etc/profile.d/homebrew.sh
     ./devops/manage-statbus.sh create-db-structure

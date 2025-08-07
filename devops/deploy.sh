@@ -90,7 +90,6 @@ if test -n "$dbseed_changes" || test -n "$migrations_changes" || test -n "${RECR
   rm -rf ${HOME}/public/*
   docker compose cp app:/app/public/ ${HOME}/public/
 
-  ./devops/manage-statbus.sh activate_sql_saga
   ./devops/manage-statbus.sh create-db-structure
   ./devops/manage-statbus.sh create-users
 

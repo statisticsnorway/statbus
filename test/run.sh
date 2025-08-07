@@ -13,7 +13,6 @@ WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 
 # TODO: Setup and prepare the test database.
 #./devops/manage-statbus.sh start
-#./devops/manage-statbus.sh activate_sql_saga
 #./devops/manage-statbus.sh create-db-structure
 #./devops/manage-statbus.sh create-users
 

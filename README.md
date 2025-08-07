@@ -83,7 +83,6 @@ Setup the database:
 
 ```bash
 # First time setup only
-./devops/manage-statbus.sh activate_sql_saga
 ./devops/manage-statbus.sh create-db-structure
 ./devops/manage-statbus.sh create-users
 
