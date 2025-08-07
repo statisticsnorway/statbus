@@ -1,0 +1,4 @@
+# Ignore generated caddy configuration
+# And keep that in this file, so the directory is created.
+*
+!.gitignore
