@@ -35,7 +35,7 @@ The application is containerized using Docker Compose, orchestrating several ser
         *   sql_saga, pg_stat_monitor, pg_repack, hypopg, index_advisor, pgjwt
     *   Initialized by `postgres/init-user-db.sh`, which:
         *   Creates a template database (`template_statbus`) with required extensions (pg_trgm, pgcrypto, etc.).
-        *   Creates the main application database (`statbus_development`) and a test database (`statbus_test`).
+        *   Creates the main application database (`statbus_development`).
         *   Sets up core roles: `authenticator` (for PostgREST login), `anon` (unauthenticated users), `authenticated` (base role for logged-in users).
         *   Creates application-specific roles: `admin_user`, `regular_user`, `restricted_user`, `external_user`.
         *   Creates the `auth` schema with `user` and `refresh_sessions` tables.

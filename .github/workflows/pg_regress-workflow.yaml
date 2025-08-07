@@ -25,4 +25,4 @@ jobs:
         key: ${{ secrets.SSH_KEY }}
         command_timeout: 60m
         script: |
-          ./statbus/devops/manage-statbus.sh continous-integration-test "${{github.ref_name}}" "${{github.sha}}"
+          cd statbus; ./devops/manage-statbus.sh continous-integration-test "${{github.ref_name}}" "${{github.sha}}"

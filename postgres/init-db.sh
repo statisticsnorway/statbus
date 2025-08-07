@@ -70,11 +70,6 @@ echo "Creating deployment-specific database user and database..."
 psql -c "CREATE USER \"$POSTGRES_APP_USER\" WITH PASSWORD '$POSTGRES_APP_PASSWORD' CREATEDB;"
 psql -c "CREATE DATABASE \"$POSTGRES_APP_DB\" WITH template template_statbus OWNER \"$POSTGRES_APP_USER\";"
 
-echo "Creating test database..."
-# Always create test database for development purposes
-psql -c "CREATE USER statbus_test WITH PASSWORD '$POSTGRES_APP_PASSWORD' CREATEDB;"
-psql -c "CREATE DATABASE statbus_test WITH template template_statbus OWNER statbus_test;"
-
 echo "Setting up authentication roles..."
 # Create authenticator role for PostgREST
 psql -d "$POSTGRES_APP_DB" -c "CREATE ROLE authenticator NOINHERIT NOCREATEDB NOCREATEROLE NOSUPERUSER LOGIN PASSWORD '$POSTGRES_AUTHENTICATOR_PASSWORD';"
