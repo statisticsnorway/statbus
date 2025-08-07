@@ -151,7 +151,7 @@ case "$action" in
 
         # Run tests and capture output
         TEST_OUTPUT=$(mktemp)
-        ./devops/manage-statbus.sh test all > "$TEST_OUTPUT" 2>&1 || true
+        ./devops/manage-statbus.sh test all 2>&1 | tee "$TEST_OUTPUT" || true
 
         # Check if the test output indicates failure
         if grep -q "not ok" "$TEST_OUTPUT" || grep -q "of .* tests failed" "$TEST_OUTPUT"; then
