@@ -7,6 +7,11 @@ if [ "${DEBUG:-}" = "true" ]; then
   set -x # Print all commands before running them if DEBUG is true
 fi
 
+# Ensure Homebrew environment is set up for tools like 'shards'
+if test -f /etc/profile.d/homebrew.sh; then
+  source /etc/profile.d/homebrew.sh
+fi
+
 WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 cd $WORKSPACE
 

@@ -52,10 +52,7 @@ else
 fi
 
 echo "Ensuring CLI tools to generate config is up to date"
-pushd cli
-source /etc/profile.d/homebrew.sh
-shards build
-popd
+./devops/manage-statbus.sh build-statbus-cli
 
 echo "Ensuring config required for all management commands"
 # Ensure the caddy/config dir exists.
