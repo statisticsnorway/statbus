@@ -51,6 +51,17 @@ else
   commit_messages=$(git log -1 --oneline)
 fi
 
+echo "Ensuring CLI tools to generate config is up to date"
+pushd cli
+source /etc/profile.d/homebrew.sh
+shards build
+popd
+
+echo "Ensuring config required for all management commands"
+# Ensure the caddy/config dir exists.
+mkdir -p caddy/config
+./devops/manage-statbus.sh generate-config
+
 echo "Stopping the application"
 ./devops/manage-statbus.sh stop app || { echo "Failed to stop the application"; exit 1; }
 
@@ -73,52 +84,35 @@ if test -n "$dbseed_changes" || test -n "$migrations_changes" || test -n "${RECR
     echo "No background statbus process found."
   fi
 
-  pushd cli
-  source /etc/profile.d/homebrew.sh
-  shards build
-  popd
-
   ./devops/manage-statbus.sh stop all
   ./devops/manage-statbus.sh delete-db
-
-  ./devops/manage-statbus.sh generate-config
-
   ./devops/manage-statbus.sh start all
 
   # Copy static files out for Caddy to serve
   mkdir -p ${HOME}/public
   rm -rf ${HOME}/public/*
-  docker compose cp app:/app/public/ ${HOME}/public/
+  docker compose cp app:/app/public/. ${HOME}/public/
 
   ./devops/manage-statbus.sh create-db-structure
   ./devops/manage-statbus.sh create-users
 
   if test -f ${HOME}/statbus/tmp/enheter.csv; then
     ./devops/manage-statbus.sh psql < ./samples/norway/setup.sql
-
-    SESSION_NAME="statbus_import"
-    if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
-      echo "Stopping old tmux session '$SESSION_NAME'"
-      tmux kill-session -t "$SESSION_NAME"
-    fi
-
-    tmux new-session -d -s "$SESSION_NAME"
-    echo "Running the import command in tmux session '$SESSION_NAME'..."
-    tmux send-keys -t "$SESSION_NAME" "cd $(pwd) && ../samples/norway/brreg/brreg-import-selection.sh && ../samples/norway/brreg-import-downloads-from-tmp.sh" C-m
-    popd
+    # Extract first user email from .users.yml for brreg import
+    WORKDIR=$(./devops/dotenv --file .env get WORKDIR)
+    USER_EMAIL=$(yq eval '.users[0].email' "$WORKDIR/.users.yml") || { echo "Failed to extract user email from .users.yml"; exit 1; }
+    echo "Using user email: $USER_EMAIL for brreg import"
+    USER_EMAIL=$USER_EMAIL ./samples/norway/brreg/brreg-import-selection.sh
+    echo "Running import of entire brreg registry"
+    USER_EMAIL=$USER_EMAIL ./samples/norway/brreg-import-downloads-from-tmp.sh
   fi
 else
   echo "No changes in dbseed/, starting again"
   echo "Building and starting the frontend"
-  ./devops/manage-statbus.sh start required || { echo "Failed to start the app"; exit 1; }
+  ./devops/manage-statbus.sh start app || { echo "Failed to start the app"; exit 1; }
 fi
 
-# Ensure the .env file exists and load the Slack token
-if [ ! -f .env ]; then
-  echo ".env file not found, aborting."
-  exit 1
-fi
-
+# Load the Slack token and the deployment url for this deployment slot
 SLACK_TOKEN=$(./devops/dotenv --file .env get SLACK_TOKEN)
 STATBUS_URL=$(./devops/dotenv --file .env get STATBUS_URL)
 

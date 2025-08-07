@@ -333,7 +333,7 @@ ssh $DEPLOYMENT_USER@$HOST bash <<START_STATBUS
         set -x
     fi
     cd ~/statbus
-    ./devops/manage-statbus.sh start required
+    ./devops/manage-statbus.sh start all
     # Include the paths for building crystal installed with homebrew.
     source /etc/profile.d/homebrew.sh
     ./devops/manage-statbus.sh create-db-structure
