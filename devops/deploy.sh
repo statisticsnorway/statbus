@@ -94,7 +94,6 @@ if test -n "$dbseed_changes" || test -n "$migrations_changes" || test -n "${RECR
   ./devops/manage-statbus.sh create-users
 
   if test -f ${HOME}/statbus/tmp/enheter.csv; then
-    ./devops/manage-statbus.sh psql < ./samples/norway/setup.sql
     # Extract first user email from .users.yml for brreg import
     WORKDIR=$(./devops/dotenv --file .env get WORKDIR)
     USER_EMAIL=$(yq eval '.users[0].email' "$WORKDIR/.users.yml") || { echo "Failed to extract user email from .users.yml"; exit 1; }
