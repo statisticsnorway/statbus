@@ -1282,82 +1282,87 @@ RETURNS void SECURITY DEFINER LANGUAGE plpgsql AS $import_job_generate$
 DECLARE
     create_upload_table_stmt text;
     create_data_table_stmt text;
-    -- snapshot table variables removed
     add_separator BOOLEAN := FALSE;
     col_rec RECORD;
     source_col_rec RECORD;
 BEGIN
-  -- Snapshot table creation/population is now handled in import_job_derive trigger
-  RAISE DEBUG '[Job %] Generating tables: %, %', job.id, job.upload_table_name, job.data_table_name;
+    RAISE DEBUG '[Job %] Generating tables: %, %', job.id, job.upload_table_name, job.data_table_name;
 
-  -- 1. Create Upload Table
-  RAISE DEBUG '[Job %] Generating upload table %', job.id, job.upload_table_name;
-  create_upload_table_stmt := format('CREATE TABLE public.%I (', job.upload_table_name);
-  add_separator := FALSE;
-  FOR source_col_rec IN
-      SELECT column_name FROM public.import_source_column
-      WHERE definition_id = job.definition_id
-      ORDER BY priority
-  LOOP
-    IF add_separator THEN
-        create_upload_table_stmt := create_upload_table_stmt || ', ';
-    END IF;
-    create_upload_table_stmt := create_upload_table_stmt || format('%I TEXT', source_col_rec.column_name);
-    add_separator := TRUE;
-  END LOOP;
-  create_upload_table_stmt := create_upload_table_stmt || ');';
+    -- 1. Create Upload Table using job.definition_snapshot as the single source of truth
+    RAISE DEBUG '[Job %] Generating upload table % from snapshot', job.id, job.upload_table_name;
+    create_upload_table_stmt := format('CREATE TABLE public.%I (', job.upload_table_name);
+    add_separator := FALSE;
 
-  RAISE DEBUG '[Job %] Upload table DDL: %', job.id, create_upload_table_stmt;
-  EXECUTE create_upload_table_stmt;
+    FOR source_col_rec IN
+        SELECT * FROM jsonb_to_recordset(job.definition_snapshot->'import_source_column_list')
+            AS x(id int, definition_id int, column_name text, priority int, created_at timestamptz, updated_at timestamptz)
+        ORDER BY priority
+    LOOP
+        IF add_separator THEN
+            create_upload_table_stmt := create_upload_table_stmt || ', ';
+        END IF;
+        create_upload_table_stmt := create_upload_table_stmt || format('%I TEXT', source_col_rec.column_name);
+        add_separator := TRUE;
+    END LOOP;
+    create_upload_table_stmt := create_upload_table_stmt || ');';
 
-  -- Add triggers to upload table
-  EXECUTE format($$
-      CREATE TRIGGER %I
-      BEFORE INSERT ON public.%I FOR EACH STATEMENT
-      EXECUTE FUNCTION admin.check_import_job_state_for_insert(%L);$$,
-      job.upload_table_name || '_check_state_before_insert', job.upload_table_name, job.slug);
-  EXECUTE format($$
-      CREATE TRIGGER %I
-      AFTER INSERT ON public.%I FOR EACH STATEMENT
-      EXECUTE FUNCTION admin.update_import_job_state_after_insert(%L);$$,
-      job.upload_table_name || '_update_state_after_insert', job.upload_table_name, job.slug);
-  RAISE DEBUG '[Job %] Added triggers to upload table %', job.id, job.upload_table_name;
+    RAISE DEBUG '[Job %] Upload table DDL: %', job.id, create_upload_table_stmt;
+    EXECUTE create_upload_table_stmt;
 
-  -- 2. Create Data Table
-  RAISE DEBUG '[Job %] Generating data table %', job.id, job.data_table_name;
-  -- Add row_id as the first column and primary key
-  create_data_table_stmt := format('CREATE TABLE public.%I (row_id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY, ', job.data_table_name);
-  add_separator := FALSE; -- Reset for data table columns
+    -- Add triggers to upload table
+    EXECUTE format($$
+        CREATE TRIGGER %I
+        BEFORE INSERT ON public.%I FOR EACH STATEMENT
+        EXECUTE FUNCTION admin.check_import_job_state_for_insert(%L);$$,
+        job.upload_table_name || '_check_state_before_insert', job.upload_table_name, job.slug);
+    EXECUTE format($$
+        CREATE TRIGGER %I
+        AFTER INSERT ON public.%I FOR EACH STATEMENT
+        EXECUTE FUNCTION admin.update_import_job_state_after_insert(%L);$$,
+        job.upload_table_name || '_update_state_after_insert', job.upload_table_name, job.slug);
+    RAISE DEBUG '[Job %] Added triggers to upload table %', job.id, job.upload_table_name;
 
-  -- Add columns based on import_data_column records associated with the steps linked to this job's definition
-  FOR col_rec IN
-      SELECT dc.column_name, dc.column_type, dc.is_nullable, dc.default_value
-      FROM public.import_definition_step ds
-      JOIN public.import_step s ON ds.step_id = s.id
-      JOIN public.import_data_column dc ON dc.step_id = s.id -- Join data columns via step_id
-      WHERE ds.definition_id = job.definition_id
-      ORDER BY s.priority, dc.priority, dc.column_name
-  LOOP
-    IF add_separator THEN
-        create_data_table_stmt := create_data_table_stmt || ', ';
-    END IF;
-    create_data_table_stmt := create_data_table_stmt || format('%I %s', col_rec.column_name, col_rec.column_type);
-    IF NOT col_rec.is_nullable THEN
-        create_data_table_stmt := create_data_table_stmt || ' NOT NULL';
-    END IF;
-    IF col_rec.default_value IS NOT NULL THEN
-        create_data_table_stmt := create_data_table_stmt || format(' DEFAULT %s', col_rec.default_value);
-    END IF;
-    add_separator := TRUE;
-  END LOOP;
+    -- 2. Create Data Table using job.definition_snapshot as the single source of truth
+    RAISE DEBUG '[Job %] Generating data table % from snapshot', job.id, job.data_table_name;
+    -- Add row_id as the first column and primary key
+    create_data_table_stmt := format('CREATE TABLE public.%I (row_id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY, ', job.data_table_name);
+    add_separator := FALSE; -- Reset for data table columns
 
-  -- Metadata columns (state, last_completed_priority, error) are now added declaratively
-  -- through the 'metadata' import_step and its associated import_data_column entries,
-  -- which are included in the loop above if 'metadata' step is part of the definition.
-  create_data_table_stmt := create_data_table_stmt || ');';
+    -- Add columns based on import_data_column records from the job's definition snapshot.
+    -- The snapshot list is already correctly ordered by step priority then column priority.
+    FOR col_rec IN
+        SELECT *
+        FROM jsonb_to_recordset(job.definition_snapshot->'import_data_column_list') AS x(
+            id integer,
+            step_id int,
+            priority int,
+            column_name text,
+            column_type text,
+            purpose public.import_data_column_purpose,
+            is_nullable boolean,
+            default_value text,
+            is_uniquely_identifying boolean,
+            created_at timestamptz,
+            updated_at timestamptz
+        )
+    LOOP
+        IF add_separator THEN
+            create_data_table_stmt := create_data_table_stmt || ', ';
+        END IF;
+        create_data_table_stmt := create_data_table_stmt || format('%I %s', col_rec.column_name, col_rec.column_type);
+        IF NOT col_rec.is_nullable THEN
+            create_data_table_stmt := create_data_table_stmt || ' NOT NULL';
+        END IF;
+        IF col_rec.default_value IS NOT NULL THEN
+            create_data_table_stmt := create_data_table_stmt || format(' DEFAULT %s', col_rec.default_value);
+        END IF;
+        add_separator := TRUE;
+    END LOOP;
 
-  RAISE DEBUG '[Job %] Data table DDL: %', job.id, create_data_table_stmt;
-  EXECUTE create_data_table_stmt;
+    create_data_table_stmt := create_data_table_stmt || ');';
+
+    RAISE DEBUG '[Job %] Data table DDL: %', job.id, create_data_table_stmt;
+    EXECUTE create_data_table_stmt;
 
   -- Add a UNIQUE index on expressions for columns marked as uniquely identifying,
   -- including validity period. This is required for the ON CONFLICT clause in the prepare step
@@ -1509,6 +1514,10 @@ BEGIN
 END;
 $import_job_set_state$;
 
+-- The function admin.import_job_update_progress has been removed.
+-- Its logic is now integrated directly into admin.import_job_process for recounts
+-- and admin.import_job_process_phase for row state transitions.
+
 -- Function to calculate the next state based on the current state
 CREATE FUNCTION admin.import_job_next_state(job public.import_job)
 RETURNS public.import_job_state
@@ -1643,7 +1652,6 @@ DECLARE
     job public.import_job;
     next_state public.import_job_state;
     should_reschedule BOOLEAN := FALSE;
-    v_processed_count INTEGER; -- Moved declaration here
 BEGIN
     -- Get the job details
     SELECT * INTO job FROM public.import_job WHERE id = job_id;
@@ -1727,32 +1735,44 @@ BEGIN
             should_reschedule := FALSE;
 
         WHEN 'processing_data' THEN
-            RAISE DEBUG '[Job %] Starting process phase.', job_id;
-            should_reschedule := admin.import_job_process_phase(job, 'process'::public.import_step_phase);
+            DECLARE
+                v_processed_count INTEGER;
+            BEGIN
+                RAISE DEBUG '[Job %] Starting process phase.', job_id;
+                should_reschedule := admin.import_job_process_phase(job, 'process'::public.import_step_phase);
 
-            -- Refresh job record to see if an error was set by the phase
-            SELECT * INTO job FROM public.import_job WHERE id = job_id;
-
-            IF job.error IS NOT NULL THEN
-                RAISE WARNING '[Job %] Error detected during processing phase: %. Transitioning to finished.', job_id, job.error;
-                job := admin.import_job_set_state(job, 'finished');
-                should_reschedule := FALSE;
-            ELSIF NOT should_reschedule THEN -- No error, and phase reported no more work
-                -- Update data rows to 'processed'
-                RAISE DEBUG '[Job %] Finalizing processed rows in table %', job_id, job.data_table_name;
-                EXECUTE format($$UPDATE public.%I SET state = %L WHERE state = %L AND error IS NULL$$, job.data_table_name, 'processed'::public.import_data_state, 'processing'::public.import_data_state);
-
-                -- Update imported_rows count on the job
-                -- DECLARE v_processed_count INTEGER; -- Declaration moved to the top of the procedure
-                EXECUTE format($$SELECT count(*) FROM public.%I WHERE state = %L$$, job.data_table_name, 'processed'::public.import_data_state) INTO v_processed_count;
+                -- After each batch run, recount progress and update the job record.
+                -- This is safer than incremental updates and ensures consistency.
+                EXECUTE format($$SELECT count(*) FROM public.%I WHERE state = 'processed'$$, job.data_table_name)
+                INTO v_processed_count;
                 UPDATE public.import_job SET imported_rows = v_processed_count WHERE id = job.id;
-                RAISE DEBUG '[Job %] Updated imported_rows to %', job_id, v_processed_count;
+                RAISE DEBUG '[Job %] Recounted imported_rows: %', job.id, v_processed_count;
 
-                job := admin.import_job_set_state(job, 'finished');
-                RAISE DEBUG '[Job %] Processing complete, transitioning to finished.', job_id;
-                -- should_reschedule remains FALSE
-            END IF;
-            -- If should_reschedule is TRUE from the phase function (and no error), it will be rescheduled.
+                -- Refresh job record to get the latest state and error info
+                SELECT * INTO job FROM public.import_job WHERE id = job.id;
+
+                IF job.error IS NOT NULL THEN
+                    RAISE WARNING '[Job %] Error detected during processing phase: %. Transitioning to finished.', job.id, job.error;
+                    job := admin.import_job_set_state(job, 'finished');
+                    should_reschedule := FALSE;
+                ELSIF NOT should_reschedule THEN -- No error, and phase reported no more work
+                    -- Finalize the job: do a final sweep for any remaining rows and update progress.
+                    RAISE DEBUG '[Job %] Finalizing any remaining processed rows in table %', job.id, job.data_table_name;
+                    EXECUTE format($$UPDATE public.%I SET state = 'processed' WHERE state = 'processing' AND error IS NULL$$,
+                        job.data_table_name);
+
+                    -- Perform one last recount.
+                    EXECUTE format($$SELECT count(*) FROM public.%I WHERE state = 'processed'$$, job.data_table_name)
+                    INTO v_processed_count;
+                    UPDATE public.import_job SET imported_rows = v_processed_count WHERE id = job.id;
+                    RAISE DEBUG '[Job %] Final recounted imported_rows: %', job.id, v_processed_count;
+
+                    job := admin.import_job_set_state(job, 'finished');
+                    RAISE DEBUG '[Job %] Processing complete, transitioning to finished.', job_id;
+                    -- should_reschedule remains FALSE
+                END IF;
+                -- If should_reschedule is TRUE from the phase function (and no error), it will be rescheduled.
+            END;
 
         WHEN 'finished' THEN
             RAISE DEBUG '[Job %] Already finished.', job_id;
@@ -1787,7 +1807,7 @@ COMMENT ON TYPE public.import_step_phase IS 'Defines the processing phase for im
 CREATE FUNCTION admin.import_job_process_phase(
     job public.import_job,
     phase public.import_step_phase -- Use the new enum type
-) RETURNS BOOLEAN -- Returns TRUE if more work remains for this phase
+) RETURNS BOOLEAN -- Returns TRUE if any work was found/done, indicating the job should be rescheduled.
 LANGUAGE plpgsql AS $import_job_process_phase$
 DECLARE
     batch_size INTEGER := 1000; -- Process up to 1000 rows per target step in one transaction
@@ -1795,11 +1815,11 @@ DECLARE
     target_rec RECORD;
     proc_to_call REGPROC;
     rows_processed_in_tx INTEGER := 0;
-    work_still_exists_for_phase BOOLEAN := FALSE; -- Indicates if rows for this phase still exist after processing
+    any_work_found_in_tx BOOLEAN := FALSE; -- If we find any batch, we should reschedule.
     batch_row_ids INTEGER[];
     error_message TEXT;
     current_phase_data_state public.import_data_state;
-    v_sql TEXT; -- Added declaration for v_sql
+    max_process_priority INTEGER;
 BEGIN
     RAISE DEBUG '[Job %] Processing phase: %', job.id, phase;
 
@@ -1808,6 +1828,10 @@ BEGIN
         current_phase_data_state := 'analysing'::public.import_data_state;
     ELSIF phase = 'process'::public.import_step_phase THEN
         current_phase_data_state := 'processing'::public.import_data_state;
+        -- Pre-calculate the max priority for the process phase to check for completion
+        SELECT MAX((s->>'priority')::int) INTO max_process_priority
+        FROM jsonb_array_elements(job.definition_snapshot->'import_step_list') s
+        WHERE s->>'process_procedure' IS NOT NULL;
     ELSE
         RAISE EXCEPTION '[Job %] Invalid phase specified: %', job.id, phase;
     END IF;
@@ -1861,6 +1885,10 @@ BEGIN
             CONTINUE; -- Move to the next target in the FOR loop
         END IF;
 
+        -- We found a batch, so we know there is (or was) work to do.
+        -- We will return TRUE to signal the calling procedure to reschedule.
+        any_work_found_in_tx := TRUE;
+
         RAISE DEBUG '[Job %] Found batch of % rows for target % (priority %), calling %',
                     job.id, array_length(batch_row_ids, 1), target_rec.name, target_rec.priority, proc_to_call;
 
@@ -1869,6 +1897,14 @@ BEGIN
             -- Always pass the step_code as the third argument
             EXECUTE format('CALL %s($1, $2, $3)', proc_to_call) USING job.id, batch_row_ids, target_rec.code;
             rows_processed_in_tx := rows_processed_in_tx + array_length(batch_row_ids, 1);
+
+            -- After a step completes, if it's the final processing step, update the row state to 'processed'
+            -- This makes the state transition part of the batch work itself, not a separate sweep.
+            IF phase = 'process'::public.import_step_phase AND target_rec.priority >= max_process_priority THEN
+                EXECUTE format($$UPDATE public.%I SET state = 'processed' WHERE row_id = ANY(%L) AND state = 'processing' AND error IS NULL$$,
+                    job.data_table_name, batch_row_ids);
+                RAISE DEBUG '[Job %] Marked % rows as processed after final step %.', job.id, array_length(batch_row_ids, 1), target_rec.name;
+            END IF;
         EXCEPTION WHEN OTHERS THEN
             GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
             RAISE WARNING '[Job %] Programming error suspected in procedure % for target % (code: %): %', job.id, proc_to_call, target_rec.name, target_rec.code, error_message;
@@ -1878,20 +1914,16 @@ BEGIN
             RAISE; -- Re-raise the original exception to halt and indicate a programming error
         END;
         -- After processing one batch for a target, continue to the next target.
-        -- The function will determine if overall work remains for the phase at the end.
     END LOOP; -- End target loop
 
-    -- After attempting to process one batch for all applicable targets,
-    -- check if there are still any rows in the current phase's state that can be processed by any step in this phase.
-    -- This determines if the calling procedure should reschedule.
-    v_sql := 'SELECT EXISTS (SELECT 1 FROM public.%I dt JOIN jsonb_to_recordset(%L::JSONB) AS s(id int, code text, name text, priority int, analyse_procedure regproc, process_procedure regproc) ON TRUE WHERE dt.state = %L AND dt.last_completed_priority < s.priority AND CASE %L::public.import_step_phase WHEN ''analyse'' THEN s.analyse_procedure IS NOT NULL WHEN ''process'' THEN s.process_procedure IS NOT NULL ELSE FALSE END)';
-    EXECUTE format(v_sql, job.data_table_name, job.definition_snapshot->'import_step_list', current_phase_data_state, phase)
-    INTO work_still_exists_for_phase;
+    -- The function returns true if any batch was found and processed.
+    -- This indicates that the job should be rescheduled to process subsequent batches.
+    -- It returns false only if a full pass over all steps found no work,
+    -- meaning the phase is complete.
+    RAISE DEBUG '[Job %] Phase % processing pass complete for this transaction. Rows processed in tx: %. Work found in tx: %',
+                job.id, phase, rows_processed_in_tx, any_work_found_in_tx;
 
-    RAISE DEBUG '[Job %] Phase % processing pass complete for this transaction. Rows processed in tx: %. Work still exists for phase (final check): %',
-                job.id, phase, rows_processed_in_tx, work_still_exists_for_phase;
-
-    RETURN work_still_exists_for_phase;
+    RETURN any_work_found_in_tx;
 END;
 $import_job_process_phase$;
 

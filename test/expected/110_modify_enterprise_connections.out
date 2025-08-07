@@ -170,7 +170,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     7
- import    | completed |     8
+ import    | completed |    12
 (2 rows)
 
 \echo "Checking unit counts after import processing"
@@ -191,7 +191,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |     9
- import    | completed |     8
+ import    | completed |    12
 (2 rows)
 
 \echo "Inspecting import job data for import_05_lu_era"
@@ -1662,7 +1662,7 @@ Run worker processing for analytics tasks (after manual connections)
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |    14
- import    | completed |     8
+ import    | completed |    12
 (2 rows)
 
 \x

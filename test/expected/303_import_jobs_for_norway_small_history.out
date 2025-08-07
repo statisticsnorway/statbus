@@ -4039,7 +4039,23 @@ select queue,t.command,state,error from worker.tasks as t join worker.command_re
  import | import_job_process | completed | 
  import | import_job_process | completed | 
  import | import_job_process | completed | 
-(32 rows)
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+(48 rows)
 
 select slug, state, error is not null as failed,total_rows,imported_rows, import_completed_pct from public.import_job ORDER BY slug;
         slug        |  state   | failed | total_rows | imported_rows | import_completed_pct 
@@ -4293,7 +4309,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     7
- import    | completed |    32
+ import    | completed |    48
 (2 rows)
 
 \echo "Explicitly refreshing timesegments before checking timeline_establishment_def"
@@ -4496,7 +4512,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |     9
- import    | completed |    32
+ import    | completed |    48
 (2 rows)
 
 \echo Run any remaining tasks, there should be none.
@@ -4508,7 +4524,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |     9
- import    | completed |    32
+ import    | completed |    48
 (2 rows)
 
 \echo Overview of statistical units, but not details, there are too many units.
