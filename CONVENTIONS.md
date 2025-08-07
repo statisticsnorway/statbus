@@ -42,7 +42,12 @@ Column name
 
 ## Migrations
 Migration files are placed in `migrations/YYYYMMDDHHmmSS_snake_case_description.up.sql` and `migrations/YYYYMMDDHHmm_snake_case_description.down.sql`.
-For details on running migrations, see the main `README.md` file.
+Migrations are managed using the `statbus` CLI tool.
+- To create a new migration: `./cli/bin/statbus migrate new --description "your description"`
+- To apply pending migrations: `./cli/bin/statbus migrate up`
+- To roll back the last migration: `./cli/bin/statbus migrate down`
+
+For more details, see the main `README.md` file or run `./cli/bin/statbus migrate --help`.
 
 ## General Development Principles
 - **Fail Fast**:

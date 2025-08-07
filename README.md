@@ -87,39 +87,30 @@ Setup the database:
 ./devops/manage-statbus.sh create-users
 
 # Apply any pending database migrations
-./devops/manage-statbus.sh migrate up
+./cli/bin/statbus migrate up
 ```
 
 ### Database Migrations
 
 The system uses a versioned migration system to manage database schema changes:
 
-- Migrations are stored in `migrations/` directory
-- Each migration has an up and down SQL file
-- Migrations can be major (e.g., `001_add_users.up.sql`) or minor within a major version (e.g., `001_initial/001_base_tables.up.sql`) 
-- Migration files are automatically versioned and tracked in the database
-- The system prevents applying duplicate migrations or modified versions of previously run migrations
+- Migrations are stored in `migrations/` directory.
+- Each migration has an `up` and a `down` SQL file.
+- Migration files are automatically named with a timestamp and tracked in the database.
 
-Migration commands:
+Migration commands are run using the `statbus` command-line tool:
 ```bash
+# Create a new migration file
+./cli/bin/statbus migrate new --description "your description"
+
 # Apply all pending migrations
-./devops/manage-statbus.sh migrate up
+./cli/bin/statbus migrate up
 
-# Apply just one migration
-./devops/manage-statbus.sh migrate up one
+# Roll back the last applied migration
+./cli/bin/statbus migrate down
 
-# Roll back last migration
-./devops/manage-statbus.sh migrate down
-
-# Roll back all migrations 
-./devops/manage-statbus.sh migrate down all
-
-# Create new migration files
-./devops/manage-statbus.sh migrate new -a "description"    # Major version
-./devops/manage-statbus.sh migrate new -i "description"    # Minor version
-
-# Fix migration numbering
-./devops/manage-statbus.sh migrate renumber
+# Roll back and re-apply the last migration
+./cli/bin/statbus migrate redo
 ```
 
 Connect to your local statbus at http://localhost:3000 with
@@ -248,32 +239,23 @@ The GitHub workflows can be run locally with [ACT](https://github.com/nektos/act
 
 The system uses a versioned migration system to manage database schema changes:
 
-- Migrations are stored in `migrations/` directory
-- Each migration has an up and down SQL file
-- Migrations can be major (e.g., `001_add_users.up.sql`) or minor within a major version (e.g., `001_initial/001_base_tables.up.sql`)
-- Migration files are automatically versioned and tracked in the database
-- The system prevents applying duplicate migrations or modified versions of previously run migrations
+- Migrations are stored in `migrations/` directory.
+- Each migration has an `up` and a `down` SQL file.
+- Migration files are automatically named with a timestamp and tracked in the database.
 
-Migration commands:
+Migration commands are run using the `statbus` command-line tool:
 ```bash
+# Create a new migration file
+./cli/bin/statbus migrate new --description "your description"
+
 # Apply all pending migrations
-./devops/manage-statbus.sh migrate up
+./cli/bin/statbus migrate up
 
-# Apply just one migration
-./devops/manage-statbus.sh migrate up one
+# Roll back the last applied migration
+./cli/bin/statbus migrate down
 
-# Roll back last migration
-./devops/manage-statbus.sh migrate down
-
-# Roll back all migrations
-./devops/manage-statbus.sh migrate down all
-
-# Create new migration files
-./devops/manage-statbus.sh migrate new -a "description"    # Major version
-./devops/manage-statbus.sh migrate new -i "description"    # Minor version
-
-# Fix migration numbering
-./devops/manage-statbus.sh migrate renumber
+# Roll back and re-apply the last migration
+./cli/bin/statbus migrate redo
 ```
 
 ### Loading Data into Statbus
