@@ -61,6 +61,16 @@ const jobStatuses = [
   { value: "rejected", label: "Rejected", icon: ThumbsDown },
 ] as const;
 
+type JobStatusValue = (typeof jobStatuses)[number]["value"];
+const jobStatusValues = jobStatuses.map(s => s.value);
+
+// Custom nuqs parser for job statuses
+const parseAsJobStatus = {
+  parse: (value: string): JobStatusValue | null => {
+    return (jobStatusValues as readonly string[]).includes(value) ? value as JobStatusValue : null;
+  },
+  serialize: (value: JobStatusValue): string => value,
+};
 
 const getUploadPathForJob = (job: ImportJob): string => {
   const mode = job.import_definition?.mode;
@@ -95,7 +105,8 @@ const fetcher = async (key: string): Promise<{ data: ImportJob[], count: number 
   const sortParam = searchParams.get('sort');
   const description = searchParams.get('description');
   // nuqs stringifies arrays, so get all 'state' params
-  const states = searchParams.getAll('state').flatMap(s => s.split(','));
+  const stateParams = searchParams.getAll('state').flatMap(s => s.split(','));
+  const states = stateParams.filter((s): s is JobStatusValue => (jobStatusValues as readonly string[]).includes(s));
   
   const from = page * pageSize;
   const to = from + pageSize - 1;
@@ -117,7 +128,7 @@ const fetcher = async (key: string): Promise<{ data: ImportJob[], count: number 
   if (description) {
     queryBuilder = queryBuilder.ilike('description', `%${description}%`);
   }
-  if (states && states.length > 0 && states[0] !== '') {
+  if (states.length > 0) {
     queryBuilder = queryBuilder.in('state', states);
   }
 
@@ -140,7 +151,7 @@ export default function ImportJobsPage() {
   const [perPage] = useQueryState('perPage', parseAsInteger.withDefault(10));
   const [sort] = useQueryState('sort', parseAsString.withDefault(''));
   const [description] = useQueryState('description', parseAsString.withDefault(''));
-  const [states] = useQueryState('state', parseAsArrayOf(parseAsString).withDefault([]));
+  const [states] = useQueryState('state', parseAsArrayOf(parseAsJobStatus).withDefault([]));
 
   const swrKey = useMemo(() => {
     const params = new URLSearchParams();

@@ -413,7 +413,7 @@ export const logoutAtom = atom(
     set(selectedUnitsAtom, []);
     set(tableColumnsAtom, []);
     set(gettingStartedUIStateAtom, { currentStep: 0, completedSteps: [], isVisible: true });
-    set(importStateAtom, { isImporting: false, progress: 0, currentFile: null, errors: [], completed: false, useExplicitDates: false, selectedImportTimeContextIdent: null, selectedDefinition: null, explicitStartDate: null, explicitEndDate: null });
+    set(importStateAtom, { isImporting: false, progress: 0, currentFile: null, errors: [], completed: false, useExplicitDates: false, selectedImportTimeContextIdent: null, selectedDefinition: null, availableDefinitions: [], explicitStartDate: null, explicitEndDate: null });
     set(unitCountsAtom, { legalUnits: null, establishmentsWithLegalUnit: null, establishmentsWithoutLegalUnit: null });
 
     // Redirect to login.
