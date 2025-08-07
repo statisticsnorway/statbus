@@ -250,7 +250,7 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
   if (!job) {
     return (
       <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md text-yellow-800">
-        Import job with slug "{jobSlug}" not found.
+        Import job with slug &quot;{jobSlug}&quot; not found.
       </div>
     );
   }
