@@ -12,6 +12,8 @@ jobs:
   docker:
     name: Remove obsolete docker artifacts
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
     - name: Run commands
       uses: appleboy/ssh-action@master

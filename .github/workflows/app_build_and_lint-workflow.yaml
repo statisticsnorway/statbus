@@ -11,6 +11,8 @@ on:
 jobs:
   build-app:
     runs-on: ubuntu-20.04
+    permissions:
+      contents: read
     container:
       image: node:20.10-alpine
     steps:

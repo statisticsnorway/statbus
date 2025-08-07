@@ -14,6 +14,8 @@ jobs:
       group: statbus_test
       cancel-in-progress: false
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
     - name: Run tests on remote server
       uses: appleboy/ssh-action@v1.0.0

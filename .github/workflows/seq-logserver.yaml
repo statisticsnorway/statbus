@@ -12,6 +12,8 @@ jobs:
   seq:
     name: Upgrade Seq Logging Server
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
     - name: Run commands
       uses: appleboy/ssh-action@master
