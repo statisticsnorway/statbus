@@ -4,7 +4,7 @@
 # Common snippets for all Caddyfile configurations
 
 # Auth-related paths definition (as a snippet to be used in matchers)
-(secure_cookie_handling_auth_paths) {
+(secure_cookie_handling_auth_paths_<%= @deployment_slot_code %>) {
     path /rest/rpc/login
     path /rest/rpc/logout
     path /rest/rpc/refresh
@@ -15,7 +15,7 @@
 
 
 # Maintenance mode handling
-(maintenance) {
+(maintenance_<%= @deployment_slot_code %>) {
     @maintenance {
         file {
             try_files {args[0]}/maintenance
@@ -31,20 +31,20 @@
 }
 
 # Reverse proxy with standard headers - args[0] is the target address
-(reverse_proxy_standard) {
+(reverse_proxy_standard_<%= @deployment_slot_code %>) {
     reverse_proxy {args[0]} {
     }
 }
 
 # Reverse proxy with auth token - args[0] is the target address
-(reverse_proxy_auth) {
+(reverse_proxy_auth_<%= @deployment_slot_code %>) {
     reverse_proxy {args[0]} {
         header_up Authorization "Bearer {http.request.cookie.statbus}"
     }
 }
 
 # Common PostgREST endpoint handling - args[0] is the postgrest address
-(postgrest_endpoints) {
+(postgrest_endpoints_<%= @deployment_slot_code %>) {
     # Handle PostgREST auth requests (login/logout/refresh/auth_status) that should not fail due to expired Authorization
     # therefore the Authorization is not set.
     # Those functions directly look at the cookies as they can be called by anonymous.
@@ -89,7 +89,7 @@
 }
 
 # Standard logging configuration
-(standard_logging) {
+(standard_logging_<%= @deployment_slot_code %>) {
     log {
         # To enable file logging, uncomment the next line and ensure
         # CADDY_LOG_PATH is set in the Caddy environment.

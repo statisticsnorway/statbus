@@ -10,18 +10,20 @@ import ./common.caddyfile
     
     
     # Use common maintenance mode handling
-    import maintenance /home/<%= @deployment_user %> /home/<%= @deployment_user %>/statbus/app/public
+    import maintenance_<%= @deployment_slot_code %> /home/<%= @deployment_user %> /home/<%= @deployment_user %>/statbus/app/public
     
-    # Use common PostgREST endpoint handling
-    import postgrest_endpoints rest:3000 # Internal Docker service address for PostgREST
+    # Handle PostgREST API calls first and exclusively
+    route /rest/* {
+        import postgrest_endpoints_<%= @deployment_slot_code %> rest:3000 # Internal Docker service address for PostgREST
+    }
     
     # Handle all other requests
-    handle {
-        import reverse_proxy_standard app:3000 # Internal Docker service address for Next.js app
+    route {
+        import reverse_proxy_standard_<%= @deployment_slot_code %> app:3000 # Internal Docker service address for Next.js app
     }
 
     # Use standard logging
-    import standard_logging
+    import standard_logging_<%= @deployment_slot_code %>
 
     # Enable HTTPS with automatic certificate management
     tls {

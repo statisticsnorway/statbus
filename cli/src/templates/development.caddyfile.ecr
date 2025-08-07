@@ -35,7 +35,7 @@ import ./common.caddyfile
     
     # Handle PostgREST API calls first and exclusively
     route /rest/* {
-        import postgrest_endpoints {$REST_BIND_ADDRESS}
+        import postgrest_endpoints_<%= @deployment_slot_code %> {$REST_BIND_ADDRESS}
     }
 
     # For non-API requests, try proxying to the Next.js app container (app:3000).
@@ -53,5 +53,5 @@ import ./common.caddyfile
     }
 
     # Use standard logging
-    import standard_logging
+    import standard_logging_<%= @deployment_slot_code %>
 }
