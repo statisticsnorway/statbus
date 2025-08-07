@@ -163,7 +163,9 @@ The import system is built around several key database tables and concepts:
             *   If no hard error is found by the current step, it updates `last_completed_priority = step.priority`. The `state` remains `'analysing'` (or advances if this is the last analysis step for the row). The `action` (e.g., 'insert', 'replace', 'update') determined by `analyse_external_idents` (or potentially modified to 'skip' by a prior analysis step that found a hard error) is preserved if no new hard error is found by the current step.
             *   When a step successfully processes data or resolves a previously reported issue, it should clear *only its specific keys* from the `error` and `invalid_codes` columns (e.g., `dt.error - 'my_error_key'`, `dt.invalid_codes - 'my_code_key'`). This ensures that errors or invalid codes reported by other steps are preserved.
             *   *Note: The `edit_info` step populates `edit_by_user_id` and `edit_at`. The `analyse_external_idents` step is primarily responsible for determining the initial `operation` and `action` based on identifier lookups and job strategy. It also identifies hard errors related to identifiers, including "unstable identifiers." An unstable identifier error occurs if an input row identifies an existing unit but attempts to *change the value* of one of its existing external identifiers of a specific type; this results in `action = 'skip'`. Adding a new identifier type to an existing unit, or omitting an identifier type (which might imply removal by a `process_` step), are not considered unstable identifier errors by this specific check.*
-        *   The function processes one batch per available step in a single transaction. If any batch is found and processed, the function returns `true`, signaling that work was done and the job should be rescheduled to process subsequent batches.
+        *   The function processes one batch per available step in a single transaction. If any batch is found and processed, the function returns `true`, signaling that work was done and the job should be rescheduled to process subsequent batches. After each transaction, the parent `import_job_process` procedure performs two actions:
+            1.  **Row State Transition**: It checks for any rows that have just completed all analysis steps (`last_completed_priority >= max_analysis_priority`) and immediately updates their state from `analysing` to `analysed`. This provides timely progress feedback in the UI, regardless of whether the job requires a final user review.
+            2.  **Progress Recount**: It recounts the total number of rows that have completed analysis (by checking their `last_completed_priority` against the maximum analysis step priority or if `state='error'`) and updates the job's `analysed_rows` progress counter.
         *   This continues until a full pass over all analysis steps finds no more rows ready for processing. At this point, the function returns `false`.
         *   Once the analysis phase is complete (i.e., the function returns `false`), the `import_job_process` procedure transitions the job's state to `processing_data` (or `waiting_for_review` if `job.review=true`). The worker is rescheduled if moving to `processing_data`.
     *   **Process (`admin.import_job_process_phase('process')`)**:
@@ -172,7 +174,7 @@ The import system is built around several key database tables and concepts:
         *   For each step with a `process_procedure`:
             *   Selects batches of rows from `_data` (identified by their `row_id`) where `state = 'processing'` and `last_completed_priority < step.priority` and crucially `action != 'skip'` using `FOR UPDATE SKIP LOCKED`. This ensures rows marked as error (and thus skip) in the analysis phase are not processed.
             *   Calls the step's `process_procedure` with the batch of `row_id`s.
-            *   The procedure reads data (including `internal` results, audit info, and `action`), performs the final `INSERT` (for `action='insert'`) or `REPLACE` (for `action='replace'`, using `admin.batch_insert_or_replace_generic_valid_time_table` for temporal data), updates `pk_id` columns, and sets `last_completed_priority = step.priority`. If a `process_procedure` encounters an unrecoverable error for a row (which should be rare if analysis is robust), it should set that row's `state` to `'error'` and `action` to `'skip'`.
+            *   The procedure reads data (including `internal` results, audit info, and `action`), performs the final `INSERT` (for `action='insert'`) or `REPLACE` (for `action='replace'`, using `import.batch_insert_or_replace_generic_valid_time_table` for temporal data), updates `pk_id` columns, and sets `last_completed_priority = step.priority`. If a `process_procedure` encounters an unrecoverable error for a row (which should be rare if analysis is robust), it should set that row's `state` to `'error'` and `action` to `'skip'`.
             *   Immediately after a batch is processed by the final step in the sequence, its rows are transitioned from `state = 'processing'` to `state = 'processed'`, ensuring that state transitions are tied directly to the batch they belong to.
         *   The function processes one batch per available step in a single transaction. If any batch is found and processed, the function returns `true`, indicating the job should be rescheduled to process subsequent batches.
         *   This continues until a full pass over all processing steps finds no more rows ready for processing.
@@ -191,7 +193,7 @@ Creating a new import type involves defining the metadata in the database:
     *   Remember that the `_data` table will also have a system-managed `row_id` column for stable row identification during processing.
 
 3.  **Implement Procedures**: Write the PL/pgSQL functions named in the `import_step` records (`analyse_procedure`, `process_procedure`). These functions must:
-    *   Accept `(p_job_id INT, p_batch_row_ids INTEGER[])`. The `row_id`s for a single import are `INTEGER`, and batch arrays are consistently `INTEGER[]`. This is distinct from the `worker.tasks` queue, which uses `BIGINT` for its own `id` to ensure long-term scalability across the entire system.
+    *   Accept `(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)`. The `p_step_code` is the `code` of the `import_step` being processed, allowing the procedure to be aware of its context. The `row_id`s for a single import are `INTEGER`, and batch arrays are consistently `INTEGER[]`. This is distinct from the `worker.tasks` queue, which uses `BIGINT` for its own `id` to ensure long-term scalability across the entire system.
     *   Read `definition_snapshot` from `import_job` if needed.
     *   Determine the job-specific `_data` table name.
     *   Read from/write to the `_data` table using dynamic SQL and `p_batch_row_ids` (e.g., `WHERE row_id = ANY(p_batch_row_ids)`).
@@ -212,7 +214,7 @@ Creating a new import type involves defining the metadata in the database:
 
 The progress of an import job can be monitored via:
 
-*   The `public.import_job` table (overall state, row counts, timestamps).
+*   The `public.import_job` table (overall state, total row count, timestamps, and progress counters for both analysis and processing phases).
 *   The job-specific `_data` table (row-level state, errors, `last_completed_priority`, `action`, and individual `row_id`s).
 *   The `public.get_import_job_progress(job_id)` function, which provides a JSON summary including row state counts.
 *   The application UI, which uses these sources to display progress.
@@ -313,7 +315,7 @@ Let's illustrate how to define an import for `legal_unit` data using the system.
         *   `row_id` (e.g., `INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY`)
 
 3.  **Implement Procedures**: Write the PL/pgSQL functions for each step (e.g., `admin.analyse_edit_info`, `admin.analyse_external_idents`, `admin.analyse_enterprise_link_for_legal_unit`, `admin.process_legal_unit`, etc.). These functions must:
-    *   Accept `(p_job_id INT, p_batch_row_ids INTEGER[])`.
+    *   Accept `(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)`.
     *   Read `definition_snapshot` from `import_job` if needed.
     *   Determine the job-specific `_data` table name.
     *   Read from/write to the `_data` table using dynamic SQL and `p_batch_row_ids` (e.g., `WHERE row_id = ANY(p_batch_row_ids)`).

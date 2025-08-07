@@ -24,6 +24,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { DataTableActionBar, DataTableActionBarAction, DataTableActionBarSelection } from "@/components/data-table/data-table-action-bar";
 import { Button } from "@/components/ui/button";
 
+
 type ImportJob = Tables<"import_job"> & {
   import_definition: {
     slug: string | null;
@@ -47,6 +48,11 @@ const formatDate = (dateString: string | null): string => {
   } catch (e) {
     return dateString;
   }
+};
+
+const formatNumber = (num: number | null | undefined): string => {
+  if (num === null || num === undefined) return "0";
+  return num.toLocaleString('nb-NO');
 };
 
 const jobStatuses = [
@@ -283,7 +289,7 @@ export default function ImportJobsPage() {
           </Badge>
         );
 
-        const content = (
+        const badgeAndError = (
           <div className="flex items-center space-x-2">
             {statusBadge}
             {job.error && (
@@ -298,10 +304,15 @@ export default function ImportJobsPage() {
           </div>
         );
 
-        if (job.state === 'waiting_for_upload') {
-          return <Link href={getUploadPathForJob(job)}>{content}</Link>;
-        }
-        return content;
+        return (
+          <div>
+            {job.state === 'waiting_for_upload' ? (
+              <Link href={getUploadPathForJob(job)}>{badgeAndError}</Link>
+            ) : (
+              badgeAndError
+            )}
+          </div>
+        );
       },
       meta: {
         label: "Status",
@@ -311,45 +322,75 @@ export default function ImportJobsPage() {
       enableColumnFilter: true,
     },
     {
-      id: 'rows',
-      header: 'Rows',
+      id: 'analysed',
+      header: 'Analysed',
       cell: ({ row }) => {
-        const job = row.original;
-        const { imported_rows, total_rows } = job;
+        const { analysed_rows, total_rows, slug, analysis_completed_pct, state } = row.original;
         if (total_rows === null || total_rows === undefined) {
           return <span className="text-xs text-gray-400">-</span>;
         }
+
+        const showProgress = (state === 'analysing_data' || state === 'processing_data' || state === 'finished') &&
+                             analysis_completed_pct !== null && analysis_completed_pct !== undefined;
+
         return (
-          <Link href={`/import/jobs/${job.slug}/data`} className="underline">
-            <div className="text-xs">{imported_rows ?? 0} / {total_rows}</div>
-          </Link>
-        );
-      }
-    },
-    {
-      accessorKey: 'import_completed_pct',
-      header: 'Progress',
-      cell: ({ row }) => {
-        const job = row.original;
-        return job.state && ["preparing_data", "analysing_data", "processing_data"].includes(job.state) && job.import_completed_pct !== null ? (
           <div className="w-32">
-            <Progress value={job.import_completed_pct ?? 0} className="h-2" />
-            <span className="text-xs text-gray-500">{Math.round(job.import_completed_pct ?? 0)}%</span>
+            <Link href={`/import/jobs/${slug}/data`} className="underline">
+              <div className="text-xs font-mono">{formatNumber(analysed_rows)}/{formatNumber(total_rows)}</div>
+            </Link>
+            {showProgress && (
+              <div className="mt-1 flex items-center space-x-2">
+                <Progress value={analysis_completed_pct ?? 0} className="h-1.5 flex-grow" />
+                <span className="text-xs text-gray-500 font-mono">{Math.round(analysis_completed_pct ?? 0)}%</span>
+              </div>
+            )}
           </div>
-        ) : job.state === "finished" ? (
-          <span className="text-xs text-green-600">100%</span>
-        ) : (
-          <span className="text-xs text-gray-400">-</span>
         );
       }
     },
     {
-      id: 'speed',
-      header: 'Speed (rows/s)',
+      id: 'analysis_speed',
+      header: 'Analysis (r/s)',
+      accessorKey: 'analysis_rows_per_sec',
+      cell: ({ row }) => {
+        const speed = row.original.analysis_rows_per_sec;
+        return speed ? <div className="text-xs font-mono">{Number(speed).toFixed(2)}</div> : <span className="text-xs text-gray-400">-</span>;
+      }
+    },
+    {
+      id: 'processed',
+      header: 'Processed',
+      cell: ({ row }) => {
+        const { imported_rows, total_rows, slug, import_completed_pct, state } = row.original;
+        if (total_rows === null || total_rows === undefined) {
+          return <span className="text-xs text-gray-400">-</span>;
+        }
+
+        const showProgress = (state === 'processing_data' || state === 'finished') &&
+                             import_completed_pct !== null && import_completed_pct !== undefined;
+
+        return (
+          <div className="w-32">
+            <Link href={`/import/jobs/${slug}/data`} className="underline">
+              <div className="text-xs font-mono">{formatNumber(imported_rows)}/{formatNumber(total_rows)}</div>
+            </Link>
+            {showProgress && (
+              <div className="mt-1 flex items-center space-x-2">
+                <Progress value={import_completed_pct ?? 0} className="h-1.5 flex-grow" />
+                <span className="text-xs text-gray-500 font-mono">{Math.round(import_completed_pct ?? 0)}%</span>
+              </div>
+            )}
+          </div>
+        );
+      }
+    },
+    {
+      id: 'processing_speed',
+      header: 'Processing (r/s)',
       accessorKey: 'import_rows_per_sec',
       cell: ({ row }) => {
         const speed = row.original.import_rows_per_sec;
-        return speed ? <div className="text-xs">{Number(speed).toFixed(2)}</div> : <span className="text-xs text-gray-400">-</span>;
+        return speed ? <div className="text-xs font-mono">{Number(speed).toFixed(2)}</div> : <span className="text-xs text-gray-400">-</span>;
       }
     },
     {

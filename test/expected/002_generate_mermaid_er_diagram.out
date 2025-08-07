@@ -316,6 +316,9 @@ erDiagram
 		timestamp_with_time_zone preparing_data_at
 		timestamp_with_time_zone analysis_start_at
 		timestamp_with_time_zone analysis_stop_at
+		integer analysed_rows
+		numeric(5_2) analysis_completed_pct
+		numeric(10_2) analysis_rows_per_sec
 		timestamp_with_time_zone changes_approved_at
 		timestamp_with_time_zone changes_rejected_at
 		timestamp_with_time_zone processing_start_at

@@ -1288,6 +1288,9 @@ export type Database = {
       }
       import_job: {
         Row: {
+          analysed_rows: number | null
+          analysis_completed_pct: number | null
+          analysis_rows_per_sec: number | null
           analysis_start_at: string | null
           analysis_stop_at: string | null
           changes_approved_at: string | null
@@ -1323,6 +1326,9 @@ export type Database = {
           user_id: number | null
         }
         Insert: {
+          analysed_rows?: number | null
+          analysis_completed_pct?: number | null
+          analysis_rows_per_sec?: number | null
           analysis_start_at?: string | null
           analysis_stop_at?: string | null
           changes_approved_at?: string | null
@@ -1358,6 +1364,9 @@ export type Database = {
           user_id?: number | null
         }
         Update: {
+          analysed_rows?: number | null
+          analysis_completed_pct?: number | null
+          analysis_rows_per_sec?: number | null
           analysis_start_at?: string | null
           analysis_stop_at?: string | null
           changes_approved_at?: string | null
@@ -6364,11 +6373,11 @@ export type Database = {
               relid?: unknown
             }
         Returns: {
-          type: string
-          oid: unknown
-          schema: string
           name: string
+          oid: unknown
           params: string
+          schema: string
+          type: string
         }[]
       }
       _ltree_compress: {
@@ -6815,12 +6824,12 @@ export type Database = {
           p_valid_to?: string
         }
         Returns: {
-          resolution: Database["public"]["Enums"]["history_resolution"]
-          year: number
-          month: number
-          prev_stop: string
           curr_start: string
           curr_stop: string
+          month: number
+          prev_stop: string
+          resolution: Database["public"]["Enums"]["history_resolution"]
+          year: number
         }[]
       }
       gtrgm_compress: {
@@ -6967,12 +6976,12 @@ export type Database = {
       index_advisor: {
         Args: { query: string }
         Returns: {
-          startup_cost_before: Json
-          startup_cost_after: Json
-          total_cost_before: Json
-          total_cost_after: Json
-          index_statements: string[]
           errors: string[]
+          index_statements: string[]
+          startup_cost_after: Json
+          startup_cost_before: Json
+          total_cost_after: Json
+          total_cost_before: Json
         }[]
       }
       is_deriving_reports: {
@@ -7283,17 +7292,17 @@ export type Database = {
               without_warnings?: boolean
             }
         Returns: {
-          functionid: unknown
-          lineno: number
-          statement: string
-          sqlstate: string
-          message: string
+          context: string
           detail: string
+          functionid: unknown
           hint: string
           level: string
+          lineno: number
+          message: string
           position: number
           query: string
-          context: string
+          sqlstate: string
+          statement: string
         }[]
       }
       plpgsql_check_pragma: {
@@ -7319,48 +7328,48 @@ export type Database = {
       plpgsql_profiler_function_statements_tb: {
         Args: { funcoid: unknown } | { name: string }
         Returns: {
-          stmtid: number
-          parent_stmtid: number
-          parent_note: string
+          avg_time: number
           block_num: number
-          lineno: number
-          queryid: number
           exec_stmts: number
           exec_stmts_err: number
-          total_time: number
-          avg_time: number
+          lineno: number
           max_time: number
+          parent_note: string
+          parent_stmtid: number
           processed_rows: number
+          queryid: number
+          stmtid: number
           stmtname: string
+          total_time: number
         }[]
       }
       plpgsql_profiler_function_tb: {
         Args: { funcoid: unknown } | { name: string }
         Returns: {
-          lineno: number
-          stmt_lineno: number
-          queryids: number[]
+          avg_time: number
           cmds_on_row: number
           exec_stmts: number
           exec_stmts_err: number
-          total_time: number
-          avg_time: number
+          lineno: number
           max_time: number[]
           processed_rows: number[]
+          queryids: number[]
           source: string
+          stmt_lineno: number
+          total_time: number
         }[]
       }
       plpgsql_profiler_functions_all: {
         Args: Record<PropertyKey, never>
         Returns: {
-          funcoid: unknown
+          avg_time: number
           exec_count: number
           exec_stmts_err: number
-          total_time: number
-          avg_time: number
-          stddev_time: number
-          min_time: number
+          funcoid: unknown
           max_time: number
+          min_time: number
+          stddev_time: number
+          total_time: number
         }[]
       }
       plpgsql_profiler_install_fake_queryid_hook: {
@@ -7400,11 +7409,11 @@ export type Database = {
               relid?: unknown
             }
         Returns: {
-          type: string
-          oid: unknown
-          schema: string
           name: string
+          oid: unknown
           params: string
+          schema: string
+          type: string
         }[]
       }
       range: {

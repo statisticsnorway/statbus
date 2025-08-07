@@ -691,6 +691,9 @@ CREATE TABLE public.import_job(
     preparing_data_at timestamp with time zone,
     analysis_start_at timestamp with time zone, -- Timestamp analysis phase started
     analysis_stop_at timestamp with time zone,  -- Timestamp analysis phase finished
+    analysed_rows integer DEFAULT 0,
+    analysis_completed_pct numeric(5,2) DEFAULT 0,
+    analysis_rows_per_sec numeric(10,2),
     changes_approved_at timestamp with time zone,
     changes_rejected_at timestamp with time zone,
     processing_start_at timestamp with time zone,
@@ -1120,9 +1123,31 @@ error in one transaction, the next one can still be scheduled and executed.
 CREATE FUNCTION admin.import_job_progress_update()
 RETURNS TRIGGER LANGUAGE plpgsql AS $import_job_progress_update$
 BEGIN
-    -- Update last_progress_update timestamp when imported_rows changes
-    IF OLD.imported_rows IS DISTINCT FROM NEW.imported_rows THEN
+    -- Update last_progress_update timestamp when imported_rows or analysed_rows changes
+    IF OLD.imported_rows IS DISTINCT FROM NEW.imported_rows OR OLD.analysed_rows IS DISTINCT FROM NEW.analysed_rows THEN
         NEW.last_progress_update := clock_timestamp();
+    END IF;
+
+    -- Calculate analysis_completed_pct
+    IF NEW.total_rows IS NULL OR NEW.total_rows = 0 THEN
+        NEW.analysis_completed_pct := 0;
+    ELSE
+        NEW.analysis_completed_pct := ROUND((NEW.analysed_rows::numeric / NEW.total_rows::numeric) * 100, 2);
+    END IF;
+
+    -- Calculate analysis_rows_per_sec
+    IF NEW.analysed_rows = 0 OR NEW.analysis_start_at IS NULL THEN
+        NEW.analysis_rows_per_sec := 0;
+    ELSIF NEW.analysis_stop_at IS NOT NULL THEN -- Analysis phase is finished
+        NEW.analysis_rows_per_sec := CASE
+            WHEN EXTRACT(EPOCH FROM (NEW.analysis_stop_at - NEW.analysis_start_at)) <= 0 THEN 0
+            ELSE ROUND((NEW.analysed_rows::numeric / EXTRACT(EPOCH FROM (NEW.analysis_stop_at - NEW.analysis_start_at))), 2)
+        END;
+    ELSE -- Analysis phase is ongoing
+        NEW.analysis_rows_per_sec := CASE
+            WHEN EXTRACT(EPOCH FROM (COALESCE(NEW.last_progress_update, clock_timestamp()) - NEW.analysis_start_at)) <= 0 THEN 0
+            ELSE ROUND((NEW.analysed_rows::numeric / EXTRACT(EPOCH FROM (COALESCE(NEW.last_progress_update, clock_timestamp()) - NEW.analysis_start_at))), 2)
+        END;
     END IF;
 
     -- Calculate import_completed_pct
@@ -1152,7 +1177,7 @@ END;
 $import_job_progress_update$;
 
 CREATE TRIGGER import_job_progress_update_trigger
-    BEFORE UPDATE OF imported_rows ON public.import_job
+    BEFORE UPDATE OF imported_rows, analysed_rows ON public.import_job
     FOR EACH ROW
     EXECUTE FUNCTION admin.import_job_progress_update();
 
@@ -1165,11 +1190,14 @@ BEGIN
         'import_job_progress',
         json_build_object(
             'job_id', NEW.id,
+            'state', NEW.state,
             'total_rows', NEW.total_rows,
+            'analysed_rows', NEW.analysed_rows,
+            'analysis_completed_pct', NEW.analysis_completed_pct,
+            'analysis_rows_per_sec', NEW.analysis_rows_per_sec,
             'imported_rows', NEW.imported_rows,
             'import_completed_pct', NEW.import_completed_pct,
-            'import_rows_per_sec', NEW.import_rows_per_sec,
-            'state', NEW.state
+            'import_rows_per_sec', NEW.import_rows_per_sec
         )::text
     );
     RETURN NEW;
@@ -1177,7 +1205,7 @@ END;
 $import_job_progress_notify$;
 
 CREATE TRIGGER import_job_progress_notify_trigger
-    AFTER UPDATE OF imported_rows, state ON public.import_job
+    AFTER UPDATE OF imported_rows, analysed_rows, state ON public.import_job
     FOR EACH ROW
     EXECUTE FUNCTION admin.import_job_progress_notify();
 
@@ -1212,6 +1240,9 @@ BEGIN
         'job_id', job.id,
         'state', job.state,
         'total_rows', job.total_rows,
+        'analysed_rows', job.analysed_rows,
+        'analysis_completed_pct', job.analysis_completed_pct,
+        'analysis_rows_per_sec', job.analysis_rows_per_sec,
         'imported_rows', job.imported_rows,
         'import_completed_pct', job.import_completed_pct,
         'import_rows_per_sec', job.import_rows_per_sec,
@@ -1685,37 +1716,65 @@ BEGIN
             should_reschedule := TRUE; -- Reschedule immediately to start analysis
 
         WHEN 'analysing_data' THEN
-            RAISE DEBUG '[Job %] Starting analysis phase.', job_id;
-            should_reschedule := admin.import_job_process_phase(job, 'analyse'::public.import_step_phase);
-            
-            -- Refresh job record to see if an error was set by the phase
-            SELECT * INTO job FROM public.import_job WHERE id = job_id;
+            DECLARE
+                v_max_analysis_priority INTEGER;
+                v_analysed_count INTEGER;
+            BEGIN
+                RAISE DEBUG '[Job %] Starting analysis phase.', job_id;
+                should_reschedule := admin.import_job_process_phase(job, 'analyse'::public.import_step_phase);
 
-            IF job.error IS NOT NULL THEN
-                RAISE WARNING '[Job %] Error detected during analysis phase: %. Transitioning to finished.', job_id, job.error;
-                job := admin.import_job_set_state(job, 'finished');
-                should_reschedule := FALSE;
-            ELSIF NOT should_reschedule THEN -- No error, and phase reported no more work
-                IF job.review THEN
-                    -- Transition rows from 'analysing' to 'analysed' if review is required
-                    -- Rows in 'analysing' state here have completed all analysis steps.
-                    -- The 'error' field might be populated with non-fatal errors (e.g., for legal_unit activity codes).
-                    RAISE DEBUG '[Job %] Updating data rows from analysing to analysed in table % for review', job_id, job.data_table_name;
-                    EXECUTE format($$UPDATE public.%I SET state = %L WHERE state = %L$$, job.data_table_name, 'analysed'::public.import_data_state, 'analysing'::public.import_data_state);
-                    job := admin.import_job_set_state(job, 'waiting_for_review');
-                    RAISE DEBUG '[Job %] Analysis complete, waiting for review.', job_id;
-                    -- should_reschedule remains FALSE as it's waiting for user action
-                ELSE
-                    -- Transition rows from 'analysing' to 'processing' if no review
-                    -- Rows in 'analysing' state here have completed all analysis steps.
-                    RAISE DEBUG '[Job %] Updating data rows from analysing to processing and resetting LCP in table %', job_id, job.data_table_name;
-                    EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L$$, job.data_table_name, 'processing'::public.import_data_state, 'analysing'::public.import_data_state);
-                    job := admin.import_job_set_state(job, 'processing_data');
-                    RAISE DEBUG '[Job %] Analysis complete, proceeding to processing.', job_id;
-                    should_reschedule := TRUE; -- Reschedule to start processing
+                -- After each batch run, update row states and recount progress.
+                SELECT MAX((s->>'priority')::int)
+                INTO v_max_analysis_priority
+                FROM jsonb_array_elements(job.definition_snapshot->'import_step_list') s
+                WHERE s->>'analyse_procedure' IS NOT NULL;
+
+                IF v_max_analysis_priority IS NOT NULL THEN
+                    -- Transition rows to 'analysed' state as soon as they complete all analysis steps.
+                    -- This provides timely progress feedback in the UI's row state counts, regardless of
+                    -- whether the job requires a final user review.
+                    EXECUTE format($$
+                        UPDATE public.%I SET state = 'analysed'
+                        WHERE state = 'analysing' AND last_completed_priority >= %L
+                    $$, job.data_table_name, v_max_analysis_priority);
+
+                    -- A row is considered "analysed" for progress tracking if it's in error,
+                    -- or has completed all analysis steps (i.e., its LCP is max).
+                    EXECUTE format($$SELECT count(*) FROM public.%I WHERE state = 'error' OR last_completed_priority >= %L$$,
+                        job.data_table_name, v_max_analysis_priority)
+                    INTO v_analysed_count;
+                    UPDATE public.import_job SET analysed_rows = v_analysed_count WHERE id = job.id;
+                    RAISE DEBUG '[Job %] Recounted analysed_rows: % (max priority: %)', job.id, v_analysed_count, v_max_analysis_priority;
                 END IF;
-            END IF;
-            -- If should_reschedule is TRUE from the phase function (and no error), it will be rescheduled.
+
+                -- Refresh job record to see if an error was set by the phase
+                SELECT * INTO job FROM public.import_job WHERE id = job.id;
+
+                IF job.error IS NOT NULL THEN
+                    RAISE WARNING '[Job %] Error detected during analysis phase: %. Transitioning to finished.', job_id, job.error;
+                    job := admin.import_job_set_state(job, 'finished');
+                    should_reschedule := FALSE;
+                ELSIF NOT should_reschedule THEN -- No error, and phase reported no more work
+                    IF job.review THEN
+                        -- Transition rows from 'analysing' to 'analysed' if review is required
+                        -- Rows in 'analysing' state here have completed all analysis steps.
+                        RAISE DEBUG '[Job %] Updating data rows from analysing to analysed in table % for review', job_id, job.data_table_name;
+                        EXECUTE format($$UPDATE public.%I SET state = %L WHERE state = %L$$, job.data_table_name, 'analysed'::public.import_data_state, 'analysing'::public.import_data_state);
+                        job := admin.import_job_set_state(job, 'waiting_for_review');
+                        RAISE DEBUG '[Job %] Analysis complete, waiting for review.', job_id;
+                        -- should_reschedule remains FALSE as it's waiting for user action
+                    ELSE
+                        -- Transition rows from 'analysing' to 'processing' if no review
+                        -- Rows in 'analysing' state here have completed all analysis steps.
+                        RAISE DEBUG '[Job %] Updating data rows from analysing to processing and resetting LCP in table %', job_id, job.data_table_name;
+                        EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L$$, job.data_table_name, 'processing'::public.import_data_state, 'analysing'::public.import_data_state);
+                        job := admin.import_job_set_state(job, 'processing_data');
+                        RAISE DEBUG '[Job %] Analysis complete, proceeding to processing.', job_id;
+                        should_reschedule := TRUE; -- Reschedule to start processing
+                    END IF;
+                END IF;
+                -- If should_reschedule is TRUE from the phase function (and no error), it will be rescheduled.
+            END;
 
         WHEN 'waiting_for_review' THEN
             RAISE DEBUG '[Job %] Waiting for user review.', job_id;
@@ -1844,7 +1903,7 @@ BEGIN
 
     -- Loop through steps (targets) in priority order
     FOR target_rec IN SELECT * FROM jsonb_to_recordset(targets) AS x(
-                            id int, code text, name text, priority int, analyse_procedure regproc, process_procedure regproc) -- Added 'code'
+                            id int, code text, name text, priority int, analyse_procedure regproc, process_procedure regproc)
                       ORDER BY priority
     LOOP
         -- Determine which procedure to call for this phase
