@@ -166,7 +166,7 @@ module Statbus
             parser.on("--to VERSION", "Migrate up to specific version") do |version|
               @migrate.migrate_to = version.to_i64
             end
-            parser.on("one", "Run one up migration") do
+            parser.on("one", "Run one up migration (The default is all)") do
               @migrate.migrate_all = false
             end
           end
@@ -189,7 +189,7 @@ module Statbus
             parser.on("--to VERSION", "Roll back to specific version") do |version|
               @migrate.migrate_to = version.to_i64
             end
-            parser.on("all", "Run all down migrations") do
+            parser.on("all", "Run all down migrations (The default is one)") do
               @migrate.migrate_all = true
             end
           end
