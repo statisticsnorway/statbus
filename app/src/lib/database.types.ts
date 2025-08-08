@@ -1288,14 +1288,16 @@ export type Database = {
       }
       import_job: {
         Row: {
-          analysed_rows: number | null
           analysis_completed_pct: number | null
           analysis_rows_per_sec: number | null
           analysis_start_at: string | null
           analysis_stop_at: string | null
           changes_approved_at: string | null
           changes_rejected_at: string | null
+          completed_analysis_steps_weighted: number | null
           created_at: string
+          current_step_code: string | null
+          current_step_priority: number | null
           data_table_name: string
           default_data_source_code: string | null
           default_valid_from: string | null
@@ -1311,6 +1313,7 @@ export type Database = {
           import_rows_per_sec: number | null
           imported_rows: number | null
           last_progress_update: string | null
+          max_analysis_priority: number | null
           note: string | null
           preparing_data_at: string | null
           priority: number | null
@@ -1320,20 +1323,23 @@ export type Database = {
           slug: string
           state: Database["public"]["Enums"]["import_job_state"]
           time_context_ident: string | null
+          total_analysis_steps_weighted: number | null
           total_rows: number | null
           updated_at: string
           upload_table_name: string
           user_id: number | null
         }
         Insert: {
-          analysed_rows?: number | null
           analysis_completed_pct?: number | null
           analysis_rows_per_sec?: number | null
           analysis_start_at?: string | null
           analysis_stop_at?: string | null
           changes_approved_at?: string | null
           changes_rejected_at?: string | null
+          completed_analysis_steps_weighted?: number | null
           created_at?: string
+          current_step_code?: string | null
+          current_step_priority?: number | null
           data_table_name: string
           default_data_source_code?: string | null
           default_valid_from?: string | null
@@ -1349,6 +1355,7 @@ export type Database = {
           import_rows_per_sec?: number | null
           imported_rows?: number | null
           last_progress_update?: string | null
+          max_analysis_priority?: number | null
           note?: string | null
           preparing_data_at?: string | null
           priority?: number | null
@@ -1358,20 +1365,23 @@ export type Database = {
           slug: string
           state?: Database["public"]["Enums"]["import_job_state"]
           time_context_ident?: string | null
+          total_analysis_steps_weighted?: number | null
           total_rows?: number | null
           updated_at?: string
           upload_table_name: string
           user_id?: number | null
         }
         Update: {
-          analysed_rows?: number | null
           analysis_completed_pct?: number | null
           analysis_rows_per_sec?: number | null
           analysis_start_at?: string | null
           analysis_stop_at?: string | null
           changes_approved_at?: string | null
           changes_rejected_at?: string | null
+          completed_analysis_steps_weighted?: number | null
           created_at?: string
+          current_step_code?: string | null
+          current_step_priority?: number | null
           data_table_name?: string
           default_data_source_code?: string | null
           default_valid_from?: string | null
@@ -1387,6 +1397,7 @@ export type Database = {
           import_rows_per_sec?: number | null
           imported_rows?: number | null
           last_progress_update?: string | null
+          max_analysis_priority?: number | null
           note?: string | null
           preparing_data_at?: string | null
           priority?: number | null
@@ -1396,6 +1407,7 @@ export type Database = {
           slug?: string
           state?: Database["public"]["Enums"]["import_job_state"]
           time_context_ident?: string | null
+          total_analysis_steps_weighted?: number | null
           total_rows?: number | null
           updated_at?: string
           upload_table_name?: string
@@ -1539,6 +1551,7 @@ export type Database = {
           code: string
           created_at: string
           id: number
+          is_holistic: boolean
           name: string
           priority: number
           process_procedure: unknown | null
@@ -1549,6 +1562,7 @@ export type Database = {
           code: string
           created_at?: string
           id?: never
+          is_holistic: boolean
           name: string
           priority: number
           process_procedure?: unknown | null
@@ -1559,6 +1573,7 @@ export type Database = {
           code?: string
           created_at?: string
           id?: never
+          is_holistic?: boolean
           name?: string
           priority?: number
           process_procedure?: unknown | null
