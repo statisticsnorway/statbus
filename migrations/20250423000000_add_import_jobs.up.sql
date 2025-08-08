@@ -1740,13 +1740,31 @@ BEGIN
             should_reschedule := TRUE; -- Reschedule immediately to start prepare
 
         WHEN 'preparing_data' THEN
-            RAISE DEBUG '[Job %] Calling import_job_prepare.', job_id;
-            PERFORM admin.import_job_prepare(job);
-            -- Transition rows in _data table from 'pending' to 'analysing'
-            RAISE DEBUG '[Job %] Updating data rows from pending to analysing in table %', job_id, job.data_table_name;
-            EXECUTE format($$UPDATE public.%I SET state = %L WHERE state = %L$$, job.data_table_name, 'analysing'::public.import_data_state, 'pending'::public.import_data_state);
-            job := admin.import_job_set_state(job, 'analysing_data');
-            should_reschedule := TRUE; -- Reschedule immediately to start analysis
+            DECLARE
+                v_data_row_count BIGINT;
+            BEGIN
+                RAISE DEBUG '[Job %] Calling import_job_prepare.', job_id;
+                PERFORM admin.import_job_prepare(job);
+
+                -- After preparing, recount total_rows from the data table as UPSERT might have changed the count.
+                -- Also, recalculate total_analysis_steps_weighted with the correct row count.
+                EXECUTE format('SELECT COUNT(*) FROM public.%I', job.data_table_name) INTO v_data_row_count;
+
+                UPDATE public.import_job
+                SET
+                    total_rows = v_data_row_count,
+                    total_analysis_steps_weighted = v_data_row_count * max_analysis_priority
+                WHERE id = job.id
+                RETURNING * INTO job; -- Refresh local job variable to have updated values.
+
+                RAISE DEBUG '[Job %] Recounted total_rows to % and updated total_analysis_steps_weighted.', job.id, job.total_rows;
+
+                -- Transition rows in _data table from 'pending' to 'analysing'
+                RAISE DEBUG '[Job %] Updating data rows from pending to analysing in table %', job_id, job.data_table_name;
+                EXECUTE format($$UPDATE public.%I SET state = %L WHERE state = %L$$, job.data_table_name, 'analysing'::public.import_data_state, 'pending'::public.import_data_state);
+                job := admin.import_job_set_state(job, 'analysing_data');
+                should_reschedule := TRUE; -- Reschedule immediately to start analysis
+            END;
 
         WHEN 'analysing_data' THEN
             DECLARE
@@ -1932,7 +1950,7 @@ This function is the core of the step-by-step processing logic. It is designed t
     - `RETURN FALSE`: "A full loop over all steps for this phase found no work." This signals that the phase is complete, and the job can transition to its next state.
 */
 DECLARE
-    batch_size INTEGER := 1000; -- Process up to 1000 rows per target step in one transaction
+    batch_size INTEGER := 10000; -- Process up to 10000 rows per target step in one transaction
     targets JSONB;
     target_rec RECORD;
     proc_to_call REGPROC;
@@ -2030,7 +2048,7 @@ CREATE FUNCTION admin.import_job_processing_phase(
 ) RETURNS BOOLEAN -- Returns TRUE if work was done and rescheduling is needed
 LANGUAGE plpgsql AS $import_job_processing_phase$
 DECLARE
-    v_batch_size INTEGER := 100;
+    v_batch_size INTEGER := 1000;
     v_batch_row_ids INTEGER[];
 BEGIN
     RAISE DEBUG '[Job %] Processing phase: checking for a batch.', job.id;
