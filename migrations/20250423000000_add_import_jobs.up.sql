@@ -18,6 +18,7 @@ CREATE TABLE public.import_step(
     priority integer NOT NULL,
     analyse_procedure regproc, -- Procedure for analysis phase (optional)
     process_procedure regproc, -- Procedure for the final operation (insert/update/upsert) phase (optional)
+    is_holistic boolean NOT NULL, -- If true, procedure is called once for all rows, not in batches.
     created_at timestamp with time zone NOT NULL DEFAULT NOW(),
     updated_at timestamp with time zone NOT NULL DEFAULT NOW()
 );
@@ -27,6 +28,7 @@ COMMENT ON COLUMN public.import_step.name IS 'Human-readable name for UI display
 COMMENT ON COLUMN public.import_step.priority IS 'Execution order for the step (lower runs first).';
 COMMENT ON COLUMN public.import_step.analyse_procedure IS 'Optional procedure to run during the analysis phase for this step.';
 COMMENT ON COLUMN public.import_step.process_procedure IS 'Optional procedure to run during the final operation (insert/update/upsert) phase for this step. Must respect import_definition.strategy.';
+COMMENT ON COLUMN public.import_step.is_holistic IS 'If true, the step''s procedure is called once for the entire dataset, not in concurrent batches. Use for steps requiring a complete view of the data, like cross-row validations.';
 
 -- Enum to control the final insertion behavior
 CREATE TYPE public.import_strategy AS ENUM ('insert_or_replace', 'insert_only', 'replace_only', 'insert_or_update', 'update_only');
@@ -691,16 +693,22 @@ CREATE TABLE public.import_job(
     preparing_data_at timestamp with time zone,
     analysis_start_at timestamp with time zone, -- Timestamp analysis phase started
     analysis_stop_at timestamp with time zone,  -- Timestamp analysis phase finished
-    analysed_rows integer DEFAULT 0,
-    analysis_completed_pct numeric(5,2) DEFAULT 0,
+    analysis_completed_pct numeric(5,2) DEFAULT 0, -- Granular, step-by-step progress percentage. Driven by weighted steps.
     analysis_rows_per_sec numeric(10,2),
+    -- New columns for currently processing step
+    current_step_code TEXT,
+    current_step_priority INTEGER,
+    -- New columns for weighted progress tracking
+    max_analysis_priority INTEGER,
+    total_analysis_steps_weighted BIGINT,
+    completed_analysis_steps_weighted BIGINT DEFAULT 0,
     changes_approved_at timestamp with time zone,
     changes_rejected_at timestamp with time zone,
     processing_start_at timestamp with time zone,
     processing_stop_at timestamp with time zone,
     total_rows integer,
-    imported_rows integer DEFAULT 0,
-    import_completed_pct numeric(5,2) DEFAULT 0,
+    imported_rows integer DEFAULT 0, -- Count of rows that have FULLY completed the processing phase. Used for rows/sec calculation.
+    import_completed_pct numeric(5,2) DEFAULT 0, -- Granular, step-by-step progress percentage. Driven by weighted steps.
     import_rows_per_sec numeric(10,2),
     last_progress_update timestamp with time zone,
     state public.import_job_state NOT NULL DEFAULT 'waiting_for_upload',
@@ -934,6 +942,13 @@ BEGIN
     -- NEW.created_at is populated by its DEFAULT NOW() before this trigger runs for an INSERT.
     NEW.expires_at := NEW.created_at + COALESCE(definition.default_retention_period, '18 months'::INTERVAL);
 
+    -- Pre-calculate max priorities from the snapshot for weighted progress calculation
+    SELECT MAX((s->>'priority')::int)
+    INTO NEW.max_analysis_priority
+    FROM jsonb_array_elements(v_snapshot->'import_step_list') s
+    WHERE s->>'analyse_procedure' IS NOT NULL;
+
+
     NEW.definition_snapshot := v_snapshot;
     RETURN NEW;
 END;
@@ -1042,6 +1057,13 @@ BEGIN
         NEW.changes_rejected_at := v_timestamp;
     END IF;
 
+    -- When a job is finished, waiting, or rejected, it is no longer actively processing a step.
+    -- Clear the current step tracking fields.
+    IF NEW.state IN ('waiting_for_review', 'finished', 'rejected') THEN
+        NEW.current_step_code := NULL;
+        NEW.current_step_priority := NULL;
+    END IF;
+
     -- Record start timestamp for processing_data state
     IF NEW.state = 'processing_data' AND NEW.processing_start_at IS NULL THEN
         NEW.processing_start_at := v_timestamp;
@@ -1053,12 +1075,17 @@ BEGIN
         EXECUTE format('SELECT COUNT(*) FROM public.%I', NEW.upload_table_name) INTO v_row_count;
         NEW.total_rows := v_row_count;
 
+        -- Calculate total weighted steps now that total_rows is known
+        IF NEW.max_analysis_priority IS NOT NULL AND v_row_count > 0 THEN
+            NEW.total_analysis_steps_weighted := v_row_count * NEW.max_analysis_priority;
+        END IF;
+
         -- Set priority using the dedicated sequence
         -- Lower values = higher priority, so earlier jobs get lower sequence values
         -- This ensures jobs are processed in the order they were created
         NEW.priority := nextval('public.import_job_priority_seq')::integer;
 
-        RAISE DEBUG 'Set total_rows to % for import job %', v_row_count, NEW.id;
+        RAISE DEBUG 'Set total_rows to % and calculated total weighted steps for import job %', v_row_count, NEW.id;
     END IF;
 
     RETURN NEW;
@@ -1123,31 +1150,26 @@ error in one transaction, the next one can still be scheduled and executed.
 CREATE FUNCTION admin.import_job_progress_update()
 RETURNS TRIGGER LANGUAGE plpgsql AS $import_job_progress_update$
 BEGIN
-    -- Update last_progress_update timestamp when imported_rows or analysed_rows changes
-    IF OLD.imported_rows IS DISTINCT FROM NEW.imported_rows OR OLD.analysed_rows IS DISTINCT FROM NEW.analysed_rows THEN
+    -- Update last_progress_update timestamp when progress changes
+    IF OLD.imported_rows IS DISTINCT FROM NEW.imported_rows OR OLD.completed_analysis_steps_weighted IS DISTINCT FROM NEW.completed_analysis_steps_weighted THEN
         NEW.last_progress_update := clock_timestamp();
     END IF;
 
-    -- Calculate analysis_completed_pct
-    IF NEW.total_rows IS NULL OR NEW.total_rows = 0 THEN
+    -- Calculate analysis_completed_pct using weighted steps for more granular progress
+    IF NEW.total_analysis_steps_weighted IS NULL OR NEW.total_analysis_steps_weighted = 0 THEN
         NEW.analysis_completed_pct := 0;
     ELSE
-        NEW.analysis_completed_pct := ROUND((NEW.analysed_rows::numeric / NEW.total_rows::numeric) * 100, 2);
+        NEW.analysis_completed_pct := ROUND((NEW.completed_analysis_steps_weighted::numeric / NEW.total_analysis_steps_weighted::numeric) * 100, 2);
     END IF;
 
-    -- Calculate analysis_rows_per_sec
-    IF NEW.analysed_rows = 0 OR NEW.analysis_start_at IS NULL THEN
-        NEW.analysis_rows_per_sec := 0;
-    ELSIF NEW.analysis_stop_at IS NOT NULL THEN -- Analysis phase is finished
+    -- Calculate analysis_rows_per_sec. This is only meaningful once the phase is complete.
+    IF NEW.analysis_stop_at IS NOT NULL AND NEW.analysis_start_at IS NOT NULL AND NEW.total_rows > 0 THEN
         NEW.analysis_rows_per_sec := CASE
             WHEN EXTRACT(EPOCH FROM (NEW.analysis_stop_at - NEW.analysis_start_at)) <= 0 THEN 0
-            ELSE ROUND((NEW.analysed_rows::numeric / EXTRACT(EPOCH FROM (NEW.analysis_stop_at - NEW.analysis_start_at))), 2)
+            ELSE ROUND((NEW.total_rows::numeric / EXTRACT(EPOCH FROM (NEW.analysis_stop_at - NEW.analysis_start_at))), 2)
         END;
-    ELSE -- Analysis phase is ongoing
-        NEW.analysis_rows_per_sec := CASE
-            WHEN EXTRACT(EPOCH FROM (COALESCE(NEW.last_progress_update, clock_timestamp()) - NEW.analysis_start_at)) <= 0 THEN 0
-            ELSE ROUND((NEW.analysed_rows::numeric / EXTRACT(EPOCH FROM (COALESCE(NEW.last_progress_update, clock_timestamp()) - NEW.analysis_start_at))), 2)
-        END;
+    ELSE
+        NEW.analysis_rows_per_sec := 0;
     END IF;
 
     -- Calculate import_completed_pct
@@ -1157,7 +1179,7 @@ BEGIN
         NEW.import_completed_pct := ROUND((NEW.imported_rows::numeric / NEW.total_rows::numeric) * 100, 2);
     END IF;
 
-    -- Calculate import_rows_per_sec
+    -- Calculate import_rows_per_sec (still based on fully processed rows)
     IF NEW.imported_rows = 0 OR NEW.processing_start_at IS NULL THEN
         NEW.import_rows_per_sec := 0;
     ELSIF NEW.state = 'finished' AND NEW.processing_stop_at IS NOT NULL THEN
@@ -1177,7 +1199,7 @@ END;
 $import_job_progress_update$;
 
 CREATE TRIGGER import_job_progress_update_trigger
-    BEFORE UPDATE OF imported_rows, analysed_rows ON public.import_job
+    BEFORE UPDATE OF imported_rows, completed_analysis_steps_weighted ON public.import_job
     FOR EACH ROW
     EXECUTE FUNCTION admin.import_job_progress_update();
 
@@ -1192,7 +1214,6 @@ BEGIN
             'job_id', NEW.id,
             'state', NEW.state,
             'total_rows', NEW.total_rows,
-            'analysed_rows', NEW.analysed_rows,
             'analysis_completed_pct', NEW.analysis_completed_pct,
             'analysis_rows_per_sec', NEW.analysis_rows_per_sec,
             'imported_rows', NEW.imported_rows,
@@ -1205,7 +1226,7 @@ END;
 $import_job_progress_notify$;
 
 CREATE TRIGGER import_job_progress_notify_trigger
-    AFTER UPDATE OF imported_rows, analysed_rows, state ON public.import_job
+    AFTER UPDATE OF imported_rows, state, completed_analysis_steps_weighted ON public.import_job
     FOR EACH ROW
     EXECUTE FUNCTION admin.import_job_progress_notify();
 
@@ -1240,7 +1261,6 @@ BEGIN
         'job_id', job.id,
         'state', job.state,
         'total_rows', job.total_rows,
-        'analysed_rows', job.analysed_rows,
         'analysis_completed_pct', job.analysis_completed_pct,
         'analysis_rows_per_sec', job.analysis_rows_per_sec,
         'imported_rows', job.imported_rows,
@@ -1679,6 +1699,19 @@ $$;
 
 CREATE PROCEDURE admin.import_job_process(job_id integer)
 LANGUAGE plpgsql AS $import_job_process$
+/*
+RATIONALE for Control Flow:
+
+This procedure acts as the main "Orchestrator" for a single import job. It is called by the worker system.
+Its primary responsibilities are:
+1.  Managing the high-level STATE of the import job (e.g., from 'analysing_data' to 'waiting_for_review').
+2.  Calling the "Phase Processor" (`admin.import_job_process_phase`) to perform the actual work for a given state.
+3.  Interpreting the boolean return value from the Phase Processor to decide on the next action.
+
+The `should_reschedule` variable is key. It holds the return value from `import_job_process_phase`.
+- `TRUE`:  Indicates that one unit of work was completed, but the phase is not finished. The Orchestrator MUST reschedule itself to continue processing in the CURRENT state.
+- `FALSE`: Indicates that a full pass over all steps in the phase found no work left to do. The Orchestrator MUST transition the job to the NEXT state.
+*/
 DECLARE
     job public.import_job;
     next_state public.import_job_state;
@@ -1717,34 +1750,24 @@ BEGIN
 
         WHEN 'analysing_data' THEN
             DECLARE
-                v_max_analysis_priority INTEGER;
-                v_analysed_count INTEGER;
+                v_completed_steps_weighted BIGINT;
             BEGIN
                 RAISE DEBUG '[Job %] Starting analysis phase.', job_id;
-                should_reschedule := admin.import_job_process_phase(job, 'analyse'::public.import_step_phase);
 
-                -- After each batch run, update row states and recount progress.
-                SELECT MAX((s->>'priority')::int)
-                INTO v_max_analysis_priority
-                FROM jsonb_array_elements(job.definition_snapshot->'import_step_list') s
-                WHERE s->>'analyse_procedure' IS NOT NULL;
+                should_reschedule := admin.import_job_analysis_phase(job);
 
-                IF v_max_analysis_priority IS NOT NULL THEN
-                    -- Transition rows to 'analysed' state as soon as they complete all analysis steps.
-                    -- This provides timely progress feedback in the UI's row state counts, regardless of
-                    -- whether the job requires a final user review.
-                    EXECUTE format($$
-                        UPDATE public.%I SET state = 'analysed'
-                        WHERE state = 'analysing' AND last_completed_priority >= %L
-                    $$, job.data_table_name, v_max_analysis_priority);
+                -- After each batch run, recount progress. State transitions happen only when the phase is complete.
+                IF job.max_analysis_priority IS NOT NULL THEN
+                    -- Recount weighted steps for granular progress
+                    EXECUTE format($$ SELECT COALESCE(SUM(last_completed_priority), 0) FROM public.%I WHERE state IN ('analysing', 'analysed', 'error') $$,
+                        job.data_table_name)
+                    INTO v_completed_steps_weighted;
 
-                    -- A row is considered "analysed" for progress tracking if it's in error,
-                    -- or has completed all analysis steps (i.e., its LCP is max).
-                    EXECUTE format($$SELECT count(*) FROM public.%I WHERE state = 'error' OR last_completed_priority >= %L$$,
-                        job.data_table_name, v_max_analysis_priority)
-                    INTO v_analysed_count;
-                    UPDATE public.import_job SET analysed_rows = v_analysed_count WHERE id = job.id;
-                    RAISE DEBUG '[Job %] Recounted analysed_rows: % (max priority: %)', job.id, v_analysed_count, v_max_analysis_priority;
+                    UPDATE public.import_job
+                    SET completed_analysis_steps_weighted = v_completed_steps_weighted
+                    WHERE id = job.id;
+
+                    RAISE DEBUG '[Job %] Recounted progress: completed_analysis_steps_weighted=%', job.id, v_completed_steps_weighted;
                 END IF;
 
                 -- Refresh job record to see if an error was set by the phase
@@ -1781,12 +1804,14 @@ BEGIN
             should_reschedule := FALSE;
 
         WHEN 'approved' THEN
-            RAISE DEBUG '[Job %] Approved, transitioning to processing_data.', job_id;
-            -- Transition rows in _data table from 'analysed' to 'processing' and reset LCP
-            RAISE DEBUG '[Job %] Updating data rows from analysed to processing and resetting LCP in table % after approval', job_id, job.data_table_name;
-            EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L AND error IS NULL$$, job.data_table_name, 'processing'::public.import_data_state, 'analysed'::public.import_data_state);
-            job := admin.import_job_set_state(job, 'processing_data');
-            should_reschedule := TRUE; -- Reschedule immediately to start import
+            BEGIN
+                RAISE DEBUG '[Job %] Approved, transitioning to processing_data.', job_id;
+                -- Transition rows in _data table from 'analysed' to 'processing' and reset LCP
+                RAISE DEBUG '[Job %] Updating data rows from analysed to processing and resetting LCP in table % after approval', job_id, job.data_table_name;
+                EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L AND error IS NULL$$, job.data_table_name, 'processing'::public.import_data_state, 'analysed'::public.import_data_state);
+                job := admin.import_job_set_state(job, 'processing_data');
+                should_reschedule := TRUE; -- Reschedule immediately to start import
+            END;
 
         WHEN 'rejected' THEN
             RAISE DEBUG '[Job %] Rejected, transitioning to finished.', job_id;
@@ -1797,40 +1822,27 @@ BEGIN
             DECLARE
                 v_processed_count INTEGER;
             BEGIN
-                RAISE DEBUG '[Job %] Starting process phase.', job_id;
-                should_reschedule := admin.import_job_process_phase(job, 'process'::public.import_step_phase);
+                RAISE DEBUG '[Job %] Starting processing phase.', job_id;
 
-                -- After each batch run, recount progress and update the job record.
-                -- This is safer than incremental updates and ensures consistency.
+                should_reschedule := admin.import_job_processing_phase(job);
+
+                -- Recount progress after each batch.
                 EXECUTE format($$SELECT count(*) FROM public.%I WHERE state = 'processed'$$, job.data_table_name)
                 INTO v_processed_count;
                 UPDATE public.import_job SET imported_rows = v_processed_count WHERE id = job.id;
                 RAISE DEBUG '[Job %] Recounted imported_rows: %', job.id, v_processed_count;
 
-                -- Refresh job record to get the latest state and error info
+                -- Refresh job record to see if an error was set by the phase
                 SELECT * INTO job FROM public.import_job WHERE id = job.id;
 
                 IF job.error IS NOT NULL THEN
-                    RAISE WARNING '[Job %] Error detected during processing phase: %. Transitioning to finished.', job.id, job.error;
-                    job := admin.import_job_set_state(job, 'finished');
+                    RAISE WARNING '[Job %] Error detected during processing phase: %. Job already transitioned to finished.', job.id, job.error;
                     should_reschedule := FALSE;
                 ELSIF NOT should_reschedule THEN -- No error, and phase reported no more work
-                    -- Finalize the job: do a final sweep for any remaining rows and update progress.
-                    RAISE DEBUG '[Job %] Finalizing any remaining processed rows in table %', job.id, job.data_table_name;
-                    EXECUTE format($$UPDATE public.%I SET state = 'processed' WHERE state = 'processing' AND error IS NULL$$,
-                        job.data_table_name);
-
-                    -- Perform one last recount.
-                    EXECUTE format($$SELECT count(*) FROM public.%I WHERE state = 'processed'$$, job.data_table_name)
-                    INTO v_processed_count;
-                    UPDATE public.import_job SET imported_rows = v_processed_count WHERE id = job.id;
-                    RAISE DEBUG '[Job %] Final recounted imported_rows: %', job.id, v_processed_count;
-
                     job := admin.import_job_set_state(job, 'finished');
                     RAISE DEBUG '[Job %] Processing complete, transitioning to finished.', job_id;
                     -- should_reschedule remains FALSE
                 END IF;
-                -- If should_reschedule is TRUE from the phase function (and no error), it will be rescheduled.
             END;
 
         WHEN 'finished' THEN
@@ -1857,17 +1869,68 @@ EXCEPTION WHEN OTHERS THEN
 END;
 $import_job_process$;
 
+-- Helper procedure to process a single batch through all processing steps
+CREATE PROCEDURE admin.import_job_process_batch(
+    job public.import_job,
+    batch_row_ids INTEGER[]
+)
+LANGUAGE plpgsql AS $import_job_process_batch$
+DECLARE
+    targets JSONB;
+    target_rec RECORD;
+    proc_to_call REGPROC;
+    error_message TEXT;
+BEGIN
+    RAISE DEBUG '[Job %] Processing batch of % rows through all process steps.', job.id, array_length(batch_row_ids, 1);
+    targets := job.definition_snapshot->'import_step_list';
+
+    FOR target_rec IN SELECT * FROM jsonb_populate_recordset(NULL::public.import_step, targets) ORDER BY priority
+    LOOP
+        proc_to_call := target_rec.process_procedure;
+        IF proc_to_call IS NULL THEN
+            CONTINUE;
+        END IF;
+
+        RAISE DEBUG '[Job %] Batch processing: Calling % for step %', job.id, proc_to_call, target_rec.code;
+        
+        -- Since this is one transaction, any error will roll back the entire batch.
+        EXECUTE format('CALL %s($1, $2, $3)', proc_to_call) USING job.id, batch_row_ids, target_rec.code;
+    END LOOP;
+    RAISE DEBUG '[Job %] Batch processing complete.', job.id;
+END;
+$import_job_process_batch$;
+
 
 -- Enum defining the processing phase for import steps
 CREATE TYPE public.import_step_phase AS ENUM ('analyse', 'process');
 COMMENT ON TYPE public.import_step_phase IS 'Defines the processing phase for import steps: analyse (validation, lookups) or process (final database operation).';
 
--- Helper function to process a phase (analyse or process) in batches
-CREATE FUNCTION admin.import_job_process_phase(
-    job public.import_job,
-    phase public.import_step_phase -- Use the new enum type
+-- Helper function to process the analysis phase in batches
+CREATE FUNCTION admin.import_job_analysis_phase(
+    job public.import_job
 ) RETURNS BOOLEAN -- Returns TRUE if any work was found/done, indicating the job should be rescheduled.
-LANGUAGE plpgsql AS $import_job_process_phase$
+LANGUAGE plpgsql AS $import_job_analysis_phase$
+/*
+RATIONALE for Holistic vs. Batched Steps and Transaction Model:
+
+This function is the core of the step-by-step processing logic. It is designed to be called repeatedly by the worker system. Each call executes ONE unit of work in a single transaction and then exits.
+
+1.  **Single Worker Model**: The user has clarified that the worker system runs a single worker per queue. This means there is no parallel execution of this function for the *same job*. The primary purpose of batching is therefore not for concurrency control, but to keep transactions small, responsive, and to provide granular progress feedback.
+
+2.  **`is_holistic` Flag's Purpose**: The flag is NOT for preventing race conditions (as the queue model already does that). It is for ensuring DATA COMPLETENESS. Certain analysis steps (e.g., finding a `founding_row_id` for a new entity) must see the entire dataset to make a correct decision. A batched procedure, by design, only sees a small slice of the data and cannot perform these calculations correctly.
+    - `is_holistic = true`: The procedure is called once for the entire phase. It is responsible for loading all relevant rows itself.
+    - `is_holistic = false`: The procedure is called repeatedly, once for each batch of rows.
+
+3.  **"Run Once" Guarantee for Holistic Steps**: A holistic step is guaranteed to run only once per phase because:
+    a. It is only selected if there are rows with `last_completed_priority < step.priority`.
+    b. The procedure itself updates the `last_completed_priority` for ALL rows it processes in a single transaction.
+    c. The function then returns `TRUE`, forcing a reschedule.
+    d. On the next run, the condition in (a) is no longer met for this step, so the processor moves to the next step.
+
+4.  **`RETURN TRUE` vs `RETURN FALSE`**:
+    - `RETURN TRUE`: "Work was found and processed in this transaction." The calling procedure (`admin.import_job_process`) will immediately reschedule the job.
+    - `RETURN FALSE`: "A full loop over all steps for this phase found no work." This signals that the phase is complete, and the job can transition to its next state.
+*/
 DECLARE
     batch_size INTEGER := 1000; -- Process up to 1000 rows per target step in one transaction
     targets JSONB;
@@ -1877,23 +1940,9 @@ DECLARE
     any_work_found_in_tx BOOLEAN := FALSE; -- If we find any batch, we should reschedule.
     batch_row_ids INTEGER[];
     error_message TEXT;
-    current_phase_data_state public.import_data_state;
-    max_process_priority INTEGER;
+    current_phase_data_state public.import_data_state := 'analysing'::public.import_data_state;
 BEGIN
-    RAISE DEBUG '[Job %] Processing phase: %', job.id, phase;
-
-    -- Determine the data state corresponding to the current phase
-    IF phase = 'analyse'::public.import_step_phase THEN
-        current_phase_data_state := 'analysing'::public.import_data_state;
-    ELSIF phase = 'process'::public.import_step_phase THEN
-        current_phase_data_state := 'processing'::public.import_data_state;
-        -- Pre-calculate the max priority for the process phase to check for completion
-        SELECT MAX((s->>'priority')::int) INTO max_process_priority
-        FROM jsonb_array_elements(job.definition_snapshot->'import_step_list') s
-        WHERE s->>'process_procedure' IS NOT NULL;
-    ELSE
-        RAISE EXCEPTION '[Job %] Invalid phase specified: %', job.id, phase;
-    END IF;
+    RAISE DEBUG '[Job %] Processing analysis phase.', job.id;
 
     -- Load steps from the job's snapshot
     targets := job.definition_snapshot->'import_step_list';
@@ -1902,89 +1951,129 @@ BEGIN
     END IF;
 
     -- Loop through steps (targets) in priority order
-    FOR target_rec IN SELECT * FROM jsonb_to_recordset(targets) AS x(
-                            id int, code text, name text, priority int, analyse_procedure regproc, process_procedure regproc)
+    FOR target_rec IN SELECT * FROM jsonb_populate_recordset(NULL::public.import_step, targets)
                       ORDER BY priority
     LOOP
-        -- Determine which procedure to call for this phase
-        IF phase = 'analyse'::public.import_step_phase THEN
-            proc_to_call := target_rec.analyse_procedure;
-        ELSE -- 'process' phase
-            proc_to_call := target_rec.process_procedure;
-        END IF;
+        proc_to_call := target_rec.analyse_procedure;
 
         -- Skip if no procedure defined for this target/phase
         IF proc_to_call IS NULL THEN
-            RAISE DEBUG '[Job %] Skipping target % (priority %) for phase % - no procedure defined.', job.id, target_rec.name, target_rec.priority, phase;
+            RAISE DEBUG '[Job %] Skipping target % (priority %) for analysis phase - no procedure defined.', job.id, target_rec.name, target_rec.priority;
             CONTINUE;
         END IF;
 
-        RAISE DEBUG '[Job %] Checking target % (priority %) for phase % using procedure %', job.id, target_rec.name, target_rec.priority, phase, proc_to_call;
+        RAISE DEBUG '[Job %] Checking target % (priority %) for analysis phase using procedure % (is_holistic: %)',
+            job.id, target_rec.name, target_rec.priority, proc_to_call, target_rec.is_holistic;
 
-        -- Find one batch of rows ready for this target's phase
-        EXECUTE format(
-            $$SELECT array_agg(row_id) FROM (
-                SELECT row_id FROM public.%I
-                WHERE state = %L AND last_completed_priority < %L
-                ORDER BY row_id -- Ensure consistent batching using row_id
-                LIMIT %L
-                FOR UPDATE SKIP LOCKED -- Avoid waiting for locked rows
-             ) AS batch$$,
-            job.data_table_name,
-            current_phase_data_state,
-            target_rec.priority,
-            batch_size
-        ) INTO batch_row_ids;
+        -- Update the job record to reflect the current step being processed *before* executing it.
+        -- This provides real-time monitoring of which step the job is currently working on.
+        UPDATE public.import_job SET current_step_code = target_rec.code, current_step_priority = target_rec.priority WHERE id = job.id;
 
-        -- If no rows found for this target, move to the next target
-        IF batch_row_ids IS NULL OR array_length(batch_row_ids, 1) = 0 THEN
-            RAISE DEBUG '[Job %] No rows found for target % (priority %) in state % with priority < %.',
-                        job.id, target_rec.name, target_rec.priority,
-                        current_phase_data_state, target_rec.priority;
-            CONTINUE; -- Move to the next target in the FOR loop
-        END IF;
-
-        -- We found a batch, so we know there is (or was) work to do.
-        -- We will return TRUE to signal the calling procedure to reschedule.
-        any_work_found_in_tx := TRUE;
-
-        RAISE DEBUG '[Job %] Found batch of % rows for target % (priority %), calling %',
-                    job.id, array_length(batch_row_ids, 1), target_rec.name, target_rec.priority, proc_to_call;
-
-        -- Call the target-specific procedure
+        -- Handle holistic vs. batched steps
         BEGIN
-            -- Always pass the step_code as the third argument
-            EXECUTE format('CALL %s($1, $2, $3)', proc_to_call) USING job.id, batch_row_ids, target_rec.code;
-            rows_processed_in_tx := rows_processed_in_tx + array_length(batch_row_ids, 1);
+            IF COALESCE(target_rec.is_holistic, false) THEN
+                -- HOLISTIC STEP: Called once per phase. Processes all relevant rows.
+                DECLARE v_rows_exist BOOLEAN;
+                BEGIN
+                    EXECUTE format($$SELECT EXISTS(SELECT 1 FROM public.%I WHERE state = %L AND last_completed_priority < %L LIMIT 1)$$,
+                        job.data_table_name, current_phase_data_state, target_rec.priority)
+                    INTO v_rows_exist;
 
-            -- After a step completes, if it's the final processing step, update the row state to 'processed'
-            -- This makes the state transition part of the batch work itself, not a separate sweep.
-            IF phase = 'process'::public.import_step_phase AND target_rec.priority >= max_process_priority THEN
-                EXECUTE format($$UPDATE public.%I SET state = 'processed' WHERE row_id = ANY(%L) AND state = 'processing' AND error IS NULL$$,
-                    job.data_table_name, batch_row_ids);
-                RAISE DEBUG '[Job %] Marked % rows as processed after final step %.', job.id, array_length(batch_row_ids, 1), target_rec.name;
+                    IF v_rows_exist THEN
+                        RAISE DEBUG '[Job %] Calling holistic procedure % for target %.', job.id, proc_to_call, target_rec.name;
+                        EXECUTE format('CALL %s($1, $2, $3)', proc_to_call) USING job.id, NULL::INTEGER[], target_rec.code;
+                        -- The holistic procedure itself must update last_completed_priority.
+                        -- Since work was found and done, return immediately to reschedule.
+                        RETURN TRUE;
+                    END IF;
+                END;
+            ELSE
+                -- BATCHED STEP: Called repeatedly. Processes one batch at a time.
+                EXECUTE format(
+                    $$SELECT array_agg(row_id) FROM (
+                        SELECT row_id FROM public.%I
+                        WHERE state = %L AND last_completed_priority < %L
+                        ORDER BY row_id LIMIT %L FOR UPDATE SKIP LOCKED
+                     ) AS batch$$,
+                    job.data_table_name, current_phase_data_state, target_rec.priority, batch_size
+                ) INTO batch_row_ids;
+
+                IF batch_row_ids IS NOT NULL AND array_length(batch_row_ids, 1) > 0 THEN
+                    RAISE DEBUG '[Job %] Found batch of % rows for target % (priority %), calling %',
+                        job.id, array_length(batch_row_ids, 1), target_rec.name, target_rec.priority, proc_to_call;
+
+                    EXECUTE format('CALL %s($1, $2, $3)', proc_to_call) USING job.id, batch_row_ids, target_rec.code;
+
+                    -- Since work was found and done, return immediately to reschedule.
+                    RETURN TRUE;
+                END IF;
             END IF;
         EXCEPTION WHEN OTHERS THEN
             GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
             RAISE WARNING '[Job %] Programming error suspected in procedure % for target % (code: %): %', job.id, proc_to_call, target_rec.name, target_rec.code, error_message;
-            -- Log the job error before re-raising
-            UPDATE public.import_job SET error = jsonb_build_object('programming_error_in_step_procedure', format('Error during %s phase, target %s (code: %s, proc: %s): %s', phase, target_rec.name, target_rec.code, proc_to_call::text, error_message))
+            UPDATE public.import_job SET error = jsonb_build_object('programming_error_in_step_procedure', format('Error during analysis phase, target %s (code: %s, proc: %s): %s', target_rec.name, target_rec.code, proc_to_call::text, error_message))
             WHERE id = job.id;
-            RAISE; -- Re-raise the original exception to halt and indicate a programming error
+            RAISE;
         END;
-        -- After processing one batch for a target, continue to the next target.
     END LOOP; -- End target loop
 
-    -- The function returns true if any batch was found and processed.
-    -- This indicates that the job should be rescheduled to process subsequent batches.
-    -- It returns false only if a full pass over all steps found no work,
-    -- meaning the phase is complete.
-    RAISE DEBUG '[Job %] Phase % processing pass complete for this transaction. Rows processed in tx: %. Work found in tx: %',
-                job.id, phase, rows_processed_in_tx, any_work_found_in_tx;
-
-    RETURN any_work_found_in_tx;
+    -- If the loop completes, it means a full pass over all steps found no pending work.
+    -- The phase is therefore complete. Return false to stop rescheduling.
+    RAISE DEBUG '[Job %] Analysis phase processing pass complete. No work found.', job.id;
+    RETURN FALSE;
 END;
-$import_job_process_phase$;
+$import_job_analysis_phase$;
+
+-- Helper function to process the processing phase in batches
+CREATE FUNCTION admin.import_job_processing_phase(
+    job public.import_job
+) RETURNS BOOLEAN -- Returns TRUE if work was done and rescheduling is needed
+LANGUAGE plpgsql AS $import_job_processing_phase$
+DECLARE
+    v_batch_size INTEGER := 100;
+    v_batch_row_ids INTEGER[];
+BEGIN
+    RAISE DEBUG '[Job %] Processing phase: checking for a batch.', job.id;
+
+    EXECUTE format(
+        $$SELECT array_agg(row_id) FROM (
+            SELECT row_id FROM public.%I
+            WHERE state = 'processing' AND error IS NULL
+            ORDER BY row_id LIMIT %L FOR UPDATE SKIP LOCKED
+         ) AS batch$$,
+        job.data_table_name, v_batch_size
+    ) INTO v_batch_row_ids;
+
+    IF v_batch_row_ids IS NOT NULL AND array_length(v_batch_row_ids, 1) > 0 THEN
+        RAISE DEBUG '[Job %] Found batch of % rows to process.', job.id, array_length(v_batch_row_ids, 1);
+        BEGIN
+            CALL admin.import_job_process_batch(job, v_batch_row_ids);
+
+            EXECUTE format($$UPDATE public.%I SET state = 'processed' WHERE row_id = ANY(%L)$$,
+                           job.data_table_name, v_batch_row_ids);
+            RAISE DEBUG '[Job %] Batch successfully processed. Marked % rows as processed.', job.id, array_length(v_batch_row_ids, 1);
+        EXCEPTION WHEN OTHERS THEN
+            DECLARE
+                error_message TEXT;
+                error_context TEXT;
+            BEGIN
+                GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT,
+                                      error_context = PG_EXCEPTION_CONTEXT;
+                RAISE WARNING '[Job %] Error processing batch: %. Context: %. Marking batch rows as error and failing job.', job.id, error_message, error_context;
+                EXECUTE format($$UPDATE public.%I SET state = 'error', error = COALESCE(error, '{}'::jsonb) || %L WHERE row_id = ANY(%L)$$,
+                               job.data_table_name, jsonb_build_object('process_batch_error', error_message, 'context', error_context), v_batch_row_ids);
+                UPDATE public.import_job SET error = jsonb_build_object('error_in_processing_batch', error_message, 'context', error_context), state = 'finished' WHERE id = job.id;
+                -- On error, do not reschedule.
+                RETURN FALSE;
+            END;
+        END;
+        RETURN TRUE; -- Work was done.
+    ELSE
+        RAISE DEBUG '[Job %] No more rows found in ''processing'' state. Phase complete.', job.id;
+        RETURN FALSE; -- No work found.
+    END IF;
+END;
+$import_job_processing_phase$;
 
 
 -- Function to prepare import job by moving data from upload table to data table

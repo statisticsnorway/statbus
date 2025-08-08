@@ -9,7 +9,7 @@ DECLARE
     v_job public.import_job;
     v_snapshot JSONB;
     v_definition_snapshot JSONB; -- Renamed to avoid conflict with CONVENTIONS.md example
-    v_step RECORD;
+    v_step public.import_step;
     v_sql TEXT;
     v_update_count INT := 0;
     v_skipped_update_count INT := 0;
@@ -30,9 +30,10 @@ BEGIN
         RAISE EXCEPTION '[Job %] Failed to load valid definition snapshot from import_job record', p_job_id;
     END IF;
 
-    SELECT * INTO v_step FROM public.import_step WHERE code = 'legal_unit';
+    -- Find the step details from the snapshot
+    SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = 'legal_unit';
     IF NOT FOUND THEN
-        RAISE EXCEPTION '[Job %] legal_unit target step not found', p_job_id;
+        RAISE EXCEPTION '[Job %] legal_unit target step not found in snapshot', p_job_id;
     END IF;
 
     v_sql := format($$
@@ -156,7 +157,7 @@ DECLARE
     v_job public.import_job;
     v_snapshot JSONB;
     v_definition_snapshot JSONB;
-    v_step RECORD;
+    v_step public.import_step;
     v_strategy public.import_strategy;
     v_edit_by_user_id INT;
     v_timestamp TIMESTAMPTZ := clock_timestamp();
@@ -188,9 +189,10 @@ BEGIN
         RAISE EXCEPTION '[Job %] Failed to load valid definition snapshot from import_job record', p_job_id;
     END IF;
 
-    SELECT * INTO v_step FROM public.import_step WHERE code = 'legal_unit';
+    -- Find the step details from the snapshot
+    SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = 'legal_unit';
     IF NOT FOUND THEN
-        RAISE EXCEPTION '[Job %] legal_unit target step not found', p_job_id;
+        RAISE EXCEPTION '[Job %] legal_unit target step not found in snapshot', p_job_id;
     END IF;
 
     v_strategy := (v_definition_snapshot->'import_definition'->>'strategy')::public.import_strategy;
@@ -540,12 +542,11 @@ BEGIN
             EXECUTE format($$
                 UPDATE public.%I dt SET
                     legal_unit_id = tcl.new_legal_unit_id, -- This updates the _data table for the 'insert' rows
-                    last_completed_priority = %L,
                     error = NULL,
                     state = %L
                 FROM temp_created_lus tcl
                 WHERE dt.row_id = tcl.data_row_id AND dt.state != 'error';
-            $$, v_data_table_name, v_step.priority, 'processing'::public.import_data_state);
+            $$, v_data_table_name, 'processing'::public.import_data_state);
             RAISE DEBUG '[Job %] process_legal_unit: Updated _data table for % new LUs.', p_job_id, v_inserted_new_lu_count;
         END IF;
 
@@ -635,12 +636,11 @@ BEGIN
                 EXECUTE format($$
                     UPDATE public.%I dt SET
                         legal_unit_id = tpai.actual_legal_unit_id,
-                        last_completed_priority = %L,
                         error = NULL,
                         state = %L
                     FROM temp_processed_action_lu_ids tpai
                     WHERE dt.row_id = tpai.data_row_id AND dt.row_id = ANY(%L) AND dt.action = 'replace';
-                $$, v_data_table_name, v_step.priority, 'processing'::public.import_data_state, v_batch_success_row_ids);
+                $$, v_data_table_name, 'processing'::public.import_data_state, v_batch_success_row_ids);
                 RAISE DEBUG '[Job %] process_legal_unit: Updated _data table for % successfully replaced LUs with correct ID.', p_job_id, v_actually_replaced_lu_count;
             END IF;
         END IF; -- End v_intended_replace_lu_count > 0
@@ -716,12 +716,11 @@ BEGIN
                 EXECUTE format($$
                     UPDATE public.%I dt SET
                         legal_unit_id = tpai.actual_legal_unit_id,
-                        last_completed_priority = %L,
                         error = NULL,
                         state = %L
                     FROM temp_processed_action_lu_ids tpai
                     WHERE dt.row_id = tpai.data_row_id AND dt.row_id = ANY(%L) AND dt.action = 'update';
-                $$, v_data_table_name, v_step.priority, 'processing'::public.import_data_state, v_batch_success_row_ids);
+                $$, v_data_table_name, 'processing'::public.import_data_state, v_batch_success_row_ids);
                 RAISE DEBUG '[Job %] process_legal_unit: Updated _data table for % successfully updated LUs with correct ID.', p_job_id, v_actually_updated_lu_count;
             END IF;
         END IF; -- End v_intended_update_lu_count > 0
@@ -737,8 +736,7 @@ BEGIN
         RAISE; -- Re-raise to halt processing
     END;
 
-    EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L) AND action = 'skip'$$,
-                   v_job.data_table_name, v_step.priority, p_batch_row_ids);
+    -- The framework now handles advancing priority for all rows, including 'skip'. No update needed here.
 
     RAISE DEBUG '[Job %] process_legal_unit (Batch): Finished. New (insert): %, Replaced (ok): %, Updated (ok): %. Total Errors in step: %',
         p_job_id, v_inserted_new_lu_count, v_actually_replaced_lu_count, v_actually_updated_lu_count, v_error_count;

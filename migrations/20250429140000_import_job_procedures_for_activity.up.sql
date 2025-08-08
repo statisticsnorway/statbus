@@ -9,7 +9,7 @@ CREATE OR REPLACE PROCEDURE import.analyse_activity(p_job_id INT, p_batch_row_id
 LANGUAGE plpgsql AS $analyse_activity$
 DECLARE
     v_job public.import_job;
-    v_step RECORD;
+    v_step public.import_step;
     v_data_table_name TEXT;
     v_error_count INT := 0;
     v_update_count INT := 0;
@@ -37,11 +37,10 @@ BEGIN
     v_data_table_name := v_job.data_table_name; -- Assign separately
     v_job_mode := (v_job.definition_snapshot->'import_definition'->>'mode')::public.import_mode;
 
-    -- Get the specific step details using p_step_code
-    SELECT * INTO v_step FROM public.import_step WHERE code = p_step_code;
-
+    -- Get the specific step details using p_step_code from the snapshot
+    SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = p_step_code;
     IF NOT FOUND THEN
-        RAISE EXCEPTION '[Job %] analyse_activity: Step with code % not found. This should not happen if called by import_job_process_phase.', p_job_id, p_step_code;
+        RAISE EXCEPTION '[Job %] analyse_activity: Step with code % not found in snapshot. This should not happen if called by import_job_process_phase.', p_job_id, p_step_code;
     END IF;
 
     RAISE DEBUG '[Job %] analyse_activity: Processing for target % (code: %, priority %)', p_job_id, v_step.name, v_step.code, v_step.priority;
@@ -166,8 +165,8 @@ LANGUAGE plpgsql AS $process_activity$
 DECLARE
     v_job public.import_job;
     v_snapshot JSONB;
-    v_definition JSONB;
-    v_step RECORD;
+    v_definition public.import_definition;
+    v_step public.import_step;
     v_strategy public.import_strategy;
     v_edit_by_user_id INT;
     v_timestamp TIMESTAMPTZ := clock_timestamp();
@@ -197,21 +196,20 @@ BEGIN
     -- Get job details and snapshot
     SELECT * INTO v_job FROM public.import_job ij WHERE id = p_job_id;
     v_data_table_name := v_job.data_table_name; -- Assign separately
-    v_definition := v_job.definition_snapshot->'import_definition'; -- Read from snapshot column
+    SELECT * INTO v_definition FROM jsonb_populate_record(NULL::public.import_definition, v_job.definition_snapshot->'import_definition');
 
-    IF v_definition IS NULL OR jsonb_typeof(v_definition) != 'object' THEN
+    IF v_definition IS NULL THEN
         RAISE EXCEPTION '[Job %] Failed to load valid import_definition object from definition_snapshot', p_job_id;
     END IF;
 
-    -- Get the specific step details using p_step_code
-    SELECT * INTO v_step FROM public.import_step WHERE code = p_step_code;
-
+    -- Get the specific step details using p_step_code from the snapshot
+    SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = p_step_code;
     IF NOT FOUND THEN
-        RAISE EXCEPTION '[Job %] process_activity: Step with code % not found. This should not happen if called by import_job_process_phase.', p_job_id, p_step_code;
+        RAISE EXCEPTION '[Job %] process_activity: Step with code % not found in snapshot. This should not happen if called by import_job_process_phase.', p_job_id, p_step_code;
     END IF;
 
     RAISE DEBUG '[Job %] process_activity: Processing for target % (code: %, priority %)', p_job_id, v_step.name, v_step.code, v_step.priority;
-    v_activity_type := CASE v_step.code -- Use v_step.code
+    v_activity_type := CASE p_step_code -- Use p_step_code parameter directly for logic
         WHEN 'primary_activity' THEN 'primary'::public.activity_type
         WHEN 'secondary_activity' THEN 'secondary'::public.activity_type
         ELSE NULL -- Should not happen
@@ -225,10 +223,10 @@ BEGIN
     v_final_id_col := CASE v_activity_type WHEN 'primary' THEN 'primary_activity_id' ELSE 'secondary_activity_id' END;
 
     -- Determine operation type and user ID
-    v_strategy := (v_definition->>'strategy')::public.import_strategy;
+    v_strategy := v_definition.strategy;
     v_edit_by_user_id := v_job.user_id;
 
-    v_job_mode := (v_job.definition_snapshot->'import_definition'->>'mode')::public.import_mode;
+    v_job_mode := v_definition.mode;
 
     IF v_job_mode = 'legal_unit' THEN
         v_select_lu_id_expr := 'dt.legal_unit_id';
@@ -270,8 +268,8 @@ BEGIN
         UPDATE public.%I dt SET
             action = 'skip',
             state = 'error',
-            error = COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object(%L, %L),
-            last_completed_priority = %L -- Update LCP to this step's priority
+            error = COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object(%L, %L)
+            -- last_completed_priority is not used in the processing phase
         WHERE dt.row_id = ANY(%L)
           AND dt.action != 'skip' -- Only consider rows not already skipped by prior analysis steps
           AND dt.%I IS NOT NULL -- Only if an activity code was provided (otherwise this step is N/A for the row)
@@ -279,7 +277,6 @@ BEGIN
     $$, v_data_table_name, 
         v_parent_unavailable_error_key, 
         v_parent_unavailable_error_message, 
-        v_step.priority, 
         p_batch_row_ids,
         v_category_id_col, -- Check against the resolved category_id column from _data table
         v_parent_id_check_sql
@@ -386,12 +383,11 @@ BEGIN
             EXECUTE format($$
                 UPDATE public.%I dt SET
                     %I = tca.new_activity_id,
-                    last_completed_priority = %L,
                     error = NULL,
                     state = %L
                 FROM temp_created_acts tca
                 WHERE dt.row_id = tca.data_row_id AND dt.state != 'error';
-            $$, v_data_table_name, v_final_id_col, v_step.priority, 'processing'::public.import_data_state);
+            $$, v_data_table_name, v_final_id_col, 'processing'::public.import_data_state);
             RAISE DEBUG '[Job %] process_activity: Updated _data table for % new activities (type: %).', p_job_id, v_inserted_new_act_count, v_activity_type;
         END IF;
 
@@ -498,13 +494,12 @@ BEGIN
                 v_sql := format($$
                     UPDATE public.%I dt SET
                         %I = tbd.existing_act_id, 
-                        last_completed_priority = %L,
                         error = NULL,
                         state = %L
                     FROM temp_batch_data tbd
                     WHERE dt.row_id = tbd.data_row_id
                       AND dt.row_id = ANY(%L);
-                $$, v_data_table_name, v_final_id_col, v_step.priority, 'processing'::public.import_data_state, v_batch_upsert_success_row_ids);
+                $$, v_data_table_name, v_final_id_col, 'processing'::public.import_data_state, v_batch_upsert_success_row_ids);
                 RAISE DEBUG '[Job %] process_activity: Updating _data table for successful replace rows (type: %): %', p_job_id, v_activity_type, v_sql;
                 EXECUTE v_sql;
             END IF;
@@ -522,22 +517,7 @@ BEGIN
         RAISE;
     END;
 
-    -- Update priority for rows in the original batch that were not processed by insert or replace,
-    -- and are not in an error state from this step.
-    v_sql := format($$
-        UPDATE public.%I dt SET
-            last_completed_priority = %L
-        WHERE dt.row_id = ANY(%L)
-          AND dt.action != 'skip'
-          AND dt.state != 'error' 
-          AND %I IS NULL; 
-    $$, v_data_table_name, v_step.priority, p_batch_row_ids, v_final_id_col);
-    RAISE DEBUG '[Job %] process_activity: Updating priority for unprocessed rows (type: %): %', p_job_id, v_activity_type, v_sql;
-    EXECUTE v_sql;
-
-    -- Update priority for skipped rows
-    EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L) AND action = 'skip'$$,
-                   v_job.data_table_name, v_step.priority, p_batch_row_ids);
+    -- The framework now handles advancing priority for all rows, including unprocessed and skipped rows. No update needed here.
 
     RAISE DEBUG '[Job %] process_activity (Batch): Finished. New: %, Replaced: %. Errors: %',
         p_job_id, v_inserted_new_act_count, v_updated_existing_act_count, v_error_count;

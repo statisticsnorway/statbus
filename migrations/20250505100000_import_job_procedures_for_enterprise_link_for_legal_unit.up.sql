@@ -8,7 +8,7 @@ CREATE OR REPLACE PROCEDURE import.analyse_enterprise_link_for_legal_unit(p_job_
 LANGUAGE plpgsql AS $analyse_enterprise_link_for_legal_unit$
 DECLARE
     v_job public.import_job;
-    v_step RECORD;
+    v_step public.import_step;
     v_data_table_name TEXT;
     v_sql TEXT;
     v_update_count INT := 0;
@@ -31,15 +31,16 @@ BEGIN
     v_data_table_name := v_job.data_table_name;
     v_job_mode := (v_job.definition_snapshot->'import_definition'->>'mode')::public.import_mode;
 
+    -- Find the step details from the snapshot
+    SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = 'enterprise_link_for_legal_unit';
+    IF NOT FOUND THEN RAISE EXCEPTION '[Job %] enterprise_link_for_legal_unit step not found in snapshot', p_job_id; END IF;
+
     IF v_job_mode != 'legal_unit' THEN
         RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Skipping, job mode is %, not ''legal_unit''.', p_job_id, v_job_mode;
-        EXECUTE format('UPDATE public.%I SET last_completed_priority = (SELECT priority FROM public.import_step WHERE code = %L) WHERE row_id = ANY(%L)', 
-                       v_data_table_name, p_step_code, p_batch_row_ids);
+        EXECUTE format('UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L)', 
+                       v_data_table_name, v_step.priority, p_batch_row_ids);
         RETURN;
     END IF;
-
-    SELECT * INTO v_step FROM public.import_step WHERE code = 'enterprise_link_for_legal_unit';
-    IF NOT FOUND THEN RAISE EXCEPTION '[Job %] enterprise_link_for_legal_unit step not found', p_job_id; END IF;
 
     -- Determine relevant source column names for external identifiers from the definition snapshot
     SELECT COALESCE(jsonb_agg(idc_element->>'column_name'), '[]'::jsonb)
@@ -182,7 +183,7 @@ CREATE OR REPLACE PROCEDURE import.process_enterprise_link_for_legal_unit(p_job_
 LANGUAGE plpgsql AS $process_enterprise_link_for_legal_unit$
 DECLARE
     v_job public.import_job;
-    v_step RECORD;
+    v_step public.import_step;
     v_data_table_name TEXT;
     v_sql TEXT;
     v_update_count INT := 0;
@@ -199,16 +200,14 @@ BEGIN
     v_data_table_name := v_job.data_table_name;
     v_job_mode := (v_job.definition_snapshot->'import_definition'->>'mode')::public.import_mode;
 
+    -- Find the step details from the snapshot
+    SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = 'enterprise_link_for_legal_unit';
+    IF NOT FOUND THEN RAISE EXCEPTION '[Job %] enterprise_link_for_legal_unit step not found in snapshot', p_job_id; END IF;
+
     IF v_job_mode != 'legal_unit' THEN
-        RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit: Skipping, job mode is %, not ''legal_unit''.', p_job_id, v_job_mode;
-        EXECUTE format('UPDATE public.%I SET last_completed_priority = (SELECT priority FROM public.import_step WHERE code = %L) WHERE row_id = ANY(%L)', 
-                       v_data_table_name, p_step_code, p_batch_row_ids);
+        RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit: Skipping, job mode is %, not ''legal_unit''. No action needed.', p_job_id, v_job_mode;
         RETURN;
     END IF;
-
-    -- Find the step details
-    SELECT * INTO v_step FROM public.import_step WHERE code = 'enterprise_link_for_legal_unit';
-    IF NOT FOUND THEN RAISE EXCEPTION '[Job %] enterprise_link step not found', p_job_id; END IF;
 
     -- Step 1: Identify rows needing enterprise creation (new LUs, action = 'insert')
     CREATE TEMP TABLE temp_new_lu_for_enterprise_creation (
@@ -261,14 +260,13 @@ BEGIN
         UPDATE public.%I dt SET
             enterprise_id = tce.enterprise_id,
             primary_for_enterprise = TRUE, -- All slices of a new LU linked to a new Enterprise are initially primary
-            last_completed_priority = %L,
             error = NULL, -- Clear previous errors if this step succeeds for the row
             state = %L
         FROM temp_created_enterprises tce -- tce.data_row_id is the founding_row_id
         WHERE dt.founding_row_id = tce.data_row_id -- Link all rows of the entity via founding_row_id
           AND dt.row_id = ANY(%L) -- Ensure we only update rows from the current batch
           AND dt.state != 'error'; -- Avoid updating rows already in error from a prior step
-    $$, v_data_table_name, v_step.priority, 'processing'::public.import_data_state, p_batch_row_ids);
+    $$, v_data_table_name, 'processing'::public.import_data_state, p_batch_row_ids);
     RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit: Updating _data for new enterprises and their related rows (action=insert): %', p_job_id, v_sql;
     EXECUTE v_sql;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
@@ -276,18 +274,15 @@ BEGIN
     -- Step 4: Update rows that were already processed by analyse step (existing LUs, action = 'replace') - just advance priority
     v_sql := format($$
         UPDATE public.%I dt SET
-            last_completed_priority = %L,
             state = %L
         WHERE dt.row_id = ANY(%L)
           AND dt.action = 'replace' -- Only update rows for existing LUs
           AND dt.state != %L; -- Avoid rows already in error
-    $$, v_data_table_name, v_step.priority, 'processing', p_batch_row_ids, 'error');
+    $$, v_data_table_name, 'processing', p_batch_row_ids, 'error');
      RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit: Updating existing LUs (action=replace, priority only): %', p_job_id, v_sql;
     EXECUTE v_sql;
 
-    -- Step 5: Update skipped rows (action = 'skip') - just advance priority
-    EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L) AND action = 'skip'$$,
-                   v_data_table_name, v_step.priority, p_batch_row_ids);
+    -- Step 5: Update skipped rows (action = 'skip') - no LCP update needed in processing phase.
     GET DIAGNOSTICS v_update_count = ROW_COUNT; -- Re-using v_update_count, fine for debug
     RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit: Advanced priority for % skipped rows.', p_job_id, v_update_count;
 

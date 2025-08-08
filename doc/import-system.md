@@ -24,6 +24,7 @@ The import system is built around several key database tables and concepts:
     *   Has a human-readable `name` for display purposes.
     *   Steps have a defined `priority` which dictates the execution order when multiple steps are included in a definition.
     *   Each step can have an associated `analyse_procedure` and/or `process_procedure` which contain the specific PL/pgSQL logic for that step. Procedure names should generally correspond to the step `code` (e.g., `admin.analyse_legal_unit`, `admin.process_location`).
+    *   Can be marked as `is_holistic` (`boolean`, default `false`). Due to the single-worker queue model, this flag's purpose is **not** concurrency control. Its purpose is to ensure **data completeness**. A holistic step's procedure is called only once for the entire dataset, not in batches. This is crucial for steps that require a complete, consistent view of all rows to make a correct decision, such as cross-row validation (e.g., finding a `founding_row_id` across the whole file). A batched procedure, by contrast, only sees a small slice of the data and cannot perform these tasks correctly.
 
 3.  **Definition Steps (`import_definition_step`)**:
     *   A linking table connecting an `import_definition` to the specific `import_step` records it will execute. This allows a definition to use a subset of available steps in the correct order.
@@ -72,7 +73,7 @@ The import system is built around several key database tables and concepts:
             *   The `external_idents` step specifically determines the potential `operation` (`insert`, `replace`, `update`) based on identifier lookups, and the final `action` (`insert`, `replace`, `update`, or `skip`) based on the `operation`, job's `strategy`, and any hard errors.
             *   Updates the row's `state` (to `analysing`, or `error` for hard errors), `error` (for hard errors), `invalid_codes` (for soft errors), and `last_completed_priority`.
         *   **Operation (`process_procedure`):** Reads `source_input` and `internal` columns, including the `action` column. Performs the final `INSERT` (for `action='insert'`), `REPLACE` (for `action='replace'`), or `UPDATE` (for `action='update'`) into the target Statbus tables, respecting the job's `strategy`. Skips rows where `action='skip'`. Stores the resulting primary key(s) in the corresponding `pk_id` column. Updates the row's `state` (to `processing` or `error` if the DML fails), `error`, and `last_completed_priority`. *Note: Some steps like `external_idents` only perform analysis and do not have a process procedure.*
-    *   **Temporal Slicing Principle**: A new temporal slice (i.e., a new row with adjusted `valid_after`/`valid_to`) is created in a specific target table (e.g., `public.legal_unit`, `public.location`) *only* when "core" data fields *within that specific table* change. Changes in related tables (e.g., a `location` change for a `legal_unit`) will create new slices in the related table (`public.location`) but not necessarily in the parent table (`public.legal_unit`) unless the parent table's own core data also changes (e.g., if the `legal_unit`'s `status_id` changes due to the location change). The `public.statistical_unit` view then joins these tables to present a consolidated timeline. This timeline may appear more fragmented if related data changes frequently. Furthermore, the `public.statistical_unit` view will also create distinct temporal slices if the *source data itself* defines different `valid_from`/`valid_to` periods for an entity, even if the core attributes of the primary target table (e.g., `public.legal_unit`) do not change across these source-defined periods. This ensures `statistical_unit` reflects the most granular temporal segmentation available from all contributing data sources and underlying tables.
+    *   **Temporal Slicing Principle**: A new temporal slice (i.e., a new row with adjusted `valid_after`/`valid_to`) is created in a specific target table (e.g., `public.legal_unit`, `public.location`) *only* when "core" data fields *within that specific table* change. The system uses an **exclusive start date (`valid_after`)** and an **inclusive end date (`valid_to`)** for all temporal tables, representing the period `(valid_after, valid_to]`. Source data, however, is expected to provide an **inclusive start date (`valid_from`)**. The `analyse_valid_time` step automatically converts the source `valid_from` to the internal `derived_valid_after` by subtracting one day. This convention ensures consistency across all temporal tables. Changes in related tables (e.g., a `location` change for a `legal_unit`) create new slices in the related table (`public.location`) but not necessarily in the parent table (`public.legal_unit`) unless the parent table's own core data also changes. The `public.statistical_unit` view then joins these tables to present a consolidated timeline.
     *   These procedures operate on batches of rows identified by an array of their `row_id` values (e.g., `INTEGER[]`). The `row_id` is a stable, dedicated identifier within the job-specific `_data` table, used instead of PostgreSQL's system column `ctid` because `ctid` can change during row updates or table maintenance, making it unreliable for this multi-stage process. When these `row_id`s are temporarily stored (e.g., in a `TEMP TABLE` for batch processing), the column holding them in the temporary table is typically named `data_row_id` for clarity. They use `FOR UPDATE SKIP LOCKED` when selecting batches to handle concurrency.
 
 8.  **Import Job (`import_job`)**:
@@ -87,9 +88,9 @@ The import system is built around several key database tables and concepts:
             *   *Transition*: Worker (`admin.import_job_process`) picks up the job and transitions it to `preparing_data`.
         *   `preparing_data`: Worker is executing `admin.import_job_prepare` to move and transform data from `_upload` to `_data` table. Rows in `_data` are set to `pending` state.
             *   *Transition*: After `admin.import_job_prepare` completes, worker transitions job to `analysing_data`. Rows in `_data` are updated from `pending` to `analysing`.
-        *   `analysing_data`: Worker is executing `admin.import_job_process_phase('analyse')`. Individual rows in `_data` are in `analysing` state.
-            *   *Transition (Success, Review Needed)*: If all rows are analysed without fatal errors and `job.review` is true, rows in `_data` (that were `analysing`) are updated to `analysed`. Job transitions to `waiting_for_review`.
-            *   *Transition (Success, No Review)*: If all rows are analysed without fatal errors and `job.review` is false, rows in `_data` (that were `analysing`) are updated to `processing` (and `last_completed_priority` reset). Job transitions to `processing_data`.
+        *   `analysing_data`: Worker is executing `admin.import_job_analysis_phase()`. Individual rows in `_data` are in `analysing` state for the entire duration of this phase.
+            *   *Transition (Success, Review Needed)*: When `import_job_analysis_phase` returns `false` (signaling all analysis steps for all rows are complete), if `job.review` is true, all non-error rows are updated from `analysing` to `analysed`. The job then transitions to `waiting_for_review`.
+            *   *Transition (Success, No Review)*: When `import_job_analysis_phase` returns `false`, if `job.review` is false, all non-error rows are updated from `analysing` to `processing` (and `last_completed_priority` reset). The job then transitions to `processing_data`.
             *   *Transition (Failure)*: If a fatal error occurs during the analysis phase (e.g., in a step procedure), the job's `error` field is set, and it transitions to `finished`.
         *   `waiting_for_review`: Analysis complete, job requires user approval/rejection. Rows in `_data` that passed analysis are in `analysed` state.
             *   *Transition (Approved)*: User approves. Job state changed to `approved` (typically via API call). The `import_job_state_change_after` trigger enqueues the job.
@@ -98,13 +99,13 @@ The import system is built around several key database tables and concepts:
             *   *Transition*: Worker picks up the job. Rows in `_data` (that were `analysed` and have no `error`) are updated to `processing` (and `last_completed_priority` reset). Job transitions to `processing_data`.
         *   `rejected`: User rejected the analysed changes.
             *   *Transition*: Worker picks up the job and transitions it to `finished`. No data is processed into final tables.
-        *   `processing_data`: Worker is executing `admin.import_job_process_phase('process')`. Individual rows in `_data` are in `processing` state.
-            *   *Transition (Success)*: If all rows are processed without fatal errors, rows in `_data` (that were `processing` and have no `error`) are updated to `processed`. Job transitions to `finished`.
-            *   *Transition (Failure)*: If a fatal error occurs during the processing phase, the job's `error` field is set, and it transitions to `finished`.
+        *   `processing_data`: Worker is executing `admin.import_job_processing_phase()`. Individual rows in `_data` are in `processing` state.
+            *   *Transition (Success)*: When `import_job_processing_phase` returns `false` (signaling no more batches are found), the job transitions to `finished`. Rows that were successfully processed are in the `processed` state.
+            *   *Transition (Failure)*: If a fatal error occurs during batch processing, the job's `error` field is set, and it transitions to `finished`.
         *   `finished`: Import process completed (successfully or due to rejection/error). This is a terminal state.
     *   Manages the job-specific tables (`_upload`, `_data`).
     *   Keeps a snapshot of the import definition and related tables in the `definition_snapshot` JSONB column.
-    *   Processed asynchronously by the `worker` system.
+    *   Processed asynchronously by the `worker` system. The worker system uses a single-threaded model for the `import` queue, meaning only one worker processes jobs from this queue at a time. This serializes job processing and prevents database-level race conditions between different jobs or steps. The primary purpose of batching is to keep transactions small and provide granular progress updates, not to enable parallel processing within a job.
 
 9.  **Job-Specific Tables & Snapshot**:
     *   `<job_slug>_upload`: Stores the raw data exactly as uploaded from the source file. Columns match `import_source_column`.
@@ -142,12 +143,12 @@ The import system is built around several key database tables and concepts:
         *   The `DO UPDATE SET` clause updates all inserted columns that are not part of the conflict key.
         *   Sets initial row state to `pending` and `last_completed_priority` to 0 in the `_data` table for all newly inserted/updated rows.
         *   Job state moves to `preparing_data`. The worker is rescheduled.
-    *   **Analyse (`admin.import_job_process_phase('analyse')`)**:
+    *   **Analyse (`admin.import_job_analysis_phase`)**:
         *   Job state moves to `analysing_data`.
-        *   Iterates through `import_step`s (from the `definition_snapshot`'s `import_step_list`) in `priority` order.
-        *   For each step with an `analyse_procedure`:
-            *   Selects batches of rows from `_data` (identified by their `row_id`) where `state = 'analysing'` (or `state = 'pending'` for the first analysis step) and `last_completed_priority < step.priority`. Rows with `action = 'skip'` due to a hard error in a *prior* step are typically not re-selected for analysis by subsequent steps, though `last_completed_priority` might still be advanced for them.
-            *   Calls the step's `analyse_procedure` with the batch of `row_id`s.
+        *   The function finds the first available step with pending work and processes **a single batch** (or the entire dataset for a holistic step) for that step within one transaction.
+        *   If any work is found and processed, the function **immediately returns `true`**, signaling that the job should be rescheduled. This ensures each transaction is small and focused. The worker will be called again to process the next batch or the next step.
+        *   If a full pass over all steps finds no pending work, the function returns `false`, signaling that the phase is complete.
+        *   After each transaction, the parent `import_job_process` procedure performs a **Progress Recount**: It recounts `completed_analysis_steps_weighted` to update the job's `analysis_completed_pct` value. The row-level state is **not** changed until the entire phase is complete.
             *   The procedure performs lookups/validations, updates `internal` columns, `error` (for hard errors), and `invalid_codes` (for soft errors).
             *   **Error Handling Rule for Analysis Procedures**:
                 *   **Hard Errors**: If an `analyse_procedure` detects a critical error that makes the row unprocessable for its specific domain (or subsequent domains that depend on its output), it *must*:
@@ -163,22 +164,13 @@ The import system is built around several key database tables and concepts:
             *   If no hard error is found by the current step, it updates `last_completed_priority = step.priority`. The `state` remains `'analysing'` (or advances if this is the last analysis step for the row). The `action` (e.g., 'insert', 'replace', 'update') determined by `analyse_external_idents` (or potentially modified to 'skip' by a prior analysis step that found a hard error) is preserved if no new hard error is found by the current step.
             *   When a step successfully processes data or resolves a previously reported issue, it should clear *only its specific keys* from the `error` and `invalid_codes` columns (e.g., `dt.error - 'my_error_key'`, `dt.invalid_codes - 'my_code_key'`). This ensures that errors or invalid codes reported by other steps are preserved.
             *   *Note: The `edit_info` step populates `edit_by_user_id` and `edit_at`. The `analyse_external_idents` step is primarily responsible for determining the initial `operation` and `action` based on identifier lookups and job strategy. It also identifies hard errors related to identifiers, including "unstable identifiers." An unstable identifier error occurs if an input row identifies an existing unit but attempts to *change the value* of one of its existing external identifiers of a specific type; this results in `action = 'skip'`. Adding a new identifier type to an existing unit, or omitting an identifier type (which might imply removal by a `process_` step), are not considered unstable identifier errors by this specific check.*
-        *   The function processes one batch per available step in a single transaction. If any batch is found and processed, the function returns `true`, signaling that work was done and the job should be rescheduled to process subsequent batches. After each transaction, the parent `import_job_process` procedure performs two actions:
-            1.  **Row State Transition**: It checks for any rows that have just completed all analysis steps (`last_completed_priority >= max_analysis_priority`) and immediately updates their state from `analysing` to `analysed`. This provides timely progress feedback in the UI, regardless of whether the job requires a final user review.
-            2.  **Progress Recount**: It recounts the total number of rows that have completed analysis (by checking their `last_completed_priority` against the maximum analysis step priority or if `state='error'`) and updates the job's `analysed_rows` progress counter.
-        *   This continues until a full pass over all analysis steps finds no more rows ready for processing. At this point, the function returns `false`.
-        *   Once the analysis phase is complete (i.e., the function returns `false`), the `import_job_process` procedure transitions the job's state to `processing_data` (or `waiting_for_review` if `job.review=true`). The worker is rescheduled if moving to `processing_data`.
-    *   **Process (`admin.import_job_process_phase('process')`)**:
-        *   Job state is `processing_data`.
-        *   Iterates through `import_step`s (from the `definition_snapshot`'s `import_step_list`) in `priority` order.
-        *   For each step with a `process_procedure`:
-            *   Selects batches of rows from `_data` (identified by their `row_id`) where `state = 'processing'` and `last_completed_priority < step.priority` and crucially `action != 'skip'` using `FOR UPDATE SKIP LOCKED`. This ensures rows marked as error (and thus skip) in the analysis phase are not processed.
-            *   Calls the step's `process_procedure` with the batch of `row_id`s.
-            *   The procedure reads data (including `internal` results, audit info, and `action`), performs the final `INSERT` (for `action='insert'`) or `REPLACE` (for `action='replace'`, using `import.batch_insert_or_replace_generic_valid_time_table` for temporal data), updates `pk_id` columns, and sets `last_completed_priority = step.priority`. If a `process_procedure` encounters an unrecoverable error for a row (which should be rare if analysis is robust), it should set that row's `state` to `'error'` and `action` to `'skip'`.
-            *   Immediately after a batch is processed by the final step in the sequence, its rows are transitioned from `state = 'processing'` to `state = 'processed'`, ensuring that state transitions are tied directly to the batch they belong to.
-        *   The function processes one batch per available step in a single transaction. If any batch is found and processed, the function returns `true`, indicating the job should be rescheduled to process subsequent batches.
-        *   This continues until a full pass over all processing steps finds no more rows ready for processing.
-        *   Once all operation steps for all rows are complete (the function returns `false`), the `import_job_process` procedure transitions the job's state to `finished`.
+    *   **Process (`admin.import_job_processing_phase`)**:
+        *   The orchestrator calls this procedure, which is in its **batch-driven** mode.
+        *   It selects a batch of rows from the `_data` table that are in the `processing` state.
+        *   It calls a helper procedure (`admin.import_job_process_batch`) that, within a **single transaction**, executes *all* `process_procedure`s for that batch in priority order.
+        *   If any step fails, the entire transaction for that batch is rolled back, guaranteeing atomicity.
+        *   If the transaction succeeds, the rows in the batch are marked as `processed`.
+        *   This continues until no more rows are in the `processing` state, at which point the job transitions to `finished`.
 
 ## Defining a New Import Type
 
@@ -193,7 +185,10 @@ Creating a new import type involves defining the metadata in the database:
     *   Remember that the `_data` table will also have a system-managed `row_id` column for stable row identification during processing.
 
 3.  **Implement Procedures**: Write the PL/pgSQL functions named in the `import_step` records (`analyse_procedure`, `process_procedure`). These functions must:
-    *   Accept `(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)`. The `p_step_code` is the `code` of the `import_step` being processed, allowing the procedure to be aware of its context. The `row_id`s for a single import are `INTEGER`, and batch arrays are consistently `INTEGER[]`. This is distinct from the `worker.tasks` queue, which uses `BIGINT` for its own `id` to ensure long-term scalability across the entire system.
+    *   Accept `(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)`.
+        *   The `p_step_code` is the `code` of the `import_step` being processed, allowing the procedure to be aware of its context.
+        *   `p_batch_row_ids` is an array of `row_id`s for the current batch. **For holistic steps (`is_holistic = true`), this parameter will be `NULL`**. The procedure must detect this and query for its own rows.
+        *   The `row_id`s for a single import are `INTEGER`, and batch arrays are consistently `INTEGER[]`. This is distinct from the `worker.tasks` queue, which uses `BIGINT` for its own `id` to ensure long-term scalability across the entire system.
     *   Read `definition_snapshot` from `import_job` if needed.
     *   Determine the job-specific `_data` table name.
     *   Read from/write to the `_data` table using dynamic SQL and `p_batch_row_ids` (e.g., `WHERE row_id = ANY(p_batch_row_ids)`).
@@ -214,7 +209,9 @@ Creating a new import type involves defining the metadata in the database:
 
 The progress of an import job can be monitored via:
 
-*   The `public.import_job` table (overall state, total row count, timestamps, and progress counters for both analysis and processing phases).
+*   The `public.import_job` table. This provides progress tracking for each phase:
+    *   **Analysis Phase**: A granular, step-by-step progress percentage (`analysis_completed_pct`) is calculated using a "weighted step" system. The currently executing step is available via `current_step_code`. The `analysis_rows_per_sec` metric is calculated only upon phase completion, using `total_rows`. For a granular "x of y" progress display, the UI can derive an equivalent row count from `analysis_completed_pct`.
+    *   **Processing Phase**: Progress (`import_completed_pct`, `imported_rows`) is updated atomically as each batch completes all processing steps.
 *   The job-specific `_data` table (row-level state, errors, `last_completed_priority`, `action`, and individual `row_id`s).
 *   The `public.get_import_job_progress(job_id)` function, which provides a JSON summary including row state counts.
 *   The application UI, which uses these sources to display progress.
@@ -257,6 +254,7 @@ Let's illustrate how to define an import for `legal_unit` data using the system.
         *   `valid_from` (purpose: `source_input`, type: `TEXT`)
         *   `valid_to` (purpose: `source_input`, type: `TEXT`)
         *   `derived_valid_from` (purpose: `internal`, type: `DATE`)
+        *   `derived_valid_after` (purpose: `internal`, type: `DATE`)
         *   `derived_valid_to` (purpose: `internal`, type: `DATE`)
     *   **`legal_unit` step:**
         *   `name` (purpose: `source_input`, type: `TEXT`)

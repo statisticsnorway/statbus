@@ -55,6 +55,8 @@ For more details, see the main `README.md` file or run `./cli/bin/statbus migrat
   - Do not mask or work around problems; instead, provide sufficient error or debugging information to facilitate a solution. This is crucial for maintaining system integrity and simplifying troubleshooting, especially in backend processes and SQL procedures.
 - **Dialogue Language**:
   - All development-related dialogue, including interactions with AI assistants, should be conducted in English to ensure clarity and broad understanding.
+- **Declarative Transparency**:
+  - Where possible, store the inputs and intermediate results of complex calculations directly on the relevant records. This makes the system's state self-documenting and easier to debug, inspect, and trust, rather than relying on dynamic calculations that can appear magical.
 
 ## Development Notes
 When CWD is the app dir then shell commands must remove the initial 'app/' from paths.

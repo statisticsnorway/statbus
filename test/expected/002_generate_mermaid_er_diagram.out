@@ -316,9 +316,13 @@ erDiagram
 		timestamp_with_time_zone preparing_data_at
 		timestamp_with_time_zone analysis_start_at
 		timestamp_with_time_zone analysis_stop_at
-		integer analysed_rows
 		numeric(5_2) analysis_completed_pct
 		numeric(10_2) analysis_rows_per_sec
+		text current_step_code
+		integer current_step_priority
+		integer max_analysis_priority
+		bigint total_analysis_steps_weighted
+		bigint completed_analysis_steps_weighted
 		timestamp_with_time_zone changes_approved_at
 		timestamp_with_time_zone changes_rejected_at
 		timestamp_with_time_zone processing_start_at
@@ -363,6 +367,7 @@ erDiagram
 		integer priority
 		regproc analyse_procedure
 		regproc process_procedure
+		boolean is_holistic
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
 	}

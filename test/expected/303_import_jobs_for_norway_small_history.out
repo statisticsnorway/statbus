@@ -701,6 +701,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "code": "valid_time",                                                +
              "name": "Validity Period",                                           +
              "priority": 10,                                                      +
+             "is_holistic": false,                                                +
              "analyse_procedure": "import.analyse_valid_time",                    +
              "process_procedure": null                                            +
          },                                                                       +
@@ -708,6 +709,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "code": "external_idents",                                           +
              "name": "External Identifiers",                                      +
              "priority": 15,                                                      +
+             "is_holistic": true,                                                 +
              "analyse_procedure": "import.analyse_external_idents",               +
              "process_procedure": null                                            +
          },                                                                       +
@@ -715,6 +717,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "code": "status",                                                    +
              "name": "Status Resolution",                                         +
              "priority": 17,                                                      +
+             "is_holistic": false,                                                +
              "analyse_procedure": "import.analyse_status",                        +
              "process_procedure": null                                            +
          },                                                                       +
@@ -722,6 +725,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "code": "enterprise_link_for_legal_unit",                            +
              "name": "Link LU to Enterprise",                                     +
              "priority": 18,                                                      +
+             "is_holistic": false,                                                +
              "analyse_procedure": "import.analyse_enterprise_link_for_legal_unit",+
              "process_procedure": "import.process_enterprise_link_for_legal_unit" +
          },                                                                       +
@@ -729,6 +733,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "code": "legal_unit",                                                +
              "name": "Legal Unit Core",                                           +
              "priority": 20,                                                      +
+             "is_holistic": false,                                                +
              "analyse_procedure": "import.analyse_legal_unit",                    +
              "process_procedure": "import.process_legal_unit"                     +
          },                                                                       +
@@ -736,6 +741,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "code": "physical_location",                                         +
              "name": "Physical Location",                                         +
              "priority": 30,                                                      +
+             "is_holistic": false,                                                +
              "analyse_procedure": "import.analyse_location",                      +
              "process_procedure": "import.process_location"                       +
          },                                                                       +
@@ -743,6 +749,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "code": "postal_location",                                           +
              "name": "Postal Location",                                           +
              "priority": 40,                                                      +
+             "is_holistic": false,                                                +
              "analyse_procedure": "import.analyse_location",                      +
              "process_procedure": "import.process_location"                       +
          },                                                                       +
@@ -750,6 +757,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "code": "primary_activity",                                          +
              "name": "Primary Activity",                                          +
              "priority": 50,                                                      +
+             "is_holistic": false,                                                +
              "analyse_procedure": "import.analyse_activity",                      +
              "process_procedure": "import.process_activity"                       +
          },                                                                       +
@@ -757,6 +765,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "code": "secondary_activity",                                        +
              "name": "Secondary Activity",                                        +
              "priority": 60,                                                      +
+             "is_holistic": false,                                                +
              "analyse_procedure": "import.analyse_activity",                      +
              "process_procedure": "import.process_activity"                       +
          },                                                                       +
@@ -764,6 +773,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "code": "contact",                                                   +
              "name": "Contact Info",                                              +
              "priority": 70,                                                      +
+             "is_holistic": false,                                                +
              "analyse_procedure": "import.analyse_contact",                       +
              "process_procedure": "import.process_contact"                        +
          },                                                                       +
@@ -771,6 +781,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "code": "statistical_variables",                                     +
              "name": "Statistical Variables",                                     +
              "priority": 80,                                                      +
+             "is_holistic": false,                                                +
              "analyse_procedure": "import.analyse_statistical_variables",         +
              "process_procedure": "import.process_statistical_variables"          +
          },                                                                       +
@@ -778,6 +789,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "code": "tags",                                                      +
              "name": "Tags",                                                      +
              "priority": 90,                                                      +
+             "is_holistic": false,                                                +
              "analyse_procedure": "import.analyse_tags",                          +
              "process_procedure": "import.process_tags"                           +
          },                                                                       +
@@ -785,6 +797,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "code": "edit_info",                                                 +
              "name": "Edit Info",                                                 +
              "priority": 100,                                                     +
+             "is_holistic": false,                                                +
              "analyse_procedure": "import.analyse_edit_info",                     +
              "process_procedure": null                                            +
          },                                                                       +
@@ -792,6 +805,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "code": "metadata",                                                  +
              "name": "Job Row Metadata",                                          +
              "priority": 110,                                                     +
+             "is_holistic": false,                                                +
              "analyse_procedure": null,                                           +
              "process_procedure": null                                            +
          }                                                                        +
@@ -2425,6 +2439,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "code": "valid_time",                                                  +
              "name": "Validity Period",                                             +
              "priority": 10,                                                        +
+             "is_holistic": false,                                                  +
              "analyse_procedure": "import.analyse_valid_time",                      +
              "process_procedure": null                                              +
          },                                                                         +
@@ -2432,6 +2447,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "code": "external_idents",                                             +
              "name": "External Identifiers",                                        +
              "priority": 15,                                                        +
+             "is_holistic": true,                                                   +
              "analyse_procedure": "import.analyse_external_idents",                 +
              "process_procedure": null                                              +
          },                                                                         +
@@ -2439,6 +2455,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "code": "status",                                                      +
              "name": "Status Resolution",                                           +
              "priority": 17,                                                        +
+             "is_holistic": false,                                                  +
              "analyse_procedure": "import.analyse_status",                          +
              "process_procedure": null                                              +
          },                                                                         +
@@ -2446,6 +2463,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "code": "link_establishment_to_legal_unit",                            +
              "name": "Link EST to LU",                                              +
              "priority": 19,                                                        +
+             "is_holistic": true,                                                   +
              "analyse_procedure": "import.analyse_link_establishment_to_legal_unit",+
              "process_procedure": null                                              +
          },                                                                         +
@@ -2453,6 +2471,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "code": "establishment",                                               +
              "name": "Establishment Core",                                          +
              "priority": 20,                                                        +
+             "is_holistic": false,                                                  +
              "analyse_procedure": "import.analyse_establishment",                   +
              "process_procedure": "import.process_establishment"                    +
          },                                                                         +
@@ -2460,6 +2479,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "code": "physical_location",                                           +
              "name": "Physical Location",                                           +
              "priority": 30,                                                        +
+             "is_holistic": false,                                                  +
              "analyse_procedure": "import.analyse_location",                        +
              "process_procedure": "import.process_location"                         +
          },                                                                         +
@@ -2467,6 +2487,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "code": "postal_location",                                             +
              "name": "Postal Location",                                             +
              "priority": 40,                                                        +
+             "is_holistic": false,                                                  +
              "analyse_procedure": "import.analyse_location",                        +
              "process_procedure": "import.process_location"                         +
          },                                                                         +
@@ -2474,6 +2495,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "code": "primary_activity",                                            +
              "name": "Primary Activity",                                            +
              "priority": 50,                                                        +
+             "is_holistic": false,                                                  +
              "analyse_procedure": "import.analyse_activity",                        +
              "process_procedure": "import.process_activity"                         +
          },                                                                         +
@@ -2481,6 +2503,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "code": "secondary_activity",                                          +
              "name": "Secondary Activity",                                          +
              "priority": 60,                                                        +
+             "is_holistic": false,                                                  +
              "analyse_procedure": "import.analyse_activity",                        +
              "process_procedure": "import.process_activity"                         +
          },                                                                         +
@@ -2488,6 +2511,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "code": "contact",                                                     +
              "name": "Contact Info",                                                +
              "priority": 70,                                                        +
+             "is_holistic": false,                                                  +
              "analyse_procedure": "import.analyse_contact",                         +
              "process_procedure": "import.process_contact"                          +
          },                                                                         +
@@ -2495,6 +2519,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "code": "statistical_variables",                                       +
              "name": "Statistical Variables",                                       +
              "priority": 80,                                                        +
+             "is_holistic": false,                                                  +
              "analyse_procedure": "import.analyse_statistical_variables",           +
              "process_procedure": "import.process_statistical_variables"            +
          },                                                                         +
@@ -2502,6 +2527,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "code": "tags",                                                        +
              "name": "Tags",                                                        +
              "priority": 90,                                                        +
+             "is_holistic": false,                                                  +
              "analyse_procedure": "import.analyse_tags",                            +
              "process_procedure": "import.process_tags"                             +
          },                                                                         +
@@ -2509,6 +2535,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "code": "edit_info",                                                   +
              "name": "Edit Info",                                                   +
              "priority": 100,                                                       +
+             "is_holistic": false,                                                  +
              "analyse_procedure": "import.analyse_edit_info",                       +
              "process_procedure": null                                              +
          },                                                                         +
@@ -2516,6 +2543,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "code": "metadata",                                                    +
              "name": "Job Row Metadata",                                            +
              "priority": 110,                                                       +
+             "is_holistic": false,                                                  +
              "analyse_procedure": null,                                             +
              "process_procedure": null                                              +
          }                                                                          +
@@ -4055,7 +4083,103 @@ select queue,t.command,state,error from worker.tasks as t join worker.command_re
  import | import_job_process | completed | 
  import | import_job_process | completed | 
  import | import_job_process | completed | 
-(48 rows)
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+(144 rows)
 
 select slug, state, error is not null as failed,total_rows,imported_rows, import_completed_pct from public.import_job ORDER BY slug;
         slug        |  state   | failed | total_rows | imported_rows | import_completed_pct 
@@ -4309,7 +4433,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     7
- import    | completed |    48
+ import    | completed |   144
 (2 rows)
 
 \echo "Explicitly refreshing timesegments before checking timeline_establishment_def"
@@ -4512,7 +4636,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |     9
- import    | completed |    48
+ import    | completed |   144
 (2 rows)
 
 \echo Run any remaining tasks, there should be none.
@@ -4524,7 +4648,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |     9
- import    | completed |    48
+ import    | completed |   144
 (2 rows)
 
 \echo Overview of statistical units, but not details, there are too many units.

@@ -44,7 +44,7 @@ CREATE OR REPLACE PROCEDURE import.analyse_valid_time(p_job_id INT, p_batch_row_
 LANGUAGE plpgsql AS $analyse_valid_time$
 DECLARE
     v_job public.import_job;
-    v_step RECORD;
+    v_step public.import_step;
     v_data_table_name TEXT;
     v_error_count INT := 0;
     v_update_count INT := 0;
@@ -58,10 +58,10 @@ BEGIN
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
     v_data_table_name := v_job.data_table_name; -- Assign from the record
 
-    -- Find the target details
-    SELECT * INTO v_step FROM public.import_step WHERE code = 'valid_time';
+    -- Find the target details from the snapshot
+    SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = 'valid_time';
     IF NOT FOUND THEN
-        RAISE EXCEPTION '[Job %] valid_time target not found', p_job_id;
+        RAISE EXCEPTION '[Job %] valid_time target not found in snapshot', p_job_id;
     END IF;
 
     -- Single-pass batch update for casting, state, error, and priority

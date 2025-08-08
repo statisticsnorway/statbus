@@ -8,7 +8,7 @@ CREATE OR REPLACE PROCEDURE import.analyse_contact(p_job_id INT, p_batch_row_ids
 LANGUAGE plpgsql AS $analyse_contact$ -- Function name remains the same, step name changed
 DECLARE
     v_job public.import_job;
-    v_step RECORD;
+    v_step public.import_step;
     v_data_table_name TEXT;
     v_sql TEXT;
     v_update_count INT := 0;
@@ -19,10 +19,10 @@ BEGIN
     SELECT * INTO v_job FROM public.import_job ij WHERE id = p_job_id;
     v_data_table_name := v_job.data_table_name; -- Assign separately
 
-    -- Find the step details
-    SELECT * INTO v_step FROM public.import_step WHERE code = 'contact'; -- Use new step name
+    -- Find the step details from the snapshot
+    SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = 'contact';
     IF NOT FOUND THEN
-        RAISE EXCEPTION '[Job %] contact step not found', p_job_id;
+        RAISE EXCEPTION '[Job %] contact step not found in snapshot', p_job_id;
     END IF;
 
     -- Single-pass update to advance priority and set state for non-skipped rows.
@@ -68,8 +68,8 @@ LANGUAGE plpgsql AS $process_contact$
 DECLARE
     v_job public.import_job;
     v_snapshot JSONB;
-    v_definition JSONB;
-    v_step RECORD;
+    v_definition public.import_definition;
+    v_step public.import_step;
     v_strategy public.import_strategy;
     v_edit_by_user_id INT;
     v_timestamp TIMESTAMPTZ := clock_timestamp();
@@ -93,23 +93,23 @@ BEGIN
     -- Get job details and snapshot
     SELECT * INTO v_job FROM public.import_job ij WHERE id = p_job_id;
     v_data_table_name := v_job.data_table_name;
-    v_definition := v_job.definition_snapshot->'import_definition';
+    SELECT * INTO v_definition FROM jsonb_populate_record(NULL::public.import_definition, v_job.definition_snapshot->'import_definition');
 
-    IF v_definition IS NULL OR jsonb_typeof(v_definition) != 'object' THEN
+    IF v_definition IS NULL THEN
         RAISE EXCEPTION '[Job %] Failed to load valid import_definition object from definition_snapshot', p_job_id;
     END IF;
 
-    -- Find the step details
-    SELECT * INTO v_step FROM public.import_step WHERE code = 'contact';
+    -- Find the step details from the snapshot
+    SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = 'contact';
     IF NOT FOUND THEN
-        RAISE EXCEPTION '[Job %] contact step not found', p_job_id;
+        RAISE EXCEPTION '[Job %] contact step not found in snapshot', p_job_id;
     END IF;
 
     -- Determine operation type and user ID
-    v_strategy := (v_definition->>'strategy')::public.import_strategy;
+    v_strategy := v_definition.strategy;
     v_edit_by_user_id := v_job.user_id;
 
-    v_job_mode := (v_job.definition_snapshot->'import_definition'->>'mode')::public.import_mode;
+    v_job_mode := v_definition.mode;
 
     IF v_job_mode = 'legal_unit' THEN
         v_select_lu_id_expr := 'dt.legal_unit_id';
@@ -228,12 +228,11 @@ BEGIN
             EXECUTE format($$
                 UPDATE public.%I dt SET
                     contact_id = tcc.new_contact_id,
-                    last_completed_priority = %L,
                     error = NULL,
                     state = %L
                 FROM temp_created_contacts tcc
                 WHERE dt.row_id = tcc.data_row_id AND dt.state != 'error';
-            $$, v_data_table_name, v_step.priority, 'processing'::public.import_data_state);
+            $$, v_data_table_name, 'processing'::public.import_data_state);
             RAISE DEBUG '[Job %] process_contact: Updated _data table for % new contacts.', p_job_id, v_inserted_new_contact_count;
         END IF;
 
@@ -342,13 +341,12 @@ BEGIN
                 EXECUTE format($$
                     UPDATE public.%I dt SET
                         contact_id = tbd.existing_contact_id, -- Use the existing ID for replaces
-                        last_completed_priority = %L,
                         error = NULL,
                         state = %L
                     FROM temp_batch_data tbd
                     WHERE dt.row_id = tbd.data_row_id
                       AND dt.row_id = ANY(%L);
-                $$, v_data_table_name, v_step.priority, 'processing'::public.import_data_state, v_batch_upsert_success_row_ids);
+                $$, v_data_table_name, 'processing'::public.import_data_state, v_batch_upsert_success_row_ids);
                 RAISE DEBUG '[Job %] process_contact: Updated _data table for % successfully replaced contacts.', p_job_id, array_length(v_batch_upsert_success_row_ids, 1);
             END IF;
         END IF;
@@ -365,20 +363,8 @@ BEGIN
         RAISE;
     END;
 
-    -- Update priority for rows that didn't have any contact info or were not processed
-    v_sql := format($$
-        UPDATE public.%I dt SET
-            last_completed_priority = %L
-        WHERE dt.row_id = ANY(%L)
-          AND dt.action != 'skip'
-          AND dt.state NOT IN ('error', 'processing'); -- Only update rows not already handled
-    $$, v_data_table_name, v_step.priority, p_batch_row_ids);
-    RAISE DEBUG '[Job %] process_contact: Updating priority for unprocessed/no-data rows: %', p_job_id, v_sql;
-    EXECUTE v_sql;
 
-    -- Update priority for skipped rows
-    EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L) AND action = 'skip'$$,
-                   v_data_table_name, v_step.priority, p_batch_row_ids);
+    -- The framework now handles advancing priority for all rows, including unprocessed and skipped rows. No update needed here.
 
     RAISE DEBUG '[Job %] process_contact (Batch): Finished operation. New: %, Replaced: %. Errors: %',
         p_job_id, v_inserted_new_contact_count, v_updated_existing_contact_count, v_error_count;

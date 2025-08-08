@@ -8,7 +8,7 @@ CREATE OR REPLACE PROCEDURE import.analyse_enterprise_link_for_establishment(p_j
 LANGUAGE plpgsql AS $analyse_enterprise_link_for_establishment$
 DECLARE
     v_job public.import_job;
-    v_step RECORD;
+    v_step public.import_step;
     v_data_table_name TEXT;
     v_sql TEXT;
     v_update_count INT := 0;
@@ -25,15 +25,16 @@ BEGIN
     v_data_table_name := v_job.data_table_name;
     v_job_mode := (v_job.definition_snapshot->'import_definition'->>'mode')::public.import_mode;
 
+    -- Find the step details from the snapshot first
+    SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = 'enterprise_link_for_establishment';
+    IF NOT FOUND THEN RAISE EXCEPTION '[Job %] enterprise_link_for_establishment step not found in snapshot', p_job_id; END IF;
+
     IF v_job_mode != 'establishment_informal' THEN
         RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: Skipping, job mode is %, not ''establishment_informal''.', p_job_id, v_job_mode;
-        EXECUTE format('UPDATE public.%I SET last_completed_priority = (SELECT priority FROM public.import_step WHERE code = %L) WHERE row_id = ANY(%L)', 
-                       v_data_table_name, p_step_code, p_batch_row_ids);
+        EXECUTE format('UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L)', 
+                       v_data_table_name, v_step.priority, p_batch_row_ids);
         RETURN;
     END IF;
-
-    SELECT * INTO v_step FROM public.import_step WHERE code = 'enterprise_link_for_establishment';
-    IF NOT FOUND THEN RAISE EXCEPTION '[Job %] enterprise_link_for_establishment step not found', p_job_id; END IF;
 
     -- For 'replace' actions in 'establishment_informal' mode, attempt to find the existing establishment
     -- and its enterprise. If not found, or if enterprise_id is NULL, it's a fatal error.
@@ -93,10 +94,10 @@ BEGIN
             WHERE dt.row_id = ANY(%4$L) -- p_batch_row_ids
               AND (dt.action = 'insert' OR dt.action = 'skip' OR (dt.action = 'replace' AND dt.last_completed_priority < %2$s)); -- v_step.priority
         $$,
-            v_data_table_name,        -- %1$I
-            v_step.priority,          -- %2$s
-            v_error_keys_to_clear_arr,-- %3$L
-            p_batch_row_ids           -- %4$L
+            v_data_table_name,              -- %1$I
+            v_step.priority,                -- %2$s
+            v_error_keys_to_clear_arr,      -- %3$L
+            p_batch_row_ids                 -- %4$L
         );
         EXECUTE v_sql;
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
@@ -124,7 +125,7 @@ CREATE OR REPLACE PROCEDURE import.process_enterprise_link_for_establishment(p_j
 LANGUAGE plpgsql AS $process_enterprise_link_for_establishment$
 DECLARE
     v_job public.import_job;
-    v_step RECORD;
+    v_step public.import_step;
     v_data_table_name TEXT;
     v_sql TEXT;
     v_update_count INT := 0;
@@ -141,16 +142,14 @@ BEGIN
     v_data_table_name := v_job.data_table_name;
     v_job_mode := (v_job.definition_snapshot->'import_definition'->>'mode')::public.import_mode;
 
+    -- Find the step details from the snapshot first
+    SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = 'enterprise_link_for_establishment';
+    IF NOT FOUND THEN RAISE EXCEPTION '[Job %] enterprise_link_for_establishment step not found in snapshot', p_job_id; END IF;
+
     IF v_job_mode != 'establishment_informal' THEN
-        RAISE DEBUG '[Job %] process_enterprise_link_for_establishment: Skipping, job mode is %, not ''establishment_informal''.', p_job_id, v_job_mode;
-        EXECUTE format('UPDATE public.%I SET last_completed_priority = (SELECT priority FROM public.import_step WHERE code = %L) WHERE row_id = ANY(%L)', 
-                       v_data_table_name, p_step_code, p_batch_row_ids);
+        RAISE DEBUG '[Job %] process_enterprise_link_for_establishment: Skipping, job mode is %, not ''establishment_informal''. No action needed.', p_job_id, v_job_mode;
         RETURN;
     END IF;
-
-    -- Find the step details
-    SELECT * INTO v_step FROM public.import_step WHERE code = 'enterprise_link_for_establishment';
-    IF NOT FOUND THEN RAISE EXCEPTION '[Job %] enterprise_link_for_establishment step not found', p_job_id; END IF;
 
     -- Step 1: Identify rows needing enterprise creation (new standalone ESTs, action = 'insert')
     CREATE TEMP TABLE temp_new_est_for_enterprise_creation (
@@ -203,14 +202,13 @@ BEGIN
         UPDATE public.%1$I dt SET -- v_data_table_name
             enterprise_id = tce.enterprise_id,
             primary_for_enterprise = TRUE, -- All slices of a new informal EST linked to a new Enterprise are initially primary
-            last_completed_priority = %2$L, -- v_step.priority
             error = NULL,
-            state = %3$L -- 'processing'
+            state = %2$L -- 'processing'
         FROM temp_created_enterprises tce -- tce.data_row_id is the founding_row_id
         WHERE dt.founding_row_id = tce.data_row_id -- Link all rows of the entity via founding_row_id
-          AND dt.row_id = ANY(%4$L) -- p_batch_row_ids
+          AND dt.row_id = ANY(%3$L) -- p_batch_row_ids
           AND dt.state != 'error'; -- Avoid updating rows already in error from a prior step
-    $$, v_data_table_name, v_step.priority, 'processing'::public.import_data_state, p_batch_row_ids);
+    $$, v_data_table_name, 'processing'::public.import_data_state, p_batch_row_ids);
     RAISE DEBUG '[Job %] process_enterprise_link_for_establishment: Updating _data for new enterprises and their related rows: %', p_job_id, v_sql;
     EXECUTE v_sql;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
@@ -218,18 +216,15 @@ BEGIN
     -- Step 4: Update rows that were already processed by analyse step (existing ESTs, action = 'replace') - just advance priority
     v_sql := format($$
         UPDATE public.%I dt SET
-            last_completed_priority = %L,
             state = %L
         WHERE dt.row_id = ANY(%L)
           AND dt.action = 'replace' -- Only update rows for existing ESTs (mode 'establishment_informal' implies no LU link in data)
           AND dt.state != %L; -- Avoid rows already in error
-    $$, v_data_table_name, v_step.priority, 'processing', p_batch_row_ids, 'error');
+    $$, v_data_table_name, 'processing', p_batch_row_ids, 'error');
      RAISE DEBUG '[Job %] process_enterprise_link_for_establishment: Updating existing ESTs (action=replace, priority only): %', p_job_id, v_sql;
     EXECUTE v_sql;
 
-    -- Step 5: Update skipped rows (action = 'skip') - just advance priority
-    EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L) AND action = 'skip'$$,
-                   v_data_table_name, v_step.priority, p_batch_row_ids);
+    -- Step 5: Update skipped rows (action = 'skip') - no LCP update needed in processing phase.
     GET DIAGNOSTICS v_update_count = ROW_COUNT; -- Re-using v_update_count, fine for debug
     RAISE DEBUG '[Job %] process_enterprise_link_for_establishment: Advanced priority for % skipped rows.', p_job_id, v_update_count;
 

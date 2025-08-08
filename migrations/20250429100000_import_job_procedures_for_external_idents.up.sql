@@ -8,9 +8,10 @@ CREATE OR REPLACE PROCEDURE import.analyse_external_idents(p_job_id INT, p_batch
 LANGUAGE plpgsql AS $analyse_external_idents$
 DECLARE
     v_job public.import_job;
-    v_step RECORD;
+    v_step public.import_step;
     v_snapshot JSONB;
     v_data_table_name TEXT;
+    v_relevant_row_ids INTEGER[]; -- For holistic execution
     v_ident_data_cols JSONB;
     v_col_rec RECORD;
     v_sql TEXT;
@@ -28,13 +29,34 @@ DECLARE
     v_job_mode public.import_mode; -- Added to use v_job_mode
     v_cross_type_conflict_check_sql TEXT; -- For dynamic SQL based on job_mode
 BEGIN
-    RAISE DEBUG '[Job %] analyse_external_idents (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_row_ids, 1);
+    -- This is a HOLISTIC procedure. It is called once and processes all relevant rows for this step.
+    -- The p_batch_row_ids parameter is ignored (it will be NULL).
+    RAISE DEBUG '[Job %] analyse_external_idents (Holistic): Starting analysis.', p_job_id;
 
     -- Get job details and snapshot
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
     v_data_table_name := v_job.data_table_name;
     v_strategy := (v_job.definition_snapshot->'import_definition'->>'strategy')::public.import_strategy;
     v_job_mode := (v_job.definition_snapshot->'import_definition'->>'mode')::public.import_mode; -- Get job_mode
+
+    -- Find the target step details from the snapshot
+    SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = 'external_idents';
+    IF NOT FOUND THEN
+        RAISE EXCEPTION '[Job %] external_idents target not found in snapshot', p_job_id;
+    END IF;
+
+    -- Holistic execution: get all relevant rows for this step.
+    EXECUTE format('SELECT array_agg(row_id) FROM public.%I WHERE state = %L AND last_completed_priority < %L',
+                   v_data_table_name, 'analysing'::public.import_data_state, v_step.priority)
+    INTO v_relevant_row_ids;
+
+    RAISE DEBUG '[Job %] analyse_external_idents: Holistic execution. Found % rows to process for this step.',
+        p_job_id, COALESCE(array_length(v_relevant_row_ids, 1), 0);
+
+    IF v_relevant_row_ids IS NULL OR array_length(v_relevant_row_ids, 1) = 0 THEN
+        RAISE DEBUG '[Job %] analyse_external_idents: No relevant rows to process.', p_job_id;
+        RETURN;
+    END IF;
 
     -- Check for existence of key columns in the _data table
     SELECT EXISTS (
@@ -55,12 +77,6 @@ BEGIN
         RAISE EXCEPTION '[Job %] Failed to load valid import_data_column_list from definition_snapshot', p_job_id;
     END IF;
 
-    -- Find the target step details
-    SELECT * INTO v_step FROM public.import_step WHERE code = 'external_idents';
-    IF NOT FOUND THEN
-        RAISE EXCEPTION '[Job %] external_idents target not found', p_job_id;
-    END IF;
-
     -- Filter data columns relevant to this step
     SELECT jsonb_agg(value) INTO v_ident_data_cols
     FROM jsonb_array_elements(v_ident_data_cols) value
@@ -69,7 +85,7 @@ BEGIN
     IF v_ident_data_cols IS NULL OR jsonb_array_length(v_ident_data_cols) = 0 THEN
          RAISE DEBUG '[Job %] analyse_external_idents: No external ident source_input data columns found in snapshot for step %. Skipping analysis.', p_job_id, v_step.id;
          EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L)$$,
-                        v_data_table_name, v_step.priority, p_batch_row_ids);
+                        v_data_table_name, v_step.priority, v_relevant_row_ids);
          RETURN;
     END IF;
 
@@ -125,7 +141,7 @@ BEGIN
              v_col_rec.idc_column_name, -- Name of column in _data table
              v_col_rec.idc_column_name, -- Code to join with external_ident_type
              v_col_rec.idc_column_name, -- Column to select value from in _data table
-             v_data_table_name, v_col_rec.idc_column_name, p_batch_row_ids
+             v_data_table_name, v_col_rec.idc_column_name, v_relevant_row_ids
         );
         v_add_separator := TRUE;
     END LOOP;
@@ -139,7 +155,7 @@ BEGIN
                 operation = 'insert'::public.import_row_operation_type,
                 action = %L
             WHERE dt.row_id = ANY(%L);
-        $$, v_data_table_name, 'error', 'skip'::public.import_row_action_type, p_batch_row_ids);
+        $$, v_data_table_name, 'error', 'skip'::public.import_row_action_type, v_relevant_row_ids);
         EXECUTE v_sql;
         GET DIAGNOSTICS v_error_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_external_idents (Batch): Finished analysis for batch. Errors: % (all rows missing identifiers or mappings for external_idents step)', p_job_id, v_error_count;
@@ -206,8 +222,8 @@ BEGIN
     DECLARE
         tui_rec RECORD;
     BEGIN
-        RAISE DEBUG '[Job %] analyse_external_idents: Contents of temp_unpivoted_idents for batch %:', p_job_id, p_batch_row_ids;
-        FOR tui_rec IN SELECT * FROM temp_unpivoted_idents WHERE data_row_id = ANY(p_batch_row_ids) ORDER BY data_row_id, source_ident_code LOOP
+        RAISE DEBUG '[Job %] analyse_external_idents: Contents of temp_unpivoted_idents for batch %:', p_job_id, v_relevant_row_ids;
+        FOR tui_rec IN SELECT * FROM temp_unpivoted_idents WHERE data_row_id = ANY(v_relevant_row_ids) ORDER BY data_row_id, source_ident_code LOOP
             RAISE DEBUG '[Job %]   TUI: data_row_id=%, source_ident_code=%, ident_value=%, ident_type_id=%, resolved_lu_id=%, resolved_est_id=%',
                         p_job_id, tui_rec.data_row_id, tui_rec.source_ident_code, tui_rec.ident_value, tui_rec.ident_type_id, tui_rec.resolved_lu_id, tui_rec.resolved_est_id;
         END LOOP;
@@ -262,7 +278,7 @@ BEGIN
                         ELSE 'different unit type' -- Fallback for generic or unhandled modes
                     END || ': ' || tui.conflicting_unit_jsonb::TEXT
                 ) FILTER (WHERE tui.is_cross_type_conflict IS TRUE) AS cross_type_conflict_errors
-            FROM (SELECT unnest(%1$L::INTEGER[]) as data_row_id) orig -- %1$L is p_batch_row_ids
+            FROM (SELECT unnest(%1$L::INTEGER[]) as data_row_id) orig -- %1$L is v_relevant_row_ids
             JOIN public.%2$I dt ON orig.data_row_id = dt.row_id      -- %2$I is v_data_table_name
             LEFT JOIN temp_unpivoted_idents tui ON orig.data_row_id = tui.data_row_id
             GROUP BY orig.data_row_id, dt.derived_valid_from
@@ -365,7 +381,7 @@ BEGIN
             awo.actual_founding_row_id
         FROM AnalysisWithOperation awo;
     $$, 
-        p_batch_row_ids,                /* %1$L */
+        v_relevant_row_ids,             /* %1$L */
         v_data_table_name,              /* %2$I */
         v_strategy,                     /* %3$L */
         v_job_mode,                     /* %4$L */
@@ -405,7 +421,7 @@ BEGIN
                 FROM RowChecks rc
             )
             SELECT obe.* FROM OrderedBatchEntities obe WHERE obe.data_row_id = ANY(%1$L::INTEGER[]) ORDER BY obe.entity_signature, obe.rn_in_batch_for_entity;
-        $$, p_batch_row_ids, v_data_table_name);
+        $$, v_relevant_row_ids, v_data_table_name);
 
         RAISE DEBUG '[Job %] analyse_external_idents: Debugging OrderedBatchEntities logic with SQL: %', p_job_id, debug_sql;
         FOR debug_rec IN EXECUTE debug_sql
@@ -464,7 +480,7 @@ BEGIN
         FROM temp_batch_analysis ru
         WHERE dt.row_id = ru.data_row_id
           AND dt.row_id = ANY(%L) AND dt.row_id != ALL(%L); -- Update only non-error rows from the original batch
-    $$, v_data_table_name, v_set_clause, p_batch_row_ids, COALESCE(v_error_row_ids, ARRAY[]::INTEGER[]));
+    $$, v_data_table_name, v_set_clause, v_relevant_row_ids, COALESCE(v_error_row_ids, ARRAY[]::INTEGER[]));
     RAISE DEBUG '[Job %] analyse_external_idents: Updating non-error rows (success or strategy skips): %', p_job_id, v_sql;
     EXECUTE v_sql;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
@@ -478,7 +494,7 @@ BEGIN
         UPDATE public.%I dt SET
             last_completed_priority = %L
         WHERE dt.row_id = ANY(%L) AND dt.action = ''skip'';
-    ', v_data_table_name, v_step.priority, p_batch_row_ids);
+    ', v_data_table_name, v_step.priority, v_relevant_row_ids);
     GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
     RAISE DEBUG '[Job %] analyse_external_idents: Updated last_completed_priority for % pre-skipped rows.', p_job_id, v_skipped_update_count;
 

@@ -6,25 +6,30 @@ BEGIN;
 
 -- Define standard import steps
 -- These represent logical components of importing a statistical unit.
-INSERT INTO public.import_step (code, name, priority, analyse_procedure, process_procedure) VALUES
-    ('valid_time',                       'Validity Period',            10, 'import.analyse_valid_time'::regproc, NULL),
-    ('external_idents',                  'External Identifiers',       15, 'import.analyse_external_idents'::regproc, NULL),
-    ('enterprise_link_for_legal_unit',   'Link LU to Enterprise',      18, 'import.analyse_enterprise_link_for_legal_unit'::regproc, 'import.process_enterprise_link_for_legal_unit'::regproc),
-    ('enterprise_link_for_establishment','Link EST to Enterprise',     19, 'import.analyse_enterprise_link_for_establishment'::regproc, 'import.process_enterprise_link_for_establishment'::regproc),
-    ('link_establishment_to_legal_unit', 'Link EST to LU',             19, 'import.analyse_link_establishment_to_legal_unit'::regproc, NULL), -- Changed priority from 25 to 19
-    ('status',                'Status Resolution',          17, 'import.analyse_status'::regproc, NULL), -- New Status Step
-    ('legal_unit',                       'Legal Unit Core',            20, 'import.analyse_legal_unit'::regproc,                     'import.process_legal_unit'::regproc),
-    ('establishment',                    'Establishment Core',         20, 'import.analyse_establishment'::regproc,                  'import.process_establishment'::regproc),
-    ('physical_location',                'Physical Location',          30, 'import.analyse_location'::regproc,                       'import.process_location'::regproc),
-    ('postal_location',                  'Postal Location',            40, 'import.analyse_location'::regproc,                       'import.process_location'::regproc),
-    ('primary_activity',                 'Primary Activity',           50, 'import.analyse_activity'::regproc,                       'import.process_activity'::regproc),
-    ('secondary_activity',               'Secondary Activity',         60, 'import.analyse_activity'::regproc,                       'import.process_activity'::regproc),
-    ('contact',                          'Contact Info',               70, 'import.analyse_contact'::regproc,                        'import.process_contact'::regproc),
-    ('statistical_variables',            'Statistical Variables',      80, 'import.analyse_statistical_variables'::regproc,          'import.process_statistical_variables'::regproc),
-    ('tags',                             'Tags',                       90, 'import.analyse_tags'::regproc,                           'import.process_tags'::regproc),
-    ('edit_info',                        'Edit Info',                 100, 'import.analyse_edit_info'::regproc,               NULL),
-    ('metadata',                         'Job Row Metadata',          110, NULL,                                                                        NULL)
-ON CONFLICT (code) DO NOTHING;
+INSERT INTO public.import_step (code, name, priority, analyse_procedure, process_procedure, is_holistic) VALUES
+    ('valid_time',                       'Validity Period',            10, 'import.analyse_valid_time'::regproc, NULL, false),
+    ('external_idents',                  'External Identifiers',       15, 'import.analyse_external_idents'::regproc, NULL, true),
+    ('enterprise_link_for_legal_unit',   'Link LU to Enterprise',      18, 'import.analyse_enterprise_link_for_legal_unit'::regproc, 'import.process_enterprise_link_for_legal_unit'::regproc, false),
+    ('enterprise_link_for_establishment','Link EST to Enterprise',     19, 'import.analyse_enterprise_link_for_establishment'::regproc, 'import.process_enterprise_link_for_establishment'::regproc, false),
+    ('link_establishment_to_legal_unit', 'Link EST to LU',             19, 'import.analyse_link_establishment_to_legal_unit'::regproc, NULL, true),
+    ('status',                'Status Resolution',          17, 'import.analyse_status'::regproc, NULL, false),
+    ('legal_unit',                       'Legal Unit Core',            20, 'import.analyse_legal_unit'::regproc,                     'import.process_legal_unit'::regproc, false),
+    ('establishment',                    'Establishment Core',         20, 'import.analyse_establishment'::regproc,                  'import.process_establishment'::regproc, false),
+    ('physical_location',                'Physical Location',          30, 'import.analyse_location'::regproc,                       'import.process_location'::regproc, false),
+    ('postal_location',                  'Postal Location',            40, 'import.analyse_location'::regproc,                       'import.process_location'::regproc, false),
+    ('primary_activity',                 'Primary Activity',           50, 'import.analyse_activity'::regproc,                       'import.process_activity'::regproc, false),
+    ('secondary_activity',               'Secondary Activity',         60, 'import.analyse_activity'::regproc,                       'import.process_activity'::regproc, false),
+    ('contact',                          'Contact Info',               70, 'import.analyse_contact'::regproc,                        'import.process_contact'::regproc, false),
+    ('statistical_variables',            'Statistical Variables',      80, 'import.analyse_statistical_variables'::regproc,          'import.process_statistical_variables'::regproc, false),
+    ('tags',                             'Tags',                       90, 'import.analyse_tags'::regproc,                           'import.process_tags'::regproc, false),
+    ('edit_info',                        'Edit Info',                 100, 'import.analyse_edit_info'::regproc,               NULL, false),
+    ('metadata',                         'Job Row Metadata',          110, NULL,                                                                        NULL, false)
+ON CONFLICT (code) DO UPDATE SET
+    name = EXCLUDED.name,
+    priority = EXCLUDED.priority,
+    analyse_procedure = EXCLUDED.analyse_procedure,
+    process_procedure = EXCLUDED.process_procedure,
+    is_holistic = EXCLUDED.is_holistic;
 
 -- Define Static Data Columns for each Step
 -- These are the columns inherently required or produced by each step's logic.

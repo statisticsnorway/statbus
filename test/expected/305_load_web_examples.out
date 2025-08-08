@@ -2891,7 +2891,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     7
- import    | completed |    14
+ import    | completed |    60
 (2 rows)
 
 -- SET client_min_messages TO NOTICE;
@@ -3002,7 +3002,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     7
- import    | completed |    14
+ import    | completed |    60
 (2 rows)
 
 \echo Run worker processing for analytics tasks
@@ -3012,7 +3012,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |     9
- import    | completed |    14
+ import    | completed |    60
 (2 rows)
 
 \echo "Checking statistics"

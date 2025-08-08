@@ -62,7 +62,7 @@ CREATE OR REPLACE PROCEDURE import.analyse_statistical_variables(p_job_id INT, p
 LANGUAGE plpgsql AS $analyse_statistical_variables$
 DECLARE
     v_job public.import_job;
-    v_step RECORD;
+    v_step public.import_step;
     v_snapshot JSONB;
     v_data_table_name TEXT;
     v_stat_data_cols JSONB;
@@ -87,9 +87,10 @@ BEGIN
         RAISE EXCEPTION '[Job %] Failed to load valid import_data_column_list from definition_snapshot', p_job_id;
     END IF;
 
-    SELECT * INTO v_step FROM public.import_step WHERE code = 'statistical_variables';
+    -- Find the step details from the snapshot
+    SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = 'statistical_variables';
     IF NOT FOUND THEN
-        RAISE EXCEPTION '[Job %] statistical_variables target not found', p_job_id;
+        RAISE EXCEPTION '[Job %] statistical_variables target not found in snapshot', p_job_id;
     END IF;
 
     -- No longer filter v_stat_data_cols by step_id here.
@@ -212,8 +213,8 @@ LANGUAGE plpgsql AS $process_statistical_variables$
 DECLARE
     v_job public.import_job;
     v_snapshot JSONB;
-    v_definition JSONB;
-    v_step RECORD;
+    v_definition public.import_definition;
+    v_step public.import_step;
     v_strategy public.import_strategy;
     v_edit_by_user_id INT;
     v_timestamp TIMESTAMPTZ := clock_timestamp();
@@ -251,20 +252,21 @@ BEGIN
     -- Get job details and snapshot
     SELECT * INTO v_job FROM public.import_job ij WHERE id = p_job_id;
     v_data_table_name := v_job.data_table_name; 
-    v_definition := v_job.definition_snapshot->'import_definition'; 
+    SELECT * INTO v_definition FROM jsonb_populate_record(NULL::public.import_definition, v_job.definition_snapshot->'import_definition');
     v_stat_data_cols := v_job.definition_snapshot->'import_data_column_list'; 
 
-    IF v_definition IS NULL OR jsonb_typeof(v_definition) != 'object' OR
+    IF v_definition IS NULL OR
        v_stat_data_cols IS NULL OR jsonb_typeof(v_stat_data_cols) != 'array' THEN
         RAISE EXCEPTION '[Job %] Failed to load valid import_definition or import_data_column_list from definition_snapshot', p_job_id;
     END IF;
 
-    SELECT * INTO v_step FROM public.import_step WHERE code = 'statistical_variables';
+    -- Find the step details from the snapshot
+    SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = 'statistical_variables';
     IF NOT FOUND THEN
-        RAISE EXCEPTION '[Job %] statistical_variables target not found', p_job_id;
+        RAISE EXCEPTION '[Job %] statistical_variables target not found in snapshot', p_job_id;
     END IF;
 
-    v_strategy := (v_definition->>'strategy')::public.import_strategy;
+    v_strategy := v_definition.strategy;
     v_edit_by_user_id := v_job.user_id;
 
     v_add_separator := FALSE;
@@ -290,7 +292,7 @@ BEGIN
          RETURN;
     END IF;
 
-    v_job_mode := (v_job.definition_snapshot->'import_definition'->>'mode')::public.import_mode;
+    v_job_mode := v_definition.mode;
 
     IF v_job_mode = 'legal_unit' THEN
         v_select_lu_id_expr := 'dt.legal_unit_id';
@@ -511,8 +513,8 @@ BEGIN
         RAISE DEBUG '[Job %] process_statistical_variables: Inserted % new stat_for_unit records into temp_created_stats via MERGE.', p_job_id, v_inserted_new_stat_count;
 
         IF v_inserted_new_stat_count > 0 THEN
-            v_update_pk_sql := format('UPDATE public.%I dt SET last_completed_priority = %L, error = NULL, state = %L',
-                                      v_data_table_name, v_step.priority, 'processing'::public.import_data_state);
+            v_update_pk_sql := format('UPDATE public.%I dt SET error = NULL, state = %L',
+                                      v_data_table_name, 'processing'::public.import_data_state);
             v_update_pk_sep := ', ';
 
             FOR v_stat_def IN SELECT id, code FROM public.stat_definition
@@ -612,8 +614,8 @@ BEGIN
             RAISE DEBUG '[Job %] process_statistical_variables: Batch replace finished. Success: %, Errors: %', p_job_id, array_length(v_batch_upsert_success_row_ids, 1), v_error_count;
 
             IF array_length(v_batch_upsert_success_row_ids, 1) > 0 THEN
-                v_update_pk_sql := format('UPDATE public.%I dt SET last_completed_priority = %L, error = NULL, state = %L',
-                                          v_data_table_name, v_step.priority, 'processing'::public.import_data_state);
+                v_update_pk_sql := format('UPDATE public.%I dt SET error = NULL, state = %L',
+                                          v_data_table_name, 'processing'::public.import_data_state);
                 v_update_pk_sep := ', ';
 
                 FOR v_stat_def IN SELECT id, code FROM public.stat_definition
@@ -647,20 +649,7 @@ BEGIN
         RAISE;
     END;
 
-     v_sql := format($$
-        UPDATE public.%I dt SET
-            last_completed_priority = %L
-        WHERE dt.row_id = ANY(%L)
-          AND dt.action != 'skip'
-          AND dt.state != 'error'
-          AND NOT EXISTS (SELECT 1 FROM temp_created_stats tcs WHERE tcs.data_row_id = dt.row_id) 
-          AND NOT EXISTS (SELECT 1 FROM temp_stat_upsert_source tsus WHERE tsus.row_id = dt.row_id); 
-    $$, v_data_table_name, v_step.priority, p_batch_row_ids);
-    RAISE DEBUG '[Job %] process_statistical_variables: Updating priority for unprocessed rows: %', p_job_id, v_sql;
-    EXECUTE v_sql;
-
-    EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L) AND action = 'skip'$$,
-                   v_job.data_table_name, v_step.priority, p_batch_row_ids);
+    -- The framework now handles advancing priority for all rows, including unprocessed and skipped rows. No update needed here.
 
     RAISE DEBUG '[Job %] process_statistical_variables (Batch): Finished operation for batch. New: %, Replaced: %. Errors: %',
         p_job_id, v_inserted_new_stat_count, v_updated_existing_stat_count, v_error_count;

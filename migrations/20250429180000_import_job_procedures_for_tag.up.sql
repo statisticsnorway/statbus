@@ -8,7 +8,7 @@ CREATE OR REPLACE PROCEDURE import.analyse_tags(p_job_id INT, p_batch_row_ids IN
 LANGUAGE plpgsql AS $analyse_tags$
 DECLARE
     v_job public.import_job;
-    v_step RECORD;
+    v_step public.import_step;
     v_data_table_name TEXT;
     v_error_row_ids INTEGER[] := ARRAY[]::INTEGER[];
     v_error_count INT := 0;
@@ -24,10 +24,10 @@ BEGIN
     SELECT * INTO v_job FROM public.import_job ij WHERE id = p_job_id;
     v_data_table_name := v_job.data_table_name; -- Assign separately
 
-    -- Find the target details
-    SELECT * INTO v_step FROM public.import_step WHERE code = 'tags';
+    -- Find the target details from the snapshot
+    SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = 'tags';
     IF NOT FOUND THEN
-        RAISE EXCEPTION '[Job %] tags target not found', p_job_id;
+        RAISE EXCEPTION '[Job %] tags target not found in snapshot', p_job_id;
     END IF;
 
     -- Single-pass batch update for casting, lookup, state, error, and priority
@@ -132,8 +132,8 @@ LANGUAGE plpgsql AS $process_tags$
 DECLARE
     v_job public.import_job;
     v_snapshot JSONB;
-    v_definition JSONB;
-    v_step RECORD;
+    v_definition public.import_definition;
+    v_step public.import_step;
     v_strategy public.import_strategy;
     v_edit_by_user_id INT;
     v_timestamp TIMESTAMPTZ := clock_timestamp();
@@ -155,23 +155,23 @@ BEGIN
     -- Get job details and snapshot
     SELECT * INTO v_job FROM public.import_job ij WHERE id = p_job_id;
     v_data_table_name := v_job.data_table_name; -- Assign separately
-    v_definition := v_job.definition_snapshot->'import_definition'; -- Read from snapshot column
+    SELECT * INTO v_definition FROM jsonb_populate_record(NULL::public.import_definition, v_job.definition_snapshot->'import_definition');
 
-    IF v_definition IS NULL OR jsonb_typeof(v_definition) != 'object' THEN
+    IF v_definition IS NULL THEN
         RAISE EXCEPTION '[Job %] Failed to load valid import_definition object from definition_snapshot', p_job_id;
     END IF;
 
-    -- Find the target step details
-    SELECT * INTO v_step FROM public.import_step WHERE code = 'tags';
+    -- Find the target step details from the snapshot
+    SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = 'tags';
     IF NOT FOUND THEN
-        RAISE EXCEPTION '[Job %] tags target not found', p_job_id;
+        RAISE EXCEPTION '[Job %] tags target not found in snapshot', p_job_id;
     END IF;
 
     -- Determine operation type and user ID
-    v_strategy := (v_definition->>'strategy')::public.import_strategy;
+    v_strategy := v_definition.strategy;
     v_edit_by_user_id := v_job.user_id;
 
-    v_job_mode := (v_job.definition_snapshot->'import_definition'->>'mode')::public.import_mode;
+    v_job_mode := v_definition.mode;
 
     IF v_job_mode = 'legal_unit' THEN
         v_select_lu_id_expr := 'dt.legal_unit_id';
@@ -319,7 +319,6 @@ BEGIN
             )
             UPDATE public.%I dt SET
                 tag_for_unit_id = ll.link_id,
-                last_completed_priority = %L,
                 error = NULL -- Clears any error previously set by this step if now successful
                 -- State remains 'processing' as set by the calling procedure for this phase
             FROM temp_batch_data tbd
@@ -329,34 +328,9 @@ BEGIN
             WHERE dt.row_id = tbd.data_row_id
               AND dt.state != %L -- Do not update if row is already in 'error' state from a prior step or this one.
               AND tbd.action IN ('insert', 'replace'); -- Only update rows that were processed by this step's DML
-        $$, v_data_table_name, v_step.priority, 'error');
+        $$, v_data_table_name, 'error');
         RAISE DEBUG '[Job %] process_tags: Updating _data table with final IDs: %', p_job_id, v_sql;
         EXECUTE v_sql;
-        
-
-        -- Update priority for rows that didn't have a tag_id or were skipped by the main DML
-        v_sql := format($$
-           UPDATE public.%I dt SET
-               last_completed_priority = %L
-           WHERE dt.row_id = ANY(%L) AND dt.state != %L -- dt.state != 'error'
-             AND NOT EXISTS ( -- This condition means the row was not processed by the main DML logic above
-                 SELECT 1 FROM temp_batch_data tbd_check
-                 WHERE tbd_check.data_row_id = dt.row_id
-                   AND EXISTS (SELECT 1 FROM public.tag_for_unit tfu_check WHERE tfu_check.id = tbd_check.existing_link_id OR (tfu_check.tag_id = tbd_check.tag_id AND tfu_check.legal_unit_id IS NOT DISTINCT FROM tbd_check.legal_unit_id AND tfu_check.establishment_id IS NOT DISTINCT FROM tbd_check.establishment_id))
-                   AND tbd_check.action IN ('insert', 'replace')
-             );
-       $$, v_data_table_name, v_step.priority, p_batch_row_ids, 'error');
-       EXECUTE v_sql;
-       GET DIAGNOSTICS v_update_count = ROW_COUNT;
-       RAISE DEBUG '[Job %] process_tags: Advanced LCP for % rows not processed by main DML and not in error.', p_job_id, v_update_count;
-   
-   
-       -- Update priority for rows that were already marked as 'skip' by analysis or a prior step
-       EXECUTE format($$UPDATE public.%I SET last_completed_priority = GREATEST(last_completed_priority, %L) WHERE row_id = ANY(%L) AND action = 'skip'$$,
-                      v_job.data_table_name, v_step.priority, p_batch_row_ids);
-       GET DIAGNOSTICS v_update_count = ROW_COUNT;
-       RAISE DEBUG '[Job %] process_tags: Ensured LCP advanced for % rows marked as skip.', p_job_id, v_update_count;
-   
     EXCEPTION WHEN OTHERS THEN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
         RAISE WARNING '[Job %] process_tags: Error during batch operation: %', p_job_id, error_message;
@@ -369,19 +343,6 @@ BEGIN
         DROP TABLE IF EXISTS temp_batch_data;
         RAISE; -- Re-raise the original exception
     END;
-
-     -- Update priority for rows that didn't have a tag_id or were skipped
-     v_sql := format($$
-        UPDATE public.%I dt SET
-            last_completed_priority = %L
-        WHERE dt.row_id = ANY(%L) AND dt.state != %L
-          AND NOT EXISTS (SELECT 1 FROM temp_batch_data tbd WHERE tbd.data_row_id = dt.row_id AND tbd.action IN ('insert', 'replace')); -- Only update rows not processed
-    $$, v_data_table_name, v_step.priority, p_batch_row_ids, 'error');
-    EXECUTE v_sql;
-
-    -- Update priority for skipped rows (redundant if already done in analyse, but safe)
-    EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L) AND action = 'skip'$$,
-                   v_job.data_table_name, v_step.priority, p_batch_row_ids);
 
     RAISE DEBUG '[Job %] process_tags (Batch): Finished operation for batch. Initial batch size: %. Errors (estimated): %', p_job_id, array_length(p_batch_row_ids, 1), v_error_count;
 

@@ -6,8 +6,7 @@ LANGUAGE plpgsql AS $analyse_establishment$
 DECLARE
     v_job public.import_job;
     v_snapshot JSONB;
-    v_definition JSONB;
-    v_step RECORD;
+    v_step public.import_step;
     v_data_table_name TEXT;
     v_error_count INT := 0;
     v_update_count INT := 0;
@@ -24,16 +23,12 @@ BEGIN
 
     -- Get job details and snapshot
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
-    v_definition := v_job.definition_snapshot; 
     v_data_table_name := v_job.data_table_name; 
 
-    IF v_definition IS NULL OR jsonb_typeof(v_definition) != 'object' THEN
-        RAISE EXCEPTION '[Job %] Failed to load valid definition snapshot from import_job record', p_job_id;
-    END IF;
-
-    SELECT * INTO v_step FROM public.import_step WHERE code = 'establishment';
+    -- Find the step details from the snapshot
+    SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = 'establishment';
     IF NOT FOUND THEN
-        RAISE EXCEPTION '[Job %] establishment target not found', p_job_id;
+        RAISE EXCEPTION '[Job %] establishment target not found in snapshot', p_job_id;
     END IF;
 
     v_sql := format($$
@@ -148,8 +143,8 @@ LANGUAGE plpgsql AS $process_establishment$
 DECLARE
     v_job public.import_job;
     v_snapshot JSONB;
-    v_definition JSONB;
-    v_step RECORD;
+    v_definition public.import_definition;
+    v_step public.import_step;
     v_strategy public.import_strategy;
     v_edit_by_user_id INT;
     v_timestamp TIMESTAMPTZ := clock_timestamp();
@@ -180,25 +175,26 @@ BEGIN
     RAISE DEBUG '[Job %] process_establishment (Batch): Starting operation for % rows', p_job_id, array_length(p_batch_row_ids, 1);
 
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
-    v_definition := v_job.definition_snapshot;
     v_data_table_name := v_job.data_table_name;
+    SELECT * INTO v_definition FROM jsonb_populate_record(NULL::public.import_definition, v_job.definition_snapshot->'import_definition');
 
-    IF v_definition IS NULL OR jsonb_typeof(v_definition) != 'object' THEN
-        RAISE EXCEPTION '[Job %] Failed to load valid definition snapshot from import_job record', p_job_id;
+    IF v_definition IS NULL THEN
+        RAISE EXCEPTION '[Job %] Failed to load valid import_definition object from definition_snapshot', p_job_id;
     END IF;
 
-    v_job_mode := (v_definition->'import_definition'->>'mode')::public.import_mode;
+    v_job_mode := v_definition.mode;
     IF v_job_mode IS NULL OR v_job_mode NOT IN ('establishment_formal', 'establishment_informal') THEN
         RAISE EXCEPTION '[Job %] Invalid or missing mode for establishment processing: %. Expected ''establishment_formal'' or ''establishment_informal''.', p_job_id, v_job_mode;
     END IF;
     RAISE DEBUG '[Job %] process_establishment: Job mode is %', p_job_id, v_job_mode;
 
-    SELECT * INTO v_step FROM public.import_step WHERE code = 'establishment';
+    -- Find the step details from the snapshot
+    SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = 'establishment';
     IF NOT FOUND THEN
-        RAISE EXCEPTION '[Job %] establishment target not found', p_job_id;
+        RAISE EXCEPTION '[Job %] establishment target not found in snapshot', p_job_id;
     END IF;
 
-    v_strategy := (v_definition->'import_definition'->>'strategy')::public.import_strategy;
+    v_strategy := v_definition.strategy;
     IF v_strategy IS NULL THEN
         RAISE EXCEPTION '[Job %] Strategy is NULL, cannot proceed. Check definition_snapshot structure.', p_job_id;
     END IF;
@@ -489,12 +485,11 @@ BEGIN
             EXECUTE format($$
                 UPDATE public.%I dt SET
                     establishment_id = tce.new_establishment_id, -- This updates the _data table for the 'insert' rows
-                    last_completed_priority = %L,
                     error = NULL,
                     state = %L
                 FROM temp_created_ests tce
                 WHERE dt.row_id = tce.data_row_id AND dt.state != 'error';
-            $$, v_data_table_name, v_step.priority, 'processing'::public.import_data_state);
+            $$, v_data_table_name, 'processing'::public.import_data_state);
             RAISE DEBUG '[Job %] process_establishment: Updated _data table for % new ESTs.', p_job_id, v_inserted_new_est_count;
         END IF;
 
@@ -606,12 +601,11 @@ BEGIN
                 EXECUTE format($$
                     UPDATE public.%I dt SET
                         establishment_id = tpai.actual_establishment_id,
-                        last_completed_priority = %L,
                         error = NULL,
                         state = %L
                     FROM temp_processed_action_ids tpai
                     WHERE dt.row_id = tpai.data_row_id AND dt.row_id = ANY(%L); -- dt.row_id = ANY ensures we only update rows from this batch
-                $$, v_data_table_name, v_step.priority, 'processing'::public.import_data_state, v_batch_upsert_success_row_ids);
+                $$, v_data_table_name, 'processing'::public.import_data_state, v_batch_upsert_success_row_ids);
                 RAISE DEBUG '[Job %] process_establishment: Updated _data table for % successfully replaced ESTs with correct establishment_id.', p_job_id, v_actually_replaced_or_updated_est_count;
             END IF;
         END IF; -- End v_updated_existing_est_count > 0 (renamed from v_updated_existing_est_count for clarity of original intent)
@@ -628,8 +622,7 @@ BEGIN
         RAISE;
     END;
 
-    EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L) AND action = 'skip'$$,
-                   v_job.data_table_name, v_step.priority, p_batch_row_ids);
+    -- The framework now handles advancing priority for all rows, including 'skip'. No update needed here.
 
     RAISE DEBUG '[Job %] process_establishment (Batch): Finished. New ESTs (action=insert): %, ESTs for replace/update: % (succeeded: %, errored: %). Total Errors in step: %',
         p_job_id, v_inserted_new_est_count, v_updated_existing_est_count, v_actually_replaced_or_updated_est_count, v_error_count, v_error_count; -- Assuming v_error_count is total for replace/update part

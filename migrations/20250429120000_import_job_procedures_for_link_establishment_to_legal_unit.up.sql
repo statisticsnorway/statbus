@@ -9,9 +9,10 @@ CREATE OR REPLACE PROCEDURE import.analyse_link_establishment_to_legal_unit(p_jo
 LANGUAGE plpgsql AS $analyse_link_establishment_to_legal_unit$
 DECLARE
     v_job public.import_job;
-    v_step RECORD;
+    v_step public.import_step;
     v_snapshot JSONB;
     v_data_table_name TEXT;
+    v_relevant_row_ids INTEGER[]; -- For holistic execution
     v_link_data_cols JSONB;
     v_col_rec RECORD;
     v_sql TEXT;
@@ -24,7 +25,9 @@ DECLARE
     v_error_keys_to_clear_arr TEXT[] := ARRAY[]::TEXT[]; 
     v_fallback_error_key TEXT;
 BEGIN
-    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_row_ids, 1);
+    -- This is a HOLISTIC procedure. It is called once and processes all relevant rows for this step.
+    -- The p_batch_row_ids parameter is ignored (it will be NULL).
+    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit (Holistic): Starting analysis.', p_job_id;
 
     -- Get job details and snapshot
     SELECT * INTO v_job FROM public.import_job ij WHERE id = p_job_id;
@@ -35,10 +38,23 @@ BEGIN
         RAISE EXCEPTION '[Job %] Failed to load valid import_data_column_list from definition_snapshot', p_job_id;
     END IF;
 
-    -- Find the target step details
-    SELECT * INTO v_step FROM public.import_step WHERE code = 'link_establishment_to_legal_unit';
+    -- Find the target step details from the snapshot
+    SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = 'link_establishment_to_legal_unit';
     IF NOT FOUND THEN
-        RAISE EXCEPTION '[Job %] link_establishment_to_legal_unit step not found', p_job_id;
+        RAISE EXCEPTION '[Job %] link_establishment_to_legal_unit step not found in snapshot', p_job_id;
+    END IF;
+
+    -- Holistic execution: get all relevant rows for this step.
+    EXECUTE format('SELECT array_agg(row_id) FROM public.%I WHERE state = %L AND last_completed_priority < %L',
+                   v_data_table_name, 'analysing'::public.import_data_state, v_step.priority)
+    INTO v_relevant_row_ids;
+    
+    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Holistic execution. Found % rows to process for this step.',
+                p_job_id, COALESCE(array_length(v_relevant_row_ids, 1), 0);
+    
+    IF v_relevant_row_ids IS NULL OR array_length(v_relevant_row_ids, 1) = 0 THEN
+        RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: No relevant rows to process.', p_job_id;
+        RETURN;
     END IF;
 
     -- Filter data columns relevant to this step (purpose = 'source_input' and step_id matches)
@@ -49,7 +65,7 @@ BEGIN
     IF v_link_data_cols IS NULL OR jsonb_array_length(v_link_data_cols) = 0 THEN
          RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: No legal_unit_* source_input data columns found in snapshot for step %. Skipping analysis.', p_job_id, v_step.id;
          EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L)$$,
-                        v_data_table_name, v_step.priority, p_batch_row_ids);
+                        v_data_table_name, v_step.priority, v_relevant_row_ids);
          RETURN;
     END IF;
 
@@ -80,7 +96,7 @@ BEGIN
             v_unpivot_sql := v_unpivot_sql || format(
                 $$SELECT dt.row_id AS data_row_id, %L AS ident_code, dt.%I AS ident_value
                  FROM public.%I dt WHERE dt.%I IS NOT NULL AND dt.row_id = ANY(%L) AND dt.action != 'skip'$$, -- Exclude pre-skipped
-                 v_col_rec.col_name, v_col_rec.col_name, v_data_table_name, v_col_rec.col_name, p_batch_row_ids
+                 v_col_rec.col_name, v_col_rec.col_name, v_data_table_name, v_col_rec.col_name, v_relevant_row_ids
             );
             v_add_separator := TRUE;
         END LOOP;
@@ -104,7 +120,7 @@ BEGIN
             v_error_keys_to_clear_arr,  -- %3$L
             v_fallback_error_key,       -- %4$L
             v_step.priority,            -- %5$L
-            p_batch_row_ids             -- %6$L
+            v_relevant_row_ids          -- %6$L
         );
         EXECUTE v_sql;
         GET DIAGNOSTICS v_error_count = ROW_COUNT;
@@ -168,7 +184,7 @@ BEGIN
         FROM RowChecks rc
         WHERE rc.num_idents_provided = 0 OR (rc.num_idents_provided > 0 AND rc.found_lu = 0) OR rc.distinct_lu_ids > 1;
     $$, 
-        p_batch_row_ids,         /* %1$L */
+        v_relevant_row_ids,         /* %1$L */
         v_fallback_error_key,    /* %2$L */
         v_error_keys_to_clear_arr /* %3$L */
     );
@@ -186,10 +202,10 @@ BEGIN
             FROM temp_batch_errors err
             WHERE dt.row_id = err.data_row_id;
         $$, 
-            v_data_table_name,  -- %1$I
-            'error',            -- %2$L
-            '{}'::jsonb,        -- %3$L
-            v_step.priority     -- %4$L
+            v_data_table_name,            -- %1$I
+            'error',                      -- %2$L
+            '{}'::jsonb,                  -- %3$L
+            v_step.priority               -- %4$L
         );
         RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Updating error rows: %', p_job_id, v_sql;
         EXECUTE v_sql;
@@ -258,11 +274,11 @@ BEGIN
         WHERE dt.row_id = rfp.data_row_id; -- Join condition for UPDATE
     $$,
         v_data_table_name,                      /* %1$I */
-        p_batch_row_ids,                        /* %2$L */
+        v_relevant_row_ids,                           /* %2$L */
         COALESCE(v_error_row_ids, ARRAY[]::INTEGER[]), /* %3$L */
-        v_step.priority,                        /* %4$L */
-        v_error_keys_to_clear_arr,              /* %5$L */
-        'analysing'::public.import_data_state   /* %6$L */
+        v_step.priority,                              /* %4$L */
+        v_error_keys_to_clear_arr,                    /* %5$L */
+        'analysing'::public.import_data_state         /* %6$L */
     );
     RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Updating success rows with resolved IDs and refined primary_for_legal_unit logic: %', p_job_id, v_sql;
     EXECUTE v_sql;
@@ -281,7 +297,7 @@ BEGIN
                WHERE row_id = ANY(%2$L)
                  AND legal_unit_id IS NOT NULL LIMIT 3
             $$, v_data_table_name,  /* %1$I */
-                p_batch_row_ids     /* %2$L */
+                v_relevant_row_ids     /* %2$L */
             );
             RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Sample _data table after update: %', p_job_id, v_sample_sql;
             FOR sample_data IN EXECUTE v_sample_sql LOOP
@@ -300,9 +316,9 @@ BEGIN
             last_completed_priority = %2$L
         WHERE dt.row_id = ANY(%3$L) AND dt.action = 'skip';
     $$, 
-        v_data_table_name,  -- %1$I
-        v_step.priority,    -- %2$L
-        p_batch_row_ids     -- %3$L
+        v_data_table_name,          -- %1$I
+        v_step.priority,            -- %2$L
+        v_relevant_row_ids          -- %3$L
     );
     GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
     RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Updated last_completed_priority for % pre-skipped rows.', p_job_id, v_skipped_update_count;
