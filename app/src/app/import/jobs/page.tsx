@@ -55,6 +55,23 @@ const formatNumber = (num: number | null | undefined): string => {
   return num.toLocaleString('nb-NO');
 };
 
+const formatDuration = (seconds: number): string => {
+  if (seconds < 0 || !isFinite(seconds) || seconds > 3600 * 24) return ""; // Don't show for > 24h
+  if (seconds < 1) return "< 1s";
+
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+
+  const parts = [];
+  if (h > 0) parts.push(`${h}h`);
+  if (m > 0) parts.push(`${m}m`);
+  // Only show seconds if total time is less than an hour for brevity
+  if (s > 0 && h === 0) parts.push(`${s}s`);
+
+  return parts.join(' ');
+};
+
 const jobStatuses = [
   { value: "waiting_for_upload", label: "Waiting for Upload", icon: FileUp },
   { value: "upload_completed", label: "Uploaded", icon: Loader },
@@ -310,6 +327,21 @@ export default function ImportJobsPage() {
           </div>
         );
 
+        let progressDetails = null;
+        if (job.state === 'analysing_data' && job.current_step_code && job.current_step_priority !== null && job.max_analysis_priority !== null) {
+          progressDetails = (
+            <div className="text-xs text-gray-500 mt-1">
+              {job.current_step_code} (Step {job.current_step_priority} of {job.max_analysis_priority})
+            </div>
+          );
+        } else if (job.state === 'processing_data') {
+          progressDetails = (
+            <div className="text-xs text-gray-500 mt-1">
+              Processing data in batches...
+            </div>
+          );
+        }
+
         return (
           <div>
             {job.state === 'waiting_for_upload' ? (
@@ -317,6 +349,7 @@ export default function ImportJobsPage() {
             ) : (
               badgeAndError
             )}
+            {progressDetails}
           </div>
         );
       },
@@ -331,10 +364,14 @@ export default function ImportJobsPage() {
       id: 'analysed',
       header: 'Analysed',
       cell: ({ row }) => {
-        const { analysed_rows, total_rows, slug, analysis_completed_pct, state } = row.original;
+        const { total_rows, slug, analysis_completed_pct, state } = row.original;
         if (total_rows === null || total_rows === undefined) {
           return <span className="text-xs text-gray-400">-</span>;
         }
+
+        const equivalentAnalysedRows = (analysis_completed_pct !== null && analysis_completed_pct !== undefined)
+          ? Math.floor(analysis_completed_pct / 100 * total_rows)
+          : 0;
 
         const showProgress = (state === 'analysing_data' || state === 'processing_data' || state === 'finished') &&
                              analysis_completed_pct !== null && analysis_completed_pct !== undefined;
@@ -342,7 +379,7 @@ export default function ImportJobsPage() {
         return (
           <div className="w-32">
             <Link href={`/import/jobs/${slug}/data`} className="underline">
-              <div className="text-xs font-mono">{formatNumber(analysed_rows)}/{formatNumber(total_rows)}</div>
+              <div className="text-xs font-mono">{formatNumber(equivalentAnalysedRows)}/{formatNumber(total_rows)}</div>
             </Link>
             {showProgress && (
               <div className="mt-1 flex items-center space-x-2">
@@ -359,8 +396,32 @@ export default function ImportJobsPage() {
       header: 'Analysis (r/s)',
       accessorKey: 'analysis_rows_per_sec',
       cell: ({ row }) => {
-        const speed = row.original.analysis_rows_per_sec;
-        return speed ? <div className="text-xs font-mono">{Number(speed).toFixed(2)}</div> : <span className="text-xs text-gray-400">-</span>;
+        const { analysis_rows_per_sec: speed, analysis_start_at, analysis_completed_pct, state } = row.original;
+
+        const speedDisplay = speed ? <div className="text-xs font-mono">{Number(speed).toFixed(2)}</div> : <span className="text-xs text-gray-400">-</span>;
+
+        // ETR for analysis is based on wall-clock time and percentage complete, as 'analysis_rows_per_sec' is not a live metric.
+        if (state === 'analysing_data' && analysis_start_at && analysis_completed_pct && analysis_completed_pct > 0 && analysis_completed_pct < 100) {
+          const startTime = new Date(analysis_start_at).getTime();
+          const now = Date.now();
+          const elapsedMilliseconds = now - startTime;
+
+          if (elapsedMilliseconds > 1000) { // Only calculate if more than a second has passed
+            const totalEstimatedMilliseconds = (elapsedMilliseconds / analysis_completed_pct) * 100;
+            const remainingMilliseconds = totalEstimatedMilliseconds - elapsedMilliseconds;
+            const remainingSeconds = remainingMilliseconds / 1000;
+            const timeLeft = formatDuration(remainingSeconds);
+
+            return (
+              <div>
+                {speedDisplay}
+                {timeLeft && <div className="text-xs text-gray-500 font-mono" title="Estimated time remaining">~ {timeLeft}</div>}
+              </div>
+            );
+          }
+        }
+
+        return speedDisplay;
       }
     },
     {
@@ -395,8 +456,26 @@ export default function ImportJobsPage() {
       header: 'Processing (r/s)',
       accessorKey: 'import_rows_per_sec',
       cell: ({ row }) => {
-        const speed = row.original.import_rows_per_sec;
-        return speed ? <div className="text-xs font-mono">{Number(speed).toFixed(2)}</div> : <span className="text-xs text-gray-400">-</span>;
+        const { import_rows_per_sec: speed, total_rows, imported_rows, state } = row.original;
+
+        const speedDisplay = speed ? <div className="text-xs font-mono">{Number(speed).toFixed(2)}</div> : <span className="text-xs text-gray-400">-</span>;
+
+        if (state !== 'processing_data' || !speed || speed <= 0 || !total_rows) {
+          return speedDisplay;
+        }
+
+        const rowsLeft = total_rows - (imported_rows ?? 0);
+        if (rowsLeft <= 0) return speedDisplay;
+
+        const secondsLeft = rowsLeft / speed;
+        const timeLeft = formatDuration(secondsLeft);
+
+        return (
+          <div>
+            {speedDisplay}
+            {timeLeft && <div className="text-xs text-gray-500 font-mono" title="Estimated time remaining">~ {timeLeft}</div>}
+          </div>
+        );
       }
     },
     {
