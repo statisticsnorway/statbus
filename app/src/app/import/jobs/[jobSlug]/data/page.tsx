@@ -3,13 +3,14 @@
 import React from "react";
 import useSWR, { useSWRConfig } from 'swr';
 import { getBrowserRestClient } from "@/context/RestClientStore";
-import { Spinner } from "@/components/ui/spinner";
+import { DataTableSkeleton } from "@/components/data-table/data-table-skeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tables } from '@/lib/database.types';
 import { useDataTable } from "@/hooks/use-data-table";
 import { DataTable } from "@/components/data-table/data-table";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
-import { ColumnDef, PaginationState, SortingState } from "@tanstack/react-table";
+import { ColumnDef, PaginationState, SortingState, ColumnFiltersState } from "@tanstack/react-table";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ChevronRight } from "lucide-react";
@@ -26,11 +27,12 @@ type ImportJob = Tables<"import_job"> & {
 type ImportJobDataRow = {
   row_id: number;
   state: any;
+  name?: string | null;
   operation?: any;
   action?: any;
   error?: any;
   invalid_codes?: any;
-  [key: string]: any;
+  [key:string]: any;
 };
 
 const fetcher = async (key: string): Promise<any> => {
@@ -71,6 +73,32 @@ const fetcher = async (key: string): Promise<any> => {
       }
     });
 
+    const filters = new Map<string, string[]>();
+    for (const [key, value] of searchParams.entries()) {
+      if (key !== 'page' && key !== 'pageSize' && key !== 'sort') {
+        if (!filters.has(key)) {
+          filters.set(key, []);
+        }
+        filters.get(key)!.push(value);
+      }
+    }
+
+    filters.forEach((values, key) => {
+      if (key === 'error' || key === 'invalid_codes') {
+        const filterValue = values[0];
+        if (filterValue === 'is_null') {
+          queryBuilder = queryBuilder.is(key, null);
+        } else if (filterValue === 'not_null') {
+          queryBuilder = queryBuilder.not(key, 'is', null);
+        }
+      } else if (['operation', 'state', 'action'].includes(key)) {
+        queryBuilder = queryBuilder.in(key, values);
+      } else {
+        // Text search for name, external idents, etc.
+        queryBuilder = queryBuilder.ilike(key, `%${values[0]}%`);
+      }
+    });
+
     const { data, error, count } = await queryBuilder;
 
     if (error) throw error;
@@ -95,6 +123,8 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
     { id: "row_id", desc: false },
   ]);
 
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+
   const { data: job, error: jobError, isLoading: isJobLoading } = useSWR<ImportJob>(
     `import-job/${jobSlug}`,
     fetcher
@@ -111,18 +141,25 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
     sorting.forEach(sort => {
       params.append('sort', `${sort.id}.${sort.desc ? 'desc' : 'asc'}`);
     });
+    columnFilters.forEach(filter => {
+      if (Array.isArray(filter.value)) {
+        filter.value.forEach(val => params.append(filter.id, String(val)));
+      } else if (filter.value) {
+        params.append(filter.id, String(filter.value));
+      }
+    });
 
     return `import-data/${tableName}?${params.toString()}`;
-  }, [tableName, pagination, sorting]);
+  }, [tableName, pagination, sorting, columnFilters]);
 
 
-  const { data: tableData, error: tableError, isLoading: isTableDataLoading } = useSWR<{
+  const { data: tableData, error: tableError, isLoading: isTableDataLoading, isValidating: isTableDataValidating } = useSWR<{
     data: ImportJobDataRow[];
     count: number | null;
   }>(
     tableDataSWRKey,
     fetcher,
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, keepPreviousData: true }
   );
 
   React.useEffect(() => {
@@ -169,16 +206,18 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
   }, [tableData?.count, pagination.pageSize]);
 
   const columns = React.useMemo<ColumnDef<ImportJobDataRow>[]>(() => {
-    if (!tableData?.data || tableData.data.length === 0) return [];
-    
-    // Collect unique keys from all rows
-    const allKeys = new Set<string>();
-    tableData.data.forEach(row => {
-      Object.keys(row).forEach(key => allKeys.add(key));
-    });
-    let keys = Array.from(allKeys);
+    const operationOptions = [
+      { label: 'insert', value: 'insert' }, { label: 'replace', value: 'replace' }, { label: 'update', value: 'update' }
+    ];
+    const stateOptions = [
+      { label: 'pending', value: 'pending' }, { label: 'analysing', value: 'analysing' }, { label: 'analysed', value: 'analysed' },
+      { label: 'processing', value: 'processing' }, { label: 'processed', value: 'processed' }, { label: 'error', value: 'error' }
+    ];
+    const actionOptions = [
+      { label: 'insert', value: 'insert' }, { label: 'replace', value: 'replace' },
+      { label: 'update', value: 'update' }, { label: 'skip', value: 'skip' }
+    ];
 
-    // Define preferred order
     const externalIdentCodes = externalIdentTypes.map(e => e.code).filter((c): c is string => c !== null);
     const preferredOrder = [
       'row_id',
@@ -190,8 +229,15 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
       ...externalIdentCodes,
       'name'
     ];
+    const allKeys = new Set<string>(preferredOrder);
 
-    // Sort keys: preferred first in specified order, then others alphabetically
+    if (tableData?.data) {
+        tableData.data.forEach(row => {
+            Object.keys(row).forEach(key => allKeys.add(key));
+        });
+    }
+    let keys = Array.from(allKeys);
+
     keys.sort((a, b) => {
       const aIndex = preferredOrder.indexOf(a);
       const bIndex = preferredOrder.indexOf(b);
@@ -201,48 +247,108 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
       return a.localeCompare(b);
     });
 
-    return keys.map(key => ({
-      id: key,
-      accessorKey: key,
-      header: ({ column }) => <DataTableColumnHeader column={column} title={key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} />,
-      cell: ({ row }) => {
-        const value = row.getValue(key);
-        let displayValue;
-        if (value === null) {
-          displayValue = 'NULL';
-        } else if (typeof value === 'object') {
-          displayValue = JSON.stringify(value);
-        } else {
-          displayValue = String(value);
-        }
-        return <div className="text-xs truncate" title={displayValue}>{displayValue}</div>;
-      },
-      enableSorting: true,
-    }));
-  }, [tableData, externalIdentTypes]);
+    return keys.map(key => {
+      const columnDef: ColumnDef<ImportJobDataRow> = {
+        id: key,
+        accessorKey: key,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} />,
+        cell: ({ row }) => {
+          const value = row.getValue(key);
+          let displayValue;
+          if (value === null) {
+            displayValue = 'NULL';
+          } else if (typeof value === 'object') {
+            displayValue = JSON.stringify(value);
+          } else {
+            displayValue = String(value);
+          }
+          return <div className="text-xs truncate" title={displayValue}>{displayValue}</div>;
+        },
+        enableSorting: true,
+      };
+      
+      if (key === 'name' || externalIdentCodes.includes(key)) {
+        columnDef.enableColumnFilter = true;
+        columnDef.meta = {
+          label: key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+          variant: 'text',
+          placeholder: `Filter by ${key.replace(/_/g, ' ')}...`
+        };
+      }
+      
+      if (['operation', 'state', 'action'].includes(key)) {
+        columnDef.enableColumnFilter = true;
+        columnDef.meta = {
+          label: key.charAt(0).toUpperCase() + key.slice(1),
+          variant: 'multiSelect',
+          options: key === 'operation' ? operationOptions : key === 'state' ? stateOptions : actionOptions,
+        };
+      }
+
+      if (['error', 'invalid_codes'].includes(key)) {
+        columnDef.enableColumnFilter = true;
+        columnDef.meta = {
+          label: key === 'error' ? 'Error' : 'Invalid Codes',
+          variant: 'select',
+          options: [
+            { label: 'Has value', value: 'not_null' },
+            { label: 'Is empty', value: 'is_null' },
+          ],
+        };
+      }
+      
+      return columnDef;
+    });
+  }, [tableData?.data, externalIdentTypes]);
 
   const { table } = useDataTable({
     data: tableData?.data ?? [],
     columns,
     manualPagination: true,
+    manualFiltering: true,
+    debounceMs: 500,
     pageCount,
     state: {
       pagination,
       sorting,
+      columnFilters,
     },
     onPaginationChange: setPagination,
     onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
     getRowId: (row) => String(row.row_id),
   });
 
-  if (isJobLoading) {
-    return <Spinner message={`Loading job details for ${jobSlug}...`} />;
-  }
+  const isLoading = isJobLoading || (isTableDataLoading && !tableData);
 
   if (jobError) {
     return (
       <div className="p-4 bg-red-50 border border-red-200 rounded-md text-red-700">
         Failed to load import job details: {jobError.message}
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    const skeletonColumnCount = 7 + (externalIdentTypes?.length ?? 2);
+    const skeletonFilterCount = 6 + (externalIdentTypes?.length ?? 2);
+    return (
+      <div className="space-y-4">
+        <div>
+          <div className="flex items-center space-x-2">
+            <Link href="/import/jobs" className="text-2xl font-semibold text-gray-500 hover:underline">
+              Import Jobs
+            </Link>
+            <ChevronRight className="h-6 w-6 text-gray-400" />
+            <h1 className="text-2xl font-semibold">Imported Data for Job: {jobSlug}</h1>
+          </div>
+          <Skeleton className="mt-1 h-5 w-1/2" />
+        </div>
+        <DataTableSkeleton
+          columnCount={skeletonColumnCount}
+          filterCount={skeletonFilterCount}
+          rowCount={pagination.pageSize}
+        />
       </div>
     );
   }
@@ -267,8 +373,6 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
         </div>
         <p className="text-sm text-gray-500 mt-1">Description: {job.description ?? 'N/A'} | Table: {job.data_table_name}</p>
       </div>
-
-      {isTableDataLoading && <Spinner message={`Loading data from ${tableName}...`} />}
       
       {tableError && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-md text-red-700">
@@ -276,11 +380,11 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
         </div>
       )}
 
-      {tableData?.data && (
-        <DataTable table={table}>
+      {columns.length > 0 &&
+        <DataTable table={table} isValidating={isTableDataValidating}>
           <DataTableToolbar table={table} />
         </DataTable>
-      )}
+      }
     </div>
   );
 }

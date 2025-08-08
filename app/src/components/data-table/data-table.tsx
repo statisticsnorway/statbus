@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 interface DataTableProps<TData> extends React.ComponentProps<"div"> {
   table: TanstackTable<TData>;
   actionBar?: React.ReactNode;
+  isValidating?: boolean;
 }
 
 export function DataTable<TData>({
@@ -23,6 +24,7 @@ export function DataTable<TData>({
   actionBar,
   children,
   className,
+  isValidating,
   ...props
 }: DataTableProps<TData>) {
   return (
@@ -31,7 +33,7 @@ export function DataTable<TData>({
       {...props}
     >
       {children}
-      <div className="overflow-hidden rounded-md border">
+      <div className={cn("overflow-hidden rounded-md border transition-opacity", isValidating && "opacity-50")}>
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
