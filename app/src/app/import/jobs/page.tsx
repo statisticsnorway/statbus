@@ -6,6 +6,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import useSWR, { useSWRConfig } from 'swr';
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { Spinner } from "@/components/ui/spinner";
+import { formatDuration } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -25,6 +26,15 @@ import { DataTableActionBar, DataTableActionBarAction, DataTableActionBarSelecti
 import { Button } from "@/components/ui/button";
 
 
+type ImportStep = {
+  code: string;
+  analyse_procedure: string | null;
+};
+
+type DefinitionSnapshot = {
+  import_step_list: ImportStep[];
+};
+
 type ImportJob = Tables<"import_job"> & {
   import_definition: {
     slug: string | null;
@@ -32,6 +42,7 @@ type ImportJob = Tables<"import_job"> & {
     mode: string | null;
     custom: boolean | null;
   } | null;
+  definition_snapshot?: DefinitionSnapshot | null;
 };
 
 const SWR_KEY_IMPORT_JOBS = "/api/import-jobs";
@@ -53,23 +64,6 @@ const formatDate = (dateString: string | null): string => {
 const formatNumber = (num: number | null | undefined): string => {
   if (num === null || num === undefined) return "0";
   return num.toLocaleString('nb-NO');
-};
-
-const formatDuration = (seconds: number): string => {
-  if (seconds < 0 || !isFinite(seconds) || seconds > 3600 * 24) return ""; // Don't show for > 24h
-  if (seconds < 1) return "< 1s";
-
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-
-  const parts = [];
-  if (h > 0) parts.push(`${h}h`);
-  if (m > 0) parts.push(`${m}m`);
-  // Only show seconds if total time is less than an hour for brevity
-  if (s > 0 && h === 0) parts.push(`${s}s`);
-
-  return parts.join(' ');
 };
 
 const jobStatuses = [
@@ -327,20 +321,24 @@ export default function ImportJobsPage() {
           </div>
         );
 
-        let progressDetails = null;
-        if (job.state === 'analysing_data' && job.current_step_code && job.current_step_priority !== null && job.max_analysis_priority !== null) {
-          progressDetails = (
-            <div className="text-xs text-gray-500 mt-1">
-              {job.current_step_code} (Step {job.current_step_priority} of {job.max_analysis_priority})
-            </div>
-          );
-        } else if (job.state === 'processing_data') {
-          progressDetails = (
-            <div className="text-xs text-gray-500 mt-1">
+        const { total_rows } = job;
+
+        const rowCountDisplay = total_rows !== null && total_rows !== undefined ? (
+          <div className="text-xs text-gray-500 font-mono">
+            {formatNumber(total_rows)} Rows
+          </div>
+        ) : null;
+
+        let processingDetails = null;
+        if (job.state === 'processing_data') {
+          processingDetails = (
+            <div className="text-xs text-gray-500">
               Processing data in batches...
             </div>
           );
         }
+
+        const hasDetails = rowCountDisplay || processingDetails;
 
         return (
           <div>
@@ -349,7 +347,12 @@ export default function ImportJobsPage() {
             ) : (
               badgeAndError
             )}
-            {progressDetails}
+            {hasDetails && (
+              <div className="mt-1 space-y-0.5">
+                {rowCountDisplay}
+                {processingDetails}
+              </div>
+            )}
           </div>
         );
       },
@@ -362,27 +365,40 @@ export default function ImportJobsPage() {
     },
     {
       id: 'analysed',
-      header: 'Analysed',
+      header: 'Analysis',
       cell: ({ row }) => {
-        const { total_rows, slug, analysis_completed_pct, state } = row.original;
+        const { total_rows, analysis_completed_pct, state, current_step_code, definition_snapshot } = row.original;
         if (total_rows === null || total_rows === undefined) {
           return <span className="text-xs text-gray-400">-</span>;
         }
 
-        const equivalentAnalysedRows = (analysis_completed_pct !== null && analysis_completed_pct !== undefined)
-          ? Math.floor(analysis_completed_pct / 100 * total_rows)
-          : 0;
-
         const showProgress = (state === 'analysing_data' || state === 'processing_data' || state === 'finished') &&
                              analysis_completed_pct !== null && analysis_completed_pct !== undefined;
 
+        let stepDetails = null;
+        if (state === 'analysing_data' && current_step_code && definition_snapshot?.import_step_list) {
+          const analysisSteps = definition_snapshot.import_step_list.filter(s => s.analyse_procedure);
+          const currentStepIndex = analysisSteps.findIndex(s => s.code === current_step_code);
+          const totalAnalysisSteps = analysisSteps.length;
+
+          if (currentStepIndex !== -1 && totalAnalysisSteps > 0) {
+            stepDetails = (
+              <div className="text-xs text-gray-500">
+                Step {currentStepIndex + 1} of {totalAnalysisSteps} ({current_step_code})
+              </div>
+            );
+          }
+        }
+
+        if (!stepDetails && !showProgress) {
+          return <span className="text-xs text-gray-400">-</span>;
+        }
+
         return (
-          <div className="w-32">
-            <Link href={`/import/jobs/${slug}/data`} className="underline">
-              <div className="text-xs font-mono">{formatNumber(equivalentAnalysedRows)}/{formatNumber(total_rows)}</div>
-            </Link>
+          <div className="w-32 space-y-1">
+            {stepDetails}
             {showProgress && (
-              <div className="mt-1 flex items-center space-x-2">
+              <div className="flex items-center space-x-2">
                 <Progress value={analysis_completed_pct ?? 0} className="h-1.5 flex-grow" />
                 <span className="text-xs text-gray-500 font-mono">{Math.round(analysis_completed_pct ?? 0)}%</span>
               </div>
