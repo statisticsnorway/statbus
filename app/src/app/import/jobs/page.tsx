@@ -174,7 +174,7 @@ export default function ImportJobsPage() {
   const { data, error: swrError, isLoading } = useSWR<{ data: ImportJob[], count: number | null }, Error>(
     swrKey,
     fetcher,
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, keepPreviousData: true }
   );
 
   const jobsData = data?.data ?? [];
@@ -213,6 +213,12 @@ export default function ImportJobsPage() {
     };
   }, [isLoading, mutate, swrKey]);
 
+  // Ref to hold the current SWR key, allows handleDeleteJobs to be stable
+  const swrKeyRef = useRef(swrKey);
+  useEffect(() => {
+    swrKeyRef.current = swrKey;
+  }, [swrKey]);
+
   const handleDeleteJobs = React.useCallback(async (jobIds: number[]) => {
     if (!window.confirm(`Are you sure you want to delete ${jobIds.length} job(s)? This action cannot be undone.`)) {
       return;
@@ -222,14 +228,14 @@ export default function ImportJobsPage() {
       const client = await getBrowserRestClient();
       const { error } = await client.from("import_job").delete().in("id", jobIds);
       if (error) throw error;
-      mutate(swrKey);
+      mutate(swrKeyRef.current);
     } catch (err: any) {
       console.error("Failed to delete import jobs:", err);
       alert(`Error deleting jobs: ${err.message}`);
     } finally {
       setIsDeleting(false);
     }
-  }, [mutate, swrKey]);
+  }, [mutate]);
 
   const columns = useMemo<ColumnDef<ImportJob>[]>(() => [
     {
@@ -451,6 +457,7 @@ export default function ImportJobsPage() {
     manualPagination: true,
     manualSorting: true,
     manualFiltering: true,
+    debounceMs: 500,
     initialState: {
       sorting: [{ id: "id", desc: true }],
     },
