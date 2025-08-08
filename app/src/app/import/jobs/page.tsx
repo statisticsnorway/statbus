@@ -57,7 +57,7 @@ const formatNumber = (num: number | null | undefined): string => {
 
 const jobStatuses = [
   { value: "waiting_for_upload", label: "Waiting for Upload", icon: FileUp },
-  { value: "upload_completed", label: "Preparing", icon: Loader },
+  { value: "upload_completed", label: "Uploaded", icon: Loader },
   { value: "preparing_data", label: "Preparing", icon: Loader },
   { value: "analysing_data", label: "Analyzing", icon: Hourglass },
   { value: "processing_data", label: "Processing", icon: Hourglass },
