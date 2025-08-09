@@ -10,7 +10,7 @@ import { CommandPaletteTriggerMobileMenuButton } from "@/components/command-pale
 import TimeContextSelector from "@/components/time-context-selector";
 import { useAuth, isAuthenticatedAtom, currentUserAtom } from "@/atoms/auth";
 import { useBaseData } from "@/atoms/base-data";
-import { useWorkerStatus } from "@/atoms/worker-status";
+import { useWorkerStatus } from "@/atoms/worker_status";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation"; // Import usePathname
 import { useAtomValue } from "jotai";

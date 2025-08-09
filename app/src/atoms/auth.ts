@@ -19,6 +19,7 @@ import { type User, type AuthStatus as CoreAuthStatus, _parseAuthStatusRpcRespon
 import type { Database, Tables, TablesInsert } from '@/lib/database.types'
 import {
   importStateAtom,
+  initialImportState,
   unitCountsAtom,
 } from './import'
 import { gettingStartedUIStateAtom } from './getting-started'
@@ -30,11 +31,7 @@ import {
   tableColumnsAtom,
 } from './search'
 import { baseDataCoreAtom } from './base-data'
-import {
-  isImportingCoreAtom,
-  isDerivingUnitsCoreAtom,
-  isDerivingReportsCoreAtom,
-} from './worker-status'
+import { refreshWorkerStatusAtom } from './worker_status'
 import { restClientAtom, pendingRedirectAtom } from './app'
 
 // ============================================================================
@@ -405,15 +402,13 @@ export const logoutAtom = atom(
 
     // Reset all relevant application state.
     set(baseDataCoreAtom);
-    set(isImportingCoreAtom);
-    set(isDerivingUnitsCoreAtom);
-    set(isDerivingReportsCoreAtom);
+    set(refreshWorkerStatusAtom); // Resets worker status to non-authenticated state
     set(searchStateAtom, initialSearchStateValues);
     set(searchResultAtom, { data: [], total: 0, loading: false, error: null });
     set(selectedUnitsAtom, []);
     set(tableColumnsAtom, []);
     set(gettingStartedUIStateAtom, { currentStep: 0, completedSteps: [], isVisible: true });
-    set(importStateAtom, { isImporting: false, progress: 0, currentFile: null, errors: [], completed: false, useExplicitDates: false, selectedImportTimeContextIdent: null, selectedDefinition: null, availableDefinitions: [], explicitStartDate: null, explicitEndDate: null });
+    set(importStateAtom, initialImportState);
     set(unitCountsAtom, { legalUnits: null, establishmentsWithLegalUnit: null, establishmentsWithoutLegalUnit: null });
 
     // Redirect to login.

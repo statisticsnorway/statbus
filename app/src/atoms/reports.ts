@@ -8,7 +8,7 @@
 
 import { atom } from 'jotai'
 
-import { workerStatusAtom } from './worker-status'
+import { workerStatusAtom } from './worker_status'
 import { hasStatisticalUnitsAtom } from './base-data'
 
 // ============================================================================

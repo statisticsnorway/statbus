@@ -11,56 +11,56 @@ export async function GET(request: Request) {
   
   const stream = new ReadableStream({
     start(controller) {
+      const encoder = new TextEncoder();
+
       // Define the callback function
       const handleNotification = function notificationHandler(data: NotificationData) {
         try {
-          if (data.channel === 'check') {
-            const message = `event: check\ndata: ${data.payload}\n\n`;
-            controller.enqueue(new TextEncoder().encode(message));
+          // We now only care about the 'worker_status' channel
+          if (data.channel === 'worker_status') {
+            // The payload is already a JSON object. We send it as a standard 'message' event.
+            // The client will parse this JSON and use the 'type' field to update state.
+            const message = `data: ${JSON.stringify(data.payload)}\n\n`;
+            controller.enqueue(encoder.encode(message));
           }
         } catch (e) {
-          console.error(`SSE Route: Error sending data:`, e);
+          console.error(`SSE Route: Error sending data for client ${connectionId}:`, e);
           try { controller.close(); } catch {}
           removeClientCallback(handleNotification);
         }
       };
 
-      // No initial state is sent via SSE. The client fetches initial state via BaseDataStore.
-      // The SSE stream only sends 'check' hints when the status *might* have changed.
-
-      // Add the callback for this specific client connection
       addClientCallback(handleNotification);
       console.log(`SSE: Client ${connectionId} connected (total clients: ${status.activeCallbacks + 1})`);
 
-      // Send an initial ping to confirm connection is working
+      // Send an initial 'connected' event to confirm the connection is working.
       try {
-        controller.enqueue(new TextEncoder().encode(`event: connected\ndata: true\n\n`));
+        controller.enqueue(encoder.encode(`event: connected\ndata: true\n\n`));
       } catch (e) {
-        console.error(`SSE Route: Error sending initial ping:`, e);
+        console.error(`SSE Route: Error sending initial connected event for client ${connectionId}:`, e);
       }
 
-      // Handle client disconnection (e.g., browser tab closed)
+      // Handle client disconnection
       request.signal.addEventListener('abort', () => {
         removeClientCallback(handleNotification);
+        console.log(`SSE: Client ${connectionId} disconnected.`);
         try {
           controller.close();
         } catch (e) {
-          // Ignore errors closing an already closed controller
+          // Ignore errors if controller is already closed
         }
       });
     },
     cancel() {
-      // This might be called if the stream is cancelled programmatically
-      // We'll rely on the abort signal for cleanup
+      // This is less commonly used than the abort signal for client disconnections
     },
   });
 
   return new Response(stream, {
     headers: {
       'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
+      'Cache-Control': 'no-cache, no-transform',
       'Connection': 'keep-alive',
-      // Optional: Add CORS headers if needed, though typically same-origin
     },
   });
 }

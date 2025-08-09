@@ -17,7 +17,7 @@ import type { PostgrestClient } from '@supabase/postgrest-js'
 
 import { authStatusLoadableAtom, isAuthenticatedAtom, authStatusAtom } from './auth'
 import { baseDataAtom, baseDataLoadableAtom, defaultTimeContextAtom, timeContextsAtom, refreshBaseDataAtom, useBaseData } from './base-data'
-import { refreshWorkerStatusAtom, useWorkerStatus, type ValidWorkerFunctionName } from './worker-status'
+import { refreshWorkerStatusAtom, useWorkerStatus, type WorkerStatusType } from './worker_status'
 import { selectedUnitsAtom, searchStateAtom } from './search'
 
 // ============================================================================
@@ -167,62 +167,6 @@ export const useAppInitialization = () => {
   }, [isAuthenticated, client, refreshBaseData, refreshWorkerStatus]) // Add client to dependency array
 }
 
-/**
- * Hook for SSE connection management
- * This replaces the SSE logic from your BaseDataClient
- */
-export const useSSEConnection = (url?: string) => {
-  const refreshWorkerStatus = useSetAtom(refreshWorkerStatusAtom)
-  const isAuthenticated = useAtomValue(isAuthenticatedAtom)
-  
-  useEffect(() => {
-    if (!isAuthenticated || !url) return
-    
-    let eventSource: EventSource | null = null
-    let reconnectTimeout: NodeJS.Timeout | null = null
-    
-    const connect = () => {
-      try {
-        eventSource = new EventSource(url)
-        
-        eventSource.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data)
-            
-            // Handle different SSE message types
-            if (data.type === 'function_status_change') {
-              refreshWorkerStatus(data.functionName as ValidWorkerFunctionName)
-            }
-          } catch (error) {
-            console.error('Failed to parse SSE message:', error)
-          }
-        }
-        
-        eventSource.onerror = (error) => {
-          console.error('SSE connection error:', error)
-          eventSource?.close()
-          
-          // Reconnect after a delay
-          reconnectTimeout = setTimeout(connect, 5000)
-        }
-        
-      } catch (error) {
-        console.error('Failed to establish SSE connection:', error)
-      }
-    }
-    
-    connect()
-    
-    return () => {
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout)
-      }
-      if (eventSource) {
-        eventSource.close()
-      }
-    }
-  }, [isAuthenticated, url, refreshWorkerStatus])
-}
 
 // ============================================================================
 // DEBUG/DEVELOPMENT ATOMS

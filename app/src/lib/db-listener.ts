@@ -19,6 +19,8 @@ declare global {
   var __dbListenerConnecting: boolean | undefined;
   // eslint-disable-next-line no-var
   var __dbListenerReconnectTimeout: NodeJS.Timeout | null | undefined;
+  // eslint-disable-next-line no-var
+  var __dbListenerDebounceTimers: { [key: string]: NodeJS.Timeout } | undefined;
 }
 
 /**
@@ -84,7 +86,7 @@ export function getDbHostPort() {
 }
 
 // Define specific payload types for each channel
-export type CheckNotificationPayload = string;
+export type WorkerStatusPayload = { type: string; status: boolean };
 
 export type ImportJobNotificationPayload = {
   verb: string;
@@ -92,8 +94,8 @@ export type ImportJobNotificationPayload = {
 };
 
 // Create a discriminated union based on the channel
-export type NotificationData = 
-  | { channel: 'check'; payload: CheckNotificationPayload }
+export type NotificationData =
+  | { channel: 'worker_status'; payload: WorkerStatusPayload }
   | { channel: 'import_job'; payload: ImportJobNotificationPayload };
 
 // Type for the callback function provided by SSE route handlers
@@ -108,6 +110,32 @@ if (typeof globalThis !== 'undefined') {
 let pgClient: Client | null = globalThis.__dbListenerClient || null;
 let isConnecting: boolean = globalThis.__dbListenerConnecting || false;
 let reconnectTimeout: NodeJS.Timeout | null = globalThis.__dbListenerReconnectTimeout || null;
+
+// State for debouncing notifications
+const debounceTimers: { [key: string]: NodeJS.Timeout } = globalThis.__dbListenerDebounceTimers || {};
+if (typeof globalThis !== 'undefined') {
+  globalThis.__dbListenerDebounceTimers = debounceTimers;
+}
+const DEBOUNCE_DELAY_MS = 500;
+
+function handleWorkerStatusNotification(payload: WorkerStatusPayload) {
+  // Clear any pending timer for this status type
+  if (debounceTimers[payload.type]) {
+    clearTimeout(debounceTimers[payload.type]);
+  }
+
+  // Set a new timer. If another notification for the same type arrives
+  // before the timer fires, it will be cleared and replaced.
+  debounceTimers[payload.type] = setTimeout(() => {
+    // Send the latest status to all connected clients
+    activeClientCallbacks.forEach(callback => callback({
+      channel: 'worker_status',
+      payload: payload,
+    }));
+    delete debounceTimers[payload.type]; // Clean up timer
+  }, DEBOUNCE_DELAY_MS);
+}
+
 
 // Update global references when these variables change
 function updateGlobalClient(client: Client | null) {
@@ -168,25 +196,23 @@ async function connectAndListen() {
     newClient.on('notification', (msg) => {
       if (!msg.payload) return;
       
-      // Use a copy of the set to avoid issues if callbacks modify the set during iteration
-      const callbacksToNotify = new Set(activeClientCallbacks);
-      
-      if (msg.channel === 'check') {
-        // Handle 'check' channel (string payload)
-        callbacksToNotify.forEach(callback => {
-            callback({
-              channel: 'check',
-              payload: msg.payload as string
-            });
-        });
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`DB Listener: Notification '${msg.payload}' sent to ${callbacksToNotify.size} clients`);
+      if (msg.channel === 'worker_status') {
+        try {
+          const payload: WorkerStatusPayload = JSON.parse(msg.payload);
+          handleWorkerStatusNotification(payload);
+          if (process.env.NODE_ENV === 'development') {
+             console.log(`DB Listener: Received worker_status notification:`, payload);
+          }
+        } catch (e) {
+          console.error({ error: e, payload: msg.payload }, "DB Listener: Error parsing worker_status notification");
         }
       } else if (msg.channel === 'import_job') {
         // Handle 'import_job' channel (JSON payload with verb and id)
         // The outer check `if (!msg.payload) return;` ensures payload is defined here.
         try {
           const data = JSON.parse(msg.payload) as ImportJobNotificationPayload;
+          // Use a copy of the set to avoid issues if callbacks modify the set during iteration
+          const callbacksToNotify = new Set(activeClientCallbacks);
           callbacksToNotify.forEach(callback => {
             callback({
               channel: 'import_job',
@@ -217,10 +243,10 @@ async function connectAndListen() {
     });
 
     await newClient.connect();
-    await newClient.query('LISTEN "check";'); // Listen to the "check" channel
+    await newClient.query('LISTEN "worker_status";'); // Listen to the new "worker_status" channel
     await newClient.query('LISTEN "import_job";'); // Listen to the "import_job" channel
     updateGlobalConnecting(false);
-    console.log(`DB Listener: Connected to ${dbHost}:${dbPort}/${dbName} as ${dbUser} and listening on "check" and "import_job" channels`);
+    console.log(`DB Listener: Connected to ${dbHost}:${dbPort}/${dbName} as ${dbUser} and listening on "worker_status" and "import_job" channels`);
 
   } catch (error) {
     updateGlobalConnecting(false);

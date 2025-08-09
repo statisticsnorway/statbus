@@ -78,7 +78,7 @@ export interface ImportState {
   explicitEndDate: string | null;   // YYYY-MM-DD
 }
 
-export const importStateAtom = atom<ImportState>({
+export const initialImportState: ImportState = {
   isImporting: false,
   progress: 0,
   currentFile: null,
@@ -90,7 +90,9 @@ export const importStateAtom = atom<ImportState>({
   availableDefinitions: [],
   explicitStartDate: null,
   explicitEndDate: null,
-})
+};
+
+export const importStateAtom = atom<ImportState>(initialImportState)
 
 // ============================================================================
 // UNIT COUNTS ATOMS (for Import feature)

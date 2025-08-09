@@ -41,9 +41,10 @@ import { refreshAllUnitCountsAtom } from './import';
 import { initializeTableColumnsAtom } from './search';
 import {
   refreshWorkerStatusAtom,
-  workerStatusAtom, // This is the combined synchronous atom
-  type ValidWorkerFunctionName, // Import the type
-} from './worker-status';
+  setWorkerStatusAtom,
+  workerStatusAtom,
+  type WorkerStatusType,
+} from './worker_status';
 import { AuthCrossTabSyncer } from './AuthCrossTabSyncer'; // Import the new syncer
 
 // ============================================================================
@@ -350,7 +351,8 @@ const RedirectHandler = () => {
 
 const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
   const authLoadableValue = useAtomValue(authStatusLoadableAtom);
-  const refreshWorkerStatus = useSetAtom(refreshWorkerStatusAtom)
+  const refreshInitialWorkerStatus = useSetAtom(refreshWorkerStatusAtom)
+  const setWorkerStatus = useSetAtom(setWorkerStatusAtom);
   
   useEffect(() => {
     // Connect SSE only if authenticated and not in a loading state
@@ -367,36 +369,31 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
     const connect = () => {
       try {
         // Connect to the specific SSE endpoint for worker status checks
-        eventSource = new EventSource('/api/sse/worker-check')
+        eventSource = new EventSource('/api/sse/worker_status')
         
         eventSource.onopen = () => {
           reconnectAttempts = 0
         }
         
-        eventSource.onmessage = (event) => { // Handles default messages (event: message or no event field)
-          // This block can be kept for other general messages if any, or removed if '/api/sse/worker-check' only sends named events.
+        eventSource.onmessage = (event) => {
+          try {
+            const payload = JSON.parse(event.data);
+            if (payload.type && typeof payload.status === 'boolean') {
+              setWorkerStatus({ type: payload.type as WorkerStatusType, status: payload.status });
+            } else {
+              console.warn("Received SSE message with unexpected payload format:", payload);
+            }
+          } catch (e) {
+            console.error("Failed to parse SSE message data:", event.data, e);
+          }
         };
 
-        eventSource.addEventListener('check', (event) => {
-          // Assuming event.data is a string like "is_importing", "is_deriving_statistical_units", etc.
-          const functionName = event.data as string;
-          // Type assertion for safety, though refreshWorkerStatusAtom handles undefined gracefully.
-          if (functionName === "is_importing" || functionName === "is_deriving_statistical_units" || functionName === "is_deriving_reports") {
-            refreshWorkerStatus(functionName as ValidWorkerFunctionName);
-          } else {
-            console.warn(`SSE 'check' event received with unknown data: "${functionName}". Refreshing all worker statuses as a fallback.`);
-            refreshWorkerStatus(); // Refresh all if data is not one of the expected strings
-          }
-        });
-
         eventSource.addEventListener('connected', (event) => {
-          // You might want to trigger an initial full refresh of worker status upon connection
-          refreshWorkerStatus();
+          // Trigger an initial full refresh of worker status upon connection
+          refreshInitialWorkerStatus();
         });
         
         eventSource.onerror = (event) => {
-          // The 'event' object for onerror might not be a MessageEvent and may not have a 'type' or 'readyState' in the same way.
-          // It's often a simple Event.
           console.error(`SSE connection error. Attempting to reconnect...`, event);
           
           eventSource?.close();
@@ -414,7 +411,6 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
         
       } catch (error) {
         console.error('SSE: Failed to establish initial SSE connection:', error);
-        // Optionally, you could try to schedule a reconnect here too if initial connect fails
       }
     }
     
@@ -428,7 +424,7 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
         eventSource.close()
       }
     }
-  }, [authLoadableValue, refreshWorkerStatus])
+  }, [authLoadableValue, refreshInitialWorkerStatus, setWorkerStatus])
   
   return <>{children}</>
 }

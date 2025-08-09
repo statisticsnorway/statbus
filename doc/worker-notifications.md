@@ -43,24 +43,30 @@ We'll implement a lightweight system stability indicator that shows whether the 
    ```
 
 2. Create notification mechanism:
-   - **Specific Status Check Notification:** The `worker.process_tasks` procedure calls optional `before_procedure` and `after_procedure` hooks defined in `worker.command_registry`. These hooks (e.g., `worker.notify_check_is_importing`) are responsible for sending notifications on the `check` channel when specific tasks (`import_job_process`, `derive_statistical_unit`, `derive_reports`) start processing (via `before_procedure`) and when they finish (via `after_procedure`).
-   - **Payload:** The payload sent on the `check` channel is the name of the corresponding status function (e.g., `is_importing`, `is_deriving_statistical_units`, `is_deriving_reports`). This tells the frontend to re-query that specific status function.
+   - **Direct Status Notification:** The `worker.process_tasks` procedure calls optional `before_procedure` (e.g., `worker.notify_is_importing_start`) and `after_procedure` (e.g., `worker.notify_is_importing_stop`) hooks defined in `worker.command_registry`. These hooks are responsible for sending notifications on the `worker_status` channel when specific tasks start and finish.
+   - **Payload:** The payload sent on the `worker_status` channel is a JSON object containing the status type and a hardcoded boolean value, for example: `{"type": "is_importing", "status": true}`. This provides the state directly to the client without needing to call the slow `is_importing()` function.
 
    ```sql
-   -- Example notification procedure (called by before/after hooks)
-   CREATE PROCEDURE worker.notify_check_is_importing()
-   LANGUAGE plpgsql
-   AS $procedure$
+   -- Example notification procedures (called by before/after hooks)
+   CREATE PROCEDURE worker.notify_is_importing_start()
+   LANGUAGE plpgsql AS $procedure$
    BEGIN
-     PERFORM pg_notify('check', 'is_importing');
+     PERFORM pg_notify('worker_status', json_build_object('type', 'is_importing', 'status', true)::text);
+   END;
+   $procedure$;
+
+   CREATE PROCEDURE worker.notify_is_importing_stop()
+   LANGUAGE plpgsql AS $procedure$
+   BEGIN
+     PERFORM pg_notify('worker_status', json_build_object('type', 'is_importing', 'status', false)::text);
    END;
    $procedure$;
 
    -- Example registration in command_registry
    INSERT INTO worker.command_registry (..., before_procedure, after_procedure, ...)
-   VALUES (..., 'worker.notify_check_is_importing', 'worker.notify_check_is_importing', ...);
+   VALUES (..., 'worker.notify_is_importing_start', 'worker.notify_is_importing_stop', ...);
    ```
-   *Note: The `check` notification provides specific hints for re-querying `public.is_importing()`, `public.is_deriving_statistical_units()`, or `public.is_deriving_reports()`.*
+   *Note: The `worker_status` notification provides the hardcoded boolean status for `is_importing`, `is_deriving_statistical_units`, or `is_deriving_reports`, eliminating calls to the status functions and client-side re-querying.*
 
 3. Create function for detailed *analytics* tasks (already exists, shown for context):
    ```sql
@@ -89,22 +95,46 @@ We'll implement a lightweight system stability indicator that shows whether the 
     Manages a single, persistent `pg` client connection that listens for `pg_notify` events. It handles connection, errors, reconnections, and distributes notifications to subscribed SSE clients.
 
     ```typescript
-    // lib/db-listener.ts (Conceptual Example)
+    // lib/db-listener.ts (Conceptual Example with Debouncing)
     import { Client } from 'pg';
 
+    type StatusPayload = { type: string; status: boolean };
+
     // Stores callbacks for active SSE connections
-    const activeClientCallbacks = new Set<(payload: string) => void>();
+    const activeClientCallbacks = new Set<(payload: StatusPayload) => void>();
     let pgClient: Client | null = null;
+
+    // State for debouncing notifications
+    const debounceTimers: { [key: string]: NodeJS.Timeout } = {};
+    const DEBOUNCE_DELAY_MS = 500;
+
+    function handleNotification(payload: StatusPayload) {
+      // Clear any pending timer for this status type
+      if (debounceTimers[payload.type]) {
+        clearTimeout(debounceTimers[payload.type]);
+      }
+
+      // Set a new timer. If another notification for the same type arrives
+      // before the timer fires, it will be cleared and replaced.
+      debounceTimers[payload.type] = setTimeout(() => {
+        // Send the latest status to all connected clients
+        activeClientCallbacks.forEach(callback => callback(payload));
+        delete debounceTimers[payload.type]; // Clean up timer
+      }, DEBOUNCE_DELAY_MS);
+    }
 
     async function initializeListener() {
       // Robust connection logic with retry/reconnect needed here
       pgClient = new Client({ /* connection options */ });
 
       pgClient.on('notification', (msg) => {
-        // Handle only the 'check' channel (string payload)
-        if (msg.channel === 'check' && msg.payload) {
-          // Payload for 'check' is just the function name string
-          activeClientCallbacks.forEach(callback => callback(msg.payload));
+        if (msg.channel === 'worker_status' && msg.payload) {
+          try {
+            const payload: StatusPayload = JSON.parse(msg.payload);
+            handleNotification(payload); // Pass to debouncing handler
+          } catch (e) {
+            console.error("Failed to parse worker_status notification payload:", e);
+          }
         }
       });
 
@@ -115,15 +145,15 @@ We'll implement a lightweight system stability indicator that shows whether the 
       });
 
       await pgClient.connect();
-      await pgClient.query('LISTEN check;'); // Listen only to the 'check' channel
-      console.log('DB Listener active for check channel.');
+      await pgClient.query('LISTEN worker_status;');
+      console.log('DB Listener active for worker_status channel.');
     }
 
-    export function addClientCallback(callback: (payload: string) => void) {
+    export function addClientCallback(callback: (payload: StatusPayload) => void) {
       activeClientCallbacks.add(callback);
     }
 
-    export function removeClientCallback(callback: (payload: string) => void) {
+    export function removeClientCallback(callback: (payload: StatusPayload) => void) {
       activeClientCallbacks.delete(callback);
     }
 
@@ -133,28 +163,31 @@ We'll implement a lightweight system stability indicator that shows whether the 
     // This is typically done in `instrumentation.ts`.
     ```
 
-2.  **Server-Sent Events API Route (`app/api/sse/worker-check/route.ts`):**
-    Handles client connections for real-time status check notifications.
+2.  **Server-Sent Events API Route (`app/api/sse/worker-status/route.ts`):**
+    Handles client connections for real-time status update notifications.
 
     ```typescript
-    // app/api/sse/worker-check/route.ts
+    // app/api/sse/worker-status/route.ts
     import { NextResponse } from 'next/server';
     import { addClientCallback, removeClientCallback } from '@/lib/db-listener'; // Adjust path
 
     export const dynamic = 'force-dynamic'; // Ensure this route is not statically optimized
 
+    type StatusPayload = { type: string; status: boolean };
+
     export async function GET(request: Request) {
       const stream = new ReadableStream({
         async start(controller) {
-          // Handle notifications from the 'check' channel
-          const handleNotification = (payload: string) => {
-            // Send event with type 'check' and the function name as data
-            controller.enqueue(`event: check\ndata: ${payload}\n\n`);
+          // Handle notifications from the 'worker_status' channel
+          const handleNotification = (payload: StatusPayload) => {
+            // Send a standard 'message' event with the JSON payload as data.
+            // The client will use the 'type' field inside the JSON to update its state.
+            controller.enqueue(`data: ${JSON.stringify(payload)}\n\n`);
           };
 
           // No initial state to send
 
-          addClientCallback(handleNotification); // Add the callback that handles the 'check' channel
+          addClientCallback(handleNotification);
 
           request.signal.addEventListener('abort', () => {
             removeClientCallback(handleNotification);
@@ -219,21 +252,32 @@ We'll implement a lightweight system stability indicator that shows whether the 
 ## Frontend Implementation
 
 1. Centralized Status Management (`app/src/app/BaseDataClient.tsx`):
-   - The `ClientBaseDataProvider` component now manages the Server-Sent Events (`EventSource`) connection to `/api/sse/worker-check`.
-   - It listens for `check` events. When an event is received, it triggers `baseDataStore.refreshDerivationStatus()`.
-   - It subscribes to status updates within `baseDataStore` and updates its own state to reflect the latest `derivationStatus` (isDerivingUnits, isDerivingReports, isLoading, error).
+   - The `ClientBaseDataProvider` component manages the Server-Sent Events (`EventSource`) connection to `/api/sse/worker-status`.
+   - It listens for `message` events, which contain a JSON payload like `{"type": "is_importing", "status": true}`.
+   - When an event is received, it parses the payload and updates a client-side state store (e.g., Zustand) directly with the new boolean status for the given type, eliminating any need for follow-up API calls.
+   - It subscribes to status updates within the state store and updates its own state to reflect the latest `derivationStatus` (isDerivingUnits, isDerivingReports, isLoading, error).
    - This `derivationStatus` is provided via the `BaseDataClientContext`.
 
    ```typescript
    // Simplified conceptual flow within ClientBaseDataProvider
    useEffect(() => {
-     const eventSource = new EventSource('/api/sse/worker-check'); // Use updated path
-     eventSource.addEventListener('check', (event) => {
-       baseDataStore.refreshDerivationStatus(); // Trigger refresh on notification
-     });
+     const eventSource = new EventSource('/api/sse/worker-status'); // Use updated path
+     
+     // Listen for generic messages
+     eventSource.onmessage = (event) => {
+       try {
+         const statusUpdate = JSON.parse(event.data);
+         // Update the zustand store directly with the new status
+         // The store would have a method like `setDerivationStatus(type, status)`
+         baseDataStore.setDerivationStatus(statusUpdate.type, statusUpdate.status);
+       } catch (e) {
+         console.error("Failed to parse worker status update:", e);
+       }
+     };
+
      // ... error handling, cleanup ...
 
-     // Subscribe to store updates
+     // Subscribe to store updates to reflect them in the component's context
      const unsubscribe = baseDataStore.subscribeDerivationStatus(() => {
        setDerivationStatus(baseDataStore.getDerivationStatus()); // Update local state from store
      });
@@ -445,22 +489,22 @@ We'll implement a lightweight system stability indicator that shows whether the 
 ## Testing Plan
 
 1. Unit tests for database functions:
-   - Test `public.is_importing()`, `public.is_deriving_statistical_units()`, `public.is_deriving_reports()`, and `public.get_analytics_tasks_in_progress()` with various system states.
-   - Test `worker.process_tasks` to ensure it correctly calls registered `before_procedure` and `after_procedure` hooks (if defined) without arguments.
-   - Test the specific hook procedures (e.g., `worker.notify_check_is_importing`) to ensure they call `pg_notify('check', 'is_importing')`.
-   - Test the registration of these hooks in `worker.command_registry` for the relevant commands.
+   - Test `public.is_importing()`, `public.is_deriving_statistical_units()`, `public.is_deriving_reports()` with various system states to ensure they are still correct for initial page loads.
+   - Test `worker.process_tasks` to ensure it correctly calls registered `before_procedure` and `after_procedure` hooks.
+   - Test the specific hook procedures (e.g., `worker.notify_is_importing_start`, `worker.notify_is_importing_stop`) to ensure they call `pg_notify('worker_status', '{"type": "is_importing", "status": true/false}')` with the correct hardcoded boolean.
+   - Test the registration of the `_start` and `_stop` hooks in `worker.command_registry`.
 
 2. Backend Integration Tests (Node.js/Next.js):
-   - Test the `db-listener` singleton's ability to connect, listen to the `check` channel, handle notifications (string payload), and manage reconnection.
-   - Test the SSE API route (`/api/sse/worker-check`): client connection/disconnection handling, and forwarding of `check` notifications with the correct event type and data format.
-   - Test the details API route (`/api/system-status/details`) for correct data retrieval and error handling.
-   - Test frontend logic that re-queries specific status functions (`public.is_importing`, etc.) when a `check` notification with the corresponding payload is received.
+   - Test the `db-listener` singleton's ability to connect, listen to the `worker_status` channel, handle JSON notifications, and manage reconnection.
+   - Test the **debouncing logic** in the listener: send rapid-fire notifications and assert that only the last one is sent to the client callback after the delay.
+   - Test the SSE API route (`/api/sse/worker-status`): client connection/disconnection handling and forwarding of the debounced JSON payload.
+   - Test the details API route (`/api/system-status/details`) for correct data retrieval.
 
 3. Frontend component tests:
-   - Test `ClientBaseDataProvider`: Ensure `EventSource` is connected/disconnected, `baseDataStore.refreshDerivationStatus` is called on `check` events, and context value updates correctly based on store subscriptions.
+   - Test `ClientBaseDataProvider`: Ensure `EventSource` connects to `/api/sse/worker-status`, and on `message` events, it correctly parses the JSON payload and calls the state store's update function (e.g., `baseDataStore.setDerivationStatus(type, status)`).
    - Test `SystemStatusIndicator` rendering (it's now just the modal trigger).
    - Test `SystemStatusModal`: opening, fetching data from the details API, displaying loading/error/data states correctly.
-   - Test components consuming `useBaseData` (like `StatisticalUnitsRefresher`) to ensure they react correctly to changes in `derivationStatus` from the context.
+   - Test components consuming `useBaseData` (like `StatisticalUnitsRefresher`) to ensure they react correctly to the direct status updates provided by the context, without making any extra API calls.
 
 ## Deployment Considerations
 

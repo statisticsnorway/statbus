@@ -193,12 +193,19 @@ BEGIN
 END;
 $derive_statistical_unit$;
 
--- Procedure to notify about derive_statistical_unit status check
-CREATE PROCEDURE worker.notify_check_is_deriving_statistical_units()
-LANGUAGE plpgsql
-AS $procedure$
+-- Procedure to notify about derive_statistical_unit start
+CREATE PROCEDURE worker.notify_is_deriving_statistical_units_start()
+LANGUAGE plpgsql AS $procedure$
 BEGIN
-  PERFORM pg_notify('check', 'is_deriving_statistical_units');
+  PERFORM pg_notify('worker_status', json_build_object('type', 'is_deriving_statistical_units', 'status', true)::text);
+END;
+$procedure$;
+
+-- Procedure to notify about derive_statistical_unit stop
+CREATE PROCEDURE worker.notify_is_deriving_statistical_units_stop()
+LANGUAGE plpgsql AS $procedure$
+BEGIN
+  PERFORM pg_notify('worker_status', json_build_object('type', 'is_deriving_statistical_units', 'status', false)::text);
 END;
 $procedure$;
 
@@ -240,12 +247,19 @@ BEGIN
 END;
 $procedure$;
 
--- Procedure to notify about derive_reports status check
-CREATE PROCEDURE worker.notify_check_is_deriving_reports()
-LANGUAGE plpgsql
-AS $procedure$
+-- Procedure to notify about derive_reports start
+CREATE PROCEDURE worker.notify_is_deriving_reports_start()
+LANGUAGE plpgsql AS $procedure$
 BEGIN
-  PERFORM pg_notify('check', 'is_deriving_reports');
+  PERFORM pg_notify('worker_status', json_build_object('type', 'is_deriving_reports', 'status', true)::text);
+END;
+$procedure$;
+
+-- Procedure to notify about derive_reports stop
+CREATE PROCEDURE worker.notify_is_deriving_reports_stop()
+LANGUAGE plpgsql AS $procedure$
+BEGIN
+  PERFORM pg_notify('worker_status', json_build_object('type', 'is_deriving_reports', 'status', false)::text);
 END;
 $procedure$;
 
@@ -951,8 +965,8 @@ INSERT INTO worker.command_registry (queue, command, handler_procedure, before_p
 VALUES
   ('analytics', 'check_table', 'worker.command_check_table', NULL, NULL, 'Process changes in a table since a specific transaction ID'),
   ('analytics', 'deleted_row', 'worker.command_deleted_row', NULL, NULL, 'Handle deletion of rows from statistical unit tables'),
-  ('analytics', 'derive_statistical_unit', 'worker.derive_statistical_unit', 'worker.notify_check_is_deriving_statistical_units', 'worker.notify_check_is_deriving_statistical_units', 'Refresh core timeline tables and statistical units'),
-  ('analytics', 'derive_reports', 'worker.derive_reports', 'worker.notify_check_is_deriving_reports', 'worker.notify_check_is_deriving_reports', 'Refresh derived reports, facets, and history'),
+  ('analytics', 'derive_statistical_unit', 'worker.derive_statistical_unit', 'worker.notify_is_deriving_statistical_units_start', 'worker.notify_is_deriving_statistical_units_stop', 'Refresh core timeline tables and statistical units'),
+  ('analytics', 'derive_reports', 'worker.derive_reports', 'worker.notify_is_deriving_reports_start', 'worker.notify_is_deriving_reports_stop', 'Refresh derived reports, facets, and history'),
   ('maintenance', 'task_cleanup', 'worker.command_task_cleanup', NULL, NULL, 'Clean up old completed and failed tasks'),
   ('maintenance', 'import_job_cleanup', 'worker.command_import_job_cleanup', NULL, NULL, 'Clean up expired import jobs and their associated data');
 

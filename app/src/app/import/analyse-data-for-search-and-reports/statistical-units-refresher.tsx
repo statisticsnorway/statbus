@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { useBaseData, refreshBaseDataAtom } from "@/atoms/base-data";
-import { useWorkerStatus } from "@/atoms/worker-status";
+import { useWorkerStatus } from "@/atoms/worker_status";
 import { useAtomValue, useSetAtom } from 'jotai';
 import { analysisPageVisualStateAtom } from '@/atoms/reports';
 import { CheckCircle, XCircle, AlertCircle, Loader2 } from "lucide-react";

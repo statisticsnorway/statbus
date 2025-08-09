@@ -174,12 +174,19 @@ COMMENT ON TABLE public.import_definition_step IS 'Connects an import definition
 
 -- Removed trigger prevent_non_draft_definition_step_changes
 
--- Procedure to notify about import_job_process status check
-CREATE PROCEDURE worker.notify_check_is_importing()
-LANGUAGE plpgsql
-AS $procedure$
+-- Procedure to notify about import_job_process start
+CREATE PROCEDURE worker.notify_is_importing_start()
+LANGUAGE plpgsql AS $procedure$
 BEGIN
-  PERFORM pg_notify('check', 'is_importing');
+    PERFORM pg_notify('worker_status', json_build_object('type', 'is_importing', 'status', true)::text);
+END;
+$procedure$;
+
+-- Procedure to notify about import_job_process stop
+CREATE PROCEDURE worker.notify_is_importing_stop()
+LANGUAGE plpgsql AS $procedure$
+BEGIN
+    PERFORM pg_notify('worker_status', json_build_object('type', 'is_importing', 'status', false)::text);
 END;
 $procedure$;
 
@@ -192,8 +199,8 @@ VALUES
 ( 'import',
   'import_job_process',
   'admin.import_job_process',
-  'worker.notify_check_is_importing', -- Before hook
-  'worker.notify_check_is_importing', -- After hook
+  'worker.notify_is_importing_start', -- Before hook
+  'worker.notify_is_importing_stop', -- After hook
   'Process an import job through all stages'
 );
 

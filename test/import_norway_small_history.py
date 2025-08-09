@@ -1393,7 +1393,7 @@ def wait_for_worker_processing_of_import_jobs(session: requests.Session) -> bool
 def wait_for_worker_derive(session: requests.Session) -> bool:
     """Wait for worker to finish deriving statistical units and reports
     
-    Connects to /api/sse/worker-check SSE endpoint and monitors the worker status
+    Connects to /api/sse/worker_status SSE endpoint and monitors the worker status
     until both is_deriving_statistical_units and is_deriving_reports are false.
     """
     log_info("Waiting for worker to finish deriving statistical units and reports...")
@@ -1420,7 +1420,7 @@ def wait_for_worker_derive(session: requests.Session) -> bool:
             sse_session.cookies.update(session.cookies)
             
             # Prepare the SSE request
-            sse_url = f"{API_BASE_URL}/api/sse/worker-check"
+            sse_url = f"{API_BASE_URL}/api/sse/worker_status"
             log_info(f"SSE thread connecting to endpoint: {sse_url}")
             
             # Start the SSE request
@@ -1442,34 +1442,24 @@ def wait_for_worker_derive(session: requests.Session) -> bool:
             
             event_queue.put(("info", "SSE connection established"))
             
-            # Process SSE events
-            buffer = ""
-            for line in sse_response.iter_lines():
+            # Process SSE events line by line
+            for line_bytes in sse_response.iter_lines():
                 if stop_event.is_set():
                     break
                 
-                if not line:
-                    # Empty line marks the end of an event
-                    if buffer:
-                        # Process the complete event
-                        event_parts = buffer.split("\n")
-                        event_type = None
-                        event_data = None
-                        
-                        for part in event_parts:
-                            if part.startswith("event: "):
-                                event_type = part[7:]
-                            elif part.startswith("data: "):
-                                event_data = part[6:]
-                        
-                        if event_type and event_data:
-                            event_queue.put(("event", {"type": event_type, "data": event_data}))
-                        
-                        buffer = ""
-                    continue
-                
-                # Add line to buffer
-                buffer += line.decode('utf-8') + "\n"
+                line = line_bytes.decode('utf-8')
+
+                if line.startswith("data:"):
+                    try:
+                        data = json.loads(line[5:].strip())
+                        event_queue.put(("data", data))
+                    except json.JSONDecodeError:
+                        event_queue.put(("warning", f"Failed to parse SSE data: {line[5:].strip()}"))
+                elif line.startswith("event:"):
+                    event_type = line[6:].strip()
+                    event_queue.put(("event", {"type": event_type, "data": None}))
+                elif line.startswith(":"): # comment/heartbeat
+                    event_queue.put(("heartbeat", {}))
             
             # Close the SSE connection
             sse_response.close()
@@ -1582,37 +1572,32 @@ def wait_for_worker_derive(session: requests.Session) -> bool:
                 if event_type == "error":
                     log_warning(f"SSE error: {event_data}")
                 
-                elif event_type == "event":
-                    # Handle check events
-                    if event_data["type"] == "check":
-                        try:
-                            # Parse the payload as JSON
-                            payload = json.loads(event_data["data"])
-                            
-                            # Update derivation status
-                            if "isDerivingUnits" in payload:
-                                old_status = derivation_status["isDerivingUnits"]
-                                derivation_status["isDerivingUnits"] = payload["isDerivingUnits"]
-                                if old_status != derivation_status["isDerivingUnits"]:
-                                    log_info(f"Deriving units status changed: {old_status} -> {derivation_status['isDerivingUnits']}")
-                            
-                            if "isDerivingReports" in payload:
-                                old_status = derivation_status["isDerivingReports"]
-                                derivation_status["isDerivingReports"] = payload["isDerivingReports"]
-                                if old_status != derivation_status["isDerivingReports"]:
-                                    log_info(f"Deriving reports status changed: {old_status} -> {derivation_status['isDerivingReports']}")
-                            
-                            # Check if all derivation is completed
-                            if check_all_completed():
-                                log_success("Worker has finished all derivation tasks (detected by SSE)")
-                                all_completed = True
-                                break
-                        except json.JSONDecodeError:
-                            log_warning(f"Failed to parse check event data: {event_data['data']}")
-                    
-                    # Handle connected event
-                    elif event_data["type"] == "connected":
-                        log_info("Received connected event from SSE")
+                elif event_type == "data":
+                    payload = event_data
+                    status_type = payload.get("type")
+                    status_value = payload.get("status")
+
+                    if status_type == "is_deriving_statistical_units":
+                        key = "isDerivingUnits"
+                        old_status = derivation_status[key]
+                        derivation_status[key] = status_value
+                        if old_status != status_value:
+                             log_info(f"Deriving units status changed: {old_status} -> {status_value}")
+                    elif status_type == "is_deriving_reports":
+                        key = "isDerivingReports"
+                        old_status = derivation_status[key]
+                        derivation_status[key] = status_value
+                        if old_status != status_value:
+                             log_info(f"Deriving reports status changed: {old_status} -> {status_value}")
+
+                    # Check if all derivation is completed
+                    if check_all_completed():
+                        log_success("Worker has finished all derivation tasks (detected by SSE)")
+                        all_completed = True
+                        break
+                
+                elif event_type == "event" and event_data["type"] == "connected":
+                    log_info("Received connected event from SSE")
                 
                 event_queue.task_done()
             

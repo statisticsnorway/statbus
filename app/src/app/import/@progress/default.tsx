@@ -3,10 +3,10 @@ import { useEffect, useState } from "react";
 import { NavItem } from "@/app/getting-started/@progress/nav-item";
 import { useBaseData } from "@/atoms/base-data";
 import { useImportManager } from "@/atoms/import";
-import { useWorkerStatus } from "@/atoms/worker-status";
+import { useWorkerStatus } from "@/atoms/worker_status";
 import { Spinner } from "@/components/ui/spinner";
 import { FileText, BarChart2, Building2, Store, Building } from "lucide-react";
-import type { WorkerStatus } from "@/atoms/worker-status"; // Import the type
+import type { WorkerStatus } from "@/atoms/worker_status"; // Import the type
 
 export default function ImportStatus() {
   const [mounted, setMounted] = useState(false);

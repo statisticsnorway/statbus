@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { BarChartHorizontal, Search, Upload } from "lucide-react";
-import { useWorkerStatus } from "@/atoms/worker-status";
+import { useWorkerStatus } from "@/atoms/worker_status";
 
 export function NavbarStatusVisualizer() {
   const workerStatus = useWorkerStatus();

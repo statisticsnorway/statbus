@@ -37,18 +37,6 @@ class BaseDataStore {
   private lastFetchTime: number = 0;
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-  // Worker Status State (Importing, Deriving Units, Deriving Reports)
-  private isImporting: boolean | null = null;
-  private isDerivingUnits: boolean | null = null;
-  private isDerivingReports: boolean | null = null;
-  private workerStatusLoading: boolean = false;
-  private workerStatusError: string | null = null;
-  private lastWorkerStatusFetchTime: number = 0;
-  private readonly WORKER_STATUS_CACHE_TTL = 10 * 1000; // 10 seconds cache for status
-
-  // Listener callback registry for worker status changes
-  private workerStatusListeners: Set<() => void> = new Set();
-
   private constructor() {
     // Private constructor to enforce singleton pattern
   }
@@ -121,133 +109,6 @@ class BaseDataStore {
     } finally {
       this.fetchPromise = null;
     }
-  }
-
-  /**
-   * Refresh a specific worker status function, or all if functionName is omitted.
-   */
-  public async refreshWorkerStatus(
-    functionName?: string, // Made optional
-    client?: PostgrestClient<Database>
-  ): Promise<{ isImporting: boolean | null, isDerivingUnits: boolean | null, isDerivingReports: boolean | null }> {
-    const now = Date.now();
-    // Basic throttling/caching
-    // If a specific function is requested and it's loading, or if a general refresh is ongoing.
-    const logFunctionName = functionName || "all";
-    if (this.workerStatusLoading && now - this.lastWorkerStatusFetchTime < 5000) { 
-        // console.log(`Worker status refresh for ${logFunctionName} already in progress or recently completed.`);
-        return { isImporting: this.isImporting, isDerivingUnits: this.isDerivingUnits, isDerivingReports: this.isDerivingReports };
-    }
-
-    this.workerStatusLoading = true;
-    this.workerStatusError = null;
-    this.lastWorkerStatusFetchTime = now;
-
-    // Get client if not provided
-    let currentClient = client;
-    if (!currentClient) {
-      try {
-        currentClient = await getRestClient();
-      } catch (error) {
-        console.error('Failed to get client for worker status refresh:', error);
-        this.workerStatusError = "Failed to get API client";
-        this.workerStatusLoading = false;
-        return { isImporting: this.isImporting, isDerivingUnits: this.isDerivingUnits, isDerivingReports: this.isDerivingReports };
-      }
-    }
-
-    if (!currentClient || typeof currentClient.rpc !== 'function') {
-      console.error('Invalid client provided to refreshWorkerStatus');
-      this.workerStatusError = "Invalid API client";
-      this.workerStatusLoading = false;
-      return { isImporting: this.isImporting, isDerivingUnits: this.isDerivingUnits, isDerivingReports: this.isDerivingReports };
-    }
-
-    try {
-      const refreshSingleStatus = async (name: 'is_importing' | 'is_deriving_statistical_units' | 'is_deriving_reports') => {
-        if (!currentClient) return; // Should have been checked already
-        const rpcResult = await currentClient.rpc(name);
-        if (rpcResult.error) throw new Error(`Status error for ${name}: ${rpcResult.error.message}`);
-        
-        if (name === 'is_importing') this.isImporting = rpcResult.data ?? null;
-        else if (name === 'is_deriving_statistical_units') this.isDerivingUnits = rpcResult.data ?? null;
-        else if (name === 'is_deriving_reports') this.isDerivingReports = rpcResult.data ?? null;
-        // console.log(`Worker status refreshed: ${name}=${rpcResult.data ?? null}`);
-      };
-
-      if (functionName) {
-        if (functionName === 'is_importing' || functionName === 'is_deriving_statistical_units' || functionName === 'is_deriving_reports') {
-          await refreshSingleStatus(functionName);
-        } else {
-          console.warn(`refreshWorkerStatus called with unknown functionName: ${functionName}`);
-        }
-      } else {
-        // console.log("Refreshing all worker statuses...");
-        await Promise.all([
-          refreshSingleStatus('is_importing'),
-          refreshSingleStatus('is_deriving_statistical_units'),
-          refreshSingleStatus('is_deriving_reports')
-        ]);
-        // console.log("All worker statuses refreshed.");
-      }
-      
-      return { 
-        isImporting: this.isImporting, 
-        isDerivingUnits: this.isDerivingUnits, 
-        isDerivingReports: this.isDerivingReports 
-      };
-
-    } catch (error: any) {
-      const logCtx = functionName || "all";
-      console.error(`Failed to refresh worker status for ${logCtx}:`, error);
-      this.workerStatusError = error.message || `Unknown error fetching worker status for ${logCtx}`;
-      
-      // If a specific function failed, nullify it. If 'all' failed, nullify all.
-      if (functionName === 'is_importing' || !functionName) this.isImporting = null;
-      if (functionName === 'is_deriving_statistical_units' || !functionName) this.isDerivingUnits = null;
-      if (functionName === 'is_deriving_reports' || !functionName) this.isDerivingReports = null;
-      
-      this.notifyWorkerStatusListeners();
-      return { isImporting: this.isImporting, isDerivingUnits: this.isDerivingUnits, isDerivingReports: this.isDerivingReports };
-
-    } finally {
-      this.workerStatusLoading = false;
-      this.notifyWorkerStatusListeners();
-    }
-  }
-
-
-  // Method to notify listeners
-  private notifyWorkerStatusListeners() {
-    this.workerStatusListeners.forEach(listener => listener());
-  }
-
-  // Method for components to subscribe
-  public subscribeWorkerStatus(listener: () => void): () => void {
-    this.workerStatusListeners.add(listener);
-    // Return an unsubscribe function
-    return () => {
-      this.workerStatusListeners.delete(listener);
-    };
-  }
-
-  /**
-   * Get the current cached worker status
-   */
-  public getWorkerStatus(): { isImporting: boolean | null, isDerivingUnits: boolean | null, isDerivingReports: boolean | null, isLoading: boolean, error: string | null } {
-    // Check cache validity - might force a refresh if stale, but keep it simple for now
-    // const now = Date.now();
-    // if (now - this.lastWorkerStatusFetchTime > this.WORKER_STATUS_CACHE_TTL && !this.workerStatusLoading) {
-    //   console.log("Worker status cache stale, triggering background refresh.");
-    //   this.refreshWorkerStatus(); // Trigger refresh in background
-    // }
-    return {
-      isImporting: this.isImporting,
-      isDerivingUnits: this.isDerivingUnits,
-      isDerivingReports: this.isDerivingReports,
-      isLoading: this.workerStatusLoading,
-      error: this.workerStatusError
-    };
   }
 
 
@@ -359,9 +220,6 @@ class BaseDataStore {
       hasDefaultTimeContext: !!this.data.defaultTimeContext,
       hasStatisticalUnits: this.data.hasStatisticalUnits,
       cacheTTL: this.CACHE_TTL / 1000 + 's',
-      workerStatus: this.getWorkerStatus(),
-      lastWorkerStatusFetchTime: this.lastWorkerStatusFetchTime,
-      workerStatusCacheAge: this.lastWorkerStatusFetchTime ? Math.round((Date.now() - this.lastWorkerStatusFetchTime) / 1000) + 's' : 'never',
       environment: typeof window !== 'undefined' ? 'browser' : 'server'
     };
   }
