@@ -312,6 +312,8 @@ erDiagram
 		text upload_table_name
 		text data_table_name
 		integer priority
+		integer analysis_batch_size
+		integer processing_batch_size
 		jsonb definition_snapshot
 		timestamp_with_time_zone preparing_data_at
 		timestamp_with_time_zone analysis_start_at

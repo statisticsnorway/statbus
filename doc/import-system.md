@@ -81,6 +81,7 @@ The import system is built around several key database tables and concepts:
     *   The way validity dates are provided depends on the `import_definition`'s `valid_time_from` value:
         *   If `'job_provided'`, the job **must** have either a `time_context_ident` or explicit `default_valid_from`/`to` dates.
         *   If `'source_columns'`, the job **must not** provide `time_context_ident` or `default_valid_from`/`to`.
+    *   Allows for job-specific configuration, such as `analysis_batch_size` and `processing_batch_size`, which independently control the number of rows processed in a single transaction during the analysis and processing phases, respectively.
     *   Tracks the overall state. The `import_job_state` enum includes:
         *   `waiting_for_upload`: Initial state. Job created, awaiting file upload.
             *   *Transition*: User uploads data to the job's `_upload` table. An `AFTER INSERT` trigger on this table changes the job state to `upload_completed` if rows were inserted.
