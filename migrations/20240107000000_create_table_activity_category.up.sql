@@ -17,6 +17,8 @@ CREATE TABLE public.activity_category (
     UNIQUE(standard_id, path, active)
 );
 CREATE INDEX ix_activity_category_parent_id ON public.activity_category USING btree (parent_id);
+CREATE INDEX ix_activity_category_standard_id ON public.activity_category USING btree (standard_id);
+CREATE INDEX ix_activity_category_active ON public.activity_category USING btree (active);
 
 -- Trigger function to handle path updates, derive code, and lookup parent
 CREATE FUNCTION public.lookup_parent_and_derive_code() RETURNS trigger LANGUAGE plpgsql AS $$
