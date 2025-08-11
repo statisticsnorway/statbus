@@ -153,9 +153,10 @@ BEGIN
                 state = %L,
                 error = jsonb_build_object('external_idents', 'No identifier provided or mapped correctly for external_idents step'),
                 operation = 'insert'::public.import_row_operation_type,
-                action = %L
+                action = %L,
+                last_completed_priority = %L
             WHERE dt.row_id = ANY(%L);
-        $$, v_data_table_name, 'error', 'skip'::public.import_row_action_type, v_relevant_row_ids);
+        $$, v_data_table_name, 'error', 'skip'::public.import_row_action_type, v_step.priority, v_relevant_row_ids);
         EXECUTE v_sql;
         GET DIAGNOSTICS v_error_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_external_idents (Batch): Finished analysis for batch. Errors: % (all rows missing identifiers or mappings for external_idents step)', p_job_id, v_error_count;
