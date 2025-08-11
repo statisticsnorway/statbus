@@ -112,6 +112,6 @@ This approach guarantees correctness: one row per timesegment key, with multi-va
 
 -   **Data Integrity**: The accuracy of `timepoints` and `timesegments` is fundamental. If a significant date is missed, segments might incorrectly span periods of change, leading to inaccurate historical snapshots.
 -   **Reporting**: Reports querying historical states rely on the `timeline_*` tables. The fan-out issue in the `_def` views must be resolved to ensure these tables are correctly populated and reflect the true state of units over time.
--   **Performance**: While denormalized, the timeline tables can become large. Efficient indexing and partitioning strategies (if applicable) are important. The `after_to_overlaps` function is crucial for efficient temporal joins.
+-   **Performance**: While denormalized, the timeline tables can become large. Efficient indexing and partitioning strategies (if applicable) are important. The `after_to_overlaps` function is crucial for efficient temporal joins. It is implemented using PostgreSQL's `daterange` type and the `&&` (overlaps) operator, which allows the query planner to leverage specialized GIST indexes for high performance.
 
 By addressing the fan-out in the definition views, the import system and subsequent analytics can reliably build and maintain accurate historical records of all statistical units.
