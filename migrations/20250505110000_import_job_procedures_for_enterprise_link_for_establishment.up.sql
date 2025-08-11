@@ -69,7 +69,8 @@ BEGIN
             last_completed_priority = %5$s -- Always v_step.priority
         FROM public.%1$I dt_main -- Alias for the main table being updated -- v_data_table_name
         LEFT JOIN est_data ed ON dt_main.row_id = ed.row_id
-        WHERE dt_main.row_id = ANY(%2$L) AND dt_main.action = 'replace' AND %3$L = 'establishment_informal'; -- p_batch_row_ids, v_job_mode
+        WHERE dt.row_id = dt_main.row_id
+          AND dt_main.row_id = ANY(%2$L) AND dt_main.action = 'replace' AND %3$L = 'establishment_informal'; -- p_batch_row_ids, v_job_mode
     $$,
         v_data_table_name,          -- %1$I
         p_batch_row_ids,            -- %2$L
