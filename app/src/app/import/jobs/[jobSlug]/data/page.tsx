@@ -16,12 +16,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronRight } from "lucide-react";
 import { useAtomValue } from "jotai";
 import { externalIdentTypesAtom } from "@/atoms/base-data";
-
-type ImportJob = Tables<"import_job"> & {
-  import_definition: {
-    name: string | null;
-  } | null;
-};
+import { type ImportJobWithDetails as ImportJob } from "@/atoms/import";
 // Per instruction, improve typing for ImportJobDataRow to make 'state' work
 // in useDataTable. This is a first step, with 'any' types to be refined.
 type ImportJobDataRow = {
@@ -179,7 +174,17 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
           if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
             console.log(`SSE: Job ${job.id} updated, revalidating data page.`);
           }
-          mutate(`import-job/${jobSlug}`);
+          
+          // Optimistically update the job details from the SSE payload
+          if (ssePayload.verb === 'DELETE') {
+            // If the job is deleted, clear the job data to show a "not found" message.
+            mutate(`import-job/${jobSlug}`, null, { revalidate: false });
+          } else {
+            // For INSERT or UPDATE, inject the new data from the SSE payload
+            mutate(`import-job/${jobSlug}`, ssePayload.import_job, { revalidate: false });
+          }
+
+          // Revalidate the table data as it has likely changed
           if (tableDataSWRKey) {
             mutate(tableDataSWRKey);
           }

@@ -7,6 +7,9 @@
  */
 
 import { Client } from 'pg';
+import { getServerRestClient } from '@/context/RestClientStore';
+import { Tables } from '@/lib/database.types';
+import { type ImportJobWithDetails } from '@/atoms/import';
 
 // Extend the global NodeJS namespace to declare our custom properties
 // This helps persist state across hot module reloads in development
@@ -88,15 +91,27 @@ export function getDbHostPort() {
 // Define specific payload types for each channel
 export type WorkerStatusPayload = { type: string; status: boolean };
 
-export type ImportJobNotificationPayload = {
-  verb: string;
+// Minimal payload from pg_notify
+export type MinimalImportJobNotificationPayload = {
+  verb: 'INSERT' | 'UPDATE' | 'DELETE';
   id: number;
 };
+
+// Enriched payload sent to the client, using a discriminated union for type safety
+export type EnrichedImportJobNotificationPayload =
+  | {
+      verb: 'INSERT' | 'UPDATE';
+      import_job: ImportJobWithDetails;
+    }
+  | {
+      verb: 'DELETE';
+      import_job: { id: number };
+    };
 
 // Create a discriminated union based on the channel
 export type NotificationData =
   | { channel: 'worker_status'; payload: WorkerStatusPayload }
-  | { channel: 'import_job'; payload: ImportJobNotificationPayload };
+  | { channel: 'import_job'; payload: EnrichedImportJobNotificationPayload };
 
 // Type for the callback function provided by SSE route handlers
 export type NotificationCallback = (data: NotificationData) => void;
@@ -207,26 +222,8 @@ async function connectAndListen() {
           console.error({ error: e, payload: msg.payload }, "DB Listener: Error parsing worker_status notification");
         }
       } else if (msg.channel === 'import_job') {
-        // Handle 'import_job' channel (JSON payload with verb and id)
-        // The outer check `if (!msg.payload) return;` ensures payload is defined here.
-        try {
-          const data = JSON.parse(msg.payload) as ImportJobNotificationPayload;
-          // Use a copy of the set to avoid issues if callbacks modify the set during iteration
-          const callbacksToNotify = new Set(activeClientCallbacks);
-          callbacksToNotify.forEach(callback => {
-            callback({
-              channel: 'import_job',
-              payload: data
-            });
-          });
-
-          if (process.env.NODE_ENV === 'development') {
-            console.log(`DB Listener: Import job notification - ${data.verb} for job ${data.id}`);
-          }
-        } catch (e) {
-          console.error({ error: e, payload: msg.payload }, "DB Listener: Error parsing import_job notification");
-          throw e;
-        }
+        // Asynchronously handle enrichment
+        handleImportJobNotification(msg.payload);
       }
     });
 
@@ -266,6 +263,67 @@ function scheduleReconnect() {
     
     updateGlobalReconnectTimeout(timeout);
     console.log(`DB Listener: Reconnection scheduled in ${RECONNECT_DELAY_MS / 1000} seconds`);
+  }
+}
+
+async function handleImportJobNotification(payload: string) {
+  try {
+    const minimalPayload = JSON.parse(payload) as MinimalImportJobNotificationPayload;
+    const { verb, id } = minimalPayload;
+
+    let enrichedPayload: EnrichedImportJobNotificationPayload;
+
+    if (verb === 'DELETE') {
+      // For DELETE, we just forward the ID as there's nothing to fetch.
+      enrichedPayload = {
+        verb: 'DELETE',
+        import_job: { id: id },
+      };
+    } else {
+      // For INSERT or UPDATE, fetch the full job details.
+      const client = await getServerRestClient();
+      if (!client) {
+        console.error('DB Listener: Could not get server REST client to enrich import_job notification.');
+        return;
+      }
+
+      const { data: jobData, error } = await client
+        .from('import_job')
+        .select('*, import_definition(slug, name, mode, custom)')
+        .eq('id', id)
+        .single();
+
+      if (error) {
+        console.error({ error, jobId: id }, `DB Listener: Failed to fetch import_job details for enrichment.`);
+        return;
+      }
+      
+      if (!jobData) {
+        console.warn(`DB Listener: No import_job found for id ${id} during enrichment. It may have been deleted.`);
+        return;
+      }
+
+      enrichedPayload = {
+        verb,
+        import_job: jobData as ImportJobWithDetails,
+      };
+    }
+    
+    // Distribute the enriched payload to all connected clients.
+    const callbacksToNotify = new Set(activeClientCallbacks);
+    callbacksToNotify.forEach(callback => {
+      callback({
+        channel: 'import_job',
+        payload: enrichedPayload,
+      });
+    });
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`DB Listener: Enriched and sent import_job notification for job ${id} (verb: ${verb})`);
+    }
+
+  } catch (e) {
+    console.error({ error: e, payload: payload }, "DB Listener: Error processing or enriching import_job notification");
   }
 }
 

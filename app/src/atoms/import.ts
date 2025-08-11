@@ -60,6 +60,20 @@ import { isAuthenticatedAtom } from './auth'
 
 export type ImportMode = Enums<'import_mode'>;
 
+export type ImportStep = {
+  code: string;
+  analyse_procedure: string | null;
+};
+
+export type DefinitionSnapshot = {
+  import_step_list: ImportStep[];
+};
+
+export type ImportJobWithDetails = Tables<"import_job"> & {
+  import_definition: Pick<Tables<'import_definition'>, 'slug' | 'name' | 'mode' | 'custom'> | null;
+  definition_snapshot?: DefinitionSnapshot | null;
+};
+
 // ============================================================================
 // IMPORT UNITS ATOMS - Replace ImportUnitsContext
 // ============================================================================

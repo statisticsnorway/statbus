@@ -74,106 +74,34 @@ export async function GET(request: NextRequest) {
         // Set up a callback to listen for import_job notifications
         const handleNotification = async (notification: NotificationData) => {
           if (notification.channel === 'import_job') {
-            const { id, verb } = notification.payload;
-            
-            logger.info({ id, verb, jobIds }, `Received import_job notification: ${verb} for job ${id}. Client tracking: ${jobIds.join(',') || 'all'}`);
-
-            // Always process INSERT, UPDATE, DELETE notifications.
-            // Clients are responsible for filtering/handling based on their needs.
-            // Check if the request is still active before proceeding
+            // The payload is already enriched by db-listener.ts, so we just forward it.
             if (request.signal.aborted) {
               return;
             }
 
-            // Process the notification regardless of the initial jobIds list
-            // (Removed the outer if condition based on listenMode)
-            try {
-              // For DELETE operations, we don't need to fetch the job data
-              if (verb === 'DELETE') {
-                // Remove this job from our *local* tracking list if present (for logging/debugging)
-                if (jobIds.includes(id)) {
-                  jobIds = jobIds.filter(jobId => jobId !== id);
-                  logger.info(`Removed deleted job (ID: ${id}) from local tracking list`);
-                }
+            const { verb, import_job } = notification.payload;
+            const id = import_job.id;
 
-                // Send a deletion notification using the 'import_job' key
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-                  verb: 'DELETE',
-                  import_job: { // Use 'import_job' key
-                    id,
-                    message: 'Job was deleted'
-                  },
-                  timestamp: new Date().toISOString()
-                })}\n\n`));
-              } else { // Handle INSERT and UPDATE
-                // Fetch the updated job data
-                const { data, error } = await client
-                  .from("import_job")
-                  .select("*")
-                  .eq("id", id)
-                  .single();
-              
-                if (error) {
-                  logger.error(error, `Error fetching updated job: ${id}`);
-                  return;
-                }
-              
-                // Check again if the request is still active
-                if (request.signal.aborted) {
-                  return;
-                }
-                
-                if (!data) {
-                  logger.error(`No job data returned for ID: ${id}`);
-                  return;
-                }
-
-                // Structure the message with verb and import_job
-                const messagePayload = {
-                  verb, // Keep verb at the top level
-                  import_job: data, // Use 'import_job' key for the job data object
-                  timestamp: new Date().toISOString()
-                };
-
-                // Send the structured data to the client
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify(messagePayload)}\n\n`));
-                logger.info(`Sent ${verb} notification for job ${id}`);
-
-                // If this job is finished or rejected, and it was one we were initially tracking,
-                // check if *all* initially tracked jobs are done.
-                // Note: This check might be less relevant now that we send all updates,
-                // but kept for potential future use or specific client needs.
-                if (jobIds.includes(id) && ["finished", "rejected"].includes(data.state)) {
-                  try {
-                    // Check status only for the initially requested job IDs
-                    // Check if all jobs are done
-                    const { data: jobsData } = await client
-                      .from("import_job")
-                      .select("state")
-                      .in("id", jobIds);
-                      
-                    // Handle case where data is null or undefined
-                    if (!jobsData || jobsData.length === 0) {
-                      logger.warn("No job data returned when checking completion status");
-                      return;
-                    }
-                    const allTrackedDone = jobsData.every(job =>
-                      ["finished", "rejected"].includes(job.state)
-                    );
-
-                    if (allTrackedDone && jobIds.length > 0) {
-                      logger.info(`All initially tracked jobs (${jobIds.join(',')}) completed or rejected. Keeping SSE connection open.`);
-                      // Don't close the connection - client might still be interested in new jobs.
-                    }
-                  } catch (err) {
-                    logger.error(err, "Error checking completion status for initially tracked jobs");
-                  }
-                }
-              } // End of INSERT/UPDATE block
-            } catch (error) {
-              logger.error(error, `Error processing job notification for ID: ${id}`);
+            // Server-side filtering: Only send relevant updates.
+            // A client tracking specific IDs should receive all INSERTs,
+            // but only UPDATEs/DELETEs for the IDs it is tracking.
+            if (jobIds.length > 0 && verb !== 'INSERT' && !jobIds.includes(id)) {
+              if (process.env.NODE_ENV === 'development') {
+                logger.info({ id, verb, jobIds }, `Skipping notification for client as job ID is not tracked.`);
+              }
+              return; // Skip this notification for this client
             }
-          } // End of channel check
+            
+            logger.info({ id, verb, jobIds }, `Received enriched import_job notification: ${verb} for job ${id}. Forwarding to client.`);
+
+            // Add a timestamp and send the payload
+            const messagePayload = {
+              ...notification.payload,
+              timestamp: new Date().toISOString()
+            };
+
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(messagePayload)}\n\n`));
+          }
         }; // End of handleNotification
       
         // Register the callback

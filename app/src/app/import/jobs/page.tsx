@@ -24,26 +24,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { DataTableActionBar, DataTableActionBarAction, DataTableActionBarSelection } from "@/components/data-table/data-table-action-bar";
 import { Button } from "@/components/ui/button";
-
-
-type ImportStep = {
-  code: string;
-  analyse_procedure: string | null;
-};
-
-type DefinitionSnapshot = {
-  import_step_list: ImportStep[];
-};
-
-type ImportJob = Tables<"import_job"> & {
-  import_definition: {
-    slug: string | null;
-    name: string | null;
-    mode: string | null;
-    custom: boolean | null;
-  } | null;
-  definition_snapshot?: DefinitionSnapshot | null;
-};
+import { type ImportJobWithDetails as ImportJob } from "@/atoms/import";
 
 const SWR_KEY_IMPORT_JOBS = "/api/import-jobs";
 
@@ -192,9 +173,10 @@ export default function ImportJobsPage() {
   const totalJobs = data?.count ?? 0;
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || jobsData.length === 0) return;
 
-    const sseUrl = `/api/sse/import-jobs`;
+    const jobIds = jobsData.map(job => job.id).join(',');
+    const sseUrl = `/api/sse/import-jobs?ids=${jobIds}`;
     const source = new EventSource(sseUrl);
     eventSourceRef.current = source;
 
@@ -208,7 +190,38 @@ export default function ImportJobsPage() {
           console.error("Invalid SSE payload", ssePayload);
           return;
         }
-        mutate(swrKey);
+        
+        // Optimistically update SWR cache without revalidation
+        mutate(swrKey, (currentData: { data: ImportJob[], count: number | null } | undefined) => {
+          if (!currentData) return currentData;
+
+          let newJobs = [...currentData.data];
+          let newCount = currentData.count;
+
+          if (ssePayload.verb === 'UPDATE') {
+            const updatedJob = ssePayload.import_job;
+            const index = newJobs.findIndex(job => job.id === updatedJob.id);
+            if (index !== -1) {
+              newJobs[index] = updatedJob;
+            }
+          } else if (ssePayload.verb === 'INSERT') {
+            const newJob = ssePayload.import_job;
+            if (!newJobs.some(job => job.id === newJob.id)) {
+              newJobs.unshift(newJob); // Add to the top for visibility
+              if (newCount !== null) newCount++;
+            }
+          } else if (ssePayload.verb === 'DELETE') {
+            const jobToDelete = ssePayload.import_job;
+            const preDeleteLength = newJobs.length;
+            newJobs = newJobs.filter(job => job.id !== jobToDelete.id);
+            if (newCount !== null && newJobs.length < preDeleteLength) {
+                newCount--;
+            }
+          }
+
+          return { data: newJobs, count: newCount };
+        }, { revalidate: false });
+
       } catch (error) {
         console.error("Error processing SSE message:", error);
       }
@@ -222,7 +235,7 @@ export default function ImportJobsPage() {
     return () => {
       eventSourceRef.current?.close();
     };
-  }, [isLoading, mutate, swrKey]);
+  }, [isLoading, mutate, swrKey, jobsData]);
 
   // Ref to hold the current SWR key, allows handleDeleteJobs to be stable
   const swrKeyRef = useRef(swrKey);
