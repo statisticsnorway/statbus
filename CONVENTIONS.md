@@ -3,6 +3,19 @@ This document outlines general conventions for the STATBUS project, focusing on 
 This project uses PostgreSQL (17+) and PostgREST (12+) for its backend.
 It is deployed on custom servers behind Caddy with HTTPS.
 
+## Tools
+When you suggest commands in the regular response (*NOT* inside a SEARCH/REPLACE) on the form
+```bash
+cmd1
+cmd2
+```
+Then they are presented to the user who can accept running them, and the results are returned to you.
+Notice that you can use the `rg` tool to search and you can use `tree` to list files (possibly with subdir),
+as well as `echo "SELECT * FROM public.statistical_unit limit 1;" | ./devops/manage-statbus.sh psql` to run
+arbitrary SQL and get the results, such as when debug-ing.
+You can also write out to a test.sql file for complex queries and use it like so
+`cat test.sql | ./devops/manage-statbus.sh psql`.
+
 ## SQL
 - **Function/Procedure Definitions**:
     - Use the function/procedure name in the literal string quote for the body (e.g., `AS $my_function_name$`).

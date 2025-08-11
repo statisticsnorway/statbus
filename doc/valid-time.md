@@ -89,10 +89,13 @@ The `public.timesegments` table is a physical table that stores the output of `t
     - The `LEFT JOIN` to `public.activity` for primary activities will match both `PA1` and `PA2` for this timesegment. This results in two rows in `timeline_establishment_def` for `E1` with the same `valid_after = '2021-12-31'` (which is `2022-01-01 - 1 day`), differing only in the activity-related columns.
 - This duplication of the `(unit_type, unit_id, valid_after)` key in the output of the `_def` view is what causes the "ON CONFLICT DO UPDATE command cannot affect row a second time" error when trying to materialize these views into the physical `timeline_*` tables.
 
-**Resolution Strategy for Fan-Out**:
-To resolve this, the `timeline_*_def` views must be designed to output exactly one row per `(unit_type, unit_id, valid_after)`. This typically involves:
--   Using `DISTINCT ON (t.unit_id, t.valid_after)` or `ROW_NUMBER() OVER (PARTITION BY t.unit_id, t.valid_after ORDER BY ...)` for joins that might cause fan-out, to deterministically pick one related record (e.g., the primary activity with the lowest category code, or most recent edit).
--   Aggregating information from multiple concurrent related records into JSON arrays or objects if all such information needs to be preserved on the single timeline row (e.g., `jsonb_agg(pa.category_code)`).
+**Resolution Principle for Fan-Out (No Dedup Workarounds)**:
+The `timeline_*_def` views are constructed so they output at most one row per `(unit_type, unit_id, valid_after)` by design. Do not use `DISTINCT`, `DISTINCT ON`, `GROUP BY`, or similar “collapse after the fact” techniques at the materialization step to hide duplicates. Instead:
+- Ensure `timepoints` and `timesegments` correctly capture all change boundaries so that a timesegment is the smallest non-changing unit of state. If any relationship change is missing from `timepoints`, fix it there first.
+- Where relationships are truly multi-valued within a timesegment (e.g., multiple tags by design, or only 1 primary by design), model that multiplicity as part of the single row’s state, using explicit aggregation scoped to the current timesegment in lateral subqueries (e.g., arrays/JSON objects) without any LIMIT since it is either an aggregation or by design a single row to be found. This is not a workaround; it encodes domain multiplicity as a single-valued attribute of the timeline row.
+- Where relationships are intended to be single-valued (e.g., “primary” activity, or a single physical location per timesegment), enforce this deterministically in the join logic using a well-defined ORDER BY inside a lateral subquery, or correct upstream data/integrity so that the invariant holds and *NEVER* use `LIMIT 1`.
+This approach guarantees correctness: one row per timesegment key, with multi-valued attributes represented explicitly, and no reliance on post hoc deduplication that could mask logical errors.
+- If there is still an error, it is an error in the import causing the duplication or a constraint error allowing it, so identify the data that cause the error and then go back and find the root cause in the relevant analysis or processing procedure.
 
 ### 5. Materialized Timeline Tables (e.g., `public.timeline_establishment`)
 
