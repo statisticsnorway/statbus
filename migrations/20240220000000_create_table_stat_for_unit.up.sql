@@ -35,6 +35,7 @@ CREATE INDEX ix_stat_for_unit_stat_definition_id ON public.stat_for_unit USING b
 CREATE INDEX ix_stat_for_unit_data_source_id ON public.stat_for_unit USING btree (data_source_id);
 CREATE INDEX ix_stat_for_unit_legal_unit_id ON public.stat_for_unit USING btree (legal_unit_id);
 CREATE INDEX ix_stat_for_unit_establishment_id ON public.stat_for_unit USING btree (establishment_id);
+CREATE INDEX ix_stat_for_unit_legal_unit_id_valid_range ON public.stat_for_unit USING gist (legal_unit_id, daterange(valid_after, valid_to, '(]'));
 
 CREATE TRIGGER trg_stat_for_unit_synchronize_valid_from_after
     BEFORE INSERT OR UPDATE ON public.stat_for_unit

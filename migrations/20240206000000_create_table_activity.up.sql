@@ -25,7 +25,9 @@ CREATE INDEX ix_activity_category_id ON public.activity USING btree (category_id
 CREATE INDEX ix_activity_establishment_id ON public.activity USING btree (establishment_id);
 CREATE INDEX ix_activity_legal_unit_id ON public.activity USING btree (legal_unit_id);
 CREATE INDEX ix_activity_edit_by_user_id ON public.activity USING btree (edit_by_user_id);
+CREATE INDEX ix_activity_data_source_id ON public.activity USING btree (data_source_id);
 CREATE INDEX ix_activity_establishment_valid_after_valid_to ON public.activity USING btree (establishment_id, valid_after, valid_to);
+CREATE INDEX ix_activity_legal_unit_id_valid_range ON public.activity USING gist (legal_unit_id, daterange(valid_after, valid_to, '(]'));
 
 CREATE TRIGGER trg_activity_synchronize_valid_from_after
     BEFORE INSERT OR UPDATE ON public.activity

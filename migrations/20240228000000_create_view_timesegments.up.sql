@@ -46,6 +46,8 @@ CREATE INDEX IF NOT EXISTS idx_timesegments_unit_type_id_period ON public.timese
     (unit_type, unit_id, valid_after, valid_to);
 CREATE INDEX IF NOT EXISTS idx_timesegments_unit_type_unit_id ON public.timesegments
     (unit_type, unit_id);
+CREATE INDEX IF NOT EXISTS idx_timesegments_unit_type ON public.timesegments
+    (unit_type);
 
 -- Create a function to refresh the timesegments table
 CREATE OR REPLACE FUNCTION public.timesegments_refresh(

@@ -36,6 +36,7 @@ CREATE INDEX ix_contact_establishment_id ON public.contact USING btree (establis
 CREATE INDEX ix_contact_legal_unit_id ON public.contact USING btree (legal_unit_id);
 CREATE INDEX ix_contact_data_source_id ON public.contact USING btree (data_source_id);
 CREATE INDEX ix_contact_edit_by_user_id ON public.contact USING btree (edit_by_user_id);
+CREATE INDEX ix_contact_legal_unit_id_valid_range ON public.contact USING gist (legal_unit_id, daterange(valid_after, valid_to, '(]'));
 
 CREATE TRIGGER trg_contact_synchronize_valid_from_after
     BEFORE INSERT OR UPDATE ON public.contact

@@ -75,6 +75,10 @@ CREATE INDEX ix_location_region_id ON public.location USING btree (region_id);
 CREATE INDEX ix_location_establishment_id ON public.location USING btree (establishment_id);
 CREATE INDEX ix_location_legal_unit_id ON public.location USING btree (legal_unit_id);
 CREATE INDEX ix_location_edit_by_user_id ON public.location USING btree (edit_by_user_id);
+CREATE INDEX ix_location_country_id ON public.location USING btree (country_id);
+CREATE INDEX ix_location_data_source_id ON public.location USING btree (data_source_id);
+CREATE INDEX ix_location_legal_unit_id_valid_range ON public.location USING gist (legal_unit_id, daterange(valid_after, valid_to, '(]'));
+CREATE INDEX ix_location_establishment_id_valid_range ON public.location USING gist (establishment_id, daterange(valid_after, valid_to, '(]'));
 
 CREATE TRIGGER trg_location_synchronize_valid_from_after
     BEFORE INSERT OR UPDATE ON public.location
