@@ -29,6 +29,8 @@ CREATE TABLE public.stat_definition(
   archived boolean NOT NULL DEFAULT false
 );
 --
+CREATE INDEX ix_stat_definition_type ON public.stat_definition USING btree (type);
+--
 COMMENT ON COLUMN public.stat_definition.priority IS 'UI ordering of the entry fields';
 COMMENT ON COLUMN public.stat_definition.archived IS 'At the time of data entry, only non archived codes can be used.';
 --

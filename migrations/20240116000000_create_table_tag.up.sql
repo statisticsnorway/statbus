@@ -28,4 +28,6 @@ CREATE TABLE public.tag (
          )
 );
 
+CREATE INDEX ix_tag_type ON public.tag USING btree (type);
+
 END;

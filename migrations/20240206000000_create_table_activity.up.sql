@@ -20,6 +20,7 @@ CREATE TABLE public.activity (
         OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL
         )
 );
+CREATE INDEX ix_activity_type ON public.activity USING btree (type);
 CREATE INDEX ix_activity_category_id ON public.activity USING btree (category_id);
 CREATE INDEX ix_activity_establishment_id ON public.activity USING btree (establishment_id);
 CREATE INDEX ix_activity_legal_unit_id ON public.activity USING btree (legal_unit_id);

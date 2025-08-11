@@ -70,6 +70,7 @@ COMMENT ON COLUMN public.location.edit_comment IS 'Comment added during manual e
 COMMENT ON COLUMN public.location.edit_by_user_id IS 'User who last edited this record.';
 COMMENT ON COLUMN public.location.edit_at IS 'Timestamp of the last edit.';
 
+CREATE INDEX ix_location_type ON public.location USING btree (type);
 CREATE INDEX ix_location_region_id ON public.location USING btree (region_id);
 CREATE INDEX ix_location_establishment_id ON public.location USING btree (establishment_id);
 CREATE INDEX ix_location_legal_unit_id ON public.location USING btree (legal_unit_id);
