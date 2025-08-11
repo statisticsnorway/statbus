@@ -9,5 +9,6 @@ CREATE TABLE public.person_role (
     created_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
 );
+CREATE INDEX ix_person_role_active ON public.person_role USING btree (active);
 
 END;

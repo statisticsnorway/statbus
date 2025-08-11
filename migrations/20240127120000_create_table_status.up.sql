@@ -15,6 +15,7 @@ CREATE TABLE public.status (
     UNIQUE(code, active, custom)
 );
 CREATE UNIQUE INDEX ix_status_code ON public.foreign_participation USING btree (code) WHERE active;
+CREATE INDEX ix_status_active ON public.status USING btree (active);
 CREATE UNIQUE INDEX ix_status_only_one_assigned_by_default ON public.status USING btree (assigned_by_default) WHERE active AND assigned_by_default;
 
 -- Insert default statuses

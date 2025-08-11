@@ -11,5 +11,6 @@ CREATE TABLE public.legal_form (
     UNIQUE(code, active, custom)
 );
 CREATE UNIQUE INDEX ix_legal_form_code ON public.legal_form USING btree (code) WHERE active;
+CREATE INDEX ix_legal_form_active ON public.legal_form USING btree (active);
 
 END;

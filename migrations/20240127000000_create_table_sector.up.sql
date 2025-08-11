@@ -15,6 +15,7 @@ CREATE TABLE public.sector (
     UNIQUE(path, active, custom)
 );
 CREATE UNIQUE INDEX sector_code_active_key ON public.sector USING btree (code) WHERE active;
+CREATE INDEX ix_sector_active ON public.sector USING btree (active);
 CREATE INDEX sector_parent_id_idx ON public.sector USING btree (parent_id);
 
 END;

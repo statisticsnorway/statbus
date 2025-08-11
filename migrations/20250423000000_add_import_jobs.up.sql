@@ -108,6 +108,7 @@ CREATE TABLE public.import_definition(
     updated_at timestamp with time zone NOT NULL DEFAULT NOW()
     -- Removed draft column and draft_valid_error_states constraint
 );
+CREATE INDEX ix_import_definition_active ON public.import_definition USING btree (active);
 CREATE INDEX ix_import_user_id ON public.import_definition USING btree (user_id);
 CREATE INDEX ix_import_data_source_id ON public.import_definition USING btree (data_source_id);
 

@@ -60,5 +60,6 @@ CREATE TABLE public.relative_period (
         END
     )
 );
+CREATE INDEX ix_relative_period_active ON public.relative_period USING btree (active);
 
 END;

@@ -11,5 +11,6 @@ CREATE TABLE public.reorg_type (
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
 );
 CREATE UNIQUE INDEX ix_reorg_type_code ON public.reorg_type USING btree (code) WHERE active;
+CREATE INDEX ix_reorg_type_active ON public.reorg_type USING btree (active);
 
 END;

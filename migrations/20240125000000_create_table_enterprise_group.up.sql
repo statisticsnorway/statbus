@@ -20,6 +20,7 @@ CREATE TABLE public.enterprise_group (
     reorg_type_id integer REFERENCES public.reorg_type(id),
     foreign_participation_id integer REFERENCES public.foreign_participation(id)
 );
+CREATE INDEX ix_enterprise_group_active ON public.enterprise_group USING btree (active);
 CREATE INDEX ix_enterprise_group_data_source_id ON public.enterprise_group USING btree (data_source_id);
 CREATE INDEX ix_enterprise_group_enterprise_group_type_id ON public.enterprise_group USING btree (enterprise_group_type_id);
 CREATE INDEX ix_enterprise_group_foreign_participation_id ON public.enterprise_group USING btree (foreign_participation_id);

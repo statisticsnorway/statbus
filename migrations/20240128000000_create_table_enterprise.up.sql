@@ -9,6 +9,7 @@ CREATE TABLE public.enterprise (
     edit_at timestamp with time zone NOT NULL DEFAULT statement_timestamp()
 );
 
+CREATE INDEX ix_enterprise_active ON public.enterprise USING btree (active);
 CREATE INDEX ix_enterprise_edit_by_user_id ON public.enterprise USING btree (edit_by_user_id);
 
 END;

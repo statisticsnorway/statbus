@@ -29,5 +29,6 @@ CREATE TABLE public.tag (
 );
 
 CREATE INDEX ix_tag_type ON public.tag USING btree (type);
+CREATE INDEX ix_tag_active ON public.tag USING btree (active);
 
 END;

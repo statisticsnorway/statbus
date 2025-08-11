@@ -10,5 +10,6 @@ CREATE TABLE public.unit_size (
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
 );
 CREATE UNIQUE INDEX ix_unit_size_code ON public.unit_size USING btree (code) WHERE active;
+CREATE INDEX ix_unit_size_active ON public.unit_size USING btree (active);
 
 END;
