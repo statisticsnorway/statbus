@@ -1,22 +1,22 @@
 BEGIN;
 
 -- ================================================
--- Function: get_statistical_unit_history get_statistical_unit_history_for_highcharts
+-- Function: statistical_unit_history statistical_unit_history_highcharts
 -- Returns JSONB rows for a given unit_id and unit_type
 -- 
---SELECT * FROM get_statistical_unit_history(25,'enterprise');
---SELECT * FROM get_statistical_unit_history_for_highcharts(25,'enterprise');
+--SELECT * FROM statistical_unit_history(25,'enterprise');
+--SELECT * FROM statistical_unit_history_highcharts(25,'enterprise');
 -- ================================================
 
 
 
 
-CREATE OR REPLACE FUNCTION public.get_statistical_unit_history(
+CREATE OR REPLACE FUNCTION public.statistical_unit_history(
     p_unit_id int,
     p_unit_type statistical_unit_type
 )
 RETURNS SETOF jsonb
-LANGUAGE plpgsql AS $get_statistical_unit_history$
+LANGUAGE plpgsql AS $statistical_unit_history$
 DECLARE
     dynamic_stats_sql text;
     full_sql text;
@@ -56,21 +56,21 @@ BEGIN
     -- Return JSON rows
     RETURN QUERY EXECUTE full_sql;
 END;
-$get_statistical_unit_history$;
+$statistical_unit_history$;
 
 
 
 -- ================================================
--- Function: get_statistical_unit_history_for_highcharts
+-- Function: statistical_unit_history_highcharts
 -- Returns JSONB object ready for Highcharts
 -- ================================================
 
-CREATE OR REPLACE FUNCTION public.get_statistical_unit_history_for_highcharts(
+CREATE OR REPLACE FUNCTION public.statistical_unit_history_highcharts(
     p_unit_id int,
     p_unit_type statistical_unit_type
 )
 RETURNS jsonb
-LANGUAGE plpgsql AS $get_statistical_unit_history_for_highcharts$
+LANGUAGE plpgsql AS $statistical_unit_history_highcharts$
 DECLARE
     col text;
     keys text[];
@@ -79,10 +79,10 @@ DECLARE
     all_series jsonb := '[]'::jsonb;
     latest_name text;
 BEGIN
-    -- 1. Get the latest name from get_statistical_unit_history()
+    -- 1. Get the latest name from statistical_unit_history()
     SELECT j->>'name'
     INTO latest_name
-    FROM get_statistical_unit_history(p_unit_id, p_unit_type) AS t(j)
+    FROM statistical_unit_history(p_unit_id, p_unit_type) AS t(j)
     ORDER BY (j->>'valid_from')::date DESC
     LIMIT 1;
 
@@ -91,7 +91,7 @@ BEGIN
     INTO keys
     FROM (
         SELECT DISTINCT jsonb_object_keys(j) AS key
-        FROM get_statistical_unit_history(p_unit_id, p_unit_type) AS t(j)
+        FROM statistical_unit_history(p_unit_id, p_unit_type) AS t(j)
     ) AS sub
     WHERE key NOT IN ('name', 'unit_id', 'valid_from');
 
@@ -115,7 +115,7 @@ BEGIN
                     ORDER BY (j->>'valid_from')::date
                 )
             )
-            FROM get_statistical_unit_history(%2$L, %3$L) AS t(j)
+            FROM statistical_unit_history(%2$L, %3$L) AS t(j)
         $SQL$,
         col,         -- %1$L
         p_unit_id,   -- %2$L
@@ -139,6 +139,6 @@ BEGIN
         )
     );
 END;
-$get_statistical_unit_history_for_highcharts$;
+$statistical_unit_history_highcharts$;
 
 END;
