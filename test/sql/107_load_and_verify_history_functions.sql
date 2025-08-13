@@ -792,4 +792,43 @@ SELECT valid_after
      '2023-01-01'::DATE
 );
 
+\x
+\echo "Test get_statistical_unit_history"
+WITH selected_enterprise AS (
+     SELECT unit_id FROM public.statistical_unit
+     WHERE external_idents ->> 'tax_ident' = '921835809'
+       AND unit_type = 'enterprise'
+     ORDER BY valid_from
+     LIMIT 1
+)
+SELECT jsonb_pretty(
+    public.remove_ephemeral_data_from_hierarchy(
+        jsonb_agg(h ORDER BY (h->>'valid_from')::date)
+    )
+) AS history
+FROM public.get_statistical_unit_history(
+    (SELECT unit_id FROM selected_enterprise),
+    'enterprise'
+) AS h;
+\x
+
+\x
+\echo "Test get_statistical_unit_history_for_highcharts"
+WITH selected_enterprise AS (
+     SELECT unit_id FROM public.statistical_unit
+     WHERE external_idents ->> 'tax_ident' = '921835809'
+       AND unit_type = 'enterprise'
+     ORDER BY valid_from
+     LIMIT 1
+)
+SELECT jsonb_pretty(
+    public.remove_ephemeral_data_from_hierarchy(
+        public.get_statistical_unit_history_for_highcharts(
+            (SELECT unit_id FROM selected_enterprise),
+            'enterprise'
+        )
+    )
+) AS highcharts_history;
+\x
+
 \i test/rollback_unless_persist_is_specified.sql
