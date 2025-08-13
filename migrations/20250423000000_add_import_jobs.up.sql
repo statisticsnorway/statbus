@@ -436,6 +436,22 @@ BEGIN
         v_error_messages := array_append(v_error_messages, format('Unknown or unhandled import mode: %L.', v_definition.mode));
     END IF;
 
+    -- Enforce unique step priorities within a definition (prevents equal-priority deadlocks in analysis scheduling)
+    IF EXISTS (
+        SELECT 1
+        FROM (
+            SELECT s.priority
+            FROM public.import_definition_step ids
+            JOIN public.import_step s ON s.id = ids.step_id
+            WHERE ids.definition_id = p_definition_id
+            GROUP BY s.priority
+            HAVING COUNT(*) > 1
+        ) dup
+    ) THEN
+        v_is_valid := false;
+        v_error_messages := array_append(v_error_messages, 'import_step priorities must be unique per definition (duplicates found).');
+    END IF;
+
     -- 3. Check for mandatory steps
     IF NOT ('external_idents' = ANY(v_step_codes)) THEN
         v_is_valid := false;
@@ -1466,9 +1482,9 @@ BEGIN
       END IF;
   END;
 
-  -- Create index on state and priority for efficient processing
-  EXECUTE format($$CREATE INDEX ON public.%I (state, last_completed_priority)$$, job.data_table_name);
-  RAISE DEBUG '[Job %] Added index to data table %', job.id, job.data_table_name;
+  -- Create composite index (state, last_completed_priority, row_id) for efficient batch selection and in-index ordering
+  EXECUTE format($$CREATE INDEX ON public.%1$I (state, last_completed_priority, row_id)$$, job.data_table_name /* %1$I */);
+  RAISE DEBUG '[Job %] Added composite index to data table %', job.id, job.data_table_name;
 
   -- Grant direct permissions to the job owner on the upload table to allow COPY FROM
   DECLARE
@@ -2077,8 +2093,8 @@ BEGIN
         BEGIN
             CALL admin.import_job_process_batch(job, v_batch_row_ids);
 
-            EXECUTE format($$UPDATE public.%I SET state = 'processed' WHERE row_id = ANY(%L)$$,
-                           job.data_table_name, v_batch_row_ids);
+            EXECUTE format($$UPDATE public.%1$I SET state = 'processed' WHERE row_id = ANY($1)$$,
+                           job.data_table_name /* %1$I */) USING v_batch_row_ids;
             RAISE DEBUG '[Job %] Batch successfully processed. Marked % rows as processed.', job.id, array_length(v_batch_row_ids, 1);
         EXCEPTION WHEN OTHERS THEN
             DECLARE
@@ -2088,8 +2104,8 @@ BEGIN
                 GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT,
                                       error_context = PG_EXCEPTION_CONTEXT;
                 RAISE WARNING '[Job %] Error processing batch: %. Context: %. Marking batch rows as error and failing job.', job.id, error_message, error_context;
-                EXECUTE format($$UPDATE public.%I SET state = 'error', error = COALESCE(error, '{}'::jsonb) || %L WHERE row_id = ANY(%L)$$,
-                               job.data_table_name, jsonb_build_object('process_batch_error', error_message, 'context', error_context), v_batch_row_ids);
+                EXECUTE format($$UPDATE public.%1$I SET state = 'error', error = COALESCE(error, '{}'::jsonb) || %2$L WHERE row_id = ANY($1)$$,
+                               job.data_table_name /* %1$I */, jsonb_build_object('process_batch_error', error_message, 'context', error_context) /* %2$L */) USING v_batch_row_ids;
                 UPDATE public.import_job SET error = jsonb_build_object('error_in_processing_batch', error_message, 'context', error_context), state = 'finished' WHERE id = job.id;
                 -- On error, do not reschedule.
                 RETURN FALSE;

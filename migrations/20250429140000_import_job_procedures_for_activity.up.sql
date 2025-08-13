@@ -60,13 +60,13 @@ BEGIN
     v_error_keys_to_clear_arr := ARRAY[v_json_key];
 
     -- SQL condition string for when the lookup for the current activity type fails
-    v_lookup_failed_condition_sql := format('dt.%I IS NOT NULL AND l.%I IS NULL', v_source_code_col_name, v_resolved_id_col_name_in_lookup_cte);
+    v_lookup_failed_condition_sql := format('dt.%1$I IS NOT NULL AND l.%2$I IS NULL', v_source_code_col_name /* %1$I */, v_resolved_id_col_name_in_lookup_cte /* %2$I */);
 
     -- SQL expression string for constructing the error JSON object for the current activity type
-    v_error_json_expr_sql := format('jsonb_build_object(%L, ''Not found'')', v_json_key);
+    v_error_json_expr_sql := format('jsonb_build_object(%1$L, ''Not found'')', v_json_key /* %1$L */);
 
     -- SQL expression string for constructing the invalid_codes JSON object for the current activity type
-    v_invalid_code_json_expr_sql := format('jsonb_build_object(%L, dt.%I)', v_json_key, v_source_code_col_name);
+    v_invalid_code_json_expr_sql := format('jsonb_build_object(%1$L, dt.%2$I)', v_json_key /* %1$L */, v_source_code_col_name /* %2$I */);
 
     -- The preliminary parent ID check has been removed from analyse_activity.
     -- This check will now be handled in process_activity, as parent unit IDs (legal_unit_id, establishment_id)
@@ -78,70 +78,62 @@ BEGIN
                 dt_sub.row_id AS data_row_id,
                 pac.id as resolved_primary_activity_category_id,
                 sac.id as resolved_secondary_activity_category_id
-            FROM public.%I dt_sub -- Target data table
+            FROM public.%1$I dt_sub -- Target data table
             LEFT JOIN public.activity_category pac ON dt_sub.primary_activity_category_code IS NOT NULL AND pac.code = dt_sub.primary_activity_category_code
             LEFT JOIN public.activity_category sac ON dt_sub.secondary_activity_category_code IS NOT NULL AND sac.code = dt_sub.secondary_activity_category_code
-            WHERE dt_sub.row_id = ANY(%L) AND dt_sub.action != 'skip' -- Exclude skipped rows from main processing
+            WHERE dt_sub.row_id = ANY($1) AND dt_sub.action != 'skip' -- Exclude skipped rows from main processing
         )
-        UPDATE public.%I dt SET -- Target data table
+        UPDATE public.%1$I dt SET -- Target data table
             primary_activity_category_id = CASE
-                                               WHEN %L = 'primary_activity' THEN l.resolved_primary_activity_category_id
+                                               WHEN %2$L = 'primary_activity' THEN l.resolved_primary_activity_category_id
                                                ELSE dt.primary_activity_category_id -- Keep existing if not this step's target
                                            END,
             secondary_activity_category_id = CASE
-                                                 WHEN %L = 'secondary_activity' THEN l.resolved_secondary_activity_category_id
+                                                 WHEN %2$L = 'secondary_activity' THEN l.resolved_secondary_activity_category_id
                                                  ELSE dt.secondary_activity_category_id -- Keep existing if not this step's target
                                              END,
             state = 'analysing'::public.import_data_state, -- Activity lookup issues are non-fatal, state remains analysing
-            error = CASE WHEN (dt.error - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %L::TEXT[]) END, -- Always clear this step's error key
+            error = CASE WHEN (dt.error - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %3$L::TEXT[]) END, -- Always clear this step's error key
             invalid_codes = CASE
-                                WHEN (%s) THEN -- Lookup failed for the current activity type
-                                    COALESCE(dt.invalid_codes, '{}'::jsonb) || jsonb_strip_nulls(%s) -- Add specific invalid code with original value
+                                WHEN (%4$s) THEN -- Lookup failed for the current activity type
+                                    COALESCE(dt.invalid_codes, '{}'::jsonb) || jsonb_strip_nulls(%5$s) -- Add specific invalid code with original value
                                 ELSE -- Success for this activity type: clear this step's invalid_code key
-                                    CASE WHEN (dt.invalid_codes - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.invalid_codes - %L::TEXT[]) END
+                                    CASE WHEN (dt.invalid_codes - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.invalid_codes - %3$L::TEXT[]) END
                             END,
-            last_completed_priority = %L::INTEGER -- Always advance priority for this step
+            last_completed_priority = %6$L::INTEGER -- Always advance priority for this step
         FROM lookups l
-        WHERE dt.row_id = l.data_row_id AND dt.row_id = ANY(%L) AND dt.action != 'skip'; -- Process only non-skipped rows matched in lookups
+        WHERE dt.row_id = l.data_row_id AND dt.row_id = ANY($1) AND dt.action != 'skip'; -- Process only non-skipped rows matched in lookups
     $$,
-        v_data_table_name, p_batch_row_ids,                     -- For lookups CTE (%I, %L)
-        v_data_table_name,                                      -- For main UPDATE target (%I)
-        p_step_code,                                            -- For primary_activity_category_id SET CASE (%L)
-        p_step_code,                                            -- For secondary_activity_category_id SET CASE (%L)
-        -- Error CASE (clearing)
-        v_error_keys_to_clear_arr,                              -- %L
-        v_error_keys_to_clear_arr,                              -- %L
-        -- Invalid Codes CASE
-        v_lookup_failed_condition_sql,                          -- %s (condition for lookup failure)
-        v_invalid_code_json_expr_sql,                           -- %s (JSON for invalid code)
-        v_error_keys_to_clear_arr,                              -- %L (keys to clear on success)
-        v_error_keys_to_clear_arr,                              -- %L
-        -- Last Completed Priority CASE
-        v_step.priority,                                        -- %L (always advance to current step's priority)
-        p_batch_row_ids                                         -- For final WHERE clause (%L)
+        v_data_table_name /* %1$I */,                           -- Used for both CTE and UPDATE target
+        p_step_code /* %2$L */,                                 -- Reused in both primary/secondary CASEs
+        v_error_keys_to_clear_arr /* %3$L */,                   -- Keys to clear (reused in error and invalid_codes)
+        v_lookup_failed_condition_sql /* %4$s */,               -- Condition for lookup failure
+        v_invalid_code_json_expr_sql /* %5$s */,                -- JSON for invalid code
+        v_step.priority /* %6$L */                              -- Always advance to current step's priority
     );
 
     RAISE DEBUG '[Job %] analyse_activity: Single-pass batch update for non-skipped rows for step % (activity issues now non-fatal for all modes): %', p_job_id, p_step_code, v_sql;
 
     BEGIN
-        EXECUTE v_sql;
+        EXECUTE v_sql USING p_batch_row_ids;
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_activity: Updated % non-skipped rows in single pass for step %.', p_job_id, v_update_count, p_step_code;
 
         -- Update priority for skipped rows
-        EXECUTE format('
-            UPDATE public.%I dt SET
-                last_completed_priority = %L
-            WHERE dt.row_id = ANY(%L) AND dt.action = ''skip'';
-        ', v_data_table_name, v_step.priority, p_batch_row_ids);
+        EXECUTE format($$
+            UPDATE public.%1$I dt SET
+                last_completed_priority = %2$L
+            WHERE dt.row_id = ANY($1) AND dt.action = 'skip';
+        $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */) USING p_batch_row_ids;
         GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_activity: Updated last_completed_priority for % skipped rows for step %.', p_job_id, v_skipped_update_count, p_step_code;
         
         v_update_count := v_update_count + v_skipped_update_count; -- Total rows affected
 
-        EXECUTE format('SELECT COUNT(*) FROM public.%I WHERE row_id = ANY(%L) AND state = ''error'' AND (error ?| %L::text[])',
-                       v_data_table_name, p_batch_row_ids, v_error_keys_to_clear_arr)
-        INTO v_error_count;
+        EXECUTE format($$SELECT COUNT(*) FROM public.%1$I WHERE row_id = ANY($1) AND state = 'error' AND (error ?| %2$L::text[])$$,
+                       v_data_table_name /* %1$I */, v_error_keys_to_clear_arr /* %2$L */)
+        INTO v_error_count
+        USING p_batch_row_ids;
         RAISE DEBUG '[Job %] analyse_activity: Estimated errors in this step for batch: %', p_job_id, v_error_count;
 
     EXCEPTION WHEN others THEN
@@ -265,22 +257,21 @@ BEGIN
     RAISE DEBUG '[Job %] process_activity: Checking for rows where parent ID is missing using condition: %s (Error key: %s)', p_job_id, v_parent_id_check_sql, v_parent_unavailable_error_key;
 
     EXECUTE format($$
-        UPDATE public.%I dt SET
+        UPDATE public.%1$I dt SET
             action = 'skip',
             state = 'error',
-            error = COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object(%L, %L)
+            error = COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object(%2$L, %3$L)
             -- last_completed_priority is not used in the processing phase
-        WHERE dt.row_id = ANY(%L)
+        WHERE dt.row_id = ANY($1)
           AND dt.action != 'skip' -- Only consider rows not already skipped by prior analysis steps
-          AND dt.%I IS NOT NULL -- Only if an activity code was provided (otherwise this step is N/A for the row)
-          AND (%s); -- The check for parent ID being NULL
-    $$, v_data_table_name, 
-        v_parent_unavailable_error_key, 
-        v_parent_unavailable_error_message, 
-        p_batch_row_ids,
-        v_category_id_col, -- Check against the resolved category_id column from _data table
-        v_parent_id_check_sql
-    );
+          AND dt.%4$I IS NOT NULL -- Only if an activity code was provided (otherwise this step is N/A for the row)
+          AND (%5$s); -- The check for parent ID being NULL
+    $$, v_data_table_name /* %1$I */, 
+        v_parent_unavailable_error_key /* %2$L */, 
+        v_parent_unavailable_error_message /* %3$L */, 
+        v_category_id_col /* %4$I */, -- Check against the resolved category_id column from _data table
+        v_parent_id_check_sql /* %5$s */
+    ) USING p_batch_row_ids;
     GET DIAGNOSTICS v_parent_check_update_count = ROW_COUNT;
     IF v_parent_check_update_count > 0 THEN
         RAISE DEBUG '[Job %] process_activity: Marked % rows as skipped due to missing parent unit ID during processing.', p_job_id, v_parent_check_update_count;
@@ -309,33 +300,33 @@ BEGIN
             data_row_id, founding_row_id, legal_unit_id, establishment_id, valid_after, valid_from, valid_to, data_source_id, category_id, edit_by_user_id, edit_at, edit_comment, action -- Added edit_comment, valid_after, founding_row_id
         )
         SELECT
-            row_id, founding_row_id, %s, %s, -- Use dynamic expressions for LU/EST IDs, Added founding_row_id
+            row_id, founding_row_id, %1$s, %2$s, -- Use dynamic expressions for LU/EST IDs, Added founding_row_id
             derived_valid_after, -- Added
             derived_valid_from, 
             derived_valid_to,   
             data_source_id,
-            %I, -- Select the correct category ID column based on target
+            %3$I, -- Select the correct category ID column based on target
             edit_by_user_id, edit_at, edit_comment, -- Added
             action 
-         FROM public.%I dt WHERE row_id = ANY(%L) AND %I IS NOT NULL AND action != 'skip'; -- Added alias dt. Only process rows with a category ID for this type and not skipped
-    $$, v_select_lu_id_expr, v_select_est_id_expr, v_category_id_col, v_data_table_name, p_batch_row_ids, v_category_id_col);
+         FROM public.%4$I dt WHERE row_id = ANY($1) AND %5$I IS NOT NULL AND action != 'skip'; -- Added alias dt. Only process rows with a category ID for this type and not skipped
+    $$, v_select_lu_id_expr /* %1$s */, v_select_est_id_expr /* %2$s */, v_category_id_col /* %3$I */, v_data_table_name /* %4$I */, v_category_id_col /* %5$I */);
     RAISE DEBUG '[Job %] process_activity: Fetching batch data for type %: %', p_job_id, v_activity_type, v_sql;
-    EXECUTE v_sql;
+    EXECUTE v_sql USING p_batch_row_ids;
 
     -- Step 2: Determine existing activity IDs
     v_sql := format($$
         UPDATE temp_batch_data tbd SET
             existing_act_id = act.id
         FROM public.activity act
-        WHERE act.type = %L -- Lookup existing activity by type and unit ID only
+        WHERE act.type = %1$L -- Lookup existing activity by type and unit ID only
           AND CASE
-                WHEN %L = 'legal_unit' THEN
+                WHEN %2$L = 'legal_unit' THEN
                     act.legal_unit_id = tbd.legal_unit_id AND act.establishment_id IS NULL
-                WHEN %L IN ('establishment_formal', 'establishment_informal') THEN
+                WHEN %3$L IN ('establishment_formal', 'establishment_informal') THEN
                     act.establishment_id = tbd.establishment_id AND act.legal_unit_id IS NULL
                 ELSE FALSE -- Should not happen
               END;
-    $$, v_activity_type, v_job_mode, v_job_mode);
+    $$, v_activity_type /* %1$L */, v_job_mode /* %2$L */, v_job_mode /* %3$L */);
     RAISE DEBUG '[Job %] process_activity: Determining existing IDs: %', p_job_id, v_sql;
     EXECUTE v_sql;
 
@@ -381,13 +372,13 @@ BEGIN
 
         IF v_inserted_new_act_count > 0 THEN
             EXECUTE format($$
-                UPDATE public.%I dt SET
-                    %I = tca.new_activity_id,
+                UPDATE public.%1$I dt SET
+                    %2$I = tca.new_activity_id,
                     error = NULL,
-                    state = %L
+                    state = %3$L
                 FROM temp_created_acts tca
                 WHERE dt.row_id = tca.data_row_id AND dt.state != 'error';
-            $$, v_data_table_name, v_final_id_col, 'processing'::public.import_data_state);
+            $$, v_data_table_name /* %1$I */, v_final_id_col /* %2$I */, 'processing'::public.import_data_state /* %3$L */);
             RAISE DEBUG '[Job %] process_activity: Updated _data table for % new activities (type: %).', p_job_id, v_inserted_new_act_count, v_activity_type;
         END IF;
 
@@ -476,12 +467,12 @@ BEGIN
                 IF v_batch_upsert_result.status = 'ERROR' THEN
                     v_batch_upsert_error_row_ids := array_append(v_batch_upsert_error_row_ids, v_batch_upsert_result.source_row_id);
                     EXECUTE format($$
-                        UPDATE public.%I SET
-                            state = %L,
-                            error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('batch_replace_activity_error', %L)
+                        UPDATE public.%1$I SET
+                            state = %2$L,
+                            error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('batch_replace_activity_error', %3$L)
                             -- last_completed_priority is preserved (not changed) on error
-                        WHERE row_id = %L;
-                    $$, v_data_table_name, 'error'::public.import_data_state, v_batch_upsert_result.error_message, v_batch_upsert_result.source_row_id);
+                        WHERE row_id = %4$L;
+                    $$, v_data_table_name /* %1$I */, 'error'::public.import_data_state /* %2$L */, v_batch_upsert_result.error_message /* %3$L */, v_batch_upsert_result.source_row_id /* %4$L */);
                 ELSE
                     v_batch_upsert_success_row_ids := array_append(v_batch_upsert_success_row_ids, v_batch_upsert_result.source_row_id);
                 END IF;
@@ -492,16 +483,16 @@ BEGIN
 
             IF array_length(v_batch_upsert_success_row_ids, 1) > 0 THEN
                 v_sql := format($$
-                    UPDATE public.%I dt SET
-                        %I = tbd.existing_act_id, 
+                    UPDATE public.%1$I dt SET
+                        %2$I = tbd.existing_act_id, 
                         error = NULL,
-                        state = %L
+                        state = %3$L
                     FROM temp_batch_data tbd
                     WHERE dt.row_id = tbd.data_row_id
-                      AND dt.row_id = ANY(%L);
-                $$, v_data_table_name, v_final_id_col, 'processing'::public.import_data_state, v_batch_upsert_success_row_ids);
+                      AND dt.row_id = ANY($1);
+                $$, v_data_table_name /* %1$I */, v_final_id_col /* %2$I */, 'processing'::public.import_data_state /* %3$L */);
                 RAISE DEBUG '[Job %] process_activity: Updating _data table for successful replace rows (type: %): %', p_job_id, v_activity_type, v_sql;
-                EXECUTE v_sql;
+                EXECUTE v_sql USING v_batch_upsert_success_row_ids;
             END IF;
         END IF;
         DROP TABLE IF EXISTS temp_act_upsert_source;

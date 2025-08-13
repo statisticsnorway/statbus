@@ -69,16 +69,18 @@ BEGIN
         WITH casted_dates_cte AS ( -- Renamed CTE
             SELECT
                 dt_sub.row_id,
-                (import.safe_cast_to_date(dt_sub.valid_from)).p_value as casted_vf,
-                (import.safe_cast_to_date(dt_sub.valid_from)).p_error_message as vf_error_msg,
-                (import.safe_cast_to_date(dt_sub.valid_to)).p_value as casted_vt,
-                (import.safe_cast_to_date(dt_sub.valid_to)).p_error_message as vt_error_msg,
+                vf.p_value as casted_vf,
+                vf.p_error_message as vf_error_msg,
+                vt.p_value as casted_vt,
+                vt.p_error_message as vt_error_msg,
                 dt_sub.valid_from as original_vf, -- Keep original for error messages
                 dt_sub.valid_to as original_vt   -- Keep original for error messages
-            FROM public.%I dt_sub
-            WHERE dt_sub.row_id = ANY(%L)
+            FROM public.%1$I dt_sub
+            LEFT JOIN LATERAL import.safe_cast_to_date(dt_sub.valid_from) AS vf(p_value, p_error_message) ON TRUE
+            LEFT JOIN LATERAL import.safe_cast_to_date(dt_sub.valid_to) AS vt(p_value, p_error_message) ON TRUE
+            WHERE dt_sub.row_id = ANY($1)
         )
-        UPDATE public.%I dt SET
+        UPDATE public.%2$I dt SET
             derived_valid_from = cdc.casted_vf, -- Use cdc alias
             derived_valid_after = cdc.casted_vf - INTERVAL '1 day',
             derived_valid_to = cdc.casted_vt,
@@ -115,39 +117,40 @@ BEGIN
                                 'valid_to',   'Resulting period is invalid: derived_valid_after (' || (cdc.casted_vf - INTERVAL '1 day')::TEXT || ') is not before valid_to (' || cdc.casted_vt::TEXT || ')'
                             )
                         ELSE -- No error from this step, clear specific keys
-                            CASE WHEN (dt.error - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %L::TEXT[]) END
+                            CASE WHEN (dt.error - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %4$L::TEXT[]) END
                     END,
-            last_completed_priority = %s -- Always v_step.priority
+            last_completed_priority = %5$L -- Always v_step.priority
         FROM casted_dates_cte cdc -- Use cdc alias
         WHERE dt.row_id = cdc.row_id AND dt.action IS DISTINCT FROM 'skip'; -- Process if action was not already 'skip' from a prior step.
     $$,
-        v_data_table_name, p_batch_row_ids,                     -- For CTE
-        v_data_table_name,                                      -- For main UPDATE target
-        v_error_keys_to_clear_arr, v_error_keys_to_clear_arr,   -- For error CASE (clear)
-        v_step.priority                                         -- For last_completed_priority (always this step's priority)
+        v_data_table_name /* %1$I */,                           -- %1$I (CTE source table)
+        v_data_table_name /* %2$I */,                           -- %2$I (main UPDATE target)
+        v_error_keys_to_clear_arr /* %3$L */, v_error_keys_to_clear_arr /* %4$L */,   -- For error CASE (clear)
+        v_step.priority /* %5$L */                              -- For last_completed_priority (always this step's priority)
     );
     RAISE DEBUG '[Job %] analyse_valid_time: Single-pass batch update for non-skipped rows: %', p_job_id, v_sql;
 
     BEGIN
-        EXECUTE v_sql;
+        EXECUTE v_sql USING p_batch_row_ids;
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_valid_time: Updated % non-skipped rows in single pass.', p_job_id, v_update_count;
 
         -- Update priority for skipped rows
-        EXECUTE format('
-            UPDATE public.%I dt SET
-                last_completed_priority = %L
-            WHERE dt.row_id = ANY(%L) AND dt.action = ''skip'';
-        ', v_data_table_name, v_step.priority, p_batch_row_ids);
+        EXECUTE format($$
+            UPDATE public.%1$I dt SET
+                last_completed_priority = %2$L
+            WHERE dt.row_id = ANY($1) AND dt.action = 'skip';
+        $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */) USING p_batch_row_ids;
         GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_valid_time: Updated last_completed_priority for % skipped rows.', p_job_id, v_skipped_update_count;
 
         v_update_count := v_update_count + v_skipped_update_count; -- Total rows affected
 
         -- Estimate error count
-        EXECUTE format('SELECT COUNT(*) FROM public.%I WHERE row_id = ANY(%L) AND state = ''error'' AND (error ?| %L::text[])',
-                       v_data_table_name, p_batch_row_ids, v_error_keys_to_clear_arr)
-        INTO v_error_count;
+        EXECUTE format($$SELECT COUNT(*) FROM public.%1$I WHERE row_id = ANY($1) AND state = 'error' AND (error ?| %2$L::text[])$$,
+                       v_data_table_name /* %1$I */, v_error_keys_to_clear_arr /* %2$L */)
+        INTO v_error_count
+        USING p_batch_row_ids;
         RAISE DEBUG '[Job %] analyse_valid_time: Estimated errors in this step for batch: %', p_job_id, v_error_count;
 
     EXCEPTION WHEN others THEN

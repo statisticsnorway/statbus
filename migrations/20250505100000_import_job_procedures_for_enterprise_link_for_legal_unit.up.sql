@@ -37,8 +37,8 @@ BEGIN
 
     IF v_job_mode != 'legal_unit' THEN
         RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Skipping, job mode is %, not ''legal_unit''.', p_job_id, v_job_mode;
-        EXECUTE format('UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L)', 
-                       v_data_table_name, v_step.priority, p_batch_row_ids);
+        EXECUTE format($$UPDATE public.%1$I SET last_completed_priority = %2$L WHERE row_id = ANY($1)$$, 
+                       v_data_table_name /* %1$I */, v_step.priority /* %2$L */) USING p_batch_row_ids;
         RETURN;
     END IF;
 
@@ -107,7 +107,7 @@ BEGIN
         WHERE dt.row_id = ANY($1) -- Process only rows in the current batch
           AND dt.action = 'replace'
           AND dt.legal_unit_id IS NOT NULL; -- Only attempt this for rows that have a legal_unit_id (identified by external_idents)
-    $$, v_data_table_name);
+    $$, v_data_table_name /* %1$I */);
 
     RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Populating temp_enterprise_analysis_results for "replace" actions (using placeholder for batch_row_ids and external_ident_cols): %', p_job_id, v_sql;
     EXECUTE v_sql USING p_batch_row_ids, v_external_ident_source_columns; -- Pass parameters via USING clause
@@ -117,18 +117,18 @@ BEGIN
     BEGIN
         -- Update the main data table from the temp table results
         v_sql := format($$
-            UPDATE public.%I dt SET
+            UPDATE public.%1$I dt SET
                 enterprise_id = tear.resolved_enterprise_id,
                 primary_for_enterprise = tear.resolved_primary_for_enterprise,
                 state = CASE WHEN tear.is_error THEN 'error'::public.import_data_state ELSE 'analysing'::public.import_data_state END,
                 error = CASE
                             WHEN tear.is_error THEN COALESCE(dt.error, '{}'::jsonb) || tear.error_details
-                            ELSE CASE WHEN (dt.error - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %L::TEXT[]) END
+                            ELSE CASE WHEN (dt.error - %2$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %3$L::TEXT[]) END
                         END,
-                last_completed_priority = %s
+                last_completed_priority = %4$L
             FROM temp_enterprise_analysis_results tear
             WHERE dt.row_id = tear.row_id;
-        $$, v_data_table_name, v_error_keys_to_clear_arr, v_error_keys_to_clear_arr, v_step.priority);
+        $$, v_data_table_name /* %1$I */, v_error_keys_to_clear_arr /* %2$L */, v_error_keys_to_clear_arr /* %3$L */, v_step.priority /* %4$L */);
 
         RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Updating _data table from temp_enterprise_analysis_results: %', p_job_id, v_sql;
         EXECUTE v_sql;
@@ -139,20 +139,19 @@ BEGIN
         -- This includes 'insert', 'skip', and 'replace' rows where legal_unit_id was NULL (so not in temp table).
         -- These rows are considered successful for this step's analysis phase or were already skipped/had no LU to link.
         v_sql := format($$
-            UPDATE public.%I dt SET
-                last_completed_priority = %L,
+            UPDATE public.%1$I dt SET
+                last_completed_priority = %2$L,
                 state = CASE WHEN dt.state != 'error' THEN 'analysing'::public.import_data_state ELSE dt.state END, -- Keep error state if already set
-                error = CASE WHEN dt.state != 'error' THEN (CASE WHEN (dt.error - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %L::TEXT[]) END) ELSE dt.error END -- Clear this step's error if not an error from this step
-            WHERE dt.row_id = ANY(%L)
+                error = CASE WHEN dt.state != 'error' THEN (CASE WHEN (dt.error - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %4$L::TEXT[]) END) ELSE dt.error END -- Clear this step's error if not an error from this step
+            WHERE dt.row_id = ANY($1)
               AND NOT EXISTS (SELECT 1 FROM temp_enterprise_analysis_results tear WHERE tear.row_id = dt.row_id);
         $$,
-            v_data_table_name, v_step.priority,
-            v_error_keys_to_clear_arr, v_error_keys_to_clear_arr,
-            p_batch_row_ids
+            v_data_table_name /* %1$I */, v_step.priority /* %2$L */,
+            v_error_keys_to_clear_arr /* %3$L */, v_error_keys_to_clear_arr /* %4$L */
         );
 
         RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Updating LCP for remaining rows: %', p_job_id, v_sql;
-        EXECUTE v_sql;
+        EXECUTE v_sql USING p_batch_row_ids;
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Updated LCP for % remaining rows (insert/skip/unmatched_replace).', p_job_id, v_update_count;
         v_update_count := v_processed_non_skip_count + v_update_count; -- Total rows touched by logic in this procedure for this batch
@@ -221,10 +220,10 @@ BEGIN
     v_sql := format($$
         INSERT INTO temp_new_lu_for_enterprise_creation (data_row_id, lu_name, edit_by_user_id, edit_at, edit_comment)
         SELECT dt.row_id, dt.name, dt.edit_by_user_id, dt.edit_at, dt.edit_comment
-        FROM public.%I dt
-        WHERE dt.row_id = ANY(%L) AND dt.action = 'insert' AND dt.founding_row_id = dt.row_id; -- Only process founding rows for new LUs
-    $$, v_data_table_name, p_batch_row_ids);
-    EXECUTE v_sql;
+        FROM public.%1$I dt
+        WHERE dt.row_id = ANY($1) AND dt.action = 'insert' AND dt.founding_row_id = dt.row_id; -- Only process founding rows for new LUs
+    $$, v_data_table_name /* %1$I */);
+    EXECUTE v_sql USING p_batch_row_ids;
 
     -- Step 2: Create new enterprises for LUs in temp_new_lu_for_enterprise_creation and map them
     -- temp_created_enterprises.data_row_id will store the founding_row_id of the LU
@@ -257,30 +256,30 @@ BEGIN
     -- Step 3: Update _data table for newly created enterprises (action = 'insert')
     -- For new LUs linked to new Enterprises, all their initial slices are primary.
     v_sql := format($$
-        UPDATE public.%I dt SET
+        UPDATE public.%1$I dt SET
             enterprise_id = tce.enterprise_id,
             primary_for_enterprise = TRUE, -- All slices of a new LU linked to a new Enterprise are initially primary
             error = NULL, -- Clear previous errors if this step succeeds for the row
-            state = %L
+            state = %2$L
         FROM temp_created_enterprises tce -- tce.data_row_id is the founding_row_id
         WHERE dt.founding_row_id = tce.data_row_id -- Link all rows of the entity via founding_row_id
-          AND dt.row_id = ANY(%L) -- Ensure we only update rows from the current batch
+          AND dt.row_id = ANY($1) -- Ensure we only update rows from the current batch
           AND dt.state != 'error'; -- Avoid updating rows already in error from a prior step
-    $$, v_data_table_name, 'processing'::public.import_data_state, p_batch_row_ids);
+    $$, v_data_table_name /* %1$I */, 'processing'::public.import_data_state /* %2$L */);
     RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit: Updating _data for new enterprises and their related rows (action=insert): %', p_job_id, v_sql;
-    EXECUTE v_sql;
+    EXECUTE v_sql USING p_batch_row_ids;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
 
     -- Step 4: Update rows that were already processed by analyse step (existing LUs, action = 'replace') - just advance priority
     v_sql := format($$
-        UPDATE public.%I dt SET
-            state = %L
-        WHERE dt.row_id = ANY(%L)
+        UPDATE public.%1$I dt SET
+            state = %2$L
+        WHERE dt.row_id = ANY($1)
           AND dt.action = 'replace' -- Only update rows for existing LUs
-          AND dt.state != %L; -- Avoid rows already in error
-    $$, v_data_table_name, 'processing', p_batch_row_ids, 'error');
+          AND dt.state != %3$L; -- Avoid rows already in error
+    $$, v_data_table_name /* %1$I */, 'processing' /* %2$L */, 'error' /* %3$L */);
      RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit: Updating existing LUs (action=replace, priority only): %', p_job_id, v_sql;
-    EXECUTE v_sql;
+    EXECUTE v_sql USING p_batch_row_ids;
 
     -- Step 5: Update skipped rows (action = 'skip') - no LCP update needed in processing phase.
     GET DIAGNOSTICS v_update_count = ROW_COUNT; -- Re-using v_update_count, fine for debug

@@ -87,6 +87,28 @@ es_stat AS (
     WHERE sfu.establishment_id IS NOT NULL
       AND after_to_overlaps(sfu.valid_after, sfu.valid_to, es.valid_after, es.valid_to)
 ),
+es_contact AS (
+    SELECT 'establishment'::public.statistical_unit_type AS unit_type
+         , c.establishment_id AS unit_id
+         , GREATEST(c.valid_after, es.valid_after) AS valid_after
+         , LEAST(c.valid_to, es.valid_to) AS valid_to
+    FROM public.contact AS c
+    JOIN public.establishment AS es
+       ON c.establishment_id = es.id
+    WHERE c.establishment_id IS NOT NULL
+      AND after_to_overlaps(c.valid_after, c.valid_to, es.valid_after, es.valid_to)
+),
+es_person_for_unit AS (
+    SELECT 'establishment'::public.statistical_unit_type AS unit_type
+         , pfu.establishment_id AS unit_id
+         , GREATEST(pfu.valid_after, es.valid_after) AS valid_after
+         , LEAST(pfu.valid_to, es.valid_to) AS valid_to
+    FROM public.person_for_unit AS pfu
+    JOIN public.establishment AS es
+       ON pfu.establishment_id = es.id
+    WHERE pfu.establishment_id IS NOT NULL
+      AND after_to_overlaps(pfu.valid_after, pfu.valid_to, es.valid_after, es.valid_to)
+),
 es_combined AS (
     SELECT * FROM es_base
     UNION ALL
@@ -95,6 +117,10 @@ es_combined AS (
     SELECT * FROM es_location
     UNION ALL
     SELECT * FROM es_stat
+    UNION ALL
+    SELECT * FROM es_contact
+    UNION ALL
+    SELECT * FROM es_person_for_unit
 ),
 lu_base AS (
     SELECT 'legal_unit'::public.statistical_unit_type AS unit_type
@@ -135,6 +161,28 @@ lu_stat AS (
        ON sfu.legal_unit_id = lu.id
     WHERE sfu.legal_unit_id IS NOT NULL
       AND after_to_overlaps(sfu.valid_after, sfu.valid_to, lu.valid_after, lu.valid_to)
+),
+lu_contact AS (
+    SELECT 'legal_unit'::public.statistical_unit_type AS unit_type
+         , c.legal_unit_id AS unit_id
+         , GREATEST(c.valid_after, lu.valid_after) AS valid_after
+         , LEAST(c.valid_to, lu.valid_to) AS valid_to
+    FROM public.contact AS c
+    JOIN public.legal_unit AS lu
+       ON c.legal_unit_id = lu.id
+    WHERE c.legal_unit_id IS NOT NULL
+      AND after_to_overlaps(c.valid_after, c.valid_to, lu.valid_after, lu.valid_to)
+),
+lu_person_for_unit AS (
+    SELECT 'legal_unit'::public.statistical_unit_type AS unit_type
+         , pfu.legal_unit_id AS unit_id
+         , GREATEST(pfu.valid_after, lu.valid_after) AS valid_after
+         , LEAST(pfu.valid_to, lu.valid_to) AS valid_to
+    FROM public.person_for_unit AS pfu
+    JOIN public.legal_unit AS lu
+       ON pfu.legal_unit_id = lu.id
+    WHERE pfu.legal_unit_id IS NOT NULL
+      AND after_to_overlaps(pfu.valid_after, pfu.valid_to, lu.valid_after, lu.valid_to)
 ),
 lu_establishment AS (
     SELECT 'legal_unit'::public.statistical_unit_type AS unit_type
@@ -183,6 +231,10 @@ lu_combined AS (
     SELECT * FROM lu_location
     UNION ALL
     SELECT * FROM lu_stat
+    UNION ALL
+    SELECT * FROM lu_contact
+    UNION ALL
+    SELECT * FROM lu_person_for_unit
     UNION ALL
     SELECT * FROM lu_establishment
     UNION ALL
@@ -276,6 +328,50 @@ en_location_legal_unit AS (
       AND lu.primary_for_enterprise
       AND after_to_overlaps(l.valid_after, l.valid_to, lu.valid_after, lu.valid_to)
 ),
+en_contact_establishment AS (
+    SELECT 'enterprise'::public.statistical_unit_type AS unit_type
+         , es.enterprise_id AS unit_id
+         , GREATEST(c.valid_after, es.valid_after) AS valid_after
+         , LEAST(c.valid_to, es.valid_to) AS valid_to
+    FROM public.contact AS c
+    JOIN public.establishment AS es
+       ON c.establishment_id = es.id
+    WHERE es.enterprise_id IS NOT NULL
+      AND after_to_overlaps(c.valid_after, c.valid_to, es.valid_after, es.valid_to)
+),
+en_contact_legal_unit AS (
+    SELECT 'enterprise'::public.statistical_unit_type AS unit_type
+         , lu.enterprise_id AS unit_id
+         , GREATEST(c.valid_after, lu.valid_after) AS valid_after
+         , LEAST(c.valid_to, lu.valid_to) AS valid_to
+    FROM public.contact AS c
+    JOIN public.legal_unit AS lu
+       ON c.legal_unit_id = lu.id
+    WHERE lu.enterprise_id IS NOT NULL
+      AND after_to_overlaps(c.valid_after, c.valid_to, lu.valid_after, lu.valid_to)
+),
+en_person_for_unit_establishment AS (
+    SELECT 'enterprise'::public.statistical_unit_type AS unit_type
+         , es.enterprise_id AS unit_id
+         , GREATEST(pfu.valid_after, es.valid_after) AS valid_after
+         , LEAST(pfu.valid_to, es.valid_to) AS valid_to
+    FROM public.person_for_unit AS pfu
+    JOIN public.establishment AS es
+       ON pfu.establishment_id = es.id
+    WHERE es.enterprise_id IS NOT NULL
+      AND after_to_overlaps(pfu.valid_after, pfu.valid_to, es.valid_after, es.valid_to)
+),
+en_person_for_unit_legal_unit AS (
+    SELECT 'enterprise'::public.statistical_unit_type AS unit_type
+         , lu.enterprise_id AS unit_id
+         , GREATEST(pfu.valid_after, lu.valid_after) AS valid_after
+         , LEAST(pfu.valid_to, lu.valid_to) AS valid_to
+    FROM public.person_for_unit AS pfu
+    JOIN public.legal_unit AS lu
+       ON pfu.legal_unit_id = lu.id
+    WHERE lu.enterprise_id IS NOT NULL
+      AND after_to_overlaps(pfu.valid_after, pfu.valid_to, lu.valid_after, lu.valid_to)
+),
 en_stat_establishment AS (
     SELECT 'enterprise'::public.statistical_unit_type AS unit_type
          , es.enterprise_id AS unit_id
@@ -329,6 +425,14 @@ en_combined AS (
     UNION ALL
     SELECT * FROM en_location_legal_unit
     UNION ALL
+    SELECT * FROM en_contact_establishment
+    UNION ALL
+    SELECT * FROM en_contact_legal_unit
+    UNION ALL
+    SELECT * FROM en_person_for_unit_establishment
+    UNION ALL
+    SELECT * FROM en_person_for_unit_legal_unit
+    UNION ALL
     SELECT * FROM en_stat_establishment
     UNION ALL
     SELECT * FROM en_stat_legal_unit
@@ -350,5 +454,47 @@ timepoint AS (
 SELECT DISTINCT unit_type, unit_id, timepoint
 FROM timepoint
 ORDER BY unit_type, unit_id, timepoint;
+
+--
+-- timepoints_years
+--
+CREATE OR REPLACE VIEW public.timepoints_years_def AS
+SELECT DISTINCT EXTRACT(YEAR FROM timepoint)::integer AS year
+FROM public.timepoints
+WHERE timepoint IS NOT NULL AND timepoint != 'infinity'::date
+ORDER BY year;
+
+CREATE TABLE public.timepoints_years (year INTEGER PRIMARY KEY);
+
+CREATE OR REPLACE FUNCTION public.timepoints_years_refresh()
+RETURNS void LANGUAGE plpgsql AS $function$
+BEGIN
+    -- Create a temporary table with the new data from the definition view
+    CREATE TEMPORARY TABLE temp_timepoints_years ON COMMIT DROP AS
+    SELECT * FROM public.timepoints_years_def;
+
+    -- Delete years that are in the main table but not in the new set
+    DELETE FROM public.timepoints_years t
+    WHERE NOT EXISTS (
+        SELECT 1 FROM temp_timepoints_years tt
+        WHERE tt.year = t.year
+    );
+
+    -- Insert new years that are in the new set but not in the main table
+    INSERT INTO public.timepoints_years (year)
+    SELECT tt.year
+    FROM temp_timepoints_years tt
+    WHERE NOT EXISTS (
+        SELECT 1 FROM public.timepoints_years t
+        WHERE t.year = tt.year
+    );
+
+    -- The temporary table is dropped automatically on commit, but we drop it
+    -- explicitly to be safe in transactional testing environments.
+    DROP TABLE temp_timepoints_years;
+END;
+$function$;
+
+SELECT public.timepoints_years_refresh();
 
 END;

@@ -341,8 +341,8 @@ ORDER BY row_id;
  row_id | state |                                                       error                                                        | tax_ident  |           name            | physical_latitude 
 --------+-------+--------------------------------------------------------------------------------------------------------------------+------------+---------------------------+-------------------
       1 | error | {"physical_latitude": "Value '3333333' is out of range for type NUMERIC(9,6). SQLSTATE: 22003"}                    | 2212760144 | NILE PEARL WATER          | 3333333
-      3 | error | {"physical_longitude": "Value '190.123456' out of range. Expected -180 to 180."}                                   | 3000000003 | Longitude Range Test LU   | 10.0
-      4 | error | {"physical_altitude": "Value '-50.5' cannot be negative. Expected >= 0."}                                          | 3000000004 | Altitude Negative Test LU | 10.0
+      3 | error | {"physical_longitude": "Value 190.123456 out of range. Expected -180 to 180."}                                     | 3000000003 | Longitude Range Test LU   | 10.0
+      4 | error | {"physical_altitude": "Value -50.5 cannot be negative. Expected >= 0."}                                            | 3000000004 | Altitude Negative Test LU | 10.0
       5 | error | {"physical_latitude": "Value 'abc' is not a valid numeric representation for type NUMERIC(9,6). SQLSTATE: 22P02"}  | 3000000005 | Latitude Text Test LU     | abc
       6 | error | {"physical_longitude": "Value 'def' is not a valid numeric representation for type NUMERIC(9,6). SQLSTATE: 22P02"} | 3000000006 | Longitude Text Test LU    | 10.0
       7 | error | {"physical_altitude": "Value 'ghi' is not a valid numeric representation for type NUMERIC(6,1). SQLSTATE: 22P02"}  | 3000000007 | Altitude Text Test LU     | 10.0

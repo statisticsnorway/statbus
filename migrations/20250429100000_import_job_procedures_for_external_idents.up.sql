@@ -45,16 +45,20 @@ BEGIN
         RAISE EXCEPTION '[Job %] external_idents target not found in snapshot', p_job_id;
     END IF;
 
-    -- Holistic execution: get all relevant rows for this step.
-    EXECUTE format('SELECT array_agg(row_id) FROM public.%I WHERE state = %L AND last_completed_priority < %L',
-                   v_data_table_name, 'analysing'::public.import_data_state, v_step.priority)
-    INTO v_relevant_row_ids;
+    -- Holistic execution: materialize relevant rows for this step to avoid giant in-memory arrays.
+    CREATE TEMP TABLE temp_relevant_rows (data_row_id INTEGER PRIMARY KEY) ON COMMIT DROP;
+    EXECUTE format($$INSERT INTO temp_relevant_rows
+                    SELECT row_id FROM public.%1$I
+                    WHERE state = %2$L AND last_completed_priority < %3$L$$,
+                   v_data_table_name /* %1$I */, 'analysing'::public.import_data_state /* %2$L */, v_step.priority /* %3$L */);
+    EXECUTE 'SELECT COUNT(*) FROM temp_relevant_rows' INTO v_update_count;
 
     RAISE DEBUG '[Job %] analyse_external_idents: Holistic execution. Found % rows to process for this step.',
-        p_job_id, COALESCE(array_length(v_relevant_row_ids, 1), 0);
+        p_job_id, COALESCE(v_update_count, 0);
 
-    IF v_relevant_row_ids IS NULL OR array_length(v_relevant_row_ids, 1) = 0 THEN
+    IF COALESCE(v_update_count, 0) = 0 THEN
         RAISE DEBUG '[Job %] analyse_external_idents: No relevant rows to process.', p_job_id;
+        DROP TABLE IF EXISTS temp_relevant_rows;
         RETURN;
     END IF;
 
@@ -84,8 +88,8 @@ BEGIN
 
     IF v_ident_data_cols IS NULL OR jsonb_array_length(v_ident_data_cols) = 0 THEN
          RAISE DEBUG '[Job %] analyse_external_idents: No external ident source_input data columns found in snapshot for step %. Skipping analysis.', p_job_id, v_step.id;
-         EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L)$$,
-                        v_data_table_name, v_step.priority, v_relevant_row_ids);
+         EXECUTE format($$UPDATE public.%1$I dt SET last_completed_priority = %2$L WHERE EXISTS (SELECT 1 FROM temp_relevant_rows tr WHERE tr.data_row_id = dt.row_id)$$,
+                        v_data_table_name /* %1$I */, v_step.priority /* %2$L */);
          RETURN;
     END IF;
 
@@ -134,14 +138,17 @@ BEGIN
         IF v_add_separator THEN v_unpivot_sql := v_unpivot_sql || ' UNION ALL '; END IF;
         v_unpivot_sql := v_unpivot_sql || format(
             $$SELECT dt.row_id, 
-                     %L AS source_column_name_in_data_table, -- This is the name of the column in _data table (e.g., 'tax_ident')
-                     %L AS ident_type_code_to_join_on,     -- This is also the external_ident_type.code (e.g., 'tax_ident')
-                     dt.%I AS ident_value
-             FROM public.%I dt WHERE dt.%I IS NOT NULL AND dt.row_id = ANY(%L) AND dt.action IS DISTINCT FROM 'skip'$$,
-             v_col_rec.idc_column_name, -- Name of column in _data table
-             v_col_rec.idc_column_name, -- Code to join with external_ident_type
-             v_col_rec.idc_column_name, -- Column to select value from in _data table
-             v_data_table_name, v_col_rec.idc_column_name, v_relevant_row_ids
+                     %1$L AS source_column_name_in_data_table, -- This is the name of the column in _data table (e.g., 'tax_ident')
+                     %2$L AS ident_type_code_to_join_on,     -- This is also the external_ident_type.code (e.g., 'tax_ident')
+                     dt.%3$I AS ident_value
+             FROM public.%4$I dt
+             JOIN temp_relevant_rows tr ON tr.data_row_id = dt.row_id
+             WHERE dt.%5$I IS NOT NULL AND dt.action IS DISTINCT FROM 'skip'$$,
+             v_col_rec.idc_column_name, -- %1$L Name of column in _data table
+             v_col_rec.idc_column_name, -- %2$L Code to join with external_ident_type
+             v_col_rec.idc_column_name, -- %3$I Column to select value from in _data table
+             v_data_table_name,         -- %4$I
+             v_col_rec.idc_column_name  -- %5$I
         );
         v_add_separator := TRUE;
     END LOOP;
@@ -149,18 +156,19 @@ BEGIN
     IF v_unpivot_sql = '' THEN
         RAISE DEBUG '[Job %] analyse_external_idents: No external ident values found in batch (e.g. all source columns were NULL, or no relevant columns in snapshot for external_idents step). Skipping further analysis.', p_job_id;
         v_sql := format($$
-            UPDATE public.%I dt SET
-                state = %L,
+            UPDATE public.%1$I dt SET
+                state = %2$L,
                 error = jsonb_build_object('external_idents', 'No identifier provided or mapped correctly for external_idents step'),
                 operation = 'insert'::public.import_row_operation_type,
-                action = %L,
-                last_completed_priority = %L
-            WHERE dt.row_id = ANY(%L);
-        $$, v_data_table_name, 'error', 'skip'::public.import_row_action_type, v_step.priority, v_relevant_row_ids);
+                action = %3$L,
+                last_completed_priority = %4$L
+            WHERE EXISTS (SELECT 1 FROM temp_relevant_rows tr WHERE tr.data_row_id = dt.row_id);
+        $$, v_data_table_name /* %1$I */, 'error' /* %2$L */, 'skip'::public.import_row_action_type /* %3$L */, v_step.priority /* %4$L */);
         EXECUTE v_sql;
         GET DIAGNOSTICS v_error_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_external_idents (Batch): Finished analysis for batch. Errors: % (all rows missing identifiers or mappings for external_idents step)', p_job_id, v_error_count;
-        DROP TABLE IF EXISTS temp_unpivoted_idents; 
+        DROP TABLE IF EXISTS temp_unpivoted_idents;
+        DROP TABLE IF EXISTS temp_relevant_rows;
         RETURN;
     END IF;
 
@@ -215,16 +223,22 @@ BEGIN
         LEFT JOIN public.external_ident_type_active xit ON xit.code = up.ident_type_code_to_join_on
         LEFT JOIN public.external_ident xi ON xi.type_id = xit.id AND xi.ident = up.ident_value
         LEFT JOIN public.establishment conflicting_est_table ON conflicting_est_table.id = xi.establishment_id; -- Join to check if conflicting EST is formal
-    $$, v_unpivot_sql /* %1 */, v_job_mode /* %2 */ );
+    $$, v_unpivot_sql /* %1$s */, v_job_mode /* %2$L */ );
     RAISE DEBUG '[Job %] analyse_external_idents: Unpivoting and looking up identifiers: %', p_job_id, v_sql;
     EXECUTE v_sql;
 
-    -- Debug: Log contents of temp_unpivoted_idents
+    -- Debug: Log contents of temp_unpivoted_idents (sample from relevant rows)
     DECLARE
         tui_rec RECORD;
     BEGIN
-        RAISE DEBUG '[Job %] analyse_external_idents: Contents of temp_unpivoted_idents for batch %:', p_job_id, v_relevant_row_ids;
-        FOR tui_rec IN SELECT * FROM temp_unpivoted_idents WHERE data_row_id = ANY(v_relevant_row_ids) ORDER BY data_row_id, source_ident_code LOOP
+        RAISE DEBUG '[Job %] analyse_external_idents: Contents of temp_unpivoted_idents (sample):', p_job_id;
+        FOR tui_rec IN
+            SELECT tui.*
+            FROM temp_unpivoted_idents AS tui
+            JOIN temp_relevant_rows AS tr ON tr.data_row_id = tui.data_row_id
+            ORDER BY tui.data_row_id, tui.source_ident_code
+            LIMIT 50
+        LOOP
             RAISE DEBUG '[Job %]   TUI: data_row_id=%, source_ident_code=%, ident_value=%, ident_type_id=%, resolved_lu_id=%, resolved_est_id=%',
                         p_job_id, tui_rec.data_row_id, tui_rec.source_ident_code, tui_rec.ident_value, tui_rec.ident_type_id, tui_rec.resolved_lu_id, tui_rec.resolved_est_id;
         END LOOP;
@@ -279,7 +293,7 @@ BEGIN
                         ELSE 'different unit type' -- Fallback for generic or unhandled modes
                     END || ': ' || tui.conflicting_unit_jsonb::TEXT
                 ) FILTER (WHERE tui.is_cross_type_conflict IS TRUE) AS cross_type_conflict_errors
-            FROM (SELECT unnest(%1$L::INTEGER[]) as data_row_id) orig -- %1$L is v_relevant_row_ids
+            FROM temp_relevant_rows orig
             JOIN public.%2$I dt ON orig.data_row_id = dt.row_id      -- %2$I is v_data_table_name
             LEFT JOIN temp_unpivoted_idents tui ON orig.data_row_id = tui.data_row_id
             GROUP BY orig.data_row_id, dt.derived_valid_from
@@ -409,10 +423,9 @@ BEGIN
                     MAX(tui.resolved_lu_id) FILTER (WHERE tui.resolved_lu_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS final_lu_id,
                     MAX(tui.resolved_est_id) FILTER (WHERE tui.resolved_est_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS final_est_id,
                     jsonb_object_agg(tui.source_ident_code, tui.ident_value) FILTER (WHERE tui.ident_type_id IS NOT NULL AND tui.ident_value IS NOT NULL) AS entity_signature
-                    -- Removed cross_type_conflict_errors from debug query for simplicity as its construction changed
-                FROM (SELECT unnest(%1$L::INTEGER[]) as data_row_id) orig
-                JOIN public.%2$I dt ON orig.data_row_id = dt.row_id
-                LEFT JOIN temp_unpivoted_idents tui ON orig.data_row_id = tui.data_row_id
+                FROM temp_relevant_rows AS orig
+                JOIN public.%1$I AS dt ON orig.data_row_id = dt.row_id
+                LEFT JOIN temp_unpivoted_idents AS tui ON orig.data_row_id = tui.data_row_id
                 GROUP BY orig.data_row_id, dt.derived_valid_from
             ),
             OrderedBatchEntities AS (
@@ -421,8 +434,10 @@ BEGIN
                     ROW_NUMBER() OVER (PARTITION BY rc.entity_signature ORDER BY rc.derived_valid_from NULLS LAST, rc.data_row_id) as rn_in_batch_for_entity
                 FROM RowChecks rc
             )
-            SELECT obe.* FROM OrderedBatchEntities obe WHERE obe.data_row_id = ANY(%1$L::INTEGER[]) ORDER BY obe.entity_signature, obe.rn_in_batch_for_entity;
-        $$, v_relevant_row_ids, v_data_table_name);
+            SELECT obe.*
+            FROM OrderedBatchEntities obe
+            ORDER BY obe.entity_signature, obe.rn_in_batch_for_entity;
+        $$, v_data_table_name);
 
         RAISE DEBUG '[Job %] analyse_external_idents: Debugging OrderedBatchEntities logic with SQL: %', p_job_id, debug_sql;
         FOR debug_rec IN EXECUTE debug_sql
@@ -435,15 +450,15 @@ BEGIN
     -- Step 3: Batch Update Error Rows
     BEGIN
         v_sql := format($$
-            UPDATE public.%I dt SET
-                state = %L,
-                error = COALESCE(dt.error, %L) || err.error_jsonb, -- Merge err.error_jsonb directly
-                last_completed_priority = %L, -- Set to current step's priority on error
+            UPDATE public.%1$I dt SET
+                state = %2$L,
+                error = COALESCE(dt.error, %3$L) || err.error_jsonb, -- Merge err.error_jsonb directly
+                last_completed_priority = %4$L, -- Set to current step's priority on error
                 operation = err.operation, -- Always set operation
                 action = err.action
             FROM temp_batch_analysis err
-            WHERE dt.row_id = err.data_row_id AND err.error_jsonb != %L;
-        $$, v_data_table_name, 'error', '{}'::jsonb, v_step.priority, '{}'::jsonb);
+            WHERE dt.row_id = err.data_row_id AND err.error_jsonb != %5$L;
+        $$, v_data_table_name /* %1$I */, 'error' /* %2$L */, '{}'::jsonb /* %3$L */, v_step.priority /* %4$L */, '{}'::jsonb /* %5$L */);
         RAISE DEBUG '[Job %] analyse_external_idents: Updating error rows: %', p_job_id, v_sql;
         EXECUTE v_sql;
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
@@ -453,8 +468,8 @@ BEGIN
     END;
 
     -- Step 4: Batch Update Non-Error Rows (Success or Strategy Skips)
-    v_set_clause := format('last_completed_priority = %L, error = CASE WHEN (error - %L::TEXT[]) = ''{}''::jsonb THEN NULL ELSE (error - %L::TEXT[]) END, state = %L, action = ru.action, operation = ru.operation, founding_row_id = ru.derived_founding_row_id',
-                           v_step.priority, v_error_keys_to_clear_arr, v_error_keys_to_clear_arr, 'analysing'::public.import_data_state);
+    v_set_clause := format('last_completed_priority = %1$L, error = CASE WHEN (error - %2$L::TEXT[]) = ''{}''::jsonb THEN NULL ELSE (error - %3$L::TEXT[]) END, state = %4$L, action = ru.action, operation = ru.operation, founding_row_id = ru.derived_founding_row_id',
+                           v_step.priority /* %1$L */, v_error_keys_to_clear_arr /* %2$L */, v_error_keys_to_clear_arr /* %3$L */, 'analysing'::public.import_data_state /* %4$L */);
     IF v_has_lu_id_col THEN
         v_set_clause := v_set_clause || ', legal_unit_id = ru.resolved_lu_id';
     END IF;
@@ -476,28 +491,29 @@ BEGIN
     END IF;
 
     v_sql := format($$
-        UPDATE public.%I dt SET
-            %s -- Dynamic SET clause which includes founding_row_id update
+        UPDATE public.%1$I dt SET
+            %2$s -- Dynamic SET clause which includes founding_row_id update
         FROM temp_batch_analysis ru
         WHERE dt.row_id = ru.data_row_id
-          AND dt.row_id = ANY(%L) AND dt.row_id != ALL(%L); -- Update only non-error rows from the original batch
-    $$, v_data_table_name, v_set_clause, v_relevant_row_ids, COALESCE(v_error_row_ids, ARRAY[]::INTEGER[]));
+          AND EXISTS (SELECT 1 FROM temp_relevant_rows tr WHERE tr.data_row_id = dt.row_id) AND dt.row_id != ALL($1); -- Update only non-error rows from the original batch
+    $$, v_data_table_name /* %1$I */, v_set_clause /* %2$s */);
     RAISE DEBUG '[Job %] analyse_external_idents: Updating non-error rows (success or strategy skips): %', p_job_id, v_sql;
-    EXECUTE v_sql;
+    EXECUTE v_sql USING COALESCE(v_error_row_ids, ARRAY[]::INTEGER[]);
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
     RAISE DEBUG '[Job %] analyse_external_idents: Updated % non-error rows.', p_job_id, v_update_count;
 
-    DROP TABLE IF EXISTS temp_unpivoted_idents;
-    DROP TABLE IF EXISTS temp_batch_analysis;
-
     -- Update priority for rows that were initially skipped
-    EXECUTE format('
-        UPDATE public.%I dt SET
-            last_completed_priority = %L
-        WHERE dt.row_id = ANY(%L) AND dt.action = ''skip'';
-    ', v_data_table_name, v_step.priority, v_relevant_row_ids);
+    EXECUTE format($$
+        UPDATE public.%1$I dt SET
+            last_completed_priority = %2$L
+        WHERE EXISTS (SELECT 1 FROM temp_relevant_rows tr WHERE tr.data_row_id = dt.row_id) AND dt.action = 'skip';
+    $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */);
     GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
     RAISE DEBUG '[Job %] analyse_external_idents: Updated last_completed_priority for % pre-skipped rows.', p_job_id, v_skipped_update_count;
+
+    DROP TABLE IF EXISTS temp_unpivoted_idents;
+    DROP TABLE IF EXISTS temp_batch_analysis;
+    DROP TABLE IF EXISTS temp_relevant_rows;
 
     RAISE DEBUG '[Job %] analyse_external_idents (Batch): Finished analysis for batch. Total errors in batch: %', p_job_id, v_error_count;
 
@@ -543,26 +559,27 @@ BEGIN
     FOR rec_ident_type IN SELECT * FROM public.external_ident_type_active ORDER BY priority LOOP
         v_data_table_col_name := rec_ident_type.code;
         BEGIN
-            EXECUTE format('SELECT %I FROM public.%I WHERE row_id = %L',
-                           v_data_table_col_name, p_data_table_name, p_data_row_id)
-            INTO v_ident_value;
+            EXECUTE format($$SELECT %1$I FROM public.%2$I WHERE row_id = $1$$,
+                           v_data_table_col_name, p_data_table_name)
+            INTO v_ident_value
+            USING p_data_row_id;
 
             IF v_ident_value IS NOT NULL AND v_ident_value <> '' THEN
                 RAISE DEBUG '[Job %] shared_upsert_external_idents: For % ID %, data_row_id: %, ident_type: % (code: %), value: %',
                             p_job_id, p_unit_type, p_unit_id, p_data_row_id, rec_ident_type.id, rec_ident_type.code, v_ident_value;
 
                 IF p_unit_type = 'legal_unit' THEN
-                    v_sql_insert = format('INSERT INTO public.external_ident (legal_unit_id, type_id, ident, edit_by_user_id, edit_at, edit_comment) VALUES (%L, %L, %L, %L, %L, %L)',
+                    v_sql_insert = format('INSERT INTO public.external_ident (legal_unit_id, type_id, ident, edit_by_user_id, edit_at, edit_comment) VALUES (%1$L, %2$L, %3$L, %4$L, %5$L, %6$L)',
                                           p_unit_id, rec_ident_type.id, v_ident_value, p_edit_by_user_id, p_edit_at, p_edit_comment);
                     v_sql_conflict_set = 'legal_unit_id = EXCLUDED.legal_unit_id, establishment_id = NULL, enterprise_id = NULL, enterprise_group_id = NULL';
                 ELSIF p_unit_type = 'establishment' THEN
-                    v_sql_insert = format('INSERT INTO public.external_ident (establishment_id, type_id, ident, edit_by_user_id, edit_at, edit_comment) VALUES (%L, %L, %L, %L, %L, %L)',
+                    v_sql_insert = format('INSERT INTO public.external_ident (establishment_id, type_id, ident, edit_by_user_id, edit_at, edit_comment) VALUES (%1$L, %2$L, %3$L, %4$L, %5$L, %6$L)',
                                           p_unit_id, rec_ident_type.id, v_ident_value, p_edit_by_user_id, p_edit_at, p_edit_comment);
                     v_sql_conflict_set = 'establishment_id = EXCLUDED.establishment_id, legal_unit_id = NULL, enterprise_id = NULL, enterprise_group_id = NULL';
                 END IF;
 
                 EXECUTE v_sql_insert ||
-                        format(' ON CONFLICT (type_id, ident) DO UPDATE SET %s, edit_by_user_id = EXCLUDED.edit_by_user_id, edit_at = EXCLUDED.edit_at, edit_comment = EXCLUDED.edit_comment', v_sql_conflict_set);
+                        format(' ON CONFLICT (type_id, ident) DO UPDATE SET %1$s, edit_by_user_id = EXCLUDED.edit_by_user_id, edit_at = EXCLUDED.edit_at, edit_comment = EXCLUDED.edit_comment', v_sql_conflict_set);
 
             END IF;
         EXCEPTION

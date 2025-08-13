@@ -1,8 +1,10 @@
 BEGIN;
 
 -- Drop the functions first
-DROP FUNCTION IF EXISTS from_to_overlaps;
-DROP FUNCTION IF EXISTS after_to_overlaps;
+-- We must specify the function signature to drop an overloaded function.
+-- The versions created in the corresponding `up` migration used `anyelement`.
+DROP FUNCTION IF EXISTS from_to_overlaps(anyelement, anyelement, anyelement, anyelement);
+DROP FUNCTION IF EXISTS after_to_overlaps(anyelement, anyelement, anyelement, anyelement);
 
 -- Drop the extension and schema
 DROP EXTENSION ltree;

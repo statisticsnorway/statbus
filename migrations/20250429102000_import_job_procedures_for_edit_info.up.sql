@@ -27,23 +27,23 @@ BEGIN
     -- Step 1: Batch Update edit_by_user_id and edit_at for non-skipped rows
     -- Use the user_id from the job and the current statement timestamp
     v_sql := format($$
-        UPDATE public.%I dt SET
-            edit_by_user_id = %L,
+        UPDATE public.%1$I dt SET
+            edit_by_user_id = %2$L,
             edit_at = statement_timestamp(),
-            edit_comment = %L, -- Set edit_comment from job's default
-            last_completed_priority = %L,
+            edit_comment = %3$L, -- Set edit_comment from job's default
+            last_completed_priority = %4$L,
             -- error = NULL, -- Removed: This step should not clear errors from prior steps
-            state = %L
-        WHERE dt.row_id = ANY(%L) AND dt.action IS DISTINCT FROM 'skip'; -- Process if action is distinct from 'skip' (handles NULL)
-    $$, v_data_table_name, v_job.user_id, v_job.edit_comment, v_step.priority, 'analysing', p_batch_row_ids);
+            state = %5$L
+        WHERE dt.row_id = ANY($1) AND dt.action IS DISTINCT FROM 'skip'; -- Process if action is distinct from 'skip' (handles NULL)
+    $$, v_data_table_name /* %1$I */, v_job.user_id /* %2$L */, v_job.edit_comment /* %3$L */, v_step.priority /* %4$L */, 'analysing' /* %5$L */);
     RAISE DEBUG '[Job %] analyse_edit_info: Updating edit columns for non-skipped rows: %', p_job_id, v_sql;
-    EXECUTE v_sql;
+    EXECUTE v_sql USING p_batch_row_ids;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
     RAISE DEBUG '[Job %] analyse_edit_info: Marked % non-skipped rows as success for this step.', p_job_id, v_update_count;
 
     -- Update priority for skipped rows
-    EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L) AND action = 'skip'$$,
-                   v_data_table_name, v_step.priority, p_batch_row_ids);
+    EXECUTE format($$UPDATE public.%1$I SET last_completed_priority = %2$L WHERE row_id = ANY($1) AND action = 'skip'$$,
+                   v_data_table_name /* %1$I */, v_step.priority /* %2$L */) USING p_batch_row_ids;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
     RAISE DEBUG '[Job %] analyse_edit_info: Advanced priority for % skipped rows.', p_job_id, v_update_count;
 

@@ -536,6 +536,7 @@ erDiagram
 	settings["settings"] {
 		integer id
 		integer activity_category_standard_id
+		integer relative_period_input_years_count
 		boolean only_one_setting
 	}
 	stat_definition["stat_definition"] {
@@ -983,6 +984,9 @@ erDiagram
 		boolean primary_for_enterprise
 		jsonb stats
 		jsonb stats_summary
+	}
+	timepoints_years["timepoints_years"] {
+		integer year
 	}
 	timesegments["timesegments"] {
 		statistical_unit_type unit_type

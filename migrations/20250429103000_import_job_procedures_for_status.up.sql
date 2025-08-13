@@ -36,83 +36,77 @@ BEGIN
             SELECT
                 dt_sub.row_id as data_row_id,
                 s.id as resolved_status_id_by_code
-            FROM public.%I dt_sub
+            FROM public.%1$I dt_sub
             LEFT JOIN public.status s ON NULLIF(dt_sub.status_code, '') IS NOT NULL AND s.code = dt_sub.status_code AND s.active = true
-            WHERE dt_sub.row_id = ANY(%L) AND dt_sub.action IS DISTINCT FROM 'skip' -- Process rows not yet skipped
+            WHERE dt_sub.row_id = ANY($1) AND dt_sub.action IS DISTINCT FROM 'skip' -- Process rows not yet skipped
         )
-        UPDATE public.%I dt SET
+        UPDATE public.%1$I dt SET
             status_id = CASE
                             WHEN NULLIF(dt.status_code, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NOT NULL THEN sl.resolved_status_id_by_code
-                            WHEN NULLIF(dt.status_code, '') IS NULL OR NULLIF(dt.status_code, '') = '' THEN %L::INTEGER -- Use default if no code provided
-                            WHEN NULLIF(dt.status_code, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL THEN %L::INTEGER -- Use default if code provided but not found/inactive
+                            WHEN NULLIF(dt.status_code, '') IS NULL OR NULLIF(dt.status_code, '') = '' THEN %2$L::INTEGER -- Use default if no code provided
+                            WHEN NULLIF(dt.status_code, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL THEN %2$L::INTEGER -- Use default if code provided but not found/inactive
                             ELSE dt.status_id -- Keep existing if no condition met (should not happen if logic is complete)
                         END,
             action = CASE
-                        WHEN (NULLIF(dt.status_code, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL AND %L::INTEGER IS NULL) OR 
-                             ((NULLIF(dt.status_code, '') IS NULL OR NULLIF(dt.status_code, '') = '') AND %L::INTEGER IS NULL)      
+                        WHEN (NULLIF(dt.status_code, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL AND %2$L::INTEGER IS NULL) OR 
+                             ((NULLIF(dt.status_code, '') IS NULL OR NULLIF(dt.status_code, '') = '') AND %2$L::INTEGER IS NULL)      
                         THEN 'skip'::public.import_row_action_type
                         ELSE dt.action 
                      END,
             state = CASE
-                        WHEN (NULLIF(dt.status_code, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL AND %L::INTEGER IS NULL) OR
-                             ((NULLIF(dt.status_code, '') IS NULL OR NULLIF(dt.status_code, '') = '') AND %L::INTEGER IS NULL)
+                        WHEN (NULLIF(dt.status_code, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL AND %2$L::INTEGER IS NULL) OR
+                             ((NULLIF(dt.status_code, '') IS NULL OR NULLIF(dt.status_code, '') = '') AND %2$L::INTEGER IS NULL)
                         THEN 'error'::public.import_data_state
                         ELSE 'analysing'::public.import_data_state
                     END,
             error = CASE
-                        WHEN NULLIF(dt.status_code, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL AND %L::INTEGER IS NULL THEN
+                        WHEN NULLIF(dt.status_code, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL AND %2$L::INTEGER IS NULL THEN
                             COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('status_code', 'Provided status_code ''' || dt.status_code || ''' not found/active and no default available')
-                        WHEN (NULLIF(dt.status_code, '') IS NULL OR NULLIF(dt.status_code, '') = '') AND %L::INTEGER IS NULL THEN
+                        WHEN (NULLIF(dt.status_code, '') IS NULL OR NULLIF(dt.status_code, '') = '') AND %2$L::INTEGER IS NULL THEN
                             COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('status_code', 'Status code not provided and no active default status found')
                         ELSE
-                            CASE WHEN (dt.error - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %L::TEXT[]) END
+                            CASE WHEN (dt.error - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %3$L::TEXT[]) END
                     END,
             invalid_codes =
                 CASE
                     -- Soft error: Invalid code provided, but default is available and used.
-                    WHEN NULLIF(dt.status_code, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL AND %L::INTEGER IS NOT NULL THEN
+                    WHEN NULLIF(dt.status_code, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL AND %2$L::INTEGER IS NOT NULL THEN
                         COALESCE(dt.invalid_codes, '{}'::jsonb) || jsonb_build_object('status_code', dt.status_code)
                     -- Default case: clear 'status_code' from invalid_codes if it exists (e.g. if code is valid or hard error occurs for status_code).
                     ELSE
                         CASE WHEN (COALESCE(dt.invalid_codes, '{}'::jsonb) - 'status_code') = '{}'::jsonb THEN NULL ELSE (COALESCE(dt.invalid_codes, '{}'::jsonb) - 'status_code') END
                 END,
-            last_completed_priority = %L::INTEGER -- Always v_step.priority
+            last_completed_priority = %4$L::INTEGER -- Always v_step.priority
         FROM status_lookup sl
-        WHERE dt.row_id = sl.data_row_id AND dt.row_id = ANY(%L) AND dt.action IS DISTINCT FROM 'skip';
+        WHERE dt.row_id = sl.data_row_id AND dt.row_id = ANY($1) AND dt.action IS DISTINCT FROM 'skip';
     $$,
-        v_data_table_name, p_batch_row_ids,                     -- For status_lookup CTE
-        v_data_table_name,                                      -- For main UPDATE target
-        v_default_status_id, v_default_status_id,               -- For status_id CASE (default)
-        v_default_status_id, v_default_status_id,               -- For action CASE (error conditions)
-        v_default_status_id, v_default_status_id,               -- For state CASE (error conditions)
-        v_default_status_id,                                    -- For error CASE (code not found & no default)
-        v_default_status_id,                                    -- For error CASE (no code & no default)
-        v_error_keys_to_clear_arr, v_error_keys_to_clear_arr,   -- For error CASE (clear)
-        v_default_status_id,                                    -- For invalid_codes CASE (soft error condition)
-        v_step.priority,                                        -- For last_completed_priority (always this step's priority)
-        p_batch_row_ids                                         -- For final WHERE clause
+        v_data_table_name /* %1$I */,            -- Table used in both CTE and UPDATE
+        v_default_status_id /* %2$L */,          -- Default status_id (reused in many places)
+        v_error_keys_to_clear_arr /* %3$L */,    -- Keys to clear from error JSON
+        v_step.priority /* %4$L */               -- last_completed_priority
     );
 
     RAISE DEBUG '[Job %] analyse_status: Single-pass batch update for non-skipped rows: %', p_job_id, v_sql;
 
     BEGIN
-        EXECUTE v_sql;
+        EXECUTE v_sql USING p_batch_row_ids;
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_status: Updated % non-skipped rows in single pass.', p_job_id, v_update_count;
 
-        EXECUTE format('
-            UPDATE public.%I dt SET
-                last_completed_priority = %L
-            WHERE dt.row_id = ANY(%L) AND dt.action = ''skip''; -- Only update LCP for rows already skipped
-        ', v_data_table_name, v_step.priority, p_batch_row_ids);
+        EXECUTE format($$
+            UPDATE public.%1$I dt SET
+                last_completed_priority = %2$L
+            WHERE dt.row_id = ANY($1) AND dt.action = 'skip'; -- Only update LCP for rows already skipped
+        $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */) USING p_batch_row_ids;
         GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_status: Updated last_completed_priority for % pre-skipped rows.', p_job_id, v_skipped_update_count;
 
         v_update_count := v_update_count + v_skipped_update_count;
 
-        EXECUTE format('SELECT COUNT(*) FROM public.%I WHERE row_id = ANY(%L) AND state = ''error'' AND (error ?| %L::text[])',
-                       v_data_table_name, p_batch_row_ids, v_error_keys_to_clear_arr)
-        INTO v_error_count;
+        EXECUTE format($$SELECT COUNT(*) FROM public.%1$I WHERE row_id = ANY($1) AND state = 'error' AND (error ?| %2$L::text[])$$,
+                       v_data_table_name /* %1$I */, v_error_keys_to_clear_arr /* %2$L */)
+        INTO v_error_count
+        USING p_batch_row_ids;
         RAISE DEBUG '[Job %] analyse_status: Estimated errors in this step for batch: %', p_job_id, v_error_count;
 
     EXCEPTION WHEN others THEN

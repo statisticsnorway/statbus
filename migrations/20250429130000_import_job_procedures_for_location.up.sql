@@ -20,7 +20,7 @@ BEGIN
     END IF;
 
     BEGIN
-        EXECUTE format('SELECT %L::%s', p_text_value, p_target_type) INTO p_value;
+        EXECUTE format($$SELECT %1$L::%2$s$$, p_text_value /* %1$L */, p_target_type /* %2$s */) INTO p_value;
     EXCEPTION
         WHEN numeric_value_out_of_range THEN -- SQLSTATE 22003
             p_error_message := 'Value ''' || p_text_value || ''' is out of range for type ' || p_target_type || '. SQLSTATE: ' || SQLSTATE;
@@ -122,13 +122,13 @@ BEGIN
                 jsonb_build_object('physical_altitude', l.physical_altitude_error_msg)
             )
         $$;
-        v_coord_range_error_json_expr_sql := $$
+        v_coord_range_error_json_expr_sql := $jsonb_expr$
             jsonb_strip_nulls(
-                jsonb_build_object('physical_latitude', CASE WHEN l.resolved_typed_physical_latitude IS NOT NULL AND (l.resolved_typed_physical_latitude < -90 OR l.resolved_typed_physical_latitude > 90) THEN format('Value ''%s'' out of range. Expected -90 to 90.', l.resolved_typed_physical_latitude::TEXT) ELSE NULL END) ||
-                jsonb_build_object('physical_longitude', CASE WHEN l.resolved_typed_physical_longitude IS NOT NULL AND (l.resolved_typed_physical_longitude < -180 OR l.resolved_typed_physical_longitude > 180) THEN format('Value ''%s'' out of range. Expected -180 to 180.', l.resolved_typed_physical_longitude::TEXT) ELSE NULL END) ||
-                jsonb_build_object('physical_altitude', CASE WHEN l.resolved_typed_physical_altitude IS NOT NULL AND l.resolved_typed_physical_altitude < 0 THEN format('Value ''%s'' cannot be negative. Expected >= 0.', l.resolved_typed_physical_altitude::TEXT) ELSE NULL END)
+                jsonb_build_object('physical_latitude', CASE WHEN l.resolved_typed_physical_latitude IS NOT NULL AND (l.resolved_typed_physical_latitude < -90 OR l.resolved_typed_physical_latitude > 90) THEN format($$Value %1$s out of range. Expected -90 to 90.$$, l.resolved_typed_physical_latitude::TEXT /* %1$s */) ELSE NULL END) ||
+                jsonb_build_object('physical_longitude', CASE WHEN l.resolved_typed_physical_longitude IS NOT NULL AND (l.resolved_typed_physical_longitude < -180 OR l.resolved_typed_physical_longitude > 180) THEN format($$Value %1$s out of range. Expected -180 to 180.$$, l.resolved_typed_physical_longitude::TEXT /* %1$s */) ELSE NULL END) ||
+                jsonb_build_object('physical_altitude', CASE WHEN l.resolved_typed_physical_altitude IS NOT NULL AND l.resolved_typed_physical_altitude < 0 THEN format($$Value %1$s cannot be negative. Expected >= 0.$$, l.resolved_typed_physical_altitude::TEXT /* %1$s */) ELSE NULL END)
             )
-        $$;
+        $jsonb_expr$;
         v_coord_invalid_value_json_expr_sql := $$
             jsonb_strip_nulls(
                 jsonb_build_object('physical_latitude', CASE WHEN (dt.physical_latitude IS NOT NULL AND l.physical_latitude_error_msg IS NOT NULL) OR (l.resolved_typed_physical_latitude IS NOT NULL AND (l.resolved_typed_physical_latitude < -90 OR l.resolved_typed_physical_latitude > 90)) THEN dt.physical_latitude ELSE NULL END) ||
@@ -223,24 +223,30 @@ BEGIN
                 pc.id as resolved_physical_country_id,
                 psr.id as resolved_postal_region_id,
                 psc.id as resolved_postal_country_id,
-                (import.try_cast_to_numeric_specific(dt_sub.physical_latitude, 'NUMERIC(9,6)')).p_value as resolved_typed_physical_latitude,
-                (import.try_cast_to_numeric_specific(dt_sub.physical_latitude, 'NUMERIC(9,6)')).p_error_message as physical_latitude_error_msg,
-                (import.try_cast_to_numeric_specific(dt_sub.physical_longitude, 'NUMERIC(9,6)')).p_value as resolved_typed_physical_longitude,
-                (import.try_cast_to_numeric_specific(dt_sub.physical_longitude, 'NUMERIC(9,6)')).p_error_message as physical_longitude_error_msg,
-                (import.try_cast_to_numeric_specific(dt_sub.physical_altitude, 'NUMERIC(6,1)')).p_value as resolved_typed_physical_altitude,
-                (import.try_cast_to_numeric_specific(dt_sub.physical_altitude, 'NUMERIC(6,1)')).p_error_message as physical_altitude_error_msg,
-                (import.try_cast_to_numeric_specific(dt_sub.postal_latitude, 'NUMERIC(9,6)')).p_value as resolved_typed_postal_latitude,
-                (import.try_cast_to_numeric_specific(dt_sub.postal_latitude, 'NUMERIC(9,6)')).p_error_message as postal_latitude_error_msg,
-                (import.try_cast_to_numeric_specific(dt_sub.postal_longitude, 'NUMERIC(9,6)')).p_value as resolved_typed_postal_longitude,
-                (import.try_cast_to_numeric_specific(dt_sub.postal_longitude, 'NUMERIC(9,6)')).p_error_message as postal_longitude_error_msg,
-                (import.try_cast_to_numeric_specific(dt_sub.postal_altitude, 'NUMERIC(6,1)')).p_value as resolved_typed_postal_altitude,
-                (import.try_cast_to_numeric_specific(dt_sub.postal_altitude, 'NUMERIC(6,1)')).p_error_message as postal_altitude_error_msg
+                lat_phys.p_value as resolved_typed_physical_latitude,
+                lat_phys.p_error_message as physical_latitude_error_msg,
+                lon_phys.p_value as resolved_typed_physical_longitude,
+                lon_phys.p_error_message as physical_longitude_error_msg,
+                alt_phys.p_value as resolved_typed_physical_altitude,
+                alt_phys.p_error_message as physical_altitude_error_msg,
+                lat_post.p_value as resolved_typed_postal_latitude,
+                lat_post.p_error_message as postal_latitude_error_msg,
+                lon_post.p_value as resolved_typed_postal_longitude,
+                lon_post.p_error_message as postal_longitude_error_msg,
+                alt_post.p_value as resolved_typed_postal_altitude,
+                alt_post.p_error_message as postal_altitude_error_msg
             FROM public.%1$I dt_sub
             LEFT JOIN public.region pr ON dt_sub.physical_region_code IS NOT NULL AND pr.code = dt_sub.physical_region_code
             LEFT JOIN public.country pc ON dt_sub.physical_country_iso_2 IS NOT NULL AND pc.iso_2 = dt_sub.physical_country_iso_2
             LEFT JOIN public.region psr ON dt_sub.postal_region_code IS NOT NULL AND psr.code = dt_sub.postal_region_code
             LEFT JOIN public.country psc ON dt_sub.postal_country_iso_2 IS NOT NULL AND psc.iso_2 = dt_sub.postal_country_iso_2
-            WHERE dt_sub.row_id = ANY(%2$L) AND dt_sub.action != 'skip'
+            LEFT JOIN LATERAL import.try_cast_to_numeric_specific(dt_sub.physical_latitude, 'NUMERIC(9,6)') AS lat_phys(p_value, p_error_message) ON TRUE
+            LEFT JOIN LATERAL import.try_cast_to_numeric_specific(dt_sub.physical_longitude, 'NUMERIC(9,6)') AS lon_phys(p_value, p_error_message) ON TRUE
+            LEFT JOIN LATERAL import.try_cast_to_numeric_specific(dt_sub.physical_altitude, 'NUMERIC(6,1)') AS alt_phys(p_value, p_error_message) ON TRUE
+            LEFT JOIN LATERAL import.try_cast_to_numeric_specific(dt_sub.postal_latitude, 'NUMERIC(9,6)') AS lat_post(p_value, p_error_message) ON TRUE
+            LEFT JOIN LATERAL import.try_cast_to_numeric_specific(dt_sub.postal_longitude, 'NUMERIC(9,6)') AS lon_post(p_value, p_error_message) ON TRUE
+            LEFT JOIN LATERAL import.try_cast_to_numeric_specific(dt_sub.postal_altitude, 'NUMERIC(6,1)') AS alt_post(p_value, p_error_message) ON TRUE
+            WHERE dt_sub.row_id = ANY($1) AND dt_sub.action != 'skip'
         )
         UPDATE public.%1$I dt SET
             physical_region_id = l.resolved_physical_region_id,
@@ -275,10 +281,10 @@ BEGIN
                     ),
             last_completed_priority = %9$L::INTEGER -- Always v_step.priority
         FROM lookups l
-        WHERE dt.row_id = l.data_row_id AND dt.row_id = ANY(%2$L::INTEGER[]) AND dt.action IS DISTINCT FROM 'skip';
+        WHERE dt.row_id = l.data_row_id AND dt.row_id = ANY($1) AND dt.action IS DISTINCT FROM 'skip';
     $$,
         v_data_table_name,                      /* %1$I (target table) */
-        p_batch_row_ids,                        /* %2$L (for lookups CTE and final WHERE) */
+        p_batch_row_ids,                        /* %2$L (kept for numbering alignment) */
         v_error_keys_to_clear_arr,              /* %3$L (for clearing error keys) */
         v_error_condition_sql,                  /* %4$s (non-fatal region/country error condition) */
         v_invalid_codes_json_expr_sql,          /* %5$s (for adding non-fatal region/country invalid codes) */
@@ -296,24 +302,25 @@ BEGIN
     RAISE DEBUG '[Job %] analyse_location: Single-pass batch update for non-skipped rows for step %: %', p_job_id, p_step_code, v_sql;
 
     BEGIN
-        EXECUTE v_sql;
+        EXECUTE v_sql USING p_batch_row_ids;
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_location: Updated % non-skipped rows in single pass for step %.', p_job_id, v_update_count, p_step_code;
 
         -- Update priority for skipped rows
-        EXECUTE format('
-            UPDATE public.%I dt SET
-                last_completed_priority = %L
-            WHERE dt.row_id = ANY(%L) AND dt.action = ''skip'';
-        ', v_data_table_name, v_step.priority, p_batch_row_ids);
+        EXECUTE format($$
+            UPDATE public.%1$I dt SET
+                last_completed_priority = %2$L
+            WHERE dt.row_id = ANY($1) AND dt.action = 'skip';
+        $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */) USING p_batch_row_ids;
         GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_location: Updated last_completed_priority for % skipped rows for step %.', p_job_id, v_skipped_update_count, p_step_code;
         
         v_update_count := v_update_count + v_skipped_update_count; -- Total rows affected by this step's logic
 
-        EXECUTE format('SELECT COUNT(*) FROM public.%I WHERE row_id = ANY(%L) AND state = ''error'' AND (error ?| %L::text[])',
-                       v_data_table_name, p_batch_row_ids, v_error_keys_to_clear_arr)
-        INTO v_error_count;
+        EXECUTE format($$SELECT COUNT(*) FROM public.%1$I WHERE row_id = ANY($1) AND state = 'error' AND (error ?| %2$L::text[])$$,
+                       v_data_table_name /* %1$I */, v_error_keys_to_clear_arr /* %2$L */)
+        INTO v_error_count
+        USING p_batch_row_ids;
         RAISE DEBUG '[Job %] analyse_location: Estimated errors in this step for batch: %', p_job_id, v_error_count;
 
     EXCEPTION 
@@ -322,7 +329,7 @@ BEGIN
             RAISE WARNING '[Job %] analyse_location: Program limit exceeded during single-pass batch update for step %: %. SQLSTATE: %', p_job_id, p_step_code, error_message, SQLSTATE;
             -- Fallback or simplified error marking might be needed here if the main query is too complex
             UPDATE public.import_job
-            SET error = jsonb_build_object('analyse_location_error', format('Program limit error for step %s: %s', p_step_code, error_message)),
+            SET error = jsonb_build_object('analyse_location_error', format($$Program limit error for step %s: %s$$, p_step_code, error_message)),
                 state = 'finished'
             WHERE id = p_job_id;
             RAISE; -- Re-throw
@@ -331,20 +338,20 @@ BEGIN
             RAISE WARNING '[Job %] analyse_location: Unexpected error during single-pass batch update for step %: %. SQLSTATE: %', p_job_id, p_step_code, error_message, SQLSTATE;
             -- Attempt to mark individual data rows as error (best effort)
             BEGIN
-                v_sql := format('
-                    UPDATE public.%I dt SET
-                        state = %L,
-                        error = COALESCE(dt.error, ''{}''::jsonb) || jsonb_build_object(''location_batch_error'', ''Unexpected error during update for step %s: '' || %L),
+                v_sql := format($$
+                    UPDATE public.%1$I dt SET
+                        state = %2$L,
+                        error = COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('location_batch_error', 'Unexpected error during update for step %3$s: ' || %4$L),
                         last_completed_priority = dt.last_completed_priority -- Do not advance priority on unexpected error, use existing LCP
-                    WHERE dt.row_id = ANY(%L);
-                ', v_data_table_name, 'error'::public.import_data_state, p_step_code, error_message, p_batch_row_ids); 
-                EXECUTE v_sql;
+                    WHERE dt.row_id = ANY($1);
+                $$, v_data_table_name /* %1$I */, 'error'::public.import_data_state /* %2$L */, p_step_code /* %3$s */, error_message /* %4$L */);
+                EXECUTE v_sql USING p_batch_row_ids;
             EXCEPTION WHEN OTHERS THEN
                 RAISE WARNING '[Job %] analyse_location: Could not mark individual data rows as error after unexpected error: %', p_job_id, SQLERRM;
             END;
             -- Mark the job as failed
             UPDATE public.import_job
-            SET error = jsonb_build_object('analyse_location_error', format('Unexpected error for step %s: %s', p_step_code, error_message)),
+            SET error = jsonb_build_object('analyse_location_error', format($$Unexpected error for step %s: %s$$, p_step_code, error_message)),
                 state = 'finished'
             WHERE id = p_job_id;
             RAISE DEBUG '[Job %] analyse_location: Marked job as failed due to unexpected error for step %: %', p_job_id, p_step_code, error_message;
@@ -456,33 +463,34 @@ BEGIN
             region_id, country_id, latitude, longitude, altitude, action
         )
         SELECT
-            dt.row_id, dt.founding_row_id, %s, %s,
+            dt.row_id, dt.founding_row_id, %2$s, %3$s,
             dt.derived_valid_after,
             dt.derived_valid_from,
             dt.derived_valid_to,
             dt.data_source_id,
             dt.edit_by_user_id, dt.edit_at, dt.edit_comment,
-            dt.%I, dt.%I, dt.%I, dt.%I, dt.%I,
-            dt.%I, dt.%I,
-            dt.%I, dt.%I, dt.%I,
+            dt.%4$I, dt.%5$I, dt.%6$I, dt.%7$I, dt.%8$I,
+            dt.%9$I, dt.%10$I,
+            dt.%11$I, dt.%12$I, dt.%13$I,
             dt.action
-         FROM public.%I dt WHERE dt.row_id = ANY(%L) AND dt.action != 'skip';
+         FROM public.%1$I dt WHERE dt.row_id = ANY($1) AND dt.action != 'skip';
     $$,
-        v_select_lu_id_expr,
-        v_select_est_id_expr,
-        CASE v_location_type WHEN 'physical' THEN 'physical_address_part1' ELSE 'postal_address_part1' END,
-        CASE v_location_type WHEN 'physical' THEN 'physical_address_part2' ELSE 'postal_address_part2' END,
-        CASE v_location_type WHEN 'physical' THEN 'physical_address_part3' ELSE 'postal_address_part3' END,
-        CASE v_location_type WHEN 'physical' THEN 'physical_postcode' ELSE 'postal_postcode' END,
-        CASE v_location_type WHEN 'physical' THEN 'physical_postplace' ELSE 'postal_postplace' END,
-        CASE v_location_type WHEN 'physical' THEN 'physical_region_id' ELSE 'postal_region_id' END,
-        CASE v_location_type WHEN 'physical' THEN 'physical_country_id' ELSE 'postal_country_id' END,
-        CASE v_location_type WHEN 'physical' THEN 'typed_physical_latitude' ELSE 'typed_postal_latitude' END,
-        CASE v_location_type WHEN 'physical' THEN 'typed_physical_longitude' ELSE 'typed_postal_longitude' END,
-        CASE v_location_type WHEN 'physical' THEN 'typed_physical_altitude' ELSE 'typed_postal_altitude' END,
-        v_data_table_name, p_batch_row_ids);
+        v_data_table_name, /* %1$I */
+        v_select_lu_id_expr, /* %2$s */
+        v_select_est_id_expr, /* %3$s */
+        CASE v_location_type WHEN 'physical' THEN 'physical_address_part1' ELSE 'postal_address_part1' END, /* %4$I */
+        CASE v_location_type WHEN 'physical' THEN 'physical_address_part2' ELSE 'postal_address_part2' END, /* %5$I */
+        CASE v_location_type WHEN 'physical' THEN 'physical_address_part3' ELSE 'postal_address_part3' END, /* %6$I */
+        CASE v_location_type WHEN 'physical' THEN 'physical_postcode' ELSE 'postal_postcode' END, /* %7$I */
+        CASE v_location_type WHEN 'physical' THEN 'physical_postplace' ELSE 'postal_postplace' END, /* %8$I */
+        CASE v_location_type WHEN 'physical' THEN 'physical_region_id' ELSE 'postal_region_id' END, /* %9$I */
+        CASE v_location_type WHEN 'physical' THEN 'physical_country_id' ELSE 'postal_country_id' END, /* %10$I */
+        CASE v_location_type WHEN 'physical' THEN 'typed_physical_latitude' ELSE 'typed_postal_latitude' END, /* %11$I */
+        CASE v_location_type WHEN 'physical' THEN 'typed_physical_longitude' ELSE 'typed_postal_longitude' END, /* %12$I */
+        CASE v_location_type WHEN 'physical' THEN 'typed_physical_altitude' ELSE 'typed_postal_altitude' END /* %13$I */
+    );
     RAISE DEBUG '[Job %] process_location: Fetching batch data for type %: %', p_job_id, v_location_type, v_sql;
-    EXECUTE v_sql;
+    EXECUTE v_sql USING p_batch_row_ids;
 
     -- Debug: Log content of temp_batch_data
     FOR v_row IN SELECT * FROM temp_batch_data LOOP
@@ -569,13 +577,13 @@ BEGIN
 
         IF v_inserted_new_loc_count > 0 THEN
             EXECUTE format($$
-                UPDATE public.%I dt SET
-                    %I = tcl.new_location_id,
+                UPDATE public.%1$I dt SET
+                    %2$I = tcl.new_location_id,
                     error = NULL,
-                    state = %L
+                    state = %3$L
                 FROM temp_created_locs tcl
                 WHERE dt.row_id = tcl.data_row_id AND dt.state != 'error';
-            $$, v_data_table_name, v_final_id_col, 'processing'::public.import_data_state);
+            $$, v_data_table_name /* %1$I */, v_final_id_col /* %2$I */, 'processing'::public.import_data_state /* %3$L */);
             RAISE DEBUG '[Job %] process_location: Updated _data table for % new locations (type: %).', p_job_id, v_inserted_new_loc_count, v_location_type;
         END IF;
 
@@ -668,12 +676,12 @@ BEGIN
                 IF v_batch_upsert_result.status = 'ERROR' THEN
                     v_batch_upsert_error_row_ids := array_append(v_batch_upsert_error_row_ids, v_batch_upsert_result.source_row_id);
                     EXECUTE format($$
-                        UPDATE public.%I SET
-                            state = %L,
-                            error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('batch_replace_location_error', %L)
+                        UPDATE public.%1$I SET
+                            state = %2$L,
+                            error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('batch_replace_location_error', %3$L)
                             -- last_completed_priority is preserved (not changed) on error
-                        WHERE row_id = %L;
-                    $$, v_data_table_name, 'error'::public.import_data_state, v_batch_upsert_result.error_message, v_batch_upsert_result.source_row_id);
+                        WHERE row_id = %4$L;
+                    $$, v_data_table_name /* %1$I */, 'error'::public.import_data_state /* %2$L */, v_batch_upsert_result.error_message /* %3$L */, v_batch_upsert_result.source_row_id /* %4$L */);
                 ELSE
                     v_batch_upsert_success_row_ids := array_append(v_batch_upsert_success_row_ids, v_batch_upsert_result.source_row_id);
                 END IF;
@@ -684,16 +692,16 @@ BEGIN
 
             IF array_length(v_batch_upsert_success_row_ids, 1) > 0 THEN
                 v_sql := format($$
-                    UPDATE public.%I dt SET
-                        %I = tbd.existing_loc_id,
+                    UPDATE public.%1$I dt SET
+                        %2$I = tbd.existing_loc_id,
                         error = NULL,
-                        state = %L
+                        state = %3$L
                     FROM temp_batch_data tbd
                     WHERE dt.row_id = tbd.data_row_id
-                      AND dt.row_id = ANY(%L);
-                $$, v_data_table_name, v_final_id_col, 'processing'::public.import_data_state, v_batch_upsert_success_row_ids);
+                      AND dt.row_id = ANY($1);
+                $$, v_data_table_name /* %1$I */, v_final_id_col /* %2$I */, 'processing'::public.import_data_state /* %3$L */);
                 RAISE DEBUG '[Job %] process_location: Updating _data table for successful replace rows (type: %): %', p_job_id, v_location_type, v_sql;
-                EXECUTE v_sql;
+                EXECUTE v_sql USING v_batch_upsert_success_row_ids;
             END IF;
         END IF;
         DROP TABLE IF EXISTS temp_loc_upsert_source;
@@ -703,15 +711,15 @@ BEGIN
         RAISE WARNING '[Job %] process_location: Error during batch operation for type %: %. SQLSTATE: %', p_job_id, v_location_type, error_message, SQLSTATE;
         -- Attempt to mark individual data rows as error (best effort)
         BEGIN
-            v_sql := format($$UPDATE public.%I SET state = %L, error = COALESCE(error, '{}'::jsonb) || %L WHERE row_id = ANY(%L)$$, -- LCP not changed here
-                           v_data_table_name, 'error'::public.import_data_state, jsonb_build_object('batch_error_process_location', error_message), p_batch_row_ids);
-            EXECUTE v_sql;
+            v_sql := format($$UPDATE public.%1$I SET state = %2$L, error = COALESCE(error, '{}'::jsonb) || %3$L WHERE row_id = ANY($1)$$, -- LCP not changed here
+                           v_data_table_name /* %1$I */, 'error'::public.import_data_state /* %2$L */, jsonb_build_object('batch_error_process_location', error_message) /* %3$L */);
+            EXECUTE v_sql USING p_batch_row_ids;
         EXCEPTION WHEN OTHERS THEN
             RAISE WARNING '[Job %] process_location: Could not mark individual data rows as error: %', p_job_id, SQLERRM;
         END;
         -- Mark the job as failed
         UPDATE public.import_job
-        SET error = jsonb_build_object('process_location_error', format('Error for type %s: %s', v_location_type, error_message)),
+        SET error = jsonb_build_object('process_location_error', format($$Error for type %s: %s$$, v_location_type, error_message)),
             state = 'finished' -- Consistently set state to 'finished' on error
         WHERE id = p_job_id;
         RAISE DEBUG '[Job %] process_location: Marked job as failed due to error for type %: %', p_job_id, v_location_type, error_message;

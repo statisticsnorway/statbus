@@ -462,7 +462,7 @@ END $$;
  invalid_codes                    | jsonb                     |           |          |                              | extended |              | 
 Indexes:
     "import_71_a1_lu_data_pkey" PRIMARY KEY, btree (row_id)
-    "import_71_a1_lu_data_state_last_completed_priority_idx" btree (state, last_completed_priority)
+    "import_71_a1_lu_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
     "import_71_a1_lu_data_unique_ident_key" UNIQUE, btree (COALESCE(nin_ident, ''::text), COALESCE(tax_ident, ''::text), valid_from, valid_to)
 Policies:
     POLICY "import_71_a1_lu_data_admin_user_manage"

@@ -43,14 +43,14 @@ BEGIN
                 (import.safe_cast_to_date(dt_sub.birth_date)).p_error_message as birth_date_error_msg,
                 (import.safe_cast_to_date(dt_sub.death_date)).p_value as resolved_typed_death_date,
                 (import.safe_cast_to_date(dt_sub.death_date)).p_error_message as death_date_error_msg
-            FROM public.%I dt_sub
+            FROM public.%1$I dt_sub
             LEFT JOIN public.data_source_available ds ON NULLIF(dt_sub.data_source_code, '') IS NOT NULL AND ds.code = NULLIF(dt_sub.data_source_code, '')
             -- LEFT JOIN public.status s ON NULLIF(dt_sub.status_code, '') IS NOT NULL AND s.code = NULLIF(dt_sub.status_code, '') AND s.active = true -- Removed
             LEFT JOIN public.sector_available sec ON NULLIF(dt_sub.sector_code, '') IS NOT NULL AND sec.code = NULLIF(dt_sub.sector_code, '')
             LEFT JOIN public.unit_size_available us ON NULLIF(dt_sub.unit_size_code, '') IS NOT NULL AND us.code = NULLIF(dt_sub.unit_size_code, '')
-            WHERE dt_sub.row_id = ANY(%L) AND dt_sub.action != 'skip' -- Exclude skipped rows
+            WHERE dt_sub.row_id = ANY($1) AND dt_sub.action != 'skip' -- Exclude skipped rows
         )
-        UPDATE public.%I dt SET
+        UPDATE public.%2$I dt SET
             data_source_id = l.resolved_data_source_id,
             -- status_id = CASE ... END, -- Removed: status_id is now populated by 'status' step
             sector_id = l.resolved_sector_id,
@@ -73,12 +73,12 @@ BEGIN
                         WHEN dt.status_id IS NULL THEN
                             COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('status_id_missing', 'Status ID not resolved by prior step')
                         ELSE 
-                            CASE WHEN (dt.error - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %L::TEXT[]) END
+                            CASE WHEN (dt.error - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %3$L::TEXT[]) END
                     END,
             invalid_codes = CASE
                                 WHEN (dt.name IS NOT NULL AND trim(dt.name) != '') AND dt.status_id IS NOT NULL THEN -- Only populate invalid_codes if no fatal error in this step
                                     jsonb_strip_nulls(
-                                     COALESCE(dt.invalid_codes, '{}'::jsonb) - %L::TEXT[] || 
+                                     COALESCE(dt.invalid_codes, '{}'::jsonb) - %4$L::TEXT[] || 
                                      jsonb_build_object('data_source_code', CASE WHEN NULLIF(dt.data_source_code, '') IS NOT NULL AND l.resolved_data_source_id IS NULL THEN dt.data_source_code ELSE NULL END) ||
                                      jsonb_build_object('sector_code', CASE WHEN NULLIF(dt.sector_code, '') IS NOT NULL AND l.resolved_sector_id IS NULL THEN dt.sector_code ELSE NULL END) ||
                                      jsonb_build_object('unit_size_code', CASE WHEN NULLIF(dt.unit_size_code, '') IS NOT NULL AND l.resolved_unit_size_id IS NULL THEN dt.unit_size_code ELSE NULL END) ||
@@ -87,39 +87,39 @@ BEGIN
                                     )
                                 ELSE dt.invalid_codes -- Keep existing invalid_codes if it's a fatal status_id error
                             END,
-            last_completed_priority = %s -- Always v_step.priority
+            last_completed_priority = %5$L -- Always v_step.priority
         FROM lookups l
-        WHERE dt.row_id = l.data_row_id AND dt.row_id = ANY(%L) AND dt.action != 'skip'; -- Ensure main update also excludes skipped
+        WHERE dt.row_id = l.data_row_id AND dt.row_id = ANY($1) AND dt.action != 'skip'; -- Ensure main update also excludes skipped
     $$,
-        v_job.data_table_name, p_batch_row_ids,                     -- For lookups CTE
-        v_job.data_table_name,                                      -- For main UPDATE target
-        v_error_keys_to_clear_arr, v_error_keys_to_clear_arr,       -- For error CASE (clear)
-        v_invalid_code_keys_arr,                                    -- For invalid_codes CASE (clear old)
-        v_step.priority,                                            -- For last_completed_priority (always this step's priority)
-        p_batch_row_ids                                             -- For final WHERE clause
+        v_job.data_table_name /* %1$I */,                           -- For lookups CTE
+        v_job.data_table_name /* %2$I */,                           -- For main UPDATE target
+        v_error_keys_to_clear_arr /* %3$L */,                       -- For error CASE (clear)
+        v_invalid_code_keys_arr /* %4$L */,                         -- For invalid_codes CASE (clear old)
+        v_step.priority /* %5$L */                                  -- For last_completed_priority (always this step's priority)
     );
 
     RAISE DEBUG '[Job %] analyse_establishment: Single-pass batch update for non-skipped rows: %', p_job_id, v_sql;
 
     BEGIN
-        EXECUTE v_sql;
+        EXECUTE v_sql USING p_batch_row_ids;
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_establishment: Updated % non-skipped rows in single pass.', p_job_id, v_update_count;
 
         -- Update priority for skipped rows
-        EXECUTE format('
-            UPDATE public.%I dt SET
-                last_completed_priority = %L
-            WHERE dt.row_id = ANY(%L) AND dt.action = ''skip'';
-        ', v_data_table_name, v_step.priority, p_batch_row_ids);
+        EXECUTE format($$
+            UPDATE public.%1$I dt SET
+                last_completed_priority = %2$L
+            WHERE dt.row_id = ANY($1) AND dt.action = 'skip';
+        $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */) USING p_batch_row_ids;
         GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_establishment: Updated last_completed_priority for % skipped rows.', p_job_id, v_skipped_update_count;
 
         v_update_count := v_update_count + v_skipped_update_count; -- Total rows affected
 
-        EXECUTE format('SELECT COUNT(*) FROM public.%I WHERE row_id = ANY(%L) AND state = ''error'' AND (error ?| %L::text[])',
-                       v_job.data_table_name, p_batch_row_ids, v_error_keys_to_clear_arr)
-        INTO v_error_count;
+        EXECUTE format($$SELECT COUNT(*) FROM public.%1$I WHERE row_id = ANY($1) AND state = 'error' AND (error ?| %2$L::text[])$$,
+                       v_job.data_table_name /* %1$I */, v_error_keys_to_clear_arr /* %2$L */)
+        INTO v_error_count
+        USING p_batch_row_ids;
         RAISE DEBUG '[Job %] analyse_establishment: Estimated errors in this step for batch: %', p_job_id, v_error_count;
 
     EXCEPTION WHEN others THEN
@@ -255,11 +255,11 @@ BEGIN
             valid_after, valid_from, valid_to, sector_id, unit_size_id, status_id, data_source_id,
             existing_est_id, invalid_codes, edit_by_user_id, edit_at, edit_comment, action
         )
-        SELECT %s
-         FROM public.%I dt WHERE dt.row_id = ANY(%L) AND dt.action != 'skip';
-    $$, v_select_list, v_data_table_name, p_batch_row_ids);
+        SELECT %1$s
+         FROM public.%2$I dt WHERE dt.row_id = ANY($1) AND dt.action != 'skip';
+    $$, v_select_list /* %1$s */, v_data_table_name /* %2$I */);
     RAISE DEBUG '[Job %] process_establishment: Fetching batch data (including invalid_codes and founding_row_id): %', p_job_id, v_sql;
-    EXECUTE v_sql;
+    EXECUTE v_sql USING p_batch_row_ids;
 
     -- Log sample data from temp_batch_data after initial population
     FOR sample_data_row IN SELECT * FROM temp_batch_data LIMIT 5 LOOP
@@ -483,13 +483,13 @@ BEGIN
             END LOOP;
 
             EXECUTE format($$
-                UPDATE public.%I dt SET
+                UPDATE public.%1$I dt SET
                     establishment_id = tce.new_establishment_id, -- This updates the _data table for the 'insert' rows
                     error = NULL,
-                    state = %L
+                    state = %2$L
                 FROM temp_created_ests tce
                 WHERE dt.row_id = tce.data_row_id AND dt.state != 'error';
-            $$, v_data_table_name, 'processing'::public.import_data_state);
+            $$, v_data_table_name /* %1$I */, 'processing'::public.import_data_state /* %2$L */);
             RAISE DEBUG '[Job %] process_establishment: Updated _data table for % new ESTs.', p_job_id, v_inserted_new_est_count;
         END IF;
 
@@ -558,10 +558,10 @@ BEGIN
                 IF v_batch_upsert_result.status = 'ERROR' THEN
                     v_batch_upsert_error_row_ids := array_append(v_batch_upsert_error_row_ids, v_batch_upsert_result.source_row_id);
                     EXECUTE format($$
-                        UPDATE public.%I SET state = %L, error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('batch_replace_establishment_error', %L)
+                        UPDATE public.%1$I SET state = %2$L, error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('batch_replace_establishment_error', %3$L)
                         -- last_completed_priority is preserved (not changed) on error
-                        WHERE row_id = %L;
-                    $$, v_data_table_name, 'error'::public.import_data_state, v_batch_upsert_result.error_message, v_batch_upsert_result.source_row_id);
+                        WHERE row_id = %4$L;
+                    $$, v_data_table_name /* %1$I */, 'error'::public.import_data_state /* %2$L */, v_batch_upsert_result.error_message /* %3$L */, v_batch_upsert_result.source_row_id /* %4$L */);
                 ELSE
                     v_batch_upsert_success_row_ids := array_append(v_batch_upsert_success_row_ids, v_batch_upsert_result.source_row_id);
                     INSERT INTO temp_processed_action_ids (data_row_id, actual_establishment_id)
@@ -599,13 +599,13 @@ BEGIN
                 RAISE DEBUG '[Job %] process_establishment: Ensured/Updated external_ident for % successfully replaced ESTs using shared procedure.', p_job_id, v_actually_replaced_or_updated_est_count;
 
                 EXECUTE format($$
-                    UPDATE public.%I dt SET
+                    UPDATE public.%1$I dt SET
                         establishment_id = tpai.actual_establishment_id,
                         error = NULL,
-                        state = %L
+                        state = %2$L
                     FROM temp_processed_action_ids tpai
-                    WHERE dt.row_id = tpai.data_row_id AND dt.row_id = ANY(%L); -- dt.row_id = ANY ensures we only update rows from this batch
-                $$, v_data_table_name, 'processing'::public.import_data_state, v_batch_upsert_success_row_ids);
+                    WHERE dt.row_id = tpai.data_row_id AND dt.row_id = ANY($1); -- dt.row_id = ANY ensures we only update rows from this batch
+                $$, v_data_table_name /* %1$I */, 'processing'::public.import_data_state /* %2$L */) USING v_batch_upsert_success_row_ids;
                 RAISE DEBUG '[Job %] process_establishment: Updated _data table for % successfully replaced ESTs with correct establishment_id.', p_job_id, v_actually_replaced_or_updated_est_count;
             END IF;
         END IF; -- End v_updated_existing_est_count > 0 (renamed from v_updated_existing_est_count for clarity of original intent)

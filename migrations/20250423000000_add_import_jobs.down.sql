@@ -96,7 +96,10 @@ DROP FUNCTION IF EXISTS admin.import_job_progress_notify();
 DROP FUNCTION IF EXISTS public.get_import_job_progress(integer);
 DROP PROCEDURE IF EXISTS admin.import_job_process(payload JSONB);
 DROP PROCEDURE IF EXISTS admin.import_job_process(integer);
+DROP PROCEDURE IF EXISTS admin.import_job_process_batch(public.import_job, integer[]);
 DROP FUNCTION IF EXISTS admin.import_job_process_phase(public.import_job, public.import_step_phase); -- Added missing drop
+DROP FUNCTION IF EXISTS admin.import_job_analysis_phase(public.import_job);
+DROP FUNCTION IF EXISTS admin.import_job_processing_phase(public.import_job);
 DROP FUNCTION IF EXISTS admin.import_job_prepare(public.import_job);
 DROP FUNCTION IF EXISTS admin.import_job_cleanup();
 DROP FUNCTION IF EXISTS admin.import_job_generate(public.import_job);

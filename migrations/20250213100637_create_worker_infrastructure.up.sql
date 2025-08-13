@@ -120,6 +120,7 @@ DECLARE
   v_affected_count int;
 BEGIN
   PERFORM public.timesegments_refresh(p_valid_after => p_valid_after, p_valid_to => p_valid_to);
+  PERFORM public.timepoints_years_refresh();
   PERFORM public.timeline_establishment_refresh(p_valid_after => p_valid_after,p_valid_to => p_valid_to);
   PERFORM public.timeline_legal_unit_refresh(p_valid_after => p_valid_after,p_valid_to => p_valid_to);
   PERFORM public.timeline_enterprise_refresh(p_valid_after => p_valid_after,p_valid_to => p_valid_to);
