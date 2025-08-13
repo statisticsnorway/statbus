@@ -1288,6 +1288,7 @@ export type Database = {
       }
       import_job: {
         Row: {
+          analysis_batch_size: number
           analysis_completed_pct: number | null
           analysis_rows_per_sec: number | null
           analysis_start_at: string | null
@@ -1317,6 +1318,7 @@ export type Database = {
           note: string | null
           preparing_data_at: string | null
           priority: number | null
+          processing_batch_size: number
           processing_start_at: string | null
           processing_stop_at: string | null
           review: boolean
@@ -1330,6 +1332,7 @@ export type Database = {
           user_id: number | null
         }
         Insert: {
+          analysis_batch_size?: number
           analysis_completed_pct?: number | null
           analysis_rows_per_sec?: number | null
           analysis_start_at?: string | null
@@ -1359,6 +1362,7 @@ export type Database = {
           note?: string | null
           preparing_data_at?: string | null
           priority?: number | null
+          processing_batch_size?: number
           processing_start_at?: string | null
           processing_stop_at?: string | null
           review?: boolean
@@ -1372,6 +1376,7 @@ export type Database = {
           user_id?: number | null
         }
         Update: {
+          analysis_batch_size?: number
           analysis_completed_pct?: number | null
           analysis_rows_per_sec?: number | null
           analysis_start_at?: string | null
@@ -1401,6 +1406,7 @@ export type Database = {
           note?: string | null
           preparing_data_at?: string | null
           priority?: number | null
+          processing_batch_size?: number
           processing_start_at?: string | null
           processing_stop_at?: string | null
           review?: boolean
@@ -2471,16 +2477,19 @@ export type Database = {
           activity_category_standard_id: number
           id: number
           only_one_setting: boolean
+          relative_period_input_years_count: number
         }
         Insert: {
           activity_category_standard_id: number
           id?: never
           only_one_setting?: boolean
+          relative_period_input_years_count?: number
         }
         Update: {
           activity_category_standard_id?: number
           id?: never
           only_one_setting?: boolean
+          relative_period_input_years_count?: number
         }
         Relationships: [
           {
@@ -3976,6 +3985,18 @@ export type Database = {
         }
         Relationships: []
       }
+      timepoints_years: {
+        Row: {
+          year: number
+        }
+        Insert: {
+          year: number
+        }
+        Update: {
+          year?: number
+        }
+        Relationships: []
+      }
       timesegments: {
         Row: {
           unit_id: number
@@ -5144,28 +5165,6 @@ export type Database = {
           valid_on: string | null
           valid_to: string | null
         }
-        Insert: {
-          active?: boolean | null
-          code?: Database["public"]["Enums"]["relative_period_code"] | null
-          id?: number | null
-          name_when_input?: string | null
-          name_when_query?: string | null
-          scope?: Database["public"]["Enums"]["relative_period_scope"] | null
-          valid_from?: never
-          valid_on?: never
-          valid_to?: never
-        }
-        Update: {
-          active?: boolean | null
-          code?: Database["public"]["Enums"]["relative_period_code"] | null
-          id?: number | null
-          name_when_input?: string | null
-          name_when_query?: string | null
-          scope?: Database["public"]["Enums"]["relative_period_scope"] | null
-          valid_from?: never
-          valid_on?: never
-          valid_to?: never
-        }
         Relationships: []
       }
       reorg_type_available: {
@@ -5914,13 +5913,6 @@ export type Database = {
           },
           {
             foreignKeyName: "location_country_id_fkey"
-            columns: ["postal_country_id"]
-            isOneToOne: false
-            referencedRelation: "country"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "location_country_id_fkey"
             columns: ["physical_country_id"]
             isOneToOne: false
             referencedRelation: "country"
@@ -5930,7 +5922,7 @@ export type Database = {
             foreignKeyName: "location_country_id_fkey"
             columns: ["postal_country_id"]
             isOneToOne: false
-            referencedRelation: "country_used_def"
+            referencedRelation: "country"
             referencedColumns: ["id"]
           },
           {
@@ -5944,7 +5936,7 @@ export type Database = {
             foreignKeyName: "location_country_id_fkey"
             columns: ["postal_country_id"]
             isOneToOne: false
-            referencedRelation: "country_view"
+            referencedRelation: "country_used_def"
             referencedColumns: ["id"]
           },
           {
@@ -5955,10 +5947,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "location_region_id_fkey"
-            columns: ["postal_region_id"]
+            foreignKeyName: "location_country_id_fkey"
+            columns: ["postal_country_id"]
             isOneToOne: false
-            referencedRelation: "region"
+            referencedRelation: "country_view"
             referencedColumns: ["id"]
           },
           {
@@ -5971,13 +5963,20 @@ export type Database = {
           {
             foreignKeyName: "location_region_id_fkey"
             columns: ["postal_region_id"]
+            isOneToOne: false
+            referencedRelation: "region"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_region_id_fkey"
+            columns: ["physical_region_id"]
             isOneToOne: false
             referencedRelation: "region_used_def"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "location_region_id_fkey"
-            columns: ["physical_region_id"]
+            columns: ["postal_region_id"]
             isOneToOne: false
             referencedRelation: "region_used_def"
             referencedColumns: ["id"]
@@ -6065,13 +6064,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["secondary_activity_category_id"]
-            isOneToOne: false
-            referencedRelation: "activity_category"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "activity_category_id_fkey"
             columns: ["primary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category"
@@ -6081,7 +6073,7 @@ export type Database = {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["secondary_activity_category_id"]
             isOneToOne: false
-            referencedRelation: "activity_category_available"
+            referencedRelation: "activity_category"
             referencedColumns: ["id"]
           },
           {
@@ -6094,13 +6086,20 @@ export type Database = {
           {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["secondary_activity_category_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_available"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_category_id_fkey"
+            columns: ["primary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used_def"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["primary_activity_category_id"]
+            columns: ["secondary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used_def"
             referencedColumns: ["id"]
@@ -6149,13 +6148,6 @@ export type Database = {
           },
           {
             foreignKeyName: "location_country_id_fkey"
-            columns: ["postal_country_id"]
-            isOneToOne: false
-            referencedRelation: "country"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "location_country_id_fkey"
             columns: ["physical_country_id"]
             isOneToOne: false
             referencedRelation: "country"
@@ -6165,7 +6157,7 @@ export type Database = {
             foreignKeyName: "location_country_id_fkey"
             columns: ["postal_country_id"]
             isOneToOne: false
-            referencedRelation: "country_used_def"
+            referencedRelation: "country"
             referencedColumns: ["id"]
           },
           {
@@ -6178,13 +6170,20 @@ export type Database = {
           {
             foreignKeyName: "location_country_id_fkey"
             columns: ["postal_country_id"]
+            isOneToOne: false
+            referencedRelation: "country_used_def"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_country_id_fkey"
+            columns: ["physical_country_id"]
             isOneToOne: false
             referencedRelation: "country_view"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "location_country_id_fkey"
-            columns: ["physical_country_id"]
+            columns: ["postal_country_id"]
             isOneToOne: false
             referencedRelation: "country_view"
             referencedColumns: ["id"]
@@ -6224,6 +6223,12 @@ export type Database = {
           timepoint: string | null
           unit_id: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
+        }
+        Relationships: []
+      }
+      timepoints_years_def: {
+        Row: {
+          year: number | null
         }
         Relationships: []
       }
@@ -6428,7 +6433,9 @@ export type Database = {
         Returns: boolean
       }
       after_to_overlaps: {
-        Args: { after1: unknown; after2: unknown; to1: unknown; to2: unknown }
+        Args:
+          | { a_after: string; a_to: string; b_after: string; b_to: string }
+          | { after1: unknown; after2: unknown; to1: unknown; to2: unknown }
         Returns: boolean
       }
       algorithm_sign: {
@@ -7730,6 +7737,10 @@ export type Database = {
       }
       timeline_legal_unit_refresh: {
         Args: { p_valid_after?: string; p_valid_to?: string }
+        Returns: undefined
+      }
+      timepoints_years_refresh: {
+        Args: Record<PropertyKey, never>
         Returns: undefined
       }
       timesegments_refresh: {
