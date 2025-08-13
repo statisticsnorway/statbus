@@ -151,8 +151,27 @@ This was the solution applied in `test/sql/310_import_jobs_for_brreg_selection.s
 ```sql
 -- In this test, the table name is dynamically generated in the setup logic,
 -- but for the \copy command itself, we use the known, final table name.
-\copy public.import_hovedenhet_2025_selection_upload FROM 'tmp/enheter.csv' WITH CSV HEADER
+\copy public.import_hovedenhet_2025_selection_upload FROM 'samples/norway/legal_unit/enheter-selection.csv' WITH CSV HEADER
 ```
+
+#### CSV File Formats and `\copy`
+
+When using `\copy`, pay attention to the specific CSV file's format. Different import sources may have different formatting, and using the wrong options can lead to errors like `extra data after last expected column`. For consistency, all CSV files in this project should be parsable with the standard `WITH CSV HEADER` options.
+
+-   **Selection Files**: Sample files used for "selection" imports (e.g., `samples/norway/legal_unit/enheter-selection.csv`) are standard CSVs. For these, the simple `WITH CSV HEADER` is sufficient and correct.
+
+-   **Downloaded Files**: Files downloaded from external sources like BRREG (often placed in `tmp/`) should also be processed with the standard `WITH CSV HEADER`. If parsing errors occur, it may indicate a problem with the file itself, but the command should remain consistent.
+
+When in doubt, refer to the shell script that corresponds to the type of import being tested (e.g., `brreg-import-selection.sh` vs. `brreg-import-downloads-from-tmp.sh`) to see the correct `\copy` options.
+
+#### Import Definition Versions (e.g., 2024 vs 2025 formats)
+
+Different import processes may use different versions of the import definitions, which correspond to the format of the source data files. It's crucial to use the correct definition for the given data.
+
+-   **Selection Imports**: These typically use a stable, well-defined format for a given period. As of this writing, selection imports (like those in `test/sql/310_..._selection.sql`) use the `brreg_..._2024` import definitions.
+-   **Full/Current Imports**: These imports handle the latest available data format from the source. As of this writing, full downloads (like those in `test/sql/311_..._downloads.sql` and the `brreg-import-downloads-from-tmp.sh` script) use the `brreg_..._2025` import definitions.
+
+Always ensure the test or script creating an `import_job` references the `import_definition` that matches the format of the data being loaded.
 
 *Note on Why SQL `COPY` is Not a Viable Alternative*: The server-side SQL `COPY` command (as opposed to the `psql` client-side `\copy` meta-command) might seem like an alternative because it can be used within dynamic SQL (`\gexec`). However, `COPY` requires the data file to be accessible on the database server's filesystem. In our Docker-based testing environment, this would require copying test files into the database container, which is an anti-pattern we avoid for test portability and simplicity. Therefore, `COPY` is not a viable solution for our tests.
 ```
