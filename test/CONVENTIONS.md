@@ -107,4 +107,52 @@ END; -- PL/pgSQL construct
 **Correct Approach:**
 *   To manage savepoint-like behavior and catch `ASSERT` failures, use **Pattern A**. All logic, including the error-catching `BEGIN/EXCEPTION/END` sub-block, is encapsulated within a single `DO $$ ... $$;` block.
 *   The structure used in `test/sql/013_auth.sql` (after its successful refactor to Pattern A) is the correct way to implement test units. Each test unit is a self-contained `DO $$ ... $$;` block following Pattern A.
+
+## psql Meta-command Limitations in Tests
+
+When writing test scripts that are run by `psql` (like those in `pg_regress`), it's important to understand the limitations of its meta-commands (commands starting with `\`, like `\copy` and `\gexec`).
+
+### `\copy` Does Not Support Variables for Table Names
+
+The `\copy` meta-command is used to copy data between a file (on the client side) and a table. A common pitfall is attempting to use a `psql` variable (set via `\set`) for the table name. `psql` does not perform variable substitution for the table name argument of `\copy`.
+
+**Incorrect Pattern:**
+```sql
+-- This will fail
+\set my_table 'public.my_data_table'
+-- The following command fails because :my_table is not expanded.
+\copy :my_table FROM 'my_data.csv';
+-- ERROR: syntax error at or near ":"
+```
+
+### `\gexec` Cannot Execute Meta-commands
+
+Another approach to dynamic SQL is using `\gexec`, which executes the SQL query or queries returned by a `SELECT` statement. However, `\gexec` can only execute **SQL commands**, not other `psql` meta-commands. Attempting to generate a `\copy` command dynamically will fail.
+
+**Incorrect Pattern:**
+```sql
+-- This will fail because \gexec cannot execute the \copy meta-command
+SELECT format($$\copy %I FROM 'my_data.csv'$$, 'public.my_data_table') \gexec;
+-- ERROR: syntax error at or near "\"
+-- (The psql parser sees `\copy` and reports an error because it's not valid SQL for execution)
+```
+
+### Solution for Dynamic Table Names in `\copy`
+
+Given the previously mentioned limitations, the only recommended way to handle `\copy` in tests is to hard-code table names.
+
+#### Hard-Code the Table Name (The Only Recommended Solution)
+
+For tests, simplicity and predictability are key. The most reliable solution is to hard-code the table name. If a test script dynamically generates a table name (e.g., based on the current year), the subsequent `\copy` command must use that explicit, hard-coded name. This avoids complex scripting and makes the test's behavior explicit.
+
+This was the solution applied in `test/sql/310_import_jobs_for_brreg_selection.sql`.
+
+**Correct Pattern (for a test running in 2025):**
+```sql
+-- In this test, the table name is dynamically generated in the setup logic,
+-- but for the \copy command itself, we use the known, final table name.
+\copy public.import_hovedenhet_2025_selection_upload FROM 'tmp/enheter.csv' WITH CSV HEADER
+```
+
+*Note on Why SQL `COPY` is Not a Viable Alternative*: The server-side SQL `COPY` command (as opposed to the `psql` client-side `\copy` meta-command) might seem like an alternative because it can be used within dynamic SQL (`\gexec`). However, `COPY` requires the data file to be accessible on the database server's filesystem. In our Docker-based testing environment, this would require copying test files into the database container, which is an anti-pattern we avoid for test portability and simplicity. Therefore, `COPY` is not a viable solution for our tests.
 ```
