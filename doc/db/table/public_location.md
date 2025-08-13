@@ -24,10 +24,15 @@
  edit_by_user_id  | integer                  |           | not null | 
  edit_at          | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
+    "ix_location_country_id" btree (country_id)
+    "ix_location_data_source_id" btree (data_source_id)
     "ix_location_edit_by_user_id" btree (edit_by_user_id)
     "ix_location_establishment_id" btree (establishment_id)
+    "ix_location_establishment_id_valid_range" gist (establishment_id, daterange(valid_after, valid_to, '(]'::text))
     "ix_location_legal_unit_id" btree (legal_unit_id)
+    "ix_location_legal_unit_id_valid_range" gist (legal_unit_id, daterange(valid_after, valid_to, '(]'::text))
     "ix_location_region_id" btree (region_id)
+    "ix_location_type" btree (type)
     "location_id_daterange_excl" EXCLUDE USING gist (id WITH =, daterange(valid_after, valid_to, '(]'::text) WITH &&) DEFERRABLE
     "location_id_valid_after_valid_to_key" UNIQUE CONSTRAINT, btree (id, valid_after, valid_to) DEFERRABLE
     "location_type_establishment_id_daterange_excl" EXCLUDE USING gist (type WITH =, establishment_id WITH =, daterange(valid_after, valid_to, '(]'::text) WITH &&) DEFERRABLE

@@ -13,6 +13,7 @@ Indexes:
     "enterprise_group_type_pkey" PRIMARY KEY, btree (id)
     "enterprise_group_type_code_key" UNIQUE CONSTRAINT, btree (code)
     "enterprise_group_type_name_key" UNIQUE CONSTRAINT, btree (name)
+    "ix_enterprise_group_type_active" btree (active)
     "ix_enterprise_group_type_active_code" UNIQUE, btree (active, code)
     "ix_enterprise_group_type_code" UNIQUE, btree (code) WHERE active
 Referenced by:

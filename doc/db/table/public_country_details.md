@@ -18,6 +18,7 @@ Indexes:
     "country_iso_3_key" UNIQUE CONSTRAINT, btree (iso_3)
     "country_iso_num_key" UNIQUE CONSTRAINT, btree (iso_num)
     "country_name_key" UNIQUE CONSTRAINT, btree (name)
+    "ix_country_active" btree (active)
     "ix_country_iso_2" UNIQUE, btree (iso_2) WHERE active
     "ix_country_iso_3" UNIQUE, btree (iso_3) WHERE active
     "ix_country_iso_num" UNIQUE, btree (iso_num) WHERE active

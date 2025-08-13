@@ -10,6 +10,7 @@
  active          | boolean                |           | not null | true                         | plain    |             |              | 
 Indexes:
     "relative_period_pkey" PRIMARY KEY, btree (id)
+    "ix_relative_period_active" btree (active)
     "relative_period_code_key" UNIQUE CONSTRAINT, btree (code)
 Check constraints:
     "scope input_and_query requires name_when_input" CHECK (

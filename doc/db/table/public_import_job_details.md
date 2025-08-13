@@ -1,46 +1,55 @@
 ```sql
-                                                                                                                                                                              Table "public.import_job"
-          Column          |           Type           | Collation | Nullable |                Default                 | Storage  | Compression | Stats target |                                                                                                      Description                                                                                                       
---------------------------+--------------------------+-----------+----------+----------------------------------------+----------+-------------+--------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- id                       | integer                  |           | not null | generated always as identity           | plain    |             |              | 
- slug                     | text                     |           | not null |                                        | extended |             |              | 
- description              | text                     |           |          |                                        | extended |             |              | 
- note                     | text                     |           |          |                                        | extended |             |              | 
- created_at               | timestamp with time zone |           | not null | now()                                  | plain    |             |              | 
- updated_at               | timestamp with time zone |           | not null | now()                                  | plain    |             |              | 
- time_context_ident       | text                     |           |          |                                        | extended |             |              | 
- default_valid_from       | date                     |           |          |                                        | plain    |             |              | 
- default_valid_to         | date                     |           |          |                                        | plain    |             |              | 
- default_data_source_code | text                     |           |          |                                        | extended |             |              | 
- upload_table_name        | text                     |           | not null |                                        | extended |             |              | 
- data_table_name          | text                     |           | not null |                                        | extended |             |              | 
- priority                 | integer                  |           |          |                                        | plain    |             |              | 
- definition_snapshot      | jsonb                    |           |          |                                        | extended |             |              | Captures the complete state of an `import_definition` and its related entities at job creation. This ensures immutable processing. The structure is a JSONB object with keys corresponding to the source tables/views:+
-                          |                          |           |          |                                        |          |             |              | - `import_definition`: A JSON representation of the `public.import_definition` row.                                                                                                                                   +
-                          |                          |           |          |                                        |          |             |              | - `time_context` (optional): If `valid_time_from = 'time_context'`, a JSON representation of the `public.time_context` row.                                                                                           +
-                          |                          |           |          |                                        |          |             |              | - `import_step_list`: An array of `public.import_step` JSON objects for the definition.                                                                                                                               +
-                          |                          |           |          |                                        |          |             |              | - `import_data_column_list`: An array of `public.import_data_column` JSON objects for the definition's steps.                                                                                                         +
-                          |                          |           |          |                                        |          |             |              | - `import_source_column_list`: An array of `public.import_source_column` JSON objects for the definition.                                                                                                             +
-                          |                          |           |          |                                        |          |             |              | - `import_mapping_list`: An array of enriched mapping objects, each containing the mapping, source column, and target data column records.
- preparing_data_at        | timestamp with time zone |           |          |                                        | plain    |             |              | 
- analysis_start_at        | timestamp with time zone |           |          |                                        | plain    |             |              | 
- analysis_stop_at         | timestamp with time zone |           |          |                                        | plain    |             |              | 
- changes_approved_at      | timestamp with time zone |           |          |                                        | plain    |             |              | 
- changes_rejected_at      | timestamp with time zone |           |          |                                        | plain    |             |              | 
- processing_start_at      | timestamp with time zone |           |          |                                        | plain    |             |              | 
- processing_stop_at       | timestamp with time zone |           |          |                                        | plain    |             |              | 
- total_rows               | integer                  |           |          |                                        | plain    |             |              | 
- imported_rows            | integer                  |           |          | 0                                      | plain    |             |              | 
- import_completed_pct     | numeric(5,2)             |           |          | 0                                      | main     |             |              | 
- import_rows_per_sec      | numeric(10,2)            |           |          |                                        | main     |             |              | 
- last_progress_update     | timestamp with time zone |           |          |                                        | plain    |             |              | 
- state                    | import_job_state         |           | not null | 'waiting_for_upload'::import_job_state | plain    |             |              | 
- error                    | text                     |           |          |                                        | extended |             |              | 
- review                   | boolean                  |           | not null | false                                  | plain    |             |              | 
- edit_comment             | text                     |           |          |                                        | extended |             |              | Default edit comment to be applied to records processed by this job.
- expires_at               | timestamp with time zone |           | not null |                                        | plain    |             |              | Timestamp when the job and its associated data (_upload, _data tables) are eligible for cleanup. Calculated as created_at + import_definition.default_retention_period.
- definition_id            | integer                  |           | not null |                                        | plain    |             |              | 
- user_id                  | integer                  |           |          |                                        | plain    |             |              | 
+                                                                                                                                                                                   Table "public.import_job"
+              Column               |           Type           | Collation | Nullable |                Default                 | Storage  | Compression | Stats target |                                                                                                      Description                                                                                                       
+-----------------------------------+--------------------------+-----------+----------+----------------------------------------+----------+-------------+--------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ id                                | integer                  |           | not null | generated always as identity           | plain    |             |              | 
+ slug                              | text                     |           | not null |                                        | extended |             |              | 
+ description                       | text                     |           |          |                                        | extended |             |              | 
+ note                              | text                     |           |          |                                        | extended |             |              | 
+ created_at                        | timestamp with time zone |           | not null | now()                                  | plain    |             |              | 
+ updated_at                        | timestamp with time zone |           | not null | now()                                  | plain    |             |              | 
+ time_context_ident                | text                     |           |          |                                        | extended |             |              | 
+ default_valid_from                | date                     |           |          |                                        | plain    |             |              | 
+ default_valid_to                  | date                     |           |          |                                        | plain    |             |              | 
+ default_data_source_code          | text                     |           |          |                                        | extended |             |              | 
+ upload_table_name                 | text                     |           | not null |                                        | extended |             |              | 
+ data_table_name                   | text                     |           | not null |                                        | extended |             |              | 
+ priority                          | integer                  |           |          |                                        | plain    |             |              | 
+ analysis_batch_size               | integer                  |           | not null | 10000                                  | plain    |             |              | The number of rows to process in a single batch during the analysis phase.
+ processing_batch_size             | integer                  |           | not null | 1000                                   | plain    |             |              | The number of rows to process in a single batch during the processing phase.
+ definition_snapshot               | jsonb                    |           |          |                                        | extended |             |              | Captures the complete state of an `import_definition` and its related entities at job creation. This ensures immutable processing. The structure is a JSONB object with keys corresponding to the source tables/views:+
+                                   |                          |           |          |                                        |          |             |              | - `import_definition`: A JSON representation of the `public.import_definition` row.                                                                                                                                   +
+                                   |                          |           |          |                                        |          |             |              | - `time_context` (optional): If `valid_time_from = 'time_context'`, a JSON representation of the `public.time_context` row.                                                                                           +
+                                   |                          |           |          |                                        |          |             |              | - `import_step_list`: An array of `public.import_step` JSON objects for the definition.                                                                                                                               +
+                                   |                          |           |          |                                        |          |             |              | - `import_data_column_list`: An array of `public.import_data_column` JSON objects for the definition's steps.                                                                                                         +
+                                   |                          |           |          |                                        |          |             |              | - `import_source_column_list`: An array of `public.import_source_column` JSON objects for the definition.                                                                                                             +
+                                   |                          |           |          |                                        |          |             |              | - `import_mapping_list`: An array of enriched mapping objects, each containing the mapping, source column, and target data column records.
+ preparing_data_at                 | timestamp with time zone |           |          |                                        | plain    |             |              | 
+ analysis_start_at                 | timestamp with time zone |           |          |                                        | plain    |             |              | 
+ analysis_stop_at                  | timestamp with time zone |           |          |                                        | plain    |             |              | 
+ analysis_completed_pct            | numeric(5,2)             |           |          | 0                                      | main     |             |              | 
+ analysis_rows_per_sec             | numeric(10,2)            |           |          |                                        | main     |             |              | 
+ current_step_code                 | text                     |           |          |                                        | extended |             |              | 
+ current_step_priority             | integer                  |           |          |                                        | plain    |             |              | 
+ max_analysis_priority             | integer                  |           |          |                                        | plain    |             |              | 
+ total_analysis_steps_weighted     | bigint                   |           |          |                                        | plain    |             |              | 
+ completed_analysis_steps_weighted | bigint                   |           |          | 0                                      | plain    |             |              | 
+ changes_approved_at               | timestamp with time zone |           |          |                                        | plain    |             |              | 
+ changes_rejected_at               | timestamp with time zone |           |          |                                        | plain    |             |              | 
+ processing_start_at               | timestamp with time zone |           |          |                                        | plain    |             |              | 
+ processing_stop_at                | timestamp with time zone |           |          |                                        | plain    |             |              | 
+ total_rows                        | integer                  |           |          |                                        | plain    |             |              | 
+ imported_rows                     | integer                  |           |          | 0                                      | plain    |             |              | 
+ import_completed_pct              | numeric(5,2)             |           |          | 0                                      | main     |             |              | 
+ import_rows_per_sec               | numeric(10,2)            |           |          |                                        | main     |             |              | 
+ last_progress_update              | timestamp with time zone |           |          |                                        | plain    |             |              | 
+ state                             | import_job_state         |           | not null | 'waiting_for_upload'::import_job_state | plain    |             |              | 
+ error                             | text                     |           |          |                                        | extended |             |              | 
+ review                            | boolean                  |           | not null | false                                  | plain    |             |              | 
+ edit_comment                      | text                     |           |          |                                        | extended |             |              | Default edit comment to be applied to records processed by this job.
+ expires_at                        | timestamp with time zone |           | not null |                                        | plain    |             |              | Timestamp when the job and its associated data (_upload, _data tables) are eligible for cleanup. Calculated as created_at + import_definition.default_retention_period.
+ definition_id                     | integer                  |           | not null |                                        | plain    |             |              | 
+ user_id                           | integer                  |           |          |                                        | plain    |             |              | 
 Indexes:
     "import_job_pkey" PRIMARY KEY, btree (id)
     "import_job_slug_key" UNIQUE CONSTRAINT, btree (slug)
@@ -87,8 +96,8 @@ Triggers:
     import_job_derive_trigger BEFORE INSERT ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_derive()
     import_job_generate AFTER INSERT OR UPDATE OF upload_table_name, data_table_name ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_generate()
     import_job_notify_trigger AFTER INSERT OR DELETE OR UPDATE ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_notify()
-    import_job_progress_notify_trigger AFTER UPDATE OF imported_rows, state ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_progress_notify()
-    import_job_progress_update_trigger BEFORE UPDATE OF imported_rows ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_progress_update()
+    import_job_progress_notify_trigger AFTER UPDATE OF imported_rows, state, completed_analysis_steps_weighted ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_progress_notify()
+    import_job_progress_update_trigger BEFORE UPDATE OF imported_rows, completed_analysis_steps_weighted ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_progress_update()
     import_job_state_change_after_trigger AFTER UPDATE OF state ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_state_change_after()
     import_job_state_change_before_trigger BEFORE UPDATE OF state ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_state_change_before()
 Access method: heap

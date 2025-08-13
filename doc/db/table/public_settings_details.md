@@ -1,10 +1,11 @@
 ```sql
-                                                              Table "public.settings"
-            Column             |  Type   | Collation | Nullable |           Default            | Storage | Compression | Stats target | Description 
--------------------------------+---------+-----------+----------+------------------------------+---------+-------------+--------------+-------------
- id                            | integer |           | not null | generated always as identity | plain   |             |              | 
- activity_category_standard_id | integer |           | not null |                              | plain   |             |              | 
- only_one_setting              | boolean |           | not null | true                         | plain   |             |              | 
+                                                                Table "public.settings"
+              Column               |  Type   | Collation | Nullable |           Default            | Storage | Compression | Stats target | Description 
+-----------------------------------+---------+-----------+----------+------------------------------+---------+-------------+--------------+-------------
+ id                                | integer |           | not null | generated always as identity | plain   |             |              | 
+ activity_category_standard_id     | integer |           | not null |                              | plain   |             |              | 
+ relative_period_input_years_count | integer |           | not null | 5                            | plain   |             |              | 
+ only_one_setting                  | boolean |           | not null | true                         | plain   |             |              | 
 Indexes:
     "settings_pkey" PRIMARY KEY, btree (id)
     "settings_only_one_setting_key" UNIQUE CONSTRAINT, btree (only_one_setting)

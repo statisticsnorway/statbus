@@ -1,40 +1,49 @@
 ```sql
-                                              Table "public.import_job"
-          Column          |           Type           | Collation | Nullable |                Default                 
---------------------------+--------------------------+-----------+----------+----------------------------------------
- id                       | integer                  |           | not null | generated always as identity
- slug                     | text                     |           | not null | 
- description              | text                     |           |          | 
- note                     | text                     |           |          | 
- created_at               | timestamp with time zone |           | not null | now()
- updated_at               | timestamp with time zone |           | not null | now()
- time_context_ident       | text                     |           |          | 
- default_valid_from       | date                     |           |          | 
- default_valid_to         | date                     |           |          | 
- default_data_source_code | text                     |           |          | 
- upload_table_name        | text                     |           | not null | 
- data_table_name          | text                     |           | not null | 
- priority                 | integer                  |           |          | 
- definition_snapshot      | jsonb                    |           |          | 
- preparing_data_at        | timestamp with time zone |           |          | 
- analysis_start_at        | timestamp with time zone |           |          | 
- analysis_stop_at         | timestamp with time zone |           |          | 
- changes_approved_at      | timestamp with time zone |           |          | 
- changes_rejected_at      | timestamp with time zone |           |          | 
- processing_start_at      | timestamp with time zone |           |          | 
- processing_stop_at       | timestamp with time zone |           |          | 
- total_rows               | integer                  |           |          | 
- imported_rows            | integer                  |           |          | 0
- import_completed_pct     | numeric(5,2)             |           |          | 0
- import_rows_per_sec      | numeric(10,2)            |           |          | 
- last_progress_update     | timestamp with time zone |           |          | 
- state                    | import_job_state         |           | not null | 'waiting_for_upload'::import_job_state
- error                    | text                     |           |          | 
- review                   | boolean                  |           | not null | false
- edit_comment             | text                     |           |          | 
- expires_at               | timestamp with time zone |           | not null | 
- definition_id            | integer                  |           | not null | 
- user_id                  | integer                  |           |          | 
+                                                  Table "public.import_job"
+              Column               |           Type           | Collation | Nullable |                Default                 
+-----------------------------------+--------------------------+-----------+----------+----------------------------------------
+ id                                | integer                  |           | not null | generated always as identity
+ slug                              | text                     |           | not null | 
+ description                       | text                     |           |          | 
+ note                              | text                     |           |          | 
+ created_at                        | timestamp with time zone |           | not null | now()
+ updated_at                        | timestamp with time zone |           | not null | now()
+ time_context_ident                | text                     |           |          | 
+ default_valid_from                | date                     |           |          | 
+ default_valid_to                  | date                     |           |          | 
+ default_data_source_code          | text                     |           |          | 
+ upload_table_name                 | text                     |           | not null | 
+ data_table_name                   | text                     |           | not null | 
+ priority                          | integer                  |           |          | 
+ analysis_batch_size               | integer                  |           | not null | 10000
+ processing_batch_size             | integer                  |           | not null | 1000
+ definition_snapshot               | jsonb                    |           |          | 
+ preparing_data_at                 | timestamp with time zone |           |          | 
+ analysis_start_at                 | timestamp with time zone |           |          | 
+ analysis_stop_at                  | timestamp with time zone |           |          | 
+ analysis_completed_pct            | numeric(5,2)             |           |          | 0
+ analysis_rows_per_sec             | numeric(10,2)            |           |          | 
+ current_step_code                 | text                     |           |          | 
+ current_step_priority             | integer                  |           |          | 
+ max_analysis_priority             | integer                  |           |          | 
+ total_analysis_steps_weighted     | bigint                   |           |          | 
+ completed_analysis_steps_weighted | bigint                   |           |          | 0
+ changes_approved_at               | timestamp with time zone |           |          | 
+ changes_rejected_at               | timestamp with time zone |           |          | 
+ processing_start_at               | timestamp with time zone |           |          | 
+ processing_stop_at                | timestamp with time zone |           |          | 
+ total_rows                        | integer                  |           |          | 
+ imported_rows                     | integer                  |           |          | 0
+ import_completed_pct              | numeric(5,2)             |           |          | 0
+ import_rows_per_sec               | numeric(10,2)            |           |          | 
+ last_progress_update              | timestamp with time zone |           |          | 
+ state                             | import_job_state         |           | not null | 'waiting_for_upload'::import_job_state
+ error                             | text                     |           |          | 
+ review                            | boolean                  |           | not null | false
+ edit_comment                      | text                     |           |          | 
+ expires_at                        | timestamp with time zone |           | not null | 
+ definition_id                     | integer                  |           | not null | 
+ user_id                           | integer                  |           |          | 
 Indexes:
     "import_job_pkey" PRIMARY KEY, btree (id)
     "import_job_slug_key" UNIQUE CONSTRAINT, btree (slug)
@@ -81,8 +90,8 @@ Triggers:
     import_job_derive_trigger BEFORE INSERT ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_derive()
     import_job_generate AFTER INSERT OR UPDATE OF upload_table_name, data_table_name ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_generate()
     import_job_notify_trigger AFTER INSERT OR DELETE OR UPDATE ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_notify()
-    import_job_progress_notify_trigger AFTER UPDATE OF imported_rows, state ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_progress_notify()
-    import_job_progress_update_trigger BEFORE UPDATE OF imported_rows ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_progress_update()
+    import_job_progress_notify_trigger AFTER UPDATE OF imported_rows, state, completed_analysis_steps_weighted ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_progress_notify()
+    import_job_progress_update_trigger BEFORE UPDATE OF imported_rows, completed_analysis_steps_weighted ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_progress_update()
     import_job_state_change_after_trigger AFTER UPDATE OF state ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_state_change_after()
     import_job_state_change_before_trigger BEFORE UPDATE OF state ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_state_change_before()
 

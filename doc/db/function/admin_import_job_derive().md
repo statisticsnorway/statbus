@@ -122,6 +122,13 @@ BEGIN
     -- NEW.created_at is populated by its DEFAULT NOW() before this trigger runs for an INSERT.
     NEW.expires_at := NEW.created_at + COALESCE(definition.default_retention_period, '18 months'::INTERVAL);
 
+    -- Pre-calculate max priorities from the snapshot for weighted progress calculation
+    SELECT MAX((s->>'priority')::int)
+    INTO NEW.max_analysis_priority
+    FROM jsonb_array_elements(v_snapshot->'import_step_list') s
+    WHERE s->>'analyse_procedure' IS NOT NULL;
+
+
     NEW.definition_snapshot := v_snapshot;
     RETURN NEW;
 END;

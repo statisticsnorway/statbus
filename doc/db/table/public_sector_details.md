@@ -15,6 +15,7 @@
  updated_at  | timestamp with time zone |           | not null | statement_timestamp()                                                                                          | plain    |             |              | 
 Indexes:
     "sector_pkey" PRIMARY KEY, btree (id)
+    "ix_sector_active" btree (active)
     "ix_sector_active_path" UNIQUE, btree (active, path)
     "sector_code_active_key" UNIQUE, btree (code) WHERE active
     "sector_parent_id_idx" btree (parent_id)

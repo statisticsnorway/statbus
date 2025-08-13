@@ -10,6 +10,7 @@
  edit_at         | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
     "enterprise_pkey" PRIMARY KEY, btree (id)
+    "ix_enterprise_active" btree (active)
     "ix_enterprise_edit_by_user_id" btree (edit_by_user_id)
 Foreign-key constraints:
     "enterprise_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT

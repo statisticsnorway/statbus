@@ -118,6 +118,22 @@ BEGIN
         v_error_messages := array_append(v_error_messages, format('Unknown or unhandled import mode: %L.', v_definition.mode));
     END IF;
 
+    -- Enforce unique step priorities within a definition (prevents equal-priority deadlocks in analysis scheduling)
+    IF EXISTS (
+        SELECT 1
+        FROM (
+            SELECT s.priority
+            FROM public.import_definition_step ids
+            JOIN public.import_step s ON s.id = ids.step_id
+            WHERE ids.definition_id = p_definition_id
+            GROUP BY s.priority
+            HAVING COUNT(*) > 1
+        ) dup
+    ) THEN
+        v_is_valid := false;
+        v_error_messages := array_append(v_error_messages, 'import_step priorities must be unique per definition (duplicates found).');
+    END IF;
+
     -- 3. Check for mandatory steps
     IF NOT ('external_idents' = ANY(v_step_codes)) THEN
         v_is_valid := false;

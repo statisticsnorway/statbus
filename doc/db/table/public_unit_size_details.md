@@ -11,6 +11,7 @@
  updated_at | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
 Indexes:
     "unit_size_pkey" PRIMARY KEY, btree (id)
+    "ix_unit_size_active" btree (active)
     "ix_unit_size_active_code" UNIQUE, btree (active, code)
     "ix_unit_size_code" UNIQUE, btree (code) WHERE active
 Referenced by:

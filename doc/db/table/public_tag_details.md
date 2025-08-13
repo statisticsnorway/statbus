@@ -21,6 +21,8 @@
  updated_at          | timestamp with time zone |           | not null | statement_timestamp()                                                                                          | plain    |             |              | 
 Indexes:
     "tag_pkey" PRIMARY KEY, btree (id)
+    "ix_tag_active" btree (active)
+    "ix_tag_type" btree (type)
     "tag_path_key" UNIQUE CONSTRAINT, btree (path)
 Check constraints:
     "context_valid_dates_same_nullability" CHECK (context_valid_from IS NULL AND context_valid_to IS NULL OR context_valid_from IS NOT NULL AND context_valid_to IS NOT NULL)

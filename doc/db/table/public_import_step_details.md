@@ -1,13 +1,14 @@
 ```sql
-                                                                                                                               Table "public.import_step"
-      Column       |           Type           | Collation | Nullable |           Default            | Storage  | Compression | Stats target |                                                                Description                                                                
--------------------+--------------------------+-----------+----------+------------------------------+----------+-------------+--------------+-------------------------------------------------------------------------------------------------------------------------------------------
+                                                                                                                                                  Table "public.import_step"
+      Column       |           Type           | Collation | Nullable |           Default            | Storage  | Compression | Stats target |                                                                                   Description                                                                                    
+-------------------+--------------------------+-----------+----------+------------------------------+----------+-------------+--------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
  id                | integer                  |           | not null | generated always as identity | plain    |             |              | 
  code              | text                     |           | not null |                              | extended |             |              | Unique code identifier for the step (snake_case).
  name              | text                     |           | not null |                              | extended |             |              | Human-readable name for UI display.
  priority          | integer                  |           | not null |                              | plain    |             |              | Execution order for the step (lower runs first).
  analyse_procedure | regproc                  |           |          |                              | plain    |             |              | Optional procedure to run during the analysis phase for this step.
  process_procedure | regproc                  |           |          |                              | plain    |             |              | Optional procedure to run during the final operation (insert/update/upsert) phase for this step. Must respect import_definition.strategy.
+ is_holistic       | boolean                  |           | not null |                              | plain    |             |              | If true, the step's procedure is called once for the entire dataset, not in concurrent batches. Use for steps requiring a complete view of the data, like cross-row validations.
  created_at        | timestamp with time zone |           | not null | now()                        | plain    |             |              | 
  updated_at        | timestamp with time zone |           | not null | now()                        | plain    |             |              | 
 Indexes:

@@ -11,6 +11,7 @@
  updated_at | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
 Indexes:
     "enterprise_group_role_pkey" PRIMARY KEY, btree (id)
+    "ix_enterprise_group_role_active" btree (active)
     "ix_enterprise_group_role_active_code" UNIQUE, btree (active, code)
     "ix_enterprise_group_role_code" UNIQUE, btree (code) WHERE active
 Policies:

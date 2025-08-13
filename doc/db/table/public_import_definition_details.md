@@ -23,6 +23,7 @@ Indexes:
     "import_definition_name_key" UNIQUE CONSTRAINT, btree (name)
     "import_definition_slug_key" UNIQUE CONSTRAINT, btree (slug)
     "ix_import_data_source_id" btree (data_source_id)
+    "ix_import_definition_active" btree (active)
     "ix_import_user_id" btree (user_id)
 Foreign-key constraints:
     "import_definition_data_source_id_fkey" FOREIGN KEY (data_source_id) REFERENCES data_source(id) ON DELETE RESTRICT

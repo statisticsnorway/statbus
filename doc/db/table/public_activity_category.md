@@ -18,7 +18,9 @@
 Indexes:
     "activity_category_pkey" PRIMARY KEY, btree (id)
     "activity_category_standard_id_path_active_key" UNIQUE CONSTRAINT, btree (standard_id, path, active)
+    "ix_activity_category_active" btree (active)
     "ix_activity_category_parent_id" btree (parent_id)
+    "ix_activity_category_standard_id" btree (standard_id)
 Foreign-key constraints:
     "activity_category_parent_id_fkey" FOREIGN KEY (parent_id) REFERENCES activity_category(id) ON DELETE RESTRICT
     "activity_category_standard_id_fkey" FOREIGN KEY (standard_id) REFERENCES activity_category_standard(id) ON DELETE RESTRICT

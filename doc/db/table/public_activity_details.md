@@ -22,10 +22,13 @@ Indexes:
     "activity_type_legal_unit_id_daterange_excl" EXCLUDE USING gist (type WITH =, legal_unit_id WITH =, daterange(valid_after, valid_to, '(]'::text) WITH &&) DEFERRABLE
     "activity_type_legal_unit_id_valid_after_valid_to_key" UNIQUE CONSTRAINT, btree (type, legal_unit_id, valid_after, valid_to) DEFERRABLE
     "ix_activity_category_id" btree (category_id)
+    "ix_activity_data_source_id" btree (data_source_id)
     "ix_activity_edit_by_user_id" btree (edit_by_user_id)
     "ix_activity_establishment_id" btree (establishment_id)
     "ix_activity_establishment_valid_after_valid_to" btree (establishment_id, valid_after, valid_to)
     "ix_activity_legal_unit_id" btree (legal_unit_id)
+    "ix_activity_legal_unit_id_valid_range" gist (legal_unit_id, daterange(valid_after, valid_to, '(]'::text))
+    "ix_activity_type" btree (type)
 Check constraints:
     "One and only one statistical unit id must be set" CHECK (establishment_id IS NOT NULL AND legal_unit_id IS NULL OR establishment_id IS NULL AND legal_unit_id IS NOT NULL)
     "activity_valid_check" CHECK (valid_after < valid_to)

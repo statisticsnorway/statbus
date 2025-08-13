@@ -12,6 +12,7 @@
  archived    | boolean           |           | not null | false
 Indexes:
     "stat_definition_pkey" PRIMARY KEY, btree (id)
+    "ix_stat_definition_type" btree (type)
     "stat_definition_code_key" UNIQUE CONSTRAINT, btree (code)
     "stat_definition_priority_key" UNIQUE CONSTRAINT, btree (priority)
 Referenced by:

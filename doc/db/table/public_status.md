@@ -14,6 +14,7 @@
  updated_at              | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
     "status_pkey" PRIMARY KEY, btree (id)
+    "ix_status_active" btree (active)
     "ix_status_only_one_assigned_by_default" UNIQUE, btree (assigned_by_default) WHERE active AND assigned_by_default
     "status_code_active_custom_key" UNIQUE CONSTRAINT, btree (code, active, custom)
 Referenced by:

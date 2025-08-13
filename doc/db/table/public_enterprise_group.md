@@ -23,6 +23,7 @@
 Indexes:
     "enterprise_group_id_daterange_excl" EXCLUDE USING gist (id WITH =, daterange(valid_after, valid_to, '(]'::text) WITH &&) DEFERRABLE
     "enterprise_group_id_valid_after_valid_to_key" UNIQUE CONSTRAINT, btree (id, valid_after, valid_to) DEFERRABLE
+    "ix_enterprise_group_active" btree (active)
     "ix_enterprise_group_data_source_id" btree (data_source_id)
     "ix_enterprise_group_edit_by_user_id" btree (edit_by_user_id)
     "ix_enterprise_group_enterprise_group_type_id" btree (enterprise_group_type_id)

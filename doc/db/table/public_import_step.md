@@ -8,6 +8,7 @@
  priority          | integer                  |           | not null | 
  analyse_procedure | regproc                  |           |          | 
  process_procedure | regproc                  |           |          | 
+ is_holistic       | boolean                  |           | not null | 
  created_at        | timestamp with time zone |           | not null | now()
  updated_at        | timestamp with time zone |           | not null | now()
 Indexes:

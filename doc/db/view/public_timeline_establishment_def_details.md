@@ -150,24 +150,24 @@ View definition:
     es.primary_for_legal_unit,
     COALESCE(get_jsonb_stats(es.id, NULL::integer, t.valid_after, t.valid_to), '{}'::jsonb) AS stats
    FROM timesegments t
-     JOIN establishment es ON t.unit_type = 'establishment'::statistical_unit_type AND t.unit_id = es.id AND after_to_overlaps(t.valid_after, t.valid_to, es.valid_after, es.valid_to)
-     LEFT JOIN activity pa ON pa.establishment_id = es.id AND pa.type = 'primary'::activity_type AND after_to_overlaps(t.valid_after, t.valid_to, pa.valid_after, pa.valid_to)
+     JOIN establishment es ON t.unit_type = 'establishment'::statistical_unit_type AND t.unit_id = es.id AND public.after_to_overlaps(t.valid_after, t.valid_to, es.valid_after, es.valid_to)
+     LEFT JOIN activity pa ON pa.establishment_id = es.id AND pa.type = 'primary'::activity_type AND public.after_to_overlaps(t.valid_after, t.valid_to, pa.valid_after, pa.valid_to)
      LEFT JOIN activity_category pac ON pa.category_id = pac.id
-     LEFT JOIN activity sa ON sa.establishment_id = es.id AND sa.type = 'secondary'::activity_type AND after_to_overlaps(t.valid_after, t.valid_to, sa.valid_after, sa.valid_to)
+     LEFT JOIN activity sa ON sa.establishment_id = es.id AND sa.type = 'secondary'::activity_type AND public.after_to_overlaps(t.valid_after, t.valid_to, sa.valid_after, sa.valid_to)
      LEFT JOIN activity_category sac ON sa.category_id = sac.id
      LEFT JOIN sector s ON es.sector_id = s.id
-     LEFT JOIN location phl ON phl.establishment_id = es.id AND phl.type = 'physical'::location_type AND after_to_overlaps(t.valid_after, t.valid_to, phl.valid_after, phl.valid_to)
+     LEFT JOIN location phl ON phl.establishment_id = es.id AND phl.type = 'physical'::location_type AND public.after_to_overlaps(t.valid_after, t.valid_to, phl.valid_after, phl.valid_to)
      LEFT JOIN region phr ON phl.region_id = phr.id
      LEFT JOIN country phc ON phl.country_id = phc.id
-     LEFT JOIN location pol ON pol.establishment_id = es.id AND pol.type = 'postal'::location_type AND after_to_overlaps(t.valid_after, t.valid_to, pol.valid_after, pol.valid_to)
+     LEFT JOIN location pol ON pol.establishment_id = es.id AND pol.type = 'postal'::location_type AND public.after_to_overlaps(t.valid_after, t.valid_to, pol.valid_after, pol.valid_to)
      LEFT JOIN region por ON pol.region_id = por.id
      LEFT JOIN country poc ON pol.country_id = poc.id
-     LEFT JOIN contact c ON c.establishment_id = es.id AND after_to_overlaps(t.valid_after, t.valid_to, c.valid_after, c.valid_to)
+     LEFT JOIN contact c ON c.establishment_id = es.id AND public.after_to_overlaps(t.valid_after, t.valid_to, c.valid_after, c.valid_to)
      LEFT JOIN unit_size us ON es.unit_size_id = us.id
      LEFT JOIN status st ON es.status_id = st.id
      LEFT JOIN LATERAL ( SELECT array_agg(DISTINCT sfu_1.data_source_id) FILTER (WHERE sfu_1.data_source_id IS NOT NULL) AS data_source_ids
            FROM stat_for_unit sfu_1
-          WHERE sfu_1.establishment_id = es.id AND after_to_overlaps(t.valid_after, t.valid_to, sfu_1.valid_after, sfu_1.valid_to)) sfu ON true
+          WHERE sfu_1.establishment_id = es.id AND public.after_to_overlaps(t.valid_after, t.valid_to, sfu_1.valid_after, sfu_1.valid_to)) sfu ON true
      LEFT JOIN LATERAL ( SELECT array_agg(ds_1.id) AS ids,
             array_agg(ds_1.code) AS codes
            FROM data_source ds_1

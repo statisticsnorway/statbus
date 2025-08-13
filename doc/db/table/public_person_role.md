@@ -11,6 +11,7 @@
  updated_at | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
     "person_role_pkey" PRIMARY KEY, btree (id)
+    "ix_person_role_active" btree (active)
     "ix_person_role_active_code" UNIQUE, btree (active, code)
     "person_role_code_key" UNIQUE CONSTRAINT, btree (code)
     "person_role_name_key" UNIQUE CONSTRAINT, btree (name)

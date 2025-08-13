@@ -11,6 +11,7 @@
  updated_at | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
     "legal_form_pkey" PRIMARY KEY, btree (id)
+    "ix_legal_form_active" btree (active)
     "ix_legal_form_active_code" UNIQUE, btree (active, code)
     "ix_legal_form_code" UNIQUE, btree (code) WHERE active
     "legal_form_code_active_custom_key" UNIQUE CONSTRAINT, btree (code, active, custom)

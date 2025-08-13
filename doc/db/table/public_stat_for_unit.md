@@ -22,6 +22,7 @@ Indexes:
     "ix_stat_for_unit_data_source_id" btree (data_source_id)
     "ix_stat_for_unit_establishment_id" btree (establishment_id)
     "ix_stat_for_unit_legal_unit_id" btree (legal_unit_id)
+    "ix_stat_for_unit_legal_unit_id_valid_range" gist (legal_unit_id, daterange(valid_after, valid_to, '(]'::text))
     "ix_stat_for_unit_stat_definition_id" btree (stat_definition_id)
     "stat_for_unit_id_daterange_excl" EXCLUDE USING gist (id WITH =, daterange(valid_after, valid_to, '(]'::text) WITH &&) DEFERRABLE
     "stat_for_unit_id_valid_after_valid_to_key" UNIQUE CONSTRAINT, btree (id, valid_after, valid_to) DEFERRABLE

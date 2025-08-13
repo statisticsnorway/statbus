@@ -34,6 +34,13 @@ BEGIN
         NEW.changes_rejected_at := v_timestamp;
     END IF;
 
+    -- When a job is finished, waiting, or rejected, it is no longer actively processing a step.
+    -- Clear the current step tracking fields.
+    IF NEW.state IN ('waiting_for_review', 'finished', 'rejected') THEN
+        NEW.current_step_code := NULL;
+        NEW.current_step_priority := NULL;
+    END IF;
+
     -- Record start timestamp for processing_data state
     IF NEW.state = 'processing_data' AND NEW.processing_start_at IS NULL THEN
         NEW.processing_start_at := v_timestamp;
@@ -45,12 +52,17 @@ BEGIN
         EXECUTE format('SELECT COUNT(*) FROM public.%I', NEW.upload_table_name) INTO v_row_count;
         NEW.total_rows := v_row_count;
 
+        -- Calculate total weighted steps now that total_rows is known
+        IF NEW.max_analysis_priority IS NOT NULL AND v_row_count > 0 THEN
+            NEW.total_analysis_steps_weighted := v_row_count * NEW.max_analysis_priority;
+        END IF;
+
         -- Set priority using the dedicated sequence
         -- Lower values = higher priority, so earlier jobs get lower sequence values
         -- This ensures jobs are processed in the order they were created
         NEW.priority := nextval('public.import_job_priority_seq')::integer;
 
-        RAISE DEBUG 'Set total_rows to % for import job %', v_row_count, NEW.id;
+        RAISE DEBUG 'Set total_rows to % and calculated total weighted steps for import job %', v_row_count, NEW.id;
     END IF;
 
     RETURN NEW;

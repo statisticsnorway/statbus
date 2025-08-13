@@ -25,6 +25,7 @@ Indexes:
     "ix_contact_edit_by_user_id" btree (edit_by_user_id)
     "ix_contact_establishment_id" btree (establishment_id)
     "ix_contact_legal_unit_id" btree (legal_unit_id)
+    "ix_contact_legal_unit_id_valid_range" gist (legal_unit_id, daterange(valid_after, valid_to, '(]'::text))
 Check constraints:
     "One and only one statistical unit id must be set" CHECK (establishment_id IS NOT NULL AND legal_unit_id IS NULL OR establishment_id IS NULL AND legal_unit_id IS NOT NULL)
     "One information must be provided" CHECK (web_address IS NOT NULL OR email_address IS NOT NULL OR phone_number IS NOT NULL OR landline IS NOT NULL OR mobile_number IS NOT NULL OR fax_number IS NOT NULL)
