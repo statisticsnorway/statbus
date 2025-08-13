@@ -359,7 +359,17 @@ BEGIN
 
             IF FOUND THEN
                 RAISE DEBUG '[Job %] process_establishment: Identified % ESTs for PFLU demotion.', p_job_id, (SELECT count(*) FROM temp_es_demotion_ops);
-                FOR v_batch_result IN SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table('public','establishment','pg_temp','temp_es_demotion_ops','id','[]'::jsonb,ARRAY['edit_comment','edit_by_user_id','edit_at']) LOOP
+                FOR v_batch_result IN
+                    SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
+                        p_target_schema_name => 'public',
+                        p_target_table_name => 'establishment',
+                        p_source_schema_name => 'pg_temp',
+                        p_source_table_name => 'temp_es_demotion_ops',
+                        p_unique_columns => '[]'::jsonb,
+                        p_ephemeral_columns => ARRAY['edit_comment','edit_by_user_id','edit_at'],
+                        p_id_column_name => 'id'
+                    )
+                LOOP
                     IF v_batch_result.status = 'ERROR' THEN RAISE WARNING '[Job %] process_establishment: Error PFLU demotion EST ID %: %', p_job_id,v_batch_result.upserted_record_id,v_batch_result.error_message;
                     ELSE RAISE DEBUG '[Job %] process_establishment: Success PFLU demotion EST ID %',p_job_id,v_batch_result.upserted_record_id; END IF;
                 END LOOP;
@@ -393,7 +403,17 @@ BEGIN
 
             IF FOUND THEN
                 RAISE DEBUG '[Job %] process_establishment: Identified % informal ESTs for PFE demotion.', p_job_id, (SELECT count(*) FROM temp_es_demotion_ops);
-                FOR v_batch_result IN SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table('public','establishment','pg_temp','temp_es_demotion_ops','id','[]'::jsonb,ARRAY['edit_comment','edit_by_user_id','edit_at']) LOOP
+                FOR v_batch_result IN
+                    SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
+                        p_target_schema_name => 'public',
+                        p_target_table_name => 'establishment',
+                        p_source_schema_name => 'pg_temp',
+                        p_source_table_name => 'temp_es_demotion_ops',
+                        p_unique_columns => '[]'::jsonb,
+                        p_ephemeral_columns => ARRAY['edit_comment','edit_by_user_id','edit_at'],
+                        p_id_column_name => 'id'
+                    )
+                LOOP
                     IF v_batch_result.status = 'ERROR' THEN RAISE WARNING '[Job %] process_establishment: Error PFE demotion EST ID %: %',p_job_id,v_batch_result.upserted_record_id,v_batch_result.error_message;
                     ELSE RAISE DEBUG '[Job %] process_establishment: Success PFE demotion EST ID %',p_job_id,v_batch_result.upserted_record_id; END IF;
                 END LOOP;
@@ -547,12 +567,13 @@ BEGIN
             RAISE DEBUG '[Job %] process_establishment: Calling batch_insert_or_replace_generic_valid_time_table for establishment.', p_job_id;
             FOR v_batch_upsert_result IN
                 SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
-                    p_target_schema_name => 'public', p_target_table_name => 'establishment',
-                    p_source_schema_name => 'pg_temp', p_source_table_name => 'temp_est_upsert_source',
-                    p_id_column_name => 'id', -- Ensure this is the PK in temp_est_upsert_source
+                    p_target_schema_name => 'public',
+                    p_target_table_name => 'establishment',
+                    p_source_schema_name => 'pg_temp',
+                    p_source_table_name => 'temp_est_upsert_source',
                     p_unique_columns => '[]'::jsonb,
-                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
-                    -- p_source_row_id_column_name, p_temporal_columns, p_founding_row_id_column_name are removed
+                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
+                    p_id_column_name => 'id'
                 )
             LOOP
                 IF v_batch_upsert_result.status = 'ERROR' THEN

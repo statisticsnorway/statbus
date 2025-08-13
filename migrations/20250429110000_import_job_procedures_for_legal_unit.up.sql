@@ -445,11 +445,13 @@ BEGIN
 
             FOR v_batch_result IN
                 SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
-                    p_target_schema_name => 'public', p_target_table_name => 'legal_unit',
-                    p_source_schema_name => 'pg_temp', p_source_table_name => 'temp_lu_demotion_ops',
-                    p_id_column_name => 'id',
+                    p_target_schema_name => 'public',
+                    p_target_table_name => 'legal_unit',
+                    p_source_schema_name => 'pg_temp',
+                    p_source_table_name => 'temp_lu_demotion_ops',
                     p_unique_columns => '[]'::jsonb,
-                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
+                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
+                    p_id_column_name => 'id'
                 )
             LOOP
                 IF v_batch_result.status = 'ERROR' THEN
@@ -582,12 +584,13 @@ BEGIN
             RAISE DEBUG '[Job %] process_legal_unit: Calling batch_insert_or_replace_generic_valid_time_table for legal_unit (replace).', p_job_id;
             FOR v_batch_result IN
                 SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
-                    p_target_schema_name => 'public', p_target_table_name => 'legal_unit',
-                    p_source_schema_name => 'pg_temp', p_source_table_name => 'temp_lu_replace_source',
-                    p_id_column_name => 'id', -- Ensure this is the PK in temp_lu_replace_source
+                    p_target_schema_name => 'public',
+                    p_target_table_name => 'legal_unit',
+                    p_source_schema_name => 'pg_temp',
+                    p_source_table_name => 'temp_lu_replace_source',
                     p_unique_columns => '[]'::jsonb,
-                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
-                    -- p_source_row_id_column_name, p_temporal_columns, p_founding_row_id_column_name are removed
+                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
+                    p_id_column_name => 'id'
                 )
             LOOP
                 IF v_batch_result.status = 'ERROR' THEN
@@ -687,7 +690,6 @@ BEGIN
                     p_id_column_name => 'id', -- Ensure this is the PK in temp_lu_update_source
                     p_unique_columns => '[]'::jsonb,
                     p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at', 'primary_for_enterprise', 'invalid_codes']
-                    -- p_source_row_id_column_name, p_temporal_columns, p_founding_row_id_column_name are removed
                 )
             LOOP
                 IF v_batch_result.status = 'ERROR' THEN
