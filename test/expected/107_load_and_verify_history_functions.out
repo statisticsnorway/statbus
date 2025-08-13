@@ -14260,6 +14260,196 @@ stats_summary   | {                                           +
                 |     }                                       +
                 | }
 
+\x
+\echo "Test statistical_unit_history"
+"Test statistical_unit_history"
+WITH selected_enterprise AS (
+     SELECT unit_id FROM public.statistical_unit
+     WHERE external_idents ->> 'tax_ident' = '921835809'
+       AND unit_type = 'enterprise'
+     ORDER BY valid_from
+     LIMIT 1
+)
+SELECT jsonb_pretty(
+    public.remove_ephemeral_data_from_hierarchy(
+        jsonb_agg(h ORDER BY (h->>'valid_from')::date)
+    )
+) AS history
+FROM public.statistical_unit_history(
+    (SELECT unit_id FROM selected_enterprise),
+    'enterprise'
+) AS h;
+                 history                  
+------------------------------------------
+ [                                       +
+     {                                   +
+         "name": "KRAN & SPESIALLØFT AS",+
+         "Turnover": 3000000,            +
+         "Employees": 3,                 +
+         "valid_from": "2013-01-01"      +
+     },                                  +
+     {                                   +
+         "name": "KRAN & SPESIALLØFT AS",+
+         "Turnover": 12000000,           +
+         "Employees": 9,                 +
+         "valid_from": "2016-01-01"      +
+     },                                  +
+     {                                   +
+         "name": "KRAN & SPESIALLØFT AS",+
+         "Turnover": 60000000,           +
+         "Employees": 25,                +
+         "valid_from": "2019-01-01"      +
+     },                                  +
+     {                                   +
+         "name": "KRAN & SPESIALLØFT AS",+
+         "Turnover": 60000000,           +
+         "Employees": 30,                +
+         "valid_from": "2019-03-01"      +
+     },                                  +
+     {                                   +
+         "name": "KRAN & SPESIALLØFT AS",+
+         "Turnover": 60000000,           +
+         "Employees": 35,                +
+         "valid_from": "2019-05-01"      +
+     },                                  +
+     {                                   +
+         "name": "KRAN & SPESIALLØFT AS",+
+         "Turnover": 60000000,           +
+         "Employees": 40,                +
+         "valid_from": "2019-07-01"      +
+     },                                  +
+     {                                   +
+         "name": "KRAN & SPESIALLØFT AS",+
+         "Turnover": 60000000,           +
+         "Employees": 50,                +
+         "valid_from": "2019-09-01"      +
+     },                                  +
+     {                                   +
+         "name": "KRAN & SPESIALLØFT AS",+
+         "Turnover": 60000000,           +
+         "Employees": 40,                +
+         "valid_from": "2019-11-01"      +
+     },                                  +
+     {                                   +
+         "name": "KRAN & SPESIALLØFT AS",+
+         "Turnover": 70000000,           +
+         "Employees": 45,                +
+         "valid_from": "2020-01-01"      +
+     }                                   +
+ ]
+(1 row)
+
+\x
+\x
+\echo "Test statistical_unit_history_highcharts"
+"Test statistical_unit_history_highcharts"
+WITH selected_enterprise AS (
+     SELECT unit_id FROM public.statistical_unit
+     WHERE external_idents ->> 'tax_ident' = '921835809'
+       AND unit_type = 'enterprise'
+     ORDER BY valid_from
+     LIMIT 1
+)
+SELECT jsonb_pretty(
+    public.remove_ephemeral_data_from_hierarchy(
+        public.statistical_unit_history_highcharts(
+            (SELECT unit_id FROM selected_enterprise),
+            'enterprise'
+        )
+    )
+) AS highcharts_history;
+            highcharts_history            
+------------------------------------------
+ {                                       +
+     "series": [                         +
+         {                               +
+             "data": [                   +
+                 [                       +
+                     1356998400000,      +
+                     3                   +
+                 ],                      +
+                 [                       +
+                     1451606400000,      +
+                     9                   +
+                 ],                      +
+                 [                       +
+                     1546300800000,      +
+                     25                  +
+                 ],                      +
+                 [                       +
+                     1551398400000,      +
+                     30                  +
+                 ],                      +
+                 [                       +
+                     1556668800000,      +
+                     35                  +
+                 ],                      +
+                 [                       +
+                     1561939200000,      +
+                     40                  +
+                 ],                      +
+                 [                       +
+                     1567296000000,      +
+                     50                  +
+                 ],                      +
+                 [                       +
+                     1572566400000,      +
+                     40                  +
+                 ],                      +
+                 [                       +
+                     1577836800000,      +
+                     45                  +
+                 ]                       +
+             ],                          +
+             "name": "Employees"         +
+         },                              +
+         {                               +
+             "data": [                   +
+                 [                       +
+                     1356998400000,      +
+                     3000000             +
+                 ],                      +
+                 [                       +
+                     1451606400000,      +
+                     12000000            +
+                 ],                      +
+                 [                       +
+                     1546300800000,      +
+                     60000000            +
+                 ],                      +
+                 [                       +
+                     1551398400000,      +
+                     60000000            +
+                 ],                      +
+                 [                       +
+                     1556668800000,      +
+                     60000000            +
+                 ],                      +
+                 [                       +
+                     1561939200000,      +
+                     60000000            +
+                 ],                      +
+                 [                       +
+                     1567296000000,      +
+                     60000000            +
+                 ],                      +
+                 [                       +
+                     1572566400000,      +
+                     60000000            +
+                 ],                      +
+                 [                       +
+                     1577836800000,      +
+                     70000000            +
+                 ]                       +
+             ],                          +
+             "name": "Turnover"          +
+         }                               +
+     ],                                  +
+     "unit_name": "KRAN & SPESIALLØFT AS"+
+ }
+(1 row)
+
+\x
 \i test/rollback_unless_persist_is_specified.sql
 ---------------------------------------------------------------------------
 -- Support development loading of the data without rollback using
