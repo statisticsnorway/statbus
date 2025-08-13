@@ -32,10 +32,44 @@ You can also write out to a test.sql file for complex queries and use it like so
       ```
 - **Function Calls**: For calls with 3+ arguments, use named arguments (e.g., `arg1 => val1`).
 - **String Literals for `format()`**:
-    - Use dollar-quoting (e.g., `format($$ ... $$)`) for `format()` strings to allow unescaped single quotes within.
-    - For `format()` calls with multiple parameters, especially if parameters are repeated or the string is complex, use numbered arguments.
-      For example: `format('Testing %3$s, %2$s, %1$s', 'one' /* %1 */, 'two' /* %2 */, 'three' /* %3 */);`
-      This improves readability and maintainability.
+    - Always prefer dollar-quoting (e.g., `format($$ ... $$)`) for the main dynamic SQL string. This avoids having to escape single quotes inside the SQL.
+    - For `format()` calls with multiple parameters, especially if parameters repeat, use numbered placeholders for clarity:
+      - `%1$I` for the 1st parameter as an identifier, `%2$L` for the 2nd as a literal, `%3$s` for the 3rd as a plain string, etc.
+      - Example: `format($$Testing %3$s, %2$s, %1$s$$, 'one' /* %1 */, 'two' /* %2 */, 'three' /* %3 */);`
+    - Prefer parameter binding with `EXECUTE ... USING` for large arrays or values rather than interpolating with `%L` where possible.
+
+    Good
+    ```sql
+    -- Dollar-quoted format() string; identifier and literal are numbered; batch array is passed via USING.
+    EXECUTE format($$
+        UPDATE public.%1$I AS dt SET
+            last_completed_priority = %2$L
+        WHERE dt.row_id = ANY($1) AND dt.action = 'skip'
+    $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */)
+    USING p_batch_row_ids;
+    ```
+
+    Also good (embedding quotes safely without doubling them)
+    ```sql
+    EXECUTE format($$
+        UPDATE public.%1$I AS dt SET
+            error = COALESCE(dt.error, '{}'::jsonb) ||
+                    jsonb_build_object('status_code', 'Provided status_code not found and no default available'),
+            state = 'error'
+        WHERE dt.row_id = ANY($1) AND dt.status_code IS NOT NULL
+    $$, v_data_table_name)
+    USING p_batch_row_ids;
+    ```
+
+    Avoid
+    ```sql
+    -- Hard to read and easy to break: manual '' escaping inside single-quoted format string
+    EXECUTE format('UPDATE public.%s SET note = ''it'''''s broken'' WHERE id = %s', tbl, id);
+    ```
+
+    Notes
+    - Use `%I` for identifiers, `%L` for SQL literals, and `%s` for raw string insertion.
+    - Keep the SQL readable by aligning numbered placeholders with inline comments that show which parameter they refer to.
 - **Table Aliases**: Prefer explicit `AS` for table aliases, e.g., `FROM my_table AS mt`. For common data table aliases in import procedures, `AS dt` is preferred.
 - **Batch Operations**: Utilize PostgreSQL 17+ `MERGE` syntax for efficient batch handling where appropriate.
 - **Database Inspection**: Use `psql` for direct database inspection and querying during development. For example, to list available import definitions: `echo 'SELECT slug, name FROM public.import_definition;' | ./devops/manage-statbus.sh psql`
