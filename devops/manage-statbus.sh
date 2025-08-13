@@ -260,7 +260,7 @@ case "$action" in
 
         for test_basename in $TEST_BASENAMES; do
             expected_file="$PG_REGRESS_DIR/expected/$test_basename.out"
-            if [ ! -f "$expected_file" ]; then
+            if [ ! -f "$expected_file" ] && [ -f "$PG_REGRESS_DIR/sql/$test_basename.sql" ]; then
                 echo "Warning: Expected output file $expected_file not found. Creating an empty placeholder."
                 touch "$expected_file"
             fi
