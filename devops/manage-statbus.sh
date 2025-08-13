@@ -510,23 +510,27 @@ EOS
         find doc/db -type f -delete
 
         # Get list of all tables, materialized views, and regular views from specified schemas
-        tables=$(./devops/manage-statbus.sh psql -t -c "
-          (SELECT schemaname || '.' || tablename
-           FROM pg_catalog.pg_tables
-           WHERE schemaname IN ('admin', 'db', 'lifecycle_callbacks', 'public', 'auth'))
+        tables=$(./devops/manage-statbus.sh psql -t <<'EOS'
+          SELECT schemaname || '.' || tablename
+          FROM pg_catalog.pg_tables
+          WHERE schemaname IN ('admin', 'db', 'lifecycle_callbacks', 'public', 'auth')
           UNION ALL
-          (SELECT schemaname || '.' || matviewname
-           FROM pg_catalog.pg_matviews
-           WHERE schemaname IN ('admin', 'db', 'lifecycle_callbacks', 'public', 'auth'))
-          ORDER BY 1;")
+          SELECT schemaname || '.' || matviewname
+          FROM pg_catalog.pg_matviews
+          WHERE schemaname IN ('admin', 'db', 'lifecycle_callbacks', 'public', 'auth')
+          ORDER BY 1;
+EOS
+)
 
-        views=$(./devops/manage-statbus.sh psql -t -c "
+        views=$(./devops/manage-statbus.sh psql -t <<'EOS'
           SELECT schemaname || '.' || viewname
           FROM pg_catalog.pg_views
           WHERE schemaname IN ('admin', 'db', 'lifecycle_callbacks', 'public', 'auth')
             AND viewname NOT LIKE 'hypopg_%'
             AND viewname NOT LIKE 'pg_stat_%'
-          ORDER BY 1;")
+          ORDER BY 1;
+EOS
+)
 
         # Document each table
         echo "$tables" | while read -r table; do
@@ -577,8 +581,9 @@ EOS
         done
 
         # Get and document functions
-        functions=$(./devops/manage-statbus.sh psql -t -c "
-          SELECT n.nspname || '.' || p.proname || '(' ||
+        functions=$(./devops/manage-statbus.sh psql -t <<'EOS'
+          SELECT regexp_replace(
+            n.nspname || '.' || p.proname || '(' ||
             regexp_replace(
               regexp_replace(
                 regexp_replace(
@@ -587,14 +592,15 @@ EOS
                   'timestamptz',
                   'g'
                 ),
-                ',?\s*OUT [^,\$]+|\s*DEFAULT [^,\$]+|IN (\w+\s+)|INOUT (\w+\s+)',
+                ',?\s*OUT [^,]+|\s*DEFAULT [^,]+|IN (\w+\s+)|INOUT (\w+\s+)',
                 '\1',
                 'g'
               ),
-              '\w+\s+(\w+)',
+              '\w+\s+([^,]+)',
               '\1',
               'g'
-            ) || ')'
+            ) || ')',
+            '"', '', 'g')
           FROM pg_proc p
           JOIN pg_namespace n ON p.pronamespace = n.oid
           WHERE n.nspname IN ('admin', 'db', 'lifecycle_callbacks', 'public', 'auth')
@@ -657,7 +663,9 @@ EOS
               (n.nspname = 'public' AND p.proname = 'verify') OR
               (n.nspname = 'public' AND p.proname LIKE 'word\_similarity%')
           )
-          ORDER BY 1;")
+          ORDER BY 1;
+EOS
+)
 
         echo "$functions" | while read -r func; do
           if [ ! -z "$func" ]; then
