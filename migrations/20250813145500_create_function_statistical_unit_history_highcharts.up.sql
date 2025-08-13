@@ -13,7 +13,7 @@ BEGIN;
 
 CREATE OR REPLACE FUNCTION public.statistical_unit_history(
     p_unit_id int,
-    p_unit_type statistical_unit_type
+    p_unit_type public.statistical_unit_type
 )
 RETURNS SETOF jsonb
 LANGUAGE plpgsql AS $statistical_unit_history$
@@ -67,7 +67,7 @@ $statistical_unit_history$;
 
 CREATE OR REPLACE FUNCTION public.statistical_unit_history_highcharts(
     p_unit_id int,
-    p_unit_type statistical_unit_type
+    p_unit_type public.statistical_unit_type
 )
 RETURNS jsonb
 LANGUAGE plpgsql AS $statistical_unit_history_highcharts$
@@ -82,7 +82,7 @@ BEGIN
     -- 1. Get the latest name from statistical_unit_history()
     SELECT j->>'name'
     INTO latest_name
-    FROM statistical_unit_history(p_unit_id, p_unit_type) AS t(j)
+    FROM public.statistical_unit_history(p_unit_id, p_unit_type) AS t(j)
     ORDER BY (j->>'valid_from')::date DESC
     LIMIT 1;
 
