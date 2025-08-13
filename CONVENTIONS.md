@@ -33,6 +33,7 @@ You can also write out to a test.sql file for complex queries and use it like so
 - **Function Calls**: For calls with 3+ arguments, use named arguments (e.g., `arg1 => val1`).
 - **String Literals for `format()`**:
     - Always prefer dollar-quoting (e.g., `format($$ ... $$)`) for the main dynamic SQL string. This avoids having to escape single quotes inside the SQL.
+    - **Nesting**: When nesting dollar-quoted strings (e.g., a dynamic SQL string that itself contains another `format()` call), use named dollar quotes for the outer string to avoid conflicts. The convention is to use a descriptive name like `$SQL$` or `$jsonb_expr$`. This is especially common inside function bodies, which already use a named quote (e.g., `$function_name$`).
     - For `format()` calls with multiple parameters, especially if parameters repeat, use numbered placeholders for clarity:
       - `%1$I` for the 1st parameter as an identifier, `%2$L` for the 2nd as a literal, `%3$s` for the 3rd as a plain string, etc.
       - Example: `format($$Testing %3$s, %2$s, %1$s$$, 'one' /* %1 */, 'two' /* %2 */, 'three' /* %3 */);`
@@ -59,6 +60,14 @@ You can also write out to a test.sql file for complex queries and use it like so
         WHERE dt.row_id = ANY($1) AND dt.status_code IS NOT NULL
     $$, v_data_table_name)
     USING p_batch_row_ids;
+    ```
+
+    Also good (nested dollar-quoting)
+    ```sql
+    -- The outer string uses a named quote ($jsonb_expr$) to avoid conflicting with the inner $$
+    v_error_sql := $jsonb_expr$
+        jsonb_build_object('latitude', CASE ... THEN format($$Value %1$s out of range$$, lat_val) ... END)
+    $jsonb_expr$;
     ```
 
     Avoid
@@ -100,10 +109,5 @@ For more details, see the main `README.md` file or run `./cli/bin/statbus migrat
 - **Fail Fast**:
   - Functionality that is expected to work should fail immediately and clearly if an unexpected state or error occurs.
   - Do not mask or work around problems; instead, provide sufficient error or debugging information to facilitate a solution. This is crucial for maintaining system integrity and simplifying troubleshooting, especially in backend processes and SQL procedures.
-- **Dialogue Language**:
-  - All development-related dialogue, including interactions with AI assistants, should be conducted in English to ensure clarity and broad understanding.
 - **Declarative Transparency**:
   - Where possible, store the inputs and intermediate results of complex calculations directly on the relevant records. This makes the system's state self-documenting and easier to debug, inspect, and trust, rather than relying on dynamic calculations that can appear magical.
-
-## Development Notes
-When CWD is the app dir then shell commands must remove the initial 'app/' from paths.
