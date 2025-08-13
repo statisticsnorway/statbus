@@ -204,6 +204,7 @@ case "$action" in
         if [ ${#ORIGINAL_ARGS[@]} -eq 0 ]; then
             echo "Available tests:"
             echo "all"
+            echo "fast"
             echo "failed"
             basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql
             exit 0
@@ -225,6 +226,43 @@ case "$action" in
                     fi
                 done
                 
+                if [ "$exclude" = "false" ]; then
+                    TEST_BASENAMES="$TEST_BASENAMES $test"
+                fi
+            done
+        elif [ "${ORIGINAL_ARGS[0]}" = "fast" ]; then
+            # Get all tests
+            ALL_TESTS=$(basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql)
+
+            # Define slow tests to exclude
+            SLOW_TESTS=(
+                "309_import_jobs_for_norway_history"
+                "310_import_jobs_for_brreg_selection"
+                "311_import_jobs_for_brreg_downloads"
+            )
+
+            # Process exclusions
+            TEST_BASENAMES=""
+            for test in $ALL_TESTS; do
+                exclude=false
+                # Check against hardcoded slow tests
+                for slow_test in "${SLOW_TESTS[@]}"; do
+                    if [ "$test" = "$slow_test" ]; then
+                        exclude=true
+                        break
+                    fi
+                done
+
+                # Check against additional user-provided exclusions, if any
+                if [ "$exclude" = "false" ]; then
+                    for arg in "${ORIGINAL_ARGS[@]:1}"; do  # Skip the first arg which is "fast"
+                        if [ "$arg" = "-$test" ]; then
+                            exclude=true
+                            break
+                        fi
+                    done
+                fi
+
                 if [ "$exclude" = "false" ]; then
                     TEST_BASENAMES="$TEST_BASENAMES $test"
                 fi
