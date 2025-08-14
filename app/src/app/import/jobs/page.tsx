@@ -172,19 +172,32 @@ export default function ImportJobsPage() {
   const jobsData = data?.data ?? [];
   const totalJobs = data?.count ?? 0;
 
-  useEffect(() => {
-    if (isLoading || jobsData.length === 0) return;
+  // Memoize the job IDs string to prevent re-renders from creating a new SSE connection.
+  const jobIdsForSSE = useMemo(() => jobsData.map(job => job.id).join(','), [jobsData]);
 
-    const jobIds = jobsData.map(job => job.id).join(',');
-    const sseUrl = `/api/sse/import-jobs?ids=${jobIds}`;
+  useEffect(() => {
+    // We wait for the initial load to complete before establishing the SSE connection.
+    // This ensures we have the list of jobs to get UPDATES for.
+    // If jobsData is empty after loading, we still connect to get INSERTs.
+    if (isLoading) return;
+
+    // Use the memoized string for the SSE URL
+    const sseUrl = `/api/sse/import-jobs?ids=${jobIdsForSSE}&scope=updates_and_all_inserts`;
     const source = new EventSource(sseUrl);
     eventSourceRef.current = source;
+
+    source.addEventListener('heartbeat', (event) => {
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        const heartbeat = JSON.parse(event.data);
+        console.log("SSE Heartbeat on jobs page:", heartbeat);
+      }
+    });
 
     source.onmessage = (event) => {
       try {
         if (!event.data) return;
         const ssePayload = JSON.parse(event.data);
-        if (ssePayload.type === "connection_established" || event.type === "heartbeat") return;
+        if (ssePayload.type === "connection_established") return;
 
         if (!ssePayload.verb || !ssePayload.import_job) {
           console.error("Invalid SSE payload", ssePayload);
@@ -235,7 +248,7 @@ export default function ImportJobsPage() {
     return () => {
       eventSourceRef.current?.close();
     };
-  }, [isLoading, mutate, swrKey, jobsData]);
+  }, [isLoading, mutate, swrKey, jobIdsForSSE]);
 
   // Ref to hold the current SWR key, allows handleDeleteJobs to be stable
   const swrKeyRef = useRef(swrKey);

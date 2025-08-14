@@ -130,7 +130,7 @@ export default function EstablishmentsWithoutLegalUnitUploadPage({
       }
 
       console.log(`Creating SSE connection for job ${jobId}`);
-      const newEventSource = new EventSource(`/api/sse/import-jobs?ids=${jobId}`);
+      const newEventSource = new EventSource(`/api/sse/import-jobs?ids=${jobId}&scope=updates_for_ids_only`);
       eventSourceRef.current = newEventSource;
 
       newEventSource.addEventListener("heartbeat", (event) => {

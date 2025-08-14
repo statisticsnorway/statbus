@@ -18,6 +18,8 @@ services:
       POSTGRES_APP_DB: ${POSTGRES_APP_DB:-statbus_${DEPLOYMENT_SLOT_CODE:?DEPLOYMENT_SLOT_CODE must be set in the generated .env}}
       POSTGRES_APP_USER: ${POSTGRES_APP_USER:-statbus_${DEPLOYMENT_SLOT_CODE:?DEPLOYMENT_SLOT_CODE must be set in the generated .env}}
       POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:?POSTGRES_APP_PASSWORD must be set in the generated .env}
+      POSTGRES_NOTIFY_USER: ${POSTGRES_NOTIFY_USER:?POSTGRES_NOTIFY_USER must be set in the generated .env}
+      POSTGRES_NOTIFY_PASSWORD: ${POSTGRES_NOTIFY_PASSWORD:?POSTGRES_NOTIFY_PASSWORD must be set in the generated .env}
       POSTGRES_AUTHENTICATOR_PASSWORD: ${POSTGRES_AUTHENTICATOR_PASSWORD:?POSTGRES_AUTHENTICATOR_PASSWORD must be set in the generated .env}
       POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?POSTGRES_ADMIN_PASSWORD must be set in the generated .env}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in the generated .env}

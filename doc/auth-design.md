@@ -225,6 +225,17 @@ Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, wi
             *   Returns an `auth.auth_response` object indicating successful authentication and providing new user/token details.
         *   **Password Change Invalidation:** If the user's password has been changed, all their existing refresh sessions are deleted. Subsequent refresh attempts with old tokens will fail, typically resulting in `REFRESH_SESSION_INVALID_OR_SUPERSEDED`.
 
+## Background Service Authentication
+
+*   **Context:** Background processes, such as the `worker` service or the `db-listener` singleton running within the Next.js process, operate outside of any user's request-response cycle. They do not have access to a user's cookies or JWT.
+*   **Mechanism & Security Implications:**
+    *   **Direct DB Connection:** These services establish a **direct, raw connection to the PostgreSQL database** using a library like `pg`.
+    *   **Dedicated Listener User:** To follow the Principle of Least Privilege, the `db-listener` uses a dedicated, non-privileged user (e.g., `statbus_notify_dev`) whose credentials (`POSTGRES_NOTIFY_USER`, `POSTGRES_NOTIFY_PASSWORD`) are provided via environment variables. This user has a role (`notify_reader`) that only grants `CONNECT`, `USAGE` on the schema, and `SELECT` on specific tables needed for enriching notifications (e.g., `import_job`). It does **not** have write permissions.
+    *   **System-Level vs. User-Level Actions:**
+        *   **Listener (`db-listener.ts`):** Correctly uses the dedicated `POSTGRES_NOTIFY_USER` for its raw connection. This connection is sufficient for its purpose: `LISTEN`ing for notifications and `SELECT`ing data to enrich payloads.
+        *   **Server-Side User Data Fetching:** For any server-side logic that needs to fetch data on behalf of a user and **must** respect Row-Level Security (RLS), it is **critical** to use `getServerRestClient()`. This client uses the user's JWT from cookies to authenticate through PostgREST, which correctly applies the user's specific role and RLS policies for the database transaction.
+        *   **Privileged Background Jobs (`worker`):** The separate `worker` service, which performs tasks like database migrations or complex data processing, may still use a more privileged user like `POSTGRES_APP_USER` for its operations, as it needs write access.
+
 ## Key Configuration Points
 
 *   **JWT Secrets:**

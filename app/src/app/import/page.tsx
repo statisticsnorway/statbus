@@ -18,8 +18,8 @@ export default function ImportPage() {
         eventSource.close();
       }
       
-      // Connect to SSE endpoint with empty job list to listen for new jobs
-      eventSource = new EventSource('/api/sse/import-jobs');
+      // Connect to SSE endpoint to listen for new jobs (all INSERTs)
+      eventSource = new EventSource('/api/sse/import-jobs?scope=updates_and_all_inserts');
       
       eventSource.onmessage = (event) => {
         try {
@@ -31,23 +31,24 @@ export default function ImportPage() {
           }
           
           // Handle new job notifications (INSERT)
-          if (data.verb === 'INSERT' && data.id) {
+          if (data.verb === 'INSERT' && data.import_job?.id) {
             console.log('New import job detected:', data);
+            const newJob = data.import_job;
             setNewJobs(prev => {
               // Only add if not already in the list
-              if (!prev.includes(data.id)) {
-                return [...prev, data.id];
+              if (!prev.includes(newJob.id)) {
+                return [...prev, newJob.id];
               }
               return prev;
             });
-            
+
             // If the job slug matches our pattern, we might want to redirect
-            if (data.slug && (
-                data.slug.startsWith('import_lu_') || 
-                data.slug.startsWith('import_es_')
+            if (newJob.slug && (
+                newJob.slug.startsWith('import_lu_') ||
+                newJob.slug.startsWith('import_es_')
             )) {
               // Optional: redirect to the job details page
-              // router.push(`/import/jobs/${data.id}`);
+              // router.push(`/import/jobs/${newJob.id}`);
             }
           }
         } catch (error) {

@@ -7,15 +7,14 @@
  */
 
 import { Client } from 'pg';
-import { getServerRestClient } from '@/context/RestClientStore';
-import { Tables } from '@/lib/database.types';
+import { Tables, type Database } from '@/lib/database.types';
 import { type ImportJobWithDetails } from '@/atoms/import';
 
 // Extend the global NodeJS namespace to declare our custom properties
 // This helps persist state across hot module reloads in development
 declare global {
   // eslint-disable-next-line no-var
-  var __dbListenerCallbacks: Set<NotificationCallback> | undefined;
+  var __dbListenerCallbacks: Map<string, Set<NotificationCallback>> | undefined;
   // eslint-disable-next-line no-var
   var __dbListenerClient: Client | null | undefined;
   // eslint-disable-next-line no-var
@@ -47,9 +46,9 @@ function getRequiredEnvVar(varName: string): string {
 export function getDbHostPort() {
   // Use helper for required variables to ensure they exist and narrow types
   const dbName = getRequiredEnvVar('POSTGRES_APP_DB'); // Use the app-specific DB
-  const dbUser = getRequiredEnvVar('POSTGRES_APP_USER');
+  const dbUser = getRequiredEnvVar('POSTGRES_NOTIFY_USER');
   // Password might be optional in some environments (e.g., local dev with trust auth)
-  const dbPassword = process.env.POSTGRES_APP_PASSWORD || ''; // Default to empty string if not set
+  const dbPassword = process.env.POSTGRES_NOTIFY_PASSWORD || ''; // Default to empty string if not set
 
   let dbHost: string;
   let dbPort: number; // Changed type to number
@@ -116,10 +115,13 @@ export type NotificationData =
 // Type for the callback function provided by SSE route handlers
 export type NotificationCallback = (data: NotificationData) => void;
 
+// Define the shape of our channel-based subscription store
+type ChannelSubscribers = Map<string, Set<NotificationCallback>>;
+
 // Use globalThis for broader compatibility and type safety with declared globals
-const activeClientCallbacks = globalThis.__dbListenerCallbacks || new Set<NotificationCallback>();
+const channelCallbacks: ChannelSubscribers = globalThis.__dbListenerCallbacks || new Map();
 if (typeof globalThis !== 'undefined') {
-  globalThis.__dbListenerCallbacks = activeClientCallbacks;
+  globalThis.__dbListenerCallbacks = channelCallbacks;
 }
 
 let pgClient: Client | null = globalThis.__dbListenerClient || null;
@@ -142,11 +144,12 @@ function handleWorkerStatusNotification(payload: WorkerStatusPayload) {
   // Set a new timer. If another notification for the same type arrives
   // before the timer fires, it will be cleared and replaced.
   debounceTimers[payload.type] = setTimeout(() => {
-    // Send the latest status to all connected clients
-    activeClientCallbacks.forEach(callback => callback({
+    const data: NotificationData = {
       channel: 'worker_status',
       payload: payload,
-    }));
+    };
+    // Dispatch only to subscribers of the 'worker_status' channel
+    channelCallbacks.get('worker_status')?.forEach(callback => callback(data));
     delete debounceTimers[payload.type]; // Clean up timer
   }, DEBOUNCE_DELAY_MS);
 }
@@ -193,9 +196,14 @@ async function connectAndListen() {
     updateGlobalReconnectTimeout(null);
   }
 
+  let dbHost: string | undefined;
+  let dbPort: number | undefined;
+
   try {
     // Get database connection details
-    const { dbName, dbUser, dbPassword, dbHost, dbPort } = getDbHostPort();
+    const { dbName, dbUser, dbPassword, dbHost: host, dbPort: port } = getDbHostPort();
+    dbHost = host;
+    dbPort = port;
 
     const connectionString = `postgresql://${encodeURIComponent(dbUser)}:${encodeURIComponent(dbPassword)}@${dbHost}:${dbPort}/${encodeURIComponent(dbName)}`;
     // We'll skip this log and only show the connected message
@@ -228,7 +236,7 @@ async function connectAndListen() {
     });
 
     newClient.on('error', (err) => {
-      console.error({ error: err }, 'DB Listener: Connection error');
+      console.error({ error: err, dbHost, dbPort }, 'DB Listener: Connection error');
       // Connection might be lost, attempt reconnection
       closeConnectionAndScheduleReconnect();
     });
@@ -247,7 +255,7 @@ async function connectAndListen() {
 
   } catch (error) {
     updateGlobalConnecting(false);
-    console.error({ error }, 'DB Listener: Failed to connect or listen');
+    console.error({ error, dbHost, dbPort }, 'DB Listener: Failed to connect or listen');
     updateGlobalClient(null); // Ensure client is null on failure
     scheduleReconnect(); // Schedule a retry
   }
@@ -280,28 +288,47 @@ async function handleImportJobNotification(payload: string) {
         import_job: { id: id },
       };
     } else {
-      // For INSERT or UPDATE, fetch the full job details.
-      const client = await getServerRestClient();
-      if (!client) {
-        console.error('DB Listener: Could not get server REST client to enrich import_job notification.');
+      // For INSERT or UPDATE, fetch the full job details using our raw pg client.
+      // This runs outside a user request context, so we can't use PostgREST clients
+      // that depend on request headers. We use the listener's own DB connection.
+      if (!pgClient) {
+        console.error('DB Listener: pgClient is not available for enriching import_job notification.');
         return;
       }
 
-      const { data: jobData, error } = await client
-        .from('import_job')
-        .select('*, import_definition(slug, name, mode, custom)')
-        .eq('id', id)
-        .single();
-
-      if (error) {
-        console.error({ error, jobId: id }, `DB Listener: Failed to fetch import_job details for enrichment.`);
-        return;
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`DB Listener: Enriching notification for job ${id} using raw pgClient.`);
       }
-      
-      if (!jobData) {
+
+      // This query constructs a JSON object that matches the structure expected by the client.
+      // It uses to_jsonb(ij.*) to serialize the entire import_job row and merges it with
+      // a manually constructed JSON object for the nested import_definition.
+      const query = {
+        text: `
+          SELECT
+            to_jsonb(ij.*) || jsonb_build_object(
+              'import_definition', jsonb_build_object(
+                'slug', idf.slug,
+                'name', idf.name,
+                'mode', idf.mode,
+                'custom', idf.custom
+              )
+            ) AS job_data
+          FROM public.import_job AS ij
+          LEFT JOIN public.import_definition AS idf ON ij.definition_id = idf.id
+          WHERE ij.id = $1
+        `,
+        values: [id],
+      };
+
+      const { rows } = await pgClient.query(query);
+
+      if (rows.length === 0) {
         console.warn(`DB Listener: No import_job found for id ${id} during enrichment. It may have been deleted.`);
         return;
       }
+
+      const jobData = rows[0].job_data;
 
       enrichedPayload = {
         verb,
@@ -309,14 +336,16 @@ async function handleImportJobNotification(payload: string) {
       };
     }
     
-    // Distribute the enriched payload to all connected clients.
-    const callbacksToNotify = new Set(activeClientCallbacks);
-    callbacksToNotify.forEach(callback => {
-      callback({
-        channel: 'import_job',
-        payload: enrichedPayload,
+    // Distribute the enriched payload to all clients subscribed to this channel.
+    const callbacksToNotify = channelCallbacks.get('import_job');
+    if (callbacksToNotify) {
+      callbacksToNotify.forEach(callback => {
+        callback({
+          channel: 'import_job',
+          payload: enrichedPayload,
+        });
       });
-    });
+    }
 
     if (process.env.NODE_ENV === 'development') {
       console.log(`DB Listener: Enriched and sent import_job notification for job ${id} (verb: ${verb})`);
@@ -341,19 +370,30 @@ function closeConnectionAndScheduleReconnect() {
 // --- Public API ---
 
 /**
- * Adds a callback function to be invoked when a 'check' notification is received.
- * @param callback Function to call with the notification payload (string).
+ * Adds a callback function to be invoked when a notification is received on a specific channel.
+ * @param channel The channel to subscribe to.
+ * @param callback Function to call with the notification data.
  */
-export function addClientCallback(callback: NotificationCallback) {
-  activeClientCallbacks.add(callback);
+export function addClientCallback(channel: string, callback: NotificationCallback) {
+  if (!channelCallbacks.has(channel)) {
+    channelCallbacks.set(channel, new Set());
+  }
+  channelCallbacks.get(channel)!.add(callback);
 }
 
 /**
- * Removes a previously added callback function.
+ * Removes a previously added callback function from a specific channel.
+ * @param channel The channel to unsubscribe from.
  * @param callback The callback function to remove.
  */
-export function removeClientCallback(callback: NotificationCallback) {
-  activeClientCallbacks.delete(callback);
+export function removeClientCallback(channel: string, callback: NotificationCallback) {
+  const subscribers = channelCallbacks.get(channel);
+  if (subscribers) {
+    subscribers.delete(callback);
+    if (subscribers.size === 0) {
+      channelCallbacks.delete(channel);
+    }
+  }
 }
 
 /**
@@ -383,8 +423,10 @@ export async function initializeDbListener() {
     connectionStatus = isConnecting ? 'connecting' : 'disconnected';
   }
 
+  const activeCallbacks = Array.from(channelCallbacks.values()).reduce((sum, set) => sum + set.size, 0);
+
   return {
-    activeCallbacks: activeClientCallbacks.size,
+    activeCallbacks: activeCallbacks,
     isConnected: connectionStatus === 'connected',
     status: connectionStatus
   };

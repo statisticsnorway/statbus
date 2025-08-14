@@ -11,6 +11,8 @@ export async function GET(request: NextRequest) {
   // Get job IDs from query parameters
   const searchParams = request.nextUrl.searchParams;
   const jobIdsParam = searchParams.get("ids");
+  const scopeParam = searchParams.get("scope");
+  const scope = (scopeParam === 'updates_for_ids_only') ? 'updates_for_ids_only' : 'updates_and_all_inserts';
   
   // Initialize jobIds array
   let jobIds: number[] = [];
@@ -55,6 +57,7 @@ export async function GET(request: NextRequest) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify({
           type: "connection_established",
           jobIds, // Still useful to know which jobs the client initially requested
+          scope,
           timestamp: new Date().toISOString(),
           connectionId: Math.random().toString(36).substring(2, 10), // Simple connection ID for debugging
           serverInfo: {
@@ -73,39 +76,52 @@ export async function GET(request: NextRequest) {
 
         // Set up a callback to listen for import_job notifications
         const handleNotification = async (notification: NotificationData) => {
-          if (notification.channel === 'import_job') {
-            // The payload is already enriched by db-listener.ts, so we just forward it.
-            if (request.signal.aborted) {
-              return;
-            }
+          // Assert that we are only handling the correct channel's notifications.
+          if (notification.channel !== 'import_job') {
+            return;
+          }
 
-            const { verb, import_job } = notification.payload;
-            const id = import_job.id;
+          if (request.signal.aborted) {
+            return;
+          }
 
-            // Server-side filtering: Only send relevant updates.
-            // A client tracking specific IDs should receive all INSERTs,
-            // but only UPDATEs/DELETEs for the IDs it is tracking.
-            if (jobIds.length > 0 && verb !== 'INSERT' && !jobIds.includes(id)) {
+          const { verb, import_job } = notification.payload;
+          const id = import_job.id;
+
+          // Server-side filtering logic based on subscription scope.
+          if (scope === 'updates_for_ids_only') {
+            // Scope for pages that only care about specific jobs (e.g., job data page).
+            // Only send notifications for the job IDs the client is explicitly tracking.
+            if (jobIds.length === 0 || !jobIds.includes(id)) {
               if (process.env.NODE_ENV === 'development') {
-                logger.info({ id, verb, jobIds }, `Skipping notification for client as job ID is not tracked.`);
+                logger.info({ id, verb, jobIds, scope }, `Skipping notification for client as job ID is not tracked in 'updates_for_ids_only' scope.`);
               }
               return; // Skip this notification for this client
             }
-            
-            logger.info({ id, verb, jobIds }, `Received enriched import_job notification: ${verb} for job ${id}. Forwarding to client.`);
-
-            // Add a timestamp and send the payload
-            const messagePayload = {
-              ...notification.payload,
-              timestamp: new Date().toISOString()
-            };
-
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify(messagePayload)}\n\n`));
+          } else { // Default scope: 'updates_and_all_inserts'
+            // Scope for the main jobs list page.
+            // It should receive all INSERTs, but only UPDATEs/DELETEs for tracked jobs.
+            if (jobIds.length > 0 && verb !== 'INSERT' && !jobIds.includes(id)) {
+              if (process.env.NODE_ENV === 'development') {
+                logger.info({ id, verb, jobIds, scope }, `Skipping non-INSERT notification for client as job ID is not tracked.`);
+              }
+              return; // Skip this notification for this client
+            }
           }
+          
+          logger.info({ id, verb, jobIds }, `Received enriched import_job notification. Forwarding to client.`);
+
+          // Add a timestamp and send the payload
+          const messagePayload = {
+            ...notification.payload,
+            timestamp: new Date().toISOString()
+          };
+
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(messagePayload)}\n\n`));
         }; // End of handleNotification
       
-        // Register the callback
-        addClientCallback(handleNotification);
+        // Register the callback for the 'import_job' channel
+        addClientCallback('import_job', handleNotification);
         logger.info("Registered SSE callback for import jobs");
 
         // Keep connection alive with heartbeat and connection status monitoring
@@ -150,8 +166,8 @@ export async function GET(request: NextRequest) {
         // Clean up on client disconnect
         request.signal.addEventListener("abort", () => {
           clearInterval(heartbeat);
-          removeClientCallback(handleNotification);
-          logger.info("Client disconnected, cleaned up SSE resources");
+          removeClientCallback('import_job', handleNotification);
+          logger.info("Client disconnected, cleaned up SSE resources for import_job");
           
           try {
             controller.close();

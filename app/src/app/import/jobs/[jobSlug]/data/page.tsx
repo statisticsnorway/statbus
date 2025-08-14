@@ -160,14 +160,21 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
   React.useEffect(() => {
     if (!job?.id) return;
 
-    const sseUrl = `/api/sse/import-jobs?ids=${job.id}`;
+    const sseUrl = `/api/sse/import-jobs?ids=${job.id}&scope=updates_for_ids_only`;
     const eventSource = new EventSource(sseUrl);
+
+    eventSource.addEventListener('heartbeat', (event) => {
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        const heartbeat = JSON.parse(event.data);
+        console.log(`SSE Heartbeat for job ${job.id}:`, heartbeat);
+      }
+    });
 
     eventSource.onmessage = (event) => {
       try {
         if (!event.data) return;
         const ssePayload = JSON.parse(event.data);
-        if (ssePayload.type === "connection_established" || ssePayload.type === "heartbeat") return;
+        if (ssePayload.type === "connection_established") return;
 
         // If the update is for our job, revalidate SWR caches
         if (ssePayload.import_job?.id === job.id) {

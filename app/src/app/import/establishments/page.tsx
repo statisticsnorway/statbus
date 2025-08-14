@@ -31,7 +31,12 @@ export default function UploadEstablishmentsPage() {
 
   // Listen for any job updates and refresh the pending list
   useEffect(() => {
-    const eventSource = new EventSource('/api/sse/import-jobs');
+    // We connect after the initial load. If there are jobs, we listen for
+    // updates to them. We always listen for new INSERTs.
+    if (isLoading) return;
+
+    const jobIds = pendingJobs.map(job => job.id).join(',');
+    const eventSource = new EventSource(`/api/sse/import-jobs?ids=${jobIds}&scope=updates_and_all_inserts`);
 
     eventSource.onmessage = (event) => {
       try {
@@ -57,7 +62,7 @@ export default function UploadEstablishmentsPage() {
     return () => {
       eventSource.close();
     };
-  }, [refreshJobs]);
+  }, [refreshJobs, isLoading, pendingJobs]);
 
   // The useEffect in usePendingJobsByPattern handles initial fetch.
 

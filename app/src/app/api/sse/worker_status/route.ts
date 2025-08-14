@@ -16,7 +16,9 @@ export async function GET(request: Request) {
       // Define the callback function
       const handleNotification = function notificationHandler(data: NotificationData) {
         try {
-          // We now only care about the 'worker_status' channel
+          // Explicitly check the channel. This not only makes the handler more robust
+          // but also acts as a type guard, allowing TypeScript to correctly infer
+          // the shape of `data.payload` based on the channel name.
           if (data.channel === 'worker_status') {
             // The payload is already a JSON object. We send it as a standard 'message' event.
             // The client will parse this JSON and use the 'type' field to update state.
@@ -26,11 +28,11 @@ export async function GET(request: Request) {
         } catch (e) {
           console.error(`SSE Route: Error sending data for client ${connectionId}:`, e);
           try { controller.close(); } catch {}
-          removeClientCallback(handleNotification);
+          removeClientCallback('worker_status', handleNotification);
         }
       };
 
-      addClientCallback(handleNotification);
+      addClientCallback('worker_status', handleNotification);
       console.log(`SSE: Client ${connectionId} connected (total clients: ${status.activeCallbacks + 1})`);
 
       // Send an initial 'connected' event to confirm the connection is working.
@@ -42,7 +44,7 @@ export async function GET(request: Request) {
 
       // Handle client disconnection
       request.signal.addEventListener('abort', () => {
-        removeClientCallback(handleNotification);
+        removeClientCallback('worker_status', handleNotification);
         console.log(`SSE: Client ${connectionId} disconnected.`);
         try {
           controller.close();

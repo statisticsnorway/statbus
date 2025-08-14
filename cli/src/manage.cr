@@ -157,6 +157,7 @@ module Statbus
       postgres_admin_password : String,
       postgres_app_password : String,
       postgres_authenticator_password : String,
+      postgres_notify_password : String,
       jwt_secret : String,
       dashboard_username : String,
       dashboard_password : String,
@@ -177,6 +178,7 @@ module Statbus
       postgres_admin_user : String,
       postgres_app_db : String,
       postgres_app_user : String,
+      postgres_notify_user : String,
       access_jwt_expiry : String,
       refresh_jwt_expiry : String,
       caddy_deployment_mode : String,
@@ -253,6 +255,7 @@ module Statbus
             postgres_admin_password: credentials_env.generate("POSTGRES_ADMIN_PASSWORD") { random_string(20) },
             postgres_app_password: credentials_env.generate("POSTGRES_APP_PASSWORD") { random_string(20) },
             postgres_authenticator_password: credentials_env.generate("POSTGRES_AUTHENTICATOR_PASSWORD") { random_string(20) },
+            postgres_notify_password: credentials_env.generate("POSTGRES_NOTIFY_PASSWORD") { random_string(20) },
             jwt_secret: jwt_secret,
             dashboard_username: credentials_env.generate("DASHBOARD_USERNAME") { "admin" },
             dashboard_password: credentials_env.generate("DASHBOARD_PASSWORD") { random_string(20) },
@@ -272,6 +275,7 @@ module Statbus
           deployment_slot_code = config_env.generate("DEPLOYMENT_SLOT_CODE") { "dev" }
           postgres_app_db = config_env.generate("POSTGRES_APP_DB") { "statbus_#{deployment_slot_code}" }
           postgres_app_user = config_env.generate("POSTGRES_APP_USER") { "statbus_#{deployment_slot_code}" }
+          postgres_notify_user = config_env.generate("POSTGRES_NOTIFY_USER") { "statbus_notify_#{deployment_slot_code}" }
           _deployment_slot_code = config_env.generate("DEPLOYMENT_SLOT_CODE") { "dev" }
           _caddy_deployment_mode = config_env.generate("CADDY_DEPLOYMENT_MODE") { "development" }
           _deployment_slot_port_offset_str = config_env.generate("DEPLOYMENT_SLOT_PORT_OFFSET") { "1" }
@@ -308,6 +312,7 @@ module Statbus
             postgres_admin_user: config_env.generate("POSTGRES_ADMIN_USER") { "postgres" },
             postgres_app_db: postgres_app_db,
             postgres_app_user: postgres_app_user,
+            postgres_notify_user: postgres_notify_user,
             # JWT configuration
             access_jwt_expiry: config_env.generate("ACCESS_JWT_EXPIRY") { "3600" }, # 1 hour in seconds
             refresh_jwt_expiry: config_env.generate("REFRESH_JWT_EXPIRY") { "2592000" }, # 30 days in seconds
@@ -496,9 +501,11 @@ module Statbus
         env.set("POSTGRES_ADMIN_PASSWORD", credentials.postgres_admin_password)
         env.set("POSTGRES_APP_DB", config.postgres_app_db)
         env.set("POSTGRES_APP_USER", config.postgres_app_user)
+        env.set("POSTGRES_NOTIFY_USER", config.postgres_notify_user)
         env.set("CADDY_DEPLOYMENT_MODE", config.caddy_deployment_mode)        
         env.set("POSTGRES_APP_PASSWORD", credentials.postgres_app_password)
         env.set("POSTGRES_AUTHENTICATOR_PASSWORD", credentials.postgres_authenticator_password)
+        env.set("POSTGRES_NOTIFY_PASSWORD", credentials.postgres_notify_password)
         env.set("POSTGRES_PASSWORD", credentials.postgres_admin_password)
         env.set("ACCESS_JWT_EXPIRY", config.access_jwt_expiry)
         env.set("REFRESH_JWT_EXPIRY", config.refresh_jwt_expiry)

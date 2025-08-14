@@ -92,4 +92,20 @@ GRANT USAGE ON SCHEMA auth TO authenticated;
 GRANT USAGE ON SCHEMA auth TO anon;
 EOF
 
+echo "Setting up notify reader role and user..."
+psql -d "$POSTGRES_APP_DB" <<EOSQL
+-- Create a role for read-only access for the notification listener
+CREATE ROLE notify_reader;
+
+-- Grant connect to the database
+GRANT CONNECT ON DATABASE "$POSTGRES_APP_DB" TO notify_reader;
+
+-- Grant usage on the public schema. Table permissions will be granted in migrations.
+GRANT USAGE ON SCHEMA public TO notify_reader;
+
+-- Create the user and grant the role
+CREATE USER "$POSTGRES_NOTIFY_USER" WITH PASSWORD '$POSTGRES_NOTIFY_PASSWORD';
+GRANT notify_reader TO "$POSTGRES_NOTIFY_USER";
+EOSQL
+
 echo "Database initialization completed successfully."

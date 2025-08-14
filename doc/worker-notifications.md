@@ -93,6 +93,7 @@ We'll implement a lightweight system stability indicator that shows whether the 
 
 1.  **Persistent Database Listener (`lib/db-listener.ts` - Singleton):**
     Manages a single, persistent `pg` client connection that listens for `pg_notify` events. It handles connection, errors, reconnections, and distributes notifications to subscribed SSE clients.
+    **Security Note:** This listener connects with a dedicated, read-only database user (`POSTGRES_NOTIFY_USER`) that has minimal privileges. It can only listen for notifications and read from a few specific tables to enrich the notification payloads. This follows the Principle of Least Privilege.
 
     ```typescript
     // lib/db-listener.ts (Conceptual Example with Debouncing)
