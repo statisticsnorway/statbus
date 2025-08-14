@@ -474,6 +474,33 @@ case "$action" in
         ./cli/bin/statbus manage create-users -v
       ;;
      'generate-config' )
+        if [ ! -f .env ]; then
+            echo "Bootstrapping new configuration because .env file is missing."
+
+            slot_offset=1 # Default value
+            if [ -t 0 ]; then
+                # Prompt for the port offset if running interactively
+                read -p "Enter deployment slot port offset (e.g., 1, 2, ...) [1]: " user_slot_offset
+                slot_offset=${user_slot_offset:-1}
+            else
+                echo "Running non-interactively, using default deployment slot port offset: ${slot_offset}"
+            fi
+
+            # Update .env.config so the Crystal app uses the same value
+            echo "Setting DEPLOYMENT_SLOT_PORT_OFFSET=${slot_offset} in .env.config for generation..."
+            ./devops/dotenv --file .env.config set DEPLOYMENT_SLOT_PORT_OFFSET "${slot_offset}"
+
+            # Calculate DB_PUBLIC_LOCALHOST_PORT based on the logic in cli/src/manage.cr
+            # and export it so the Crystal app can initialize.
+            base_port=3000
+            slot_multiplier=10
+            port_offset=$((base_port + slot_offset * slot_multiplier))
+            db_port=$((port_offset + 4))
+
+            echo "Temporarily exporting DB_PUBLIC_LOCALHOST_PORT=$db_port for initialization."
+            export DB_PUBLIC_LOCALHOST_PORT=$db_port
+        fi
+
         ./cli/bin/statbus manage generate-config
         ;;
      'postgres-variables' )
