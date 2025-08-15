@@ -2477,19 +2477,16 @@ export type Database = {
           activity_category_standard_id: number
           id: number
           only_one_setting: boolean
-          relative_period_input_years_count: number
         }
         Insert: {
           activity_category_standard_id: number
           id?: never
           only_one_setting?: boolean
-          relative_period_input_years_count?: number
         }
         Update: {
           activity_category_standard_id?: number
           id?: never
           only_one_setting?: boolean
-          relative_period_input_years_count?: number
         }
         Relationships: [
           {
@@ -3985,18 +3982,6 @@ export type Database = {
         }
         Relationships: []
       }
-      timepoints_years: {
-        Row: {
-          year: number
-        }
-        Insert: {
-          year: number
-        }
-        Update: {
-          year?: number
-        }
-        Relationships: []
-      }
       timesegments: {
         Row: {
           unit_id: number
@@ -4015,6 +4000,18 @@ export type Database = {
           unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
           valid_after?: string
           valid_to?: string
+        }
+        Relationships: []
+      }
+      timesegments_years: {
+        Row: {
+          year: number
+        }
+        Insert: {
+          year: number
+        }
+        Update: {
+          year?: number
         }
         Relationships: []
       }
@@ -6064,13 +6061,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["primary_activity_category_id"]
-            isOneToOne: false
-            referencedRelation: "activity_category"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "activity_category_id_fkey"
             columns: ["secondary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category"
@@ -6080,7 +6070,7 @@ export type Database = {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["primary_activity_category_id"]
             isOneToOne: false
-            referencedRelation: "activity_category_available"
+            referencedRelation: "activity_category"
             referencedColumns: ["id"]
           },
           {
@@ -6093,13 +6083,20 @@ export type Database = {
           {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["primary_activity_category_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_available"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_category_id_fkey"
+            columns: ["secondary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used_def"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["secondary_activity_category_id"]
+            columns: ["primary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used_def"
             referencedColumns: ["id"]
@@ -6226,18 +6223,18 @@ export type Database = {
         }
         Relationships: []
       }
-      timepoints_years_def: {
-        Row: {
-          year: number | null
-        }
-        Relationships: []
-      }
       timesegments_def: {
         Row: {
           unit_id: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
           valid_after: string | null
           valid_to: string | null
+        }
+        Relationships: []
+      }
+      timesegments_years_def: {
+        Row: {
+          year: number | null
         }
         Relationships: []
       }
@@ -7680,6 +7677,20 @@ export type Database = {
         }
         Returns: Json
       }
+      statistical_unit_history: {
+        Args: {
+          p_unit_id: number
+          p_unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+        }
+        Returns: Json[]
+      }
+      statistical_unit_history_highcharts: {
+        Args: {
+          p_unit_id: number
+          p_unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+        }
+        Returns: Json
+      }
       statistical_unit_refresh: {
         Args: {
           p_enterprise_ids?: number[]
@@ -7739,12 +7750,12 @@ export type Database = {
         Args: { p_valid_after?: string; p_valid_to?: string }
         Returns: undefined
       }
-      timepoints_years_refresh: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
       timesegments_refresh: {
         Args: { p_valid_after?: string; p_valid_to?: string }
+        Returns: undefined
+      }
+      timesegments_years_refresh: {
+        Args: Record<PropertyKey, never>
         Returns: undefined
       }
       tri_fkey_check: {
@@ -7927,7 +7938,7 @@ export type Database = {
         | "enterprise"
         | "enterprise_group"
       tag_type: "custom" | "system"
-      time_context_type: "relative_period" | "tag"
+      time_context_type: "relative_period" | "tag" | "year"
     }
     CompositeTypes: {
       http_header: {
@@ -8197,7 +8208,7 @@ export const Constants = {
         "enterprise_group",
       ],
       tag_type: ["custom", "system"],
-      time_context_type: ["relative_period", "tag"],
+      time_context_type: ["relative_period", "tag", "year"],
     },
   },
 } as const

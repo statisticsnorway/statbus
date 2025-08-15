@@ -1,16 +1,16 @@
 ```sql
                               View "public.relative_period_with_time"
-     Column      |         Type          | Collation | Nullable | Default | Storage  | Description 
------------------+-----------------------+-----------+----------+---------+----------+-------------
- id              | integer               |           |          |         | plain    | 
- code            | relative_period_code  |           |          |         | plain    | 
- name_when_query | character varying     |           |          |         | extended | 
- name_when_input | character varying     |           |          |         | extended | 
- scope           | relative_period_scope |           |          |         | plain    | 
- active          | boolean               |           |          |         | plain    | 
- valid_on        | date                  |           |          |         | plain    | 
- valid_from      | date                  |           |          |         | plain    | 
- valid_to        | date                  |           |          |         | plain    | 
+     Column      |          Type          | Collation | Nullable | Default | Storage  | Description 
+-----------------+------------------------+-----------+----------+---------+----------+-------------
+ id              | integer                |           |          |         | plain    | 
+ code            | relative_period_code   |           |          |         | plain    | 
+ name_when_query | character varying(256) |           |          |         | extended | 
+ name_when_input | character varying(256) |           |          |         | extended | 
+ scope           | relative_period_scope  |           |          |         | plain    | 
+ active          | boolean                |           |          |         | plain    | 
+ valid_on        | date                   |           |          |         | plain    | 
+ valid_from      | date                   |           |          |         | plain    | 
+ valid_to        | date                   |           |          |         | plain    | 
 View definition:
  WITH base_periods AS (
          SELECT relative_period.id,
@@ -77,55 +77,16 @@ View definition:
                     ELSE NULL::timestamp without time zone
                 END::date AS valid_to
            FROM relative_period
-        ), dynamic_year_periods AS (
-         WITH settings AS (
-                 SELECT COALESCE(( SELECT s_1.relative_period_input_years_count
-                           FROM public.settings s_1
-                         LIMIT 1), 5) AS relative_period_input_years_count
-                ), years AS (
-                 SELECT ty.year,
-                    COALESCE(( SELECT max(timepoints_years.year) AS max
-                           FROM timepoints_years), date_part('year'::text, now())::integer) AS max_year
-                   FROM timepoints_years ty
-                )
-         SELECT NULL::integer AS id,
-            NULL::relative_period_code AS code,
-            y.year::text AS name_when_query,
-                CASE
-                    WHEN y.year >= (y.max_year - s.relative_period_input_years_count + 1) THEN y.year::text
-                    ELSE NULL::text
-                END AS name_when_input,
-                CASE
-                    WHEN y.year >= (y.max_year - s.relative_period_input_years_count + 1) THEN 'input_and_query'::relative_period_scope
-                    ELSE 'query'::relative_period_scope
-                END AS scope,
-            true AS active,
-            make_date(y.year, 12, 31) AS valid_on,
-            make_date(y.year, 1, 1) AS valid_from,
-            make_date(y.year, 12, 31) AS valid_to
-           FROM years y,
-            settings s
         )
- SELECT base_periods.id,
-    base_periods.code,
-    base_periods.name_when_query,
-    base_periods.name_when_input,
-    base_periods.scope,
-    base_periods.active,
-    base_periods.valid_on,
-    base_periods.valid_from,
-    base_periods.valid_to
-   FROM base_periods
-UNION ALL
- SELECT dynamic_year_periods.id,
-    dynamic_year_periods.code,
-    dynamic_year_periods.name_when_query,
-    dynamic_year_periods.name_when_input,
-    dynamic_year_periods.scope,
-    dynamic_year_periods.active,
-    dynamic_year_periods.valid_on,
-    dynamic_year_periods.valid_from,
-    dynamic_year_periods.valid_to
-   FROM dynamic_year_periods;
+ SELECT id,
+    code,
+    name_when_query,
+    name_when_input,
+    scope,
+    active,
+    valid_on,
+    valid_from,
+    valid_to
+   FROM base_periods;
 
 ```

@@ -649,6 +649,33 @@ ORDER BY tsti.unit_type, tsti.tax_ident, tsti.valid_after;
  enterprise    | 921835809 | 2019-12-31  | infinity
 (30 rows)
 
+\echo "Checking timesegments_years."
+"Checking timesegments_years."
+-- This test will include the current year and may change over time.
+-- The historical years are derived from the loaded test data.
+SELECT year FROM public.timesegments_years
+WHERE year <= EXTRACT(YEAR FROM current_date)
+ORDER BY year;
+ year 
+------
+ 2010
+ 2011
+ 2012
+ 2013
+ 2014
+ 2015
+ 2016
+ 2017
+ 2018
+ 2019
+ 2020
+ 2021
+ 2022
+ 2023
+ 2024
+ 2025
+(16 rows)
+
 \echo "Checking timeline_establishment data"
 "Checking timeline_establishment data"
 WITH timeline_establishment_with_tax_ident AS (

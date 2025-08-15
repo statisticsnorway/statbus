@@ -163,13 +163,26 @@ export function TimeContextSelector({ unitType }: TimeContextSelectorProps) {
                       <SelectValue placeholder="Select a validity period" />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableContexts.map((tc: Tables<'time_context'>) => (
-                        <SelectItem key={tc.ident ?? ''} value={tc.ident ?? ""}>
-                          {tc.name_when_input} ({tc.valid_from ? new Date(tc.valid_from).toLocaleDateString() : 'N/A'} - {
-                            tc.valid_to === 'infinity' ? 'Present' : tc.valid_to ? new Date(tc.valid_to).toLocaleDateString() : 'N/A'
-                          })
-                        </SelectItem>
-                      ))}
+                      {availableContexts
+                        .filter(
+                          (tc) =>
+                            tc.scope === "input" || tc.scope === "input_and_query",
+                        )
+                        .map((tc: Tables<'time_context'>) => (
+                          <SelectItem key={tc.ident!} value={tc.ident!}>
+                            {tc.name_when_input} (
+                            {tc.valid_from
+                              ? new Date(tc.valid_from).toLocaleDateString()
+                              : "N/A"}{" "}
+                            -{" "}
+                            {tc.valid_to === "infinity"
+                              ? "Present"
+                              : tc.valid_to
+                                ? new Date(tc.valid_to).toLocaleDateString()
+                                : "N/A"}
+                            )
+                          </SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 )}

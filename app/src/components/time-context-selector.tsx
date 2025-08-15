@@ -53,9 +53,14 @@ export default function TimeContextSelector({
           <CommandList>
             <CommandEmpty>No results found.</CommandEmpty>
             <CommandGroup>
-              {timeContexts.map((time_context: Tables<'time_context'>) => (
+              {timeContexts
+                .filter(
+                  (tc) =>
+                    tc.scope === "query" || tc.scope === "input_and_query",
+                )
+                .map((time_context: Tables<'time_context'>) => (
                 <CommandItem
-                  key={time_context.ident}
+                  key={time_context.ident!}
                   value={time_context.ident!}
                   onSelect={() => {
                     setSelectedTimeContext(time_context);
@@ -63,7 +68,9 @@ export default function TimeContextSelector({
                   }}
                   className="space-x-2"
                 >
-                  {selectedTimeContext?.ident === time_context?.ident ? <Check size={14} /> : null}
+                  {selectedTimeContext?.ident === time_context?.ident ? (
+                    <Check size={14} />
+                  ) : null}
                   <span>{time_context.name_when_query}</span>
                 </CommandItem>
               ))}

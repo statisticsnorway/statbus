@@ -51,7 +51,7 @@ import { useMemo, useCallback, useEffect } from 'react'
 
 import type { Database, Enums, Tables, TablesInsert } from '@/lib/database.types'
 import { restClientAtom } from './app'
-import { timeContextsAtom, defaultTimeContextAtom } from './base-data'
+import { useBaseData } from './base-data'
 import { isAuthenticatedAtom } from './auth'
 
 // ============================================================================
@@ -348,6 +348,7 @@ export const createImportJobAtom = atom<null, [], Promise<Tables<'import_job'> |
 
     const insertJobData: TablesInsert<'import_job'> = {
       definition_id: definition.id,
+      description: definition.name,
       time_context_ident: null,
       default_valid_from: null,
       default_valid_to: null,
@@ -400,8 +401,11 @@ export const createImportJobAtom = atom<null, [], Promise<Tables<'import_job'> |
 export const useImportManager = () => {
   const currentImportState = useAtomValue(importStateAtom);
   const currentUnitCounts = useAtomValue(unitCountsAtom);
-  const allTimeContextsFromBase = useAtomValue(timeContextsAtom);
-  const defaultTimeContextFromBase = useAtomValue(defaultTimeContextAtom);
+  const {
+    timeContexts: allTimeContextsFromBase,
+    defaultTimeContext: defaultTimeContextFromBase,
+    refreshBaseData,
+  } = useBaseData();
 
   const doRefreshUnitCount = useSetAtom(refreshUnitCountAtom);
   const doRefreshAllUnitCounts = useSetAtom(refreshAllUnitCountsAtom);
@@ -419,7 +423,9 @@ export const useImportManager = () => {
     // Filter time contexts to only those suitable for any import.
     // These have a scope of 'input' or 'input_and_query'.
     return allTimeContextsFromBase.filter(
-      (tc) => tc.scope === "input" || tc.scope === "input_and_query"
+      (tc) =>
+        (tc.scope === "input" || tc.scope === "input_and_query") &&
+        tc.name_when_input,
     );
   }, [allTimeContextsFromBase]);
 
@@ -511,6 +517,7 @@ export const useImportManager = () => {
     setSelectedDefinition,
     createImportJob,
     importState: currentImportState,
+    refreshBaseData,
   };
 };
 

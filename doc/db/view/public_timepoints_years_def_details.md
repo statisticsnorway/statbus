@@ -4,9 +4,16 @@
 --------+---------+-----------+----------+---------+---------+-------------
  year   | integer |           |          |         | plain   | 
 View definition:
- SELECT DISTINCT EXTRACT(year FROM timepoint)::integer AS year
-   FROM timepoints
-  WHERE timepoint IS NOT NULL AND timepoint <> 'infinity'::date
-  ORDER BY (EXTRACT(year FROM timepoint)::integer);
+ SELECT DISTINCT year
+   FROM ( SELECT EXTRACT(year FROM
+                CASE
+                    WHEN EXTRACT(month FROM timepoints.timepoint) = 1::numeric AND EXTRACT(day FROM timepoints.timepoint) = 1::numeric THEN timepoints.timepoint - '1 day'::interval
+                    ELSE timepoints.timepoint::timestamp without time zone
+                END)::integer AS year
+           FROM timepoints
+          WHERE timepoints.timepoint IS NOT NULL AND timepoints.timepoint <> 'infinity'::date
+        UNION
+         SELECT EXTRACT(year FROM now())::integer AS "extract") all_years
+  ORDER BY year;
 
 ```

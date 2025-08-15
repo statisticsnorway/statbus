@@ -230,6 +230,14 @@ FROM timesegments_with_tax_ident AS tsti
 ORDER BY tsti.unit_type, tsti.tax_ident, tsti.valid_after;
 
 
+\echo "Checking timesegments_years."
+-- This test will include the current year and may change over time.
+-- The historical years are derived from the loaded test data.
+SELECT year FROM public.timesegments_years
+WHERE year <= EXTRACT(YEAR FROM current_date)
+ORDER BY year;
+
+
 \echo "Checking timeline_establishment data"
 WITH timeline_establishment_with_tax_ident AS (
     SELECT te.*,

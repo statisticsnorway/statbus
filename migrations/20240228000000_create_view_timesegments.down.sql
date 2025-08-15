@@ -1,12 +1,16 @@
 BEGIN;
 
 -- Drop the refresh function
-DROP FUNCTION IF EXISTS public.timesegments_refresh;
+DROP FUNCTION IF EXISTS public.timesegments_refresh(date, date);
 
 -- Drop the physical table
 DROP TABLE IF EXISTS public.timesegments;
 
 -- Drop the definition view
 DROP VIEW IF EXISTS public.timesegments_def;
+
+DROP TABLE IF EXISTS public.timesegments_years;
+DROP FUNCTION IF EXISTS public.timesegments_years_refresh();
+DROP VIEW IF EXISTS public.timesegments_years_def;
 
 END;

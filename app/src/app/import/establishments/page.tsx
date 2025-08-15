@@ -106,13 +106,15 @@ export default function UploadEstablishmentsPage() {
           </InfoBox>
         )}
 
-      <PendingJobsList
-        jobs={pendingJobs}
-        onDeleteJob={handleDeleteJob}
-        unitTypeTitle="Establishments"
-        unitTypeDescription="establishment"
-        uploadPathPrefix="/import/establishments/upload"
-      />
+      {!isLoading && pendingJobs.length > 0 && (
+        <PendingJobsList
+          jobs={pendingJobs}
+          onDeleteJob={handleDeleteJob}
+          unitTypeTitle="Establishments"
+          unitTypeDescription="establishment"
+          uploadPathPrefix="/import/establishments/upload"
+        />
+      )}
 
       <TimeContextSelector unitType="establishments" />
       

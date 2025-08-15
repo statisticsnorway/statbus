@@ -67,36 +67,7 @@ WITH base_periods AS (
             ELSE NULL
         END::DATE as valid_to
     FROM public.relative_period
-),
-dynamic_year_periods AS (
-    WITH settings AS (
-        SELECT COALESCE((SELECT s.relative_period_input_years_count FROM public.settings s LIMIT 1), 5) AS relative_period_input_years_count
-    ), years AS (
-        SELECT
-            ty.year,
-            COALESCE((SELECT MAX(year) FROM public.timepoints_years), date_part('year', now())::int) AS max_year
-        FROM public.timepoints_years ty
-    )
-    SELECT
-        NULL::integer AS id,
-        NULL::public.relative_period_code AS code,
-        y.year::text AS name_when_query,
-        CASE
-            WHEN y.year >= y.max_year - s.relative_period_input_years_count + 1 THEN y.year::text
-            ELSE NULL
-        END AS name_when_input,
-        CASE
-            WHEN y.year >= y.max_year - s.relative_period_input_years_count + 1 THEN 'input_and_query'::public.relative_period_scope
-            ELSE 'query'::public.relative_period_scope
-        END AS scope,
-        true AS active,
-        make_date(y.year, 12, 31) AS valid_on,
-        make_date(y.year, 1, 1) AS valid_from,
-        make_date(y.year, 12, 31) AS valid_to
-    FROM years y, settings s
 )
-SELECT * FROM base_periods
-UNION ALL
-SELECT * FROM dynamic_year_periods;
+SELECT * FROM base_periods;
 
 END;

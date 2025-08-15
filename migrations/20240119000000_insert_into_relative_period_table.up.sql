@@ -10,7 +10,7 @@ BEGIN
         ('today'                      , 'Today'                              , 'From today and onwards'         , 'input_and_query' , false)   ,
         --
         ('year_curr'                  , 'Current Year'                       , 'Current year and onwards'       , 'input_and_query' , true)   ,
-        ('year_prev'                  , 'Previous Year'                      , 'From previous year and onwards' , 'input_and_query' , false)   ,
+        ('year_prev'                  , 'Previous Year'                      , 'Previous year and onwards'      , 'input_and_query' , true)   ,
         ('year_curr_only'             , NULL                                 , 'Current year only'              , 'input'           , false)   ,
         ('year_prev_only'             , NULL                                 , 'Previous year only'             , 'input'           , true)   ,
         --
@@ -26,9 +26,9 @@ BEGIN
         ('start_of_semester_curr'     , 'Start of Current Semester'          , NULL                             , 'query'           , false)  ,
         ('stop_of_semester_prev'      , 'End of Previous Semester'           , NULL                             , 'query'           , false)  ,
         ('start_of_semester_prev'     , 'Start of Previous Semester'         , NULL                             , 'query'           , false)  ,
-        ('start_of_year_curr'         , 'Start of Current Year'              , NULL                             , 'query'           , true)   ,
-        ('stop_of_year_prev'          , 'End of Previous Year'               , NULL                             , 'query'           , true)   ,
-        ('start_of_year_prev'         , 'Start of Previous Year'             , NULL                             , 'query'           , true)   ,
+        ('start_of_year_curr'         , 'Start of Current Year'              , NULL                             , 'query'           , false)   ,
+        ('stop_of_year_prev'          , 'End of Previous Year'               , NULL                             , 'query'           , false)   ,
+        ('start_of_year_prev'         , 'Start of Previous Year'             , NULL                             , 'query'           , false)   ,
         ('start_of_quinquennial_curr' , 'Start of Current Five-Year Period'  , NULL                             , 'query'           , false)  ,
         ('stop_of_quinquennial_prev'  , 'End of Previous Five-Year Period'   , NULL                             , 'query'           , false)  ,
         ('start_of_quinquennial_prev' , 'Start of Previous Five-Year Period' , NULL                             , 'query'           , false)  ,

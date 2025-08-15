@@ -9,6 +9,7 @@
 
 import { atom } from 'jotai';
 import { useAtomValue } from 'jotai';
+import { refreshBaseDataAtom } from './base-data';
 import { restClientAtom } from './app';
 import { isAuthenticatedAtom } from './auth';
 
@@ -44,8 +45,9 @@ export const workerStatusAtom = atom<WorkerStatus>(initialWorkerStatus);
 export const setWorkerStatusAtom = atom(
   null,
   (get, set, { type, status }: { type: WorkerStatusType, status: boolean }) => {
-    const currentStatus = get(workerStatusAtom);
+    const prevStatus = get(workerStatusAtom);
     let updatedStatus: Partial<WorkerStatus> = {};
+    
     if (type === 'is_importing') {
       updatedStatus.isImporting = status;
     } else if (type === 'is_deriving_statistical_units') {
@@ -53,8 +55,23 @@ export const setWorkerStatusAtom = atom(
     } else if (type === 'is_deriving_reports') {
       updatedStatus.isDerivingReports = status;
     }
-    // Set loading to false as this is a direct update, not a fetch.
-    set(workerStatusAtom, { ...currentStatus, ...updatedStatus, loading: false, error: null });
+    
+    const newStatusState = { ...prevStatus, ...updatedStatus, loading: false, error: null };
+    set(workerStatusAtom, newStatusState);
+
+    // Key condition: Check if the unit derivation process has just completed.
+    // This is a critical moment when the number of statistical units might have changed,
+    // requiring a refresh of base data to update the UI (e.g., show the main navbar).
+    if (
+      type === 'is_deriving_statistical_units' &&
+      prevStatus.isDerivingUnits === true &&
+      status === false
+    ) {
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.log("setWorkerStatusAtom: Detected completion of 'isDerivingUnits'. Refreshing base data.");
+      }
+      set(refreshBaseDataAtom);
+    }
   }
 );
 

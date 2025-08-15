@@ -455,46 +455,5 @@ SELECT DISTINCT unit_type, unit_id, timepoint
 FROM timepoint
 ORDER BY unit_type, unit_id, timepoint;
 
---
--- timepoints_years
---
-CREATE OR REPLACE VIEW public.timepoints_years_def AS
-SELECT DISTINCT EXTRACT(YEAR FROM timepoint)::integer AS year
-FROM public.timepoints
-WHERE timepoint IS NOT NULL AND timepoint != 'infinity'::date
-ORDER BY year;
-
-CREATE TABLE public.timepoints_years (year INTEGER PRIMARY KEY);
-
-CREATE OR REPLACE FUNCTION public.timepoints_years_refresh()
-RETURNS void LANGUAGE plpgsql AS $function$
-BEGIN
-    -- Create a temporary table with the new data from the definition view
-    CREATE TEMPORARY TABLE temp_timepoints_years ON COMMIT DROP AS
-    SELECT * FROM public.timepoints_years_def;
-
-    -- Delete years that are in the main table but not in the new set
-    DELETE FROM public.timepoints_years t
-    WHERE NOT EXISTS (
-        SELECT 1 FROM temp_timepoints_years tt
-        WHERE tt.year = t.year
-    );
-
-    -- Insert new years that are in the new set but not in the main table
-    INSERT INTO public.timepoints_years (year)
-    SELECT tt.year
-    FROM temp_timepoints_years tt
-    WHERE NOT EXISTS (
-        SELECT 1 FROM public.timepoints_years t
-        WHERE t.year = tt.year
-    );
-
-    -- The temporary table is dropped automatically on commit, but we drop it
-    -- explicitly to be safe in transactional testing environments.
-    DROP TABLE temp_timepoints_years;
-END;
-$function$;
-
-SELECT public.timepoints_years_refresh();
 
 END;

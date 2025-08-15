@@ -16,8 +16,15 @@ View definition:
  WITH combined_data AS (
          SELECT 'relative_period'::time_context_type AS type,
             'r_'::text || relative_period_with_time.code::character varying::text AS ident,
-            relative_period_with_time.name_when_query,
-            relative_period_with_time.name_when_input,
+                CASE
+                    WHEN relative_period_with_time.code = 'year_curr'::relative_period_code THEN format('Current Year (%s)'::text, EXTRACT(year FROM CURRENT_DATE))::character varying
+                    ELSE relative_period_with_time.name_when_query
+                END AS name_when_query,
+                CASE
+                    WHEN relative_period_with_time.code = 'year_curr'::relative_period_code THEN format('Current year and onwards (%s->)'::text, EXTRACT(year FROM CURRENT_DATE))::character varying
+                    WHEN relative_period_with_time.code = 'year_prev_only'::relative_period_code THEN format('Previous year only (%s)'::text, EXTRACT(year FROM CURRENT_DATE) - 1::numeric)::character varying
+                    ELSE relative_period_with_time.name_when_input
+                END AS name_when_input,
             relative_period_with_time.scope,
             relative_period_with_time.valid_from,
             relative_period_with_time.valid_to,
@@ -28,7 +35,7 @@ View definition:
           WHERE relative_period_with_time.active
         UNION ALL
          SELECT 'tag'::time_context_type AS type,
-            't:'::text || tag.path::character varying::text AS ident,
+            't_'::text || tag.path::character varying::text AS ident,
             tag.description AS name_when_query,
             tag.description AS name_when_input,
             'input_and_query'::relative_period_scope AS scope,
@@ -38,7 +45,20 @@ View definition:
             NULL::relative_period_code AS code,
             tag.path
            FROM tag
-          WHERE tag.active AND tag.context_valid_from IS NOT NULL AND tag.context_valid_to IS NOT NULL AND tag.context_valid_on IS NOT NULL
+          WHERE tag.active AND tag.path IS NOT NULL AND tag.context_valid_from IS NOT NULL AND tag.context_valid_to IS NOT NULL AND tag.context_valid_on IS NOT NULL
+        UNION ALL
+         SELECT 'year'::time_context_type AS type,
+            'y_'::text || ty.year::text AS ident,
+            ty.year::text AS name_when_query,
+            ty.year::text AS name_when_input,
+            'input_and_query'::relative_period_scope AS scope,
+            make_date(ty.year, 1, 1) AS valid_from,
+            make_date(ty.year, 12, 31) AS valid_to,
+            make_date(ty.year, 12, 31) AS valid_on,
+            NULL::relative_period_code AS code,
+            NULL::ltree AS path
+           FROM timepoints_years ty
+          WHERE ty.year <> ALL (ARRAY[EXTRACT(year FROM CURRENT_DATE)::integer, (EXTRACT(year FROM CURRENT_DATE) - 1::numeric)::integer])
         )
  SELECT type,
     ident,
@@ -51,6 +71,10 @@ View definition:
     code,
     path
    FROM combined_data
-  ORDER BY type, code, path;
+  ORDER BY type, (
+        CASE
+            WHEN type = 'year'::time_context_type THEN name_when_query::integer
+            ELSE NULL::integer
+        END) DESC, code, path;
 
 ```

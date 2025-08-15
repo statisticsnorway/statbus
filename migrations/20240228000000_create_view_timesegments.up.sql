@@ -97,4 +97,56 @@ $timesegments_refresh$;
 -- Initial population of the timesegments table
 SELECT public.timesegments_refresh();
 
+--
+-- timesegments_years
+--
+CREATE OR REPLACE VIEW public.timesegments_years_def AS
+SELECT DISTINCT year
+FROM (
+    SELECT generate_series(
+        EXTRACT(YEAR FROM valid_after + interval '1 day'), -- Segment starts the day after valid_after
+        EXTRACT(YEAR FROM LEAST(valid_to, now()::date)),   -- Up to current year for open segments
+        1
+    )::integer AS year
+    FROM public.timesegments
+    WHERE valid_after IS NOT NULL AND valid_to IS NOT NULL
+    UNION
+    -- Ensure the current year is always included in the list
+    SELECT EXTRACT(YEAR FROM now())::integer
+) AS all_years
+ORDER BY year;
+
+CREATE TABLE public.timesegments_years (year INTEGER PRIMARY KEY);
+
+CREATE OR REPLACE FUNCTION public.timesegments_years_refresh()
+RETURNS void LANGUAGE plpgsql AS $function$
+BEGIN
+    -- Create a temporary table with the new data from the definition view
+    CREATE TEMPORARY TABLE temp_timesegments_years ON COMMIT DROP AS
+    SELECT * FROM public.timesegments_years_def;
+
+    -- Delete years that are in the main table but not in the new set
+    DELETE FROM public.timesegments_years t
+    WHERE NOT EXISTS (
+        SELECT 1 FROM temp_timesegments_years tt
+        WHERE tt.year = t.year
+    );
+
+    -- Insert new years that are in the new set but not in the main table
+    INSERT INTO public.timesegments_years (year)
+    SELECT tt.year
+    FROM temp_timesegments_years tt
+    WHERE NOT EXISTS (
+        SELECT 1 FROM public.timesegments_years t
+        WHERE t.year = tt.year
+    );
+
+    -- The temporary table is dropped automatically on commit, but we drop it
+    -- explicitly to be safe in transactional testing environments.
+    DROP TABLE temp_timesegments_years;
+END;
+$function$;
+
+SELECT public.timesegments_years_refresh();
+
 END;

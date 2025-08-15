@@ -81,6 +81,9 @@ Policies:
     POLICY "import_job_authenticated_select_all" FOR SELECT
       TO authenticated
       USING (true)
+    POLICY "import_job_notify_reader_select_all" FOR SELECT
+      TO notify_reader
+      USING (true)
     POLICY "import_job_regular_user_delete_own" FOR DELETE
       TO regular_user
       USING ((user_id = auth.uid()))

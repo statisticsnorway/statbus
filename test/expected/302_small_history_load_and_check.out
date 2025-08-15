@@ -777,6 +777,30 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
  import    | completed |   144
 (2 rows)
 
+\echo "Checking time_context view for correct dynamic names and filtering"
+"Checking time_context view for correct dynamic names and filtering"
+-- This check verifies that:
+-- 1. Relative periods for current/previous year have dynamic names.
+-- 2. Year entries that overlap with relative periods are filtered out.
+-- 3. The remaining years are sorted in descending order.
+SELECT type, ident, name_when_query, name_when_input
+FROM public.time_context;
+      type       |      ident       |   name_when_query    |          name_when_input           
+-----------------+------------------+----------------------+------------------------------------
+ relative_period | r_year_curr      | Current Year (2025)  | Current year and onwards (2025->)
+ relative_period | r_year_prev      | Previous Year (2024) | Previous year and onwards (2024->)
+ relative_period | r_year_prev_only |                      | Previous year only (2024)
+ year            | y_2023           | 2023 (Data)          | 2023
+ year            | y_2022           | 2022 (Data)          | 2022
+ year            | y_2021           | 2021 (Data)          | 2021
+ year            | y_2020           | 2020 (Data)          | 2020
+ year            | y_2019           | 2019 (Data)          | 2019
+ year            | y_2018           | 2018 (Data)          | 2018
+ year            | y_2017           | 2017 (Data)          | 2017
+ year            | y_2016           | 2016 (Data)          | 2016
+ year            | y_2015           | 2015 (Data)          | 2015
+(12 rows)
+
 SELECT test.sudo_exec($sql$
   CREATE INDEX IF NOT EXISTS tidx_establishment_valid_after_valid_to ON establishment (valid_after, valid_to);
   CREATE INDEX IF NOT EXISTS tidx_stat_for_unit_establishment_id ON stat_for_unit (establishment_id);

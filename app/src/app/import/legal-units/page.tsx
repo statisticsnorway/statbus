@@ -108,13 +108,15 @@ export default function LegalUnitsPage() {
         </InfoBox>
       )}
 
-      <PendingJobsList
-        jobs={pendingJobs}
-        onDeleteJob={handleDeleteJob}
-        unitTypeTitle="Legal Units"
-        unitTypeDescription="legal unit"
-        uploadPathPrefix="/import/legal-units/upload"
-      />
+      {!isLoading && pendingJobs.length > 0 && (
+        <PendingJobsList
+          jobs={pendingJobs}
+          onDeleteJob={handleDeleteJob}
+          unitTypeTitle="Legal Units"
+          unitTypeDescription="legal unit"
+          uploadPathPrefix="/import/legal-units/upload"
+        />
+      )}
 
       <TimeContextSelector unitType="legal-units" />
       
