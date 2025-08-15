@@ -6,7 +6,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import React, { useEffect, useState } from "react"; // Removed useState
+import React, { useEffect, useState } from "react";
 import { InfoBox } from "@/components/info-box";
 import { useImportManager, usePendingJobsByMode } from "@/atoms/import"; // Updated import
 import { TimeContextSelector } from "../components/time-context-selector";
@@ -24,10 +24,17 @@ export default function UploadEstablishmentsWithoutLegalUnitPage() {
   // Use the generalized hook with the specific import mode for informal establishments
   const { jobs: pendingJobs, loading: isLoading, error, refreshJobs } = usePendingJobsByMode("establishment_informal");
   const [isClient, setIsClient] = useState(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  useEffect(() => {
+    if (!isLoading) {
+      setHasLoadedOnce(true);
+    }
+  }, [isLoading]);
 
   // Listen for any job updates and refresh the pending list
   useEffect(() => {
@@ -80,7 +87,7 @@ export default function UploadEstablishmentsWithoutLegalUnitPage() {
     }
   };
 
-  if (isLoading && pendingJobs.length === 0) {
+  if (isLoading && !hasLoadedOnce) {
     return <Spinner message="Checking for existing import jobs..." />;
   }
 

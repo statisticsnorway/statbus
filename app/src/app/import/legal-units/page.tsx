@@ -24,10 +24,17 @@ export default function LegalUnitsPage() {
   // Use the generalized hook with the specific import mode for legal units
   const { jobs: pendingJobs, loading: isLoading, error, refreshJobs } = usePendingJobsByMode("legal_unit");
   const [isClient, setIsClient] = useState(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  useEffect(() => {
+    if (!isLoading) {
+      setHasLoadedOnce(true);
+    }
+  }, [isLoading]);
 
   // Listen for any job updates and refresh the pending list
   useEffect(() => {
@@ -86,7 +93,7 @@ export default function LegalUnitsPage() {
     }
   };
 
-  if (isLoading && pendingJobs.length === 0) {
+  if (isLoading && !hasLoadedOnce) {
     return <Spinner message="Checking for existing import jobs..." />;
   }
 

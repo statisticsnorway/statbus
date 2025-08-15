@@ -24,10 +24,17 @@ export default function UploadEstablishmentsPage() {
   // Use the generalized hook with the specific import mode for formal establishments
   const { jobs: pendingJobs, loading: isLoading, error, refreshJobs } = usePendingJobsByMode("establishment_formal");
   const [isClient, setIsClient] = useState(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  useEffect(() => {
+    if (!isLoading) {
+      setHasLoadedOnce(true);
+    }
+  }, [isLoading]);
 
   // Listen for any job updates and refresh the pending list
   useEffect(() => {
@@ -80,7 +87,7 @@ export default function UploadEstablishmentsPage() {
     }
   };
 
-  if (isLoading && pendingJobs.length === 0) {
+  if (isLoading && !hasLoadedOnce) {
     return <Spinner message="Checking for existing import jobs..." />;
   }
 

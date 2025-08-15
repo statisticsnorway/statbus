@@ -100,20 +100,68 @@ export const baseDataCoreAtom = atomWithRefresh<Promise<BaseData>>(async (get): 
 
 export const baseDataLoadableAtom = loadable(baseDataCoreAtom);
 
+// Add a module-level variable to hold the last stable value.
+// This is a pragmatic approach for client-side state to ensure object reference stability.
+let lastStableBaseData: (BaseData & { loading: boolean; error: string | null }) | null = null;
+
+/**
+ * Performs a "good enough" deep comparison of two BaseData objects to check for meaningful changes.
+ * It avoids full recursive comparison by creating a compound key from the array contents.
+ */
+function isBaseDataEqual(a: BaseData, b: BaseData): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (a.hasStatisticalUnits !== b.hasStatisticalUnits) return false;
+  if (a.defaultTimeContext?.ident !== b.defaultTimeContext?.ident) return false;
+
+  // Create a key from an array of objects using their primary identifiers.
+  // This is more efficient than a full deep equal and robust enough for this data.
+  const idKey = (arr: any[]) => arr.map((item) => item?.id ?? item?.code ?? item?.ident ?? JSON.stringify(item)).join(',');
+
+  if (idKey(a.statDefinitions) !== idKey(b.statDefinitions)) return false;
+  if (idKey(a.externalIdentTypes) !== idKey(b.externalIdentTypes)) return false;
+  if (idKey(a.statbusUsers) !== idKey(b.statbusUsers)) return false;
+  if (idKey(a.timeContexts) !== idKey(b.timeContexts)) return false;
+
+  return true;
+}
+
+
 export const baseDataAtom = atom<BaseData & { loading: boolean; error: string | null }>(
   (get): BaseData & { loading: boolean; error: string | null } => {
     const loadableState = get(baseDataLoadableAtom);
+    let result: BaseData & { loading: boolean; error: string | null };
+
     switch (loadableState.state) {
       case 'loading':
-        return { ...initialBaseData, loading: true, error: null };
+        // While loading, use the previous data if available (loadable provides this).
+        // Fallback to initialBaseData if there's no previous data.
+        const dataWhileLoading = (loadableState.data as BaseData) ?? initialBaseData;
+        result = { ...dataWhileLoading, loading: true, error: null };
+        break;
       case 'hasError':
         const error = loadableState.error;
-        return { ...initialBaseData, loading: false, error: error instanceof Error ? error.message : String(error) };
+        result = { ...initialBaseData, loading: false, error: error instanceof Error ? error.message : String(error) };
+        break;
       case 'hasData':
-        return { ...loadableState.data, loading: false, error: null };
+        result = { ...loadableState.data, loading: false, error: null };
+        break;
       default: // Should not happen with loadable
-        return { ...initialBaseData, loading: false, error: 'Unknown loadable state' };
+        result = { ...initialBaseData, loading: false, error: 'Unknown loadable state' };
     }
+    
+    // If the new result is meaningfully the same as the last one, return the last one
+    // to preserve object reference and prevent unnecessary re-renders.
+    if (lastStableBaseData &&
+        lastStableBaseData.loading === result.loading &&
+        lastStableBaseData.error === result.error &&
+        isBaseDataEqual(lastStableBaseData, result)
+    ) {
+        return lastStableBaseData;
+    }
+
+    lastStableBaseData = result;
+    return result;
   }
 );
 
