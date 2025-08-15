@@ -12,7 +12,7 @@ BEGIN;
 
 CREATE OR REPLACE FUNCTION public.statistical_unit_history(
 	p_unit_id integer,
-	p_unit_type statistical_unit_type)
+	p_unit_type public.statistical_unit_type)
     RETURNS SETOF jsonb
     LANGUAGE plpgsql
     STABLE PARALLEL SAFE
@@ -72,7 +72,7 @@ $statistical_unit_history$;
 
 CREATE OR REPLACE FUNCTION public.statistical_unit_history_highcharts(
     p_unit_id integer,
-    p_unit_type statistical_unit_type
+    p_unit_type public.statistical_unit_type
 )
 RETURNS jsonb
 LANGUAGE plpgsql
