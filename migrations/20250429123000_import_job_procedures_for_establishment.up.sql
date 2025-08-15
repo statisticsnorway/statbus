@@ -171,7 +171,10 @@ DECLARE
     v_select_list TEXT;
     v_job_mode public.import_mode; -- Added for job mode
     rec_demotion_es RECORD; -- For establishment demotion
+    v_start_time TIMESTAMPTZ;
+    v_duration_ms NUMERIC;
 BEGIN
+    v_start_time := clock_timestamp();
     RAISE DEBUG '[Job %] process_establishment (Batch): Starting operation for % rows', p_job_id, array_length(p_batch_row_ids, 1);
 
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
@@ -645,8 +648,9 @@ BEGIN
 
     -- The framework now handles advancing priority for all rows, including 'skip'. No update needed here.
 
-    RAISE DEBUG '[Job %] process_establishment (Batch): Finished. New ESTs (action=insert): %, ESTs for replace/update: % (succeeded: %, errored: %). Total Errors in step: %',
-        p_job_id, v_inserted_new_est_count, v_updated_existing_est_count, v_actually_replaced_or_updated_est_count, v_error_count, v_error_count; -- Assuming v_error_count is total for replace/update part
+    v_duration_ms := (EXTRACT(EPOCH FROM (clock_timestamp() - v_start_time)) * 1000);
+    RAISE DEBUG '[Job %] process_establishment (Batch): Finished in % ms. New ESTs (action=insert): %, ESTs for replace/update: % (succeeded: %, errored: %). Total Errors in step: %',
+        p_job_id, round(v_duration_ms, 2), v_inserted_new_est_count, v_updated_existing_est_count, v_actually_replaced_or_updated_est_count, v_error_count, v_error_count; -- Assuming v_error_count is total for replace/update part
 
     DROP TABLE IF EXISTS temp_batch_data;
     DROP TABLE IF EXISTS temp_created_ests;

@@ -24,7 +24,10 @@ DECLARE
     v_error_row_ids INTEGER[] := ARRAY[]::INTEGER[];
     v_error_keys_to_clear_arr TEXT[] := ARRAY[]::TEXT[]; 
     v_fallback_error_key TEXT;
+    v_start_time TIMESTAMPTZ;
+    v_duration_ms NUMERIC;
 BEGIN
+    v_start_time := clock_timestamp();
     -- This is a HOLISTIC procedure. It is called once and processes all relevant rows for this step.
     -- The p_batch_row_ids parameter is ignored (it will be NULL).
     RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit (Holistic): Starting analysis.', p_job_id;
@@ -327,7 +330,8 @@ BEGIN
     DROP TABLE IF EXISTS temp_batch_errors;
     DROP TABLE IF EXISTS temp_relevant_rows;
 
-    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit (Batch): Finished analysis for batch. Total errors in batch: %', p_job_id, v_error_count;
+    v_duration_ms := (EXTRACT(EPOCH FROM (clock_timestamp() - v_start_time)) * 1000);
+    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit (Holistic): Finished analysis in % ms. Total errors in batch: %', p_job_id, round(v_duration_ms, 2), v_error_count;
 END;
 $analyse_link_establishment_to_legal_unit$;
 

@@ -87,7 +87,10 @@ DECLARE
     v_select_est_id_expr TEXT := 'NULL::INTEGER'; 
     v_select_list TEXT;
     v_update_count INT; -- Declaration for v_update_count used in propagation
+    v_start_time TIMESTAMPTZ;
+    v_duration_ms NUMERIC;
 BEGIN
+    v_start_time := clock_timestamp();
     RAISE DEBUG '[Job %] process_contact (Batch): Starting operation for % rows', p_job_id, array_length(p_batch_row_ids, 1);
 
     -- Get job details and snapshot
@@ -367,8 +370,9 @@ BEGIN
 
     -- The framework now handles advancing priority for all rows, including unprocessed and skipped rows. No update needed here.
 
-    RAISE DEBUG '[Job %] process_contact (Batch): Finished operation. New: %, Replaced: %. Errors: %',
-        p_job_id, v_inserted_new_contact_count, v_updated_existing_contact_count, v_error_count;
+    v_duration_ms := (EXTRACT(EPOCH FROM (clock_timestamp() - v_start_time)) * 1000);
+    RAISE DEBUG '[Job %] process_contact (Batch): Finished operation in % ms. New: %, Replaced: %. Errors: %',
+        p_job_id, round(v_duration_ms, 2), v_inserted_new_contact_count, v_updated_existing_contact_count, v_error_count;
 
     DROP TABLE IF EXISTS temp_batch_data;
     DROP TABLE IF EXISTS temp_created_contacts;

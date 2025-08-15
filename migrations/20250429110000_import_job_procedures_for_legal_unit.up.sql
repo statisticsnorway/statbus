@@ -178,7 +178,10 @@ DECLARE
     rec_demotion RECORD;
     v_ident_value TEXT;
     v_current_op_row_count INT; -- For storing ROW_COUNT from individual DML operations
+    v_start_time TIMESTAMPTZ;
+    v_duration_ms NUMERIC;
 BEGIN
+    v_start_time := clock_timestamp();
     RAISE DEBUG '[Job %] process_legal_unit (Batch): Starting operation for % rows', p_job_id, array_length(p_batch_row_ids, 1);
 
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
@@ -740,8 +743,9 @@ BEGIN
 
     -- The framework now handles advancing priority for all rows, including 'skip'. No update needed here.
 
-    RAISE DEBUG '[Job %] process_legal_unit (Batch): Finished. New (insert): %, Replaced (ok): %, Updated (ok): %. Total Errors in step: %',
-        p_job_id, v_inserted_new_lu_count, v_actually_replaced_lu_count, v_actually_updated_lu_count, v_error_count;
+    v_duration_ms := (EXTRACT(EPOCH FROM (clock_timestamp() - v_start_time)) * 1000);
+    RAISE DEBUG '[Job %] process_legal_unit (Batch): Finished in % ms. New (insert): %, Replaced (ok): %, Updated (ok): %. Total Errors in step: %',
+        p_job_id, round(v_duration_ms, 2), v_inserted_new_lu_count, v_actually_replaced_lu_count, v_actually_updated_lu_count, v_error_count;
 
     DROP TABLE IF EXISTS temp_batch_data;
     DROP TABLE IF EXISTS temp_created_lus;
