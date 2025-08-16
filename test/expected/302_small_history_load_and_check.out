@@ -547,7 +547,6 @@ FROM def;
 Indexes:
     "import_10_lu_2015_sht_data_pkey" PRIMARY KEY, btree (row_id)
     "import_10_lu_2015_sht_data_state_last_completed_priority_ro_idx" btree (state, last_completed_priority, row_id)
-    "import_10_lu_2015_sht_data_unique_ident_key" UNIQUE, btree (COALESCE(tax_ident, ''::text), valid_from, valid_to)
 Policies:
     POLICY "import_10_lu_2015_sht_data_admin_user_manage"
       TO admin_user

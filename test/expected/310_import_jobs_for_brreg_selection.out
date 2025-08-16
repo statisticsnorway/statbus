@@ -637,13 +637,13 @@ SELECT slug, state, error IS NOT NULL AS failed, total_rows, imported_rows, impo
 
 \echo "Check data row states after import"
 "Check data row states after import"
-SELECT state, count(*) FROM public.import_hovedenhet_2025_selection_data GROUP BY state;
+SELECT state, count(*) FROM public.import_hovedenhet_2025_selection_data ORDER BY state GROUP BY state;
    state   | count 
 -----------+-------
  processed |  4924
 (1 row)
 
-SELECT state, count(*) FROM public.import_underenhet_2025_selection_data GROUP BY state;
+SELECT state, count(*) FROM public.import_underenhet_2025_selection_data ORDER BY state GROUP BY state;
    state   | count 
 -----------+-------
  error     |     1

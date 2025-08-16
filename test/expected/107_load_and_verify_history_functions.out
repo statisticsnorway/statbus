@@ -14312,54 +14312,63 @@ FROM public.statistical_unit_history(
      {                                   +
          "name": "KRAN & SPESIALLØFT AS",+
          "Turnover": 3000000,            +
+         "valid_to": "2015-12-31",       +
          "Employees": 3,                 +
          "valid_from": "2013-01-01"      +
      },                                  +
      {                                   +
          "name": "KRAN & SPESIALLØFT AS",+
          "Turnover": 12000000,           +
+         "valid_to": "2018-12-31",       +
          "Employees": 9,                 +
          "valid_from": "2016-01-01"      +
      },                                  +
      {                                   +
          "name": "KRAN & SPESIALLØFT AS",+
          "Turnover": 60000000,           +
+         "valid_to": "2019-02-28",       +
          "Employees": 25,                +
          "valid_from": "2019-01-01"      +
      },                                  +
      {                                   +
          "name": "KRAN & SPESIALLØFT AS",+
          "Turnover": 60000000,           +
+         "valid_to": "2019-04-30",       +
          "Employees": 30,                +
          "valid_from": "2019-03-01"      +
      },                                  +
      {                                   +
          "name": "KRAN & SPESIALLØFT AS",+
          "Turnover": 60000000,           +
+         "valid_to": "2019-06-30",       +
          "Employees": 35,                +
          "valid_from": "2019-05-01"      +
      },                                  +
      {                                   +
          "name": "KRAN & SPESIALLØFT AS",+
          "Turnover": 60000000,           +
+         "valid_to": "2019-08-31",       +
          "Employees": 40,                +
          "valid_from": "2019-07-01"      +
      },                                  +
      {                                   +
          "name": "KRAN & SPESIALLØFT AS",+
          "Turnover": 60000000,           +
+         "valid_to": "2019-10-31",       +
          "Employees": 50,                +
          "valid_from": "2019-09-01"      +
      },                                  +
      {                                   +
          "name": "KRAN & SPESIALLØFT AS",+
          "Turnover": 60000000,           +
+         "valid_to": "2019-12-31",       +
          "Employees": 40,                +
          "valid_from": "2019-11-01"      +
      },                                  +
      {                                   +
          "name": "KRAN & SPESIALLØFT AS",+
          "Turnover": 70000000,           +
+         "valid_to": "infinity",         +
          "Employees": 45,                +
          "valid_from": "2020-01-01"      +
      }                                   +
@@ -14428,7 +14437,7 @@ SELECT jsonb_pretty(
                      45                  +
                  ]                       +
              ],                          +
-             "name": "Employees"         +
+             "name": "Employees *"       +
          },                              +
          {                               +
              "data": [                   +
@@ -14469,7 +14478,7 @@ SELECT jsonb_pretty(
                      70000000            +
                  ]                       +
              ],                          +
-             "name": "Turnover"          +
+             "name": "Turnover *"        +
          }                               +
      ],                                  +
      "unit_name": "KRAN & SPESIALLØFT AS"+

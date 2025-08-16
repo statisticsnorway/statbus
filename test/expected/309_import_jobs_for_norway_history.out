@@ -676,7 +676,6 @@ Triggers:
 Indexes:
     "import_lu_2015_h_data_pkey" PRIMARY KEY, btree (row_id)
     "import_lu_2015_h_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
-    "import_lu_2015_h_data_unique_ident_key" UNIQUE, btree (COALESCE(tax_ident, ''::text), valid_from, valid_to)
 Policies:
     POLICY "import_lu_2015_h_data_admin_user_manage"
       TO admin_user
@@ -830,7 +829,6 @@ Triggers:
 Indexes:
     "import_es_2015_h_data_pkey" PRIMARY KEY, btree (row_id)
     "import_es_2015_h_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
-    "import_es_2015_h_data_unique_ident_key" UNIQUE, btree (COALESCE(tax_ident, ''::text), valid_from, valid_to)
 Policies:
     POLICY "import_es_2015_h_data_admin_user_manage"
       TO admin_user

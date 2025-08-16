@@ -302,7 +302,6 @@ Describing table for definition: legal_unit_job_provided (Job: t54_lu_tc, Data T
 Indexes:
     "t54_lu_tc_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_lu_tc_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
-    "t54_lu_tc_data_unique_ident_key" UNIQUE, btree (COALESCE(stat_ident, ''::text), COALESCE(tax_ident, ''::text), valid_from, valid_to)
 Policies:
     POLICY "t54_lu_tc_data_admin_user_manage"
       TO admin_user
@@ -417,7 +416,6 @@ Describing table for definition: legal_unit_source_dates (Job: t54_lu_sd, Data T
 Indexes:
     "t54_lu_sd_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_lu_sd_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
-    "t54_lu_sd_data_unique_ident_key" UNIQUE, btree (COALESCE(stat_ident, ''::text), COALESCE(tax_ident, ''::text), valid_from, valid_to)
 Policies:
     POLICY "t54_lu_sd_data_admin_user_manage"
       TO admin_user
@@ -532,7 +530,6 @@ Describing table for definition: establishment_for_lu_job_provided (Job: t54_est
 Indexes:
     "t54_est_lu_tc_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_est_lu_tc_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
-    "t54_est_lu_tc_data_unique_ident_key" UNIQUE, btree (COALESCE(stat_ident, ''::text), COALESCE(tax_ident, ''::text), valid_from, valid_to)
 Policies:
     POLICY "t54_est_lu_tc_data_admin_user_manage"
       TO admin_user
@@ -647,7 +644,6 @@ Describing table for definition: establishment_for_lu_source_dates (Job: t54_est
 Indexes:
     "t54_est_lu_sd_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_est_lu_sd_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
-    "t54_est_lu_sd_data_unique_ident_key" UNIQUE, btree (COALESCE(stat_ident, ''::text), COALESCE(tax_ident, ''::text), valid_from, valid_to)
 Policies:
     POLICY "t54_est_lu_sd_data_admin_user_manage"
       TO admin_user
@@ -760,7 +756,6 @@ Describing table for definition: establishment_without_lu_job_provided (Job: t54
 Indexes:
     "t54_est_wolu_tc_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_est_wolu_tc_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
-    "t54_est_wolu_tc_data_unique_ident_key" UNIQUE, btree (COALESCE(stat_ident, ''::text), COALESCE(tax_ident, ''::text), valid_from, valid_to)
 Policies:
     POLICY "t54_est_wolu_tc_data_admin_user_manage"
       TO admin_user
@@ -873,7 +868,6 @@ Describing table for definition: establishment_without_lu_source_dates (Job: t54
 Indexes:
     "t54_est_wolu_sd_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_est_wolu_sd_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
-    "t54_est_wolu_sd_data_unique_ident_key" UNIQUE, btree (COALESCE(stat_ident, ''::text), COALESCE(tax_ident, ''::text), valid_from, valid_to)
 Policies:
     POLICY "t54_est_wolu_sd_data_admin_user_manage"
       TO admin_user
@@ -921,7 +915,6 @@ Describing table for definition: generic_unit_stats_update_job_provided (Job: t5
 Indexes:
     "t54_gus_jp_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_gus_jp_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
-    "t54_gus_jp_data_unique_ident_key" UNIQUE, btree (COALESCE(stat_ident, ''::text), COALESCE(tax_ident, ''::text), valid_from, valid_to)
 Policies:
     POLICY "t54_gus_jp_data_admin_user_manage"
       TO admin_user
@@ -969,7 +962,6 @@ Describing table for definition: generic_unit_stats_update_source_dates (Job: t5
 Indexes:
     "t54_gus_sd_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_gus_sd_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
-    "t54_gus_sd_data_unique_ident_key" UNIQUE, btree (COALESCE(stat_ident, ''::text), COALESCE(tax_ident, ''::text), valid_from, valid_to)
 Policies:
     POLICY "t54_gus_sd_data_admin_user_manage"
       TO admin_user
