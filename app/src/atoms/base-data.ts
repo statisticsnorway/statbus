@@ -136,7 +136,7 @@ export const baseDataAtom = atom<BaseData & { loading: boolean; error: string | 
       case 'loading':
         // While loading, use the previous data if available (loadable provides this).
         // Fallback to initialBaseData if there's no previous data.
-        const dataWhileLoading = (loadableState.data as BaseData) ?? initialBaseData;
+        const dataWhileLoading = ((loadableState as { data?: BaseData }).data) ?? initialBaseData;
         result = { ...dataWhileLoading, loading: true, error: null };
         break;
       case 'hasError':
