@@ -1,0 +1,183 @@
+BEGIN;
+\i test/setup.sql
+-- While the datestyle is set for the database, the pg_regress tool sets the MDY format
+-- to ensure consistent date formatting, so we must manually override this
+SET datestyle TO 'ISO, DMY';
+\if :{?DEBUG}
+SET client_min_messages TO debug1;
+\else
+SET client_min_messages TO NOTICE;
+\endif
+-- Create temporary function to execute queries as system user
+CREATE OR REPLACE FUNCTION test.sudo_exec(
+    sql text,
+    OUT results jsonb
+) RETURNS jsonb
+SECURITY DEFINER LANGUAGE plpgsql AS $sudo_exec$
+DECLARE
+    result_rows jsonb;
+BEGIN
+    -- Check if the SQL starts with common DDL keywords
+    IF sql ~* '^\s*(CREATE|DROP|ALTER|TRUNCATE|GRANT|REVOKE|ANALYZE)' THEN
+        -- For DDL statements, execute directly
+        EXECUTE sql;
+        results := '[]'::jsonb;
+    ELSE
+        -- For DML/queries, wrap in a SELECT to capture results
+        EXECUTE format('
+            SELECT COALESCE(
+                jsonb_agg(row_to_json(t)),
+                ''[]''::jsonb
+            )
+            FROM (%s) t',
+            sql
+        ) INTO result_rows;
+        results := result_rows;
+    END IF;
+END;
+$sudo_exec$;
+-- Grant execute to public since this is for testing
+GRANT EXECUTE ON FUNCTION test.sudo_exec(text) TO PUBLIC;
+\echo Add users for testing purposes
+Add users for testing purposes
+SELECT * FROM public.user_create('test.admin@statbus.org', 'admin_user'::statbus_role, 'Admin#123!');
+         email          |  password  
+------------------------+------------
+ test.admin@statbus.org | Admin#123!
+(1 row)
+
+SELECT * FROM public.user_create('test.regular@statbus.org', 'regular_user'::statbus_role, 'Regular#123!');
+          email           |   password   
+--------------------------+--------------
+ test.regular@statbus.org | Regular#123!
+(1 row)
+
+SELECT * FROM public.user_create('test.restricted@statbus.org', 'restricted_user'::statbus_role, 'Restricted#123!');
+            email            |    password     
+-----------------------------+-----------------
+ test.restricted@statbus.org | Restricted#123!
+(1 row)
+
+\echo '----------------------------------------------------------------------------'
+----------------------------------------------------------------------------
+\echo 'Test: import.set_insert_or_update_generic_valid_time_table orchestrator'
+Test: import.set_insert_or_update_generic_valid_time_table orchestrator
+\echo '----------------------------------------------------------------------------'
+----------------------------------------------------------------------------
+SET client_min_messages TO NOTICE;
+-- Setup: Create necessary schema and tables for this test
+CREATE SCHEMA IF NOT EXISTS set_test_orchestrator;
+GRANT USAGE ON SCHEMA set_test_orchestrator TO PUBLIC;
+CREATE SEQUENCE IF NOT EXISTS set_test_orchestrator.legal_unit_id_seq;
+NOTICE:  Granted USAGE on new sequence set_test_orchestrator.legal_unit_id_seq to authenticated
+CREATE SEQUENCE IF NOT EXISTS set_test_orchestrator.establishment_id_seq;
+NOTICE:  Granted USAGE on new sequence set_test_orchestrator.establishment_id_seq to authenticated
+-- Parent table: legal_unit
+CREATE TABLE set_test_orchestrator.legal_unit (
+    id INT NOT NULL,
+    valid_after DATE NOT NULL,
+    valid_to DATE NOT NULL,
+    name TEXT,
+    PRIMARY KEY (id, valid_after)
+);
+SELECT sql_saga.add_era('set_test_orchestrator.legal_unit', 'valid_after', 'valid_to');
+ add_era 
+---------
+ t
+(1 row)
+
+SELECT sql_saga.add_unique_key('set_test_orchestrator.legal_unit', ARRAY['id'], 'valid', 'legal_unit_id_uk');
+  add_unique_key  
+------------------
+ legal_unit_id_uk
+(1 row)
+
+-- Target table: establishment (with temporal FK to legal_unit)
+CREATE TABLE set_test_orchestrator.establishment (
+    id INT NOT NULL,
+    legal_unit_id INT, -- Temporal FK
+    valid_after DATE NOT NULL,
+    valid_to DATE NOT NULL,
+    name TEXT,
+    employees INT,
+    edit_comment TEXT, -- Ephemeral column
+    PRIMARY KEY (id, valid_after)
+);
+SELECT sql_saga.add_era('set_test_orchestrator.establishment', 'valid_after', 'valid_to');
+ add_era 
+---------
+ t
+(1 row)
+
+SELECT sql_saga.add_unique_key('set_test_orchestrator.establishment', ARRAY['id'], 'valid', 'establishment_id_uk');
+   add_unique_key    
+---------------------
+ establishment_id_uk
+(1 row)
+
+SELECT sql_saga.add_foreign_key('set_test_orchestrator.establishment', ARRAY['legal_unit_id'], 'valid', 'legal_unit_id_uk');
+           add_foreign_key           
+-------------------------------------
+ establishment_legal_unit_id_valid_1
+(1 row)
+
+-- Grant permissions for sql_saga triggers to work correctly
+GRANT SELECT ON set_test_orchestrator.legal_unit TO PUBLIC;
+GRANT SELECT, INSERT, UPDATE, DELETE ON set_test_orchestrator.establishment TO PUBLIC;
+-- Helper procedure to reset the target table for a new scenario
+CREATE OR REPLACE PROCEDURE set_test_orchestrator.reset_target() AS $$
+BEGIN
+    TRUNCATE set_test_orchestrator.legal_unit, set_test_orchestrator.establishment RESTART IDENTITY CASCADE;
+    ALTER SEQUENCE set_test_orchestrator.legal_unit_id_seq RESTART WITH 1;
+    ALTER SEQUENCE set_test_orchestrator.establishment_id_seq RESTART WITH 1;
+    -- Add parent data
+    INSERT INTO set_test_orchestrator.legal_unit (id, valid_after, valid_to, name) VALUES
+    (1, '2023-12-30', 'infinity', 'Parent LU 1');
+END;
+$$ LANGUAGE plpgsql;
+-- Parameters for the set-based function
+\set target_schema 'set_test_orchestrator'
+\set target_table 'establishment'
+\set target_entity_id_col 'id'
+\set source_schema 'pg_temp'
+\set source_entity_id_col 'establishment_id'
+\set ephemeral_cols '{edit_comment}'
+--------------------------------------------------------------------------------
+-- Test `set_insert_or_update`
+--------------------------------------------------------------------------------
+\echo 'Test Case 1: `set_insert_or_update` with a `during` relation (split)'
+Test Case 1: `set_insert_or_update` with a `during` relation (split)
+CALL set_test_orchestrator.reset_target();
+INSERT INTO set_test_orchestrator.establishment (id, legal_unit_id, valid_after, valid_to, name, employees, edit_comment) VALUES (1, 1, '2023-12-31', '2024-12-31', 'Original Name', 10, 'Original');
+CREATE TEMP TABLE temp_source (
+    row_id INT, legal_unit_id INT, establishment_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, employees INT, edit_comment TEXT
+) ON COMMIT DROP;
+INSERT INTO temp_source VALUES (101, 1, 1, '2024-03-31', '2024-08-31', NULL, 20, 'Updated part'); -- name is NULL, employees changes
+\echo 'Calling orchestrator...'
+Calling orchestrator...
+SELECT * FROM import.set_insert_or_update_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
+ source_row_id | upserted_record_ids | status  | error_message 
+---------------+---------------------+---------+---------------
+           101 | {}                  | SUCCESS | 
+(1 row)
+
+\echo 'Final state of target table:'
+Final state of target table:
+SELECT id, legal_unit_id, valid_after, valid_to, name, employees, edit_comment FROM set_test_orchestrator.establishment WHERE id = 1 ORDER BY valid_after;
+ id | legal_unit_id | valid_after |  valid_to  |     name      | employees | edit_comment 
+----+---------------+-------------+------------+---------------+-----------+--------------
+  1 |             1 | 2023-12-31  | 2024-03-31 | Original Name |        10 | Original
+  1 |             1 | 2024-03-31  | 2024-08-31 | Original Name |        20 | Updated part
+  1 |             1 | 2024-08-31  | 2024-12-31 | Original Name |        10 | Original
+(3 rows)
+
+DROP TABLE temp_source;
+-- Cleanup
+DROP PROCEDURE set_test_orchestrator.reset_target();
+DROP TABLE set_test_orchestrator.establishment;
+DROP TABLE set_test_orchestrator.legal_unit;
+DROP SEQUENCE set_test_orchestrator.establishment_id_seq;
+DROP SEQUENCE set_test_orchestrator.legal_unit_id_seq;
+DROP SCHEMA set_test_orchestrator CASCADE;
+SET client_min_messages TO NOTICE;
+ROLLBACK;
