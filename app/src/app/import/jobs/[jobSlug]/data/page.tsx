@@ -348,6 +348,10 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
       <div className="space-y-4">
         <div>
           <div className="flex items-center space-x-2">
+            <Link href="/import" className="text-2xl font-semibold text-gray-500 hover:underline">
+              Import
+            </Link>
+            <ChevronRight className="h-6 w-6 text-gray-400" />
             <Link href="/import/jobs" className="text-2xl font-semibold text-gray-500 hover:underline">
               Import Jobs
             </Link>
@@ -377,6 +381,10 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
     <div className="space-y-4">
       <div>
         <div className="flex items-center space-x-2">
+          <Link href="/import" className="text-2xl font-semibold text-gray-500 hover:underline">
+            Import
+          </Link>
+          <ChevronRight className="h-6 w-6 text-gray-400" />
           <Link href="/import/jobs" className="text-2xl font-semibold text-gray-500 hover:underline">
             Import Jobs
           </Link>

@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { formatDistanceToNow } from "date-fns";
-import { AlertCircle, CheckCircle, Clock, FileUp, FolderSearch, Hourglass, Loader, MoreHorizontal, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";
+import { AlertCircle, CheckCircle, Clock, FileUp, FolderSearch, Hourglass, Loader, MoreHorizontal, ThumbsDown, ThumbsUp, Trash2, ChevronRight } from "lucide-react";
 import { Tables } from '@/lib/database.types';
 import { useDataTable } from "@/hooks/use-data-table";
 import { DataTable } from "@/components/data-table/data-table";
@@ -617,7 +617,13 @@ export default function ImportJobsPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Import Jobs</h1>
+      <div className="flex items-center space-x-2">
+        <Link href="/import" className="text-2xl font-semibold text-gray-500 hover:underline">
+          Import
+        </Link>
+        <ChevronRight className="h-6 w-6 text-gray-400" />
+        <h1 className="text-2xl font-semibold">Import Jobs</h1>
+      </div>
       <DataTable table={table} actionBar={actionBar}>
         <DataTableToolbar table={table} />
       </DataTable>
