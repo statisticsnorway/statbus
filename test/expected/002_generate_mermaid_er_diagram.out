@@ -1015,37 +1015,37 @@ erDiagram
 		timestamp_with_time_zone updated_at
 	}
 	sql_saga_api_view["sql_saga.api_view"] {
-		regclass table_name
+		regclass table_oid
 		name era_name
-		regclass view_name
+		regclass view_oid
 		name trigger_name
 	}
 	sql_saga_era["sql_saga.era"] {
-		regclass table_name
+		regclass table_oid
 		name era_name
 		name start_after_column_name
 		name stop_on_column_name
 		regtype range_type
 		name bounds_check_constraint
-		regclass audit_table_name
+		regclass audit_table_oid
 	}
 	sql_saga_foreign_keys["sql_saga.foreign_keys"] {
-		name key_name
-		regclass table_name
+		name foreign_key_name
+		regclass table_oid
 		name[] column_names
 		name era_name
-		name unique_key
+		name unique_key_name
 		sql_saga_fk_match_types match_type
-		sql_saga_fk_actions delete_action
 		sql_saga_fk_actions update_action
+		sql_saga_fk_actions delete_action
 		name fk_insert_trigger
 		name fk_update_trigger
 		name uk_update_trigger
 		name uk_delete_trigger
 	}
 	sql_saga_unique_keys["sql_saga.unique_keys"] {
-		name key_name
-		regclass table_name
+		name unique_key_name
+		regclass table_oid
 		name[] column_names
 		name era_name
 		name unique_constraint
@@ -1152,13 +1152,13 @@ erDiagram
 	tag_for_unit }|--|| tag : tag_for_unit_tag_id_fkey
 	unit_notes }o--|| auth_user : unit_notes_edit_by_user_id_fkey
 	unit_notes }o--o| enterprise : unit_notes_enterprise_id_fkey
-	sql_saga_api_view }|--|| sql_saga_era : api_view_table_name_era_name_fkey
-	sql_saga_api_view }|--|| sql_saga_era : api_view_table_name_era_name_fkey
-	sql_saga_foreign_keys }o--|| sql_saga_era : foreign_keys_table_name_era_name_fkey
-	sql_saga_foreign_keys }o--|| sql_saga_era : foreign_keys_table_name_era_name_fkey
-	sql_saga_foreign_keys }o--|| sql_saga_unique_keys : foreign_keys_unique_key_fkey
-	sql_saga_unique_keys }o--|| sql_saga_era : unique_keys_table_name_era_name_fkey
-	sql_saga_unique_keys }o--|| sql_saga_era : unique_keys_table_name_era_name_fkey
+	sql_saga_api_view }|--|| sql_saga_era : api_view_table_oid_era_name_fkey
+	sql_saga_api_view }|--|| sql_saga_era : api_view_table_oid_era_name_fkey
+	sql_saga_foreign_keys }o--|| sql_saga_era : foreign_keys_table_oid_era_name_fkey
+	sql_saga_foreign_keys }o--|| sql_saga_era : foreign_keys_table_oid_era_name_fkey
+	sql_saga_foreign_keys }o--|| sql_saga_unique_keys : foreign_keys_unique_key_name_fkey
+	sql_saga_unique_keys }o--|| sql_saga_era : unique_keys_table_oid_era_name_fkey
+	sql_saga_unique_keys }o--|| sql_saga_era : unique_keys_table_oid_era_name_fkey
 	worker_command_registry }o--|| worker_queue_registry : command_registry_queue_fkey
 	worker_tasks }o--|| worker_command_registry : fk_tasks_command
 	worker_tasks }o--|| worker_command_registry : tasks_command_fkey
