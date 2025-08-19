@@ -1444,14 +1444,9 @@ BEGIN
     EXECUTE create_data_table_stmt;
 
 
-  -- Create a composite, filtered index for efficient batch selection.
-  -- The index only includes rows that are candidates for processing (error IS NULL).
-  -- This allows the planner to perform highly efficient index-only scans.
-  EXECUTE format($$
-    CREATE INDEX ON public.%1$I (state, last_completed_priority, row_id)
-    WHERE error IS NULL
-  $$, job.data_table_name /* %1$I */);
-  RAISE DEBUG '[Job %] Added filtered composite index to data table %', job.id, job.data_table_name;
+  -- Create composite index (state, last_completed_priority, row_id) for efficient batch selection and in-index ordering
+  EXECUTE format($$CREATE INDEX ON public.%1$I (state, last_completed_priority, row_id)$$, job.data_table_name /* %1$I */);
+  RAISE DEBUG '[Job %] Added composite index to data table %', job.id, job.data_table_name;
 
   -- Create indexes on uniquely identifying source_input columns to speed up lookups within analysis steps.
   FOR col_rec IN
@@ -1462,6 +1457,31 @@ BEGIN
       RAISE DEBUG '[Job %] Adding index on uniquely identifying source column: %', job.id, col_rec.column_name;
       EXECUTE format('CREATE INDEX ON public.%I (%I)', job.data_table_name, col_rec.column_name);
   END LOOP;
+
+  -- Add recommended performance indexes for processing phase and founding_row_id lookups.
+  BEGIN
+      DECLARE
+          v_has_founding_row_id_col BOOLEAN;
+      BEGIN
+          -- Check if the 'founding_row_id' column is defined for this job's data table
+          SELECT EXISTS (
+              SELECT 1 FROM jsonb_array_elements(job.definition_snapshot->'import_data_column_list') elem
+              WHERE elem->>'column_name' = 'founding_row_id'
+          ) INTO v_has_founding_row_id_col;
+
+          -- Add processing phase index
+          EXECUTE format($$ CREATE INDEX ON public.%1$I (action, row_id) WHERE state = 'processing' AND error IS NULL $$, job.data_table_name);
+          RAISE DEBUG '[Job %] Added processing phase index to data table %.', job.id, job.data_table_name;
+
+          -- Add founding_row_id index if the column exists
+          IF v_has_founding_row_id_col THEN
+              EXECUTE format($$ CREATE INDEX ON public.%1$I (founding_row_id) WHERE founding_row_id IS NOT NULL $$, job.data_table_name);
+              RAISE DEBUG '[Job %] Added founding_row_id index to data table %.', job.id, job.data_table_name;
+          ELSE
+              RAISE DEBUG '[Job %] Skipping founding_row_id index as column is not present in data table %.', job.id, job.data_table_name;
+          END IF;
+      END;
+  END;
 
   -- Grant direct permissions to the job owner on the upload table to allow COPY FROM
   DECLARE

@@ -462,8 +462,10 @@ END $$;
  invalid_codes                    | jsonb                     |           |          |                              | extended |              | 
 Indexes:
     "import_71_a1_lu_data_pkey" PRIMARY KEY, btree (row_id)
+    "import_71_a1_lu_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND error IS NULL
+    "import_71_a1_lu_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "import_71_a1_lu_data_nin_ident_idx" btree (nin_ident)
-    "import_71_a1_lu_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id) WHERE error IS NULL
+    "import_71_a1_lu_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
     "import_71_a1_lu_data_tax_ident_idx" btree (tax_ident)
 Policies:
     POLICY "import_71_a1_lu_data_admin_user_manage"

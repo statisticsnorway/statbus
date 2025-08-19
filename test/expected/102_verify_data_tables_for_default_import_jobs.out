@@ -301,8 +301,10 @@ Describing table for definition: legal_unit_job_provided (Job: t54_lu_tc, Data T
  invalid_codes                    | jsonb                     |           |          | 
 Indexes:
     "t54_lu_tc_data_pkey" PRIMARY KEY, btree (row_id)
+    "t54_lu_tc_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND error IS NULL
+    "t54_lu_tc_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "t54_lu_tc_data_stat_ident_idx" btree (stat_ident)
-    "t54_lu_tc_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id) WHERE error IS NULL
+    "t54_lu_tc_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
     "t54_lu_tc_data_tax_ident_idx" btree (tax_ident)
 Policies:
     POLICY "t54_lu_tc_data_admin_user_manage"
@@ -417,8 +419,10 @@ Describing table for definition: legal_unit_source_dates (Job: t54_lu_sd, Data T
  invalid_codes                    | jsonb                     |           |          | 
 Indexes:
     "t54_lu_sd_data_pkey" PRIMARY KEY, btree (row_id)
+    "t54_lu_sd_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND error IS NULL
+    "t54_lu_sd_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "t54_lu_sd_data_stat_ident_idx" btree (stat_ident)
-    "t54_lu_sd_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id) WHERE error IS NULL
+    "t54_lu_sd_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
     "t54_lu_sd_data_tax_ident_idx" btree (tax_ident)
 Policies:
     POLICY "t54_lu_sd_data_admin_user_manage"
@@ -533,8 +537,10 @@ Describing table for definition: establishment_for_lu_job_provided (Job: t54_est
  invalid_codes                    | jsonb                     |           |          | 
 Indexes:
     "t54_est_lu_tc_data_pkey" PRIMARY KEY, btree (row_id)
+    "t54_est_lu_tc_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND error IS NULL
+    "t54_est_lu_tc_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "t54_est_lu_tc_data_stat_ident_idx" btree (stat_ident)
-    "t54_est_lu_tc_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id) WHERE error IS NULL
+    "t54_est_lu_tc_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
     "t54_est_lu_tc_data_tax_ident_idx" btree (tax_ident)
 Policies:
     POLICY "t54_est_lu_tc_data_admin_user_manage"
@@ -649,8 +655,10 @@ Describing table for definition: establishment_for_lu_source_dates (Job: t54_est
  invalid_codes                    | jsonb                     |           |          | 
 Indexes:
     "t54_est_lu_sd_data_pkey" PRIMARY KEY, btree (row_id)
+    "t54_est_lu_sd_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND error IS NULL
+    "t54_est_lu_sd_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "t54_est_lu_sd_data_stat_ident_idx" btree (stat_ident)
-    "t54_est_lu_sd_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id) WHERE error IS NULL
+    "t54_est_lu_sd_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
     "t54_est_lu_sd_data_tax_ident_idx" btree (tax_ident)
 Policies:
     POLICY "t54_est_lu_sd_data_admin_user_manage"
@@ -763,8 +771,10 @@ Describing table for definition: establishment_without_lu_job_provided (Job: t54
  invalid_codes                    | jsonb                     |           |          | 
 Indexes:
     "t54_est_wolu_tc_data_pkey" PRIMARY KEY, btree (row_id)
+    "t54_est_wolu_tc_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND error IS NULL
+    "t54_est_wolu_tc_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "t54_est_wolu_tc_data_stat_ident_idx" btree (stat_ident)
-    "t54_est_wolu_tc_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id) WHERE error IS NULL
+    "t54_est_wolu_tc_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
     "t54_est_wolu_tc_data_tax_ident_idx" btree (tax_ident)
 Policies:
     POLICY "t54_est_wolu_tc_data_admin_user_manage"
@@ -877,8 +887,10 @@ Describing table for definition: establishment_without_lu_source_dates (Job: t54
  invalid_codes                    | jsonb                     |           |          | 
 Indexes:
     "t54_est_wolu_sd_data_pkey" PRIMARY KEY, btree (row_id)
+    "t54_est_wolu_sd_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND error IS NULL
+    "t54_est_wolu_sd_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "t54_est_wolu_sd_data_stat_ident_idx" btree (stat_ident)
-    "t54_est_wolu_sd_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id) WHERE error IS NULL
+    "t54_est_wolu_sd_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
     "t54_est_wolu_sd_data_tax_ident_idx" btree (tax_ident)
 Policies:
     POLICY "t54_est_wolu_sd_data_admin_user_manage"
@@ -926,8 +938,10 @@ Describing table for definition: generic_unit_stats_update_job_provided (Job: t5
  invalid_codes              | jsonb                     |           |          | 
 Indexes:
     "t54_gus_jp_data_pkey" PRIMARY KEY, btree (row_id)
+    "t54_gus_jp_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND error IS NULL
+    "t54_gus_jp_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "t54_gus_jp_data_stat_ident_idx" btree (stat_ident)
-    "t54_gus_jp_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id) WHERE error IS NULL
+    "t54_gus_jp_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
     "t54_gus_jp_data_tax_ident_idx" btree (tax_ident)
 Policies:
     POLICY "t54_gus_jp_data_admin_user_manage"
@@ -975,8 +989,10 @@ Describing table for definition: generic_unit_stats_update_source_dates (Job: t5
  invalid_codes              | jsonb                     |           |          | 
 Indexes:
     "t54_gus_sd_data_pkey" PRIMARY KEY, btree (row_id)
+    "t54_gus_sd_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND error IS NULL
+    "t54_gus_sd_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "t54_gus_sd_data_stat_ident_idx" btree (stat_ident)
-    "t54_gus_sd_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id) WHERE error IS NULL
+    "t54_gus_sd_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
     "t54_gus_sd_data_tax_ident_idx" btree (tax_ident)
 Policies:
     POLICY "t54_gus_sd_data_admin_user_manage"
