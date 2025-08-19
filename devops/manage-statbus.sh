@@ -331,7 +331,7 @@ case "$action" in
           test=$(echo "$test_line" | sed -E 's/not ok[[:space:]]+[0-9]+[[:space:]]+- ([^[:space:]]+).*/\1/')
           
           ui=${1:-tui}
-          shift || true
+          head_lines=${2:-}  # Get optional line count for head
           case $ui in
               'gui')
                   echo "Running opendiff for test: $test"
@@ -343,10 +343,14 @@ case "$action" in
                   ;;
               'pipe')
                   echo "Running diff for test: $test"
-                  diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
+                  if [ -n "$head_lines" ]; then
+                      diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty | head -n "$head_lines" || true
+                  else
+                      diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty || true
+                  fi
                   ;;
               *)
-                  echo "Error: Unknown UI option '$ui'. Please use 'gui' or 'tui'."
+                  echo "Error: Unknown UI option '$ui'. Please use 'gui', 'tui', or 'pipe'."
                   exit 1
               ;;
           esac
