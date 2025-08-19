@@ -220,8 +220,8 @@ Generated Plan (Scenario 6):
 SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
  source_row_id | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                       data                       | relation 
 ---------------+-----------+-----------+-----------------+-----------------+--------------+--------------------------------------------------+----------
-           105 | UPDATE    |         1 | 2023-12-31      | 2023-12-31      | 2024-06-30   | {"name": "Starts New", "edit_comment": "Starts"} | starts
-           105 | INSERT    |         1 |                 | 2024-06-30      | infinity     | {"name": "Original", "edit_comment": null}       | starts
+           105 | UPDATE    |         1 | 2023-12-31      | 2024-06-30      | infinity     | {"name": "Original", "edit_comment": null}       | starts
+           105 | INSERT    |         1 |                 | 2023-12-31      | 2024-06-30   | {"name": "Starts New", "edit_comment": "Starts"} | starts
 (2 rows)
 
 DROP TABLE temp_source;
@@ -258,10 +258,9 @@ Generated Plan (Scenario 8):
 SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
  source_row_id | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                         data                         | relation 
 ---------------+-----------+-----------+-----------------+-----------------+--------------+------------------------------------------------------+----------
-           107 | DELETE    |         1 | 2024-03-31      |                 |              |                                                      | overlaps
+           107 | UPDATE    |         1 | 2024-03-31      | 2024-06-30      | 2024-08-31   | {"name": "Original", "edit_comment": null}           | overlaps
            107 | INSERT    |         1 |                 | 2023-12-31      | 2024-06-30   | {"name": "Overlaps New", "edit_comment": "Overlaps"} | overlaps
-           107 | INSERT    |         1 |                 | 2024-06-30      | 2024-08-31   | {"name": "Original", "edit_comment": null}           | overlaps
-(3 rows)
+(2 rows)
 
 DROP TABLE temp_source;
 -- Scenario 9: `meets` relation (different data)
@@ -296,7 +295,7 @@ Generated Plan (Scenario 10):
 SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
  source_row_id | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                        data                        | relation 
 ---------------+-----------+-----------+-----------------+-----------------+--------------+----------------------------------------------------+----------
-           109 | INSERT    |         1 |                 | 2023-12-31      | 2024-03-31   | {"name": "Original", "edit_comment": "Meets same"} | meets
+           109 | UPDATE    |         1 | 2024-03-31      | 2023-12-31      | 2024-08-31   | {"name": "Original", "edit_comment": "Meets same"} | meets
 (1 row)
 
 DROP TABLE temp_source;

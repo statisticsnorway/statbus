@@ -24,23 +24,23 @@ CREATE TYPE public.allen_interval_relation AS ENUM (
     'equals',       -- X equals Y: X.va = Y.va AND X.vt = Y.vt
                     -- X: ( XXXX ]
                     -- Y: ( YYYY ]
-    -- Inverse relations (Y relative to X, but ENUM value describes X's relation to Y)
-    'overlapped_by',-- X overlapped_by Y (i.e., Y overlaps X): Y.va < X.va AND Y.vt > X.va AND Y.vt < X.vt
+    -- Inverse relations (describing X's relation to Y)
+    'overlapped_by',-- X is overlapped by Y (Y overlaps X): Y.va < X.va AND Y.vt > X.va AND Y.vt < X.vt
                     -- X:      (----XXXX ]
                     -- Y: ( YYYY----]
-    'started_by',   -- X started_by Y (i.e., Y starts X): Y.va = X.va AND Y.vt < X.vt
+    'started_by',   -- X is started by Y (Y starts X): Y.va = X.va AND Y.vt < X.vt
                     -- X: ( XXXXXXX ]
                     -- Y: ( YYYY ]
-    'contains',     -- X contains Y (i.e., Y during X): Y.va > X.va AND Y.vt < X.vt
+    'contains',     -- X contains Y (Y is during X): Y.va > X.va AND Y.vt < X.vt
                     -- X: ( XXXXXXX ]
                     -- Y:   ( YYYY ]
-    'finished_by',  -- X finished_by Y (i.e., Y finishes X): Y.va < X.va AND Y.vt = X.vt
+    'finished_by',  -- X is finished by Y (Y finishes X): Y.va > X.va AND Y.vt = X.vt
                     -- X: ( XXXXXXX ]
                     -- Y:      ( YYYY ]
-    'met_by',       -- X met_by Y (i.e., Y meets X): Y.vt = X.va
+    'met_by',       -- X is met by Y (Y meets X): Y.vt = X.va
                     -- X:         ( XXXX ]
-                    -- Y: ( YYYY ]  (Touching: Y.vt is X.va)
-    'preceded_by'   -- X preceded_by Y (i.e., Y precedes X): Y.vt < X.va
+                    -- Y: ( YYYY ]
+    'preceded_by'   -- X is preceded by Y (Y precedes X): Y.vt < X.va
                     -- X:           ( XXXX ]
                     -- Y: ( YYYY ]
 );

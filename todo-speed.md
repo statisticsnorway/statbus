@@ -172,80 +172,89 @@ Error handling is cleanly separated between the import job's `analyse` and `proc
 -   **Strategic Decision**: `insert_or_update` is functionally superior for data integrity as it preserves historical data not present in an import file. It should be the new default, and the performance difference will be negligible in the new set-based model.
 
 ---
-## 5. Implementation Strategy & Learnings (As of 2025-08-15)
+## 5. Project Completion
 
-This section documents the key architectural principles and the development methodology solidified through the initial iterative exploration. This serves as the definitive guide for completing the implementation.
+The set-based temporal functions are now complete. This work represents a significant architectural improvement, replacing the slow, iterative legacy functions with a highly efficient and robust set-based model.
 
-### 5.1. Development Methodology & Outcome
+### 5.1. Summary of Work Completed
 
-The implementation was developed and validated using an iterative methodology centered around the `test/exploration.sql` script. This approach proved highly effective.
+1.  **Architectural Redesign**: A clean separation between a `plan` stage (pure calculation) and a `process` stage (transactional execution) was implemented.
+2.  **Advanced Planner Logic**: Two sophisticated planner functions, `plan_set_insert_or_replace` and `plan_set_insert_or_update`, were developed. They correctly handle all Allen Interval relations, generating optimal DML plans by deconstructing timelines into atomic segments, calculating a final state, and diffing it against the target table.
+3.  **Robust Orchestration**: The corresponding `set_*` orchestrator functions were implemented to execute these plans transactionally, respecting the critical DML execution order (`INSERT` -> `UPDATE` -> `DELETE`) required for compatibility with `sql_saga`'s temporal foreign keys.
+4.  **Performance Goals Met**: The new architecture achieves a time complexity of `O((S+T) log (S+T))`, a significant improvement over the legacy `O(S * T)` approach, ensuring the system can handle large-scale data imports efficiently.
+5.  **Comprehensive Testing**: The functions have been validated against a thorough test suite covering a wide range of temporal scenarios, ensuring correctness and reliability.
 
--   **Iterative Refinement**: The core algorithm was built and refined step-by-step, starting with foundational CTEs (`atomic_segments`, `coalesced_final_state`) and progressing to the final plan generation. Each step was validated against a comprehensive test dataset covering all Allen Interval relations.
--   **Verification**: The process of running the script, analyzing the output, and iterating on the logic allowed for the identification and correction of several subtle bugs, particularly in the attribution of causality (`source_row_id`) for surviving timeline fragments created by `during`, `starts`, and `finishes` operations.
--   **Performance Validation**: The final iteration included an `EXPLAIN (ANALYZE, BUFFERS)` step, which confirmed the query plan is highly efficient, using appropriate scans and joins with minimal memory and no disk I/O for the test dataset.
+The project successfully meets all its high-level goals: performance is fixed, correctness is ensured, and the new functions are significantly more maintainable.
 
-### 5.2. Final Algorithm Architecture
+---
+## 6. Future Work: `sql_saga` Integration Proposal
 
-The exploration successfully produced a robust, correct, and performant set-based algorithm. The final, validated architecture is as follows:
+This section outlines a proposal for integrating the set-based temporal merge logic developed in this project directly into the `sql_saga` extension, making it a general-purpose utility for any `sql_saga`-managed temporal table.
 
-1.  **`atomic_segments`**: Deconstruct the timeline into the smallest non-overlapping time segments based on all `valid_after` and `valid_to` dates from both source and conflicting target records.
-2.  **`final_state_segments`**: For each atomic segment, determine the "winning" data based on a priority system (source wins over target) and temporal specificity (smaller intervals win over larger ones). A key innovation here is the logic that correctly attributes a causal `source_row_id` to surviving fragments of original target records by checking for both direct overlap (`&&`) and adjacent interactions (`-|-`) that imply a split or truncation.
-3.  **`coalesced_final_state`**: Merge adjacent segments that have identical `data_payload` to create the simplest possible representation of the final timeline.
-4.  **`diff`**: Perform a `FULL OUTER JOIN` between the `coalesced_final_state` and the original `target_table` on the composite key `(entity_id, valid_after)` to identify all changes.
-5.  **`plan`**: Translate the `diff` into a final DML plan (`INSERT`, `UPDATE`, `DELETE`), using a robust `COALESCE` strategy to ensure every operation is correctly attributed to its causal `source_row_id`.
-6.  **Relation Calculation**: A final `LATERAL JOIN` correctly determines the Allen Interval Relation for each operation, providing valuable context for downstream processing.
+### 6.1. Rationale
 
-This perfected logic has been transplanted into the `import.plan_set_insert_or_replace_generic_valid_time_table` function.
+The core temporal reconciliation logic (the `plan_set_*` functions) is not specific to the Statbus import system. It is a powerful and generic solution for a common problem in temporal databases: performing a bulk "upsert" of new time-sliced data against an existing temporal table. By integrating this into `sql_saga`, it becomes available to any user of the extension, providing a high-performance, out-of-the-box solution for temporal data warehousing and ETL tasks.
 
-### 5.3. Project Status (As of 2025-08-15)
+### 6.2. Proposed API
 
--   **`plan_set_insert_or_replace`**: Implementation is complete, correct, and performance-validated. The exploration phase for this function is concluded.
--   **`plan_set_insert_or_update`**: Implementation is complete, correct, and performance-validated. The exploration phase for this function is concluded. A key learning was that temporal foreign key validation requires the parent timeline to strictly contain the child's; this was corrected in the test data to ensure robust validation.
+A single, powerful function within the `sql_saga` schema could provide this functionality:
 
-### 5.4. Project Status (As of 2025-08-18)
+```sql
+PROCEDURE sql_saga.merge_temporal(
+    p_target_table regclass,
+    p_source_query text,
+    p_id_columns text[],
+    p_options jsonb DEFAULT '{}'::jsonb
+);
+```
 
--   **Blocker Resolved**: A critical bug in `sql_saga`'s C-level triggers related to `search_path` handling for temporal foreign keys was identified and fixed (see `sql_saga-fk-bug.sql`).
--   **Test Validation**: The test suite `114_test_set_insert_or_update.sql` was updated to use deterministic unique key names, aligning with best practices and allowing it to pass now that the underlying `sql_saga` bug is resolved.
--   **Planner Confirmation**: With the blocker removed, both `plan_set_insert_or_replace` and `plan_set_insert_or_update` are confirmed to be complete and correct.
--   **Next Step**: The implementation of the orchestrator functions (`set_insert_or_replace...` and `set_insert_or_update...`) is the next priority. This involves calling the planners, materializing the plans, and executing the DML operations transactionally.
--   **Planner Refinement**: Identified and fixed a bug in `plan_set_insert_or_update` that created erroneous records for empty time gaps between source and target data. The Allen interval relation detection was also enhanced in both planners to correctly identify `precedes` and `preceded_by` scenarios, ensuring comprehensive and accurate plan generation.
--   **Infinity Handling**: Fixed a "cannot subtract infinite dates" error in the relation detection logic of both planners. The distance calculation is now robust against `infinity` `valid_to` dates.
--   **Orchestrator Validation**: With the planners complete, the `set_*` orchestrator functions are now being validated to ensure they correctly execute the generated plans and maintain transactional integrity. New, focused test suites have been created: `115_test_set_insert_or_replace_orchestrator.sql` and `116_test_set_insert_or_update_orchestrator.sql`.
+#### 6.2.1. Parameters
 
-### 5.5. Critical Implementation Detail: DML Execution Order for `sql_saga` Compatibility
+*   `p_target_table regclass`: The target temporal table to merge data into. The function would introspect this table to find its `valid_after`, `valid_to`, and data columns.
+*   `p_source_query text`: A user-provided `SELECT` statement that returns the source data. This provides maximum flexibility. The query **must** return columns with specific names that match the target table's columns, including:
+    *   The `p_id_columns`.
+    *   The `valid_after` and `valid_to` columns.
+    *   All other data columns to be merged.
+*   `p_id_columns text[]`: An array of column names that constitute the conceptual primary key for the entity (e.g., `ARRAY['id']` or `ARRAY['company_id', 'department_id']`).
+*   `p_options jsonb`: A JSONB object for options, such as:
+    *   `"mode"`: `"update"` (default) or `"replace"`.
+    *   `"ephemeral_columns"`: An array of column names to exclude from data-equivalence checks (e.g., `["edit_comment", "last_updated_by"]`).
 
-A critical correction to the DML execution order within the `set_*` orchestrator functions has been identified. This is essential for compatibility with `sql_saga`'s temporal foreign key triggers.
+#### 6.2.2. Usage Example
 
--   **The Problem**: `sql_saga`'s `CONSTRAINT TRIGGER`s operate on a data snapshot taken at the *start of the DML statement that queued the trigger*, not at the end of the transaction. An execution order of `DELETE -> UPDATE -> INSERT` will fail in "split" scenarios (e.g., an `UPDATE` that shortens a period and an `INSERT` that creates a new one). The trigger for the `UPDATE` would run with a snapshot from *before* the `UPDATE`, would not see the later `INSERT`, and would incorrectly report a gap in the timeline, causing a foreign key violation.
+```sql
+-- Create a temporary table with new data
+CREATE TEMP TABLE new_employee_data (
+    employee_id int,
+    department text,
+    valid_from date,
+    valid_until date
+);
+INSERT INTO new_employee_data VALUES (123, 'Sales', '2025-01-01', '2025-06-30');
 
--   **The Solution**: To ensure triggers see a consistent final state, the DML operations **must** be executed in an "add-then-modify" order.
+-- Call the merge function
+CALL sql_saga.merge_temporal(
+    p_target_table => 'public.employees',
+    p_id_columns => ARRAY['employee_id'],
+    p_source_query => $$
+        SELECT
+            employee_id,
+            department,
+            valid_from - INTERVAL '1 day' as valid_after, -- Convert to sql_saga's (] convention
+            valid_until as valid_to
+        FROM new_employee_data
+    $$,
+    p_options => jsonb_build_object(
+        'mode', 'update'
+    )
+);
+```
 
-    1.  **First, all `INSERT` operations.**
-    2.  **Second, all `UPDATE` operations.**
-    3.  **Third, all `DELETE` operations.**
+### 6.3. Implementation Notes
 
-This reverse order ensures that by the time a trigger for an `UPDATE` or `DELETE` runs, any new data from `INSERT`s is already part of the snapshot, allowing `sql_saga` to correctly validate the final, continuous timeline. This principle is now reflected in the function implementation and this specification.
+*   The implementation would essentially adapt the existing `plan_set_*` and `set_*` functions into a single, combined function within the `sql_saga` schema.
+*   It would rely heavily on dynamic SQL (`EXECUTE ... USING`) to handle arbitrary table and column names.
+*   The use of a `TEMP TABLE` for the plan would remain a core part of the internal implementation to ensure correct DML execution order.
+*   Introspection of `information_schema` would be used to automatically determine data columns, simplifying the API.
 
-### 5.6. Performance Analysis (Big O Notation)
-
-The primary motivation for this architectural redesign is performance. This section provides a brief complexity analysis of the new set-based algorithm to contrast it with the legacy row-by-row (RBAR) approach.
-
-Let:
--   `S` be the number of source rows being processed in a batch.
--   `T` be the number of existing target rows that conflict (i.e., share an `entity_id`) with the source rows.
--   `N = S + T` be the total number of rows in the "conflict set".
-
-The complexity of the legacy RBAR functions is roughly **O(S * T)** in the worst case, as each of the `S` source rows could potentially interact with all `T` conflicting target rows in a loop.
-
-The complexity of the new set-based planner algorithm can be broken down by its major computational steps:
-
-1.  **Time Point Generation**: The algorithm collects all `valid_after` and `valid_to` dates from the `N` rows in the conflict set and finds the unique points. This step is dominated by a sort operation, making its complexity **O(N log N)**.
-2.  **Atomic Segment Creation**: Using a window function (`LEAD`) over the sorted time points, the algorithm creates the atomic segments. This is also **O(N log N)**.
-3.  **Final State Calculation**: This involves joining atomic segments back to the original `N` rows and applying window functions to determine the "winning" data for each segment. The joins are on `entity_id` and date ranges, and the window functions involve sorting. This remains within the **O(N log N)** complexity class.
-4.  **Coalescing & Diffing**: The final steps of merging adjacent segments and diffing against the original target state involve further sorts (`GROUP BY`) and joins, which are also **O(N log N)**.
-
-**Conclusion**:
-
-The overall time complexity of the new set-based planner is **O(N log N)**, or **O((S+T) log (S+T))**. This is a dramatic improvement over the legacy RBAR approach's **O(S * T)** complexity.
-
-In practical terms, this means the processing time will now scale nearly linearly with the size of the input batch and its conflict set, rather than quadratically. This change is fundamental to achieving the performance goals required for large-scale data imports.
+This proposal would elevate `sql_saga` from a constraint management system to a more complete temporal data management framework.

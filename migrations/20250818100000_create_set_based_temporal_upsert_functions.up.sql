@@ -75,105 +75,136 @@ source_rows AS (
         t.%6$I as entity_id,
         t.valid_after,
         t.valid_to,
-        %2$s AS data_payload,
-        1 as priority -- source rows get higher priority
+        jsonb_strip_nulls(%2$s) AS data_payload
     FROM %3$s.%4$s t
     WHERE (%5$L IS NULL OR t.row_id = ANY(%5$L))
       AND t.valid_after < t.valid_to
 ),
 target_rows AS (
     SELECT
-        NULL::integer as source_row_id,
         t.%1$I as entity_id,
         t.valid_after,
         t.valid_to,
-        %2$s AS data_payload,
-        2 as priority -- target rows get lower priority
+        %2$s AS data_payload
     FROM %7$s.%8$s t
     WHERE t.%1$I IN (SELECT DISTINCT entity_id FROM source_rows)
 ),
 all_rows AS (
-    SELECT * FROM source_rows
+    SELECT entity_id, valid_after, valid_to FROM source_rows
     UNION ALL
-    SELECT * FROM target_rows
+    SELECT entity_id, valid_after, valid_to FROM target_rows
 ),
 time_points AS (
-    SELECT DISTINCT entity_id, point
-    FROM (
+    SELECT DISTINCT entity_id, point FROM (
         SELECT entity_id, valid_after AS point FROM all_rows
         UNION ALL
         SELECT entity_id, valid_to AS point FROM all_rows
     ) AS points
 ),
 atomic_segments AS (
-    SELECT
-        entity_id,
-        point as valid_after,
-        LEAD(point) OVER (PARTITION BY entity_id ORDER BY point) as valid_to
-    FROM time_points
-    WHERE point IS NOT NULL
+    SELECT entity_id, point as valid_after, LEAD(point) OVER (PARTITION BY entity_id ORDER BY point) as valid_to
+    FROM time_points WHERE point IS NOT NULL
 ),
-final_state_segments AS (
+resolved_atomic_segments AS (
     SELECT
-        ranked.entity_id, ranked.valid_after, ranked.valid_to, ranked.data_payload,
-        COALESCE(ranked.source_row_id, (
-            SELECT s.source_row_id FROM source_rows s
-            WHERE s.entity_id = ranked.entity_id
+        seg.entity_id,
+        seg.valid_after,
+        seg.valid_to,
+        t.t_valid_after,
+        ( -- Find causal source row
+            SELECT sr.source_row_id FROM source_rows sr
+            WHERE sr.entity_id = seg.entity_id
               AND (
-                  -- Case 1: The source row directly overlaps the atomic segment. This is the primary case.
-                  daterange(s.valid_after, s.valid_to, '(]') && daterange(ranked.valid_after, ranked.valid_to, '(]')
+                  daterange(sr.valid_after, sr.valid_to, '(]') && daterange(seg.valid_after, seg.valid_to, '(]')
                   OR (
-                      -- Case 2: The source row is adjacent to the atomic segment, AND it interacted with an original target row.
-                      -- This correctly attributes causality to surviving fragments from splits/truncations.
-                      daterange(s.valid_after, s.valid_to, '(]') -|- daterange(ranked.valid_after, ranked.valid_to, '(]')
+                      daterange(sr.valid_after, sr.valid_to, '(]') -|- daterange(seg.valid_after, seg.valid_to, '(]')
                       AND EXISTS (
-                          SELECT 1 FROM target_rows t
-                          WHERE t.entity_id = s.entity_id
-                            AND daterange(s.valid_after, s.valid_to, '(]') && daterange(t.valid_after, t.valid_to, '(]')
+                          SELECT 1 FROM target_rows tr
+                          WHERE tr.entity_id = sr.entity_id
+                            AND daterange(sr.valid_after, sr.valid_to, '(]') && daterange(tr.valid_after, tr.valid_to, '(]')
                       )
                   )
               )
-            ORDER BY s.valid_after, s.source_row_id LIMIT 1
-        )) as source_row_id
-    FROM (
-        SELECT seg.entity_id, seg.valid_after, seg.valid_to, ar.data_payload, ar.source_row_id,
-               ROW_NUMBER() OVER (PARTITION BY seg.entity_id, seg.valid_after ORDER BY ar.priority, ar.valid_to ASC, ar.valid_after DESC, ar.source_row_id NULLS LAST) as rn
-        FROM atomic_segments seg
-        JOIN all_rows ar ON seg.entity_id = ar.entity_id AND daterange(seg.valid_after, seg.valid_to, '(]') <@ daterange(ar.valid_after, ar.valid_to, '(]')
-        WHERE seg.valid_to IS NOT NULL AND seg.valid_after < seg.valid_to
-    ) ranked
-    WHERE ranked.rn = 1
+            ORDER BY sr.source_row_id LIMIT 1
+        ) as source_row_id,
+        CASE WHEN s.data_payload IS NOT NULL THEN s.data_payload ELSE t.data_payload END as data_payload,
+        CASE WHEN s.data_payload IS NOT NULL THEN 1 ELSE 2 END as priority
+    FROM atomic_segments seg
+    LEFT JOIN LATERAL (
+        SELECT tr.data_payload, tr.valid_after as t_valid_after
+        FROM target_rows tr
+        WHERE tr.entity_id = seg.entity_id
+          AND daterange(seg.valid_after, seg.valid_to, '(]') <@ daterange(tr.valid_after, tr.valid_to, '(]')
+    ) t ON true
+    LEFT JOIN LATERAL (
+        SELECT sr.data_payload
+        FROM source_rows sr
+        WHERE sr.entity_id = seg.entity_id
+          AND daterange(seg.valid_after, seg.valid_to, '(]') <@ daterange(sr.valid_after, sr.valid_to, '(]')
+    ) s ON true
+    WHERE seg.valid_after < seg.valid_to
+      AND (t.data_payload IS NOT NULL OR s.data_payload IS NOT NULL) -- Filter out gaps
 ),
-coalesced_final_state AS (
+coalesced_timeline_segments AS (
     SELECT
         entity_id,
         MIN(valid_after) as valid_after,
         MAX(valid_to) as valid_to,
-        data_payload,
-        (array_agg(source_row_id ORDER BY valid_after))[1] as source_row_id
+        (array_agg(data_payload ORDER BY priority, valid_after DESC))[1] as data_payload,
+        (array_agg(source_row_id ORDER BY valid_after))[1] as source_row_id,
+        (array_agg(t_valid_after ORDER BY valid_after) FILTER (WHERE t_valid_after IS NOT NULL))[1] as candidate_anchor,
+        COUNT(*) as segments_in_group,
+        (array_agg(priority ORDER BY valid_after)) as priorities
     FROM (
-        SELECT
-            *,
+        SELECT *,
             SUM(CASE WHEN is_new_group THEN 1 ELSE 0 END) OVER (PARTITION BY entity_id ORDER BY valid_after) as group_id
         FROM (
-            SELECT
-                *,
-                COALESCE(LAG(data_payload, 1) OVER (PARTITION BY entity_id ORDER BY valid_after) IS DISTINCT FROM data_payload, true) as is_new_group
-            FROM final_state_segments
+            SELECT fss.*,
+                COALESCE(LAG(fss.data_payload - %9$L::text[], 1) OVER (PARTITION BY fss.entity_id ORDER BY fss.valid_after) IS DISTINCT FROM (fss.data_payload - %9$L::text[]), true)
+                as is_new_group
+            FROM resolved_atomic_segments fss
         ) with_new_group_flag
     ) with_group_id
-    GROUP BY entity_id, group_id, data_payload
+    GROUP BY entity_id, group_id
+),
+anchored_timeline_segments AS (
+    SELECT f.*,
+        CASE
+            -- For REPLACE, an anchor is only valid if the resulting block contains original data (priority=2)...
+            WHEN 2 = ANY(f.priorities) AND f.candidate_anchor IS NOT NULL THEN f.candidate_anchor
+            -- ...OR it's a direct `equals` replacement, which is an UPDATE by convention.
+            WHEN f.valid_after = f.candidate_anchor THEN f.candidate_anchor
+            ELSE NULL
+        END as anchor_t_valid_after
+    FROM coalesced_timeline_segments f
 ),
 diff AS (
     SELECT
         f.entity_id as f_entity_id, f.valid_after as f_after, f.valid_to as f_to, f.data_payload as f_data, f.source_row_id as f_source_row_id,
-        t.entity_id as t_entity_id, t.valid_after as t_after, t.valid_to as t_to, t.data_payload as t_data
-    FROM coalesced_final_state f
-    FULL OUTER JOIN target_rows t ON f.entity_id = t.entity_id AND f.valid_after = t.valid_after
+        t.entity_id as t_entity_id, t.valid_after as t_after, t.valid_to as t_to, t.data_payload as t_data,
+        -- Rank update candidates. The one whose data matches the original target is rank 1 (the survivor).
+        ROW_NUMBER() OVER(PARTITION BY t.entity_id, t.valid_after ORDER BY
+            CASE WHEN (f.data_payload - %9$L::text[]) IS NOT DISTINCT FROM (t.data_payload - %9$L::text[])
+            THEN 0 ELSE 1 END, f.valid_after
+        ) as update_candidate_rank
+    FROM anchored_timeline_segments f
+    FULL OUTER JOIN target_rows t ON f.entity_id = t.entity_id AND f.anchor_t_valid_after = t.valid_after
     WHERE f.entity_id IS NULL -- A row from target_rows was deleted
        OR t.entity_id IS NULL -- A row from the final state is new
-       OR f.data_payload IS DISTINCT FROM t.data_payload -- A row was updated (data changed)
+       OR (f.data_payload - %9$L::text[]) IS DISTINCT FROM (t.data_payload - %9$L::text[]) -- A row was updated (data changed)
        OR f.valid_to IS DISTINCT FROM t.valid_to -- A row was updated (timeline changed)
+       OR f.valid_after IS DISTINCT FROM t.valid_after -- A row was updated (timeline changed, e.g. a merge)
+    UNION ALL
+    SELECT
+        NULL, NULL, NULL, NULL, NULL,
+        t.entity_id, t.valid_after, t.valid_to, t.data_payload,
+        1 -- Not an update candidate, but needs a value for the column
+    FROM target_rows t
+    WHERE NOT EXISTS (
+        SELECT 1 FROM coalesced_timeline_segments f
+        WHERE f.entity_id = t.entity_id
+          AND daterange(f.valid_after, f.valid_to, '(]') && daterange(t.valid_after, t.valid_to, '(]')
+    )
 ),
 plan AS (
     SELECT
@@ -191,10 +222,13 @@ plan AS (
         CASE
             WHEN d.f_after IS NULL THEN 'DELETE'::import.plan_operation_type
             WHEN d.t_after IS NULL THEN 'INSERT'::import.plan_operation_type
+            -- Only the first fragment anchored to a target can be an UPDATE. Subsequent fragments are INSERTs.
+            WHEN d.update_candidate_rank > 1 THEN 'INSERT'::import.plan_operation_type
             ELSE 'UPDATE'::import.plan_operation_type
         END as operation,
         COALESCE(d.f_entity_id, d.t_entity_id) as entity_id,
-        d.t_after as old_valid_after,
+        -- `old_valid_after` is only populated for actual UPDATEs, otherwise it is NULL for INSERTs.
+        CASE WHEN d.update_candidate_rank > 1 THEN NULL ELSE d.t_after END as old_valid_after,
         d.f_after as new_valid_after,
         d.f_to as new_valid_to,
         d.f_data as data
@@ -205,14 +239,31 @@ LEFT JOIN LATERAL (
     SELECT rel.relation FROM (
         SELECT
             (CASE
+                -- Naming convention: s is source, t is target. Relation describes s relative to t.
+                -- Exact match
                 WHEN s.valid_after = t.valid_after AND s.valid_to = t.valid_to THEN 'equals'
+
+                -- s starts t, or is started by t
+                WHEN s.valid_after = t.valid_after AND s.valid_to < t.valid_to THEN 'starts'
+                WHEN s.valid_after = t.valid_after AND s.valid_to > t.valid_to THEN 'started_by'
+
+                -- s finishes t, or is finished by t
+                WHEN s.valid_after > t.valid_after AND s.valid_to = t.valid_to THEN 'finishes'
+                WHEN s.valid_after < t.valid_after AND s.valid_to = t.valid_to THEN 'finished_by'
+
+                -- s is during t, or contains t
                 WHEN s.valid_after > t.valid_after AND s.valid_to < t.valid_to THEN 'during'
                 WHEN s.valid_after < t.valid_after AND s.valid_to > t.valid_to THEN 'contains'
+
+                -- s meets t, or is met by t
                 WHEN s.valid_to = t.valid_after THEN 'meets'
                 WHEN s.valid_after = t.valid_to THEN 'met_by'
-                WHEN s.valid_after = t.valid_after AND s.valid_to < t.valid_to THEN 'starts'
-                WHEN s.valid_after > t.valid_after AND s.valid_to = t.valid_to THEN 'finishes'
-                WHEN daterange(s.valid_after, s.valid_to, '(]') && daterange(t.valid_after, t.valid_to, '(]') THEN 'overlaps'
+
+                -- s overlaps t, or is overlapped by t
+                WHEN s.valid_after < t.valid_after AND s.valid_to > t.valid_after AND s.valid_to < t.valid_to THEN 'overlaps'
+                WHEN t.valid_after < s.valid_after AND t.valid_to > s.valid_after AND t.valid_to < s.valid_to THEN 'overlapped_by'
+
+                -- Non-overlapping cases
                 WHEN s.valid_to < t.valid_after THEN 'precedes'
                 WHEN s.valid_after > t.valid_to THEN 'preceded_by'
             END)::public.allen_interval_relation as relation,
@@ -242,7 +293,8 @@ $SQL$,
         p_source_row_ids,               -- 5
         p_source_entity_id_column_name, -- 6
         p_target_schema_name,           -- 7
-        p_target_table_name             -- 8
+        p_target_table_name,            -- 8
+        p_ephemeral_columns             -- 9
     );
 
     RETURN QUERY EXECUTE v_sql;
@@ -459,7 +511,7 @@ atomic_segments AS (
     SELECT entity_id, point as valid_after, LEAD(point) OVER (PARTITION BY entity_id ORDER BY point) as valid_to
     FROM time_points WHERE point IS NOT NULL
 ),
-final_state_segments AS (
+resolved_atomic_segments AS (
     SELECT
         seg.entity_id,
         seg.valid_after,
@@ -502,7 +554,7 @@ final_state_segments AS (
     WHERE seg.valid_after < seg.valid_to
       AND (t.data_payload IS NOT NULL OR s.data_payload IS NOT NULL) -- Filter out gaps
 ),
-coalesced_final_state AS (
+coalesced_timeline_segments AS (
     SELECT
         entity_id,
         MIN(valid_after) as valid_after,
@@ -518,27 +570,32 @@ coalesced_final_state AS (
             SELECT fss.*,
                 COALESCE(LAG(fss.data_payload - %9$L::text[], 1) OVER (PARTITION BY fss.entity_id ORDER BY fss.valid_after) IS DISTINCT FROM (fss.data_payload - %9$L::text[]), true)
                 as is_new_group
-            FROM final_state_segments fss
+            FROM resolved_atomic_segments fss
         ) with_new_group_flag
     ) with_group_id
     GROUP BY entity_id, group_id
 ),
-final_with_anchor AS (
+anchored_timeline_segments AS (
     SELECT f.*,
         CASE
-            -- The segment is an UPDATE of an existing one if it starts at the same time.
+            -- Case 1: The coalesced block starts at the same time as an original record. This is a clear UPDATE.
             WHEN f.valid_after = f.candidate_anchor THEN f.candidate_anchor
-            -- Or if it's a MERGE of multiple segments, where the start time changes.
+            -- Case 2: It's a MERGE. The start time is different, but it was formed by coalescing
+            -- multiple adjacent segments (including an original target segment). This should also be an UPDATE.
             WHEN f.valid_after != f.candidate_anchor AND f.candidate_anchor IS NOT NULL AND f.segments_in_group > 1 THEN f.candidate_anchor
+            -- All other cases are INSERTs (no anchor).
             ELSE NULL
         END as anchor_t_valid_after
-    FROM coalesced_final_state f
+    FROM coalesced_timeline_segments f
 ),
 diff AS (
     SELECT
         f.entity_id as f_entity_id, f.valid_after as f_after, f.valid_to as f_to, f.data_payload as f_data, f.source_row_id as f_source_row_id,
-        t.entity_id as t_entity_id, t.valid_after as t_after, t.valid_to as t_to, t.data_payload as t_data
-    FROM final_with_anchor f
+        t.entity_id as t_entity_id, t.valid_after as t_after, t.valid_to as t_to, t.data_payload as t_data,
+        -- If multiple final segments are anchored to the same target, only one can be an UPDATE.
+        -- We rank them and the plan will designate only rank=1 as the UPDATE.
+        ROW_NUMBER() OVER(PARTITION BY t.entity_id, t.valid_after ORDER BY f.valid_after) as update_candidate_rank
+    FROM anchored_timeline_segments f
     FULL OUTER JOIN target_rows t ON f.entity_id = t.entity_id AND f.anchor_t_valid_after = t.valid_after
     WHERE f.entity_id IS NULL -- A row from target_rows was deleted
        OR t.entity_id IS NULL -- A row from the final state is new
@@ -547,23 +604,12 @@ diff AS (
        OR f.valid_after IS DISTINCT FROM t.valid_after -- A row was updated (timeline changed, e.g. a merge)
     UNION ALL
     SELECT
-        NULL, -- f_entity_id
-        NULL, -- f_after
-        NULL, -- f_to
-        NULL, -- f_data
-        ( -- Find causal source row for the deletion
-            SELECT s.source_row_id FROM source_rows s
-            WHERE s.entity_id = t.entity_id
-              AND daterange(s.valid_after, s.valid_to, '(]') && daterange(t.valid_after, t.valid_to, '(]')
-            ORDER BY s.source_row_id LIMIT 1
-        ), -- f_source_row_id
-        t.entity_id,    -- t_entity_id
-        t.valid_after,  -- t_after
-        t.valid_to,     -- t_to
-        t.data_payload  -- t_data
+        NULL, NULL, NULL, NULL, NULL,
+        t.entity_id, t.valid_after, t.valid_to, t.data_payload,
+        1 -- Not an update candidate, but needs a value for the column
     FROM target_rows t
     WHERE NOT EXISTS (
-        SELECT 1 FROM coalesced_final_state f
+        SELECT 1 FROM coalesced_timeline_segments f
         WHERE f.entity_id = t.entity_id
           AND daterange(f.valid_after, f.valid_to, '(]') && daterange(t.valid_after, t.valid_to, '(]')
     )
@@ -584,10 +630,13 @@ plan AS (
         CASE
             WHEN d.f_after IS NULL THEN 'DELETE'::import.plan_operation_type
             WHEN d.t_after IS NULL THEN 'INSERT'::import.plan_operation_type
+            -- Only the first fragment anchored to a target can be an UPDATE. Subsequent fragments are INSERTs.
+            WHEN d.update_candidate_rank > 1 THEN 'INSERT'::import.plan_operation_type
             ELSE 'UPDATE'::import.plan_operation_type
         END as operation,
         COALESCE(d.f_entity_id, d.t_entity_id) as entity_id,
-        d.t_after as old_valid_after,
+        -- `old_valid_after` is only populated for actual UPDATEs, otherwise it is NULL for INSERTs.
+        CASE WHEN d.update_candidate_rank > 1 THEN NULL ELSE d.t_after END as old_valid_after,
         d.f_after as new_valid_after,
         d.f_to as new_valid_to,
         d.f_data as data
@@ -598,14 +647,31 @@ LEFT JOIN LATERAL (
     SELECT rel.relation FROM (
         SELECT
             (CASE
+                -- Naming convention: s is source, t is target. Relation describes s relative to t.
+                -- Exact match
                 WHEN s.valid_after = t.valid_after AND s.valid_to = t.valid_to THEN 'equals'
+
+                -- s starts t, or is started by t
+                WHEN s.valid_after = t.valid_after AND s.valid_to < t.valid_to THEN 'starts'
+                WHEN s.valid_after = t.valid_after AND s.valid_to > t.valid_to THEN 'started_by'
+
+                -- s finishes t, or is finished by t
+                WHEN s.valid_after > t.valid_after AND s.valid_to = t.valid_to THEN 'finishes'
+                WHEN s.valid_after < t.valid_after AND s.valid_to = t.valid_to THEN 'finished_by'
+
+                -- s is during t, or contains t
                 WHEN s.valid_after > t.valid_after AND s.valid_to < t.valid_to THEN 'during'
                 WHEN s.valid_after < t.valid_after AND s.valid_to > t.valid_to THEN 'contains'
+
+                -- s meets t, or is met by t
                 WHEN s.valid_to = t.valid_after THEN 'meets'
                 WHEN s.valid_after = t.valid_to THEN 'met_by'
-                WHEN s.valid_after = t.valid_after AND s.valid_to < t.valid_to THEN 'starts'
-                WHEN s.valid_after > t.valid_after AND s.valid_to = t.valid_to THEN 'finishes'
-                WHEN daterange(s.valid_after, s.valid_to, '(]') && daterange(t.valid_after, t.valid_to, '(]') THEN 'overlaps'
+
+                -- s overlaps t, or is overlapped by t
+                WHEN s.valid_after < t.valid_after AND s.valid_to > t.valid_after AND s.valid_to < t.valid_to THEN 'overlaps'
+                WHEN t.valid_after < s.valid_after AND t.valid_to > s.valid_after AND t.valid_to < s.valid_to THEN 'overlapped_by'
+
+                -- Non-overlapping cases
                 WHEN s.valid_to < t.valid_after THEN 'precedes'
                 WHEN s.valid_after > t.valid_to THEN 'preceded_by'
             END)::public.allen_interval_relation as relation,
