@@ -75,7 +75,7 @@ source_rows AS (
         t.%6$I as entity_id,
         t.valid_after,
         t.valid_to,
-        jsonb_strip_nulls(%2$s) AS data_payload
+        %2$s AS data_payload -- Do NOT strip nulls for REPLACE. A NULL in the source is a meaningful value.
     FROM %3$s.%4$s t
     WHERE (%5$L IS NULL OR t.row_id = ANY(%5$L))
       AND t.valid_after < t.valid_to
@@ -127,8 +127,8 @@ resolved_atomic_segments AS (
               )
             ORDER BY sr.source_row_id LIMIT 1
         ) as source_row_id,
-        s.data_payload as data_payload,
-        1 as priority
+        COALESCE(s.data_payload, t.data_payload) as data_payload,
+        CASE WHEN s.data_payload IS NOT NULL THEN 1 ELSE 2 END as priority
     FROM atomic_segments seg
     LEFT JOIN LATERAL (
         SELECT tr.data_payload, tr.valid_after as t_valid_after
@@ -143,7 +143,7 @@ resolved_atomic_segments AS (
           AND daterange(seg.valid_after, seg.valid_to, '(]') <@ daterange(sr.valid_after, sr.valid_to, '(]')
     ) s ON true
     WHERE seg.valid_after < seg.valid_to
-      AND s.data_payload IS NOT NULL -- For REPLACE, only segments covered by source data form the new timeline
+      AND (t.data_payload IS NOT NULL OR s.data_payload IS NOT NULL) -- For REPLACE (Temporal Patch), segments covered by source OR target data form the new timeline
 ),
 coalesced_timeline_segments AS (
     SELECT
@@ -169,10 +169,12 @@ coalesced_timeline_segments AS (
 anchored_timeline_segments AS (
     SELECT f.*,
         CASE
-            -- For REPLACE, an UPDATE is only an optimization. An anchor is created only if
-            -- the new timeline segment starts at the exact same time as an old target segment.
-            -- This handles `equals` and `starts` cases as UPDATES.
+            -- Case 1: The coalesced block starts at the same time as an original record. This is a clear UPDATE.
             WHEN f.valid_after = f.candidate_anchor THEN f.candidate_anchor
+            -- Case 2: It's a MERGE. The start time is different, but it was formed by coalescing
+            -- multiple adjacent segments (including an original target segment). This should also be an UPDATE.
+            WHEN f.valid_after != f.candidate_anchor AND f.candidate_anchor IS NOT NULL AND f.segments_in_group > 1 THEN f.candidate_anchor
+            -- All other cases are INSERTs (no anchor).
             ELSE NULL
         END as anchor_t_valid_after
     FROM coalesced_timeline_segments f

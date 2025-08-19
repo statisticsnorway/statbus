@@ -65,6 +65,18 @@ INSERT INTO temp_source VALUES (102, 1, '2023-12-31', '2024-12-31', 'New Name', 
 SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
 DROP TABLE temp_source;
 
+-- Scenario 2b: `equals` relation with NULL in source
+\echo 'Scenario 2b: `equals` relation (source NULL should replace existing value)'
+CALL set_test_replace.reset_target();
+INSERT INTO set_test_replace.legal_unit (id, valid_after, valid_to, name, edit_comment) VALUES (1, '2023-12-31', '2024-12-31', 'Old Name', 'Old Comment');
+CREATE TEMP TABLE temp_source (
+    row_id INT, legal_unit_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT
+) ON COMMIT DROP;
+INSERT INTO temp_source VALUES (102, 1, '2023-12-31', '2024-12-31', NULL, 'Replaced with NULL');
+\echo 'Generated Plan (Scenario 2b):'
+SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
+DROP TABLE temp_source;
+
 -- Scenario 3: `during` (Source inside Existing)
 \echo 'Scenario 3: `during` relation (source splits existing)'
 CALL set_test_replace.reset_target();
@@ -187,8 +199,8 @@ INSERT INTO temp_source VALUES (112, 1, '2023-12-31', '2024-03-31', 'Preceded By
 SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
 DROP TABLE temp_source;
 
--- Scenario 13: Replace affects one slice, should delete other unrelated slices for the same entity
-\echo 'Scenario 13: Replace should delete non-interacting historical slices'
+-- Scenario 13: Replace affects one slice, should preserve other unrelated slices for the same entity
+\echo 'Scenario 13: Replace should preserve non-interacting historical slices'
 CALL set_test_replace.reset_target();
 -- Two historical, non-contiguous records for entity 1
 INSERT INTO set_test_replace.legal_unit (id, valid_after, valid_to, name, edit_comment) VALUES

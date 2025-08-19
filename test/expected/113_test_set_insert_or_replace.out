@@ -143,6 +143,24 @@ SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'targe
 (1 row)
 
 DROP TABLE temp_source;
+-- Scenario 2b: `equals` relation with NULL in source
+\echo 'Scenario 2b: `equals` relation (source NULL should replace existing value)'
+Scenario 2b: `equals` relation (source NULL should replace existing value)
+CALL set_test_replace.reset_target();
+INSERT INTO set_test_replace.legal_unit (id, valid_after, valid_to, name, edit_comment) VALUES (1, '2023-12-31', '2024-12-31', 'Old Name', 'Old Comment');
+CREATE TEMP TABLE temp_source (
+    row_id INT, legal_unit_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT
+) ON COMMIT DROP;
+INSERT INTO temp_source VALUES (102, 1, '2023-12-31', '2024-12-31', NULL, 'Replaced with NULL');
+\echo 'Generated Plan (Scenario 2b):'
+Generated Plan (Scenario 2b):
+SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
+ source_row_id | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                         data                         | relation 
+---------------+-----------+-----------+-----------------+-----------------+--------------+------------------------------------------------------+----------
+           102 | UPDATE    |         1 | 2023-12-31      | 2023-12-31      | 2024-12-31   | {"name": null, "edit_comment": "Replaced with NULL"} | equals
+(1 row)
+
+DROP TABLE temp_source;
 -- Scenario 3: `during` (Source inside Existing)
 \echo 'Scenario 3: `during` relation (source splits existing)'
 Scenario 3: `during` relation (source splits existing)
@@ -157,9 +175,10 @@ Generated Plan (Scenario 3):
 SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
  source_row_id | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                        data                         | relation 
 ---------------+-----------+-----------+-----------------+-----------------+--------------+-----------------------------------------------------+----------
-           103 | DELETE    |         1 | 2023-12-31      |                 |              |                                                     | during
+           103 | UPDATE    |         1 | 2023-12-31      | 2023-12-31      | 2024-03-31   | {"name": "Original Name", "edit_comment": null}     | during
            103 | INSERT    |         1 |                 | 2024-03-31      | 2024-08-31   | {"name": "Temporary Name", "edit_comment": "Split"} | during
-(2 rows)
+           103 | INSERT    |         1 |                 | 2024-08-31      | 2024-12-31   | {"name": "Original Name", "edit_comment": null}     | during
+(3 rows)
 
 DROP TABLE temp_source;
 -- Scenario 4: `contains` (Existing inside Source)
@@ -176,9 +195,8 @@ Generated Plan (Scenario 4):
 SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
  source_row_id | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                            data                             | relation 
 ---------------+-----------+-----------+-----------------+-----------------+--------------+-------------------------------------------------------------+----------
-           104 | DELETE    |         1 | 2024-03-31      |                 |              |                                                             | contains
-           104 | INSERT    |         1 |                 | 2023-12-31      | 2024-12-31   | {"name": "New Overarching Name", "edit_comment": "Envelop"} | contains
-(2 rows)
+           104 | UPDATE    |         1 | 2024-03-31      | 2023-12-31      | 2024-12-31   | {"name": "New Overarching Name", "edit_comment": "Envelop"} | contains
+(1 row)
 
 DROP TABLE temp_source;
 -- Scenario 5: Multiple non-overlapping source rows replacing a single existing row
@@ -195,12 +213,14 @@ INSERT INTO temp_source VALUES
 \echo 'Generated Plan (Scenario 5):'
 Generated Plan (Scenario 5):
 SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
- source_row_id | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                     data                     | relation 
----------------+-----------+-----------+-----------------+-----------------+--------------+----------------------------------------------+----------
-           109 | DELETE    |         1 | 2023-12-31      |                 |              |                                              | during
-           109 | INSERT    |         1 |                 | 2024-01-31      | 2024-03-31   | {"name": "Name B", "edit_comment": "Part B"} | during
-           110 | INSERT    |         1 |                 | 2024-06-30      | 2024-08-31   | {"name": "Name C", "edit_comment": "Part C"} | during
-(3 rows)
+ source_row_id | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                         data                         | relation 
+---------------+-----------+-----------+-----------------+-----------------+--------------+------------------------------------------------------+----------
+           109 | UPDATE    |         1 | 2023-12-31      | 2023-12-31      | 2024-01-31   | {"name": "Original Full Year", "edit_comment": null} | during
+           109 | INSERT    |         1 |                 | 2024-01-31      | 2024-03-31   | {"name": "Name B", "edit_comment": "Part B"}         | during
+           109 | INSERT    |         1 |                 | 2024-03-31      | 2024-06-30   | {"name": "Original Full Year", "edit_comment": null} | during
+           110 | INSERT    |         1 |                 | 2024-06-30      | 2024-08-31   | {"name": "Name C", "edit_comment": "Part C"}         | during
+           110 | INSERT    |         1 |                 | 2024-08-31      | 2024-12-31   | {"name": "Original Full Year", "edit_comment": null} | during
+(5 rows)
 
 DROP TABLE temp_source;
 -- Scenario 6: `starts` relation
@@ -218,7 +238,8 @@ SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'targe
  source_row_id | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                       data                       | relation 
 ---------------+-----------+-----------+-----------------+-----------------+--------------+--------------------------------------------------+----------
            105 | UPDATE    |         1 | 2023-12-31      | 2023-12-31      | 2024-06-30   | {"name": "Starts New", "edit_comment": "Starts"} | starts
-(1 row)
+           105 | INSERT    |         1 |                 | 2024-06-30      | infinity     | {"name": "Original", "edit_comment": null}       | starts
+(2 rows)
 
 DROP TABLE temp_source;
 -- Scenario 7: `finishes` relation
@@ -235,7 +256,7 @@ Generated Plan (Scenario 7):
 SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
  source_row_id | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                         data                         | relation 
 ---------------+-----------+-----------+-----------------+-----------------+--------------+------------------------------------------------------+----------
-           106 | DELETE    |         1 | 2023-12-31      |                 |              |                                                      | finishes
+           106 | UPDATE    |         1 | 2023-12-31      | 2023-12-31      | 2024-01-31   | {"name": "Original", "edit_comment": null}           | finishes
            106 | INSERT    |         1 |                 | 2024-01-31      | 2024-06-30   | {"name": "Finishes New", "edit_comment": "Finishes"} | finishes
 (2 rows)
 
@@ -254,8 +275,8 @@ Generated Plan (Scenario 8):
 SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
  source_row_id | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                         data                         | relation 
 ---------------+-----------+-----------+-----------------+-----------------+--------------+------------------------------------------------------+----------
-           107 | DELETE    |         1 | 2024-03-31      |                 |              |                                                      | overlaps
-           107 | INSERT    |         1 |                 | 2023-12-31      | 2024-06-30   | {"name": "Overlaps New", "edit_comment": "Overlaps"} | overlaps
+           107 | UPDATE    |         1 | 2024-03-31      | 2023-12-31      | 2024-06-30   | {"name": "Overlaps New", "edit_comment": "Overlaps"} | overlaps
+           107 | INSERT    |         1 |                 | 2024-06-30      | 2024-08-31   | {"name": "Original", "edit_comment": null}           | overlaps
 (2 rows)
 
 DROP TABLE temp_source;
@@ -273,9 +294,8 @@ Generated Plan (Scenario 9):
 SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
  source_row_id | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                        data                        | relation 
 ---------------+-----------+-----------+-----------------+-----------------+--------------+----------------------------------------------------+----------
-           108 | DELETE    |         1 | 2024-03-31      |                 |              |                                                    | meets
            108 | INSERT    |         1 |                 | 2023-12-31      | 2024-03-31   | {"name": "Meets New", "edit_comment": "Meets new"} | meets
-(2 rows)
+(1 row)
 
 DROP TABLE temp_source;
 -- Scenario 10: `meets` relation (same data, should coalesce)
@@ -292,9 +312,8 @@ Generated Plan (Scenario 10):
 SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
  source_row_id | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                        data                        | relation 
 ---------------+-----------+-----------+-----------------+-----------------+--------------+----------------------------------------------------+----------
-           109 | DELETE    |         1 | 2024-03-31      |                 |              |                                                    | meets
-           109 | INSERT    |         1 |                 | 2023-12-31      | 2024-03-31   | {"name": "Original", "edit_comment": "Meets same"} | meets
-(2 rows)
+           109 | UPDATE    |         1 | 2024-03-31      | 2023-12-31      | 2024-08-31   | {"name": "Original", "edit_comment": "Meets same"} | meets
+(1 row)
 
 DROP TABLE temp_source;
 -- Scenario 11: `met_by` relation
@@ -311,9 +330,8 @@ Generated Plan (Scenario 11):
 SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
  source_row_id | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                       data                       | relation 
 ---------------+-----------+-----------+-----------------+-----------------+--------------+--------------------------------------------------+----------
-           111 | DELETE    |         1 | 2023-12-31      |                 |              |                                                  | met_by
            111 | INSERT    |         1 |                 | 2024-03-31      | 2024-08-31   | {"name": "Met By New", "edit_comment": "Met By"} | met_by
-(2 rows)
+(1 row)
 
 DROP TABLE temp_source;
 -- Scenario 12: `preceded_by` relation (no interaction)
@@ -330,14 +348,13 @@ Generated Plan (Scenario 12):
 SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
  source_row_id | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                            data                            | relation 
 ---------------+-----------+-----------+-----------------+-----------------+--------------+------------------------------------------------------------+----------
-           112 | DELETE    |         1 | 2024-08-31      |                 |              |                                                            | precedes
            112 | INSERT    |         1 |                 | 2023-12-31      | 2024-03-31   | {"name": "Preceded By New", "edit_comment": "Preceded By"} | precedes
-(2 rows)
+(1 row)
 
 DROP TABLE temp_source;
--- Scenario 13: Replace affects one slice, should delete other unrelated slices for the same entity
-\echo 'Scenario 13: Replace should delete non-interacting historical slices'
-Scenario 13: Replace should delete non-interacting historical slices
+-- Scenario 13: Replace affects one slice, should preserve other unrelated slices for the same entity
+\echo 'Scenario 13: Replace should preserve non-interacting historical slices'
+Scenario 13: Replace should preserve non-interacting historical slices
 CALL set_test_replace.reset_target();
 -- Two historical, non-contiguous records for entity 1
 INSERT INTO set_test_replace.legal_unit (id, valid_after, valid_to, name, edit_comment) VALUES
@@ -349,11 +366,11 @@ INSERT INTO temp_source VALUES (113, 1, '2024-01-31', '2024-02-29', 'Updated Sli
 \echo 'Generated Plan (Scenario 13):'
 Generated Plan (Scenario 13):
 SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
- source_row_id | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                        data                         | relation 
----------------+-----------+-----------+-----------------+-----------------+--------------+-----------------------------------------------------+----------
-           113 | DELETE    |         1 | 2023-12-31      |                 |              |                                                     | during
-           113 | DELETE    |         1 | 2024-08-31      |                 |              |                                                     | precedes
-           113 | INSERT    |         1 |                 | 2024-01-31      | 2024-02-29   | {"name": "Updated Slice", "edit_comment": "Update"} | during
+ source_row_id | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                           data                           | relation 
+---------------+-----------+-----------+-----------------+-----------------+--------------+----------------------------------------------------------+----------
+           113 | UPDATE    |         1 | 2023-12-31      | 2023-12-31      | 2024-01-31   | {"name": "History Part 1", "edit_comment": "Original 1"} | during
+           113 | INSERT    |         1 |                 | 2024-01-31      | 2024-02-29   | {"name": "Updated Slice", "edit_comment": "Update"}      | during
+           113 | INSERT    |         1 |                 | 2024-02-29      | 2024-03-31   | {"name": "History Part 1", "edit_comment": "Original 1"} | during
 (3 rows)
 
 DROP TABLE temp_source;

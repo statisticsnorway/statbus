@@ -79,7 +79,7 @@ SELECT id, legal_unit_id, valid_after, valid_to, name, employees, edit_comment F
 DROP TABLE temp_source;
 
 --------------------------------------------------------------------------------
-\echo 'Test Case 2: `set_insert_or_replace` should delete non-interacting history'
+\echo 'Test Case 2: `set_insert_or_replace` should preserve non-interacting history'
 CALL set_test_orchestrator.reset_target();
 -- Two historical, non-contiguous records for entity 1
 INSERT INTO set_test_orchestrator.establishment (id, legal_unit_id, valid_after, valid_to, name, employees, edit_comment) VALUES
@@ -92,7 +92,21 @@ CREATE TEMP TABLE temp_source (
 INSERT INTO temp_source VALUES (102, 1, 1, '2024-01-31', '2024-02-29', 'Updated Slice', 15, 'Update');
 \echo 'Calling orchestrator...'
 SELECT * FROM import.set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
-\echo 'Final state of target table (should NOT preserve "History Part 2"):'
+\echo 'Final state of target table (should preserve "History Part 2"):'
+SELECT id, legal_unit_id, valid_after, valid_to, name, employees, edit_comment FROM set_test_orchestrator.establishment WHERE id = 1 ORDER BY valid_after;
+DROP TABLE temp_source;
+
+--------------------------------------------------------------------------------
+\echo 'Test Case 3: `set_insert_or_replace` with NULL should overwrite existing value'
+CALL set_test_orchestrator.reset_target();
+INSERT INTO set_test_orchestrator.establishment (id, legal_unit_id, valid_after, valid_to, name, employees, edit_comment) VALUES (1, 1, '2023-12-31', '2024-12-31', 'Old Name', 10, 'Original');
+CREATE TEMP TABLE temp_source (
+    row_id INT, legal_unit_id INT, establishment_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, employees INT, edit_comment TEXT
+) ON COMMIT DROP;
+INSERT INTO temp_source VALUES (103, 1, 1, '2023-12-31', '2024-12-31', NULL, 20, 'Name is now NULL');
+\echo 'Calling orchestrator...'
+SELECT * FROM import.set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
+\echo 'Final state of target table:'
 SELECT id, legal_unit_id, valid_after, valid_to, name, employees, edit_comment FROM set_test_orchestrator.establishment WHERE id = 1 ORDER BY valid_after;
 DROP TABLE temp_source;
 
