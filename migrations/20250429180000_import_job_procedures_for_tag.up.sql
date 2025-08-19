@@ -56,11 +56,7 @@ BEGIN
             state = CASE
                         WHEN dt.tag_path IS NOT NULL AND rt.ltree_error_msg IS NOT NULL THEN 'error'::public.import_data_state
                         WHEN dt.tag_path IS NOT NULL AND rt.ltree_error_msg IS NULL AND rt.resolved_tag_id IS NULL THEN 'error'::public.import_data_state
-                        ELSE
-                            CASE
-                                WHEN dt.state = 'error'::public.import_data_state THEN 'error'::public.import_data_state
-                                ELSE 'analysing'::public.import_data_state
-                            END
+                        ELSE 'analysing'::public.import_data_state
                     END,
             -- Then determine action based on the new state or existing action
             action = CASE

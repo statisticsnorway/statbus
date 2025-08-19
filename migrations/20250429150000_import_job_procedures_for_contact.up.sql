@@ -31,10 +31,7 @@ BEGIN
     v_sql := format($$
         UPDATE public.%1$I dt SET
             last_completed_priority = %2$L,
-            state = CASE
-                        WHEN dt.state = 'error'::public.import_data_state THEN 'error'::public.import_data_state -- Preserve existing error state
-                        ELSE 'analysing'::public.import_data_state -- Otherwise, it's analysing
-                    END
+            state = 'analysing'::public.import_data_state
             -- No error column modification as this step doesn't generate errors
         WHERE dt.row_id = ANY($1);
     $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */);

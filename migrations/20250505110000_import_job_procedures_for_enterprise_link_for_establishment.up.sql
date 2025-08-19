@@ -112,8 +112,8 @@ BEGIN
         v_sql := format($$
             UPDATE public.%1$I dt SET -- v_data_table_name
                 last_completed_priority = %2$s, -- v_step.priority
-                state = CASE WHEN dt.state != 'error' THEN 'analysing'::public.import_data_state ELSE dt.state END,
-                error = CASE WHEN dt.state != 'error' THEN (CASE WHEN (dt.error - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %3$L::TEXT[]) END) ELSE dt.error END -- v_error_keys_to_clear_arr
+                state = 'analysing'::public.import_data_state,
+                error = CASE WHEN (dt.error - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %3$L::TEXT[]) END -- v_error_keys_to_clear_arr
             WHERE dt.row_id = ANY($1) -- p_batch_row_ids
               AND (dt.action = 'insert' OR dt.action = 'skip' OR (dt.action = 'replace' AND dt.last_completed_priority < %2$s)); -- v_step.priority
         $$,

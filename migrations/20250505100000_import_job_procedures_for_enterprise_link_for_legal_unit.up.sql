@@ -141,8 +141,8 @@ BEGIN
         v_sql := format($$
             UPDATE public.%1$I dt SET
                 last_completed_priority = %2$L,
-                state = CASE WHEN dt.state != 'error' THEN 'analysing'::public.import_data_state ELSE dt.state END, -- Keep error state if already set
-                error = CASE WHEN dt.state != 'error' THEN (CASE WHEN (dt.error - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %4$L::TEXT[]) END) ELSE dt.error END -- Clear this step's error if not an error from this step
+                state = 'analysing'::public.import_data_state,
+                error = CASE WHEN (dt.error - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %4$L::TEXT[]) END -- Clear this step's error if not an error from this step
             WHERE dt.row_id = ANY($1)
               AND NOT EXISTS (SELECT 1 FROM temp_enterprise_analysis_results tear WHERE tear.row_id = dt.row_id);
         $$,

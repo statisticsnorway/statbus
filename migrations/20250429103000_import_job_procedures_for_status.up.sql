@@ -57,11 +57,7 @@ BEGIN
                         WHEN (NULLIF(dt.status_code, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL AND %2$L::INTEGER IS NULL) OR
                              ((NULLIF(dt.status_code, '') IS NULL OR NULLIF(dt.status_code, '') = '') AND %2$L::INTEGER IS NULL)
                         THEN 'error'::public.import_data_state
-                        ELSE
-                            CASE
-                                WHEN dt.state = 'error'::public.import_data_state THEN 'error'::public.import_data_state
-                                ELSE 'analysing'::public.import_data_state
-                            END
+                        ELSE 'analysing'::public.import_data_state
                     END,
             error = CASE
                         WHEN NULLIF(dt.status_code, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL AND %2$L::INTEGER IS NULL THEN

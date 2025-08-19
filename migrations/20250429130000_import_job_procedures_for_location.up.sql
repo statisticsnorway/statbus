@@ -265,11 +265,7 @@ BEGIN
                      END,
             state = CASE
                         WHEN (%6$s) OR (%10$s) THEN 'error'::public.import_data_state -- Fatal country error OR any coordinate error
-                        ELSE
-                            CASE
-                                WHEN dt.state = 'error'::public.import_data_state THEN 'error'::public.import_data_state
-                                ELSE 'analysing'::public.import_data_state
-                            END
+                        ELSE 'analysing'::public.import_data_state
                     END,
             error = jsonb_strip_nulls(
                         COALESCE(dt.error, '{}'::jsonb) -- Start with existing errors

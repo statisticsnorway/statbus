@@ -476,7 +476,7 @@ BEGIN
 
     -- Step 3: Single-pass Batch Update for All Rows with dynamically constructed SET clause
     v_set_clause := format($$
-        state = CASE WHEN ru.error_jsonb IS NOT NULL AND ru.error_jsonb != '{}'::jsonb THEN 'error'::public.import_data_state ELSE (CASE WHEN dt.state = 'error' THEN 'error'::public.import_data_state ELSE 'analysing'::public.import_data_state END) END,
+        state = CASE WHEN ru.error_jsonb IS NOT NULL AND ru.error_jsonb != '{}'::jsonb THEN 'error'::public.import_data_state ELSE 'analysing'::public.import_data_state END,
         error = CASE WHEN ru.error_jsonb IS NOT NULL AND ru.error_jsonb != '{}'::jsonb THEN COALESCE(dt.error, '{}'::jsonb) || ru.error_jsonb ELSE (CASE WHEN (dt.error - %1$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %1$L::TEXT[]) END) END,
         action = ru.action,
         operation = ru.operation,

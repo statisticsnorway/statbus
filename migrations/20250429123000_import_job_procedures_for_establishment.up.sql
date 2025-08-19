@@ -60,11 +60,7 @@ BEGIN
             state = CASE
                         WHEN dt.name IS NULL OR trim(dt.name) = '' THEN 'error'::public.import_data_state
                         WHEN dt.status_id IS NULL THEN 'error'::public.import_data_state
-                        ELSE
-                           CASE
-                               WHEN dt.state = 'error'::public.import_data_state THEN 'error'::public.import_data_state
-                               ELSE 'analysing'::public.import_data_state
-                           END
+                        ELSE 'analysing'::public.import_data_state
                     END,
             action = CASE -- Added action update
                         WHEN dt.name IS NULL OR trim(dt.name) = '' THEN 'skip'::public.import_row_action_type

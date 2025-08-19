@@ -143,11 +143,7 @@ BEGIN
             -- Determine state first
             state = CASE
                         WHEN %2$s THEN 'error'::public.import_data_state -- Error condition for this step
-                        ELSE
-                            CASE
-                                WHEN dt.state = 'error'::public.import_data_state THEN 'error'::public.import_data_state
-                                ELSE 'analysing'::public.import_data_state
-                            END
+                        ELSE 'analysing'::public.import_data_state -- No error from this step
                     END,
             -- Then determine action based on the new state or existing action
             action = CASE

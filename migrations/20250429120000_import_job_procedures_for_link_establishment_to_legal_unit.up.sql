@@ -240,7 +240,7 @@ BEGIN
                 )
                 ELSE dt.primary_for_legal_unit
             END,
-            state = CASE WHEN err.error_jsonb IS NOT NULL THEN 'error'::public.import_data_state ELSE (CASE WHEN dt.state = 'error' THEN 'error'::public.import_data_state ELSE 'analysing'::public.import_data_state END) END,
+            state = CASE WHEN err.error_jsonb IS NOT NULL THEN 'error'::public.import_data_state ELSE 'analysing'::public.import_data_state END,
             action = CASE WHEN err.error_jsonb IS NOT NULL THEN 'skip'::public.import_row_action_type ELSE dt.action END,
             error = CASE WHEN err.error_jsonb IS NOT NULL THEN COALESCE(dt.error, '{}'::jsonb) || err.error_jsonb ELSE (CASE WHEN (dt.error - %2$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %2$L::TEXT[]) END) END,
             last_completed_priority = %3$L

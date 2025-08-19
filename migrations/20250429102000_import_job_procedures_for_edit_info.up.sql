@@ -32,10 +32,7 @@ BEGIN
             edit_at = statement_timestamp(),
             edit_comment = %3$L, -- Set edit_comment from job's default
             last_completed_priority = %4$L,
-            state = CASE
-                        WHEN dt.action = 'skip' THEN dt.state -- Keep existing state if skipped
-                        ELSE 'analysing'::public.import_data_state -- Set to analysing for non-skipped
-                    END
+            state = 'analysing'::public.import_data_state
         WHERE dt.row_id = ANY($1);
     $$, v_data_table_name /* %1$I */, v_job.user_id /* %2$L */, v_job.edit_comment /* %3$L */, v_step.priority /* %4$L */);
     RAISE DEBUG '[Job %] analyse_edit_info: Updating all rows in batch: %', p_job_id, v_sql;
