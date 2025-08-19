@@ -115,7 +115,7 @@ export default function ImportPage() {
             {newJobs.length} new import job{newJobs.length > 1 ? 's' : ''} detected!
           </p>
           <Link className="text-green-600 underline" href="/import/jobs">
-            View import jobs
+            View jobs
           </Link>
         </div>
       )}

@@ -622,7 +622,7 @@ export default function ImportJobsPage() {
           Import
         </Link>
         <ChevronRight className="h-6 w-6 text-gray-400" />
-        <h1 className="text-2xl font-semibold">Import Jobs</h1>
+        <h1 className="text-2xl font-semibold">Jobs</h1>
       </div>
       <DataTable table={table} actionBar={actionBar}>
         <DataTableToolbar table={table} />

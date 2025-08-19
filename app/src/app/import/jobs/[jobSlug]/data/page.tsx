@@ -353,10 +353,10 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
             </Link>
             <ChevronRight className="h-6 w-6 text-gray-400" />
             <Link href="/import/jobs" className="text-2xl font-semibold text-gray-500 hover:underline">
-              Import Jobs
+              Jobs
             </Link>
             <ChevronRight className="h-6 w-6 text-gray-400" />
-            <h1 className="text-2xl font-semibold">Imported Data for Job: {jobSlug}</h1>
+            <h1 className="text-2xl font-semibold">Data for Job: {jobSlug}</h1>
           </div>
           <Skeleton className="mt-1 h-5 w-1/2" />
         </div>
@@ -386,10 +386,10 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
           </Link>
           <ChevronRight className="h-6 w-6 text-gray-400" />
           <Link href="/import/jobs" className="text-2xl font-semibold text-gray-500 hover:underline">
-            Import Jobs
+            Jobs
           </Link>
           <ChevronRight className="h-6 w-6 text-gray-400" />
-          <h1 className="text-2xl font-semibold">Imported Data for Job: {job.id}</h1>
+          <h1 className="text-2xl font-semibold">Data for Job: {job.id}</h1>
         </div>
         <p className="text-sm text-gray-500 mt-1">Description: {job.description ?? 'N/A'} | Table: {job.data_table_name}</p>
       </div>

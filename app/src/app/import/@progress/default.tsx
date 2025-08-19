@@ -83,7 +83,7 @@ export default function ImportStatus() {
           <li className="mb-6">
             <NavItem
               done={false}
-              title="View Import Jobs"
+              title="View Jobs"
               href="/import/jobs"
               subtitle="Monitor ongoing imports"
               icon={<FileText className="w-4 h-4" />}
