@@ -109,6 +109,7 @@ The import system is built around several key database tables and concepts:
     *   Processed asynchronously by the `worker` system. The worker system uses a single-threaded model for the `import` queue, meaning only one worker processes jobs from this queue at a time. This serializes job processing and prevents database-level race conditions between different jobs or steps. The primary purpose of batching is to keep transactions small and provide granular progress updates, not to enable parallel processing within a job.
 
 9.  **Job-Specific Tables & Snapshot**:
+    *   These job-specific tables are created in the `public` schema to allow them to be queried via the PostgREST API, for example, to display row data in the UI.
     *   `<job_slug>_upload`: Stores the raw data exactly as uploaded from the source file. Columns match `import_source_column`.
     *   `<job_slug>_data`: The intermediate table structured according to `import_data_column`. This table includes a dedicated `row_id` column (`INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY`) for stable row identification throughout the import process. It holds source data (`source_input`), analysis results (`internal`, including `operation` and `action`), final primary keys (`pk_id`), and row-level state and progress (`last_completed_priority`). The row-level state is managed by the `public.import_data_state` enum:
         *   `pending`: Initial state for a row after data is moved from `_upload` to `_data` by `admin.import_job_prepare`.
