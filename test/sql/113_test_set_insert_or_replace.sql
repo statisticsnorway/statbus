@@ -187,6 +187,20 @@ INSERT INTO temp_source VALUES (112, 1, '2023-12-31', '2024-03-31', 'Preceded By
 SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
 DROP TABLE temp_source;
 
+-- Scenario 13: Replace affects one slice, should delete other unrelated slices for the same entity
+\echo 'Scenario 13: Replace should delete non-interacting historical slices'
+CALL set_test_replace.reset_target();
+-- Two historical, non-contiguous records for entity 1
+INSERT INTO set_test_replace.legal_unit (id, valid_after, valid_to, name, edit_comment) VALUES
+(1, '2023-12-31', '2024-03-31', 'History Part 1', 'Original 1'),
+(1, '2024-08-31', '2024-12-31', 'History Part 2', 'Original 2');
+CREATE TEMP TABLE temp_source ( row_id INT, legal_unit_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT ) ON COMMIT DROP;
+-- Source data only interacts with "History Part 1"
+INSERT INTO temp_source VALUES (113, 1, '2024-01-31', '2024-02-29', 'Updated Slice', 'Update');
+\echo 'Generated Plan (Scenario 13):'
+SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
+DROP TABLE temp_source;
+
 -- Cleanup
 DROP PROCEDURE set_test_replace.reset_target();
 DROP TABLE set_test_replace.legal_unit;

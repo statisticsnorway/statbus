@@ -172,6 +172,39 @@ SELECT id, legal_unit_id, valid_after, valid_to, name, employees, edit_comment F
 (3 rows)
 
 DROP TABLE temp_source;
+--------------------------------------------------------------------------------
+\echo 'Test Case 2: `set_insert_or_update` should not delete non-interacting history'
+Test Case 2: `set_insert_or_update` should not delete non-interacting history
+CALL set_test_orchestrator.reset_target();
+-- Two historical, non-contiguous records for entity 1
+INSERT INTO set_test_orchestrator.establishment (id, legal_unit_id, valid_after, valid_to, name, employees, edit_comment) VALUES
+(1, 1, '2023-12-31', '2024-03-31', 'History Part 1', 10, 'Original 1'),
+(1, 1, '2024-08-31', '2024-12-31', 'History Part 2', 10, 'Original 2');
+CREATE TEMP TABLE temp_source (
+    row_id INT, legal_unit_id INT, establishment_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, employees INT, edit_comment TEXT
+) ON COMMIT DROP;
+-- Source data only interacts with "History Part 1"
+INSERT INTO temp_source VALUES (102, 1, 1, '2024-01-31', '2024-02-29', 'Updated Slice', 15, 'Update');
+\echo 'Calling orchestrator...'
+Calling orchestrator...
+SELECT * FROM import.set_insert_or_update_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
+ source_row_id | upserted_record_ids | status  | error_message 
+---------------+---------------------+---------+---------------
+           102 | {}                  | SUCCESS | 
+(1 row)
+
+\echo 'Final state of target table (should preserve "History Part 2"):'
+Final state of target table (should preserve "History Part 2"):
+SELECT id, legal_unit_id, valid_after, valid_to, name, employees, edit_comment FROM set_test_orchestrator.establishment WHERE id = 1 ORDER BY valid_after;
+ id | legal_unit_id | valid_after |  valid_to  |      name      | employees | edit_comment 
+----+---------------+-------------+------------+----------------+-----------+--------------
+  1 |             1 | 2023-12-31  | 2024-01-31 | History Part 1 |        10 | Original 1
+  1 |             1 | 2024-01-31  | 2024-02-29 | Updated Slice  |        15 | Update
+  1 |             1 | 2024-02-29  | 2024-03-31 | History Part 1 |        10 | Original 1
+  1 |             1 | 2024-08-31  | 2024-12-31 | History Part 2 |        10 | Original 2
+(4 rows)
+
+DROP TABLE temp_source;
 -- Cleanup
 DROP PROCEDURE set_test_orchestrator.reset_target();
 DROP TABLE set_test_orchestrator.establishment;

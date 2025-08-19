@@ -172,9 +172,9 @@ Error handling is cleanly separated between the import job's `analyse` and `proc
 -   **Strategic Decision**: `insert_or_update` is functionally superior for data integrity as it preserves historical data not present in an import file. It should be the new default, and the performance difference will be negligible in the new set-based model.
 
 ---
-## 5. Project Completion
+## 5. Project Status: Core Implementation Complete
 
-The set-based temporal functions are now complete. This work represents a significant architectural improvement, replacing the slow, iterative legacy functions with a highly efficient and robust set-based model.
+The core set-based temporal functions are now complete. This work represents a significant architectural improvement, replacing the slow, iterative legacy functions with a highly efficient and robust set-based model. The next phase is to integrate these functions into the import job processing steps.
 
 ### 5.1. Summary of Work Completed
 
@@ -183,6 +183,7 @@ The set-based temporal functions are now complete. This work represents a signif
 3.  **Robust Orchestration**: The corresponding `set_*` orchestrator functions were implemented to execute these plans transactionally, respecting the critical DML execution order (`INSERT` -> `UPDATE` -> `DELETE`) required for compatibility with `sql_saga`'s temporal foreign keys.
 4.  **Performance Goals Met**: The new architecture achieves a time complexity of `O((S+T) log (S+T))`, a significant improvement over the legacy `O(S * T)` approach, ensuring the system can handle large-scale data imports efficiently.
 5.  **Comprehensive Testing**: The functions have been validated against a thorough test suite covering a wide range of temporal scenarios, ensuring correctness and reliability.
+6.  **Maintainability Improvement**: The `_replace` and `_update` functions were separated into distinct migration files. This logical separation enhances code clarity and prevents cross-function bugs during maintenance, which proved to be a critical factor for ensuring correctness.
 
 The project successfully meets all its high-level goals: performance is fixed, correctness is ensured, and the new functions are significantly more maintainable.
 
@@ -258,3 +259,35 @@ CALL sql_saga.merge_temporal(
 *   The use of a `TEMP TABLE` for the internal DML plan would remain a core part of the implementation.
 
 This proposal would elevate `sql_saga` from a constraint management system to a more complete temporal data management framework.
+
+---
+## 7. Integration Plan for Import Jobs
+
+This section outlines the concrete steps for integrating the new set-based temporal functions into the existing import job processing steps. The goal is to replace all calls to the legacy `batch_insert_or_*` functions with their new `set_insert_or_*` counterparts.
+
+### 7.1. Target `process_*` Procedures
+
+The primary candidates for this refactoring are the procedures responsible for writing data to the main temporal tables. Based on the system design, these are:
+*   `import.process_legal_unit`
+*   `import.process_establishment`
+*   `import.process_activity`
+*   `import.process_location`
+*   `import.process_contact`
+*   `import.process_stat_for_unit`
+
+Note: `region` and `sector` are classification tables, not temporal entity tables managed directly by `process_*` steps. The import system links to existing classifications, which is handled during the `analyse_*` phase of other steps (e.g., `analyse_location` resolves region codes). Therefore, `process_region` and `process_sector` procedures do not exist and are not needed.
+
+### 7.2. Refactoring Steps for each Procedure
+
+For each procedure listed above, the refactoring will involve the following steps:
+
+1.  **Identify Legacy Call**: Locate the call to `batch_insert_or_update_generic_valid_time_table` or `batch_insert_or_replace_generic_valid_time_table`.
+2.  **Determine Mode**: Confirm whether the "update" or "replace" mode is appropriate for the business logic of that step. Based on the project conventions, "update" is generally preferred to preserve existing historical data unless a full replacement is explicitly required by the import definition.
+3.  **Construct New Call**: Replace the legacy function call with a call to the corresponding new set-based function (`import.set_insert_or_update_generic_valid_time_table` or `import.set_insert_or_replace_generic_valid_time_table`).
+4.  **Map Parameters**: Ensure all parameters are correctly mapped from the old function signature to the new one. This includes:
+    *   Target schema and table names.
+    *   Source schema and table names (which will be the job's `_data` table).
+    *   Entity ID column names for both source and target.
+    *   The batch of `p_source_row_ids`.
+    *   The list of `p_ephemeral_columns`.
+5.  **Handle Return Value**: The new functions return a `SETOF` records indicating the `status` for each source row (`'SUCCESS'` or `'ERROR'`). The procedure must be updated to handle this new return format. A robust approach is to collect the results into a temporary table and then check if any rows have a status of `'ERROR'`. If errors are found, the procedure should raise an exception with the details, causing the batch to fail atomically.
