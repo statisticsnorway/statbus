@@ -675,7 +675,9 @@ Triggers:
  invalid_codes                    | jsonb                     |           |          | 
 Indexes:
     "import_lu_2015_sht_data_pkey" PRIMARY KEY, btree (row_id)
-    "import_lu_2015_sht_data_state_last_completed_priority_row_i_idx" btree (state, last_completed_priority, row_id)
+    "import_lu_2015_sht_data_stat_ident_idx" btree (stat_ident)
+    "import_lu_2015_sht_data_state_last_completed_priority_row_i_idx" btree (state, last_completed_priority, row_id) WHERE error IS NULL
+    "import_lu_2015_sht_data_tax_ident_idx" btree (tax_ident)
 Policies:
     POLICY "import_lu_2015_sht_data_admin_user_manage"
       TO admin_user
@@ -2412,7 +2414,9 @@ Triggers:
  invalid_codes                    | jsonb                     |           |          | 
 Indexes:
     "import_es_2015_sht_data_pkey" PRIMARY KEY, btree (row_id)
-    "import_es_2015_sht_data_state_last_completed_priority_row_i_idx" btree (state, last_completed_priority, row_id)
+    "import_es_2015_sht_data_stat_ident_idx" btree (stat_ident)
+    "import_es_2015_sht_data_state_last_completed_priority_row_i_idx" btree (state, last_completed_priority, row_id) WHERE error IS NULL
+    "import_es_2015_sht_data_tax_ident_idx" btree (tax_ident)
 Policies:
     POLICY "import_es_2015_sht_data_admin_user_manage"
       TO admin_user

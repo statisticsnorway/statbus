@@ -92,7 +92,7 @@ BEGIN
                                                  WHEN %2$L = 'secondary_activity' THEN l.resolved_secondary_activity_category_id
                                                  ELSE dt.secondary_activity_category_id -- Keep existing if not this step's target
                                              END,
-            state = 'analysing'::public.import_data_state, -- Activity lookup issues are non-fatal, state remains analysing
+            state = CASE WHEN dt.state = 'error'::public.import_data_state THEN 'error'::public.import_data_state ELSE 'analysing'::public.import_data_state END, -- Preserve error state, otherwise it's analysing
             error = CASE WHEN (dt.error - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %3$L::TEXT[]) END, -- Always clear this step's error key
             invalid_codes = CASE
                                 WHEN (%4$s) THEN -- Lookup failed for the current activity type

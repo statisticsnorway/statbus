@@ -17,13 +17,35 @@ DECLARE
     v_error_count INT := 0;
     v_job_mode public.import_mode;
     error_message TEXT;
-    v_error_keys_to_clear_arr TEXT[] := ARRAY['enterprise_link_for_establishment'];
+    v_error_keys_to_clear_arr TEXT[];
+    v_external_ident_source_column_names_json JSONB;
+    v_external_ident_source_columns TEXT[];
 BEGIN
     RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment (Batch): Starting analysis for % rows. Batch Row IDs: %', p_job_id, array_length(p_batch_row_ids, 1), p_batch_row_ids;
 
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
     v_data_table_name := v_job.data_table_name;
     v_job_mode := (v_job.definition_snapshot->'import_definition'->>'mode')::public.import_mode;
+
+    -- Determine relevant source column names for external identifiers from the definition snapshot
+    SELECT COALESCE(jsonb_agg(idc_element->>'column_name'), '[]'::jsonb)
+    INTO v_external_ident_source_column_names_json
+    FROM jsonb_array_elements(v_job.definition_snapshot->'import_data_column_list') AS idc_element
+    JOIN jsonb_array_elements(v_job.definition_snapshot->'import_step_list') AS isl_element
+      ON (isl_element->>'code') = 'external_idents' AND (idc_element->>'step_id')::INT = (isl_element->>'id')::INT
+    WHERE idc_element->>'purpose' = 'source_input';
+
+    SELECT ARRAY(SELECT jsonb_array_elements_text(v_external_ident_source_column_names_json))
+    INTO v_external_ident_source_columns;
+
+    IF array_length(v_external_ident_source_columns, 1) IS NULL OR array_length(v_external_ident_source_columns, 1) = 0 THEN
+        -- Fallback if no specific columns are found
+        v_external_ident_source_columns := ARRAY['tax_ident']; -- Sensible default
+        RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: No source_input columns found for external_idents step. Falling back to: %', p_job_id, v_external_ident_source_columns;
+    ELSE
+        RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: Identified external_idents source_input columns: %', p_job_id, v_external_ident_source_columns;
+    END IF;
+    v_error_keys_to_clear_arr := v_external_ident_source_columns;
 
     -- Find the step details from the snapshot first
     SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = 'enterprise_link_for_establishment';
@@ -61,9 +83,9 @@ BEGIN
                     END,
             error = CASE
                         WHEN dt.action = 'replace' AND dt.establishment_id IS NOT NULL AND %2$L = 'establishment_informal' AND ed.found_est_id IS NULL THEN -- v_job_mode
-                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('enterprise_link_for_establishment', jsonb_build_object('establishment_not_found_for_replace', dt.establishment_id))
+                            COALESCE(dt.error, '{}'::jsonb) || (SELECT jsonb_object_agg(col_name, 'Establishment identified by external identifier was not found for ''replace'' action.') FROM unnest(%5$L::TEXT[]) as col_name)
                         WHEN dt.action = 'replace' AND dt.establishment_id IS NOT NULL AND %2$L = 'establishment_informal' AND ed.found_est_id IS NOT NULL AND ed.existing_enterprise_id IS NULL THEN -- v_job_mode
-                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('enterprise_link_for_establishment', jsonb_build_object('missing_enterprise_for_informal_establishment', dt.establishment_id))
+                            COALESCE(dt.error, '{}'::jsonb) || (SELECT jsonb_object_agg(col_name, 'Informal establishment found for ''replace'' action, but it is not linked to an enterprise.') FROM unnest(%5$L::TEXT[]) as col_name)
                         ELSE CASE WHEN (dt.error - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %3$L::TEXT[]) END -- v_error_keys_to_clear_arr
                     END,
             last_completed_priority = %4$L -- Always v_step.priority
@@ -75,7 +97,8 @@ BEGIN
         v_data_table_name,          -- %1$I
         v_job_mode,                 -- %2$L
         v_error_keys_to_clear_arr,  -- %3$L
-        v_step.priority             -- %4$L (always this step's priority)
+        v_step.priority,            -- %4$L (always this step's priority)
+        v_external_ident_source_columns -- %5$L
     );
 
     RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: Updating "replace" rows for informal establishments: %', p_job_id, v_sql;
@@ -114,6 +137,9 @@ BEGIN
         RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: Marked job as failed due to error: %', p_job_id, error_message;
         RAISE;
     END;
+
+    -- Propagate errors to all rows of a new entity if one fails
+    CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_row_ids, v_error_keys_to_clear_arr, 'analyse_enterprise_link_for_establishment');
 
     RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment (Batch): Finished analysis successfully.', p_job_id;
 END;

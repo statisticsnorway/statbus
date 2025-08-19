@@ -170,8 +170,12 @@ BEGIN
         RAISE;
     END;
 
+    -- Propagate errors to all rows of a new entity if one fails
+    CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_row_ids, v_error_keys_to_clear_arr, 'analyse_enterprise_link_for_legal_unit');
+
     -- Ensure cleanup on successful completion of this block
     DROP TABLE IF EXISTS temp_enterprise_analysis_results;
+
     RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit (Batch): Finished analysis successfully.', p_job_id;
 END;
 $analyse_enterprise_link_for_legal_unit$;

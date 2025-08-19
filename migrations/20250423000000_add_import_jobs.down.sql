@@ -106,7 +106,8 @@ DROP FUNCTION IF EXISTS admin.import_job_generate(public.import_job);
 DROP FUNCTION IF EXISTS admin.import_job_generate();
 DROP FUNCTION IF EXISTS admin.import_job_notify();
 DROP FUNCTION IF EXISTS admin.import_job_derive();
-DROP PROCEDURE IF EXISTS worker.notify_check_is_importing();
+DROP PROCEDURE IF EXISTS worker.notify_is_importing_start();
+DROP PROCEDURE IF EXISTS worker.notify_is_importing_stop();
 DROP FUNCTION IF EXISTS admin.trigger_validate_import_definition();
 DROP FUNCTION IF EXISTS admin.validate_import_definition(INT);
 DROP FUNCTION IF EXISTS admin.import_job_next_state(public.import_job);
@@ -119,6 +120,8 @@ DROP FUNCTION IF EXISTS admin.reset_import_job_user_context();
 DROP FUNCTION IF EXISTS admin.enqueue_import_job_process(integer);
 DROP FUNCTION IF EXISTS admin.reschedule_import_job_process(integer);
 DROP FUNCTION IF EXISTS import.safe_cast_to_ltree(text);
+DROP PROCEDURE IF EXISTS import.propagate_fatal_error_to_entity_batch(INT, TEXT, INTEGER[], TEXT[], TEXT);
+DROP PROCEDURE IF EXISTS import.propagate_fatal_error_to_entity_holistic(INT, TEXT, TEXT, TEXT[], TEXT);
 
 -- Drop views (if any were created - none in the UP script)
 -- DROP VIEW public.import_information;

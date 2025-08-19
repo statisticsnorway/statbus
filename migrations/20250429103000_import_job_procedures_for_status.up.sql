@@ -57,7 +57,11 @@ BEGIN
                         WHEN (NULLIF(dt.status_code, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL AND %2$L::INTEGER IS NULL) OR
                              ((NULLIF(dt.status_code, '') IS NULL OR NULLIF(dt.status_code, '') = '') AND %2$L::INTEGER IS NULL)
                         THEN 'error'::public.import_data_state
-                        ELSE 'analysing'::public.import_data_state
+                        ELSE
+                            CASE
+                                WHEN dt.state = 'error'::public.import_data_state THEN 'error'::public.import_data_state
+                                ELSE 'analysing'::public.import_data_state
+                            END
                     END,
             error = CASE
                         WHEN NULLIF(dt.status_code, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL AND %2$L::INTEGER IS NULL THEN
@@ -118,6 +122,9 @@ BEGIN
         RAISE DEBUG '[Job %] analyse_status: Marked job as failed due to error: %', p_job_id, SQLERRM;
         RAISE;
     END;
+
+    -- Propagate errors to all rows of a new entity if one fails
+    CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_row_ids, v_error_keys_to_clear_arr, 'analyse_status');
 
     RAISE DEBUG '[Job %] analyse_status (Batch): Finished analysis for batch. Errors newly marked: %', p_job_id, v_error_count;
 END;

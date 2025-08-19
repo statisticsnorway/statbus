@@ -1444,9 +1444,24 @@ BEGIN
     EXECUTE create_data_table_stmt;
 
 
-  -- Create composite index (state, last_completed_priority, row_id) for efficient batch selection and in-index ordering
-  EXECUTE format($$CREATE INDEX ON public.%1$I (state, last_completed_priority, row_id)$$, job.data_table_name /* %1$I */);
-  RAISE DEBUG '[Job %] Added composite index to data table %', job.id, job.data_table_name;
+  -- Create a composite, filtered index for efficient batch selection.
+  -- The index only includes rows that are candidates for processing (error IS NULL).
+  -- This allows the planner to perform highly efficient index-only scans.
+  EXECUTE format($$
+    CREATE INDEX ON public.%1$I (state, last_completed_priority, row_id)
+    WHERE error IS NULL
+  $$, job.data_table_name /* %1$I */);
+  RAISE DEBUG '[Job %] Added filtered composite index to data table %', job.id, job.data_table_name;
+
+  -- Create indexes on uniquely identifying source_input columns to speed up lookups within analysis steps.
+  FOR col_rec IN
+      SELECT (x->>'column_name')::TEXT as column_name
+      FROM jsonb_array_elements(job.definition_snapshot->'import_data_column_list') x
+      WHERE x->>'purpose' = 'source_input' AND (x->>'is_uniquely_identifying')::boolean IS TRUE
+  LOOP
+      RAISE DEBUG '[Job %] Adding index on uniquely identifying source column: %', job.id, col_rec.column_name;
+      EXECUTE format('CREATE INDEX ON public.%I (%I)', job.data_table_name, col_rec.column_name);
+  END LOOP;
 
   -- Grant direct permissions to the job owner on the upload table to allow COPY FROM
   DECLARE
@@ -1686,6 +1701,109 @@ BEGIN
 END;
 $$;
 
+-- Procedure to propagate a fatal error to all related rows of a new entity within a batch.
+CREATE OR REPLACE PROCEDURE import.propagate_fatal_error_to_entity_batch(
+    p_job_id INT,
+    p_data_table_name TEXT,
+    p_batch_row_ids INTEGER[],
+    p_error_keys TEXT[],
+    p_step_code TEXT
+)
+LANGUAGE plpgsql AS $procedure$
+DECLARE
+    v_failed_entity_founding_rows INTEGER[];
+    v_error_key_for_json TEXT;
+BEGIN
+    v_error_key_for_json := COALESCE(p_error_keys[1], 'propagated_error');
+
+    -- Find the founding_row_ids for any row in the current batch that was just marked as an error by this step.
+    EXECUTE format($$
+        SELECT array_agg(DISTINCT dt.founding_row_id)
+        FROM public.%1$I dt
+        WHERE dt.row_id = ANY($1) -- from the current batch
+          AND dt.state = 'error'
+          AND dt.founding_row_id IS NOT NULL
+          AND (dt.error ?| %2$L::text[]); -- and the error is from this step
+    $$, p_data_table_name, p_error_keys)
+    INTO v_failed_entity_founding_rows
+    USING p_batch_row_ids;
+
+    IF array_length(v_failed_entity_founding_rows, 1) > 0 THEN
+        RAISE DEBUG '[Job %] %s: Propagating errors for % failed entities.', p_job_id, p_step_code, array_length(v_failed_entity_founding_rows, 1);
+        EXECUTE format($$
+            WITH failed_rows AS (
+                SELECT founding_row_id, array_agg(row_id) as error_source_row_ids
+                FROM public.%1$I
+                WHERE founding_row_id = ANY($1) AND state = 'error' AND (error ?| %2$L::text[])
+                GROUP BY founding_row_id
+            )
+            UPDATE public.%1$I dt SET
+                state = 'error',
+                action = 'skip',
+                error = COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object(
+                    %4$L,
+                    'An error on a related new entity row caused this row to be skipped. Source error row(s): ' || fr.error_source_row_ids::TEXT
+                )
+            FROM failed_rows fr
+            WHERE dt.founding_row_id = fr.founding_row_id
+              AND dt.state != 'error' -- Don't re-process rows already in error
+              AND NOT (dt.error ?| %2$L::text[]); -- Don't update the row that was the source of the error
+        $$, p_data_table_name, p_error_keys, v_failed_entity_founding_rows, v_error_key_for_json)
+        USING v_failed_entity_founding_rows;
+    END IF;
+END;
+$procedure$;
+
+-- Procedure to propagate a fatal error to all related rows of a new entity within a holistic step.
+CREATE OR REPLACE PROCEDURE import.propagate_fatal_error_to_entity_holistic(
+    p_job_id INT,
+    p_data_table_name TEXT,
+    p_temp_error_table_name TEXT,
+    p_error_keys TEXT[],
+    p_step_code TEXT
+)
+LANGUAGE plpgsql AS $procedure$
+DECLARE
+    v_failed_entity_founding_rows INTEGER[];
+    v_error_key_for_json TEXT;
+BEGIN
+    v_error_key_for_json := COALESCE(p_error_keys[1], 'propagated_error');
+
+    -- Find founding_row_ids for any row that was marked as an error by this step (held in a temp table).
+    EXECUTE format($$
+        SELECT array_agg(DISTINCT dt.founding_row_id)
+        FROM public.%1$I dt
+        JOIN %2$I tbe ON dt.row_id = tbe.data_row_id
+        WHERE dt.founding_row_id IS NOT NULL;
+    $$, p_data_table_name, p_temp_error_table_name)
+    INTO v_failed_entity_founding_rows;
+
+    IF array_length(v_failed_entity_founding_rows, 1) > 0 THEN
+        RAISE DEBUG '[Job %] %s: Propagating errors for % failed entities.', p_job_id, p_step_code, array_length(v_failed_entity_founding_rows, 1);
+        EXECUTE format($$
+            WITH failed_rows AS (
+                SELECT dt.founding_row_id, array_agg(tbe.data_row_id) as error_source_row_ids
+                FROM %2$I tbe
+                JOIN public.%1$I dt ON dt.row_id = tbe.data_row_id
+                GROUP BY dt.founding_row_id
+            )
+            UPDATE public.%1$I dt SET
+                state = 'error',
+                action = 'skip',
+                error = COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object(
+                    %3$L,
+                    'An error on a related new entity row caused this row to be skipped. Source error row(s): ' || fr.error_source_row_ids::TEXT
+                )
+            FROM failed_rows fr
+            WHERE dt.founding_row_id = fr.founding_row_id
+              AND dt.state != 'error' -- Don't re-process rows already in error
+              AND dt.row_id NOT IN (SELECT data_row_id FROM %2$I); -- Don't update rows from the error temp table
+        $$, p_data_table_name, p_temp_error_table_name, v_error_key_for_json)
+        USING v_failed_entity_founding_rows;
+    END IF;
+END;
+$procedure$;
+
 
 CREATE PROCEDURE admin.import_job_process(job_id integer)
 LANGUAGE plpgsql AS $import_job_process$
@@ -1788,17 +1906,14 @@ BEGIN
                 ELSIF NOT should_reschedule THEN -- No error, and phase reported no more work
                     IF job.review THEN
                         -- Transition rows from 'analysing' to 'analysed' if review is required
-                        -- Rows in 'analysing' state here have completed all analysis steps.
                         RAISE DEBUG '[Job %] Updating data rows from analysing to analysed in table % for review', job_id, job.data_table_name;
-                        EXECUTE format($$UPDATE public.%I SET state = %L WHERE state = %L$$, job.data_table_name, 'analysed'::public.import_data_state, 'analysing'::public.import_data_state);
+                        EXECUTE format($$UPDATE public.%I SET state = %L WHERE state = %L AND error IS NULL$$, job.data_table_name, 'analysed'::public.import_data_state, 'analysing'::public.import_data_state);
                         job := admin.import_job_set_state(job, 'waiting_for_review');
                         RAISE DEBUG '[Job %] Analysis complete, waiting for review.', job_id;
-                        -- should_reschedule remains FALSE as it's waiting for user action
                     ELSE
                         -- Transition rows from 'analysing' to 'processing' if no review
-                        -- Rows in 'analysing' state here have completed all analysis steps.
                         RAISE DEBUG '[Job %] Updating data rows from analysing to processing and resetting LCP in table %', job_id, job.data_table_name;
-                        EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L$$, job.data_table_name, 'processing'::public.import_data_state, 'analysing'::public.import_data_state);
+                        EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L AND error IS NULL$$, job.data_table_name, 'processing'::public.import_data_state, 'analysing'::public.import_data_state);
                         job := admin.import_job_set_state(job, 'processing_data');
                         RAISE DEBUG '[Job %] Analysis complete, proceeding to processing.', job_id;
                         should_reschedule := TRUE; -- Reschedule to start processing
@@ -1921,30 +2036,20 @@ LANGUAGE plpgsql AS $import_job_analysis_phase$
 /*
 RATIONALE for Holistic vs. Batched Steps and Transaction Model:
 
-This function is the core of the step-by-step processing logic. It is designed to be called repeatedly by the worker system. Each call executes ONE unit of work in a single transaction and then exits.
+This function is the core of the step-by-step analysis logic. Each call executes ONE unit of work and then exits.
 
-1.  **Single Worker Model**: The user has clarified that the worker system runs a single worker per queue. This means there is no parallel execution of this function for the *same job*. The primary purpose of batching is therefore not for concurrency control, but to keep transactions small, responsive, and to provide granular progress feedback.
+1.  **Iterative Step Processing**: The function loops through all analysis steps for the definition in priority order. For each step, it checks if there are any rows that need processing (i.e., `last_completed_priority < step.priority`).
 
-2.  **`is_holistic` Flag's Purpose**: The flag is NOT for preventing race conditions (as the queue model already does that). It is for ensuring DATA COMPLETENESS. Certain analysis steps (e.g., finding a `founding_row_id` for a new entity) must see the entire dataset to make a correct decision. A batched procedure, by design, only sees a small slice of the data and cannot perform these calculations correctly.
-    - `is_holistic = true`: The procedure is called once for the entire phase. It is responsible for loading all relevant rows itself.
-    - `is_holistic = false`: The procedure is called repeatedly, once for each batch of rows.
+2.  **"First-Come, First-Served"**: It processes the first batch of work it finds for the first step that needs it. After processing, it immediately returns `TRUE`. This forces the worker to reschedule, ensuring each batch is a small, atomic transaction. This approach is robust and correctly handles cases where some rows have errors, as the `last_completed_priority < step.priority` condition will naturally find the next piece of work for a given row.
 
-3.  **"Run Once" Guarantee for Holistic Steps**: A holistic step is guaranteed to run only once per phase because:
-    a. It is only selected if there are rows with `last_completed_priority < step.priority`.
-    b. The procedure itself updates the `last_completed_priority` for ALL rows it processes in a single transaction.
-    c. The function then returns `TRUE`, forcing a reschedule.
-    d. On the next run, the condition in (a) is no longer met for this step, so the processor moves to the next step.
+3.  **Status Update Correction**: The job's `current_step_code` is updated ONLY when a batch of work is found for that step, just before the step's procedure is called. This resolves the original "stuck job" UI issue, where the status would reflect the last *checked* step instead of the last *processed* step.
 
-4.  **`RETURN TRUE` vs `RETURN FALSE`**:
-    - `RETURN TRUE`: "Work was found and processed in this transaction." The calling procedure (`admin.import_job_process`) will immediately reschedule the job.
-    - `RETURN FALSE`: "A full loop over all steps for this phase found no work." This signals that the phase is complete, and the job can transition to its next state.
+4.  **Completion**: If a full loop over all steps finds no work, the function returns `FALSE`, signaling that the analysis phase is complete.
 */
 DECLARE
     targets JSONB;
     target_rec RECORD;
     proc_to_call REGPROC;
-    rows_processed_in_tx INTEGER := 0;
-    any_work_found_in_tx BOOLEAN := FALSE; -- If we find any batch, we should reschedule.
     batch_row_ids INTEGER[];
     error_message TEXT;
     current_phase_data_state public.import_data_state := 'analysing'::public.import_data_state;
@@ -1965,16 +2070,11 @@ BEGIN
 
         -- Skip if no procedure defined for this target/phase
         IF proc_to_call IS NULL THEN
-            RAISE DEBUG '[Job %] Skipping target % (priority %) for analysis phase - no procedure defined.', job.id, target_rec.name, target_rec.priority;
             CONTINUE;
         END IF;
 
-        RAISE DEBUG '[Job %] Checking target % (priority %) for analysis phase using procedure % (is_holistic: %)',
+        RAISE DEBUG '[Job %] Checking step % (priority %) for analysis phase using procedure % (is_holistic: %)',
             job.id, target_rec.name, target_rec.priority, proc_to_call, target_rec.is_holistic;
-
-        -- Update the job record to reflect the current step being processed *before* executing it.
-        -- This provides real-time monitoring of which step the job is currently working on.
-        UPDATE public.import_job SET current_step_code = target_rec.code, current_step_priority = target_rec.priority WHERE id = job.id;
 
         -- Handle holistic vs. batched steps
         BEGIN
@@ -1987,9 +2087,11 @@ BEGIN
                     INTO v_rows_exist;
 
                     IF v_rows_exist THEN
-                        RAISE DEBUG '[Job %] Calling holistic procedure % for target %.', job.id, proc_to_call, target_rec.name;
+                        -- Update the job status *before* executing, as we've found work.
+                        UPDATE public.import_job SET current_step_code = target_rec.code, current_step_priority = target_rec.priority WHERE id = job.id;
+                        RAISE DEBUG '[Job %] Calling holistic procedure % for step %.', job.id, proc_to_call, target_rec.name;
+
                         EXECUTE format('CALL %s($1, $2, $3)', proc_to_call) USING job.id, NULL::INTEGER[], target_rec.code;
-                        -- The holistic procedure itself must update last_completed_priority.
                         -- Since work was found and done, return immediately to reschedule.
                         RETURN TRUE;
                     END IF;
@@ -2006,7 +2108,9 @@ BEGIN
                 ) INTO batch_row_ids;
 
                 IF batch_row_ids IS NOT NULL AND array_length(batch_row_ids, 1) > 0 THEN
-                    RAISE DEBUG '[Job %] Found batch of % rows for target % (priority %), calling %',
+                    -- Update the job status *before* executing, as we've found work.
+                    UPDATE public.import_job SET current_step_code = target_rec.code, current_step_priority = target_rec.priority WHERE id = job.id;
+                    RAISE DEBUG '[Job %] Found batch of % rows for step % (priority %), calling %',
                         job.id, array_length(batch_row_ids, 1), target_rec.name, target_rec.priority, proc_to_call;
 
                     EXECUTE format('CALL %s($1, $2, $3)', proc_to_call) USING job.id, batch_row_ids, target_rec.code;
@@ -2017,8 +2121,8 @@ BEGIN
             END IF;
         EXCEPTION WHEN OTHERS THEN
             GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
-            RAISE WARNING '[Job %] Programming error suspected in procedure % for target % (code: %): %', job.id, proc_to_call, target_rec.name, target_rec.code, error_message;
-            UPDATE public.import_job SET error = jsonb_build_object('programming_error_in_step_procedure', format('Error during analysis phase, target %s (code: %s, proc: %s): %s', target_rec.name, target_rec.code, proc_to_call::text, error_message))
+            RAISE WARNING '[Job %] Error in procedure % for step % (code: %): %', job.id, proc_to_call, target_rec.name, target_rec.code, error_message;
+            UPDATE public.import_job SET error = jsonb_build_object('error_in_analysis_step', format('Error during analysis step %s (code: %s, proc: %s): %s', target_rec.name, target_rec.code, proc_to_call::text, error_message))
             WHERE id = job.id;
             RAISE;
         END;
@@ -2044,7 +2148,7 @@ BEGIN
     EXECUTE format(
         $$SELECT array_agg(row_id) FROM (
             SELECT row_id FROM public.%I
-            WHERE state = 'processing' AND error IS NULL
+            WHERE state = 'processing' AND error IS NULL AND action != 'skip'
             ORDER BY row_id LIMIT %L FOR UPDATE SKIP LOCKED
          ) AS batch$$,
         job.data_table_name, job.processing_batch_size

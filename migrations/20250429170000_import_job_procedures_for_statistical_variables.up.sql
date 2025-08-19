@@ -143,7 +143,11 @@ BEGIN
             -- Determine state first
             state = CASE
                         WHEN %2$s THEN 'error'::public.import_data_state -- Error condition for this step
-                        ELSE 'analysing'::public.import_data_state -- No error from this step
+                        ELSE
+                            CASE
+                                WHEN dt.state = 'error'::public.import_data_state THEN 'error'::public.import_data_state
+                                ELSE 'analysing'::public.import_data_state
+                            END
                     END,
             -- Then determine action based on the new state or existing action
             action = CASE
@@ -197,6 +201,9 @@ BEGIN
         RAISE DEBUG '[Job %] analyse_statistical_variables: Marked job as failed due to error: %', p_job_id, SQLERRM;
         RAISE;
     END;
+
+    -- Propagate errors to all rows of a new entity if one fails
+    CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_row_ids, v_error_keys_to_clear_list, 'analyse_statistical_variables');
 
     RAISE DEBUG '[Job %] analyse_statistical_variables (Batch): Finished analysis for batch. Errors newly marked in this step: %', p_job_id, v_error_count;
 END;

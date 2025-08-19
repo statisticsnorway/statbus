@@ -137,13 +137,13 @@ BEGIN
 
         IF v_add_separator THEN v_unpivot_sql := v_unpivot_sql || ' UNION ALL '; END IF;
         v_unpivot_sql := v_unpivot_sql || format(
-            $$SELECT dt.row_id, 
+            $$SELECT dt.row_id,
                      %1$L AS source_column_name_in_data_table, -- This is the name of the column in _data table (e.g., 'tax_ident')
                      %2$L AS ident_type_code_to_join_on,     -- This is also the external_ident_type.code (e.g., 'tax_ident')
-                     dt.%3$I AS ident_value
+                     NULLIF(dt.%3$I, '') AS ident_value
              FROM public.%4$I dt
              JOIN temp_relevant_rows tr ON tr.data_row_id = dt.row_id
-             WHERE dt.%5$I IS NOT NULL AND dt.action IS DISTINCT FROM 'skip'$$,
+             WHERE NULLIF(dt.%5$I, '') IS NOT NULL AND dt.action IS DISTINCT FROM 'skip'$$,
              v_col_rec.idc_column_name, -- %1$L Name of column in _data table
              v_col_rec.idc_column_name, -- %2$L Code to join with external_ident_type
              v_col_rec.idc_column_name, -- %3$I Column to select value from in _data table
@@ -308,12 +308,13 @@ BEGIN
         AnalysisWithOperation AS ( -- Determines operation based on DB existence and batch order
             SELECT
                 obe.data_row_id,
-                obe.actual_founding_row_id, -- Added
-                obe.final_lu_id, 
-                obe.final_est_id, 
+                obe.actual_founding_row_id,
+                obe.final_lu_id,
+                obe.final_est_id,
+                obe.entity_signature, -- Pass through for error propagation
                 ( -- Subquery to calculate unstable_identifier_errors
                     SELECT jsonb_object_agg(
-                               input_data.ident_code, 
+                               input_data.ident_code,
                                'Identifier ' || input_data.ident_code || ' value ''' || input_data.input_value || ''' from input attempts to change existing value ''' || COALESCE(existing_ei.ident, 'NULL') || ''''
                            )
                     FROM (SELECT key AS ident_code, value AS input_value FROM jsonb_each_text(obe.entity_signature)) AS input_data
@@ -324,9 +325,9 @@ BEGIN
                             (obe.final_lu_id IS NOT NULL AND existing_ei.legal_unit_id = obe.final_lu_id) OR
                             (obe.final_est_id IS NOT NULL AND existing_ei.establishment_id = obe.final_est_id)
                         )
-                    WHERE (obe.final_lu_id IS NOT NULL OR obe.final_est_id IS NOT NULL) 
-                      AND existing_ei.ident IS NOT NULL 
-                      AND input_data.input_value IS DISTINCT FROM existing_ei.ident 
+                    WHERE (obe.final_lu_id IS NOT NULL OR obe.final_est_id IS NOT NULL)
+                      AND existing_ei.ident IS NOT NULL
+                      AND input_data.input_value IS DISTINCT FROM existing_ei.ident
                 ) AS unstable_identifier_errors_jsonb,
                 (
                     COALESCE(
@@ -378,23 +379,49 @@ BEGIN
                         END
                 END as operation
             FROM OrderedBatchEntities obe
+        ),
+         propagated_errors as (
+            select
+                awo.*,
+                (awo.base_error_jsonb || COALESCE(awo.unstable_identifier_errors_jsonb, '{}'::jsonb)) as final_error_jsonb,
+                -- Check if any row within the same new entity has an error.
+                BOOL_OR((awo.base_error_jsonb || COALESCE(awo.unstable_identifier_errors_jsonb, '{}'::jsonb)) != '{}'::jsonb)
+                    OVER (PARTITION BY CASE WHEN awo.final_lu_id IS NULL AND awo.final_est_id IS NULL THEN awo.entity_signature ELSE jsonb_build_object('data_row_id', awo.data_row_id) END) as entity_has_error,
+                -- Collect row_ids of rows with errors within the same new entity.
+                array_remove(array_agg(CASE WHEN (awo.base_error_jsonb || COALESCE(awo.unstable_identifier_errors_jsonb, '{}'::jsonb)) != '{}'::jsonb THEN awo.data_row_id ELSE NULL END)
+                    OVER (PARTITION BY CASE WHEN awo.final_lu_id IS NULL AND awo.final_est_id IS NULL THEN awo.entity_signature ELSE jsonb_build_object('data_row_id', awo.data_row_id) END), NULL) as entity_error_source_row_ids
+            from AnalysisWithOperation awo
         )
         INSERT INTO temp_batch_analysis (data_row_id, error_jsonb, resolved_lu_id, resolved_est_id, operation, action, derived_founding_row_id)
         SELECT
-            awo.data_row_id,
-            awo.base_error_jsonb || COALESCE(awo.unstable_identifier_errors_jsonb, '{}'::jsonb) AS final_error_jsonb,
-            awo.final_lu_id,
-            awo.final_est_id,
-            awo.operation,
+            pe.data_row_id,
             CASE
-                WHEN (awo.base_error_jsonb || COALESCE(awo.unstable_identifier_errors_jsonb, '{}'::jsonb)) != '{}'::jsonb THEN 'skip'::public.import_row_action_type -- Priority 1: Any Error
-                WHEN %3$L::public.import_strategy = 'insert_only' AND awo.operation != 'insert'::public.import_row_operation_type THEN 'skip'::public.import_row_action_type -- %3$L is v_strategy
-                WHEN %3$L::public.import_strategy = 'replace_only' AND awo.operation != 'replace'::public.import_row_operation_type THEN 'skip'::public.import_row_action_type -- %3$L is v_strategy
-                WHEN %3$L::public.import_strategy = 'update_only' AND awo.operation != 'update'::public.import_row_operation_type THEN 'skip'::public.import_row_action_type -- %3$L is v_strategy
-                ELSE (awo.operation::text)::public.import_row_action_type
+                -- Case 1: This is a new entity, and some row in the entity has an error.
+                WHEN pe.entity_has_error AND pe.final_lu_id IS NULL AND pe.final_est_id IS NULL THEN
+                    CASE
+                        -- Subcase 1.1: This specific row has an error. Use its own error.
+                        WHEN pe.final_error_jsonb != '{}'::jsonb THEN pe.final_error_jsonb
+                        -- Subcase 1.2: This specific row does NOT have an error, but another row in the same entity does. Propagate.
+                        ELSE jsonb_build_object(
+                                 COALESCE((SELECT value->>'column_name' FROM jsonb_array_elements(%5$L) value WHERE value->>'purpose' = 'source_input' LIMIT 1), 'propagated_error'),
+                                 'An error on a related new entity row caused this row to be skipped. Source error row(s): ' || array_to_string(pe.entity_error_source_row_ids, ', ')
+                             )
+                    END
+                -- Case 2: This is an existing entity, or a new entity with no errors. Just use its own error jsonb.
+                ELSE pe.final_error_jsonb
+            END as final_error_jsonb,
+            pe.final_lu_id,
+            pe.final_est_id,
+            pe.operation,
+            CASE
+                WHEN pe.entity_has_error THEN 'skip'::public.import_row_action_type -- Priority 1: Entity-wide Error
+                WHEN %3$L::public.import_strategy = 'insert_only' AND pe.operation != 'insert'::public.import_row_operation_type THEN 'skip'::public.import_row_action_type -- %3$L is v_strategy
+                WHEN %3$L::public.import_strategy = 'replace_only' AND pe.operation != 'replace'::public.import_row_operation_type THEN 'skip'::public.import_row_action_type -- %3$L is v_strategy
+                WHEN %3$L::public.import_strategy = 'update_only' AND pe.operation != 'update'::public.import_row_operation_type THEN 'skip'::public.import_row_action_type -- %3$L is v_strategy
+                ELSE (pe.operation::text)::public.import_row_action_type
             END as action,
-            awo.actual_founding_row_id
-        FROM AnalysisWithOperation awo;
+            pe.actual_founding_row_id
+        FROM propagated_errors pe;
     $$, 
         v_relevant_row_ids,             /* %1$L */
         v_data_table_name,              /* %2$I */
@@ -447,60 +474,40 @@ BEGIN
         END LOOP;
     END;
 
-    -- Step 3: Batch Update Error Rows
-    BEGIN
-        v_sql := format($$
-            UPDATE public.%1$I dt SET
-                state = %2$L,
-                error = COALESCE(dt.error, %3$L) || err.error_jsonb, -- Merge err.error_jsonb directly
-                last_completed_priority = %4$L, -- Set to current step's priority on error
-                operation = err.operation, -- Always set operation
-                action = err.action
-            FROM temp_batch_analysis err
-            WHERE dt.row_id = err.data_row_id AND err.error_jsonb != %5$L;
-        $$, v_data_table_name /* %1$I */, 'error' /* %2$L */, '{}'::jsonb /* %3$L */, v_step.priority /* %4$L */, '{}'::jsonb /* %5$L */);
-        RAISE DEBUG '[Job %] analyse_external_idents: Updating error rows: %', p_job_id, v_sql;
-        EXECUTE v_sql;
-        GET DIAGNOSTICS v_update_count = ROW_COUNT;
-        v_error_count := v_update_count;
-        SELECT array_agg(data_row_id) INTO v_error_row_ids FROM temp_batch_analysis WHERE error_jsonb != '{}'::jsonb;
-        RAISE DEBUG '[Job %] analyse_external_idents: Marked % rows as error.', p_job_id, v_update_count;
-    END;
+    -- Step 3: Single-pass Batch Update for All Rows with dynamically constructed SET clause
+    v_set_clause := format($$
+        state = CASE WHEN ru.error_jsonb IS NOT NULL AND ru.error_jsonb != '{}'::jsonb THEN 'error'::public.import_data_state ELSE (CASE WHEN dt.state = 'error' THEN 'error'::public.import_data_state ELSE 'analysing'::public.import_data_state END) END,
+        error = CASE WHEN ru.error_jsonb IS NOT NULL AND ru.error_jsonb != '{}'::jsonb THEN COALESCE(dt.error, '{}'::jsonb) || ru.error_jsonb ELSE (CASE WHEN (dt.error - %1$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %1$L::TEXT[]) END) END,
+        action = ru.action,
+        operation = ru.operation,
+        founding_row_id = ru.derived_founding_row_id,
+        last_completed_priority = %2$L
+    $$, v_error_keys_to_clear_arr, v_step.priority);
 
-    -- Step 4: Batch Update Non-Error Rows (Success or Strategy Skips)
-    v_set_clause := format('last_completed_priority = %1$L, error = CASE WHEN (error - %2$L::TEXT[]) = ''{}''::jsonb THEN NULL ELSE (error - %3$L::TEXT[]) END, state = %4$L, action = ru.action, operation = ru.operation, founding_row_id = ru.derived_founding_row_id',
-                           v_step.priority /* %1$L */, v_error_keys_to_clear_arr /* %2$L */, v_error_keys_to_clear_arr /* %3$L */, 'analysing'::public.import_data_state /* %4$L */);
     IF v_has_lu_id_col THEN
-        v_set_clause := v_set_clause || ', legal_unit_id = ru.resolved_lu_id';
+        v_set_clause := v_set_clause || format(', legal_unit_id = CASE WHEN ru.error_jsonb IS NOT NULL AND ru.error_jsonb != ''{}''::jsonb THEN NULL ELSE ru.resolved_lu_id END');
     END IF;
+
     IF v_has_est_id_col THEN
-        v_set_clause := v_set_clause || ', establishment_id = ru.resolved_est_id';
-    END IF;
-
-    -- Ensure founding_row_id is part of the SET clause
-    -- v_set_clause already includes founding_row_id = ru.derived_founding_row_id from its initial construction.
-    -- No, it does not. It was:
-    -- v_set_clause := format('last_completed_priority = %L, error = CASE WHEN (error - %L::TEXT[]) = ''{}''::jsonb THEN NULL ELSE (error - %L::TEXT[]) END, state = %L, action = ru.action, operation = ru.operation, founding_row_id = ru.derived_founding_row_id',
-    -- This was correct. The issue might be if derived_founding_row_id itself is not correctly populated in temp_batch_analysis.
-    -- Let's re-verify temp_batch_analysis population.
-    -- The `actual_founding_row_id` is calculated in `OrderedBatchEntities` and selected into `temp_batch_analysis.derived_founding_row_id`. This seems correct.
-    -- The `v_set_clause` correctly includes `founding_row_id = ru.derived_founding_row_id`.
-
-    IF NOT v_has_lu_id_col AND NOT v_has_est_id_col THEN
-        RAISE DEBUG '[Job %] analyse_external_idents: No specific unit ID columns (legal_unit_id, establishment_id) exist in % for Step 4. Updating metadata, action, operation, and founding_row_id.', p_job_id, v_data_table_name;
+        v_set_clause := v_set_clause || format(', establishment_id = CASE WHEN ru.error_jsonb IS NOT NULL AND ru.error_jsonb != ''{}''::jsonb THEN NULL ELSE ru.resolved_est_id END');
     END IF;
 
     v_sql := format($$
         UPDATE public.%1$I dt SET
-            %2$s -- Dynamic SET clause which includes founding_row_id update
+            %2$s -- Dynamic SET clause
         FROM temp_batch_analysis ru
         WHERE dt.row_id = ru.data_row_id
-          AND EXISTS (SELECT 1 FROM temp_relevant_rows tr WHERE tr.data_row_id = dt.row_id) AND dt.row_id != ALL($1); -- Update only non-error rows from the original batch
-    $$, v_data_table_name /* %1$I */, v_set_clause /* %2$s */);
-    RAISE DEBUG '[Job %] analyse_external_idents: Updating non-error rows (success or strategy skips): %', p_job_id, v_sql;
-    EXECUTE v_sql USING COALESCE(v_error_row_ids, ARRAY[]::INTEGER[]);
+          AND EXISTS (SELECT 1 FROM temp_relevant_rows tr WHERE tr.data_row_id = dt.row_id);
+    $$, v_data_table_name, v_set_clause);
+    RAISE DEBUG '[Job %] analyse_external_idents: Updating all rows in a single pass: %', p_job_id, v_sql;
+    EXECUTE v_sql;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
-    RAISE DEBUG '[Job %] analyse_external_idents: Updated % non-error rows.', p_job_id, v_update_count;
+
+    -- Recalculate v_error_count for final logging
+    EXECUTE format($$SELECT COUNT(*) FROM public.%1$I WHERE (error ?| %2$L::text[]) AND EXISTS (SELECT 1 FROM temp_relevant_rows tr WHERE tr.data_row_id = row_id)$$,
+                   v_data_table_name, v_error_keys_to_clear_arr)
+    INTO v_error_count;
+    RAISE DEBUG '[Job %] analyse_external_idents: Updated % total rows. Current estimated errors for this step: %', p_job_id, v_update_count, v_error_count;
 
     -- Update priority for rows that were initially skipped
     EXECUTE format($$

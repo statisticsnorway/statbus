@@ -60,7 +60,11 @@ BEGIN
             state = CASE
                         WHEN dt.name IS NULL OR trim(dt.name) = '' THEN 'error'::public.import_data_state
                         WHEN dt.status_id IS NULL THEN 'error'::public.import_data_state
-                        ELSE 'analysing'::public.import_data_state
+                        ELSE
+                           CASE
+                               WHEN dt.state = 'error'::public.import_data_state THEN 'error'::public.import_data_state
+                               ELSE 'analysing'::public.import_data_state
+                           END
                     END,
             action = CASE -- Added action update
                         WHEN dt.name IS NULL OR trim(dt.name) = '' THEN 'skip'::public.import_row_action_type
@@ -71,7 +75,7 @@ BEGIN
                         WHEN dt.name IS NULL OR trim(dt.name) = '' THEN
                             COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('name', 'Missing required name')
                         WHEN dt.status_id IS NULL THEN
-                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('status_id_missing', 'Status ID not resolved by prior step')
+                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('status_code', 'Status code could not be resolved and is required for this operation.')
                         ELSE 
                             CASE WHEN (dt.error - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %3$L::TEXT[]) END
                     END,
@@ -131,6 +135,9 @@ BEGIN
         RAISE DEBUG '[Job %] analyse_establishment: Marked job as failed due to error: %', p_job_id, SQLERRM;
         RAISE;
     END;
+
+    -- Propagate errors to all rows of a new entity if one fails
+    CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_job.data_table_name, p_batch_row_ids, v_error_keys_to_clear_arr, 'analyse_establishment');
 
     RAISE DEBUG '[Job %] analyse_establishment (Batch): Finished analysis for batch. Total errors in batch: %', p_job_id, v_error_count;
 END;

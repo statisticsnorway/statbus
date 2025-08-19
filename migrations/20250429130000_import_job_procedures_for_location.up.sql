@@ -265,7 +265,11 @@ BEGIN
                      END,
             state = CASE
                         WHEN (%6$s) OR (%10$s) THEN 'error'::public.import_data_state -- Fatal country error OR any coordinate error
-                        ELSE 'analysing'::public.import_data_state
+                        ELSE
+                            CASE
+                                WHEN dt.state = 'error'::public.import_data_state THEN 'error'::public.import_data_state
+                                ELSE 'analysing'::public.import_data_state
+                            END
                     END,
             error = jsonb_strip_nulls(
                         COALESCE(dt.error, '{}'::jsonb) -- Start with existing errors
@@ -357,6 +361,9 @@ BEGIN
             RAISE DEBUG '[Job %] analyse_location: Marked job as failed due to unexpected error for step %: %', p_job_id, p_step_code, error_message;
             RAISE; -- Re-throw the exception
     END;
+
+    -- Propagate errors to all rows of a new entity if one fails
+    CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_row_ids, v_error_keys_to_clear_arr, p_step_code);
 
     RAISE DEBUG '[Job %] analyse_location (Batch): Finished analysis for batch for step %. Errors newly marked in this step: %', p_job_id, p_step_code, v_error_count;
 END;

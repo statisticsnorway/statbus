@@ -32,8 +32,8 @@ BEGIN
         UPDATE public.%1$I dt SET
             last_completed_priority = %2$L,
             state = CASE
-                        WHEN dt.action = 'skip' THEN dt.state -- Keep existing state if skipped
-                        ELSE 'analysing'::public.import_data_state -- Set to analysing for non-skipped
+                        WHEN dt.state = 'error'::public.import_data_state THEN 'error'::public.import_data_state -- Preserve existing error state
+                        ELSE 'analysing'::public.import_data_state -- Otherwise, it's analysing
                     END
             -- No error column modification as this step doesn't generate errors
         WHERE dt.row_id = ANY($1);

@@ -56,7 +56,11 @@ BEGIN
             state = CASE
                         WHEN dt.tag_path IS NOT NULL AND rt.ltree_error_msg IS NOT NULL THEN 'error'::public.import_data_state
                         WHEN dt.tag_path IS NOT NULL AND rt.ltree_error_msg IS NULL AND rt.resolved_tag_id IS NULL THEN 'error'::public.import_data_state
-                        ELSE 'analysing'::public.import_data_state
+                        ELSE
+                            CASE
+                                WHEN dt.state = 'error'::public.import_data_state THEN 'error'::public.import_data_state
+                                ELSE 'analysing'::public.import_data_state
+                            END
                     END,
             -- Then determine action based on the new state or existing action
             action = CASE
@@ -118,6 +122,9 @@ BEGIN
         RAISE DEBUG '[Job %] analyse_tags: Marked job as failed due to error: %', p_job_id, SQLERRM;
         RAISE; -- Re-raise the original exception to halt processing
     END;
+
+    -- Propagate errors to all rows of a new entity if one fails
+    CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_row_ids, v_error_keys_to_clear_arr, 'analyse_tags');
 
     RAISE DEBUG '[Job %] analyse_tags (Batch): Finished analysis for batch.', p_job_id; -- Simplified final message
 END;

@@ -202,97 +202,61 @@ BEGIN
     RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Identifying errors post-lookup: %', p_job_id, v_sql;
     EXECUTE v_sql;
 
-    -- Step 3: Batch Update Error Rows
-    BEGIN
-        v_sql := format($$
-            UPDATE public.%1$I dt SET
-                state = %2$L,
-                action = 'skip', -- Set action to skip if there's an error here
-                error = COALESCE(dt.error, %3$L) || err.error_jsonb, -- Directly merge the error_jsonb from temp_batch_errors
-                last_completed_priority = %4$L -- Set to current step's priority on error
-            FROM temp_batch_errors err
-            WHERE dt.row_id = err.data_row_id;
-        $$, 
-            v_data_table_name,            -- %1$I
-            'error',                      -- %2$L
-            '{}'::jsonb,                  -- %3$L
-            v_step.priority               -- %4$L
-        );
-        RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Updating error rows: %', p_job_id, v_sql;
-        EXECUTE v_sql;
-        GET DIAGNOSTICS v_update_count = ROW_COUNT;
-        v_error_count := v_update_count;
-        SELECT array_agg(data_row_id) INTO v_error_row_ids FROM temp_batch_errors;
-        RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Marked % rows as error.', p_job_id, v_update_count;
-    END;
-
-    -- Step 4: Batch Update Success Rows with resolved legal_unit_id
+    -- Step 3: Single-pass Batch Update for All Rows
     v_sql := format($$
         WITH ResolvedLinks AS (
-            -- Get unique data_row_id to resolved_lu_id links from the current batch, excluding errored rows
             SELECT DISTINCT ON (tui.data_row_id)
-                   tui.data_row_id,
-                   tui.resolved_lu_id,
-                   dt.establishment_id AS current_establishment_id, -- ID of the EST record in _data table
-                   dt.row_id AS original_data_table_row_id, -- Used for ordering to pick the "first"
-                   dt.derived_valid_after AS est_derived_valid_after, -- Use derived_valid_after
-                   dt.derived_valid_to AS est_derived_valid_to
+                   tui.data_row_id, tui.resolved_lu_id, dt.establishment_id AS current_establishment_id,
+                   dt.row_id AS original_data_table_row_id, dt.derived_valid_after AS est_derived_valid_after, dt.derived_valid_to AS est_derived_valid_to
             FROM temp_unpivoted_lu_idents tui
             JOIN public.%1$I dt ON tui.data_row_id = dt.row_id
-            WHERE tui.resolved_lu_id IS NOT NULL
-              AND EXISTS (SELECT 1 FROM temp_relevant_rows tr WHERE tr.data_row_id = dt.row_id) AND dt.row_id != ALL($1)
+            WHERE tui.resolved_lu_id IS NOT NULL AND EXISTS (SELECT 1 FROM temp_relevant_rows tr WHERE tr.data_row_id = dt.row_id)
         ),
         RankedForPrimary AS (
             SELECT
-                rl.data_row_id,
-                rl.resolved_lu_id,
-                rl.current_establishment_id, -- Pass through the current EST ID
-                rl.original_data_table_row_id,
-                rl.est_derived_valid_after,
-                rl.est_derived_valid_to,
-                -- Check if any OTHER EST is already primary for this LU in the main DB table *during the current EST's validity period*
+                rl.data_row_id, rl.resolved_lu_id, rl.current_establishment_id, rl.original_data_table_row_id,
+                rl.est_derived_valid_after, rl.est_derived_valid_to,
                 NOT EXISTS (
                     SELECT 1 FROM public.establishment est
-                    WHERE est.legal_unit_id = rl.resolved_lu_id
-                      AND est.primary_for_legal_unit = TRUE
-                      AND est.id IS DISTINCT FROM rl.current_establishment_id -- Exclude the current establishment itself
+                    WHERE est.legal_unit_id = rl.resolved_lu_id AND est.primary_for_legal_unit = TRUE
+                      AND est.id IS DISTINCT FROM rl.current_establishment_id
                       AND public.after_to_overlaps(est.valid_after, est.valid_to, rl.est_derived_valid_after, rl.est_derived_valid_to)
                 ) AS no_overlapping_primary_in_db
             FROM ResolvedLinks rl
         )
         UPDATE public.%1$I dt SET
-            legal_unit_id = rfp.resolved_lu_id,
-            primary_for_legal_unit = (
-                rfp.no_overlapping_primary_in_db
-                AND
-                NOT EXISTS (
-                    SELECT 1
-                    FROM RankedForPrimary other_rfp -- Self-referencing RankedForPrimary to check other batch items
-                    WHERE other_rfp.resolved_lu_id = rfp.resolved_lu_id
-                      AND other_rfp.original_data_table_row_id <> rfp.original_data_table_row_id -- Compare batch rows using their unique _data table row_id
-                      AND other_rfp.original_data_table_row_id < rfp.original_data_table_row_id -- Prioritize by original_data_table_row_id if periods overlap
-                      AND other_rfp.no_overlapping_primary_in_db -- The other item must also be a candidate (no DB conflict with *other* ESTs)
-                      AND public.after_to_overlaps( -- Check if the other item's period overlaps with the current item's period
-                          other_rfp.est_derived_valid_after, other_rfp.est_derived_valid_to,
-                          rfp.est_derived_valid_after, rfp.est_derived_valid_to
-                      )
+            legal_unit_id = CASE WHEN err.error_jsonb IS NULL THEN rfp.resolved_lu_id ELSE dt.legal_unit_id END,
+            primary_for_legal_unit = CASE
+                WHEN err.error_jsonb IS NULL THEN (
+                    rfp.no_overlapping_primary_in_db AND
+                    NOT EXISTS (
+                        SELECT 1 FROM RankedForPrimary other_rfp
+                        WHERE other_rfp.resolved_lu_id = rfp.resolved_lu_id
+                          AND other_rfp.original_data_table_row_id <> rfp.original_data_table_row_id
+                          AND other_rfp.original_data_table_row_id < rfp.original_data_table_row_id
+                          AND other_rfp.no_overlapping_primary_in_db
+                          AND public.after_to_overlaps(other_rfp.est_derived_valid_after, other_rfp.est_derived_valid_to, rfp.est_derived_valid_after, rfp.est_derived_valid_to)
+                    )
                 )
-            ),
-            last_completed_priority = %2$L,
-            error = CASE WHEN (dt.error - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %3$L::TEXT[]) END,
-            state = %4$L
-        FROM RankedForPrimary rfp
-        WHERE dt.row_id = rfp.data_row_id; -- Join condition for UPDATE
+                ELSE dt.primary_for_legal_unit
+            END,
+            state = CASE WHEN err.error_jsonb IS NOT NULL THEN 'error'::public.import_data_state ELSE (CASE WHEN dt.state = 'error' THEN 'error'::public.import_data_state ELSE 'analysing'::public.import_data_state END) END,
+            action = CASE WHEN err.error_jsonb IS NOT NULL THEN 'skip'::public.import_row_action_type ELSE dt.action END,
+            error = CASE WHEN err.error_jsonb IS NOT NULL THEN COALESCE(dt.error, '{}'::jsonb) || err.error_jsonb ELSE (CASE WHEN (dt.error - %2$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %2$L::TEXT[]) END) END,
+            last_completed_priority = %3$L
+        FROM temp_relevant_rows tr
+        LEFT JOIN RankedForPrimary rfp ON tr.data_row_id = rfp.data_row_id
+        LEFT JOIN temp_batch_errors err ON tr.data_row_id = err.data_row_id
+        WHERE dt.row_id = tr.data_row_id;
     $$,
-        v_data_table_name,                      /* %1$I */
-        v_step.priority,                        /* %2$L */
-        v_error_keys_to_clear_arr,              /* %3$L */
-        'analysing'::public.import_data_state   /* %4$L */
+        v_data_table_name,           /* %1$I */
+        v_error_keys_to_clear_arr,   /* %2$L */
+        v_step.priority              /* %3$L */
     );
-    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Updating success rows with resolved IDs and refined primary_for_legal_unit logic: %', p_job_id, v_sql;
-    EXECUTE v_sql USING COALESCE(v_error_row_ids, ARRAY[]::INTEGER[]);
+    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Updating all rows in a single pass: %', p_job_id, v_sql;
+    EXECUTE v_sql;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
-    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Marked % rows as success for this target.', p_job_id, v_update_count;
+    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Updated % total rows.', p_job_id, v_update_count;
 
     -- Log sample of updated linked_legal_unit_id in _data table
     IF v_update_count > 0 THEN
@@ -327,8 +291,13 @@ BEGIN
     RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Updated last_completed_priority for % pre-skipped rows.', p_job_id, v_skipped_update_count;
 
     DROP TABLE IF EXISTS temp_unpivoted_lu_idents;
-    DROP TABLE IF EXISTS temp_batch_errors;
+    -- DROP TABLE IF EXISTS temp_batch_errors; -- Moved after propagation call
     DROP TABLE IF EXISTS temp_relevant_rows;
+
+    -- Propagate errors to all rows of a new entity if one fails (Holistic version)
+    CALL import.propagate_fatal_error_to_entity_holistic(p_job_id, v_data_table_name, 'temp_batch_errors', v_error_keys_to_clear_arr, 'analyse_link_establishment_to_legal_unit');
+    
+    DROP TABLE IF EXISTS temp_batch_errors; -- Now safe to drop
 
     v_duration_ms := (EXTRACT(EPOCH FROM (clock_timestamp() - v_start_time)) * 1000);
     RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit (Holistic): Finished analysis in % ms. Total errors in batch: %', p_job_id, round(v_duration_ms, 2), v_error_count;
