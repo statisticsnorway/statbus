@@ -4,14 +4,14 @@ BEGIN;
 -- Define the slugs created in the corresponding UP migration
 WITH slugs_to_delete AS (
     SELECT slug FROM (VALUES
-        ('legal_unit_current_year'),
-        ('legal_unit_explicit_dates'),
-        ('establishment_for_lu_current_year'),
-        ('establishment_for_lu_explicit_dates'),
-        ('establishment_without_lu_current_year'),
-        ('establishment_without_lu_explicit_dates'),
-        ('generic_unit_stats_update_current_year'),
-        ('generic_unit_stats_update_explicit_dates')
+        ('legal_unit_job_provided'),
+        ('legal_unit_source_dates'),
+        ('establishment_for_lu_job_provided'),
+        ('establishment_for_lu_source_dates'),
+        ('establishment_without_lu_job_provided'),
+        ('establishment_without_lu_source_dates'),
+        ('generic_unit_stats_update_job_provided'),
+        ('generic_unit_stats_update_source_dates')
     ) AS t(slug)
 )
 -- Delete the import definitions. Related data in import_job, import_mapping,
