@@ -51,7 +51,7 @@ The import system is built around several key database tables and concepts:
     *   They contain the actual logic for:
         *   **Analysis (`analyse_procedure`):**
             *   Reads `source_input` columns.
-            *   Performs lookups (e.g., finding `sector_id` from `sector_code`), type casting (e.g., `admin.safe_cast_to_date`), and validations.
+            *   Performs lookups (e.g., finding `sector_id` from `sector_code`), type casting (e.g., `import.safe_cast_to_date`), and validations.
             *   Stores results in `internal` columns (e.g., `sector_id`, `typed_birth_date`).
             *   **Error Handling (JSONB Columns `error` and `invalid_codes`)**:
                 *   Each `analyse_procedure` is authoritative for specific keys within the `error` and `invalid_codes` JSONB columns. A key typically corresponds to an input data column name (e.g., `sector_code`, `physical_latitude`) or a specific validation type (e.g., `inconsistent_legal_unit`, `invalid_period_source`).
