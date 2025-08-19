@@ -197,28 +197,34 @@ The core temporal reconciliation logic (the `plan_set_*` functions) is not speci
 
 ### 6.2. Proposed API
 
-A single, powerful function within the `sql_saga` schema could provide this functionality:
+Based on feedback regarding type safety and inspectability, the proposed API is refined to use `regclass` for both source and target tables and explicit, type-safe parameters instead of a generic `jsonb` object.
+
+First, a dedicated type would be created to define the merge mode:
+```sql
+CREATE TYPE sql_saga.merge_mode AS ENUM ('update', 'replace');
+```
+
+A single, powerful function within the `sql_saga` schema could then provide this functionality:
 
 ```sql
 PROCEDURE sql_saga.merge_temporal(
     p_target_table regclass,
-    p_source_query text,
+    p_source_table regclass,
     p_id_columns text[],
-    p_options jsonb DEFAULT '{}'::jsonb
+    p_mode sql_saga.merge_mode DEFAULT 'update',
+    p_ephemeral_columns text[] DEFAULT '{}'
 );
 ```
 
 #### 6.2.1. Parameters
 
-*   `p_target_table regclass`: The target temporal table to merge data into. The function would introspect this table to find its `valid_after`, `valid_to`, and data columns.
-*   `p_source_query text`: A user-provided `SELECT` statement that returns the source data. This provides maximum flexibility. The query **must** return columns with specific names that match the target table's columns, including:
-    *   The `p_id_columns`.
-    *   The `valid_after` and `valid_to` columns.
-    *   All other data columns to be merged.
-*   `p_id_columns text[]`: An array of column names that constitute the conceptual primary key for the entity (e.g., `ARRAY['id']` or `ARRAY['company_id', 'department_id']`).
-*   `p_options jsonb`: A JSONB object for options, such as:
-    *   `"mode"`: `"update"` (default) or `"replace"`.
-    *   `"ephemeral_columns"`: An array of column names to exclude from data-equivalence checks (e.g., `["edit_comment", "last_updated_by"]`).
+*   `p_target_table regclass`: The target temporal table to merge data into. The function will introspect this table to find its `valid_after`, `valid_to`, and data columns.
+*   `p_source_table regclass`: The source table, view, or temporary table containing the new data. This `regclass` approach is type-safe and allows the function to inspect the source's structure before execution.
+*   `p_id_columns text[]`: An array of column names that constitute the conceptual primary key for the entity (e.g., `ARRAY['id']`). These columns **must** exist in both the source and target tables.
+*   `p_mode sql_saga.merge_mode`: The merge mode, either `'update'` (default) or `'replace'`.
+*   `p_ephemeral_columns text[]`: An array of column names to exclude from data-equivalence checks (e.g., `["edit_comment", "last_updated_by"]`).
+
+The function will automatically discover and use all columns that exist with the same name in both the source and target tables as the data payload, excluding the ID and temporal columns.
 
 #### 6.2.2. Usage Example
 
@@ -227,34 +233,28 @@ PROCEDURE sql_saga.merge_temporal(
 CREATE TEMP TABLE new_employee_data (
     employee_id int,
     department text,
-    valid_from date,
-    valid_until date
+    last_updated_by text,
+    -- The source data must use sql_saga's (valid_after, valid_to] convention
+    valid_after date,
+    valid_to date
 );
-INSERT INTO new_employee_data VALUES (123, 'Sales', '2025-01-01', '2025-06-30');
+INSERT INTO new_employee_data VALUES (123, 'Sales', 'data_entry_user', '2024-12-31', '2025-06-30');
 
--- Call the merge function
+-- Call the merge function, passing the regclass of the temp table
 CALL sql_saga.merge_temporal(
-    p_target_table => 'public.employees',
-    p_id_columns => ARRAY['employee_id'],
-    p_source_query => $$
-        SELECT
-            employee_id,
-            department,
-            valid_from - INTERVAL '1 day' as valid_after, -- Convert to sql_saga's (] convention
-            valid_until as valid_to
-        FROM new_employee_data
-    $$,
-    p_options => jsonb_build_object(
-        'mode', 'update'
-    )
+    p_target_table      => 'public.employees',
+    p_source_table      => 'new_employee_data',
+    p_id_columns        => ARRAY['employee_id'],
+    p_mode              => 'update',
+    p_ephemeral_columns => ARRAY['last_updated_by']
 );
 ```
 
 ### 6.3. Implementation Notes
 
-*   The implementation would essentially adapt the existing `plan_set_*` and `set_*` functions into a single, combined function within the `sql_saga` schema.
-*   It would rely heavily on dynamic SQL (`EXECUTE ... USING`) to handle arbitrary table and column names.
-*   The use of a `TEMP TABLE` for the plan would remain a core part of the internal implementation to ensure correct DML execution order.
-*   Introspection of `information_schema` would be used to automatically determine data columns, simplifying the API.
+*   The implementation would adapt the logic from the `plan_set_*` and `set_*` functions.
+*   **Introspection**: It will heavily use `information_schema` to compare the column lists of the source and target tables, automatically determining the data payload and validating that the required ID and temporal columns exist. This provides strong type safety and validation before execution.
+*   **Performance**: By operating on tables/views, the function allows the PostgreSQL query planner to generate more efficient plans compared to executing a raw text query.
+*   The use of a `TEMP TABLE` for the internal DML plan would remain a core part of the implementation.
 
 This proposal would elevate `sql_saga` from a constraint management system to a more complete temporal data management framework.
