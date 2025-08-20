@@ -51,7 +51,7 @@
     "jotai-xstate": "^0.6.1",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.483.0",
-    "mermaid": "^11.7.0",
+    "mermaid": "^11.10.0",
     "moderndash": "^4.0.0",
     "motion": "^12.19.2",
     "next": "15.2.4",
