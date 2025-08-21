@@ -85,6 +85,12 @@ Handles the ingestion of data from external files.
   - FKs: `definition_id`, `user_id`.
   - Manages temporary `upload_table_name` and `data_table_name`.
 
+## Worker System
+Handles background processing. A long-running worker process calls `worker.process_tasks()` to process tasks synchronously.
+- `worker.tasks(id, command, priority, state, created_at, processed_at, duration_ms, error, scheduled_at, worker_pid, payload)`: The main queue table. Stores tasks with their state, payload, and timing. The `worker_pid` column stores the PostgreSQL backend process ID of the session executing the task, used for cleaning up stale connections.
+- `worker.command_registry(command, handler_procedure, before_procedure, after_procedure, queue, ...)`: Maps a `command` name to a PostgreSQL `handler_procedure` and assigns it to a `queue`.
+- `worker.queue_registry(queue, concurrent, ...)`: Defines available task queues (e.g., 'analytics', 'maintenance') and concurrency rules.
+
 ## Auth & System Tables/Views
 - `auth.user(id, sub, email, statbus_role, ...)`: User accounts, stores `statbus_role` (e.g., `admin_user`, `regular_user`).
 - `auth.api_key(id, jti, user_id, token, expires_at, ...)`: API keys for users.
