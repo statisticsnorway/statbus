@@ -210,6 +210,7 @@ async function connectAndListen() {
 
     const newClient = new Client({
       connectionString: connectionString,
+      application_name: 'statbus-app',
       // Add SSL configuration if needed for production
       // ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
     });
