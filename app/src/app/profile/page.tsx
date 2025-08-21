@@ -4,13 +4,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import LogoutForm from "./LogoutForm";
 import { logger } from "@/lib/client-logger";
-import { useAuth, authStatusInitiallyCheckedAtom } from "@/atoms/auth"; // Use Jotai hook for auth state
-import { useAtomValue } from "jotai";
+import { useAuth } from "@/atoms/auth"; // Use Jotai hook for auth state
 
 export default function ProfilePage() {
   const [isMounted, setIsMounted] = useState(false);
   const { isAuthenticated, user, loading: authLoading } = useAuth();
-  const initialAuthCheckCompleted = useAtomValue(authStatusInitiallyCheckedAtom);
   const router = useRouter();
 
   useEffect(() => {
@@ -19,7 +17,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     // Wait for the initial auth check to complete and auth state to not be loading
-    if (!initialAuthCheckCompleted || authLoading) {
+    if (authLoading) {
       return; // Still determining auth state
     }
 
@@ -27,10 +25,10 @@ export default function ProfilePage() {
       logger.warn({ context: "ProfilePage" }, "User not authenticated. Redirecting to login.");
       router.replace('/login'); // Use replace to not add to history
     }
-  }, [isAuthenticated, initialAuthCheckCompleted, authLoading, router]);
+  }, [isAuthenticated, authLoading, router]);
 
   // Show loading state or if user is null (which shouldn't happen if authenticated)
-  if (!isMounted || authLoading || !initialAuthCheckCompleted) {
+  if (!isMounted || authLoading) {
     return (
       <main className="flex flex-col items-center justify-center px-2 py-8 md:py-24 min-h-screen">
         <div>Loading profile...</div>

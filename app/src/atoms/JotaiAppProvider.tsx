@@ -21,10 +21,8 @@ import {
 } from './app';
 import {
   authStatusAtom,
-  authStatusInitiallyCheckedAtom,
   authStatusLoadableAtom,
   clientSideRefreshAtom,
-  initialAuthCheckDoneEffect,
   lastKnownPathBeforeAuthChangeAtom,
   loginActionInProgressAtom,
 } from './auth';
@@ -55,9 +53,7 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   const authLoadableValue = useAtomValue(authStatusLoadableAtom);
   const authStatus = useAtomValue(authStatusAtom);
   const clientSideRefresh = useSetAtom(clientSideRefreshAtom);
-  const initialAuthCheckDone = useAtomValue(authStatusInitiallyCheckedAtom);
   const restClient = useAtomValue(restClientAtom);
-  useAtomValue(initialAuthCheckDoneEffect); // Activate the effect atom
   const refreshBaseData = useSetAtom(refreshBaseDataAtom)
   const refreshWorkerStatus = useSetAtom(refreshWorkerStatusAtom)
   const setRestClient = useSetAtom(restClientAtom)
@@ -135,10 +131,10 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
 
     const initializeApp = async () => {
       const currentAuthIsAuthenticated = authLoadableValue.state === 'hasData' && authLoadableValue.data.isAuthenticated;
-      const isAuthCurrentlyLoading = authLoadableValue.state === 'loading';
 
-      // Core conditions: auth must be checked, user authenticated, client ready.
-      if (!initialAuthCheckDone || !currentAuthIsAuthenticated || !restClient || isAuthCurrentlyLoading) {
+      // Core conditions: user must be authenticated and REST client ready.
+      // currentAuthIsAuthenticated is false if auth state is loading or has an error.
+      if (!currentAuthIsAuthenticated || !restClient) {
         return;
       }
 
@@ -175,10 +171,9 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
     };
   }, [
     authLoadableValue,
-    restClient,                
-    initialAuthCheckDone,      
-    appDataInitialized,        
-    refreshUnitCounts         
+    restClient,
+    appDataInitialized,
+    refreshUnitCounts
   ]);
 
   // "Getting Started" redirect logic is removed.
@@ -200,10 +195,11 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   // Effect for redirecting to setup pages if necessary
   useEffect(() => {
     const currentIsAuthenticated = authLoadableValue.state === 'hasData' && authLoadableValue.data.isAuthenticated;
-    const isAuthLoading = authLoadableValue.state === 'loading';
 
     // Setup checks are only relevant if on the dashboard ('/') and authenticated.
-    if (pathname !== '/' || !currentIsAuthenticated || isAuthLoading || !initialAuthCheckDone || !restClient) {
+    // The auth check must be complete (which is implicit in currentIsAuthenticated)
+    // and the REST client must be ready.
+    if (pathname !== '/' || !currentIsAuthenticated || !restClient) {
       // If not in a state where setup redirects are relevant, ensure no setup redirect is pending.
       setRequiredSetupRedirect(null);
       return;
@@ -225,7 +221,6 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   }, [
     pathname,
     authLoadableValue,
-    initialAuthCheckDone,
     restClient,
     activityStandard,
     numberOfRegions,
@@ -273,32 +268,24 @@ const PathSaver = () => {
 
 const RedirectGuard = () => {
   const authLoadableValue = useAtomValue(authStatusLoadableAtom);
-  const initialAuthCheckDone = useAtomValue(authStatusInitiallyCheckedAtom);
   const pathname = usePathname();
   const setPendingRedirect = useSetAtom(pendingRedirectAtom);
 
   useEffect(() => {
-    const debug = process.env.NEXT_PUBLIC_DEBUG === 'true';
-    const isAuthStableAndChecked = initialAuthCheckDone && authLoadableValue.state !== 'loading';
-    const currentIsAuthenticated = authLoadableValue.state === 'hasData' && authLoadableValue.data.isAuthenticated;
-    const canRefresh = authLoadableValue.state === 'hasData' && authLoadableValue.data.expired_access_token_call_refresh;
-
-    if (!isAuthStableAndChecked) {
+    // Wait until the initial authentication check is complete.
+    if (authLoadableValue.state === 'loading') {
       return;
     }
 
+    const currentIsAuthenticated = authLoadableValue.state === 'hasData' && authLoadableValue.data.isAuthenticated;
+    const canRefresh = authLoadableValue.state === 'hasData' && authLoadableValue.data.expired_access_token_call_refresh;
     const publicPaths = ['/login'];
 
     if (!currentIsAuthenticated && !canRefresh && !publicPaths.some(p => pathname.startsWith(p))) {
       // The path has already been saved by PathSaver. Just trigger the redirect.
       setPendingRedirect('/login');
     }
-  }, [
-    pathname,
-    authLoadableValue,
-    initialAuthCheckDone,
-    setPendingRedirect
-  ]);
+  }, [pathname, authLoadableValue, setPendingRedirect]);
 
   return null;
 };
@@ -608,7 +595,6 @@ export const StateInspector = () => {
 
   // Atoms for redirect logic debugging
   const pathname = usePathname(); // Get current pathname
-  const initialAuthCheckDoneFromAtom = useAtomValue(authStatusInitiallyCheckedAtom);
   const restClientFromAtom = useAtomValue(importedRestClientAtom);
   const activityStandardFromAtom = useAtomValue(activityCategoryStandardSettingAtomAsync);
   const numberOfRegionsFromAtom = useAtomValue(numberOfRegionsAtomAsync);
@@ -675,7 +661,7 @@ export const StateInspector = () => {
         error: workerStatusValue.error,
       },
       redirectRelevantState: {
-        initialAuthCheckDone: initialAuthCheckDoneFromAtom,
+        authCheckDone: authLoadableValue.state !== 'loading',
         isRestClientReady: !!restClientFromAtom,
         activityStandard: activityStandardFromAtom, // This is the actual data or null
         numberOfRegions: numberOfRegionsFromAtom, // This is the actual count or null
@@ -782,7 +768,7 @@ export const StateInspector = () => {
             <strong>Redirect Relevant State:</strong>
             <div className="pl-4 mt-1 space-y-1">
               <div><strong>Pathname:</strong> {pathname}</div>
-              <div><strong>Initial Auth Check Done:</strong> {initialAuthCheckDoneFromAtom ? 'Yes' : 'No'}</div>
+              <div><strong>Auth Check Done:</strong> {authLoadableValue.state !== 'loading' ? 'Yes' : 'No'}</div>
               <div><strong>REST Client Ready:</strong> {restClientFromAtom ? 'Yes' : 'No'}</div>
               <div><strong>Activity Standard:</strong> {activityStandardFromAtom === null ? 'Null' : JSON.stringify(activityStandardFromAtom)}</div>
               <div><strong>Number of Regions:</strong> {numberOfRegionsFromAtom === null ? 'Null/Loading' : numberOfRegionsFromAtom}</div>

@@ -133,9 +133,6 @@ export const expiredAccessTokenAtom = atom((get) => {
 // AUTH-RELATED APP STATE ATOMS
 // ============================================================================
 
-// Atom to track if the initial auth status check has been performed
-export const authStatusInitiallyCheckedAtom = atom(false);
-
 // Atom to signal that a login action is currently managing a redirect
 export const loginActionInProgressAtom = atom(false);
 
@@ -227,27 +224,6 @@ export const loginPageMachineAtom = atomWithMachine((get) => {
   // The machine is re-created if its dependencies change, but its state is preserved by Jotai.
   // We don't need any dependencies from `get` for this machine's definition.
   return loginPageMachine;
-});
-
-
-// Effect atom using jotai-effect to update authStatusInitiallyCheckedAtom
-// This will run when its dependencies (authStatusLoadableAtom, authStatusInitiallyCheckedAtom) change,
-// or when the effect atom is mounted.
-export const initialAuthCheckDoneEffect = atomEffect((get, set) => {
-  const authLoadable = get(authStatusLoadableAtom);
-  const currentCheckedState = get(authStatusInitiallyCheckedAtom);
-
-  if (authLoadable.state === 'loading') {
-    // If auth is loading, the "check done" flag for the current cycle should be false.
-    if (currentCheckedState) { // Only set if it's currently true, to avoid redundant sets.
-      set(authStatusInitiallyCheckedAtom, false);
-    }
-  } else { // authLoadable.state is 'hasData' or 'hasError' (i.e., stable)
-    // If auth is stable, the "check done" flag for the current cycle should be true.
-    if (!currentCheckedState) { // Only set if it's currently false.
-      set(authStatusInitiallyCheckedAtom, true);
-    }
-  }
 });
 
 // ============================================================================

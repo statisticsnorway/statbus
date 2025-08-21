@@ -6,7 +6,6 @@ import { useAtomValue, useSetAtom, useAtom } from "jotai";
 import { clientMountedAtom, pendingRedirectAtom } from "@/atoms/app";
 import {
   authStatusAtom,
-  authStatusInitiallyCheckedAtom,
   lastKnownPathBeforeAuthChangeAtom,
   loginActionInProgressAtom,
   loginPageMachineAtom,
@@ -30,7 +29,6 @@ export default function LoginClientBoundary() {
   const searchParams = useSearchParams();
   const nextPath = searchParams.get('next');
   const authStatus = useAtomValue(authStatusAtom);
-  const initialAuthCheckCompleted = useAtomValue(authStatusInitiallyCheckedAtom);
   const [pendingRedirect, setPendingRedirect] = useAtom(pendingRedirectAtom);
   const [lastPathBeforeAuthChange, setLastPathBeforeAuthChange] = useAtom(lastKnownPathBeforeAuthChangeAtom);
   const pathname = usePathname();
@@ -48,23 +46,21 @@ export default function LoginClientBoundary() {
 
   // Effect to send events to the state machine when dependencies change.
   useEffect(() => {
-    // Gate this logic on clientMounted to ensure atomWithStorage has hydrated.
-    if (!clientMounted) {
+    // Gate this logic on clientMounted to ensure atomWithStorage has hydrated,
+    // and on authStatus.loading to ensure the auth check is complete.
+    if (!clientMounted || authStatus.loading) {
       return;
     }
 
-    // Once the initial auth check is done, we can evaluate.
     // This will run on first load and again if authStatus.isAuthenticated changes.
-    if (initialAuthCheckCompleted) {
-      send({
-        type: 'EVALUATE',
-        context: {
-          isAuthenticated: authStatus.isAuthenticated,
-          isOnLoginPage: pathname === '/login',
-        },
-      });
-    }
-  }, [clientMounted, initialAuthCheckCompleted, authStatus.isAuthenticated, pathname, send, lastPathBeforeAuthChange, state.value]);
+    send({
+      type: 'EVALUATE',
+      context: {
+        isAuthenticated: authStatus.isAuthenticated,
+        isOnLoginPage: pathname === '/login',
+      },
+    });
+  }, [clientMounted, authStatus.loading, authStatus.isAuthenticated, pathname, send]);
 
   // Effect to handle the side-effect of redirection when the machine enters the 'redirecting' state.
   useEffect(() => {
