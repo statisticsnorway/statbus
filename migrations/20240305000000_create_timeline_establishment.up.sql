@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE VIEW public.timeline_establishment_def
+CREATE OR REPLACE VIEW public.timeline_establishment_def
     ( unit_type
     , unit_id
     , valid_after
@@ -85,6 +85,28 @@ CREATE VIEW public.timeline_establishment_def
     , stats
     )
     AS
+      WITH establishment_stats AS (
+        SELECT
+            t.unit_id,
+            t.valid_after,
+            jsonb_object_agg(
+                sd.code,
+                CASE
+                    WHEN sfu.value_float IS NOT NULL THEN to_jsonb(sfu.value_float)
+                    WHEN sfu.value_int IS NOT NULL THEN to_jsonb(sfu.value_int)
+                    WHEN sfu.value_string IS NOT NULL THEN to_jsonb(sfu.value_string)
+                    WHEN sfu.value_bool IS NOT NULL THEN to_jsonb(sfu.value_bool)
+                END
+            ) FILTER (WHERE sd.code IS NOT NULL) AS stats
+        FROM public.timesegments AS t
+        JOIN public.stat_for_unit AS sfu
+            ON sfu.establishment_id = t.unit_id
+            AND after_to_overlaps(t.valid_after, t.valid_to, sfu.valid_after, sfu.valid_to)
+        JOIN public.stat_definition AS sd
+            ON sfu.stat_definition_id = sd.id
+        WHERE t.unit_type = 'establishment'
+        GROUP BY t.unit_id, t.valid_after
+      )
       SELECT t.unit_type
            , t.unit_id
            , t.valid_after
@@ -175,12 +197,14 @@ CREATE VIEW public.timeline_establishment_def
            , es.primary_for_enterprise AS primary_for_enterprise
            , es.primary_for_legal_unit AS primary_for_legal_unit
            --
-           , COALESCE(public.get_jsonb_stats(es.id, NULL, t.valid_after, t.valid_to), '{}'::JSONB) AS stats
+           , COALESCE(es_stats.stats, '{}'::JSONB) AS stats
       --
       FROM public.timesegments AS t
       INNER JOIN public.establishment AS es
           ON t.unit_type = 'establishment' AND t.unit_id = es.id
          AND after_to_overlaps(t.valid_after, t.valid_to, es.valid_after, es.valid_to)
+      LEFT JOIN establishment_stats AS es_stats
+          ON es_stats.unit_id = t.unit_id AND es_stats.valid_after = t.valid_after
       --
       LEFT OUTER JOIN public.activity AS pa
               ON pa.establishment_id = es.id
