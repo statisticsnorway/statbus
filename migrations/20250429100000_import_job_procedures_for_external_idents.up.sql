@@ -29,6 +29,12 @@ DECLARE
     v_job_mode public.import_mode; -- Added to use v_job_mode
     v_cross_type_conflict_check_sql TEXT; -- For dynamic SQL based on job_mode
 BEGIN
+    -- Clean up any lingering temp tables from a previous failed run in this session,
+    -- using to_regclass to avoid noisy NOTICEs if the tables don't exist.
+    IF to_regclass('pg_temp.temp_relevant_rows') IS NOT NULL THEN DROP TABLE temp_relevant_rows; END IF;
+    IF to_regclass('pg_temp.temp_unpivoted_idents') IS NOT NULL THEN DROP TABLE temp_unpivoted_idents; END IF;
+    IF to_regclass('pg_temp.temp_batch_analysis') IS NOT NULL THEN DROP TABLE temp_batch_analysis; END IF;
+
     -- This is a HOLISTIC procedure. It is called once and processes all relevant rows for this step.
     -- The p_batch_row_ids parameter is ignored (it will be NULL).
     RAISE DEBUG '[Job %] analyse_external_idents (Holistic): Starting analysis.', p_job_id;
