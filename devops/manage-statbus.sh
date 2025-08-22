@@ -361,6 +361,7 @@ case "$action" in
       fi
 
       ui_choice=${1:-tui} # Get UI choice from the first argument to diff-fail-all, default to tui
+      line_limit=${2:-}
 
       grep -E '^not ok' "$WORKSPACE/test/regression.out" | while read test_line; do
           # Extract the full test name (e.g., "01_load_web_examples")
@@ -389,7 +390,11 @@ case "$action" in
               'pipe')
                   echo "Running diff for test: $test"
                   # Note the pipe from /dev/tty to avoid the diff alias running an interactive program.
-                  diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty || true
+                  if [[ "$line_limit" =~ ^[0-9]+$ ]]; then
+                    diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty | head -n "$line_limit" || true
+                  else
+                    diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty || true
+                  fi
                   ;;
               *)
                   echo "Error: Unknown UI option '$ui_choice'. Please use 'gui', 'tui', or 'pipe'."
