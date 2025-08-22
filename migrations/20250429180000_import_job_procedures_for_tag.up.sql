@@ -343,13 +343,13 @@ BEGIN
             state = 'finished' -- Or a new 'failed' state
         WHERE id = p_job_id;
         RAISE DEBUG '[Job %] process_tags: Marked job as failed due to error: %', p_job_id, error_message;
-        DROP TABLE IF EXISTS temp_batch_data;
+        IF to_regclass('pg_temp.temp_batch_data') IS NOT NULL THEN DROP TABLE temp_batch_data; END IF;
         RAISE; -- Re-raise the original exception
     END;
 
     RAISE DEBUG '[Job %] process_tags (Batch): Finished operation for batch. Initial batch size: %. Errors (estimated): %', p_job_id, array_length(p_batch_row_ids, 1), v_error_count;
 
-    DROP TABLE IF EXISTS temp_batch_data;
+    IF to_regclass('pg_temp.temp_batch_data') IS NOT NULL THEN DROP TABLE temp_batch_data; END IF;
 END;
 $process_tags$;
 

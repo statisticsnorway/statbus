@@ -64,7 +64,7 @@ BEGIN
 
     IF COALESCE(v_update_count, 0) = 0 THEN
         RAISE DEBUG '[Job %] analyse_external_idents: No relevant rows to process.', p_job_id;
-        DROP TABLE IF EXISTS temp_relevant_rows;
+        IF to_regclass('pg_temp.temp_relevant_rows') IS NOT NULL THEN DROP TABLE temp_relevant_rows; END IF;
         RETURN;
     END IF;
 
@@ -173,8 +173,8 @@ BEGIN
         EXECUTE v_sql;
         GET DIAGNOSTICS v_error_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_external_idents (Batch): Finished analysis for batch. Errors: % (all rows missing identifiers or mappings for external_idents step)', p_job_id, v_error_count;
-        DROP TABLE IF EXISTS temp_unpivoted_idents;
-        DROP TABLE IF EXISTS temp_relevant_rows;
+        IF to_regclass('pg_temp.temp_unpivoted_idents') IS NOT NULL THEN DROP TABLE temp_unpivoted_idents; END IF;
+        IF to_regclass('pg_temp.temp_relevant_rows') IS NOT NULL THEN DROP TABLE temp_relevant_rows; END IF;
         RETURN;
     END IF;
 
@@ -524,17 +524,17 @@ BEGIN
     GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
     RAISE DEBUG '[Job %] analyse_external_idents: Updated last_completed_priority for % pre-skipped rows.', p_job_id, v_skipped_update_count;
 
-    DROP TABLE IF EXISTS temp_unpivoted_idents;
-    DROP TABLE IF EXISTS temp_batch_analysis;
-    DROP TABLE IF EXISTS temp_relevant_rows;
+    IF to_regclass('pg_temp.temp_unpivoted_idents') IS NOT NULL THEN DROP TABLE temp_unpivoted_idents; END IF;
+    IF to_regclass('pg_temp.temp_batch_analysis') IS NOT NULL THEN DROP TABLE temp_batch_analysis; END IF;
+    IF to_regclass('pg_temp.temp_relevant_rows') IS NOT NULL THEN DROP TABLE temp_relevant_rows; END IF;
 
     RAISE DEBUG '[Job %] analyse_external_idents (Batch): Finished analysis for batch. Total errors in batch: %', p_job_id, v_error_count;
 
 EXCEPTION WHEN OTHERS THEN
     RAISE WARNING '[Job %] analyse_external_idents: Error during analysis: %', p_job_id, SQLERRM;
     -- Ensure cleanup even on error
-    DROP TABLE IF EXISTS temp_unpivoted_idents;
-    DROP TABLE IF EXISTS temp_batch_analysis;
+    IF to_regclass('pg_temp.temp_unpivoted_idents') IS NOT NULL THEN DROP TABLE temp_unpivoted_idents; END IF;
+    IF to_regclass('pg_temp.temp_batch_analysis') IS NOT NULL THEN DROP TABLE temp_batch_analysis; END IF;
     -- Mark the job itself as failed
     UPDATE public.import_job
     SET error = jsonb_build_object('analyse_external_idents_error', SQLERRM),

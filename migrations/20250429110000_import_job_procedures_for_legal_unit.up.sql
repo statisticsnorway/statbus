@@ -746,20 +746,23 @@ BEGIN
     RAISE DEBUG '[Job %] process_legal_unit (Batch): Finished in % ms. New (insert): %, Replaced (ok): %, Updated (ok): %. Total Errors in step: %',
         p_job_id, round(v_duration_ms, 2), v_inserted_new_lu_count, v_actually_replaced_lu_count, v_actually_updated_lu_count, v_error_count;
 
-    DROP TABLE IF EXISTS temp_batch_data;
-    DROP TABLE IF EXISTS temp_created_lus;
-    DROP TABLE IF EXISTS temp_lu_replace_source;
-    DROP TABLE IF EXISTS temp_lu_update_source;
-    DROP TABLE IF EXISTS temp_processed_action_lu_ids;
-    DROP TABLE IF EXISTS temp_lu_demotion_ops;
+    IF to_regclass('pg_temp.temp_batch_data') IS NOT NULL THEN DROP TABLE temp_batch_data; END IF;
+    IF to_regclass('pg_temp.temp_created_lus') IS NOT NULL THEN DROP TABLE temp_created_lus; END IF;
+    IF to_regclass('pg_temp.temp_lu_replace_source') IS NOT NULL THEN DROP TABLE temp_lu_replace_source; END IF;
+    IF to_regclass('pg_temp.temp_lu_update_source') IS NOT NULL THEN DROP TABLE temp_lu_update_source; END IF;
+    IF to_regclass('pg_temp.temp_processed_action_lu_ids') IS NOT NULL THEN DROP TABLE temp_processed_action_lu_ids; END IF;
+    IF to_regclass('pg_temp.temp_lu_demotion_ops') IS NOT NULL THEN DROP TABLE temp_lu_demotion_ops; END IF;
 
 EXCEPTION WHEN OTHERS THEN
     GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
     RAISE WARNING '[Job %] process_legal_unit: Unhandled error: %', p_job_id, replace(error_message, '%', '%%');
     -- Ensure all temp tables are dropped
-    DROP TABLE IF EXISTS temp_batch_data; DROP TABLE IF EXISTS temp_created_lus;
-    DROP TABLE IF EXISTS temp_lu_replace_source; DROP TABLE IF EXISTS temp_lu_update_source;
-    DROP TABLE IF EXISTS temp_processed_action_lu_ids; DROP TABLE IF EXISTS temp_lu_demotion_ops;
+    IF to_regclass('pg_temp.temp_batch_data') IS NOT NULL THEN DROP TABLE temp_batch_data; END IF;
+    IF to_regclass('pg_temp.temp_created_lus') IS NOT NULL THEN DROP TABLE temp_created_lus; END IF;
+    IF to_regclass('pg_temp.temp_lu_replace_source') IS NOT NULL THEN DROP TABLE temp_lu_replace_source; END IF;
+    IF to_regclass('pg_temp.temp_lu_update_source') IS NOT NULL THEN DROP TABLE temp_lu_update_source; END IF;
+    IF to_regclass('pg_temp.temp_processed_action_lu_ids') IS NOT NULL THEN DROP TABLE temp_processed_action_lu_ids; END IF;
+    IF to_regclass('pg_temp.temp_lu_demotion_ops') IS NOT NULL THEN DROP TABLE temp_lu_demotion_ops; END IF;
     -- Attempt to mark individual data rows as error (best effort)
     BEGIN
         v_sql := format($$UPDATE public.%1$I SET state = %2$L, error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('unhandled_error_process_lu', %3$L) WHERE row_id = ANY($1) AND state != 'error'$$, -- LCP not changed here

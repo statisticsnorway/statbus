@@ -43,7 +43,7 @@ BEGIN
     ORDER BY shfd.year, shfd.month;
 
     -- Clean up
-    DROP TABLE IF EXISTS temp_periods;
+    IF to_regclass('pg_temp.temp_periods') IS NOT NULL THEN DROP TABLE temp_periods; END IF;
 END;
 $statistical_history_facet_derive$;
 
