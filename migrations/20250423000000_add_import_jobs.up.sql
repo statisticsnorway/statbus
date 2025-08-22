@@ -2054,103 +2054,135 @@ CREATE FUNCTION admin.import_job_analysis_phase(
 ) RETURNS BOOLEAN -- Returns TRUE if any work was found/done, indicating the job should be rescheduled.
 LANGUAGE plpgsql AS $import_job_analysis_phase$
 /*
-RATIONALE for Holistic vs. Batched Steps and Transaction Model:
+RATIONALE for State Management and Control Flow:
 
-This function is the core of the step-by-step analysis logic. Each call executes ONE unit of work and then exits.
+This function manages the analysis phase of an import job. Its logic is designed
+to be robust and provide clear progress feedback, especially for long-running steps.
 
-1.  **Iterative Step Processing**: The function loops through all analysis steps for the definition in priority order. For each step, it checks if there are any rows that need processing (i.e., `last_completed_priority < step.priority`).
+The process is strictly separated into two stages across different transactions,
+driven by the worker's rescheduling mechanism:
 
-2.  **"First-Come, First-Served"**: It processes the first batch of work it finds for the first step that needs it. After processing, it immediately returns `TRUE`. This forces the worker to reschedule, ensuring each batch is a small, atomic transaction. This approach is robust and correctly handles cases where some rows have errors, as the `last_completed_priority < step.priority` condition will naturally find the next piece of work for a given row.
+1.  **Discovery & State Update Transaction**:
+    - The function scans for the next step with pending work.
+    - If found, its *only* action is to UPDATE `import_job.current_step_code` and
+      return TRUE.
+    - This commits the state change in a very fast transaction, making the UI
+      immediately aware of which step is *about to* be processed. The orchestrator
+      then reschedules the job.
 
-3.  **Status Update Correction**: The job's `current_step_code` is updated ONLY when a batch of work is found for that step, just before the step's procedure is called. This resolves the original "stuck job" UI issue, where the status would reflect the last *checked* step instead of the last *processed* step.
+2.  **Work Execution Transaction**:
+    - On the next worker run, `job.current_step_code` is now set.
+    - The function enters "execution mode" and processes one unit of work for that
+      step (one batch for batched steps, or all rows for holistic steps).
+    - If the step completes (no more rows to process), it clears `current_step_code`
+      and returns TRUE, again triggering a reschedule to return to discovery mode.
 
-4.  **Completion**: If a full loop over all steps finds no work, the function returns `FALSE`, signaling that the analysis phase is complete.
+This two-stage approach prevents a long-running step from blocking its own status
+update, ensuring the system's state is always accurate and transparent.
 */
 DECLARE
-    targets JSONB;
-    target_rec RECORD;
-    proc_to_call REGPROC;
-    batch_row_ids INTEGER[];
-    error_message TEXT;
-    current_phase_data_state public.import_data_state := 'analysing'::public.import_data_state;
+    v_steps JSONB;
+    v_step_rec RECORD;
+    v_proc_to_call REGPROC;
+    v_batch_row_ids INTEGER[];
+    v_error_message TEXT;
+    v_rows_exist BOOLEAN;
+    v_rows_processed INT;
+    v_current_phase_data_state public.import_data_state := 'analysing'::public.import_data_state;
 BEGIN
-    RAISE DEBUG '[Job %] Processing analysis phase.', job.id;
+    RAISE DEBUG '[Job %] ----- import_job_analysis_phase START (current step: %) -----', job.id, COALESCE(job.current_step_code, 'none');
 
-    -- Load steps from the job's snapshot
-    targets := job.definition_snapshot->'import_step_list';
-    IF targets IS NULL OR jsonb_typeof(targets) != 'array' THEN
+    v_steps := job.definition_snapshot->'import_step_list';
+    IF v_steps IS NULL OR jsonb_typeof(v_steps) != 'array' THEN
         RAISE EXCEPTION '[Job %] Failed to load valid import_step_list array from definition_snapshot', job.id;
     END IF;
 
-    -- Loop through steps (targets) in priority order
-    FOR target_rec IN SELECT * FROM jsonb_populate_recordset(NULL::public.import_step, targets)
-                      ORDER BY priority
-    LOOP
-        proc_to_call := target_rec.analyse_procedure;
+    -- STAGE 1: EXECUTION MODE
+    -- If a step is already selected, execute a unit of work for it.
+    IF job.current_step_code IS NOT NULL THEN
+        SELECT * INTO v_step_rec
+        FROM jsonb_populate_recordset(NULL::public.import_step, v_steps)
+        WHERE code = job.current_step_code;
 
-        -- Skip if no procedure defined for this target/phase
-        IF proc_to_call IS NULL THEN
-            CONTINUE;
+        IF NOT FOUND THEN
+             RAISE EXCEPTION '[Job %] Could not find current step % in job definition snapshot.', job.id, job.current_step_code;
         END IF;
 
-        RAISE DEBUG '[Job %] Checking step % (priority %) for analysis phase using procedure % (is_holistic: %)',
-            job.id, target_rec.name, target_rec.priority, proc_to_call, target_rec.is_holistic;
+        v_proc_to_call := v_step_rec.analyse_procedure;
+        v_rows_processed := 0;
 
-        -- Handle holistic vs. batched steps
-        BEGIN
-            IF COALESCE(target_rec.is_holistic, false) THEN
-                -- HOLISTIC STEP: Called once per phase. Processes all relevant rows.
-                DECLARE v_rows_exist BOOLEAN;
-                BEGIN
+        IF v_proc_to_call IS NOT NULL THEN
+            BEGIN
+                IF COALESCE(v_step_rec.is_holistic, false) THEN
+                    -- HOLISTIC: check for work and run once.
                     EXECUTE format($$SELECT EXISTS(SELECT 1 FROM public.%I WHERE state = %L AND last_completed_priority < %L LIMIT 1)$$,
-                        job.data_table_name, current_phase_data_state, target_rec.priority)
+                        job.data_table_name, v_current_phase_data_state, v_step_rec.priority)
                     INTO v_rows_exist;
 
                     IF v_rows_exist THEN
-                        -- Update the job status *before* executing, as we've found work.
-                        UPDATE public.import_job SET current_step_code = target_rec.code, current_step_priority = target_rec.priority WHERE id = job.id;
-                        RAISE DEBUG '[Job %] Calling holistic procedure % for step %.', job.id, proc_to_call, target_rec.name;
-
-                        EXECUTE format('CALL %s($1, $2, $3)', proc_to_call) USING job.id, NULL::INTEGER[], target_rec.code;
-                        -- Since work was found and done, return immediately to reschedule.
-                        RETURN TRUE;
+                        RAISE DEBUG '[Job %] Executing HOLISTIC step % (priority %)', job.id, v_step_rec.code, v_step_rec.priority;
+                        EXECUTE format('CALL %s($1, $2, $3)', v_proc_to_call) USING job.id, NULL::INTEGER[], v_step_rec.code;
+                        v_rows_processed := 1; -- Mark as having done work.
                     END IF;
-                END;
-            ELSE
-                -- BATCHED STEP: Called repeatedly. Processes one batch at a time.
-                EXECUTE format(
-                    $$SELECT array_agg(row_id) FROM (
-                        SELECT row_id FROM public.%I
-                        WHERE state = %L AND last_completed_priority < %L
-                        ORDER BY row_id LIMIT %L FOR UPDATE SKIP LOCKED
-                     ) AS batch$$,
-                    job.data_table_name, current_phase_data_state, target_rec.priority, job.analysis_batch_size
-                ) INTO batch_row_ids;
+                ELSE
+                    -- BATCHED: find and process one batch.
+                    EXECUTE format(
+                        $$SELECT array_agg(row_id) FROM (
+                            SELECT row_id FROM public.%I WHERE state = %L AND last_completed_priority < %L
+                            ORDER BY row_id LIMIT %L FOR UPDATE SKIP LOCKED
+                        ) AS batch$$,
+                        job.data_table_name, v_current_phase_data_state, v_step_rec.priority, job.analysis_batch_size
+                    ) INTO v_batch_row_ids;
 
-                IF batch_row_ids IS NOT NULL AND array_length(batch_row_ids, 1) > 0 THEN
-                    -- Update the job status *before* executing, as we've found work.
-                    UPDATE public.import_job SET current_step_code = target_rec.code, current_step_priority = target_rec.priority WHERE id = job.id;
-                    RAISE DEBUG '[Job %] Found batch of % rows for step % (priority %), calling %',
-                        job.id, array_length(batch_row_ids, 1), target_rec.name, target_rec.priority, proc_to_call;
-
-                    EXECUTE format('CALL %s($1, $2, $3)', proc_to_call) USING job.id, batch_row_ids, target_rec.code;
-
-                    -- Since work was found and done, return immediately to reschedule.
-                    RETURN TRUE;
+                    IF v_batch_row_ids IS NOT NULL AND array_length(v_batch_row_ids, 1) > 0 THEN
+                        RAISE DEBUG '[Job %] Executing BATCHED step % (priority %), found % rows.', job.id, v_step_rec.code, v_step_rec.priority, array_length(v_batch_row_ids, 1);
+                        EXECUTE format('CALL %s($1, $2, $3)', v_proc_to_call) USING job.id, v_batch_row_ids, v_step_rec.code;
+                        v_rows_processed := array_length(v_batch_row_ids, 1);
+                    END IF;
                 END IF;
-            END IF;
-        EXCEPTION WHEN OTHERS THEN
-            GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
-            RAISE WARNING '[Job %] Error in procedure % for step % (code: %): %', job.id, proc_to_call, target_rec.name, target_rec.code, error_message;
-            UPDATE public.import_job SET error = jsonb_build_object('error_in_analysis_step', format('Error during analysis step %s (code: %s, proc: %s): %s', target_rec.name, target_rec.code, proc_to_call::text, error_message))
-            WHERE id = job.id;
-            RAISE;
-        END;
-    END LOOP; -- End target loop
+            EXCEPTION WHEN OTHERS THEN
+                GET STACKED DIAGNOSTICS v_error_message = MESSAGE_TEXT;
+                RAISE WARNING '[Job %] Error in procedure % for step %: %', job.id, v_proc_to_call, v_step_rec.name, v_error_message;
+                UPDATE public.import_job SET error = jsonb_build_object('error_in_analysis_step', format('Error during analysis step %s (proc: %s): %s', v_step_rec.name, v_proc_to_call::text, v_error_message))
+                WHERE id = job.id;
+                RAISE;
+            END;
+        END IF;
 
-    -- If the loop completes, it means a full pass over all steps found no pending work.
-    -- The phase is therefore complete. Return false to stop rescheduling.
-    RAISE DEBUG '[Job %] Analysis phase processing pass complete. No work found.', job.id;
+        -- If no rows were processed, this step is complete. Clear current_step_code to return to discovery mode.
+        IF v_rows_processed = 0 THEN
+            RAISE DEBUG '[Job %] Step % is complete. Clearing current_step_code to find next step.', job.id, job.current_step_code;
+            UPDATE public.import_job SET current_step_code = NULL, current_step_priority = NULL WHERE id = job.id;
+        END IF;
+
+        RAISE DEBUG '[Job %] ----- import_job_analysis_phase END (rescheduling after execution) -----', job.id;
+        RETURN TRUE; -- Always reschedule after executing a step to check for more work or find the next step.
+    END IF;
+
+    -- STAGE 2: DISCOVERY MODE
+    -- If no step is being processed, find the next one with work.
+    FOR v_step_rec IN SELECT * FROM jsonb_populate_recordset(NULL::public.import_step, v_steps) ORDER BY priority
+    LOOP
+        IF v_step_rec.analyse_procedure IS NULL THEN CONTINUE; END IF;
+
+        -- Check if any rows need processing for this step.
+        EXECUTE format($$SELECT EXISTS(SELECT 1 FROM public.%I WHERE state = %L AND last_completed_priority < %L LIMIT 1)$$,
+            job.data_table_name, v_current_phase_data_state, v_step_rec.priority)
+        INTO v_rows_exist;
+
+        IF v_rows_exist THEN
+            -- Found the next step. Update the job and reschedule immediately.
+            RAISE DEBUG '[Job %] Found next step: % (priority %). Updating job and rescheduling for execution.', job.id, v_step_rec.code, v_step_rec.priority;
+            UPDATE public.import_job SET current_step_code = v_step_rec.code, current_step_priority = v_step_rec.priority WHERE id = job.id;
+
+            RAISE DEBUG '[Job %] ----- import_job_analysis_phase END (rescheduling to start new step) -----', job.id;
+            RETURN TRUE; -- The next run will execute this step.
+        END IF;
+    END LOOP;
+
+    -- If the loop completes, no steps have any pending work. The phase is done.
+    RAISE DEBUG '[Job %] Analysis phase processing pass complete. No more work found.', job.id;
+    RAISE DEBUG '[Job %] ----- import_job_analysis_phase END (phase complete) -----', job.id;
     RETURN FALSE;
 END;
 $import_job_analysis_phase$;
