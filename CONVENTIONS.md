@@ -14,6 +14,8 @@ Then they are presented to the user who can accept running them, and the results
 Key tools available for you to suggest:
 - **`rg` (ripgrep)**: Your primary tool for fast, powerful code searching. Use it to find definitions, locate files, or understand code relationships.
 - **`tree`**: List files to understand directory structures.
+- **`head`**: Inspect the beginning of files to quickly understand their structure and content.
+- **`ls`**: Check file sizes to determine if they should be read or inspected.
 - **`echo "..." | ./devops/manage-statbus.sh psql`**: Run arbitrary SQL for debugging or inspection. You can also write complex queries to a temporary `.sql` file and pipe it.
 
 For file system operations and large-scale edits, prefer suggesting shell commands over generating `SEARCH/REPLACE` blocks where appropriate. This is faster and more efficient.
