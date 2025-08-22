@@ -61,6 +61,7 @@ CREATE TABLE worker.tasks (
   duration_ms NUMERIC,
   error TEXT,
   scheduled_at TIMESTAMPTZ, -- When this task should be processed, if delayed.
+  worker_pid INTEGER,
   payload JSONB,
   CONSTRAINT "consistent_command_in_payload" CHECK (command = payload->>'command'),
   CONSTRAINT check_payload_type
@@ -445,7 +446,7 @@ $procedure$;
 --     -- Create test data and trigger worker tasks
 --     INSERT INTO some_table VALUES (...);
 --     -- Manually process tasks that would normally be handled by the worker
---     SELECT * FROM worker.process_tasks();
+--     CALL worker.process_tasks();
 --     -- Verify results
 --     SELECT * FROM affected_table WHERE ...;
 --     -- Roll back all changes including tasks
@@ -837,9 +838,10 @@ BEGIN
     -- Process the task
     start_time := clock_timestamp();
 
-    -- Mark as processing
+    -- Mark as processing and record the current backend PID
     UPDATE worker.tasks AS t
-    SET state = 'processing'::worker.task_state
+    SET state = 'processing'::worker.task_state,
+        worker_pid = pg_backend_pid()
     WHERE t.id = task_record.id;
 
     -- Call before_procedure if defined, after the task status has changed,
@@ -989,117 +991,36 @@ RETURNS int
 LANGUAGE plpgsql
 AS $function$
 DECLARE
-  v_count int := 0;
-  v_task record;
-  v_merged_count int := 0;
-  v_new_task_id bigint;
+  v_reset_count int := 0;
+  v_task RECORD;
 BEGIN
-  -- First, identify all tasks that are stuck in 'processing' state
+  -- Find tasks stuck in 'processing', terminate their backends if they are still
+  -- running, and then reset the task status to 'pending'.
   FOR v_task IN
-    SELECT id, command, payload, priority
-    FROM worker.tasks
-    WHERE state = 'processing'::worker.task_state
+    SELECT id, worker_pid FROM worker.tasks WHERE state = 'processing'::worker.task_state FOR UPDATE
   LOOP
-    BEGIN
-      -- Handle each command type by calling the appropriate enqueue function
-      CASE v_task.command
-        WHEN 'check_table' THEN
-          -- For check_table, use the enqueue_check_table function
-          SELECT worker.enqueue_check_table(
-            p_table_name := v_task.payload->>'table_name',
-            p_transaction_id := (v_task.payload->>'transaction_id')::bigint
-          ) INTO v_new_task_id;
+    -- If the PID exists and is an active backend, terminate it.
+    IF v_task.worker_pid IS NOT NULL AND EXISTS (
+      SELECT 1 FROM pg_stat_activity WHERE pid = v_task.worker_pid
+    ) THEN
+      RAISE LOG 'Terminating abandoned worker PID % for task %', v_task.worker_pid, v_task.id;
+      -- pg_terminate_backend returns true on success, false otherwise.
+      -- We don't need to check the result, just attempt it.
+      PERFORM pg_terminate_backend(v_task.worker_pid);
+    END IF;
 
-        WHEN 'deleted_row' THEN
-          -- For deleted_row, use the enqueue_deleted_row function
-          SELECT worker.enqueue_deleted_row(
-            p_table_name := v_task.payload->>'table_name',
-            p_establishment_ids := CASE WHEN jsonb_typeof(v_task.payload->'establishment_ids') = 'array'
-                                   THEN ARRAY(SELECT jsonb_array_elements_text(v_task.payload->'establishment_ids')::int)
-                                   ELSE NULL END,
-            p_legal_unit_ids := CASE WHEN jsonb_typeof(v_task.payload->'legal_unit_ids') = 'array'
-                               THEN ARRAY(SELECT jsonb_array_elements_text(v_task.payload->'legal_unit_ids')::int)
-                               ELSE NULL END,
-            p_enterprise_ids := CASE WHEN jsonb_typeof(v_task.payload->'enterprise_ids') = 'array'
-                               THEN ARRAY(SELECT jsonb_array_elements_text(v_task.payload->'enterprise_ids')::int)
-                               ELSE NULL END,
-            p_valid_after := (v_task.payload->>'valid_after')::date,
-            p_valid_to := (v_task.payload->>'valid_to')::date
-          ) INTO v_new_task_id;
-
-        WHEN 'derive_statistical_unit' THEN
-          -- For derive_statistical_unit, use the enqueue_derive_statistical_unit function
-          SELECT worker.enqueue_derive_statistical_unit(
-            p_establishment_ids := CASE WHEN jsonb_typeof(v_task.payload->'establishment_ids') = 'array'
-                                  THEN ARRAY(SELECT jsonb_array_elements_text(v_task.payload->'establishment_ids')::int)
-                                  ELSE NULL END,
-            p_legal_unit_ids := CASE WHEN jsonb_typeof(v_task.payload->'legal_unit_ids') = 'array'
-                               THEN ARRAY(SELECT jsonb_array_elements_text(v_task.payload->'legal_unit_ids')::int)
-                               ELSE NULL END,
-            p_enterprise_ids := CASE WHEN jsonb_typeof(v_task.payload->'enterprise_ids') = 'array'
-                               THEN ARRAY(SELECT jsonb_array_elements_text(v_task.payload->'enterprise_ids')::int)
-                               ELSE NULL END,
-            p_valid_after := (v_task.payload->>'valid_after')::date,
-            p_valid_to := (v_task.payload->>'valid_to')::date
-          ) INTO v_new_task_id;
-
-        WHEN 'derive_reports' THEN
-          -- For derive_reports, use the enqueue_derive_reports function
-          SELECT worker.enqueue_derive_reports(
-            p_valid_after := (v_task.payload->>'valid_after')::date,
-            p_valid_to := (v_task.payload->>'valid_to')::date
-          ) INTO v_new_task_id;
-
-        WHEN 'task_cleanup' THEN
-          -- For task_cleanup, use the enqueue_task_cleanup function
-          SELECT worker.enqueue_task_cleanup(
-            p_completed_retention_days := (v_task.payload->>'completed_retention_days')::int,
-            p_failed_retention_days := (v_task.payload->>'failed_retention_days')::int
-          ) INTO v_new_task_id;
-
-        WHEN 'import_job_cleanup' THEN
-          -- For import_job_cleanup, use the worker.enqueue_import_job_cleanup function
-          SELECT worker.enqueue_import_job_cleanup() INTO v_new_task_id;
-
-        WHEN 'import_job_process' THEN
-          -- For import_job_process, use the admin.enqueue_import_job_process function
-          SELECT admin.enqueue_import_job_process(
-            p_job_id := (v_task.payload->>'job_id')::int
-          ) INTO v_new_task_id;
-
-        ELSE
-          -- Crash with an exception for unknown commands
-          RAISE EXCEPTION 'Unknown command type: % in task ID: %', v_task.command, v_task.id;
-      END CASE;
-
-      -- If we successfully created a new task or updated the existing one
-      IF v_new_task_id IS NOT NULL OR FOUND THEN
-        -- Mark the original task as failed with a note about being requeued
-        UPDATE worker.tasks
-        SET state = 'failed'::worker.task_state,
-            processed_at = now(),
-            error = 'Task automatically requeued during worker restart with ID: ' || COALESCE(v_new_task_id::text, 'N/A')
-        WHERE id = v_task.id;
-
-        v_merged_count := v_merged_count + 1;
-      ELSE
-        v_count := v_count + 1;
-      END IF;
-
-    EXCEPTION WHEN OTHERS THEN
-      -- If any error occurs, mark the task as failed
-      UPDATE worker.tasks
-      SET state = 'failed'::worker.task_state,
-          processed_at = now(),
-          error = 'Failed to requeue task during worker restart: ' || SQLERRM
-      WHERE id = v_task.id;
-
-      v_merged_count := v_merged_count + 1;
-    END;
+    -- Reset the task to pending state regardless of whether the PID was found/terminated.
+    UPDATE worker.tasks
+    SET state = 'pending'::worker.task_state,
+        worker_pid = NULL,
+        processed_at = NULL,
+        error = NULL,
+        duration_ms = NULL
+    WHERE id = v_task.id;
+    
+    v_reset_count := v_reset_count + 1;
   END LOOP;
-
-  -- Return the total number of tasks that were reset or merged
-  RETURN v_count + v_merged_count;
+  RETURN v_reset_count;
 END;
 $function$;
 
