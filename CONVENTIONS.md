@@ -10,11 +10,16 @@ cmd1
 cmd2
 ```
 Then they are presented to the user who can accept running them, and the results are returned to you.
-Notice that you can use the `rg` tool to search and you can use `tree` to list files (possibly with subdir),
-as well as `echo "SELECT * FROM public.statistical_unit limit 1;" | ./devops/manage-statbus.sh psql` to run
-arbitrary SQL and get the results, such as when debug-ing.
-You can also write out to a test.sql file for complex queries and use it like so
-`cat test.sql | ./devops/manage-statbus.sh psql`.
+
+Key tools available for you to suggest:
+- **`rg` (ripgrep)**: Your primary tool for fast, powerful code searching. Use it to find definitions, locate files, or understand code relationships.
+- **`tree`**: List files to understand directory structures.
+- **`echo "..." | ./devops/manage-statbus.sh psql`**: Run arbitrary SQL for debugging or inspection. You can also write complex queries to a temporary `.sql` file and pipe it.
+
+For file system operations and large-scale edits, prefer suggesting shell commands over generating `SEARCH/REPLACE` blocks where appropriate. This is faster and more efficient.
+- Use `rm` to delete files and `git mv` to move or rename them.
+- For simple content replacement (e.g., replacing an entire file's contents), `echo "new content" > filename` can be used instead of a large `SEARCH/REPLACE` block.
+- For large-scale, repetitive search-and-replace operations across multiple files, powerful tools like `ruplacer` and `renamer` are available and should be used.
 
 ## SQL
 - **Function/Procedure Definitions**:
@@ -104,6 +109,32 @@ Migrations are managed using the `statbus` CLI tool.
 - To roll back the last migration: `./cli/bin/statbus migrate down`
 
 For more details, see the main `README.md` file or run `./cli/bin/statbus migrate --help`.
+
+## The Iterative Development Cycle
+All development work, especially bug fixing, must follow a rigorous, hypothesis-driven cycle to ensure progress is verifiable and the system remains stable. A task is not complete until the final step of this cycle has been successfully executed.
+
+### 1. Formulate and State a Hypothesis
+- **Action:** Before making any code changes, clearly state your hypothesis about the root cause of the problem in `journal.md`. This creates a permanent record of the debugging process.
+- **Example:** "Hypothesis: The test regressions are caused by the 'scorched earth' `replace` logic deleting child records that tests expect to survive a partial import."
+
+### 2. Create or Identify a Reproducing Test
+- **Action:** Before proposing a fix, ensure a test case exists that isolates the bug. This test must fail before the fix and is expected to pass after.
+
+### 3. Propose a Change and State the Expected Outcome
+- **Action:** Propose the specific code changes (using `SEARCH/REPLACE` blocks). Alongside the changes, explicitly state what the change is expected to achieve.
+- **Example:** "Hope/Assumption: Applying this conditional deletion logic will prevent unintended data loss. The failing tests (`203`, `302`, `303`) will now pass."
+
+### 4. Gather Real-World Data
+- **Action:** After the user applies the changes, request that they run the relevant tests to gather empirical evidence of the change's impact.
+- **Standard Command**: Use the project's testing script to run tests (e.g., `./devops/manage-statbus.sh test 203_legal_units_consecutive_days`).
+
+### 5. Analyze Results and Verify Hypothesis
+- **Action:** Carefully inspect the test output.
+  - **If Successful:** The hypothesis is confirmed. The fix worked as expected.
+  - **If Unsuccessful:** The hypothesis was incorrect. Analyze the new data to form a new hypothesis and return to Step 1. If the change was incorrect, it must be reverted.
+
+### 6. Conclude and Update Documentation
+- **Action:** Only after the fix has been successfully verified in Step 5, update `todo.md` to move the task to a "done" state (e.g., `[x]`).
 
 ## General Development Principles
 - **Fail Fast**:
