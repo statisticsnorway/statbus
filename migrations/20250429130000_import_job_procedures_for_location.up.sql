@@ -707,7 +707,7 @@ BEGIN
                 EXECUTE v_sql USING v_batch_upsert_success_row_ids;
             END IF;
         END IF;
-        DROP TABLE IF EXISTS temp_loc_upsert_source;
+        IF to_regclass('pg_temp.temp_loc_upsert_source') IS NOT NULL THEN DROP TABLE temp_loc_upsert_source; END IF;
 
     EXCEPTION WHEN OTHERS THEN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
@@ -734,8 +734,8 @@ BEGIN
     RAISE DEBUG '[Job %] process_location (Batch): Finished. New: %, Replaced: %. Errors: %',
         p_job_id, v_inserted_new_loc_count, v_updated_existing_loc_count, v_error_count;
 
-    DROP TABLE IF EXISTS temp_batch_data;
-    DROP TABLE IF EXISTS temp_created_locs;
+    IF to_regclass('pg_temp.temp_batch_data') IS NOT NULL THEN DROP TABLE temp_batch_data; END IF;
+    IF to_regclass('pg_temp.temp_created_locs') IS NOT NULL THEN DROP TABLE temp_created_locs; END IF;
 END;
 $process_location$;
 

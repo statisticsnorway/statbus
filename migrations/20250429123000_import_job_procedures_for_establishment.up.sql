@@ -636,7 +636,7 @@ BEGIN
                 RAISE DEBUG '[Job %] process_establishment: Updated _data table for % successfully replaced ESTs with correct establishment_id.', p_job_id, v_actually_replaced_or_updated_est_count;
             END IF;
         END IF; -- End v_updated_existing_est_count > 0 (renamed from v_updated_existing_est_count for clarity of original intent)
-        DROP TABLE IF EXISTS temp_est_upsert_source;
+        IF to_regclass('pg_temp.temp_est_upsert_source') IS NOT NULL THEN DROP TABLE temp_est_upsert_source; END IF;
 
     EXCEPTION WHEN OTHERS THEN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
@@ -655,10 +655,10 @@ BEGIN
     RAISE DEBUG '[Job %] process_establishment (Batch): Finished in % ms. New ESTs (action=insert): %, ESTs for replace/update: % (succeeded: %, errored: %). Total Errors in step: %',
         p_job_id, round(v_duration_ms, 2), v_inserted_new_est_count, v_updated_existing_est_count, v_actually_replaced_or_updated_est_count, v_error_count, v_error_count; -- Assuming v_error_count is total for replace/update part
 
-    DROP TABLE IF EXISTS temp_batch_data;
-    DROP TABLE IF EXISTS temp_created_ests;
-    DROP TABLE IF EXISTS temp_processed_action_ids;
-    DROP TABLE IF EXISTS temp_es_demotion_ops;
+    IF to_regclass('pg_temp.temp_batch_data') IS NOT NULL THEN DROP TABLE temp_batch_data; END IF;
+    IF to_regclass('pg_temp.temp_created_ests') IS NOT NULL THEN DROP TABLE temp_created_ests; END IF;
+    IF to_regclass('pg_temp.temp_processed_action_ids') IS NOT NULL THEN DROP TABLE temp_processed_action_ids; END IF;
+    IF to_regclass('pg_temp.temp_es_demotion_ops') IS NOT NULL THEN DROP TABLE temp_es_demotion_ops; END IF;
 END;
 $process_establishment$;
 

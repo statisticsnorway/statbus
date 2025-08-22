@@ -660,9 +660,9 @@ BEGIN
     RAISE DEBUG '[Job %] process_statistical_variables (Batch): Finished operation for batch. New: %, Replaced: %. Errors: %',
         p_job_id, v_inserted_new_stat_count, v_updated_existing_stat_count, v_error_count;
 
-    DROP TABLE IF EXISTS temp_batch_data;
-    DROP TABLE IF EXISTS temp_created_stats;
-    DROP TABLE IF EXISTS temp_stat_upsert_source;
+    IF to_regclass('pg_temp.temp_batch_data') IS NOT NULL THEN DROP TABLE temp_batch_data; END IF;
+    IF to_regclass('pg_temp.temp_created_stats') IS NOT NULL THEN DROP TABLE temp_created_stats; END IF;
+    IF to_regclass('pg_temp.temp_stat_upsert_source') IS NOT NULL THEN DROP TABLE temp_stat_upsert_source; END IF;
 END;
 $process_statistical_variables$;
 
