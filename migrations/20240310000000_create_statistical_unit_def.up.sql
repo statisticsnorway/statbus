@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE VIEW public.statistical_unit_def
+CREATE OR REPLACE VIEW public.statistical_unit_def
     ( unit_type
     , unit_id
     , valid_after
@@ -93,13 +93,75 @@ CREATE VIEW public.statistical_unit_def
     , tag_paths
     )
     AS
-    WITH data AS (
+    WITH external_idents_agg AS (
+        SELECT
+            unit_type,
+            unit_id,
+            jsonb_object_agg(
+                type_code,
+                ident
+            ) AS external_idents
+        FROM (
+            SELECT
+                'establishment'::public.statistical_unit_type AS unit_type,
+                ei.establishment_id AS unit_id,
+                eit.code AS type_code,
+                ei.ident
+            FROM public.external_ident ei
+            JOIN public.external_ident_type eit ON ei.type_id = eit.id
+            WHERE ei.establishment_id IS NOT NULL
+            UNION ALL
+            SELECT
+                'legal_unit'::public.statistical_unit_type AS unit_type,
+                ei.legal_unit_id AS unit_id,
+                eit.code AS type_code,
+                ei.ident
+            FROM public.external_ident ei
+            JOIN public.external_ident_type eit ON ei.type_id = eit.id
+            WHERE ei.legal_unit_id IS NOT NULL
+            UNION ALL
+            SELECT
+                'enterprise'::public.statistical_unit_type AS unit_type,
+                ei.enterprise_id AS unit_id,
+                eit.code AS type_code,
+                ei.ident
+            FROM public.external_ident ei
+            JOIN public.external_ident_type eit ON ei.type_id = eit.id
+            WHERE ei.enterprise_id IS NOT NULL
+            UNION ALL
+            SELECT
+                'enterprise_group'::public.statistical_unit_type AS unit_type,
+                ei.enterprise_group_id AS unit_id,
+                eit.code AS type_code,
+                ei.ident
+            FROM public.external_ident ei
+            JOIN public.external_ident_type eit ON ei.type_id = eit.id
+            WHERE ei.enterprise_group_id IS NOT NULL
+        ) AS all_idents
+        GROUP BY unit_type, unit_id
+    ),
+    tag_paths_agg AS (
+        SELECT
+            unit_type,
+            unit_id,
+            array_agg(path ORDER BY path) AS tag_paths
+        FROM (
+            SELECT 'establishment'::public.statistical_unit_type AS unit_type, tfu.establishment_id AS unit_id, t.path FROM public.tag_for_unit tfu JOIN public.tag t ON tfu.tag_id = t.id WHERE tfu.establishment_id IS NOT NULL
+            UNION ALL
+            SELECT 'legal_unit'::public.statistical_unit_type AS unit_type, tfu.legal_unit_id AS unit_id, t.path FROM public.tag_for_unit tfu JOIN public.tag t ON tfu.tag_id = t.id WHERE tfu.legal_unit_id IS NOT NULL
+            UNION ALL
+            SELECT 'enterprise'::public.statistical_unit_type AS unit_type, tfu.enterprise_id AS unit_id, t.path FROM public.tag_for_unit tfu JOIN public.tag t ON tfu.tag_id = t.id WHERE tfu.enterprise_id IS NOT NULL
+            UNION ALL
+            SELECT 'enterprise_group'::public.statistical_unit_type AS unit_type, tfu.enterprise_group_id AS unit_id, t.path FROM public.tag_for_unit tfu JOIN public.tag t ON tfu.tag_id = t.id WHERE tfu.enterprise_group_id IS NOT NULL
+        ) AS all_tags
+        GROUP BY unit_type, unit_id
+    ),
+    data AS (
       SELECT unit_type
            , unit_id
            , valid_after
            , valid_from
            , valid_to
-           , public.get_external_idents(unit_type, unit_id) AS external_idents
            , name
            , birth_date
            , death_date
@@ -180,6 +242,8 @@ CREATE VIEW public.statistical_unit_def
            , NULL::INT[] AS included_enterprise_ids
            , stats
            , COALESCE(public.jsonb_stats_to_summary('{}'::JSONB,stats), '{}'::JSONB) AS stats_summary
+           , NULL::INT AS primary_establishment_id
+           , NULL::INT AS primary_legal_unit_id
       FROM public.timeline_establishment
       UNION ALL
       SELECT unit_type
@@ -187,7 +251,6 @@ CREATE VIEW public.statistical_unit_def
            , valid_after
            , valid_from
            , valid_to
-           , public.get_external_idents(unit_type, unit_id) AS external_idents
            , name
            , birth_date
            , death_date
@@ -268,6 +331,8 @@ CREATE VIEW public.statistical_unit_def
            , NULL::INT[] AS included_enterprise_ids
            , stats
            , stats_summary
+           , NULL::INT AS primary_establishment_id
+           , NULL::INT AS primary_legal_unit_id
       FROM public.timeline_legal_unit
       UNION ALL
       SELECT unit_type
@@ -275,11 +340,6 @@ CREATE VIEW public.statistical_unit_def
            , valid_after
            , valid_from
            , valid_to
-           , COALESCE(
-             public.get_external_idents(unit_type, unit_id),
-             public.get_external_idents('establishment'::public.statistical_unit_type, primary_establishment_id),
-             public.get_external_idents('legal_unit'::public.statistical_unit_type, primary_legal_unit_id)
-           ) AS external_idents
            , name
            , birth_date
            , death_date
@@ -360,6 +420,8 @@ CREATE VIEW public.statistical_unit_def
            , NULL::INT[] AS included_enterprise_ids
            , NULL::JSONB AS stats
            , stats_summary
+           , primary_establishment_id
+           , primary_legal_unit_id
       FROM public.timeline_enterprise
       --UNION ALL
       --SELECT * FROM enterprise_group_timeline
@@ -369,7 +431,12 @@ CREATE VIEW public.statistical_unit_def
          , data.valid_after
          , data.valid_from
          , data.valid_to
-         , data.external_idents
+         , COALESCE(
+             eia1.external_idents, -- Direct idents for unit
+             eia2.external_idents, -- Fallback to primary establishment
+             eia3.external_idents, -- Fallback to primary legal unit
+             '{}'::jsonb
+           ) AS external_idents
          , data.name
          , data.birth_date
          , data.death_date
@@ -453,23 +520,16 @@ CREATE VIEW public.statistical_unit_def
          , array_length(data.included_establishment_ids,1) AS included_establishment_count
          , array_length(data.included_legal_unit_ids,1) AS included_legal_unit_count
          , array_length(data.included_enterprise_ids,1) AS included_enterprise_count
-         , COALESCE(
-             (
-               SELECT array_agg(t.path ORDER BY t.path)
-               FROM public.tag_for_unit AS tfu
-               JOIN public.tag AS t ON t.id = tfu.tag_id
-               WHERE
-                 CASE data.unit_type
-                 WHEN 'enterprise' THEN tfu.enterprise_id = data.unit_id
-                 WHEN 'legal_unit' THEN tfu.legal_unit_id = data.unit_id
-                 WHEN 'establishment' THEN tfu.establishment_id = data.unit_id
-                 WHEN 'enterprise_group' THEN tfu.enterprise_group_id = data.unit_id
-                 END
-             ),
-             ARRAY[]::public.ltree[]
-           ) AS tag_paths
+         , COALESCE(tpa.tag_paths, ARRAY[]::public.ltree[]) AS tag_paths
     FROM data
-;
+    LEFT JOIN external_idents_agg AS eia1
+        ON eia1.unit_type = data.unit_type AND eia1.unit_id = data.unit_id
+    LEFT JOIN external_idents_agg AS eia2
+        ON eia2.unit_type = 'establishment' AND eia2.unit_id = data.primary_establishment_id
+    LEFT JOIN external_idents_agg AS eia3
+        ON eia3.unit_type = 'legal_unit' AND eia3.unit_id = data.primary_legal_unit_id
+    LEFT JOIN tag_paths_agg AS tpa
+        ON tpa.unit_type = data.unit_type AND tpa.unit_id = data.unit_id;
 
 
 CREATE OR REPLACE FUNCTION public.statistical_unit_refresh(
