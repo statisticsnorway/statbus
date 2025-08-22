@@ -91,7 +91,29 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
     , stats_summary
     )
     AS
-      WITH basis AS (
+      WITH legal_unit_stats AS (
+        SELECT
+            t.unit_id,
+            t.valid_after,
+            jsonb_object_agg(
+                sd.code,
+                CASE
+                    WHEN sfu.value_float IS NOT NULL THEN to_jsonb(sfu.value_float)
+                    WHEN sfu.value_int IS NOT NULL THEN to_jsonb(sfu.value_int)
+                    WHEN sfu.value_string IS NOT NULL THEN to_jsonb(sfu.value_string)
+                    WHEN sfu.value_bool IS NOT NULL THEN to_jsonb(sfu.value_bool)
+                END
+            ) FILTER (WHERE sd.code IS NOT NULL) AS stats
+        FROM public.timesegments AS t
+        JOIN public.stat_for_unit AS sfu
+            ON sfu.legal_unit_id = t.unit_id
+            AND after_to_overlaps(t.valid_after, t.valid_to, sfu.valid_after, sfu.valid_to)
+        JOIN public.stat_definition AS sd
+            ON sfu.stat_definition_id = sd.id
+        WHERE t.unit_type = 'legal_unit'
+        GROUP BY t.unit_id, t.valid_after
+      ),
+      basis AS (
       SELECT t.unit_type
            , t.unit_id
            , t.valid_after
@@ -180,12 +202,14 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
            --
            , lu.primary_for_enterprise AS primary_for_enterprise
            --
-           , COALESCE(public.get_jsonb_stats(NULL, lu.id, t.valid_after, t.valid_to), '{}'::JSONB) AS stats
+           , COALESCE(lu_stats.stats, '{}'::JSONB) AS stats
       --
       FROM public.timesegments AS t
       INNER JOIN public.legal_unit AS lu
           ON t.unit_type = 'legal_unit' AND t.unit_id = lu.id
          AND after_to_overlaps(t.valid_after, t.valid_to, lu.valid_after, lu.valid_to)
+      LEFT JOIN legal_unit_stats AS lu_stats
+        ON lu_stats.unit_id = t.unit_id AND lu_stats.valid_after = t.valid_after
       --
       LEFT OUTER JOIN public.activity AS pa
               ON pa.legal_unit_id = lu.id
