@@ -95,7 +95,7 @@ export default function Navbar() {
 
               {/* Import Link */}
               <Link
-                href="/import"
+                href={isImporting ? "/import/jobs" : "/import"}
                 className={cn(
                   buttonVariants({ variant: "ghost", size: "sm" }),
                   "space-x-2 hidden lg:flex",
