@@ -8,3 +8,6 @@
 .next
 .next/*
 /app/.next/*
+# Unignore the journal.md that should not be commited, but that aider can edit,
+# since aider by default will not allow editing of an ignored file.
+!journal.md
