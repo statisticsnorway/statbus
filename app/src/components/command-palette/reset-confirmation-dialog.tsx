@@ -24,12 +24,13 @@ import { getBrowserRestClient } from "@/context/RestClientStore";
 import { useSetAtom } from "jotai";
 import { RESET } from "jotai/utils";
 import { gettingStartedUIStateAtom } from "@/atoms/getting-started";
-import { selectedTimeContextAtom } from "@/atoms/app";
+import { pendingRedirectAtom, selectedTimeContextAtom } from "@/atoms/app";
 
 export function ResetConfirmationDialog() {
   const { toast } = useToast();
   const setGettingStartedUIState = useSetAtom(gettingStartedUIStateAtom);
   const setSelectedTimeContext = useSetAtom(selectedTimeContextAtom);
+  const setPendingRedirect = useSetAtom(pendingRedirectAtom);
 
   useEffect(() => {
     const showDialog = () => {
@@ -70,7 +71,7 @@ export function ResetConfirmationDialog() {
         // server data reset. The page reload will handle re-fetching data.
         setGettingStartedUIState(RESET);
         setSelectedTimeContext(RESET);
-        window.location.href = "/";
+        setPendingRedirect("/");
       }
     } catch (error) {
       toast({

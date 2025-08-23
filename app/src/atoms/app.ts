@@ -118,56 +118,6 @@ export const useAppReady = () => {
   return useAtomValue(appReadyAtom)
 }
 
-/**
- * Hook to initialize the app state when component mounts
- * This replaces the complex useEffect chains in your Context providers
- */
-export const useAppInitialization = () => {
-  const refreshBaseData = useSetAtom(refreshBaseDataAtom)
-  const refreshWorkerStatus = useSetAtom(refreshWorkerStatusAtom)
-  const isAuthenticated = useAtomValue(isAuthenticatedAtom)
-  const client = useAtomValue(restClientAtom) // Get the REST client state, renamed to avoid conflict
-  
-  useEffect(() => {
-    let mounted = true
-    
-    const initializeApp = async () => {
-      // Ensure both authentication is true and REST client is available
-      if (!isAuthenticated) {
-        // console.log("useAppInitialization: Not authenticated, skipping data initialization.");
-        return;
-      }
-      if (!client) {
-        // console.log("useAppInitialization: REST client not yet available, deferring data initialization.");
-        return;
-      }
-      
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log("useAppInitialization: Authenticated and REST client ready, proceeding.");
-      }
-      try {
-        // Initialize base data
-        await refreshBaseData()
-        
-        // Initialize worker status
-        await refreshWorkerStatus()
-        
-      } catch (error) {
-        if (mounted) {
-          console.error('App initialization failed:', error)
-        }
-      }
-    }
-    
-    initializeApp()
-    
-    return () => {
-      mounted = false
-    }
-  }, [isAuthenticated, client, refreshBaseData, refreshWorkerStatus]) // Add client to dependency array
-}
-
-
 // ============================================================================
 // DEBUG/DEVELOPMENT ATOMS
 // ============================================================================

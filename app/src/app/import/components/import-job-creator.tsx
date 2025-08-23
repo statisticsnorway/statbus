@@ -3,7 +3,8 @@
 import React, { useState } from "react";
 import { useImportManager, ImportMode } from "@/atoms/import"; // Updated import
 import { Button } from "@/components/ui/button";
-import { useRouter } from "next/navigation";
+import { useSetAtom } from "jotai";
+import { pendingRedirectAtom } from "@/atoms/app";
 import { Spinner } from "@/components/ui/spinner";
 
 interface ImportJobCreatorProps {
@@ -22,7 +23,7 @@ export function ImportJobCreator({ importMode, uploadPath, unitType, onJobCreate
     loadDefinitions,
     timeContext,
   } = useImportManager();
-  const router = useRouter();
+  const setPendingRedirect = useSetAtom(pendingRedirectAtom);
 
   // Load the definition for this import mode when the component mounts
   React.useEffect(() => {
@@ -54,7 +55,7 @@ export function ImportJobCreator({ importMode, uploadPath, unitType, onJobCreate
       const job = await createImportJob();
       if (job) {
         onJobCreated?.();
-        router.push(`${uploadPath}/${job.slug}`);
+        setPendingRedirect(`${uploadPath}/${job.slug}`);
       } else {
         setError("Failed to create import job");
       }

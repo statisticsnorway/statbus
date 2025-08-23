@@ -107,7 +107,7 @@ WHERE command = 'import_job_cleanup' AND state = 'pending'::worker.task_state;
 
 
 -- Create statistical unit refresh function (part 1: core units)
-CREATE FUNCTION worker.derive_statistical_unit(
+CREATE OR REPLACE FUNCTION worker.derive_statistical_unit(
   p_establishment_ids int[] DEFAULT NULL,
   p_legal_unit_ids int[] DEFAULT NULL,
   p_enterprise_ids int[] DEFAULT NULL,
@@ -120,6 +120,20 @@ AS $derive_statistical_unit$
 DECLARE
   v_affected_count int;
 BEGIN
+  -- Lock all source tables in SHARE MODE to prevent concurrent modification
+  -- during timeline generation, which was causing inconsistent reads.
+  LOCK TABLE public.enterprise IN SHARE MODE;
+  LOCK TABLE public.legal_unit IN SHARE MODE;
+  LOCK TABLE public.establishment IN SHARE MODE;
+  LOCK TABLE public.activity IN SHARE MODE;
+  LOCK TABLE public.location IN SHARE MODE;
+  LOCK TABLE public.contact IN SHARE MODE;
+  LOCK TABLE public.stat_for_unit IN SHARE MODE;
+  LOCK TABLE public.person_for_unit IN SHARE MODE;
+  LOCK TABLE public.external_ident IN SHARE MODE;
+  LOCK TABLE public.tag_for_unit IN SHARE MODE;
+  LOCK TABLE public.unit_notes IN SHARE MODE;
+
   PERFORM public.timesegments_refresh(p_valid_after => p_valid_after, p_valid_to => p_valid_to);
   PERFORM public.timesegments_years_refresh();
   PERFORM public.timeline_establishment_refresh(p_valid_after => p_valid_after,p_valid_to => p_valid_to);

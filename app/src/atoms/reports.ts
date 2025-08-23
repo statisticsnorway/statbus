@@ -16,7 +16,7 @@ import { hasStatisticalUnitsAtom } from './base-data'
 // ============================================================================
 
 export interface AnalysisPageVisualState {
-  state: "checking_status" | "in_progress" | "finished" | "failed";
+  state: "checking_status" | "in_progress" | "finished" | "failed" | "no_statistical_units";
   message: string | null;
   // Include worker status details for direct use in UI if needed
   isImporting: boolean | null;
@@ -56,15 +56,17 @@ export const analysisPageVisualStateAtom = atom<AnalysisPageVisualState>((get) =
 
   // At this point, all worker processes are false and there's no error
   if (hasStatisticalUnits) {
-    return { 
-      state: "finished", 
+    return {
+      state: "finished",
       message: "All processes completed successfully.",
       isImporting, isDerivingUnits, isDerivingReports
     };
   } else {
-    return { 
-      state: "failed", 
-      message: "Data analysis completed, but no statistical units were found.",
+    // This state represents a system that is ready, but simply has no data yet.
+    // It is not a "failed" state.
+    return {
+      state: "no_statistical_units",
+      message: "No statistical units found in the system. You may need to import data.",
       isImporting, isDerivingUnits, isDerivingReports
     };
   }
