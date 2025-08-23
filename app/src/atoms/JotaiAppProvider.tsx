@@ -196,28 +196,21 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const currentIsAuthenticated = authLoadableValue.state === 'hasData' && authLoadableValue.data.isAuthenticated;
 
-    // Setup checks are only relevant if on the dashboard ('/') and authenticated.
-    // The auth check must be complete (which is implicit in currentIsAuthenticated)
-    // and the REST client must be ready.
-    if (pathname !== '/' || !currentIsAuthenticated || !restClient) {
-      // If not in a state where setup redirects are relevant, ensure no setup redirect is pending.
-      setRequiredSetupRedirect(null);
-      return;
+    // Only perform setup checks when authenticated on the dashboard page.
+    if (pathname === '/' && currentIsAuthenticated && restClient) {
+      let targetSetupPath: string | null = null;
+  
+      if (activityStandard === null) {
+        targetSetupPath = '/getting-started/activity-standard';
+      } else if (numberOfRegions === null || numberOfRegions === 0) {
+        targetSetupPath = '/getting-started/upload-regions';
+      } else if (baseData.statDefinitions.length > 0 && !baseData.hasStatisticalUnits) {
+        targetSetupPath = '/import';
+      }
+  
+      // Set the required redirect. The RedirectHandler is responsible for clearing it.
+      setRequiredSetupRedirect(targetSetupPath);
     }
-
-    // At this point: on '/', authenticated, not loading, client ready, initial auth check done.
-    let targetSetupPath: string | null = null;
-
-    if (activityStandard === null) {
-      targetSetupPath = '/getting-started/activity-standard';
-    } else if (numberOfRegions === null || numberOfRegions === 0) {
-      targetSetupPath = '/getting-started/upload-regions';
-    } else if (baseData.statDefinitions.length > 0 && !baseData.hasStatisticalUnits) {
-      targetSetupPath = '/import';
-    }
-
-    // Set or clear the setup redirect atom based on checks.
-    setRequiredSetupRedirect(targetSetupPath);
   }, [
     pathname,
     authLoadableValue,
@@ -226,7 +219,7 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
     numberOfRegions,
     baseData.hasStatisticalUnits,
     baseData.statDefinitions.length,
-    setRequiredSetupRedirect // Add setter to dependencies
+    setRequiredSetupRedirect
   ]);
   
   return <>{children}</>
@@ -318,20 +311,19 @@ const RedirectHandler = () => {
   // Determine the single desired target path. Explicit redirects take priority.
   const targetPath = explicitRedirect || setupRedirect;
 
-  // Effect to navigate if we are not at the target path
+  // A single, consolidated effect to handle navigation and state clearing.
   useEffect(() => {
-    if (targetPath && targetPath.split('?')[0] !== pathname) {
-      router.push(targetPath);
+    if (!targetPath) {
+      return;
     }
-  }, [targetPath, pathname, router]);
 
-  // Effect to clear the redirect atoms once we have arrived at the destination.
-  // This is mainly for router.push() in production. For window.location.href,
-  // the page reloads and state is reset anyway.
-  useEffect(() => {
-    // Compare only the pathname part of the targetPath
-    if (targetPath && targetPath.split('?')[0] === pathname) {
-      // Clear the atom that triggered the redirect
+    const targetPathname = targetPath.split('?')[0];
+
+    // If we are not at the target destination, navigate.
+    if (targetPathname !== pathname) {
+      router.push(targetPath);
+    } else {
+      // If we are at the target destination, clear the state that caused the redirect.
       if (explicitRedirect) {
         setExplicitRedirect(null);
         if (loginActionIsActive) {
@@ -342,7 +334,7 @@ const RedirectHandler = () => {
         setSetupRedirect(null);
       }
     }
-  }, [pathname, targetPath, explicitRedirect, setupRedirect, loginActionIsActive, setExplicitRedirect, setSetupRedirect, setLoginActionInProgress]);
+  }, [targetPath, pathname, router, explicitRedirect, setupRedirect, loginActionIsActive, setExplicitRedirect, setSetupRedirect, setLoginActionInProgress]);
 
   return null;
 };
