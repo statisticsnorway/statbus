@@ -30,6 +30,7 @@ export default function LoginClientBoundary() {
   const nextPath = searchParams.get('next');
   const authStatus = useAtomValue(authStatusAtom);
   const [pendingRedirect, setPendingRedirect] = useAtom(pendingRedirectAtom);
+  const loginActionIsActive = useAtomValue(loginActionInProgressAtom);
   const [lastPathBeforeAuthChange, setLastPathBeforeAuthChange] = useAtom(lastKnownPathBeforeAuthChangeAtom);
   const pathname = usePathname();
   const [state, send] = useAtom(loginPageMachineAtom);
@@ -69,8 +70,9 @@ export default function LoginClientBoundary() {
       return;
     }
 
-    // If the machine wants to redirect AND no redirect is currently pending, set one.
-    if (state.matches('redirecting') && pendingRedirect === null) {
+    // If the machine wants to redirect AND no redirect is currently pending,
+    // AND a login action isn't already handling the redirect, set one.
+    if (state.matches('redirecting') && pendingRedirect === null && !loginActionIsActive) {
       let targetRedirectPath: string;
 
       // Prioritize the path stored before a cross-tab auth change.
@@ -85,7 +87,7 @@ export default function LoginClientBoundary() {
       // Clear the last path atom after using it for a redirect.
       setLastPathBeforeAuthChange(null);
     }
-  }, [clientMounted, state, nextPath, lastPathBeforeAuthChange, setLastPathBeforeAuthChange, pendingRedirect, setPendingRedirect]);
+  }, [clientMounted, state, nextPath, lastPathBeforeAuthChange, setLastPathBeforeAuthChange, pendingRedirect, setPendingRedirect, loginActionIsActive]);
 
   // Render content based on the machine's state.
   if (state.matches('showingForm')) {
