@@ -1,19 +1,19 @@
 ```sql
-          Table "public.timepoints_years"
+         Table "public.timesegments_years"
  Column |  Type   | Collation | Nullable | Default 
 --------+---------+-----------+----------+---------
  year   | integer |           | not null | 
 Indexes:
-    "timepoints_years_pkey" PRIMARY KEY, btree (year)
+    "timesegments_years_pkey" PRIMARY KEY, btree (year)
 Policies:
-    POLICY "timepoints_years_admin_user_manage"
+    POLICY "timesegments_years_admin_user_manage"
       TO admin_user
       USING (true)
       WITH CHECK (true)
-    POLICY "timepoints_years_authenticated_read" FOR SELECT
+    POLICY "timesegments_years_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
-    POLICY "timepoints_years_regular_user_read" FOR SELECT
+    POLICY "timesegments_years_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
 
