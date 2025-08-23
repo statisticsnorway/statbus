@@ -241,8 +241,15 @@ const PathSaver = () => {
   const search = useSearchParams().toString();
   const setLastPath = useSetAtom(lastKnownPathBeforeAuthChangeAtom);
   const authStatus = useAtomValue(authStatusAtom);
+  const pendingRedirect = useAtomValue(pendingRedirectAtom);
 
   useEffect(() => {
+    // Do not save path if a redirect is pending. This prevents an intermediate
+    // page (like '/') during a redirect loop from overwriting the original path.
+    if (pendingRedirect) {
+      return;
+    }
+
     // Continuously save the current path to sessionStorage while the user is authenticated.
     // This ensures that if a logout event occurs, the last known good path is already stored.
     if (authStatus.isAuthenticated) {
@@ -257,7 +264,7 @@ const PathSaver = () => {
         }
       }
     }
-  }, [pathname, search, authStatus.isAuthenticated, setLastPath]);
+  }, [pathname, search, authStatus.isAuthenticated, setLastPath, pendingRedirect]);
 
   return null;
 };
@@ -270,10 +277,17 @@ const RedirectGuard = () => {
   const authLoadableValue = useAtomValue(authStatusLoadableAtom);
   const pathname = usePathname();
   const setPendingRedirect = useSetAtom(pendingRedirectAtom);
+  const [pendingRedirectValue] = useAtom(pendingRedirectAtom);
 
   useEffect(() => {
     // Wait until the initial authentication check is complete.
     if (authLoadableValue.state === 'loading') {
+      return;
+    }
+
+    // Do not trigger a new redirect if one is already pending.
+    // This helps prevent loops if auth state flaps during navigation.
+    if (pendingRedirectValue) {
       return;
     }
 
@@ -285,7 +299,7 @@ const RedirectGuard = () => {
       // The path has already been saved by PathSaver. Just trigger the redirect.
       setPendingRedirect('/login');
     }
-  }, [pathname, authLoadableValue, setPendingRedirect]);
+  }, [pathname, authLoadableValue, setPendingRedirect, pendingRedirectValue]);
 
   return null;
 };
@@ -306,7 +320,7 @@ const RedirectHandler = () => {
 
   // Effect to navigate if we are not at the target path
   useEffect(() => {
-    if (targetPath && targetPath !== pathname) {
+    if (targetPath && targetPath.split('?')[0] !== pathname) {
       router.push(targetPath);
     }
   }, [targetPath, pathname, router]);
@@ -315,7 +329,8 @@ const RedirectHandler = () => {
   // This is mainly for router.push() in production. For window.location.href,
   // the page reloads and state is reset anyway.
   useEffect(() => {
-    if (targetPath && targetPath === pathname) {
+    // Compare only the pathname part of the targetPath
+    if (targetPath && targetPath.split('?')[0] === pathname) {
       // Clear the atom that triggered the redirect
       if (explicitRedirect) {
         setExplicitRedirect(null);
@@ -778,6 +793,7 @@ export const StateInspector = () => {
             <strong>Navigation & Redirect Debugging:</strong>
             <div className="pl-4 mt-1 space-y-1">
               <div><strong>Pathname:</strong> {pathname}</div>
+              <div><strong>Active Redirect Target:</strong> {(pendingRedirectValue || requiredSetupRedirectValue) || 'None'}</div>
               <div><strong>Pending Redirect:</strong> {pendingRedirectValue || 'None'}</div>
               <div><strong>Required Setup Redirect:</strong> {requiredSetupRedirectValue || 'None'}</div>
               <div><strong>Login Action in Progress:</strong> {loginActionInProgressValue ? 'Yes' : 'No'}</div>
