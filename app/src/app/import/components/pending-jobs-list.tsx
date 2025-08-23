@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useSetAtom } from "jotai";
+import { pendingRedirectAtom } from "@/atoms/app";
 import { Button } from "@/components/ui/button";
 import { Tables } from "@/lib/database.types";
 import {
@@ -60,7 +61,7 @@ const formatDate = (dateString: string | null) => {
 };
 
 export function PendingJobsList({ jobs, onDeleteJob, unitTypeTitle, unitTypeDescription, uploadPathPrefix }: PendingJobsListProps) {
-  const router = useRouter();
+  const setPendingRedirect = useSetAtom(pendingRedirectAtom);
   const [jobToDelete, setJobToDelete] = useState<number | null>(null);
 
   if (jobs.length === 0) {
@@ -89,9 +90,9 @@ export function PendingJobsList({ jobs, onDeleteJob, unitTypeTitle, unitTypeDesc
               <p className="font-medium">{job.description}</p>
             </div>
             <div className="flex items-center space-x-2">
-              <Button 
+              <Button
                 size="sm"
-                onClick={() => router.push(`${uploadPathPrefix}/${job.slug}`)}
+                onClick={() => setPendingRedirect(`${uploadPathPrefix}/${job.slug}`)}
               >
                 Continue
               </Button>

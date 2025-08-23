@@ -42,9 +42,10 @@ atom awaits the completion of the core atom's refresh if subsequent logic or com
 `set(authStatusCoreAtom); await get(authStatusCoreAtom);`
         - Components performing side effects (like navigation via `router.push()`) based on Jotai state within `useEffect` hooks must ensure they react to a
 *stable* state. Check flags like `initialAuthCheckCompleted` and `authStatus.loading` to avoid acting on intermediate or stale data.
-        - For programmatic client-side redirects triggered by Jotai state changes, prefer a centralized mechanism. Use a dedicated atom (e.g.,
-`pendingRedirectAtom`) set by action atoms, and a single `RedirectHandler` component that observes this atom to perform the navigation. This avoids scattered
-`router.push()` calls and ensures redirects are a controlled reaction to state.
+        - **Programmatic Navigation**: To prevent race conditions and ensure state consistency, all programmatic client-side navigation (i.e., redirects not initiated by a user clicking a standard `<Link>`) **MUST** be handled through a centralized, state-driven mechanism.
+          - **DO NOT** call `router.push()`, `router.replace()`, or `window.location.href` directly from components, hooks, or action callbacks.
+          - **INSTEAD**, set the `pendingRedirectAtom` with the target path.
+          - A central `RedirectHandler` component within `JotaiAppProvider` observes this atom and executes the navigation. This approach guarantees that redirects are a controlled and predictable reaction to state changes.
     - **Handling Complex Conditional Logic (e.g., Login Page):**
         - For UI flows with multiple conditions and potential race conditions (e.g., checking auth status, handling redirects, showing a form), use a state machine (`jotai-xstate`). This makes the logic explicit, robust, and immune to re-render loops caused by React Strict Mode or Fast Refresh.
         - The `LoginClientBoundary` is the reference implementation for this pattern. It uses a state machine to decide whether to show the login form or trigger a redirect away from the page.

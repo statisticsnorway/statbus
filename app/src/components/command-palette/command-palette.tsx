@@ -3,10 +3,9 @@
 import { useEffect, useState } from "react";
 import { ResetConfirmationDialog } from "./reset-confirmation-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/atoms/auth";
 import { useSetAtom } from "jotai";
-import { stateInspectorVisibleAtom } from "@/atoms/app";
+import { pendingRedirectAtom, stateInspectorVisibleAtom } from "@/atoms/app";
 import {
   BarChartHorizontal,
   Footprints,
@@ -40,7 +39,7 @@ import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
-  const router = useRouter();
+  const setPendingRedirect = useSetAtom(pendingRedirectAtom);
   const { logout } = useAuth();
   const setStateInspectorVisible = useSetAtom(stateInspectorVisibleAtom);
 
@@ -77,7 +76,7 @@ export function CommandPalette() {
 
   const navigate = (path: string) => {
     setOpen(false);
-    router.push(path);
+    setPendingRedirect(path);
   };
 
   const handleToggleStateInspector = () => {
