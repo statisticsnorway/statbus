@@ -101,17 +101,14 @@ BEGIN
                 ELSIF NOT should_reschedule THEN -- No error, and phase reported no more work
                     IF job.review THEN
                         -- Transition rows from 'analysing' to 'analysed' if review is required
-                        -- Rows in 'analysing' state here have completed all analysis steps.
                         RAISE DEBUG '[Job %] Updating data rows from analysing to analysed in table % for review', job_id, job.data_table_name;
-                        EXECUTE format($$UPDATE public.%I SET state = %L WHERE state = %L$$, job.data_table_name, 'analysed'::public.import_data_state, 'analysing'::public.import_data_state);
+                        EXECUTE format($$UPDATE public.%I SET state = %L WHERE state = %L AND error IS NULL$$, job.data_table_name, 'analysed'::public.import_data_state, 'analysing'::public.import_data_state);
                         job := admin.import_job_set_state(job, 'waiting_for_review');
                         RAISE DEBUG '[Job %] Analysis complete, waiting for review.', job_id;
-                        -- should_reschedule remains FALSE as it's waiting for user action
                     ELSE
                         -- Transition rows from 'analysing' to 'processing' if no review
-                        -- Rows in 'analysing' state here have completed all analysis steps.
                         RAISE DEBUG '[Job %] Updating data rows from analysing to processing and resetting LCP in table %', job_id, job.data_table_name;
-                        EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L$$, job.data_table_name, 'processing'::public.import_data_state, 'analysing'::public.import_data_state);
+                        EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L AND error IS NULL$$, job.data_table_name, 'processing'::public.import_data_state, 'analysing'::public.import_data_state);
                         job := admin.import_job_set_state(job, 'processing_data');
                         RAISE DEBUG '[Job %] Analysis complete, proceeding to processing.', job_id;
                         should_reschedule := TRUE; -- Reschedule to start processing

@@ -11,7 +11,7 @@ BEGIN
     EXECUTE format(
         $$SELECT array_agg(row_id) FROM (
             SELECT row_id FROM public.%I
-            WHERE state = 'processing' AND error IS NULL
+            WHERE state = 'processing' AND error IS NULL AND action != 'skip'
             ORDER BY row_id LIMIT %L FOR UPDATE SKIP LOCKED
          ) AS batch$$,
         job.data_table_name, job.processing_batch_size

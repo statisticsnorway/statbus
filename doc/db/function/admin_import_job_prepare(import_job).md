@@ -4,22 +4,15 @@ CREATE OR REPLACE FUNCTION admin.import_job_prepare(job import_job)
  LANGUAGE plpgsql
 AS $function$
 DECLARE
-    upsert_stmt TEXT;
+    insert_stmt TEXT;
     insert_columns_list TEXT[] := ARRAY[]::TEXT[];
     select_expressions_list TEXT[] := ARRAY[]::TEXT[];
-    conflict_key_columns_list TEXT[] := ARRAY[]::TEXT[];
-    update_set_expressions_list TEXT[] := ARRAY[]::TEXT[];
-
     insert_columns TEXT;
     select_clause TEXT;
-    conflict_columns_text TEXT;
-    update_set_clause TEXT;
-
     item_rec RECORD; -- Will hold {mapping, source_column, target_data_column}
     current_mapping JSONB;
     current_source_column JSONB;
     current_target_data_column JSONB;
-    
     error_message TEXT;
     snapshot JSONB := job.definition_snapshot;
 BEGIN
@@ -30,9 +23,9 @@ BEGIN
     END IF;
 
     -- Iterate through mappings to build INSERT columns and SELECT expressions in a consistent order
-    FOR item_rec IN 
-        SELECT * 
-        FROM jsonb_to_recordset(COALESCE(snapshot->'import_mapping_list', '[]'::jsonb)) 
+    FOR item_rec IN
+        SELECT *
+        FROM jsonb_to_recordset(COALESCE(snapshot->'import_mapping_list', '[]'::jsonb))
             AS item(mapping JSONB, source_column JSONB, target_data_column JSONB)
         ORDER BY (item.mapping->>'id')::integer -- Order by mapping ID for consistency
     LOOP
@@ -46,7 +39,7 @@ BEGIN
 
         -- Only process mappings that target 'source_input' columns for the prepare step
         IF current_target_data_column->>'purpose' != 'source_input' THEN
-            RAISE DEBUG '[Job %] Skipping mapping ID % because target data column % (ID: %) is not for ''source_input''. Purpose: %', 
+            RAISE DEBUG '[Job %] Skipping mapping ID % because target data column % (ID: %) is not for ''source_input''. Purpose: %',
                         job.id, current_mapping->>'id', current_target_data_column->>'column_name', current_target_data_column->>'id', current_target_data_column->>'purpose';
             CONTINUE;
         END IF;
@@ -65,7 +58,7 @@ BEGIN
                             WHEN 'valid_from' THEN format('%L', job.default_valid_from)
                             WHEN 'valid_to' THEN format('%L', job.default_valid_to)
                             WHEN 'data_source_code' THEN format('%L', job.default_data_source_code)
-                            ELSE 'NULL' 
+                            ELSE 'NULL'
                         END
                     ELSE 'NULL'
                 END
@@ -79,12 +72,6 @@ BEGIN
             -- This case should be prevented by the CHECK constraint on import_mapping table
             RAISE EXCEPTION '[Job %] Mapping ID % for target data column % (ID: %) has no valid source (column/value/expression). This should not happen.', job.id, current_mapping->>'id', current_target_data_column->>'column_name', current_target_data_column->>'id';
         END IF;
-        
-        -- If this target data column is part of the unique key, add it to conflict_key_columns_list
-        IF (current_target_data_column->>'is_uniquely_identifying')::boolean THEN
-            -- We collect the raw, unquoted column names to ensure consistent expression generation with import_job_generate
-            conflict_key_columns_list := array_append(conflict_key_columns_list, current_target_data_column->>'column_name');
-        END IF;
     END LOOP;
 
     IF array_length(insert_columns_list, 1) = 0 THEN
@@ -95,60 +82,14 @@ BEGIN
     insert_columns := array_to_string(insert_columns_list, ', ');
     select_clause := array_to_string(select_expressions_list, ', ');
 
-    DECLARE
-        conflict_key_expressions_list TEXT[];
-        col_name TEXT;
-    BEGIN
-        IF array_length(conflict_key_columns_list, 1) > 0 THEN
-            -- Build COALESCE expressions for the ON CONFLICT clause to handle NULLs in identifiers.
-            -- Using %I on raw column names to match the index creation logic exactly.
-            FOREACH col_name IN ARRAY conflict_key_columns_list
-            LOOP
-                conflict_key_expressions_list := array_append(conflict_key_expressions_list, format('COALESCE(%I, %L)', col_name, ''));
-            END LOOP;
-
-            -- Also include validity period in conflict key expressions for temporal idempotency.
-            -- They are NOT coalesced to allow multiple rows with same identifiers but NULL validity periods.
-            conflict_key_expressions_list := conflict_key_expressions_list || ARRAY[format('%I', 'valid_from'), format('%I', 'valid_to')];
-            conflict_columns_text := array_to_string(conflict_key_expressions_list, ', ');
-            RAISE DEBUG '[Job %] ON CONFLICT expressions: %', job.id, conflict_columns_text;
-
-            -- Also add validity columns to the list of key columns so they are not updated ON CONFLICT.
-            -- The list now has raw names, so we must quote them before appending the already-quoted validity columns.
-            DECLARE
-                quoted_conflict_key_columns_list TEXT[] := ARRAY[]::text[];
-            BEGIN
-                FOREACH col_name IN ARRAY conflict_key_columns_list
-                LOOP
-                    quoted_conflict_key_columns_list := array_append(quoted_conflict_key_columns_list, format('%I', col_name));
-                END LOOP;
-                conflict_key_columns_list := quoted_conflict_key_columns_list || ARRAY[format('%I', 'valid_from'), format('%I', 'valid_to')];
-            END;
-        END IF;
-    END;
-
-    -- Build UPDATE SET clause: update all inserted columns that are NOT part of the conflict key
-    FOR i IN 1 .. array_length(insert_columns_list, 1) LOOP
-        IF NOT (insert_columns_list[i] = ANY(COALESCE(conflict_key_columns_list, ARRAY[]::TEXT[]))) THEN
-            update_set_expressions_list := array_append(update_set_expressions_list, format('%s = EXCLUDED.%s', insert_columns_list[i], insert_columns_list[i]));
-        END IF;
-    END LOOP;
-    update_set_clause := array_to_string(update_set_expressions_list, ', ');
-
-    -- Assemble the final UPSERT statement
-    -- The ON CONFLICT targets a unique index on expressions (COALESCE(col, '')) to handle NULLs correctly.
-    IF conflict_columns_text IS NULL OR conflict_columns_text = '' OR update_set_clause = '' THEN
-        -- If no conflict columns defined, or no columns to update, just do INSERT
-        upsert_stmt := format($$INSERT INTO public.%I (%s) SELECT %s FROM public.%I$$,
-                              job.data_table_name, insert_columns, select_clause, job.upload_table_name);
-    ELSE
-        upsert_stmt := format($$INSERT INTO public.%I (%s) SELECT %s FROM public.%I ON CONFLICT (%s) DO UPDATE SET %s$$,
-                              job.data_table_name, insert_columns, select_clause, job.upload_table_name, conflict_columns_text, update_set_clause);
-    END IF;
+    -- Assemble the final INSERT statement. This is a simple insert, allowing duplicates to be loaded
+    -- so that the analysis phase can identify and report them.
+    insert_stmt := format($$INSERT INTO public.%I (%s) SELECT %s FROM public.%I$$,
+                            job.data_table_name, insert_columns, select_clause, job.upload_table_name);
 
     BEGIN
-        RAISE DEBUG '[Job %] Executing prepare upsert: %', job.id, upsert_stmt;
-        EXECUTE upsert_stmt;
+        RAISE DEBUG '[Job %] Executing prepare insert: %', job.id, insert_stmt;
+        EXECUTE insert_stmt;
 
         DECLARE data_table_count INT;
         BEGIN

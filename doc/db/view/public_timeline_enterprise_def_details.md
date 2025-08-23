@@ -164,7 +164,7 @@ View definition:
             ten.enterprise_id,
             tlu.legal_unit_id AS primary_legal_unit_id
            FROM timesegments_enterprise ten
-             JOIN timeline_legal_unit tlu ON tlu.enterprise_id = ten.enterprise_id AND tlu.primary_for_enterprise = true AND public.after_to_overlaps(ten.valid_after, ten.valid_to, tlu.valid_after, tlu.valid_to)
+             JOIN timeline_legal_unit tlu ON tlu.enterprise_id = ten.enterprise_id AND tlu.primary_for_enterprise = true AND after_to_overlaps(ten.valid_after, ten.valid_to, tlu.valid_after, tlu.valid_to)
              LEFT JOIN LATERAL ( SELECT all_edits.edit_comment,
                     all_edits.edit_by_user_id,
                     all_edits.edit_at
@@ -242,7 +242,7 @@ View definition:
             ten.enterprise_id,
             tes.establishment_id AS primary_establishment_id
            FROM timesegments_enterprise ten
-             JOIN timeline_establishment tes ON tes.enterprise_id = ten.enterprise_id AND tes.primary_for_enterprise = true AND public.after_to_overlaps(ten.valid_after, ten.valid_to, tes.valid_after, tes.valid_to)
+             JOIN timeline_establishment tes ON tes.enterprise_id = ten.enterprise_id AND tes.primary_for_enterprise = true AND after_to_overlaps(ten.valid_after, ten.valid_to, tes.valid_after, tes.valid_to)
              LEFT JOIN LATERAL ( SELECT all_edits.edit_comment,
                     all_edits.edit_by_user_id,
                     all_edits.edit_at
@@ -361,7 +361,7 @@ View definition:
                     array_agg(DISTINCT timeline_legal_unit.legal_unit_id) FILTER (WHERE timeline_legal_unit.include_unit_in_reports) AS included_legal_unit_ids,
                     jsonb_stats_summary_merge_agg(timeline_legal_unit.stats_summary) FILTER (WHERE timeline_legal_unit.include_unit_in_reports) AS stats_summary
                    FROM timeline_legal_unit
-                  WHERE timeline_legal_unit.enterprise_id = ten.enterprise_id AND public.after_to_overlaps(ten.valid_after, ten.valid_to, timeline_legal_unit.valid_after, timeline_legal_unit.valid_to)
+                  WHERE timeline_legal_unit.enterprise_id = ten.enterprise_id AND after_to_overlaps(ten.valid_after, ten.valid_to, timeline_legal_unit.valid_after, timeline_legal_unit.valid_to)
                   GROUP BY timeline_legal_unit.enterprise_id, ten.valid_after, ten.valid_to) tlu ON true
              LEFT JOIN LATERAL ( SELECT timeline_establishment.enterprise_id,
                     ten.valid_after,
@@ -373,7 +373,7 @@ View definition:
                     array_agg(DISTINCT timeline_establishment.establishment_id) FILTER (WHERE timeline_establishment.include_unit_in_reports) AS included_establishment_ids,
                     jsonb_stats_to_summary_agg(timeline_establishment.stats) FILTER (WHERE timeline_establishment.include_unit_in_reports) AS stats_summary
                    FROM timeline_establishment
-                  WHERE timeline_establishment.enterprise_id = ten.enterprise_id AND public.after_to_overlaps(ten.valid_after, ten.valid_to, timeline_establishment.valid_after, timeline_establishment.valid_to)
+                  WHERE timeline_establishment.enterprise_id = ten.enterprise_id AND after_to_overlaps(ten.valid_after, ten.valid_to, timeline_establishment.valid_after, timeline_establishment.valid_to)
                   GROUP BY timeline_establishment.enterprise_id, ten.valid_after, ten.valid_to) tes ON true
           GROUP BY ten.enterprise_id, ten.valid_after, ten.valid_to
         ), enterprise_with_primary_and_aggregation AS (

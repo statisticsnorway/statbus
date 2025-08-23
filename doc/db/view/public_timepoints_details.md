@@ -19,7 +19,7 @@ View definition:
             LEAST(a.valid_to, es.valid_to) AS valid_to
            FROM activity a
              JOIN establishment es ON a.establishment_id = es.id
-          WHERE a.establishment_id IS NOT NULL AND public.after_to_overlaps(a.valid_after, a.valid_to, es.valid_after, es.valid_to)
+          WHERE a.establishment_id IS NOT NULL AND after_to_overlaps(a.valid_after, a.valid_to, es.valid_after, es.valid_to)
         ), es_location AS (
          SELECT 'establishment'::statistical_unit_type AS unit_type,
             l.establishment_id AS unit_id,
@@ -27,7 +27,7 @@ View definition:
             LEAST(l.valid_to, es.valid_to) AS valid_to
            FROM location l
              JOIN establishment es ON l.establishment_id = es.id
-          WHERE l.establishment_id IS NOT NULL AND public.after_to_overlaps(l.valid_after, l.valid_to, es.valid_after, es.valid_to)
+          WHERE l.establishment_id IS NOT NULL AND after_to_overlaps(l.valid_after, l.valid_to, es.valid_after, es.valid_to)
         ), es_stat AS (
          SELECT 'establishment'::statistical_unit_type AS unit_type,
             sfu.establishment_id AS unit_id,
@@ -35,7 +35,7 @@ View definition:
             LEAST(sfu.valid_to, es.valid_to) AS valid_to
            FROM stat_for_unit sfu
              JOIN establishment es ON sfu.establishment_id = es.id
-          WHERE sfu.establishment_id IS NOT NULL AND public.after_to_overlaps(sfu.valid_after, sfu.valid_to, es.valid_after, es.valid_to)
+          WHERE sfu.establishment_id IS NOT NULL AND after_to_overlaps(sfu.valid_after, sfu.valid_to, es.valid_after, es.valid_to)
         ), es_contact AS (
          SELECT 'establishment'::statistical_unit_type AS unit_type,
             c.establishment_id AS unit_id,
@@ -43,7 +43,7 @@ View definition:
             LEAST(c.valid_to, es.valid_to) AS valid_to
            FROM contact c
              JOIN establishment es ON c.establishment_id = es.id
-          WHERE c.establishment_id IS NOT NULL AND public.after_to_overlaps(c.valid_after, c.valid_to, es.valid_after, es.valid_to)
+          WHERE c.establishment_id IS NOT NULL AND after_to_overlaps(c.valid_after, c.valid_to, es.valid_after, es.valid_to)
         ), es_person_for_unit AS (
          SELECT 'establishment'::statistical_unit_type AS unit_type,
             pfu.establishment_id AS unit_id,
@@ -51,7 +51,7 @@ View definition:
             LEAST(pfu.valid_to, es.valid_to) AS valid_to
            FROM person_for_unit pfu
              JOIN establishment es ON pfu.establishment_id = es.id
-          WHERE pfu.establishment_id IS NOT NULL AND public.after_to_overlaps(pfu.valid_after, pfu.valid_to, es.valid_after, es.valid_to)
+          WHERE pfu.establishment_id IS NOT NULL AND after_to_overlaps(pfu.valid_after, pfu.valid_to, es.valid_after, es.valid_to)
         ), es_combined AS (
          SELECT es_base.unit_type,
             es_base.unit_id,
@@ -101,7 +101,7 @@ View definition:
             LEAST(a.valid_to, lu.valid_to) AS valid_to
            FROM activity a
              JOIN legal_unit lu ON a.legal_unit_id = lu.id
-          WHERE a.legal_unit_id IS NOT NULL AND public.after_to_overlaps(a.valid_after, a.valid_to, lu.valid_after, lu.valid_to)
+          WHERE a.legal_unit_id IS NOT NULL AND after_to_overlaps(a.valid_after, a.valid_to, lu.valid_after, lu.valid_to)
         ), lu_location AS (
          SELECT 'legal_unit'::statistical_unit_type AS unit_type,
             l.legal_unit_id AS unit_id,
@@ -109,7 +109,7 @@ View definition:
             LEAST(l.valid_to, lu.valid_to) AS valid_to
            FROM location l
              JOIN legal_unit lu ON l.legal_unit_id = lu.id
-          WHERE l.legal_unit_id IS NOT NULL AND public.after_to_overlaps(l.valid_after, l.valid_to, lu.valid_after, lu.valid_to)
+          WHERE l.legal_unit_id IS NOT NULL AND after_to_overlaps(l.valid_after, l.valid_to, lu.valid_after, lu.valid_to)
         ), lu_stat AS (
          SELECT 'legal_unit'::statistical_unit_type AS unit_type,
             sfu.legal_unit_id AS unit_id,
@@ -117,7 +117,7 @@ View definition:
             LEAST(sfu.valid_to, lu.valid_to) AS valid_to
            FROM stat_for_unit sfu
              JOIN legal_unit lu ON sfu.legal_unit_id = lu.id
-          WHERE sfu.legal_unit_id IS NOT NULL AND public.after_to_overlaps(sfu.valid_after, sfu.valid_to, lu.valid_after, lu.valid_to)
+          WHERE sfu.legal_unit_id IS NOT NULL AND after_to_overlaps(sfu.valid_after, sfu.valid_to, lu.valid_after, lu.valid_to)
         ), lu_contact AS (
          SELECT 'legal_unit'::statistical_unit_type AS unit_type,
             c.legal_unit_id AS unit_id,
@@ -125,7 +125,7 @@ View definition:
             LEAST(c.valid_to, lu.valid_to) AS valid_to
            FROM contact c
              JOIN legal_unit lu ON c.legal_unit_id = lu.id
-          WHERE c.legal_unit_id IS NOT NULL AND public.after_to_overlaps(c.valid_after, c.valid_to, lu.valid_after, lu.valid_to)
+          WHERE c.legal_unit_id IS NOT NULL AND after_to_overlaps(c.valid_after, c.valid_to, lu.valid_after, lu.valid_to)
         ), lu_person_for_unit AS (
          SELECT 'legal_unit'::statistical_unit_type AS unit_type,
             pfu.legal_unit_id AS unit_id,
@@ -133,7 +133,7 @@ View definition:
             LEAST(pfu.valid_to, lu.valid_to) AS valid_to
            FROM person_for_unit pfu
              JOIN legal_unit lu ON pfu.legal_unit_id = lu.id
-          WHERE pfu.legal_unit_id IS NOT NULL AND public.after_to_overlaps(pfu.valid_after, pfu.valid_to, lu.valid_after, lu.valid_to)
+          WHERE pfu.legal_unit_id IS NOT NULL AND after_to_overlaps(pfu.valid_after, pfu.valid_to, lu.valid_after, lu.valid_to)
         ), lu_establishment AS (
          SELECT 'legal_unit'::statistical_unit_type AS unit_type,
             es.legal_unit_id AS unit_id,
@@ -141,25 +141,56 @@ View definition:
             LEAST(es.valid_to, lu.valid_to) AS valid_to
            FROM establishment es
              JOIN legal_unit lu ON es.legal_unit_id = lu.id
-          WHERE es.legal_unit_id IS NOT NULL AND public.after_to_overlaps(es.valid_after, es.valid_to, lu.valid_after, lu.valid_to)
+          WHERE es.legal_unit_id IS NOT NULL AND after_to_overlaps(es.valid_after, es.valid_to, lu.valid_after, lu.valid_to)
+        ), es_for_lu AS (
+         SELECT es.id,
+            es.legal_unit_id,
+            lu.enterprise_id,
+            GREATEST(es.valid_after, lu.valid_after) AS valid_after,
+            LEAST(es.valid_to, lu.valid_to) AS valid_to
+           FROM establishment es
+             JOIN legal_unit lu ON es.legal_unit_id = lu.id
+          WHERE es.legal_unit_id IS NOT NULL AND after_to_overlaps(es.valid_after, es.valid_to, lu.valid_after, lu.valid_to)
+        ), lu_location_establishment AS (
+         SELECT 'legal_unit'::statistical_unit_type AS unit_type,
+            es_lu.legal_unit_id AS unit_id,
+            GREATEST(l.valid_after, es_lu.valid_after) AS valid_after,
+            LEAST(l.valid_to, es_lu.valid_to) AS valid_to
+           FROM location l
+             JOIN es_for_lu es_lu ON l.establishment_id = es_lu.id
+          WHERE l.establishment_id IS NOT NULL AND after_to_overlaps(l.valid_after, l.valid_to, es_lu.valid_after, es_lu.valid_to)
+        ), lu_contact_establishment AS (
+         SELECT 'legal_unit'::statistical_unit_type AS unit_type,
+            es_lu.legal_unit_id AS unit_id,
+            GREATEST(c.valid_after, es_lu.valid_after) AS valid_after,
+            LEAST(c.valid_to, es_lu.valid_to) AS valid_to
+           FROM contact c
+             JOIN es_for_lu es_lu ON c.establishment_id = es_lu.id
+          WHERE c.establishment_id IS NOT NULL AND after_to_overlaps(c.valid_after, c.valid_to, es_lu.valid_after, es_lu.valid_to)
+        ), lu_person_for_unit_establishment AS (
+         SELECT 'legal_unit'::statistical_unit_type AS unit_type,
+            es_lu.legal_unit_id AS unit_id,
+            GREATEST(pfu.valid_after, es_lu.valid_after) AS valid_after,
+            LEAST(pfu.valid_to, es_lu.valid_to) AS valid_to
+           FROM person_for_unit pfu
+             JOIN es_for_lu es_lu ON pfu.establishment_id = es_lu.id
+          WHERE pfu.establishment_id IS NOT NULL AND after_to_overlaps(pfu.valid_after, pfu.valid_to, es_lu.valid_after, es_lu.valid_to)
         ), lu_activity_establishment AS (
          SELECT 'legal_unit'::statistical_unit_type AS unit_type,
-            es.legal_unit_id AS unit_id,
-            GREATEST(a.valid_after, es.valid_after, lu.valid_after) AS valid_after,
-            LEAST(a.valid_to, es.valid_to, lu.valid_to) AS valid_to
+            es_lu.legal_unit_id AS unit_id,
+            GREATEST(a.valid_after, es_lu.valid_after) AS valid_after,
+            LEAST(a.valid_to, es_lu.valid_to) AS valid_to
            FROM activity a
-             JOIN establishment es ON a.establishment_id = es.id
-             JOIN legal_unit lu ON es.legal_unit_id = lu.id
-          WHERE es.legal_unit_id IS NOT NULL AND public.after_to_overlaps(a.valid_after, a.valid_to, es.valid_after, es.valid_to) AND public.after_to_overlaps(a.valid_after, a.valid_to, lu.valid_after, lu.valid_to)
+             JOIN es_for_lu es_lu ON a.establishment_id = es_lu.id
+          WHERE a.establishment_id IS NOT NULL AND after_to_overlaps(a.valid_after, a.valid_to, es_lu.valid_after, es_lu.valid_to)
         ), lu_stat_establishment AS (
          SELECT 'legal_unit'::statistical_unit_type AS unit_type,
-            es.legal_unit_id AS unit_id,
-            GREATEST(sfu.valid_after, es.valid_after, lu.valid_after) AS valid_after,
-            LEAST(sfu.valid_to, es.valid_to, lu.valid_to) AS valid_to
+            es_lu.legal_unit_id AS unit_id,
+            GREATEST(sfu.valid_after, es_lu.valid_after) AS valid_after,
+            LEAST(sfu.valid_to, es_lu.valid_to) AS valid_to
            FROM stat_for_unit sfu
-             JOIN establishment es ON sfu.establishment_id = es.id
-             JOIN legal_unit lu ON es.legal_unit_id = lu.id
-          WHERE es.legal_unit_id IS NOT NULL AND public.after_to_overlaps(sfu.valid_after, sfu.valid_to, es.valid_after, es.valid_to) AND public.after_to_overlaps(sfu.valid_after, sfu.valid_to, lu.valid_after, lu.valid_to)
+             JOIN es_for_lu es_lu ON sfu.establishment_id = es_lu.id
+          WHERE sfu.establishment_id IS NOT NULL AND after_to_overlaps(sfu.valid_after, sfu.valid_to, es_lu.valid_after, es_lu.valid_to)
         ), lu_combined AS (
          SELECT lu_base.unit_type,
             lu_base.unit_id,
@@ -203,6 +234,24 @@ View definition:
             lu_establishment.valid_to
            FROM lu_establishment
         UNION ALL
+         SELECT lu_location_establishment.unit_type,
+            lu_location_establishment.unit_id,
+            lu_location_establishment.valid_after,
+            lu_location_establishment.valid_to
+           FROM lu_location_establishment
+        UNION ALL
+         SELECT lu_contact_establishment.unit_type,
+            lu_contact_establishment.unit_id,
+            lu_contact_establishment.valid_after,
+            lu_contact_establishment.valid_to
+           FROM lu_contact_establishment
+        UNION ALL
+         SELECT lu_person_for_unit_establishment.unit_type,
+            lu_person_for_unit_establishment.unit_id,
+            lu_person_for_unit_establishment.valid_after,
+            lu_person_for_unit_establishment.valid_to
+           FROM lu_person_for_unit_establishment
+        UNION ALL
          SELECT lu_activity_establishment.unit_type,
             lu_activity_establishment.unit_id,
             lu_activity_establishment.valid_after,
@@ -235,7 +284,7 @@ View definition:
             LEAST(es.valid_to, lu.valid_to) AS valid_to
            FROM establishment es
              JOIN legal_unit lu ON es.legal_unit_id = lu.id
-          WHERE lu.enterprise_id IS NOT NULL AND public.after_to_overlaps(es.valid_after, es.valid_to, lu.valid_after, lu.valid_to)
+          WHERE lu.enterprise_id IS NOT NULL AND after_to_overlaps(es.valid_after, es.valid_to, lu.valid_after, lu.valid_to)
         ), en_activity_establishment AS (
          SELECT 'enterprise'::statistical_unit_type AS unit_type,
             es.enterprise_id AS unit_id,
@@ -243,7 +292,7 @@ View definition:
             LEAST(a.valid_to, es.valid_to) AS valid_to
            FROM activity a
              JOIN establishment es ON a.establishment_id = es.id
-          WHERE es.enterprise_id IS NOT NULL AND public.after_to_overlaps(a.valid_after, a.valid_to, es.valid_after, es.valid_to)
+          WHERE es.enterprise_id IS NOT NULL AND after_to_overlaps(a.valid_after, a.valid_to, es.valid_after, es.valid_to)
         ), en_activity_legal_unit AS (
          SELECT 'enterprise'::statistical_unit_type AS unit_type,
             lu.enterprise_id AS unit_id,
@@ -251,16 +300,39 @@ View definition:
             LEAST(a.valid_to, lu.valid_to) AS valid_to
            FROM activity a
              JOIN legal_unit lu ON a.legal_unit_id = lu.id
-          WHERE lu.enterprise_id IS NOT NULL AND public.after_to_overlaps(a.valid_after, a.valid_to, lu.valid_after, lu.valid_to)
+          WHERE lu.enterprise_id IS NOT NULL AND after_to_overlaps(a.valid_after, a.valid_to, lu.valid_after, lu.valid_to)
         ), en_activity_establishment_legal_unit AS (
          SELECT 'enterprise'::statistical_unit_type AS unit_type,
-            lu.enterprise_id AS unit_id,
-            GREATEST(a.valid_after, es.valid_after, lu.valid_after) AS valid_after,
-            LEAST(a.valid_to, es.valid_to, lu.valid_to) AS valid_to
+            es_lu.enterprise_id AS unit_id,
+            GREATEST(a.valid_after, es_lu.valid_after) AS valid_after,
+            LEAST(a.valid_to, es_lu.valid_to) AS valid_to
            FROM activity a
-             JOIN establishment es ON a.establishment_id = es.id
-             JOIN legal_unit lu ON es.legal_unit_id = lu.id
-          WHERE lu.enterprise_id IS NOT NULL AND public.after_to_overlaps(a.valid_after, a.valid_to, es.valid_after, es.valid_to) AND public.after_to_overlaps(a.valid_after, a.valid_to, lu.valid_after, lu.valid_to)
+             JOIN es_for_lu es_lu ON a.establishment_id = es_lu.id
+          WHERE es_lu.enterprise_id IS NOT NULL AND after_to_overlaps(a.valid_after, a.valid_to, es_lu.valid_after, es_lu.valid_to)
+        ), en_location_establishment_legal_unit AS (
+         SELECT 'enterprise'::statistical_unit_type AS unit_type,
+            es_lu.enterprise_id AS unit_id,
+            GREATEST(l.valid_after, es_lu.valid_after) AS valid_after,
+            LEAST(l.valid_to, es_lu.valid_to) AS valid_to
+           FROM location l
+             JOIN es_for_lu es_lu ON l.establishment_id = es_lu.id
+          WHERE es_lu.enterprise_id IS NOT NULL AND after_to_overlaps(l.valid_after, l.valid_to, es_lu.valid_after, es_lu.valid_to)
+        ), en_contact_establishment_legal_unit AS (
+         SELECT 'enterprise'::statistical_unit_type AS unit_type,
+            es_lu.enterprise_id AS unit_id,
+            GREATEST(c.valid_after, es_lu.valid_after) AS valid_after,
+            LEAST(c.valid_to, es_lu.valid_to) AS valid_to
+           FROM contact c
+             JOIN es_for_lu es_lu ON c.establishment_id = es_lu.id
+          WHERE es_lu.enterprise_id IS NOT NULL AND after_to_overlaps(c.valid_after, c.valid_to, es_lu.valid_after, es_lu.valid_to)
+        ), en_person_for_unit_establishment_legal_unit AS (
+         SELECT 'enterprise'::statistical_unit_type AS unit_type,
+            es_lu.enterprise_id AS unit_id,
+            GREATEST(pfu.valid_after, es_lu.valid_after) AS valid_after,
+            LEAST(pfu.valid_to, es_lu.valid_to) AS valid_to
+           FROM person_for_unit pfu
+             JOIN es_for_lu es_lu ON pfu.establishment_id = es_lu.id
+          WHERE es_lu.enterprise_id IS NOT NULL AND after_to_overlaps(pfu.valid_after, pfu.valid_to, es_lu.valid_after, es_lu.valid_to)
         ), en_location_establishment AS (
          SELECT 'enterprise'::statistical_unit_type AS unit_type,
             es.enterprise_id AS unit_id,
@@ -268,7 +340,7 @@ View definition:
             LEAST(l.valid_to, es.valid_to) AS valid_to
            FROM location l
              JOIN establishment es ON l.establishment_id = es.id
-          WHERE es.enterprise_id IS NOT NULL AND public.after_to_overlaps(l.valid_after, l.valid_to, es.valid_after, es.valid_to)
+          WHERE es.enterprise_id IS NOT NULL AND after_to_overlaps(l.valid_after, l.valid_to, es.valid_after, es.valid_to)
         ), en_location_legal_unit AS (
          SELECT 'enterprise'::statistical_unit_type AS unit_type,
             lu.enterprise_id AS unit_id,
@@ -276,7 +348,7 @@ View definition:
             LEAST(l.valid_to, lu.valid_to) AS valid_to
            FROM location l
              JOIN legal_unit lu ON l.legal_unit_id = lu.id
-          WHERE lu.enterprise_id IS NOT NULL AND lu.primary_for_enterprise AND public.after_to_overlaps(l.valid_after, l.valid_to, lu.valid_after, lu.valid_to)
+          WHERE lu.enterprise_id IS NOT NULL AND after_to_overlaps(l.valid_after, l.valid_to, lu.valid_after, lu.valid_to)
         ), en_contact_establishment AS (
          SELECT 'enterprise'::statistical_unit_type AS unit_type,
             es.enterprise_id AS unit_id,
@@ -284,7 +356,7 @@ View definition:
             LEAST(c.valid_to, es.valid_to) AS valid_to
            FROM contact c
              JOIN establishment es ON c.establishment_id = es.id
-          WHERE es.enterprise_id IS NOT NULL AND public.after_to_overlaps(c.valid_after, c.valid_to, es.valid_after, es.valid_to)
+          WHERE es.enterprise_id IS NOT NULL AND after_to_overlaps(c.valid_after, c.valid_to, es.valid_after, es.valid_to)
         ), en_contact_legal_unit AS (
          SELECT 'enterprise'::statistical_unit_type AS unit_type,
             lu.enterprise_id AS unit_id,
@@ -292,7 +364,7 @@ View definition:
             LEAST(c.valid_to, lu.valid_to) AS valid_to
            FROM contact c
              JOIN legal_unit lu ON c.legal_unit_id = lu.id
-          WHERE lu.enterprise_id IS NOT NULL AND public.after_to_overlaps(c.valid_after, c.valid_to, lu.valid_after, lu.valid_to)
+          WHERE lu.enterprise_id IS NOT NULL AND after_to_overlaps(c.valid_after, c.valid_to, lu.valid_after, lu.valid_to)
         ), en_person_for_unit_establishment AS (
          SELECT 'enterprise'::statistical_unit_type AS unit_type,
             es.enterprise_id AS unit_id,
@@ -300,7 +372,7 @@ View definition:
             LEAST(pfu.valid_to, es.valid_to) AS valid_to
            FROM person_for_unit pfu
              JOIN establishment es ON pfu.establishment_id = es.id
-          WHERE es.enterprise_id IS NOT NULL AND public.after_to_overlaps(pfu.valid_after, pfu.valid_to, es.valid_after, es.valid_to)
+          WHERE es.enterprise_id IS NOT NULL AND after_to_overlaps(pfu.valid_after, pfu.valid_to, es.valid_after, es.valid_to)
         ), en_person_for_unit_legal_unit AS (
          SELECT 'enterprise'::statistical_unit_type AS unit_type,
             lu.enterprise_id AS unit_id,
@@ -308,7 +380,7 @@ View definition:
             LEAST(pfu.valid_to, lu.valid_to) AS valid_to
            FROM person_for_unit pfu
              JOIN legal_unit lu ON pfu.legal_unit_id = lu.id
-          WHERE lu.enterprise_id IS NOT NULL AND public.after_to_overlaps(pfu.valid_after, pfu.valid_to, lu.valid_after, lu.valid_to)
+          WHERE lu.enterprise_id IS NOT NULL AND after_to_overlaps(pfu.valid_after, pfu.valid_to, lu.valid_after, lu.valid_to)
         ), en_stat_establishment AS (
          SELECT 'enterprise'::statistical_unit_type AS unit_type,
             es.enterprise_id AS unit_id,
@@ -316,7 +388,7 @@ View definition:
             LEAST(sfu.valid_to, es.valid_to) AS valid_to
            FROM stat_for_unit sfu
              JOIN establishment es ON sfu.establishment_id = es.id
-          WHERE es.enterprise_id IS NOT NULL AND public.after_to_overlaps(sfu.valid_after, sfu.valid_to, es.valid_after, es.valid_to)
+          WHERE es.enterprise_id IS NOT NULL AND after_to_overlaps(sfu.valid_after, sfu.valid_to, es.valid_after, es.valid_to)
         ), en_stat_legal_unit AS (
          SELECT 'enterprise'::statistical_unit_type AS unit_type,
             lu.enterprise_id AS unit_id,
@@ -324,16 +396,15 @@ View definition:
             LEAST(sfu.valid_to, lu.valid_to) AS valid_to
            FROM stat_for_unit sfu
              JOIN legal_unit lu ON sfu.legal_unit_id = lu.id
-          WHERE lu.enterprise_id IS NOT NULL AND public.after_to_overlaps(sfu.valid_after, sfu.valid_to, lu.valid_after, lu.valid_to)
+          WHERE lu.enterprise_id IS NOT NULL AND after_to_overlaps(sfu.valid_after, sfu.valid_to, lu.valid_after, lu.valid_to)
         ), en_stat_establishment_legal_unit AS (
          SELECT 'enterprise'::statistical_unit_type AS unit_type,
-            lu.enterprise_id AS unit_id,
-            GREATEST(sfu.valid_after, es.valid_after, lu.valid_after) AS valid_after,
-            LEAST(sfu.valid_to, es.valid_to, lu.valid_to) AS valid_to
+            es_lu.enterprise_id AS unit_id,
+            GREATEST(sfu.valid_after, es_lu.valid_after) AS valid_after,
+            LEAST(sfu.valid_to, es_lu.valid_to) AS valid_to
            FROM stat_for_unit sfu
-             JOIN establishment es ON sfu.establishment_id = es.id
-             JOIN legal_unit lu ON es.legal_unit_id = lu.id
-          WHERE lu.enterprise_id IS NOT NULL AND public.after_to_overlaps(sfu.valid_after, sfu.valid_to, es.valid_after, es.valid_to) AND public.after_to_overlaps(sfu.valid_after, sfu.valid_to, lu.valid_after, lu.valid_to)
+             JOIN es_for_lu es_lu ON sfu.establishment_id = es_lu.id
+          WHERE es_lu.enterprise_id IS NOT NULL AND after_to_overlaps(sfu.valid_after, sfu.valid_to, es_lu.valid_after, es_lu.valid_to)
         ), en_combined AS (
          SELECT en_legal_unit.unit_type,
             en_legal_unit.unit_id,
@@ -370,6 +441,24 @@ View definition:
             en_activity_establishment_legal_unit.valid_after,
             en_activity_establishment_legal_unit.valid_to
            FROM en_activity_establishment_legal_unit
+        UNION ALL
+         SELECT en_location_establishment_legal_unit.unit_type,
+            en_location_establishment_legal_unit.unit_id,
+            en_location_establishment_legal_unit.valid_after,
+            en_location_establishment_legal_unit.valid_to
+           FROM en_location_establishment_legal_unit
+        UNION ALL
+         SELECT en_contact_establishment_legal_unit.unit_type,
+            en_contact_establishment_legal_unit.unit_id,
+            en_contact_establishment_legal_unit.valid_after,
+            en_contact_establishment_legal_unit.valid_to
+           FROM en_contact_establishment_legal_unit
+        UNION ALL
+         SELECT en_person_for_unit_establishment_legal_unit.unit_type,
+            en_person_for_unit_establishment_legal_unit.unit_id,
+            en_person_for_unit_establishment_legal_unit.valid_after,
+            en_person_for_unit_establishment_legal_unit.valid_to
+           FROM en_person_for_unit_establishment_legal_unit
         UNION ALL
          SELECT en_location_establishment.unit_type,
             en_location_establishment.unit_id,

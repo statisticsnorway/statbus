@@ -1,5 +1,5 @@
 ```sql
-        View "public.timepoints_years_def"
+       View "public.timesegments_years_def"
  Column |  Type   | Collation | Nullable | Default 
 --------+---------+-----------+----------+---------
  year   | integer |           |          | 
