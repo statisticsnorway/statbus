@@ -675,7 +675,11 @@ Triggers:
  invalid_codes                    | jsonb                     |           |          | 
 Indexes:
     "import_lu_2015_h_data_pkey" PRIMARY KEY, btree (row_id)
+    "import_lu_2015_h_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND error IS NULL
+    "import_lu_2015_h_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
+    "import_lu_2015_h_data_stat_ident_idx" btree (stat_ident)
     "import_lu_2015_h_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
+    "import_lu_2015_h_data_tax_ident_idx" btree (tax_ident)
 Policies:
     POLICY "import_lu_2015_h_data_admin_user_manage"
       TO admin_user
@@ -828,7 +832,11 @@ Triggers:
  invalid_codes                    | jsonb                     |           |          | 
 Indexes:
     "import_es_2015_h_data_pkey" PRIMARY KEY, btree (row_id)
+    "import_es_2015_h_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND error IS NULL
+    "import_es_2015_h_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
+    "import_es_2015_h_data_stat_ident_idx" btree (stat_ident)
     "import_es_2015_h_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
+    "import_es_2015_h_data_tax_ident_idx" btree (tax_ident)
 Policies:
     POLICY "import_es_2015_h_data_admin_user_manage"
       TO admin_user
@@ -1055,7 +1063,215 @@ select queue,t.command,state,error from worker.tasks as t join worker.command_re
  import | import_job_process | completed | 
  import | import_job_process | completed | 
  import | import_job_process | completed | 
-(151 rows)
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+(359 rows)
 
 select slug, state, error is not null as failed, time_context_ident, default_valid_from, default_valid_to, total_rows, imported_rows, import_completed_pct from public.import_job WHERE slug LIKE 'import_%_h' ORDER BY slug;
        slug       |  state   | failed | time_context_ident | default_valid_from | default_valid_to | total_rows | imported_rows | import_completed_pct 
@@ -1134,7 +1350,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     7
- import    | completed |   151
+ import    | completed |   359
 (2 rows)
 
 -- Once the Imports are finished, then all the analytics can be processed, but only once.
@@ -1145,7 +1361,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |     9
- import    | completed |   151
+ import    | completed |   359
 (2 rows)
 
 \echo Run any remaining tasks, there should be none.
@@ -1157,7 +1373,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |     9
- import    | completed |   151
+ import    | completed |   359
 (2 rows)
 
 \echo Overview of statistical units, but not details, there are too many units.

@@ -96,8 +96,8 @@ SELECT slug, state, error IS NOT NULL AS failed, total_rows, imported_rows, impo
  ORDER BY slug;
 
 \echo "Check data row states after import"
-SELECT state, count(*) FROM public.import_hovedenhet_2025_selection_data ORDER BY state GROUP BY state;
-SELECT state, count(*) FROM public.import_underenhet_2025_selection_data ORDER BY state GROUP BY state;
+SELECT state, count(*) FROM public.import_hovedenhet_2025_selection_data GROUP BY state ORDER BY state;
+SELECT state, count(*) FROM public.import_underenhet_2025_selection_data GROUP BY state ORDER BY state;
 
 \echo "Show any error rows from import data tables"
 SELECT row_id, error FROM public.import_hovedenhet_2025_selection_data WHERE state = 'error' ORDER BY row_id;
