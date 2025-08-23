@@ -1079,6 +1079,7 @@ erDiagram
 		numeric duration_ms
 		text error
 		timestamp_with_time_zone scheduled_at
+		integer worker_pid
 		jsonb payload
 	}
 	%% Relationships (derived from foreign keys)

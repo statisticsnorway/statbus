@@ -621,7 +621,59 @@ SELECT queue, t.command, state, error
  import | import_job_process | completed | 
  import | import_job_process | completed | 
  import | import_job_process | completed | 
-(86 rows)
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+(138 rows)
 
 \echo "Check import job state after calling worker"
 "Check import job state after calling worker"
