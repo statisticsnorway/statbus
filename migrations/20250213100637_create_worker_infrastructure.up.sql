@@ -157,7 +157,7 @@ DECLARE
     v_establishment_ids int[] = CASE
         WHEN jsonb_typeof(payload->'establishment_ids') = 'array' THEN
             ARRAY(
-                SELECT elem::int
+                SELECT DISTINCT elem::int
                 FROM jsonb_array_elements_text(payload->'establishment_ids') AS x(elem)
                 WHERE elem IS NOT NULL AND elem ~ '^[0-9]+$'
             )
@@ -166,7 +166,7 @@ DECLARE
     v_legal_unit_ids int[] = CASE
         WHEN jsonb_typeof(payload->'legal_unit_ids') = 'array' THEN
             ARRAY(
-                SELECT elem::int
+                SELECT DISTINCT elem::int
                 FROM jsonb_array_elements_text(payload->'legal_unit_ids') AS x(elem)
                 WHERE elem IS NOT NULL AND elem ~ '^[0-9]+$'
             )
@@ -175,7 +175,7 @@ DECLARE
     v_enterprise_ids int[] = CASE
         WHEN jsonb_typeof(payload->'enterprise_ids') = 'array' THEN
             ARRAY(
-                SELECT elem::int
+                SELECT DISTINCT elem::int
                 FROM jsonb_array_elements_text(payload->'enterprise_ids') AS x(elem)
                 WHERE elem IS NOT NULL AND elem ~ '^[0-9]+$'
             )
