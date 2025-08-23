@@ -491,6 +491,3 @@ key-*.xml
 .aider*
 !.aider.conf.yml
 !.aiderignore
-
-# Agent-specific work journals
-journal.md
