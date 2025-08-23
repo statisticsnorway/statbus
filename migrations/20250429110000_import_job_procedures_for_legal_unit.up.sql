@@ -1,7 +1,5 @@
 -- Implements the analyse and operation procedures for the legal_unit import target.
 
-BEGIN;
-
 -- Procedure to analyse base legal unit data
 CREATE OR REPLACE PROCEDURE import.analyse_legal_unit(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_legal_unit$
@@ -149,9 +147,9 @@ END;
 $analyse_legal_unit$;
 
 
--- Procedure to operate (insert/update/upsert) base legal unit data (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.process_legal_unit(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
-LANGUAGE plpgsql AS $process_legal_unit$
+CREATE OR REPLACE PROCEDURE import.process_legal_unit(IN p_job_id integer, IN p_batch_row_ids integer[], IN p_step_code text)
+ LANGUAGE plpgsql
+AS $procedure$
 DECLARE
     v_job public.import_job;
     v_snapshot JSONB;
@@ -164,7 +162,7 @@ DECLARE
     v_sql TEXT;
     v_error_count INT := 0;
     v_inserted_new_lu_count INT := 0;
-    v_intended_replace_lu_count INT := 0; 
+    v_intended_replace_lu_count INT := 0;
     v_intended_update_lu_count INT := 0;
     v_actually_replaced_lu_count INT := 0;
     v_actually_updated_lu_count INT := 0;
@@ -208,7 +206,6 @@ BEGIN
 
     CREATE TEMP TABLE temp_batch_data (
         data_row_id INTEGER PRIMARY KEY,
-        tax_ident TEXT, 
         name TEXT,
         typed_birth_date DATE,
         typed_death_date DATE,
@@ -329,6 +326,7 @@ BEGIN
         founding_row_id INTEGER,
         id INT,
         valid_after DATE NOT NULL, -- Changed from valid_from
+        valid_from DATE NOT NULL,
         valid_to DATE NOT NULL,
         name TEXT,
         birth_date DATE,
@@ -414,9 +412,9 @@ BEGIN
             ex_lu.data_source_id, ex_lu.invalid_codes,
             incoming_primary.demotion_edit_by_user_id,
             incoming_primary.demotion_edit_at,
-            COALESCE(ex_lu.edit_comment || '; ', '') || 'Demoted: LU ' || COALESCE(incoming_primary.incoming_lu_id::TEXT, 'NEW') || 
-                ' became primary for enterprise ' || incoming_primary.target_enterprise_id || 
-                ' for period ' || incoming_primary.new_primary_valid_after || ' to ' || incoming_primary.new_primary_valid_to || 
+            COALESCE(ex_lu.edit_comment || '; ', '') || 'Demoted: LU ' || COALESCE(incoming_primary.incoming_lu_id::TEXT, 'NEW') ||
+                ' became primary for enterprise ' || incoming_primary.target_enterprise_id ||
+                ' for period ' || incoming_primary.new_primary_valid_after || ' to ' || incoming_primary.new_primary_valid_to ||
                 ' by job ' || p_job_id,
             -- Generate a unique row_id for the temp table using row_number()
             row_number() OVER (ORDER BY ex_lu.id, incoming_primary.new_primary_valid_after)
@@ -557,13 +555,13 @@ BEGIN
         -- Handle REPLACE action
         RAISE DEBUG '[Job %] process_legal_unit: Handling REPLACE action for existing LUs.', p_job_id;
         INSERT INTO temp_lu_replace_source (
-            row_id, founding_row_id, id, valid_after, valid_to, name, birth_date, death_date, active,
+            row_id, founding_row_id, id, valid_after, valid_from, valid_to, name, birth_date, death_date, active,
             sector_id, unit_size_id, status_id, legal_form_id, enterprise_id,
             primary_for_enterprise, data_source_id, invalid_codes, -- Added invalid_codes
             edit_by_user_id, edit_at, edit_comment
         )
         SELECT
-            tbd.data_row_id, tbd.founding_row_id, tbd.existing_lu_id, tbd.valid_after, tbd.valid_to, tbd.name,
+            tbd.data_row_id, tbd.founding_row_id, tbd.existing_lu_id, tbd.valid_after, tbd.valid_from, tbd.valid_to, tbd.name,
             tbd.typed_birth_date, tbd.typed_death_date, true, -- Assuming active=true for replace actions
             tbd.sector_id, tbd.unit_size_id, tbd.status_id, tbd.legal_form_id, tbd.enterprise_id,
             tbd.primary_for_enterprise, tbd.data_source_id,
@@ -581,6 +579,45 @@ BEGIN
         RAISE DEBUG '[Job %] process_legal_unit: Populated temp_lu_replace_source with % rows for action=replace.', p_job_id, v_intended_replace_lu_count;
 
         IF v_intended_replace_lu_count > 0 THEN
+            -- Before replacing legal_unit segments, manage dependent child records sequentially.
+            RAISE DEBUG '[Job %] process_legal_unit: Surgically managing child records for % legal units being replaced.', p_job_id, v_intended_replace_lu_count;
+            DECLARE
+                rec_replace_op RECORD;
+            BEGIN
+                FOR rec_replace_op IN
+                    SELECT * FROM temp_lu_replace_source ORDER BY id, valid_from
+                LOOP
+                    -- Manage Activities (DELETE then UPDATE)
+                    DELETE FROM public.activity WHERE legal_unit_id = rec_replace_op.id AND valid_from >= rec_replace_op.valid_from;
+                    UPDATE public.activity SET valid_to = rec_replace_op.valid_from - 1
+                        WHERE legal_unit_id = rec_replace_op.id
+                        AND valid_from < rec_replace_op.valid_from
+                        AND valid_to >= rec_replace_op.valid_from;
+
+                    -- Manage Locations
+                    DELETE FROM public.location WHERE legal_unit_id = rec_replace_op.id AND valid_from >= rec_replace_op.valid_from;
+                    UPDATE public.location SET valid_to = rec_replace_op.valid_from - 1
+                        WHERE legal_unit_id = rec_replace_op.id
+                        AND valid_from < rec_replace_op.valid_from
+                        AND valid_to >= rec_replace_op.valid_from;
+
+                    -- Manage Contacts
+                    DELETE FROM public.contact WHERE legal_unit_id = rec_replace_op.id AND valid_from >= rec_replace_op.valid_from;
+                    UPDATE public.contact SET valid_to = rec_replace_op.valid_from - 1
+                        WHERE legal_unit_id = rec_replace_op.id
+                        AND valid_from < rec_replace_op.valid_from
+                        AND valid_to >= rec_replace_op.valid_from;
+
+                    -- Manage Stats
+                    DELETE FROM public.stat_for_unit WHERE legal_unit_id = rec_replace_op.id AND valid_from >= rec_replace_op.valid_from;
+                    UPDATE public.stat_for_unit SET valid_to = rec_replace_op.valid_from - 1
+                        WHERE legal_unit_id = rec_replace_op.id
+                        AND valid_from < rec_replace_op.valid_from
+                        AND valid_to >= rec_replace_op.valid_from;
+                END LOOP;
+            END;
+            RAISE DEBUG '[Job %] process_legal_unit: Finished surgically managing child records.', p_job_id;
+
             v_batch_error_row_ids := ARRAY[]::INTEGER[];
             v_batch_success_row_ids := ARRAY[]::INTEGER[];
             RAISE DEBUG '[Job %] process_legal_unit: Calling batch_insert_or_replace_generic_valid_time_table for legal_unit (replace).', p_job_id;
@@ -610,7 +647,7 @@ BEGIN
             END LOOP;
 
             v_actually_replaced_lu_count := array_length(v_batch_success_row_ids, 1);
-            v_error_count := array_length(v_batch_error_row_ids, 1); 
+            v_error_count := array_length(v_batch_error_row_ids, 1);
             RAISE DEBUG '[Job %] process_legal_unit: Batch replace finished. Success: %, Errors: %', p_job_id, v_actually_replaced_lu_count, v_error_count;
 
             IF v_actually_replaced_lu_count > 0 THEN
@@ -779,6 +816,4 @@ EXCEPTION WHEN OTHERS THEN
     RAISE DEBUG '[Job %] process_legal_unit: Marked job as failed due to unhandled error: %', p_job_id, error_message;
     RAISE; -- Re-raise the original unhandled error
 END;
-$process_legal_unit$;
-
-COMMIT;
+$procedure$
