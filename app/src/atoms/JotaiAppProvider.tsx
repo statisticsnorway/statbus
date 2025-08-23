@@ -595,6 +595,10 @@ export const StateInspector = () => {
 
   // Atoms for redirect logic debugging
   const pathname = usePathname(); // Get current pathname
+  const pendingRedirectValue = useAtomValue(pendingRedirectAtom);
+  const requiredSetupRedirectValue = useAtomValue(requiredSetupRedirectAtom);
+  const loginActionInProgressValue = useAtomValue(loginActionInProgressAtom);
+  const lastKnownPathValue = useAtomValue(lastKnownPathBeforeAuthChangeAtom);
   const restClientFromAtom = useAtomValue(importedRestClientAtom);
   const activityStandardFromAtom = useAtomValue(activityCategoryStandardSettingAtomAsync);
   const numberOfRegionsFromAtom = useAtomValue(numberOfRegionsAtomAsync);
@@ -659,6 +663,12 @@ export const StateInspector = () => {
         isDerivingReports: workerStatusValue.isDerivingReports,
         loading: workerStatusValue.loading,
         error: workerStatusValue.error,
+      },
+      navigationState: {
+        pendingRedirect: pendingRedirectValue,
+        requiredSetupRedirect: requiredSetupRedirectValue,
+        loginActionInProgress: loginActionInProgressValue,
+        lastKnownPathBeforeAuthChange: lastKnownPathValue,
       },
       redirectRelevantState: {
         authCheckDone: authLoadableValue.state !== 'loading',
@@ -765,9 +775,14 @@ export const StateInspector = () => {
           </div>
 
           <div>
-            <strong>Redirect Relevant State:</strong>
+            <strong>Navigation & Redirect Debugging:</strong>
             <div className="pl-4 mt-1 space-y-1">
               <div><strong>Pathname:</strong> {pathname}</div>
+              <div><strong>Pending Redirect:</strong> {pendingRedirectValue || 'None'}</div>
+              <div><strong>Required Setup Redirect:</strong> {requiredSetupRedirectValue || 'None'}</div>
+              <div><strong>Login Action in Progress:</strong> {loginActionInProgressValue ? 'Yes' : 'No'}</div>
+              <div><strong>Last Known Path (pre-auth):</strong> {lastKnownPathValue || 'None'}</div>
+              <hr className="my-1 border-gray-500" />
               <div><strong>Auth Check Done:</strong> {authLoadableValue.state !== 'loading' ? 'Yes' : 'No'}</div>
               <div><strong>REST Client Ready:</strong> {restClientFromAtom ? 'Yes' : 'No'}</div>
               <div><strong>Activity Standard:</strong> {activityStandardFromAtom === null ? 'Null' : JSON.stringify(activityStandardFromAtom)}</div>

@@ -294,19 +294,25 @@ export const loginAtom = atom(
 
       // Successfully authenticated (200 OK and is_authenticated: true implied or explicit from responseData)
       // After successful login, the backend sets cookies.
-      // We need to refresh our authStatusCoreAtom to read the new state.
-      await set(fetchAuthStatusAtom);
 
       // Signal that a login action is now managing the redirect.
-      // This must be set BEFORE pendingRedirectAtom to allow RedirectHandler to identify the source.
+      // This must be set BEFORE awaiting the auth status fetch to prevent race conditions
+      // with other components that might react to the auth state change.
       set(loginActionInProgressAtom, true);
+
+      // We need to refresh our authStatusCoreAtom to read the new state.
+      await set(fetchAuthStatusAtom);
 
       // The call to `await set(fetchAuthStatusAtom)` will now handle triggering the cross-tab sync
       // if the authentication state has changed.
 
       // Set pendingRedirectAtom to trigger navigation.
       // Prioritize nextPath if available and valid, otherwise default to '/'.
-      const redirectTarget = nextPath && nextPath.startsWith('/') ? nextPath : '/';
+      let redirectTarget = nextPath && nextPath.startsWith('/') ? nextPath : '/';
+      // Ensure we don't redirect back to the login page after a successful login.
+      if (redirectTarget === '/login') {
+        redirectTarget = '/';
+      }
       set(pendingRedirectAtom, redirectTarget);
 
     } catch (error) {
