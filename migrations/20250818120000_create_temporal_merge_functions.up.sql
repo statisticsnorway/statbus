@@ -84,7 +84,9 @@ DECLARE
     v_entity_id_as_jsonb TEXT;
     v_source_table_regclass REGCLASS;
     v_source_data_payload_expr TEXT;
-    v_resolved_data_payload_expr TEXT;
+    v_final_data_payload_expr TEXT;
+    v_resolver_ctes TEXT;
+    v_resolver_from TEXT;
 BEGIN
     -- Dynamically construct a jsonb object from the entity id columns to use as a single key for partitioning and joining.
     SELECT
@@ -130,13 +132,35 @@ BEGIN
     v_source_data_cols_jsonb_build := COALESCE(v_source_data_cols_jsonb_build, '''{}''::jsonb');
     v_target_data_cols_jsonb_build := COALESCE(v_target_data_cols_jsonb_build, '''{}''::jsonb');
 
-    -- 2. Construct expressions based on the mode to handle NULLs correctly.
+    -- 2. Construct expressions and resolver CTEs based on the mode.
     IF p_mode IN ('upsert_patch', 'patch_only') THEN
+        -- In 'patch' modes, data is merged and NULLs from the source are ignored.
+        -- Historical data from preceding time slices is inherited into gaps.
         v_source_data_payload_expr := format('jsonb_strip_nulls(%s)', v_source_data_cols_jsonb_build);
-        v_resolved_data_payload_expr := $$(CASE WHEN s.data_payload IS NOT NULL THEN (COALESCE(t.data_payload, '{}'::jsonb) || s.data_payload) ELSE t.data_payload END)$$;
+        v_resolver_ctes := $$,
+payload_groups AS (
+    SELECT *,
+        SUM(CASE WHEN t_data_payload IS NOT NULL THEN 1 ELSE 0 END) OVER (PARTITION BY entity_id ORDER BY valid_after) as payload_group
+    FROM resolved_atomic_segments_with_payloads
+),
+resolved_atomic_segments_with_inherited_payload AS (
+    SELECT *,
+        FIRST_VALUE(t_data_payload) OVER (PARTITION BY entity_id, payload_group ORDER BY valid_after) as inherited_t_data_payload
+    FROM payload_groups
+)
+$$;
+        v_final_data_payload_expr := $$(CASE
+            WHEN s_data_payload IS NOT NULL THEN (COALESCE(t_data_payload, inherited_t_data_payload, '{}'::jsonb) || s_data_payload)
+            ELSE COALESCE(t_data_payload, inherited_t_data_payload)
+        END)$$;
+        v_resolver_from := 'resolved_atomic_segments_with_inherited_payload';
+
     ELSE -- upsert_replace, replace_only
+        -- In 'replace' modes, the source data payload overwrites the target. NULLs are meaningful.
         v_source_data_payload_expr := v_source_data_cols_jsonb_build;
-        v_resolved_data_payload_expr := $$COALESCE(s.data_payload, t.data_payload)$$;
+        v_resolver_ctes := '';
+        v_final_data_payload_expr := $$COALESCE(s_data_payload, t_data_payload)$$;
+        v_resolver_from := 'resolved_atomic_segments_with_payloads';
     END IF;
 
 
@@ -200,7 +224,7 @@ atomic_segments AS (
     SELECT entity_id, point as valid_after, LEAD(point) OVER (PARTITION BY entity_id ORDER BY point) as valid_to
     FROM time_points WHERE point IS NOT NULL
 ),
-resolved_atomic_segments AS (
+resolved_atomic_segments_with_payloads AS (
     SELECT
         seg.entity_id,
         seg.valid_after,
@@ -222,8 +246,8 @@ resolved_atomic_segments AS (
               )
             ORDER BY sr.source_row_id LIMIT 1
         ) as source_row_id,
-        %11$s as data_payload,
-        CASE WHEN s.data_payload IS NOT NULL THEN 1 ELSE 2 END as priority
+        s.data_payload as s_data_payload,
+        t.data_payload as t_data_payload
     FROM atomic_segments seg
     LEFT JOIN LATERAL (
         SELECT tr.data_payload, tr.valid_after as t_valid_after
@@ -239,6 +263,18 @@ resolved_atomic_segments AS (
     ) s ON true
     WHERE seg.valid_after < seg.valid_to
       AND (s.data_payload IS NOT NULL OR t.data_payload IS NOT NULL) -- Filter out gaps
+)
+%12$s,
+resolved_atomic_segments AS (
+    SELECT
+        entity_id,
+        valid_after,
+        valid_to,
+        t_valid_after,
+        source_row_id,
+        %11$s as data_payload,
+        CASE WHEN s_data_payload IS NOT NULL THEN 1 ELSE 2 END as priority
+    FROM %13$s
 ),
 coalesced_timeline_segments AS (
     SELECT
@@ -381,7 +417,9 @@ $SQL$,
         p_ephemeral_columns,            -- 8
         v_target_data_cols_jsonb_build, -- 9
         p_mode,                         -- 10
-        v_resolved_data_payload_expr    -- 11
+        v_final_data_payload_expr,      -- 11
+        v_resolver_ctes,                -- 12
+        v_resolver_from                 -- 13
     );
 
     RETURN QUERY EXECUTE v_sql;
@@ -416,7 +454,25 @@ DECLARE
     v_all_cols_ident TEXT;
     v_all_cols_select TEXT;
     v_entity_key_join_clause TEXT;
+    v_all_source_row_ids INTEGER[];
 BEGIN
+    -- If p_source_row_ids is NULL, it means "all rows from source". We must fetch them
+    -- to provide correct feedback for MISSING_TARGET or ERROR states.
+    IF p_source_row_ids IS NULL THEN
+        DECLARE
+            v_source_table_regclass REGCLASS;
+        BEGIN
+            IF p_source_schema_name = 'pg_temp' THEN
+                v_source_table_regclass := to_regclass(p_source_table_name);
+            ELSE
+                v_source_table_regclass := to_regclass(format('%I.%I', p_source_schema_name, p_source_table_name));
+            END IF;
+            EXECUTE format('SELECT array_agg(row_id) FROM %s', v_source_table_regclass) INTO v_all_source_row_ids;
+        END;
+    ELSE
+        v_all_source_row_ids := p_source_row_ids;
+    END IF;
+
     -- Dynamically construct join clause for composite entity key.
     SELECT
         string_agg(format('t.%I = jpr_entity.%I', col, col), ' AND ')
@@ -510,10 +566,7 @@ BEGIN
         DROP TABLE IF EXISTS temp_plan;
         RETURN QUERY
             SELECT r.row_id, '[]'::JSONB, 'ERROR'::import.set_result_status, SQLERRM
-            FROM unnest(COALESCE(p_source_row_ids, ARRAY[]::INTEGER[])) AS r(row_id)
-            UNION ALL
-            SELECT NULL::INT, '[]'::JSONB, 'ERROR'::import.set_result_status, SQLERRM
-            WHERE p_source_row_ids IS NULL;
+            FROM unnest(COALESCE(v_all_source_row_ids, ARRAY[]::INTEGER[])) AS r(row_id);
         RETURN;
     END;
 
@@ -531,7 +584,7 @@ BEGIN
             '[]'::jsonb,
             'MISSING_TARGET'::import.set_result_status,
             NULL::TEXT
-        FROM unnest(COALESCE(p_source_row_ids, ARRAY[]::INTEGER[])) AS r(row_id)
+        FROM unnest(COALESCE(v_all_source_row_ids, ARRAY[]::INTEGER[])) AS r(row_id)
         WHERE NOT EXISTS (SELECT 1 FROM temp_plan p, unnest(p.source_row_ids) s(id) WHERE s.id = r.row_id);
 END;
 $temporal_merge$;

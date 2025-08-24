@@ -1,0 +1,676 @@
+BEGIN;
+\i test/setup.sql
+-- While the datestyle is set for the database, the pg_regress tool sets the MDY format
+-- to ensure consistent date formatting, so we must manually override this
+SET datestyle TO 'ISO, DMY';
+\if :{?DEBUG}
+SET client_min_messages TO debug1;
+\else
+SET client_min_messages TO NOTICE;
+\endif
+-- Create temporary function to execute queries as system user
+CREATE OR REPLACE FUNCTION test.sudo_exec(
+    sql text,
+    OUT results jsonb
+) RETURNS jsonb
+SECURITY DEFINER LANGUAGE plpgsql AS $sudo_exec$
+DECLARE
+    result_rows jsonb;
+BEGIN
+    -- Check if the SQL starts with common DDL keywords
+    IF sql ~* '^\s*(CREATE|DROP|ALTER|TRUNCATE|GRANT|REVOKE|ANALYZE)' THEN
+        -- For DDL statements, execute directly
+        EXECUTE sql;
+        results := '[]'::jsonb;
+    ELSE
+        -- For DML/queries, wrap in a SELECT to capture results
+        EXECUTE format('
+            SELECT COALESCE(
+                jsonb_agg(row_to_json(t)),
+                ''[]''::jsonb
+            )
+            FROM (%s) t',
+            sql
+        ) INTO result_rows;
+        results := result_rows;
+    END IF;
+END;
+$sudo_exec$;
+-- Grant execute to public since this is for testing
+GRANT EXECUTE ON FUNCTION test.sudo_exec(text) TO PUBLIC;
+\echo Add users for testing purposes
+Add users for testing purposes
+SELECT * FROM public.user_create('test.admin@statbus.org', 'admin_user'::statbus_role, 'Admin#123!');
+         email          |  password  
+------------------------+------------
+ test.admin@statbus.org | Admin#123!
+(1 row)
+
+SELECT * FROM public.user_create('test.regular@statbus.org', 'regular_user'::statbus_role, 'Regular#123!');
+          email           |   password   
+--------------------------+--------------
+ test.regular@statbus.org | Regular#123!
+(1 row)
+
+SELECT * FROM public.user_create('test.restricted@statbus.org', 'restricted_user'::statbus_role, 'Restricted#123!');
+            email            |    password     
+-----------------------------+-----------------
+ test.restricted@statbus.org | Restricted#123!
+(1 row)
+
+\echo '----------------------------------------------------------------------------'
+----------------------------------------------------------------------------
+\echo 'Test: Unified Temporal Merge with Composite & Surrogate Keys'
+Test: Unified Temporal Merge with Composite & Surrogate Keys
+\echo 'This test consolidates the tests for composite and surrogate keys into'
+This test consolidates the tests for composite and surrogate keys into
+\echo 'a single, unified suite using the new temporal_merge function.'
+a single, unified suite using the new temporal_merge function.
+\echo '----------------------------------------------------------------------------'
+----------------------------------------------------------------------------
+--------------------------------------------------------------------------------
+-- Test Scenarios Table of Contents
+--------------------------------------------------------------------------------
+--
+-- Composite-Key Entity: stat_for_unit
+--   - Scenario 1: `upsert_replace` with a composite key (`during` split)
+--   - Scenario 2: `upsert_patch` with a composite key (`during` split)
+--   - Scenario 3: `upsert_replace` with mismatched source/target columns
+--
+-- Surrogate-Key Entities:
+--   - Scenario 4: `upsert_replace` with SERIAL surrogate key on target
+--   - Scenario 5: `upsert_replace` with IDENTITY surrogate key on target
+--   - Scenario 6: `upsert_patch` with SERIAL surrogate key on target
+--   - Scenario 7: `upsert_patch` with IDENTITY surrogate key on target
+--   - Scenario 8: `upsert_replace` with non-PK surrogate key
+--
+--------------------------------------------------------------------------------
+SET client_min_messages TO NOTICE;
+-- Setup: Create necessary schema and tables for this test
+CREATE SCHEMA IF NOT EXISTS set_test_merge_composite;
+-- Parent tables
+CREATE TABLE set_test_merge_composite.stat_definition (id INT PRIMARY KEY, name TEXT);
+CREATE TABLE set_test_merge_composite.establishment (
+    id INT NOT NULL, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, PRIMARY KEY (id, valid_after)
+);
+SELECT sql_saga.add_era('set_test_merge_composite.establishment', 'valid_after', 'valid_to');
+ add_era 
+---------
+ t
+(1 row)
+
+SELECT sql_saga.add_unique_key('set_test_merge_composite.establishment', ARRAY['id'], 'valid', 'establishment_id_uk');
+   add_unique_key    
+---------------------
+ establishment_id_uk
+(1 row)
+
+-- Target table: stat_for_unit (composite key)
+CREATE TABLE set_test_merge_composite.stat_for_unit (
+    stat_definition_id INT NOT NULL,
+    establishment_id INT,
+    valid_after DATE NOT NULL,
+    valid_to DATE NOT NULL,
+    value BIGINT,
+    edit_comment TEXT
+);
+SELECT sql_saga.add_era('set_test_merge_composite.stat_for_unit', 'valid_after', 'valid_to');
+ add_era 
+---------
+ t
+(1 row)
+
+SELECT sql_saga.add_unique_key('set_test_merge_composite.stat_for_unit', ARRAY['stat_definition_id', 'establishment_id'], 'valid', 'stat_for_unit_est_uk');
+    add_unique_key    
+----------------------
+ stat_for_unit_est_uk
+(1 row)
+
+-- Target table with SERIAL surrogate ID
+CREATE TABLE set_test_merge_composite.stat_for_unit_with_id (
+    id SERIAL PRIMARY KEY,
+    stat_definition_id INT NOT NULL,
+    establishment_id INT,
+    valid_after DATE NOT NULL,
+    valid_to DATE NOT NULL,
+    value BIGINT,
+    edit_comment TEXT
+);
+SELECT sql_saga.add_era('set_test_merge_composite.stat_for_unit_with_id', 'valid_after', 'valid_to');
+ add_era 
+---------
+ t
+(1 row)
+
+SELECT sql_saga.add_unique_key('set_test_merge_composite.stat_for_unit_with_id', ARRAY['stat_definition_id', 'establishment_id'], 'valid', 'stat_for_unit_with_id_uk');
+      add_unique_key      
+--------------------------
+ stat_for_unit_with_id_uk
+(1 row)
+
+-- Target table with IDENTITY surrogate ID
+CREATE TABLE set_test_merge_composite.stat_for_unit_with_identity (
+    id INT PRIMARY KEY GENERATED BY DEFAULT AS IDENTITY,
+    stat_definition_id INT NOT NULL,
+    establishment_id INT,
+    valid_after DATE NOT NULL,
+    valid_to DATE NOT NULL,
+    value BIGINT,
+    edit_comment TEXT
+);
+SELECT sql_saga.add_era('set_test_merge_composite.stat_for_unit_with_identity', 'valid_after', 'valid_to');
+ add_era 
+---------
+ t
+(1 row)
+
+SELECT sql_saga.add_unique_key('set_test_merge_composite.stat_for_unit_with_identity', ARRAY['stat_definition_id', 'establishment_id'], 'valid', 'stat_for_unit_with_identity_uk');
+         add_unique_key         
+--------------------------------
+ stat_for_unit_with_identity_uk
+(1 row)
+
+-- Target table with non-PK surrogate key
+CREATE SEQUENCE set_test_merge_composite.stat_for_unit_no_pk_id_seq;
+NOTICE:  Granted USAGE on new sequence set_test_merge_composite.stat_for_unit_no_pk_id_seq to authenticated
+CREATE TABLE set_test_merge_composite.stat_for_unit_no_pk (
+    id INT NOT NULL DEFAULT nextval('set_test_merge_composite.stat_for_unit_no_pk_id_seq'),
+    stat_definition_id INT NOT NULL,
+    establishment_id INT,
+    valid_after DATE NOT NULL,
+    valid_to DATE NOT NULL,
+    value BIGINT,
+    edit_comment TEXT,
+    UNIQUE (id, valid_after)
+);
+SELECT sql_saga.add_era('set_test_merge_composite.stat_for_unit_no_pk', 'valid_after', 'valid_to');
+ add_era 
+---------
+ t
+(1 row)
+
+SELECT sql_saga.add_unique_key('set_test_merge_composite.stat_for_unit_no_pk', ARRAY['stat_definition_id', 'establishment_id'], 'valid', 'stat_for_unit_no_pk_uk');
+     add_unique_key     
+------------------------
+ stat_for_unit_no_pk_uk
+(1 row)
+
+-- Helper procedure to reset the target table for a new scenario
+CREATE OR REPLACE PROCEDURE set_test_merge_composite.reset_target() AS $$
+BEGIN
+    TRUNCATE set_test_merge_composite.stat_definition, set_test_merge_composite.establishment, set_test_merge_composite.stat_for_unit, set_test_merge_composite.stat_for_unit_with_id, set_test_merge_composite.stat_for_unit_with_identity, set_test_merge_composite.stat_for_unit_no_pk RESTART IDENTITY CASCADE;
+    -- Add parent data
+    INSERT INTO set_test_merge_composite.stat_definition (id, name) VALUES (10, 'Total Employees');
+    INSERT INTO set_test_merge_composite.establishment (id, valid_after, valid_to, name) VALUES (100, '1900-01-01', 'infinity', 'EST 100');
+END;
+$$ LANGUAGE plpgsql;
+\set source_schema 'pg_temp'
+\set ephemeral_cols '{edit_comment}'
+--------------------------------------------------------------------------------
+\echo 'Scenario 1: `upsert_replace` with a composite key (`during` split)'
+Scenario 1: `upsert_replace` with a composite key (`during` split)
+--------------------------------------------------------------------------------
+CALL set_test_merge_composite.reset_target();
+INSERT INTO set_test_merge_composite.stat_for_unit (stat_definition_id, establishment_id, valid_after, valid_to, value, edit_comment) VALUES
+(10, 100, '2024-01-01', '2024-12-31', 50, 'Original Value');
+CREATE TEMP TABLE temp_source_1 (
+    row_id INT, stat_definition_id INT, establishment_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, value BIGINT, edit_comment TEXT
+) ON COMMIT DROP;
+INSERT INTO temp_source_1 VALUES (1, 10, 100, '2024-04-01', '2024-08-31', 55, 'Corrected value for mid-year');
+-- Note: Planner test omitted for brevity in composite key scenarios, focus is on orchestrator.
+\echo '--- Orchestrator: Expected Feedback ---'
+--- Orchestrator: Expected Feedback ---
+SELECT * FROM (VALUES (1, '[{"establishment_id": 100, "stat_definition_id": 10}]'::JSONB, 'SUCCESS'::import.set_result_status, NULL::TEXT)) AS t (source_row_id, target_entity_ids, status, error_message);
+ source_row_id |                   target_entity_ids                   | status  | error_message 
+---------------+-------------------------------------------------------+---------+---------------
+             1 | [{"establishment_id": 100, "stat_definition_id": 10}] | SUCCESS | 
+(1 row)
+
+\echo '--- Orchestrator: Actual Feedback ---'
+--- Orchestrator: Actual Feedback ---
+SELECT source_row_id, target_entity_ids, status, error_message FROM import.temporal_merge(
+    p_target_schema_name       => 'set_test_merge_composite',
+    p_target_table_name        => 'stat_for_unit',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_1',
+    p_entity_id_column_names   => '{stat_definition_id, establishment_id}'::TEXT[],
+    p_mode                     => 'upsert_replace',
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
+    p_insert_defaulted_columns => '{}'::TEXT[]
+);
+ source_row_id |                   target_entity_ids                   | status  | error_message 
+---------------+-------------------------------------------------------+---------+---------------
+             1 | [{"establishment_id": 100, "stat_definition_id": 10}] | SUCCESS | 
+(1 row)
+
+\echo '--- Orchestrator: Expected Final State ---'
+--- Orchestrator: Expected Final State ---
+SELECT * FROM (VALUES
+    (10, 100, '2024-01-01'::DATE, '2024-04-01'::DATE, 50::BIGINT, 'Original Value'::TEXT),
+    (10, 100, '2024-04-01'::DATE, '2024-08-31'::DATE, 55::BIGINT, 'Corrected value for mid-year'::TEXT),
+    (10, 100, '2024-08-31'::DATE, '2024-12-31'::DATE, 50::BIGINT, 'Original Value'::TEXT)
+) AS t (stat_definition_id, establishment_id, valid_after, valid_to, value, edit_comment);
+ stat_definition_id | establishment_id | valid_after |  valid_to  | value |         edit_comment         
+--------------------+------------------+-------------+------------+-------+------------------------------
+                 10 |              100 | 2024-01-01  | 2024-04-01 |    50 | Original Value
+                 10 |              100 | 2024-04-01  | 2024-08-31 |    55 | Corrected value for mid-year
+                 10 |              100 | 2024-08-31  | 2024-12-31 |    50 | Original Value
+(3 rows)
+
+\echo '--- Orchestrator: Actual Final State ---'
+--- Orchestrator: Actual Final State ---
+SELECT stat_definition_id, establishment_id, valid_after, valid_to, value, edit_comment FROM set_test_merge_composite.stat_for_unit WHERE stat_definition_id = 10 AND establishment_id = 100 ORDER BY valid_after;
+ stat_definition_id | establishment_id | valid_after |  valid_to  | value |         edit_comment         
+--------------------+------------------+-------------+------------+-------+------------------------------
+                 10 |              100 | 2024-01-01  | 2024-04-01 |    50 | Original Value
+                 10 |              100 | 2024-04-01  | 2024-08-31 |    55 | Corrected value for mid-year
+                 10 |              100 | 2024-08-31  | 2024-12-31 |    50 | Original Value
+(3 rows)
+
+DROP TABLE temp_source_1;
+--------------------------------------------------------------------------------
+\echo 'Scenario 2: `upsert_patch` with a composite key (`during` split)'
+Scenario 2: `upsert_patch` with a composite key (`during` split)
+--------------------------------------------------------------------------------
+CALL set_test_merge_composite.reset_target();
+INSERT INTO set_test_merge_composite.stat_for_unit (stat_definition_id, establishment_id, valid_after, valid_to, value, edit_comment) VALUES
+(10, 100, '2024-01-01', '2024-12-31', 50, 'Original Value');
+CREATE TEMP TABLE temp_source_2 (
+    row_id INT, stat_definition_id INT, establishment_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, value BIGINT, edit_comment TEXT
+) ON COMMIT DROP;
+-- Source has a NULL value for 'edit_comment'. In patch mode, this should NOT overwrite the existing value.
+INSERT INTO temp_source_2 VALUES (1, 10, 100, '2024-04-01', '2024-08-31', 55, NULL);
+\echo '--- Orchestrator: Expected Feedback ---'
+--- Orchestrator: Expected Feedback ---
+SELECT * FROM (VALUES (1, '[{"establishment_id": 100, "stat_definition_id": 10}]'::JSONB, 'SUCCESS'::import.set_result_status, NULL::TEXT)) AS t (source_row_id, target_entity_ids, status, error_message);
+ source_row_id |                   target_entity_ids                   | status  | error_message 
+---------------+-------------------------------------------------------+---------+---------------
+             1 | [{"establishment_id": 100, "stat_definition_id": 10}] | SUCCESS | 
+(1 row)
+
+\echo '--- Orchestrator: Actual Feedback ---'
+--- Orchestrator: Actual Feedback ---
+SELECT source_row_id, target_entity_ids, status, error_message FROM import.temporal_merge(
+    p_target_schema_name       => 'set_test_merge_composite',
+    p_target_table_name        => 'stat_for_unit',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_2',
+    p_entity_id_column_names   => '{stat_definition_id, establishment_id}'::TEXT[],
+    p_mode                     => 'upsert_patch',
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
+    p_insert_defaulted_columns => '{}'::TEXT[]
+);
+ source_row_id |                   target_entity_ids                   | status  | error_message 
+---------------+-------------------------------------------------------+---------+---------------
+             1 | [{"establishment_id": 100, "stat_definition_id": 10}] | SUCCESS | 
+(1 row)
+
+\echo '--- Orchestrator: Expected Final State ---'
+--- Orchestrator: Expected Final State ---
+SELECT * FROM (VALUES
+    (10, 100, '2024-01-01'::DATE, '2024-04-01'::DATE, 50::BIGINT, 'Original Value'::TEXT),
+    (10, 100, '2024-04-01'::DATE, '2024-08-31'::DATE, 55::BIGINT, 'Original Value'::TEXT),
+    (10, 100, '2024-08-31'::DATE, '2024-12-31'::DATE, 50::BIGINT, 'Original Value'::TEXT)
+) AS t (stat_definition_id, establishment_id, valid_after, valid_to, value, edit_comment);
+ stat_definition_id | establishment_id | valid_after |  valid_to  | value |  edit_comment  
+--------------------+------------------+-------------+------------+-------+----------------
+                 10 |              100 | 2024-01-01  | 2024-04-01 |    50 | Original Value
+                 10 |              100 | 2024-04-01  | 2024-08-31 |    55 | Original Value
+                 10 |              100 | 2024-08-31  | 2024-12-31 |    50 | Original Value
+(3 rows)
+
+\echo '--- Orchestrator: Actual Final State ---'
+--- Orchestrator: Actual Final State ---
+SELECT stat_definition_id, establishment_id, valid_after, valid_to, value, edit_comment FROM set_test_merge_composite.stat_for_unit WHERE stat_definition_id = 10 AND establishment_id = 100 ORDER BY valid_after;
+ stat_definition_id | establishment_id | valid_after |  valid_to  | value |  edit_comment  
+--------------------+------------------+-------------+------------+-------+----------------
+                 10 |              100 | 2024-01-01  | 2024-04-01 |    50 | Original Value
+                 10 |              100 | 2024-04-01  | 2024-08-31 |    55 | Original Value
+                 10 |              100 | 2024-08-31  | 2024-12-31 |    50 | Original Value
+(3 rows)
+
+DROP TABLE temp_source_2;
+--------------------------------------------------------------------------------
+\echo 'Scenario 3: `upsert_replace` with mismatched source/target columns'
+Scenario 3: `upsert_replace` with mismatched source/target columns
+--------------------------------------------------------------------------------
+CALL set_test_merge_composite.reset_target();
+INSERT INTO set_test_merge_composite.stat_for_unit (stat_definition_id, establishment_id, valid_after, valid_to, value, edit_comment) VALUES
+(10, 100, '2024-01-01', '2024-12-31', 50, 'Original Value');
+-- Source table has an extra column `source_metadata` that is not in the target.
+CREATE TEMP TABLE temp_source_3 (
+    row_id INT, stat_definition_id INT, establishment_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, value BIGINT, edit_comment TEXT, source_metadata TEXT
+) ON COMMIT DROP;
+INSERT INTO temp_source_3 VALUES (1, 10, 100, '2024-04-01', '2024-08-31', 55, 'Corrected value for mid-year', 'some extra data');
+\echo '--- Orchestrator: Expected Feedback ---'
+--- Orchestrator: Expected Feedback ---
+SELECT * FROM (VALUES (1, '[{"establishment_id": 100, "stat_definition_id": 10}]'::JSONB, 'SUCCESS'::import.set_result_status, NULL::TEXT)) AS t (source_row_id, target_entity_ids, status, error_message);
+ source_row_id |                   target_entity_ids                   | status  | error_message 
+---------------+-------------------------------------------------------+---------+---------------
+             1 | [{"establishment_id": 100, "stat_definition_id": 10}] | SUCCESS | 
+(1 row)
+
+\echo '--- Orchestrator: Actual Feedback ---'
+--- Orchestrator: Actual Feedback ---
+SELECT source_row_id, target_entity_ids, status, error_message FROM import.temporal_merge(
+    p_target_schema_name       => 'set_test_merge_composite',
+    p_target_table_name        => 'stat_for_unit',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_3',
+    p_entity_id_column_names   => '{stat_definition_id, establishment_id}'::TEXT[],
+    p_mode                     => 'upsert_replace',
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
+    p_insert_defaulted_columns => '{}'::TEXT[]
+);
+ source_row_id |                   target_entity_ids                   | status  | error_message 
+---------------+-------------------------------------------------------+---------+---------------
+             1 | [{"establishment_id": 100, "stat_definition_id": 10}] | SUCCESS | 
+(1 row)
+
+\echo '--- Orchestrator: Expected Final State ---'
+--- Orchestrator: Expected Final State ---
+SELECT * FROM (VALUES
+    (10, 100, '2024-01-01'::DATE, '2024-04-01'::DATE, 50::BIGINT, 'Original Value'::TEXT),
+    (10, 100, '2024-04-01'::DATE, '2024-08-31'::DATE, 55::BIGINT, 'Corrected value for mid-year'::TEXT),
+    (10, 100, '2024-08-31'::DATE, '2024-12-31'::DATE, 50::BIGINT, 'Original Value'::TEXT)
+) AS t (stat_definition_id, establishment_id, valid_after, valid_to, value, edit_comment);
+ stat_definition_id | establishment_id | valid_after |  valid_to  | value |         edit_comment         
+--------------------+------------------+-------------+------------+-------+------------------------------
+                 10 |              100 | 2024-01-01  | 2024-04-01 |    50 | Original Value
+                 10 |              100 | 2024-04-01  | 2024-08-31 |    55 | Corrected value for mid-year
+                 10 |              100 | 2024-08-31  | 2024-12-31 |    50 | Original Value
+(3 rows)
+
+\echo '--- Orchestrator: Actual Final State ---'
+--- Orchestrator: Actual Final State ---
+SELECT stat_definition_id, establishment_id, valid_after, valid_to, value, edit_comment FROM set_test_merge_composite.stat_for_unit WHERE stat_definition_id = 10 AND establishment_id = 100 ORDER BY valid_after;
+ stat_definition_id | establishment_id | valid_after |  valid_to  | value |         edit_comment         
+--------------------+------------------+-------------+------------+-------+------------------------------
+                 10 |              100 | 2024-01-01  | 2024-04-01 |    50 | Original Value
+                 10 |              100 | 2024-04-01  | 2024-08-31 |    55 | Corrected value for mid-year
+                 10 |              100 | 2024-08-31  | 2024-12-31 |    50 | Original Value
+(3 rows)
+
+DROP TABLE temp_source_3;
+--------------------------------------------------------------------------------
+\echo 'Scenario 4: `upsert_replace` with SERIAL surrogate key on target'
+Scenario 4: `upsert_replace` with SERIAL surrogate key on target
+--------------------------------------------------------------------------------
+CALL set_test_merge_composite.reset_target();
+CREATE TEMP TABLE temp_source_4 (
+    row_id INT, stat_definition_id INT, establishment_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, value BIGINT, edit_comment TEXT
+) ON COMMIT DROP;
+INSERT INTO temp_source_4 VALUES (1, 10, 100, '2024-01-01', '2024-12-31', 100, 'Initial Value');
+\echo '--- Orchestrator: Expected Feedback ---'
+--- Orchestrator: Expected Feedback ---
+SELECT * FROM (VALUES (1, '[{"establishment_id": 100, "stat_definition_id": 10}]'::JSONB, 'SUCCESS'::import.set_result_status, NULL::TEXT)) AS t (source_row_id, target_entity_ids, status, error_message);
+ source_row_id |                   target_entity_ids                   | status  | error_message 
+---------------+-------------------------------------------------------+---------+---------------
+             1 | [{"establishment_id": 100, "stat_definition_id": 10}] | SUCCESS | 
+(1 row)
+
+\echo '--- Orchestrator: Actual Feedback ---'
+--- Orchestrator: Actual Feedback ---
+SELECT source_row_id, target_entity_ids, status, error_message FROM import.temporal_merge(
+    p_target_schema_name       => 'set_test_merge_composite',
+    p_target_table_name        => 'stat_for_unit_with_id',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_4',
+    p_entity_id_column_names   => '{stat_definition_id, establishment_id}'::TEXT[],
+    p_mode                     => 'upsert_replace',
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
+    p_insert_defaulted_columns => ARRAY['id']
+);
+ source_row_id |                   target_entity_ids                   | status  | error_message 
+---------------+-------------------------------------------------------+---------+---------------
+             1 | [{"establishment_id": 100, "stat_definition_id": 10}] | SUCCESS | 
+(1 row)
+
+\echo '--- Orchestrator: Expected Final State ---'
+--- Orchestrator: Expected Final State ---
+SELECT * FROM (VALUES
+    (1, 10, 100, '2024-01-01'::DATE, '2024-12-31'::DATE, 100::BIGINT, 'Initial Value'::TEXT)
+) AS t (id, stat_definition_id, establishment_id, valid_after, valid_to, value, edit_comment);
+ id | stat_definition_id | establishment_id | valid_after |  valid_to  | value | edit_comment  
+----+--------------------+------------------+-------------+------------+-------+---------------
+  1 |                 10 |              100 | 2024-01-01  | 2024-12-31 |   100 | Initial Value
+(1 row)
+
+\echo '--- Orchestrator: Actual Final State ---'
+--- Orchestrator: Actual Final State ---
+SELECT id, stat_definition_id, establishment_id, valid_after, valid_to, value, edit_comment FROM set_test_merge_composite.stat_for_unit_with_id WHERE stat_definition_id = 10 AND establishment_id = 100 ORDER BY valid_after;
+ id | stat_definition_id | establishment_id | valid_after |  valid_to  | value | edit_comment  
+----+--------------------+------------------+-------------+------------+-------+---------------
+  1 |                 10 |              100 | 2024-01-01  | 2024-12-31 |   100 | Initial Value
+(1 row)
+
+DROP TABLE temp_source_4;
+--------------------------------------------------------------------------------
+\echo 'Scenario 5: `upsert_replace` with IDENTITY surrogate key on target'
+Scenario 5: `upsert_replace` with IDENTITY surrogate key on target
+--------------------------------------------------------------------------------
+CALL set_test_merge_composite.reset_target();
+CREATE TEMP TABLE temp_source_5 (
+    row_id INT, stat_definition_id INT, establishment_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, value BIGINT, edit_comment TEXT
+) ON COMMIT DROP;
+INSERT INTO temp_source_5 VALUES (1, 10, 100, '2024-01-01', '2024-12-31', 100, 'Initial Value');
+\echo '--- Orchestrator: Expected Feedback ---'
+--- Orchestrator: Expected Feedback ---
+SELECT * FROM (VALUES (1, '[{"establishment_id": 100, "stat_definition_id": 10}]'::JSONB, 'SUCCESS'::import.set_result_status, NULL::TEXT)) AS t (source_row_id, target_entity_ids, status, error_message);
+ source_row_id |                   target_entity_ids                   | status  | error_message 
+---------------+-------------------------------------------------------+---------+---------------
+             1 | [{"establishment_id": 100, "stat_definition_id": 10}] | SUCCESS | 
+(1 row)
+
+\echo '--- Orchestrator: Actual Feedback ---'
+--- Orchestrator: Actual Feedback ---
+SELECT source_row_id, target_entity_ids, status, error_message FROM import.temporal_merge(
+    p_target_schema_name       => 'set_test_merge_composite',
+    p_target_table_name        => 'stat_for_unit_with_identity',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_5',
+    p_entity_id_column_names   => '{stat_definition_id, establishment_id}'::TEXT[],
+    p_mode                     => 'upsert_replace',
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
+    p_insert_defaulted_columns => ARRAY['id']
+);
+ source_row_id |                   target_entity_ids                   | status  | error_message 
+---------------+-------------------------------------------------------+---------+---------------
+             1 | [{"establishment_id": 100, "stat_definition_id": 10}] | SUCCESS | 
+(1 row)
+
+\echo '--- Orchestrator: Expected Final State ---'
+--- Orchestrator: Expected Final State ---
+SELECT * FROM (VALUES
+    (1, 10, 100, '2024-01-01'::DATE, '2024-12-31'::DATE, 100::BIGINT, 'Initial Value'::TEXT)
+) AS t (id, stat_definition_id, establishment_id, valid_after, valid_to, value, edit_comment);
+ id | stat_definition_id | establishment_id | valid_after |  valid_to  | value | edit_comment  
+----+--------------------+------------------+-------------+------------+-------+---------------
+  1 |                 10 |              100 | 2024-01-01  | 2024-12-31 |   100 | Initial Value
+(1 row)
+
+\echo '--- Orchestrator: Actual Final State ---'
+--- Orchestrator: Actual Final State ---
+SELECT id, stat_definition_id, establishment_id, valid_after, valid_to, value, edit_comment FROM set_test_merge_composite.stat_for_unit_with_identity WHERE stat_definition_id = 10 AND establishment_id = 100 ORDER BY valid_after;
+ id | stat_definition_id | establishment_id | valid_after |  valid_to  | value | edit_comment  
+----+--------------------+------------------+-------------+------------+-------+---------------
+  1 |                 10 |              100 | 2024-01-01  | 2024-12-31 |   100 | Initial Value
+(1 row)
+
+DROP TABLE temp_source_5;
+--------------------------------------------------------------------------------
+\echo 'Scenario 6: `upsert_patch` with SERIAL surrogate key on target'
+Scenario 6: `upsert_patch` with SERIAL surrogate key on target
+--------------------------------------------------------------------------------
+CALL set_test_merge_composite.reset_target();
+CREATE TEMP TABLE temp_source_6 (
+    row_id INT, stat_definition_id INT, establishment_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, value BIGINT, edit_comment TEXT
+) ON COMMIT DROP;
+INSERT INTO temp_source_6 VALUES (104, 10, 100, '2023-12-31', '2024-12-31', 100, 'Initial stat');
+\echo '--- Orchestrator: Expected Feedback ---'
+--- Orchestrator: Expected Feedback ---
+SELECT * FROM (VALUES (104, '[{"establishment_id": 100, "stat_definition_id": 10}]'::JSONB, 'SUCCESS'::import.set_result_status, NULL::TEXT)) AS t (source_row_id, target_entity_ids, status, error_message);
+ source_row_id |                   target_entity_ids                   | status  | error_message 
+---------------+-------------------------------------------------------+---------+---------------
+           104 | [{"establishment_id": 100, "stat_definition_id": 10}] | SUCCESS | 
+(1 row)
+
+\echo '--- Orchestrator: Actual Feedback ---'
+--- Orchestrator: Actual Feedback ---
+SELECT source_row_id, target_entity_ids, status, error_message FROM import.temporal_merge(
+    p_target_schema_name       => 'set_test_merge_composite',
+    p_target_table_name        => 'stat_for_unit_with_id',
+    p_source_schema_name       => 'pg_temp',
+    p_source_table_name        => 'temp_source_6',
+    p_entity_id_column_names   => '{stat_definition_id, establishment_id}'::TEXT[],
+    p_mode                     => 'upsert_patch',
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => '{edit_comment}'::TEXT[],
+    p_insert_defaulted_columns => ARRAY['id']
+);
+ source_row_id |                   target_entity_ids                   | status  | error_message 
+---------------+-------------------------------------------------------+---------+---------------
+           104 | [{"establishment_id": 100, "stat_definition_id": 10}] | SUCCESS | 
+(1 row)
+
+\echo '--- Orchestrator: Expected Final State ---'
+--- Orchestrator: Expected Final State ---
+SELECT * FROM (VALUES
+    (1, 10, 100, '2023-12-31'::DATE, '2024-12-31'::DATE, 100::BIGINT, 'Initial stat'::TEXT)
+) AS t (id, stat_definition_id, establishment_id, valid_after, valid_to, value, edit_comment);
+ id | stat_definition_id | establishment_id | valid_after |  valid_to  | value | edit_comment 
+----+--------------------+------------------+-------------+------------+-------+--------------
+  1 |                 10 |              100 | 2023-12-31  | 2024-12-31 |   100 | Initial stat
+(1 row)
+
+\echo '--- Orchestrator: Actual Final State ---'
+--- Orchestrator: Actual Final State ---
+SELECT id, stat_definition_id, establishment_id, valid_after, valid_to, value, edit_comment FROM set_test_merge_composite.stat_for_unit_with_id WHERE establishment_id = 100 and stat_definition_id = 10 ORDER BY valid_after;
+ id | stat_definition_id | establishment_id | valid_after |  valid_to  | value | edit_comment 
+----+--------------------+------------------+-------------+------------+-------+--------------
+  1 |                 10 |              100 | 2023-12-31  | 2024-12-31 |   100 | Initial stat
+(1 row)
+
+DROP TABLE temp_source_6;
+--------------------------------------------------------------------------------
+\echo 'Scenario 7: `upsert_patch` with IDENTITY surrogate key on target'
+Scenario 7: `upsert_patch` with IDENTITY surrogate key on target
+--------------------------------------------------------------------------------
+CALL set_test_merge_composite.reset_target();
+CREATE TEMP TABLE temp_source_7 (
+    row_id INT, stat_definition_id INT, establishment_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, value BIGINT, edit_comment TEXT
+) ON COMMIT DROP;
+INSERT INTO temp_source_7 VALUES (105, 10, 100, '2023-12-31', '2024-12-31', 100, 'Initial stat');
+\echo '--- Orchestrator: Expected Feedback ---'
+--- Orchestrator: Expected Feedback ---
+SELECT * FROM (VALUES (105, '[{"establishment_id": 100, "stat_definition_id": 10}]'::JSONB, 'SUCCESS'::import.set_result_status, NULL::TEXT)) AS t (source_row_id, target_entity_ids, status, error_message);
+ source_row_id |                   target_entity_ids                   | status  | error_message 
+---------------+-------------------------------------------------------+---------+---------------
+           105 | [{"establishment_id": 100, "stat_definition_id": 10}] | SUCCESS | 
+(1 row)
+
+\echo '--- Orchestrator: Actual Feedback ---'
+--- Orchestrator: Actual Feedback ---
+SELECT source_row_id, target_entity_ids, status, error_message FROM import.temporal_merge(
+    p_target_schema_name       => 'set_test_merge_composite',
+    p_target_table_name        => 'stat_for_unit_with_identity',
+    p_source_schema_name       => 'pg_temp',
+    p_source_table_name        => 'temp_source_7',
+    p_entity_id_column_names   => '{stat_definition_id, establishment_id}'::TEXT[],
+    p_mode                     => 'upsert_patch',
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => '{edit_comment}'::TEXT[],
+    p_insert_defaulted_columns => ARRAY['id']
+);
+ source_row_id |                   target_entity_ids                   | status  | error_message 
+---------------+-------------------------------------------------------+---------+---------------
+           105 | [{"establishment_id": 100, "stat_definition_id": 10}] | SUCCESS | 
+(1 row)
+
+\echo '--- Orchestrator: Expected Final State ---'
+--- Orchestrator: Expected Final State ---
+SELECT * FROM (VALUES
+    (1, 10, 100, '2023-12-31'::DATE, '2024-12-31'::DATE, 100::BIGINT, 'Initial stat'::TEXT)
+) AS t (id, stat_definition_id, establishment_id, valid_after, valid_to, value, edit_comment);
+ id | stat_definition_id | establishment_id | valid_after |  valid_to  | value | edit_comment 
+----+--------------------+------------------+-------------+------------+-------+--------------
+  1 |                 10 |              100 | 2023-12-31  | 2024-12-31 |   100 | Initial stat
+(1 row)
+
+\echo '--- Orchestrator: Actual Final State ---'
+--- Orchestrator: Actual Final State ---
+SELECT id, stat_definition_id, establishment_id, valid_after, valid_to, value, edit_comment FROM set_test_merge_composite.stat_for_unit_with_identity WHERE establishment_id = 100 and stat_definition_id = 10 ORDER BY valid_after;
+ id | stat_definition_id | establishment_id | valid_after |  valid_to  | value | edit_comment 
+----+--------------------+------------------+-------------+------------+-------+--------------
+  1 |                 10 |              100 | 2023-12-31  | 2024-12-31 |   100 | Initial stat
+(1 row)
+
+DROP TABLE temp_source_7;
+--------------------------------------------------------------------------------
+\echo 'Scenario 8: `upsert_replace` with non-PK surrogate key'
+Scenario 8: `upsert_replace` with non-PK surrogate key
+--------------------------------------------------------------------------------
+CALL set_test_merge_composite.reset_target();
+CREATE TEMP TABLE temp_source_8 (
+    row_id INT, stat_definition_id INT, establishment_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, value BIGINT, edit_comment TEXT
+) ON COMMIT DROP;
+INSERT INTO temp_source_8 VALUES (1, 10, 100, '2024-01-01', '2024-12-31', 100, 'Initial Value');
+\echo '--- Orchestrator: Expected Feedback ---'
+--- Orchestrator: Expected Feedback ---
+SELECT * FROM (VALUES (1, '[{"establishment_id": 100, "stat_definition_id": 10}]'::JSONB, 'SUCCESS'::import.set_result_status, NULL::TEXT)) AS t (source_row_id, target_entity_ids, status, error_message);
+ source_row_id |                   target_entity_ids                   | status  | error_message 
+---------------+-------------------------------------------------------+---------+---------------
+             1 | [{"establishment_id": 100, "stat_definition_id": 10}] | SUCCESS | 
+(1 row)
+
+\echo '--- Orchestrator: Actual Feedback ---'
+--- Orchestrator: Actual Feedback ---
+SELECT source_row_id, target_entity_ids, status, error_message FROM import.temporal_merge(
+    p_target_schema_name       => 'set_test_merge_composite',
+    p_target_table_name        => 'stat_for_unit_no_pk',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_8',
+    p_entity_id_column_names   => '{stat_definition_id, establishment_id}'::TEXT[],
+    p_mode                     => 'upsert_replace',
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
+    p_insert_defaulted_columns => ARRAY['id']
+);
+ source_row_id |                   target_entity_ids                   | status  | error_message 
+---------------+-------------------------------------------------------+---------+---------------
+             1 | [{"establishment_id": 100, "stat_definition_id": 10}] | SUCCESS | 
+(1 row)
+
+\echo '--- Orchestrator: Expected Final State ---'
+--- Orchestrator: Expected Final State ---
+SELECT * FROM (VALUES
+    (1, 10, 100, '2024-01-01'::DATE, '2024-12-31'::DATE, 100::BIGINT, 'Initial Value'::TEXT)
+) AS t (id, stat_definition_id, establishment_id, valid_after, valid_to, value, edit_comment);
+ id | stat_definition_id | establishment_id | valid_after |  valid_to  | value | edit_comment  
+----+--------------------+------------------+-------------+------------+-------+---------------
+  1 |                 10 |              100 | 2024-01-01  | 2024-12-31 |   100 | Initial Value
+(1 row)
+
+\echo '--- Orchestrator: Actual Final State ---'
+--- Orchestrator: Actual Final State ---
+SELECT id, stat_definition_id, establishment_id, valid_after, valid_to, value, edit_comment FROM set_test_merge_composite.stat_for_unit_no_pk WHERE stat_definition_id = 10 AND establishment_id = 100 ORDER BY valid_after;
+ id | stat_definition_id | establishment_id | valid_after |  valid_to  | value | edit_comment  
+----+--------------------+------------------+-------------+------------+-------+---------------
+  1 |                 10 |              100 | 2024-01-01  | 2024-12-31 |   100 | Initial Value
+(1 row)
+
+DROP TABLE temp_source_8;
+-- Final Cleanup
+DROP PROCEDURE set_test_merge_composite.reset_target();
+DROP TABLE set_test_merge_composite.stat_for_unit, set_test_merge_composite.stat_for_unit_with_id, set_test_merge_composite.stat_for_unit_with_identity, set_test_merge_composite.stat_for_unit_no_pk;
+DROP TABLE set_test_merge_composite.establishment;
+DROP TABLE set_test_merge_composite.stat_definition;
+DROP SCHEMA set_test_merge_composite CASCADE;
+NOTICE:  drop cascades to sequence set_test_merge_composite.stat_for_unit_no_pk_id_seq
+SET client_min_messages TO NOTICE;
+ROLLBACK;
