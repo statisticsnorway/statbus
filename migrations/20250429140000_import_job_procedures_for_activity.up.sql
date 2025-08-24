@@ -240,7 +240,10 @@ BEGIN
     IF v_job_mode = 'legal_unit' THEN
         v_parent_id_check_sql := 'dt.legal_unit_id IS NULL';
         v_parent_unavailable_error_message := format('Parent Legal Unit ID was not available when attempting to process %s.', v_activity_type);
-    ELSIF v_job_mode IN ('establishment_formal', 'establishment_informal') THEN
+    ELSIF v_job_mode = 'establishment_formal' THEN
+        v_parent_id_check_sql := 'dt.establishment_id IS NULL OR dt.legal_unit_id IS NULL';
+        v_parent_unavailable_error_message := format('Parent Establishment ID or Legal Unit ID was not available when attempting to process %s.', v_activity_type);
+    ELSIF v_job_mode = 'establishment_informal' THEN
         v_parent_id_check_sql := 'dt.establishment_id IS NULL';
         v_parent_unavailable_error_message := format('Parent Establishment ID was not available when attempting to process %s.', v_activity_type);
     ELSE
@@ -399,18 +402,14 @@ BEGIN
             SET existing_act_id = ned.new_activity_id
             FROM new_entity_details ned
             WHERE tbd.founding_row_id = ned.founding_row_id
-              AND ( -- Match on the correct unit ID based on job mode
-                    (v_job_mode = 'legal_unit' AND tbd.legal_unit_id = ned.legal_unit_id AND tbd.establishment_id IS NULL AND ned.establishment_id IS NULL) OR
-                    (v_job_mode IN ('establishment_formal', 'establishment_informal') AND tbd.establishment_id = ned.establishment_id AND tbd.legal_unit_id IS NULL AND ned.legal_unit_id IS NULL)
-                  )
               AND tbd.existing_act_id IS NULL -- Only update if not already set
               AND tbd.action IN ('replace', 'update'); -- Apply to subsequent actions for the same new entity
             GET DIAGNOSTICS v_update_count = ROW_COUNT; -- Re-declare v_update_count or use a different local variable if needed for other counts
             RAISE DEBUG '[Job %] process_activity: Propagated new activity_ids to % rows in temp_batch_data (type: %).', p_job_id, v_update_count, v_activity_type;
         END IF;
 
-        -- Handle REPLACES for existing activities (action = 'replace')
-        RAISE DEBUG '[Job %] process_activity: Handling REPLACES for existing activities (type: %).', p_job_id, v_activity_type;
+        -- Handle REPLACES for existing activities (action = 'replace' or 'update')
+        RAISE DEBUG '[Job %] process_activity: Handling REPLACE/UPDATE actions for existing activities (type: %) using strategy ''%''.', p_job_id, v_activity_type, v_strategy;
         -- Create temp source table for batch upsert
         CREATE TEMP TABLE temp_act_upsert_source (
             row_id INTEGER PRIMARY KEY, -- Link back to original _data row
@@ -427,7 +426,7 @@ BEGIN
             edit_comment TEXT
         ) ON COMMIT DROP;
 
-        -- Populate temp source table (only for 'replace' actions)
+        -- Populate temp source table (for 'replace' and 'update' actions)
         INSERT INTO temp_act_upsert_source (
             row_id, id, valid_after, valid_to, legal_unit_id, establishment_id, type, category_id, -- Changed valid_from to valid_after
             data_source_id, edit_by_user_id, edit_at, edit_comment
@@ -446,40 +445,50 @@ BEGIN
             tbd.edit_at,
             tbd.edit_comment -- Use tbd.edit_comment
         FROM temp_batch_data tbd
-        WHERE tbd.action = 'replace'; 
+        WHERE tbd.action IN ('replace', 'update'); 
 
         GET DIAGNOSTICS v_updated_existing_act_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] process_activity: Populated temp_act_upsert_source with % rows for batch replace (type: %).', p_job_id, v_updated_existing_act_count, v_activity_type;
+        RAISE DEBUG '[Job %] process_activity: Populated temp_act_upsert_source with % rows for set-based upsert (type: %).', p_job_id, v_updated_existing_act_count, v_activity_type;
 
         IF v_updated_existing_act_count > 0 THEN
-            RAISE DEBUG '[Job %] process_activity: Calling batch_insert_or_replace_generic_valid_time_table for activity (type: %).', p_job_id, v_activity_type;
-            FOR v_batch_upsert_result IN
-                SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
-                    p_target_schema_name => 'public',
-                    p_target_table_name => 'activity',
-                    p_source_schema_name => 'pg_temp',
-                    p_source_table_name => 'temp_act_upsert_source',
-                    p_unique_columns => '[]'::jsonb, 
-                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
-                    p_id_column_name => 'id'
-                )
-            LOOP
-                IF v_batch_upsert_result.status = 'ERROR' THEN
-                    v_batch_upsert_error_row_ids := array_append(v_batch_upsert_error_row_ids, v_batch_upsert_result.source_row_id);
-                    EXECUTE format($$
-                        UPDATE public.%1$I SET
-                            state = %2$L,
-                            error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('batch_replace_activity_error', %3$L)
-                            -- last_completed_priority is preserved (not changed) on error
-                        WHERE row_id = %4$L;
-                    $$, v_data_table_name /* %1$I */, 'error'::public.import_data_state /* %2$L */, v_batch_upsert_result.error_message /* %3$L */, v_batch_upsert_result.source_row_id /* %4$L */);
-                ELSE
-                    v_batch_upsert_success_row_ids := array_append(v_batch_upsert_success_row_ids, v_batch_upsert_result.source_row_id);
-                END IF;
-            END LOOP;
+            IF v_strategy = 'insert_or_replace' THEN
+                RAISE DEBUG '[Job %] process_activity: Calling set_insert_or_replace_generic_valid_time_table for activity (type: %).', p_job_id, v_activity_type;
+                FOR v_batch_upsert_result IN
+                    SELECT * FROM import.set_insert_or_replace_generic_valid_time_table(
+                        p_target_schema_name => 'public', p_target_table_name => 'activity',
+                        p_source_schema_name => 'pg_temp', p_source_table_name => 'temp_act_upsert_source',
+                        p_entity_id_column_names => ARRAY['id'],
+                        p_source_row_ids => NULL, p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
+                    )
+                LOOP
+                    IF v_batch_upsert_result.status = 'ERROR' THEN
+                        v_batch_upsert_error_row_ids := array_append(v_batch_upsert_error_row_ids, v_batch_upsert_result.source_row_id);
+                        EXECUTE format($$ UPDATE public.%1$I SET state = 'error', error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('set_based_upsert_activity_error', %2$L) WHERE row_id = %3$L; $$, v_data_table_name, v_batch_upsert_result.error_message, v_batch_upsert_result.source_row_id);
+                    ELSE
+                        v_batch_upsert_success_row_ids := array_append(v_batch_upsert_success_row_ids, v_batch_upsert_result.source_row_id);
+                    END IF;
+                END LOOP;
+            ELSE -- Handles 'insert_or_update', 'insert_only', 'replace_only'
+                RAISE DEBUG '[Job %] process_activity: Calling set_insert_or_update_generic_valid_time_table for activity (type: %).', p_job_id, v_activity_type;
+                FOR v_batch_upsert_result IN
+                    SELECT * FROM import.set_insert_or_update_generic_valid_time_table(
+                        p_target_schema_name => 'public', p_target_table_name => 'activity',
+                        p_source_schema_name => 'pg_temp', p_source_table_name => 'temp_act_upsert_source',
+                        p_entity_id_column_names => ARRAY['id'],
+                        p_source_row_ids => NULL, p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
+                    )
+                LOOP
+                    IF v_batch_upsert_result.status = 'ERROR' THEN
+                        v_batch_upsert_error_row_ids := array_append(v_batch_upsert_error_row_ids, v_batch_upsert_result.source_row_id);
+                        EXECUTE format($$ UPDATE public.%1$I SET state = 'error', error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('set_based_upsert_activity_error', %2$L) WHERE row_id = %3$L; $$, v_data_table_name, v_batch_upsert_result.error_message, v_batch_upsert_result.source_row_id);
+                    ELSE
+                        v_batch_upsert_success_row_ids := array_append(v_batch_upsert_success_row_ids, v_batch_upsert_result.source_row_id);
+                    END IF;
+                END LOOP;
+            END IF;
 
             v_error_count := array_length(v_batch_upsert_error_row_ids, 1);
-            RAISE DEBUG '[Job %] process_activity: Batch replace finished for type %. Success: %, Errors: %', p_job_id, v_activity_type, array_length(v_batch_upsert_success_row_ids, 1), v_error_count;
+            RAISE DEBUG '[Job %] process_activity: Set-based upsert finished for type %. Success: %, Errors: %', p_job_id, v_activity_type, array_length(v_batch_upsert_success_row_ids, 1), v_error_count;
 
             IF array_length(v_batch_upsert_success_row_ids, 1) > 0 THEN
                 v_sql := format($$
@@ -491,7 +500,7 @@ BEGIN
                     WHERE dt.row_id = tbd.data_row_id
                       AND dt.row_id = ANY($1);
                 $$, v_data_table_name /* %1$I */, v_final_id_col /* %2$I */, 'processing'::public.import_data_state /* %3$L */);
-                RAISE DEBUG '[Job %] process_activity: Updating _data table for successful replace rows (type: %): %', p_job_id, v_activity_type, v_sql;
+                RAISE DEBUG '[Job %] process_activity: Updating _data table for successful upsert rows (type: %): %', p_job_id, v_activity_type, v_sql;
                 EXECUTE v_sql USING v_batch_upsert_success_row_ids;
             END IF;
         END IF;
@@ -499,7 +508,7 @@ BEGIN
 
     EXCEPTION WHEN OTHERS THEN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
-        RAISE WARNING '[Job %] process_activity: Error during batch operation for type %: %', p_job_id, v_activity_type, error_message;
+        RAISE WARNING '[Job %] process_activity: Error during set-based upsert operation for type %: %', p_job_id, v_activity_type, error_message;
         UPDATE public.import_job
         SET error = jsonb_build_object('process_activity_error', format('Error for type %s: %s', v_activity_type, error_message)),
             state = 'finished'

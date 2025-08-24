@@ -386,6 +386,10 @@ DECLARE
     v_job_mode public.import_mode;
     v_select_lu_id_expr TEXT;
     v_select_est_id_expr TEXT;
+    v_parent_id_check_sql TEXT;
+    v_parent_unavailable_error_key TEXT;
+    v_parent_unavailable_error_message TEXT;
+    v_parent_check_update_count INT := 0;
     v_batch_upsert_result RECORD;
     v_batch_upsert_error_row_ids INTEGER[] := ARRAY[]::INTEGER[];
     v_batch_upsert_success_row_ids INTEGER[] := ARRAY[]::INTEGER[];
@@ -438,6 +442,41 @@ BEGIN
     END IF;
     RAISE DEBUG '[Job %] process_location: Based on mode %, using lu_id_expr: %, est_id_expr: % for table %', 
         p_job_id, v_job_mode, v_select_lu_id_expr, v_select_est_id_expr, v_data_table_name;
+
+    -- Preliminary step: Check for missing parent unit IDs in the _data table.
+    IF v_job_mode = 'legal_unit' THEN
+        v_parent_id_check_sql := 'dt.legal_unit_id IS NULL';
+        v_parent_unavailable_error_message := format('Parent Legal Unit ID was not available when attempting to process %s.', v_location_type);
+    ELSIF v_job_mode = 'establishment_formal' THEN
+        v_parent_id_check_sql := 'dt.establishment_id IS NULL OR dt.legal_unit_id IS NULL';
+        v_parent_unavailable_error_message := format('Parent Establishment ID or Legal Unit ID was not available when attempting to process %s.', v_location_type);
+    ELSIF v_job_mode = 'establishment_informal' THEN
+        v_parent_id_check_sql := 'dt.establishment_id IS NULL';
+        v_parent_unavailable_error_message := format('Parent Establishment ID was not available when attempting to process %s.', v_location_type);
+    ELSE
+        v_parent_id_check_sql := 'TRUE'; -- Should not happen
+        v_parent_unavailable_error_message := format('Parent unit ID for unknown mode ''%s'' was not available when attempting to process %s.', v_job_mode, v_location_type);
+    END IF;
+    
+    v_parent_unavailable_error_key := v_step.code; -- e.g., 'physical_location'
+
+    EXECUTE format($$
+        UPDATE public.%1$I dt SET
+            action = 'skip',
+            state = 'error',
+            error = COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object(%2$L, %3$L)
+        WHERE dt.row_id = ANY($1)
+          AND dt.action != 'skip'
+          AND (%4$s); -- The check for parent ID being NULL
+    $$, v_data_table_name /* %1$I */, 
+        v_parent_unavailable_error_key /* %2$L */, 
+        v_parent_unavailable_error_message /* %3$L */, 
+        v_parent_id_check_sql /* %4$s */
+    ) USING p_batch_row_ids;
+    GET DIAGNOSTICS v_parent_check_update_count = ROW_COUNT;
+    IF v_parent_check_update_count > 0 THEN
+        RAISE DEBUG '[Job %] process_location: Marked % rows as skipped due to missing parent unit ID.', p_job_id, v_parent_check_update_count;
+    END IF;
 
     CREATE TEMP TABLE temp_batch_data (
         data_row_id INTEGER PRIMARY KEY,
@@ -503,28 +542,25 @@ BEGIN
 
     -- Step 2: Determine existing_loc_id for entities that pre-exist in public.location
     -- This updates temp_batch_data.existing_loc_id for all rows matching a unit.
-    IF v_job_mode = 'legal_unit' THEN
-        v_sql := format($$
-            UPDATE temp_batch_data tbd SET
-                existing_loc_id = loc.id
-            FROM public.location loc
-            WHERE loc.type = %L
-              AND loc.legal_unit_id = tbd.legal_unit_id
-              AND loc.establishment_id IS NULL; -- Location is exclusively for the Legal Unit
-        $$, v_location_type);
-    ELSIF v_job_mode IN ('establishment_formal', 'establishment_informal') THEN
-        v_sql := format($$
-            UPDATE temp_batch_data tbd SET
-                existing_loc_id = loc.id
-            FROM public.location loc
-            WHERE loc.type = %L
-              AND loc.establishment_id = tbd.establishment_id
-              AND loc.legal_unit_id IS NULL; -- Location is exclusively for the Establishment
-        $$, v_location_type);
-    ELSE
-        -- This case should have been caught earlier by the job mode check, but as a safeguard:
-        RAISE EXCEPTION '[Job %] process_location: Unhandled job mode % for existing_loc_id lookup.', p_job_id, v_job_mode;
-    END IF;
+    -- It uses a CTE to first find the location ID based on the direct parent ID (for existing units)
+    -- and then uses founding_row_id to propagate that location ID to all other rows of that same unit within the batch.
+    v_sql := format($$
+        WITH found_locs AS (
+            SELECT DISTINCT
+                COALESCE(tbd.founding_row_id, tbd.data_row_id) AS representative_row_id,
+                loc.id AS loc_id
+            FROM temp_batch_data tbd
+            JOIN public.location loc ON loc.type = %1$L AND
+                (
+                    (%2$L = 'legal_unit' AND loc.legal_unit_id = tbd.legal_unit_id AND tbd.legal_unit_id IS NOT NULL) OR
+                    (%2$L IN ('establishment_formal', 'establishment_informal') AND loc.establishment_id = tbd.establishment_id AND tbd.establishment_id IS NOT NULL)
+                )
+        )
+        UPDATE temp_batch_data tbd
+        SET existing_loc_id = fl.loc_id
+        FROM found_locs fl
+        WHERE COALESCE(tbd.founding_row_id, tbd.data_row_id) = fl.representative_row_id;
+    $$, v_location_type, v_job_mode);
     RAISE DEBUG '[Job %] process_location: Determining existing IDs (mode: %): %', p_job_id, v_job_mode, v_sql;
     EXECUTE v_sql;
 
@@ -608,10 +644,6 @@ BEGIN
             SET existing_loc_id = ned.new_location_id
             FROM new_entity_details ned
             WHERE tbd.founding_row_id = ned.founding_row_id
-              AND ( -- Match on the correct unit ID based on job mode
-                    (v_job_mode = 'legal_unit' AND tbd.legal_unit_id = ned.legal_unit_id) OR
-                    (v_job_mode IN ('establishment_formal', 'establishment_informal') AND tbd.establishment_id = ned.establishment_id)
-                  )
               AND tbd.existing_loc_id IS NULL -- Only update if not already set
               AND tbd.action IN ('replace', 'update'); -- Apply to subsequent actions for the same new entity
             GET DIAGNOSTICS v_update_count = ROW_COUNT;
@@ -619,7 +651,7 @@ BEGIN
         END IF;
 
         -- Handle REPLACES for existing locations (action = 'replace' or 'update')
-        RAISE DEBUG '[Job %] process_location: Handling REPLACES/UPDATES for existing locations (type: %).', p_job_id, v_location_type;
+        RAISE DEBUG '[Job %] process_location: Handling REPLACE/UPDATE actions for existing locations (type: %) using strategy ''%''.', p_job_id, v_location_type, v_strategy;
         -- Create temp source table for batch upsert
         CREATE TEMP TABLE temp_loc_upsert_source (
             row_id INTEGER PRIMARY KEY,
@@ -661,37 +693,47 @@ BEGIN
         AND (tbd.region_id IS NOT NULL OR tbd.country_id IS NOT NULL OR tbd.address_part1 IS NOT NULL OR tbd.postcode IS NOT NULL); -- Ensure some actual location data exists
 
         GET DIAGNOSTICS v_updated_existing_loc_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] process_location: Populated temp_loc_upsert_source with % rows for batch replace/update (type: %).', p_job_id, v_updated_existing_loc_count, v_location_type;
+        RAISE DEBUG '[Job %] process_location: Populated temp_loc_upsert_source with % rows for set-based upsert (type: %).', p_job_id, v_updated_existing_loc_count, v_location_type;
 
         IF v_updated_existing_loc_count > 0 THEN
-            RAISE DEBUG '[Job %] process_location: Calling batch_insert_or_replace_generic_valid_time_table for location (type: %). Found % rows to process.', p_job_id, v_location_type, v_updated_existing_loc_count;
-            FOR v_batch_upsert_result IN
-                SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
-                    p_target_schema_name => 'public',
-                    p_target_table_name => 'location',
-                    p_source_schema_name => 'pg_temp',
-                    p_source_table_name => 'temp_loc_upsert_source',
-                    p_unique_columns => '[]'::jsonb,
-                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
-                    p_id_column_name => 'id'
-                )
-            LOOP
-                IF v_batch_upsert_result.status = 'ERROR' THEN
-                    v_batch_upsert_error_row_ids := array_append(v_batch_upsert_error_row_ids, v_batch_upsert_result.source_row_id);
-                    EXECUTE format($$
-                        UPDATE public.%1$I SET
-                            state = %2$L,
-                            error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('batch_replace_location_error', %3$L)
-                            -- last_completed_priority is preserved (not changed) on error
-                        WHERE row_id = %4$L;
-                    $$, v_data_table_name /* %1$I */, 'error'::public.import_data_state /* %2$L */, v_batch_upsert_result.error_message /* %3$L */, v_batch_upsert_result.source_row_id /* %4$L */);
-                ELSE
-                    v_batch_upsert_success_row_ids := array_append(v_batch_upsert_success_row_ids, v_batch_upsert_result.source_row_id);
-                END IF;
-            END LOOP;
+            IF v_strategy = 'insert_or_replace' THEN
+                RAISE DEBUG '[Job %] process_location: Calling set_insert_or_replace_generic_valid_time_table for location (type: %). Found % rows to process.', p_job_id, v_location_type, v_updated_existing_loc_count;
+                FOR v_batch_upsert_result IN
+                    SELECT * FROM import.set_insert_or_replace_generic_valid_time_table(
+                        p_target_schema_name => 'public', p_target_table_name => 'location',
+                        p_source_schema_name => 'pg_temp', p_source_table_name => 'temp_loc_upsert_source',
+                        p_entity_id_column_names => ARRAY['id'],
+                        p_source_row_ids => NULL, p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
+                    )
+                LOOP
+                    IF v_batch_upsert_result.status = 'ERROR' THEN
+                        v_batch_upsert_error_row_ids := array_append(v_batch_upsert_error_row_ids, v_batch_upsert_result.source_row_id);
+                        EXECUTE format($$ UPDATE public.%1$I SET state = 'error', error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('set_based_upsert_location_error', %2$L) WHERE row_id = %3$L; $$, v_data_table_name, v_batch_upsert_result.error_message, v_batch_upsert_result.source_row_id);
+                    ELSE
+                        v_batch_upsert_success_row_ids := array_append(v_batch_upsert_success_row_ids, v_batch_upsert_result.source_row_id);
+                    END IF;
+                END LOOP;
+            ELSE -- Handles 'insert_or_update', 'insert_only', 'replace_only'
+                RAISE DEBUG '[Job %] process_location: Calling set_insert_or_update_generic_valid_time_table for location (type: %). Found % rows to process.', p_job_id, v_location_type, v_updated_existing_loc_count;
+                FOR v_batch_upsert_result IN
+                    SELECT * FROM import.set_insert_or_update_generic_valid_time_table(
+                        p_target_schema_name => 'public', p_target_table_name => 'location',
+                        p_source_schema_name => 'pg_temp', p_source_table_name => 'temp_loc_upsert_source',
+                        p_entity_id_column_names => ARRAY['id'],
+                        p_source_row_ids => NULL, p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
+                    )
+                LOOP
+                    IF v_batch_upsert_result.status = 'ERROR' THEN
+                        v_batch_upsert_error_row_ids := array_append(v_batch_upsert_error_row_ids, v_batch_upsert_result.source_row_id);
+                        EXECUTE format($$ UPDATE public.%1$I SET state = 'error', error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('set_based_upsert_location_error', %2$L) WHERE row_id = %3$L; $$, v_data_table_name, v_batch_upsert_result.error_message, v_batch_upsert_result.source_row_id);
+                    ELSE
+                        v_batch_upsert_success_row_ids := array_append(v_batch_upsert_success_row_ids, v_batch_upsert_result.source_row_id);
+                    END IF;
+                END LOOP;
+            END IF;
 
             v_error_count := array_length(v_batch_upsert_error_row_ids, 1);
-            RAISE DEBUG '[Job %] process_location: Batch replace finished for type %. Success: %, Errors: %', p_job_id, v_location_type, array_length(v_batch_upsert_success_row_ids, 1), v_error_count;
+            RAISE DEBUG '[Job %] process_location: Set-based upsert finished for type %. Success: %, Errors: %', p_job_id, v_location_type, array_length(v_batch_upsert_success_row_ids, 1), v_error_count;
 
             IF array_length(v_batch_upsert_success_row_ids, 1) > 0 THEN
                 v_sql := format($$
@@ -703,7 +745,7 @@ BEGIN
                     WHERE dt.row_id = tbd.data_row_id
                       AND dt.row_id = ANY($1);
                 $$, v_data_table_name /* %1$I */, v_final_id_col /* %2$I */, 'processing'::public.import_data_state /* %3$L */);
-                RAISE DEBUG '[Job %] process_location: Updating _data table for successful replace rows (type: %): %', p_job_id, v_location_type, v_sql;
+                RAISE DEBUG '[Job %] process_location: Updating _data table for successful upsert rows (type: %): %', p_job_id, v_location_type, v_sql;
                 EXECUTE v_sql USING v_batch_upsert_success_row_ids;
             END IF;
         END IF;
@@ -711,11 +753,11 @@ BEGIN
 
     EXCEPTION WHEN OTHERS THEN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
-        RAISE WARNING '[Job %] process_location: Error during batch operation for type %: %. SQLSTATE: %', p_job_id, v_location_type, error_message, SQLSTATE;
+        RAISE WARNING '[Job %] process_location: Error during set-based upsert operation for type %: %. SQLSTATE: %', p_job_id, v_location_type, error_message, SQLSTATE;
         -- Attempt to mark individual data rows as error (best effort)
         BEGIN
             v_sql := format($$UPDATE public.%1$I SET state = %2$L, error = COALESCE(error, '{}'::jsonb) || %3$L WHERE row_id = ANY($1)$$, -- LCP not changed here
-                           v_data_table_name /* %1$I */, 'error'::public.import_data_state /* %2$L */, jsonb_build_object('batch_error_process_location', error_message) /* %3$L */);
+                           v_data_table_name /* %1$I */, 'error'::public.import_data_state /* %2$L */, jsonb_build_object('set_based_error_process_location', error_message) /* %3$L */);
             EXECUTE v_sql USING p_batch_row_ids;
         EXCEPTION WHEN OTHERS THEN
             RAISE WARNING '[Job %] process_location: Could not mark individual data rows as error: %', p_job_id, SQLERRM;

@@ -171,6 +171,7 @@ DECLARE
     rec_ident_type public.external_ident_type_active;
     v_ident_value TEXT;
     sample_data_row RECORD;
+    v_update_count INT;
     v_select_list TEXT;
     v_job_mode public.import_mode; -- Added for job mode
     rec_demotion_es RECORD; -- For establishment demotion
@@ -366,18 +367,18 @@ BEGIN
             IF FOUND THEN
                 RAISE DEBUG '[Job %] process_establishment: Identified % ESTs for PFLU demotion.', p_job_id, (SELECT count(*) FROM temp_es_demotion_ops);
                 FOR v_batch_result IN
-                    SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
+                    SELECT * FROM import.set_insert_or_replace_generic_valid_time_table(
                         p_target_schema_name => 'public',
                         p_target_table_name => 'establishment',
                         p_source_schema_name => 'pg_temp',
                         p_source_table_name => 'temp_es_demotion_ops',
-                        p_unique_columns => '[]'::jsonb,
-                        p_ephemeral_columns => ARRAY['edit_comment','edit_by_user_id','edit_at'],
-                        p_id_column_name => 'id'
+                        p_entity_id_column_names => ARRAY['id'],
+                        p_source_row_ids => NULL,
+                        p_ephemeral_columns => ARRAY['edit_comment','edit_by_user_id','edit_at']
                     )
                 LOOP
-                    IF v_batch_result.status = 'ERROR' THEN RAISE WARNING '[Job %] process_establishment: Error PFLU demotion EST ID %: %', p_job_id,v_batch_result.upserted_record_id,v_batch_result.error_message;
-                    ELSE RAISE DEBUG '[Job %] process_establishment: Success PFLU demotion EST ID %',p_job_id,v_batch_result.upserted_record_id; END IF;
+                    IF v_batch_result.status = 'ERROR' THEN RAISE WARNING '[Job %] process_establishment: Error PFLU demotion for EST IDs %: %', p_job_id,v_batch_result.target_entity_ids,v_batch_result.error_message;
+                    ELSE RAISE DEBUG '[Job %] process_establishment: Success PFLU demotion for EST IDs %',p_job_id,v_batch_result.target_entity_ids; END IF;
                 END LOOP;
                 DELETE FROM temp_es_demotion_ops;
             ELSE RAISE DEBUG '[Job %] process_establishment: No existing PFLU ESTs to demote.', p_job_id; END IF;
@@ -410,18 +411,18 @@ BEGIN
             IF FOUND THEN
                 RAISE DEBUG '[Job %] process_establishment: Identified % informal ESTs for PFE demotion.', p_job_id, (SELECT count(*) FROM temp_es_demotion_ops);
                 FOR v_batch_result IN
-                    SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
+                    SELECT * FROM import.set_insert_or_replace_generic_valid_time_table(
                         p_target_schema_name => 'public',
                         p_target_table_name => 'establishment',
                         p_source_schema_name => 'pg_temp',
                         p_source_table_name => 'temp_es_demotion_ops',
-                        p_unique_columns => '[]'::jsonb,
-                        p_ephemeral_columns => ARRAY['edit_comment','edit_by_user_id','edit_at'],
-                        p_id_column_name => 'id'
+                        p_entity_id_column_names => ARRAY['id'],
+                        p_source_row_ids => NULL,
+                        p_ephemeral_columns => ARRAY['edit_comment','edit_by_user_id','edit_at']
                     )
                 LOOP
-                    IF v_batch_result.status = 'ERROR' THEN RAISE WARNING '[Job %] process_establishment: Error PFE demotion EST ID %: %',p_job_id,v_batch_result.upserted_record_id,v_batch_result.error_message;
-                    ELSE RAISE DEBUG '[Job %] process_establishment: Success PFE demotion EST ID %',p_job_id,v_batch_result.upserted_record_id; END IF;
+                    IF v_batch_result.status = 'ERROR' THEN RAISE WARNING '[Job %] process_establishment: Error PFE demotion for EST IDs %: %',p_job_id,v_batch_result.target_entity_ids,v_batch_result.error_message;
+                    ELSE RAISE DEBUG '[Job %] process_establishment: Success PFE demotion for EST IDs %',p_job_id,v_batch_result.target_entity_ids; END IF;
                 END LOOP;
                 DELETE FROM temp_es_demotion_ops;
             ELSE RAISE DEBUG '[Job %] process_establishment: No existing PFE informal ESTs to demote.', p_job_id; END IF;
@@ -493,20 +494,18 @@ BEGIN
             END LOOP;
             RAISE DEBUG '[Job %] process_establishment: Processed external idents for % new ESTs using shared procedure.', p_job_id, v_inserted_new_est_count;
 
-            -- Update temp_batch_data with the new_establishment_id for subsequent 'replace' rows of the same logical entity
-            -- This uses tax_ident as the proxy for entity_signature. A more robust solution might involve
-            -- passing entity_signature or rn_in_batch_for_entity from the analyse step.
-            FOR rec_created_est IN SELECT tce.data_row_id, tce.new_establishment_id, tbd.tax_ident
-                                   FROM temp_created_ests tce
-                                   JOIN temp_batch_data tbd ON tce.data_row_id = tbd.data_row_id
-            LOOP
-                UPDATE temp_batch_data tbd_update
-                SET existing_est_id = rec_created_est.new_establishment_id
-                WHERE tbd_update.tax_ident = rec_created_est.tax_ident -- Match by tax_ident
-                  AND tbd_update.action = 'replace'                   -- Only for 'replace' actions
-                  AND tbd_update.data_row_id != rec_created_est.data_row_id; -- Not the original insert row
-                RAISE DEBUG '[Job %] process_establishment: Updated temp_batch_data.existing_est_id to % for tax_ident % on replace rows.', p_job_id, rec_created_est.new_establishment_id, rec_created_est.tax_ident;
-            END LOOP;
+            -- Update temp_batch_data with the new_establishment_id for subsequent 'replace'/'update' rows of the same logical entity
+            -- This uses the founding_row_id determined by analyse_external_idents to link to the 'insert' row that created the EST.
+            UPDATE temp_batch_data tbd_target
+            SET existing_est_id = tce.new_establishment_id
+            FROM temp_created_ests tce
+            WHERE tbd_target.founding_row_id IS NOT NULL
+              AND tbd_target.founding_row_id = tce.data_row_id
+              AND tbd_target.action IN ('replace', 'update');
+            IF FOUND THEN
+                 GET DIAGNOSTICS v_update_count = ROW_COUNT;
+                 RAISE DEBUG '[Job %] process_establishment: Updated temp_batch_data.existing_est_id for % subsequent replace/update rows based on founding_row_id.', p_job_id, v_update_count;
+            END IF;
 
             EXECUTE format($$
                 UPDATE public.%1$I dt SET
@@ -516,10 +515,60 @@ BEGIN
                 FROM temp_created_ests tce
                 WHERE dt.row_id = tce.data_row_id AND dt.state != 'error';
             $$, v_data_table_name /* %1$I */, 'processing'::public.import_data_state /* %2$L */);
-            RAISE DEBUG '[Job %] process_establishment: Updated _data table for % new ESTs.', p_job_id, v_inserted_new_est_count;
+            GET DIAGNOSTICS v_update_count = ROW_COUNT;
+            RAISE DEBUG '[Job %] process_establishment: Updated _data table for % new ESTs (data_row_ids).', p_job_id, v_update_count;
+
+            -- Propagate to CHILD rows (e.g., activities) in the batch that reference these new ESTs via external identifiers.
+            RAISE DEBUG '[Job %] process_establishment: Starting dynamic propagation of new establishment_ids to child rows in the same batch.', p_job_id;
+            FOR rec_ident_type IN SELECT * FROM public.external_ident_type_active LOOP
+                DECLARE
+                    v_est_child_ref_col_name TEXT := format('establishment_%s', rec_ident_type.code);
+                    v_est_parent_ident_col_name TEXT := rec_ident_type.code;
+                BEGIN
+                    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = v_data_table_name AND column_name = v_est_child_ref_col_name) THEN
+                        RAISE DEBUG '[Job %] process_establishment: Found linking column %. Attempting propagation.', p_job_id, v_est_child_ref_col_name;
+                        v_sql := format($$
+                            WITH new_est_idents AS (
+                                SELECT tce.new_establishment_id, dt.%1$I AS ident_value
+                                FROM temp_created_ests tce
+                                JOIN public.%2$I dt ON tce.data_row_id = dt.row_id WHERE NULLIF(dt.%1$I, '') IS NOT NULL
+                            )
+                            UPDATE public.%2$I dt SET establishment_id = nei.new_establishment_id
+                            FROM new_est_idents nei
+                            WHERE dt.row_id = ANY($1) AND dt.%3$I = nei.ident_value AND dt.establishment_id IS NULL;
+                        $$, v_est_parent_ident_col_name, v_data_table_name, v_est_child_ref_col_name);
+                        EXECUTE v_sql USING p_batch_row_ids;
+                        IF FOUND THEN GET DIAGNOSTICS v_update_count = ROW_COUNT; RAISE DEBUG '[Job %] process_establishment: Propagated new EST IDs to % child rows via %.', p_job_id, v_update_count, v_est_child_ref_col_name; END IF;
+                    END IF;
+                END;
+            END LOOP;
+
         END IF;
 
-        RAISE DEBUG '[Job %] process_establishment: Handling REPLACES for existing ESTs via batch_upsert.', p_job_id;
+        RAISE DEBUG '[Job %] process_establishment: Handling REPLACE/UPDATE actions for existing ESTs via batch_upsert using strategy ''%''.', p_job_id, v_strategy;
+
+        -- Mark 'replace'/'update' actions on non-existent entities as errors before proceeding
+        v_sql := format($$
+            WITH invalid_actions AS (
+                SELECT data_row_id FROM temp_batch_data
+                WHERE action IN ('replace', 'update') AND existing_est_id IS NULL
+            ),
+            update_rows AS (
+                UPDATE public.%1$I dt
+                SET state = 'error',
+                    error = COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('process_establishment_error', 'Cannot perform ''replace'' or ''update'' on an entity that was not found or created.')
+                FROM invalid_actions ia
+                WHERE dt.row_id = ia.data_row_id
+                RETURNING dt.row_id
+            )
+            SELECT count(*) FROM update_rows;
+        $$, v_data_table_name);
+        EXECUTE v_sql INTO v_update_count;
+
+        IF v_update_count > 0 THEN
+            RAISE DEBUG '[Job %] process_establishment: Marked % rows as error due to invalid action (replace/update on non-existent EST).', p_job_id, v_update_count;
+            v_error_count := v_error_count + v_update_count;
+        END IF;
 
         CREATE TEMP TABLE temp_est_upsert_source (
             row_id INTEGER PRIMARY KEY,
@@ -562,68 +611,80 @@ BEGIN
         FROM (
             SELECT DISTINCT ON (existing_est_id, valid_after) *
             FROM temp_batch_data
-            WHERE action = 'replace'
-            ORDER BY existing_est_id ASC NULLS LAST, valid_after ASC, data_row_id ASC
+            WHERE action IN ('replace', 'update') AND existing_est_id IS NOT NULL
+            ORDER BY existing_est_id ASC, valid_after ASC, data_row_id ASC
         ) tbd;
 
         GET DIAGNOSTICS v_updated_existing_est_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] process_establishment: Populated temp_est_upsert_source with % rows for batch replace.', p_job_id, v_updated_existing_est_count;
+        RAISE DEBUG '[Job %] process_establishment: Populated temp_est_upsert_source with % rows for set-based upsert.', p_job_id, v_updated_existing_est_count;
 
         IF v_updated_existing_est_count > 0 THEN
-            RAISE DEBUG '[Job %] process_establishment: Calling batch_insert_or_replace_generic_valid_time_table for establishment.', p_job_id;
-            FOR v_batch_upsert_result IN
-                SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
-                    p_target_schema_name => 'public',
-                    p_target_table_name => 'establishment',
-                    p_source_schema_name => 'pg_temp',
-                    p_source_table_name => 'temp_est_upsert_source',
-                    p_unique_columns => '[]'::jsonb,
-                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
-                    p_id_column_name => 'id'
-                )
-            LOOP
-                IF v_batch_upsert_result.status = 'ERROR' THEN
-                    v_batch_upsert_error_row_ids := array_append(v_batch_upsert_error_row_ids, v_batch_upsert_result.source_row_id);
-                    EXECUTE format($$
-                        UPDATE public.%1$I SET state = %2$L, error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('batch_replace_establishment_error', %3$L)
-                        -- last_completed_priority is preserved (not changed) on error
-                        WHERE row_id = %4$L;
-                    $$, v_data_table_name /* %1$I */, 'error'::public.import_data_state /* %2$L */, v_batch_upsert_result.error_message /* %3$L */, v_batch_upsert_result.source_row_id /* %4$L */);
-                ELSE
-                    v_batch_upsert_success_row_ids := array_append(v_batch_upsert_success_row_ids, v_batch_upsert_result.source_row_id);
-                    INSERT INTO temp_processed_action_ids (data_row_id, actual_establishment_id)
-                    VALUES (v_batch_upsert_result.source_row_id, v_batch_upsert_result.upserted_record_id); -- Corrected to upserted_record_id
-                END IF;
-            END LOOP;
+             IF v_strategy = 'insert_or_replace' THEN
+                RAISE DEBUG '[Job %] process_establishment: Calling set_insert_or_replace_generic_valid_time_table for establishment.', p_job_id;
+                FOR v_batch_upsert_result IN
+                    SELECT * FROM import.set_insert_or_replace_generic_valid_time_table(
+                        p_target_schema_name => 'public', p_target_table_name => 'establishment',
+                        p_source_schema_name => 'pg_temp', p_source_table_name => 'temp_est_upsert_source',
+                        p_entity_id_column_names => ARRAY['id'],
+                        p_source_row_ids => NULL, p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
+                    )
+                LOOP
+                    IF v_batch_upsert_result.status = 'ERROR' THEN
+                        v_batch_upsert_error_row_ids := array_append(v_batch_upsert_error_row_ids, v_batch_upsert_result.source_row_id);
+                        EXECUTE format($$ UPDATE public.%1$I SET state = 'error', error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('set_based_upsert_establishment_error', %2$L) WHERE row_id = %3$L; $$, v_data_table_name, v_batch_upsert_result.error_message, v_batch_upsert_result.source_row_id);
+                    ELSE
+                        DECLARE
+                            v_actual_id INT;
+                        BEGIN
+                            v_actual_id := ((v_batch_upsert_result.target_entity_ids[1]) ->> 'id')::INT;
+                            IF v_actual_id IS NULL THEN
+                                v_batch_upsert_error_row_ids := array_append(v_batch_upsert_error_row_ids, v_batch_upsert_result.source_row_id);
+                                EXECUTE format($$ UPDATE public.%1$I SET state = 'error', error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('set_based_upsert_establishment_error', 'Set-based function returned success but no entity ID.') WHERE row_id = %2$L; $$, v_data_table_name, v_batch_upsert_result.source_row_id);
+                            ELSE
+                                v_batch_upsert_success_row_ids := array_append(v_batch_upsert_success_row_ids, v_batch_upsert_result.source_row_id);
+                                INSERT INTO temp_processed_action_ids (data_row_id, actual_establishment_id) VALUES (v_batch_upsert_result.source_row_id, v_actual_id);
+                            END IF;
+                        END;
+                    END IF;
+                END LOOP;
+            ELSE -- Handles 'insert_or_update', 'insert_only', 'replace_only'
+                RAISE DEBUG '[Job %] process_establishment: Calling set_insert_or_update_generic_valid_time_table for establishment.', p_job_id;
+                FOR v_batch_upsert_result IN
+                    SELECT * FROM import.set_insert_or_update_generic_valid_time_table(
+                        p_target_schema_name => 'public', p_target_table_name => 'establishment',
+                        p_source_schema_name => 'pg_temp', p_source_table_name => 'temp_est_upsert_source',
+                        p_entity_id_column_names => ARRAY['id'],
+                        p_source_row_ids => NULL, p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at', 'primary_for_legal_unit', 'primary_for_enterprise', 'invalid_codes']
+                    )
+                LOOP
+                    IF v_batch_upsert_result.status = 'ERROR' THEN
+                        v_batch_upsert_error_row_ids := array_append(v_batch_upsert_error_row_ids, v_batch_upsert_result.source_row_id);
+                        EXECUTE format($$ UPDATE public.%1$I SET state = 'error', error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('set_based_upsert_establishment_error', %2$L) WHERE row_id = %3$L; $$, v_data_table_name, v_batch_upsert_result.error_message, v_batch_upsert_result.source_row_id);
+                    ELSE
+                        DECLARE
+                            v_actual_id INT;
+                        BEGIN
+                            v_actual_id := ((v_batch_upsert_result.target_entity_ids[1]) ->> 'id')::INT;
+                            IF v_actual_id IS NULL THEN
+                                v_batch_upsert_error_row_ids := array_append(v_batch_upsert_error_row_ids, v_batch_upsert_result.source_row_id);
+                                EXECUTE format($$ UPDATE public.%1$I SET state = 'error', error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('set_based_upsert_establishment_error', 'Set-based function returned success but no entity ID.') WHERE row_id = %2$L; $$, v_data_table_name, v_batch_upsert_result.source_row_id);
+                            ELSE
+                                v_batch_upsert_success_row_ids := array_append(v_batch_upsert_success_row_ids, v_batch_upsert_result.source_row_id);
+                                INSERT INTO temp_processed_action_ids (data_row_id, actual_establishment_id) VALUES (v_batch_upsert_result.source_row_id, v_actual_id);
+                            END IF;
+                        END;
+                    END IF;
+                END LOOP;
+            END IF;
 
             v_actually_replaced_or_updated_est_count := array_length(v_batch_upsert_success_row_ids, 1);
             v_error_count := array_length(v_batch_upsert_error_row_ids, 1);
-            RAISE DEBUG '[Job %] process_establishment: Batch replace finished. Success: %, Errors: %', p_job_id, v_actually_replaced_or_updated_est_count, v_error_count;
+            RAISE DEBUG '[Job %] process_establishment: Set-based upsert finished. Success: %, Errors: %', p_job_id, v_actually_replaced_or_updated_est_count, v_error_count;
 
             IF v_actually_replaced_or_updated_est_count > 0 THEN
-                FOR rec_created_est IN
-                    SELECT
-                        tbd.data_row_id,
-                        tpai.actual_establishment_id as new_establishment_id,
-                        tbd.edit_by_user_id,
-                        tbd.edit_at,
-                        tbd.edit_comment
-                    FROM temp_batch_data tbd
-                    JOIN temp_processed_action_ids tpai ON tbd.data_row_id = tpai.data_row_id
-                    WHERE tbd.data_row_id = ANY(v_batch_upsert_success_row_ids) -- Redundant due to JOIN, but safe
-                LOOP
-                     CALL import.shared_upsert_external_idents_for_unit(
-                        p_job_id => p_job_id,
-                        p_data_table_name => v_data_table_name,
-                        p_data_row_id => rec_created_est.data_row_id,
-                        p_unit_id => rec_created_est.new_establishment_id,
-                        p_unit_type => 'establishment',
-                        p_edit_by_user_id => rec_created_est.edit_by_user_id,
-                        p_edit_at => rec_created_est.edit_at,
-                        p_edit_comment => rec_created_est.edit_comment
-                    );
-                END LOOP;
-                RAISE DEBUG '[Job %] process_establishment: Ensured/Updated external_ident for % successfully replaced ESTs using shared procedure.', p_job_id, v_actually_replaced_or_updated_est_count;
+                -- The upsert of external idents is handled for 'insert' actions when the new EST is created.
+                -- For 'replace' actions, idents are not expected to change, so we don't call it again.
+                -- This removes the duplicated logic mentioned in the spec.
 
                 EXECUTE format($$
                     UPDATE public.%1$I dt SET
@@ -640,7 +701,7 @@ BEGIN
 
     EXCEPTION WHEN OTHERS THEN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
-        RAISE WARNING '[Job %] process_establishment: Error during batch operation: %', p_job_id, replace(error_message, '%', '%%');
+        RAISE WARNING '[Job %] process_establishment: Error during set-based upsert operation: %', p_job_id, replace(error_message, '%', '%%');
         UPDATE public.import_job
         SET error = jsonb_build_object('process_establishment_error', error_message),
             state = 'finished'

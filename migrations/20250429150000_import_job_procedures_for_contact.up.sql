@@ -59,7 +59,7 @@ $analyse_contact$;
 
 -- Procedure to operate (insert/update/upsert) contact data (Batch Oriented)
 -- Refactored to handle temporal nature correctly using MERGE for inserts
--- and batch_insert_or_replace for replaces.
+-- and the set-based temporal functions for replaces/updates.
 CREATE OR REPLACE PROCEDURE import.process_contact(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
 LANGUAGE plpgsql AS $process_contact$
 DECLARE
@@ -84,6 +84,10 @@ DECLARE
     v_select_est_id_expr TEXT := 'NULL::INTEGER'; 
     v_select_list TEXT;
     v_update_count INT; -- Declaration for v_update_count used in propagation
+    v_parent_id_check_sql TEXT;
+    v_parent_unavailable_error_key TEXT;
+    v_parent_unavailable_error_message TEXT;
+    v_parent_check_update_count INT := 0;
     v_start_time TIMESTAMPTZ;
     v_duration_ms NUMERIC;
 BEGIN
@@ -125,6 +129,41 @@ BEGIN
     END IF;
     RAISE DEBUG '[Job %] process_contact: Based on mode %, using lu_id_expr: %, est_id_expr: % for table %', 
         p_job_id, v_job_mode, v_select_lu_id_expr, v_select_est_id_expr, v_data_table_name;
+
+    -- Preliminary step: Check for missing parent unit IDs in the _data table.
+    IF v_job_mode = 'legal_unit' THEN
+        v_parent_id_check_sql := 'dt.legal_unit_id IS NULL';
+        v_parent_unavailable_error_message := 'Parent Legal Unit ID was not available when attempting to process contact.';
+    ELSIF v_job_mode = 'establishment_formal' THEN
+        v_parent_id_check_sql := 'dt.establishment_id IS NULL OR dt.legal_unit_id IS NULL';
+        v_parent_unavailable_error_message := 'Parent Establishment ID or Legal Unit ID was not available when attempting to process contact.';
+    ELSIF v_job_mode = 'establishment_informal' THEN
+        v_parent_id_check_sql := 'dt.establishment_id IS NULL';
+        v_parent_unavailable_error_message := 'Parent Establishment ID was not available when attempting to process contact.';
+    ELSE
+        v_parent_id_check_sql := 'TRUE'; -- Should not happen
+        v_parent_unavailable_error_message := format('Parent unit ID for unknown mode ''%s'' was not available when attempting to process contact.', v_job_mode);
+    END IF;
+
+    v_parent_unavailable_error_key := v_step.code; -- 'contact'
+
+    EXECUTE format($$
+        UPDATE public.%1$I dt SET
+            action = 'skip',
+            state = 'error',
+            error = COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object(%2$L, %3$L)
+        WHERE dt.row_id = ANY($1)
+          AND dt.action != 'skip'
+          AND (%4$s); -- The check for parent ID being NULL
+    $$, v_data_table_name /* %1$I */, 
+        v_parent_unavailable_error_key /* %2$L */, 
+        v_parent_unavailable_error_message /* %3$L */, 
+        v_parent_id_check_sql /* %4$s */
+    ) USING p_batch_row_ids;
+    GET DIAGNOSTICS v_parent_check_update_count = ROW_COUNT;
+    IF v_parent_check_update_count > 0 THEN
+        RAISE DEBUG '[Job %] process_contact: Marked % rows as skipped due to missing parent unit ID.', p_job_id, v_parent_check_update_count;
+    END IF;
 
     -- Step 1: Fetch batch data into a temporary table, including action
     CREATE TEMP TABLE temp_batch_data (
@@ -173,15 +212,25 @@ BEGIN
     RAISE DEBUG '[Job %] process_contact: Fetching batch data: %', p_job_id, v_sql;
     EXECUTE v_sql USING p_batch_row_ids;
 
-    -- Step 2: Determine existing contact IDs (for the specific unit, ignoring time for now)
-    -- This is a simplification; batch_insert_or_replace handles the temporal lookup.
+    -- Step 2: Determine existing contact IDs
+    -- Uses a CTE and founding_row_id to correctly associate all rows of a single unit with one existing contact record.
     v_sql := format($$
-        UPDATE temp_batch_data tbd SET
-            existing_contact_id = c.id
-        FROM public.contact c
-        WHERE c.legal_unit_id IS NOT DISTINCT FROM tbd.legal_unit_id
-          AND c.establishment_id IS NOT DISTINCT FROM tbd.establishment_id;
-    $$);
+        WITH found_contacts AS (
+            SELECT DISTINCT
+                COALESCE(tbd.founding_row_id, tbd.data_row_id) AS representative_row_id,
+                c.id AS contact_id
+            FROM temp_batch_data tbd
+            JOIN public.contact c ON
+                (
+                    (%1$L = 'legal_unit' AND c.legal_unit_id = tbd.legal_unit_id AND tbd.legal_unit_id IS NOT NULL) OR
+                    (%1$L IN ('establishment_formal', 'establishment_informal') AND c.establishment_id = tbd.establishment_id AND tbd.establishment_id IS NOT NULL)
+                )
+        )
+        UPDATE temp_batch_data tbd
+        SET existing_contact_id = fc.contact_id
+        FROM found_contacts fc
+        WHERE COALESCE(tbd.founding_row_id, tbd.data_row_id) = fc.representative_row_id;
+    $$, v_job_mode);
     RAISE DEBUG '[Job %] process_contact: Determining existing contact IDs (simplified): %', p_job_id, v_sql;
     EXECUTE v_sql;
 
@@ -252,18 +301,14 @@ BEGIN
             SET existing_contact_id = ned.new_contact_id
             FROM new_entity_details ned
             WHERE tbd.founding_row_id = ned.founding_row_id
-              AND ( -- Match on the correct unit ID based on job mode
-                    (v_job_mode = 'legal_unit' AND tbd.legal_unit_id = ned.legal_unit_id AND tbd.establishment_id IS NULL AND ned.establishment_id IS NULL) OR
-                    (v_job_mode IN ('establishment_formal', 'establishment_informal') AND tbd.establishment_id = ned.establishment_id AND tbd.legal_unit_id IS NULL AND ned.legal_unit_id IS NULL)
-                  )
               AND tbd.existing_contact_id IS NULL -- Only update if not already set
               AND tbd.action IN ('replace', 'update'); -- Apply to subsequent actions for the same new entity
             GET DIAGNOSTICS v_update_count = ROW_COUNT; -- Re-declare v_update_count or use a different local variable if needed
             RAISE DEBUG '[Job %] process_contact: Propagated new contact_ids to % rows in temp_batch_data.', p_job_id, v_update_count;
         END IF;
 
-        -- Handle REPLACES for existing contacts (action = 'replace') using batch_insert_or_replace
-        RAISE DEBUG '[Job %] process_contact: Handling REPLACES for existing contacts via batch_upsert.', p_job_id;
+        -- Handle REPLACES for existing contacts (action = 'replace' or 'update')
+        RAISE DEBUG '[Job %] process_contact: Handling REPLACE/UPDATE actions for existing contacts via set-based upsert using strategy ''%''.', p_job_id, v_strategy;
 
         CREATE TEMP TABLE temp_contact_upsert_source (
             row_id INTEGER PRIMARY KEY, 
@@ -302,40 +347,50 @@ BEGIN
             tbd.edit_at,
             tbd.edit_comment -- Use tbd.edit_comment
         FROM temp_batch_data tbd
-        WHERE tbd.action = 'replace' AND tbd.existing_contact_id IS NOT NULL; 
+        WHERE tbd.action IN ('replace', 'update') AND tbd.existing_contact_id IS NOT NULL; 
 
         GET DIAGNOSTICS v_updated_existing_contact_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] process_contact: Populated temp_contact_upsert_source with % rows for batch replace.', p_job_id, v_updated_existing_contact_count;
+        RAISE DEBUG '[Job %] process_contact: Populated temp_contact_upsert_source with % rows for batch upsert.', p_job_id, v_updated_existing_contact_count;
 
         IF v_updated_existing_contact_count > 0 THEN
-            RAISE DEBUG '[Job %] process_contact: Calling batch_insert_or_replace_generic_valid_time_table for contact.', p_job_id;
-            FOR v_batch_upsert_result IN
-                SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
-                    p_target_schema_name => 'public',
-                    p_target_table_name => 'contact',
-                    p_source_schema_name => 'pg_temp',
-                    p_source_table_name => 'temp_contact_upsert_source',
-                    p_unique_columns => '[]'::jsonb, 
-                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
-                    p_id_column_name => 'id'
-                )
-            LOOP
-                IF v_batch_upsert_result.status = 'ERROR' THEN
-                    v_batch_upsert_error_row_ids := array_append(v_batch_upsert_error_row_ids, v_batch_upsert_result.source_row_id);
-                    EXECUTE format($$
-                        UPDATE public.%1$I SET
-                            state = %2$L,
-                            error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('batch_replace_contact_error', %3$L)
-                            -- last_completed_priority is preserved (not changed) on error
-                        WHERE row_id = %4$L;
-                    $$, v_data_table_name /* %1$I */, 'error'::public.import_data_state /* %2$L */, v_batch_upsert_result.error_message /* %3$L */, v_batch_upsert_result.source_row_id /* %4$L */);
-                ELSE
-                    v_batch_upsert_success_row_ids := array_append(v_batch_upsert_success_row_ids, v_batch_upsert_result.source_row_id);
-                END IF;
-            END LOOP;
+            IF v_strategy = 'insert_or_replace' THEN
+                RAISE DEBUG '[Job %] process_contact: Calling set_insert_or_replace_generic_valid_time_table for contact.', p_job_id;
+                FOR v_batch_upsert_result IN
+                    SELECT * FROM import.set_insert_or_replace_generic_valid_time_table(
+                        p_target_schema_name => 'public', p_target_table_name => 'contact',
+                        p_source_schema_name => 'pg_temp', p_source_table_name => 'temp_contact_upsert_source',
+                        p_entity_id_column_names => ARRAY['id'],
+                        p_source_row_ids => NULL, p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
+                    )
+                LOOP
+                    IF v_batch_upsert_result.status = 'ERROR' THEN
+                        v_batch_upsert_error_row_ids := array_append(v_batch_upsert_error_row_ids, v_batch_upsert_result.source_row_id);
+                        EXECUTE format($$ UPDATE public.%1$I SET state = 'error', error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('set_based_upsert_contact_error', %2$L) WHERE row_id = %3$L; $$, v_data_table_name, v_batch_upsert_result.error_message, v_batch_upsert_result.source_row_id);
+                    ELSE
+                        v_batch_upsert_success_row_ids := array_append(v_batch_upsert_success_row_ids, v_batch_upsert_result.source_row_id);
+                    END IF;
+                END LOOP;
+            ELSE -- Handles 'insert_or_update', 'insert_only', 'replace_only'
+                RAISE DEBUG '[Job %] process_contact: Calling set_insert_or_update_generic_valid_time_table for contact.', p_job_id;
+                FOR v_batch_upsert_result IN
+                    SELECT * FROM import.set_insert_or_update_generic_valid_time_table(
+                        p_target_schema_name => 'public', p_target_table_name => 'contact',
+                        p_source_schema_name => 'pg_temp', p_source_table_name => 'temp_contact_upsert_source',
+                        p_entity_id_column_names => ARRAY['id'],
+                        p_source_row_ids => NULL, p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
+                    )
+                LOOP
+                    IF v_batch_upsert_result.status = 'ERROR' THEN
+                        v_batch_upsert_error_row_ids := array_append(v_batch_upsert_error_row_ids, v_batch_upsert_result.source_row_id);
+                        EXECUTE format($$ UPDATE public.%1$I SET state = 'error', error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('set_based_upsert_contact_error', %2$L) WHERE row_id = %3$L; $$, v_data_table_name, v_batch_upsert_result.error_message, v_batch_upsert_result.source_row_id);
+                    ELSE
+                        v_batch_upsert_success_row_ids := array_append(v_batch_upsert_success_row_ids, v_batch_upsert_result.source_row_id);
+                    END IF;
+                END LOOP;
+            END IF;
 
             v_error_count := array_length(v_batch_upsert_error_row_ids, 1);
-            RAISE DEBUG '[Job %] process_contact: Batch replace finished. Success: %, Errors: %', p_job_id, array_length(v_batch_upsert_success_row_ids, 1), v_error_count;
+            RAISE DEBUG '[Job %] process_contact: Set-based upsert finished. Success: %, Errors: %', p_job_id, array_length(v_batch_upsert_success_row_ids, 1), v_error_count;
 
             IF array_length(v_batch_upsert_success_row_ids, 1) > 0 THEN
                 v_sql := format($$
@@ -355,7 +410,7 @@ BEGIN
 
     EXCEPTION WHEN OTHERS THEN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
-        RAISE WARNING '[Job %] process_contact: Error during batch operation: %', p_job_id, replace(error_message, '%', '%%');
+        RAISE WARNING '[Job %] process_contact: Error during set-based upsert operation: %', p_job_id, replace(error_message, '%', '%%');
         UPDATE public.import_job
         SET error = jsonb_build_object('process_contact_error', error_message),
             state = 'finished'

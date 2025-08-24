@@ -104,24 +104,33 @@ $$ LANGUAGE plpgsql;
 -- Parameters for the set-based function
 \set target_schema 'set_test_replace'
 \set target_table 'legal_unit'
-\set target_entity_id_col 'id'
+\set entity_id_cols '{id}'
 \set source_schema 'pg_temp'
-\set source_entity_id_col 'legal_unit_id'
 \set ephemeral_cols '{edit_comment}'
 -- Scenario 1: Initial Insert of a new entity
 \echo 'Scenario 1: Initial Insert of a new entity'
 Scenario 1: Initial Insert of a new entity
 CALL set_test_replace.reset_target();
 CREATE TEMP TABLE temp_source (
-    row_id INT, legal_unit_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT
+    row_id INT, id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT
 ) ON COMMIT DROP;
-INSERT INTO temp_source VALUES (101, nextval('set_test_replace.legal_unit_id_seq'), '2023-12-31', '2024-12-31', 'New LU', 'Initial Insert');
-\echo 'Generated Plan (Scenario 1):'
-Generated Plan (Scenario 1):
-SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
- source_row_id | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                         data                         | relation 
----------------+-----------+-----------+-----------------+-----------------+--------------+------------------------------------------------------+----------
-           101 | INSERT    |         1 |                 | 2023-12-31      | 2024-12-31   | {"name": "New LU", "edit_comment": "Initial Insert"} | 
+INSERT INTO temp_source (row_id, id, valid_after, valid_to, name, edit_comment) VALUES (101, nextval('set_test_replace.legal_unit_id_seq'), '2023-12-31', '2024-12-31', 'New LU', 'Initial Insert');
+\echo 'Expected plan:'
+Expected plan:
+SELECT * FROM (VALUES
+    ('{101}'::INT[], 'INSERT'::import.plan_operation_type, 1, NULL::DATE, '2023-12-31'::DATE, '2024-12-31'::DATE, '{"name": "New LU"}'::JSONB, NULL::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |        data        | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+--------------------+----------
+ {101}          | INSERT    |         1 |                 | 2023-12-31      | 2024-12-31   | {"name": "New LU"} | 
+(1 row)
+
+\echo 'Actual plan:'
+Actual plan:
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'source_schema', 'temp_source', :'entity_id_cols'::TEXT[], NULL, :'ephemeral_cols'::TEXT[]);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                         data                         | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+------------------------------------------------------+----------
+ {101}          | INSERT    |         1 |                 | 2023-12-31      | 2024-12-31   | {"name": "New LU", "edit_comment": "Initial Insert"} | 
 (1 row)
 
 DROP TABLE temp_source;
@@ -131,15 +140,25 @@ Scenario 2: `equals` relation (source replaces existing)
 CALL set_test_replace.reset_target();
 INSERT INTO set_test_replace.legal_unit (id, valid_after, valid_to, name, edit_comment) VALUES (1, '2023-12-31', '2024-12-31', 'Old Name', NULL);
 CREATE TEMP TABLE temp_source (
-    row_id INT, legal_unit_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT
+    row_id INT, id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT
 ) ON COMMIT DROP;
 INSERT INTO temp_source VALUES (102, 1, '2023-12-31', '2024-12-31', 'New Name', 'Replaced');
-\echo 'Generated Plan (Scenario 2):'
-Generated Plan (Scenario 2):
-SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
- source_row_id | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                       data                       | relation 
----------------+-----------+-----------+-----------------+-----------------+--------------+--------------------------------------------------+----------
-           102 | UPDATE    |         1 | 2023-12-31      | 2023-12-31      | 2024-12-31   | {"name": "New Name", "edit_comment": "Replaced"} | equals
+\echo 'Expected plan:'
+Expected plan:
+SELECT * FROM (VALUES
+    ('{102}'::INT[], 'UPDATE'::import.plan_operation_type, 1, '2023-12-31'::DATE, '2023-12-31'::DATE, '2024-12-31'::DATE, '{"name": "New Name"}'::JSONB, 'equals'::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |         data         | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+----------------------+----------
+ {102}          | UPDATE    |         1 | 2023-12-31      | 2023-12-31      | 2024-12-31   | {"name": "New Name"} | equals
+(1 row)
+
+\echo 'Actual plan:'
+Actual plan:
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'source_schema', 'temp_source', :'entity_id_cols'::TEXT[], NULL, :'ephemeral_cols'::TEXT[]);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                       data                       | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+--------------------------------------------------+----------
+ {102}          | UPDATE    |         1 | 2023-12-31      | 2023-12-31      | 2024-12-31   | {"name": "New Name", "edit_comment": "Replaced"} | equals
 (1 row)
 
 DROP TABLE temp_source;
@@ -149,15 +168,25 @@ Scenario 2b: `equals` relation (source NULL should replace existing value)
 CALL set_test_replace.reset_target();
 INSERT INTO set_test_replace.legal_unit (id, valid_after, valid_to, name, edit_comment) VALUES (1, '2023-12-31', '2024-12-31', 'Old Name', 'Old Comment');
 CREATE TEMP TABLE temp_source (
-    row_id INT, legal_unit_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT
+    row_id INT, id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT
 ) ON COMMIT DROP;
 INSERT INTO temp_source VALUES (102, 1, '2023-12-31', '2024-12-31', NULL, 'Replaced with NULL');
-\echo 'Generated Plan (Scenario 2b):'
-Generated Plan (Scenario 2b):
-SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
- source_row_id | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                         data                         | relation 
----------------+-----------+-----------+-----------------+-----------------+--------------+------------------------------------------------------+----------
-           102 | UPDATE    |         1 | 2023-12-31      | 2023-12-31      | 2024-12-31   | {"name": null, "edit_comment": "Replaced with NULL"} | equals
+\echo 'Expected plan:'
+Expected plan:
+SELECT * FROM (VALUES
+    ('{102}'::INT[], 'UPDATE'::import.plan_operation_type, 1, '2023-12-31'::DATE, '2023-12-31'::DATE, '2024-12-31'::DATE, '{"name": null}'::JSONB, 'equals'::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |      data      | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+----------------+----------
+ {102}          | UPDATE    |         1 | 2023-12-31      | 2023-12-31      | 2024-12-31   | {"name": null} | equals
+(1 row)
+
+\echo 'Actual plan:'
+Actual plan:
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'source_schema', 'temp_source', :'entity_id_cols'::TEXT[], NULL, :'ephemeral_cols'::TEXT[]);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                         data                         | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+------------------------------------------------------+----------
+ {102}          | UPDATE    |         1 | 2023-12-31      | 2023-12-31      | 2024-12-31   | {"name": null, "edit_comment": "Replaced with NULL"} | equals
 (1 row)
 
 DROP TABLE temp_source;
@@ -167,17 +196,31 @@ Scenario 3: `during` relation (source splits existing)
 CALL set_test_replace.reset_target();
 INSERT INTO set_test_replace.legal_unit (id, valid_after, valid_to, name, edit_comment) VALUES (1, '2023-12-31', '2024-12-31', 'Original Name', NULL);
 CREATE TEMP TABLE temp_source (
-    row_id INT, legal_unit_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT
+    row_id INT, id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT
 ) ON COMMIT DROP;
 INSERT INTO temp_source VALUES (103, 1, '2024-03-31', '2024-08-31', 'Temporary Name', 'Split');
-\echo 'Generated Plan (Scenario 3):'
-Generated Plan (Scenario 3):
-SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
- source_row_id | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                        data                         | relation 
----------------+-----------+-----------+-----------------+-----------------+--------------+-----------------------------------------------------+----------
-           103 | UPDATE    |         1 | 2023-12-31      | 2023-12-31      | 2024-03-31   | {"name": "Original Name", "edit_comment": null}     | during
-           103 | INSERT    |         1 |                 | 2024-03-31      | 2024-08-31   | {"name": "Temporary Name", "edit_comment": "Split"} | during
-           103 | INSERT    |         1 |                 | 2024-08-31      | 2024-12-31   | {"name": "Original Name", "edit_comment": null}     | during
+\echo 'Expected plan:'
+Expected plan:
+SELECT * FROM (VALUES
+    ('{103}'::INT[], 'UPDATE'::import.plan_operation_type, 1, '2023-12-31'::DATE, '2023-12-31'::DATE, '2024-03-31'::DATE, '{"name": "Original Name"}'::JSONB, 'during'::public.allen_interval_relation),
+    ('{103}'::INT[], 'INSERT'::import.plan_operation_type, 1, NULL::DATE, '2024-03-31'::DATE, '2024-08-31'::DATE, '{"name": "Temporary Name"}'::JSONB, 'during'::public.allen_interval_relation),
+    ('{103}'::INT[], 'INSERT'::import.plan_operation_type, 1, NULL::DATE, '2024-08-31'::DATE, '2024-12-31'::DATE, '{"name": "Original Name"}'::JSONB, 'during'::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |            data            | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+----------------------------+----------
+ {103}          | UPDATE    |         1 | 2023-12-31      | 2023-12-31      | 2024-03-31   | {"name": "Original Name"}  | during
+ {103}          | INSERT    |         1 |                 | 2024-03-31      | 2024-08-31   | {"name": "Temporary Name"} | during
+ {103}          | INSERT    |         1 |                 | 2024-08-31      | 2024-12-31   | {"name": "Original Name"}  | during
+(3 rows)
+
+\echo 'Actual plan:'
+Actual plan:
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'source_schema', 'temp_source', :'entity_id_cols'::TEXT[], NULL, :'ephemeral_cols'::TEXT[]);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                        data                         | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+-----------------------------------------------------+----------
+ {103}          | UPDATE    |         1 | 2023-12-31      | 2023-12-31      | 2024-03-31   | {"name": "Original Name", "edit_comment": null}     | during
+ {103}          | INSERT    |         1 |                 | 2024-03-31      | 2024-08-31   | {"name": "Temporary Name", "edit_comment": "Split"} | during
+ {103}          | INSERT    |         1 |                 | 2024-08-31      | 2024-12-31   | {"name": "Original Name", "edit_comment": null}     | during
 (3 rows)
 
 DROP TABLE temp_source;
@@ -187,15 +230,25 @@ Scenario 4: `contains` relation (source envelops existing)
 CALL set_test_replace.reset_target();
 INSERT INTO set_test_replace.legal_unit (id, valid_after, valid_to, name, edit_comment) VALUES (1, '2024-03-31', '2024-08-31', 'Old Name', NULL);
 CREATE TEMP TABLE temp_source (
-    row_id INT, legal_unit_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT
+    row_id INT, id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT
 ) ON COMMIT DROP;
 INSERT INTO temp_source VALUES (104, 1, '2023-12-31', '2024-12-31', 'New Overarching Name', 'Envelop');
-\echo 'Generated Plan (Scenario 4):'
-Generated Plan (Scenario 4):
-SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
- source_row_id | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                            data                             | relation 
----------------+-----------+-----------+-----------------+-----------------+--------------+-------------------------------------------------------------+----------
-           104 | UPDATE    |         1 | 2024-03-31      | 2023-12-31      | 2024-12-31   | {"name": "New Overarching Name", "edit_comment": "Envelop"} | contains
+\echo 'Expected plan:'
+Expected plan:
+SELECT * FROM (VALUES
+    ('{104}'::INT[], 'UPDATE'::import.plan_operation_type, 1, '2024-03-31'::DATE, '2023-12-31'::DATE, '2024-12-31'::DATE, '{"name": "New Overarching Name", "edit_comment": "Envelop"}'::JSONB, 'contains'::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                            data                             | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+-------------------------------------------------------------+----------
+ {104}          | UPDATE    |         1 | 2024-03-31      | 2023-12-31      | 2024-12-31   | {"name": "New Overarching Name", "edit_comment": "Envelop"} | contains
+(1 row)
+
+\echo 'Actual plan:'
+Actual plan:
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'source_schema', 'temp_source', :'entity_id_cols'::TEXT[], NULL, :'ephemeral_cols'::TEXT[]);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                            data                             | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+-------------------------------------------------------------+----------
+ {104}          | UPDATE    |         1 | 2024-03-31      | 2023-12-31      | 2024-12-31   | {"name": "New Overarching Name", "edit_comment": "Envelop"} | contains
 (1 row)
 
 DROP TABLE temp_source;
@@ -205,21 +258,39 @@ Scenario 5: Multiple non-overlapping source rows
 CALL set_test_replace.reset_target();
 INSERT INTO set_test_replace.legal_unit (id, valid_after, valid_to, name, edit_comment) VALUES (1, '2023-12-31', '2024-12-31', 'Original Full Year', NULL);
 CREATE TEMP TABLE temp_source (
-    row_id INT, legal_unit_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT
+    row_id INT, id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT
 ) ON COMMIT DROP;
 INSERT INTO temp_source VALUES
 (109, 1, '2024-01-31', '2024-03-31', 'Name B', 'Part B'),
 (110, 1, '2024-06-30', '2024-08-31', 'Name C', 'Part C');
-\echo 'Generated Plan (Scenario 5):'
-Generated Plan (Scenario 5):
-SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
- source_row_id | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                         data                         | relation 
----------------+-----------+-----------+-----------------+-----------------+--------------+------------------------------------------------------+----------
-           109 | UPDATE    |         1 | 2023-12-31      | 2023-12-31      | 2024-01-31   | {"name": "Original Full Year", "edit_comment": null} | during
-           109 | INSERT    |         1 |                 | 2024-01-31      | 2024-03-31   | {"name": "Name B", "edit_comment": "Part B"}         | during
-           109 | INSERT    |         1 |                 | 2024-03-31      | 2024-06-30   | {"name": "Original Full Year", "edit_comment": null} | during
-           110 | INSERT    |         1 |                 | 2024-06-30      | 2024-08-31   | {"name": "Name C", "edit_comment": "Part C"}         | during
-           110 | INSERT    |         1 |                 | 2024-08-31      | 2024-12-31   | {"name": "Original Full Year", "edit_comment": null} | during
+\echo 'Expected plan:'
+Expected plan:
+SELECT * FROM (VALUES
+    ('{109}'::INT[], 'UPDATE'::import.plan_operation_type, 1, '2023-12-31'::DATE, '2023-12-31'::DATE, '2024-01-31'::DATE, '{"name": "Original Full Year"}'::JSONB, 'during'::public.allen_interval_relation),
+    ('{109}'::INT[], 'INSERT'::import.plan_operation_type, 1, NULL::DATE, '2024-01-31'::DATE, '2024-03-31'::DATE, '{"name": "Name B"}'::JSONB, 'during'::public.allen_interval_relation),
+    ('{109}'::INT[], 'INSERT'::import.plan_operation_type, 1, NULL::DATE, '2024-03-31'::DATE, '2024-06-30'::DATE, '{"name": "Original Full Year"}'::JSONB, 'during'::public.allen_interval_relation),
+    ('{110}'::INT[], 'INSERT'::import.plan_operation_type, 1, NULL::DATE, '2024-06-30'::DATE, '2024-08-31'::DATE, '{"name": "Name C"}'::JSONB, 'during'::public.allen_interval_relation),
+    ('{110}'::INT[], 'INSERT'::import.plan_operation_type, 1, NULL::DATE, '2024-08-31'::DATE, '2024-12-31'::DATE, '{"name": "Original Full Year"}'::JSONB, 'during'::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |              data              | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+--------------------------------+----------
+ {109}          | UPDATE    |         1 | 2023-12-31      | 2023-12-31      | 2024-01-31   | {"name": "Original Full Year"} | during
+ {109}          | INSERT    |         1 |                 | 2024-01-31      | 2024-03-31   | {"name": "Name B"}             | during
+ {109}          | INSERT    |         1 |                 | 2024-03-31      | 2024-06-30   | {"name": "Original Full Year"} | during
+ {110}          | INSERT    |         1 |                 | 2024-06-30      | 2024-08-31   | {"name": "Name C"}             | during
+ {110}          | INSERT    |         1 |                 | 2024-08-31      | 2024-12-31   | {"name": "Original Full Year"} | during
+(5 rows)
+
+\echo 'Actual plan:'
+Actual plan:
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'source_schema', 'temp_source', :'entity_id_cols'::TEXT[], NULL, :'ephemeral_cols'::TEXT[]);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                         data                         | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+------------------------------------------------------+----------
+ {109}          | UPDATE    |         1 | 2023-12-31      | 2023-12-31      | 2024-01-31   | {"name": "Original Full Year", "edit_comment": null} | during
+ {109}          | INSERT    |         1 |                 | 2024-01-31      | 2024-03-31   | {"name": "Name B", "edit_comment": "Part B"}         | during
+ {109}          | INSERT    |         1 |                 | 2024-03-31      | 2024-06-30   | {"name": "Original Full Year", "edit_comment": null} | during
+ {110}          | INSERT    |         1 |                 | 2024-06-30      | 2024-08-31   | {"name": "Name C", "edit_comment": "Part C"}         | during
+ {110}          | INSERT    |         1 |                 | 2024-08-31      | 2024-12-31   | {"name": "Original Full Year", "edit_comment": null} | during
 (5 rows)
 
 DROP TABLE temp_source;
@@ -229,16 +300,28 @@ Scenario 6: `starts` relation (source truncates start of existing)
 CALL set_test_replace.reset_target();
 INSERT INTO set_test_replace.legal_unit (id, valid_after, valid_to, name, edit_comment) VALUES (1, '2023-12-31', 'infinity', 'Original', NULL);
 CREATE TEMP TABLE temp_source (
-    row_id INT, legal_unit_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT
+    row_id INT, id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT
 ) ON COMMIT DROP;
 INSERT INTO temp_source VALUES (105, 1, '2023-12-31', '2024-06-30', 'Starts New', 'Starts');
-\echo 'Generated Plan (Scenario 6):'
-Generated Plan (Scenario 6):
-SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
- source_row_id | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                       data                       | relation 
----------------+-----------+-----------+-----------------+-----------------+--------------+--------------------------------------------------+----------
-           105 | UPDATE    |         1 | 2023-12-31      | 2023-12-31      | 2024-06-30   | {"name": "Starts New", "edit_comment": "Starts"} | starts
-           105 | INSERT    |         1 |                 | 2024-06-30      | infinity     | {"name": "Original", "edit_comment": null}       | starts
+\echo 'Expected plan:'
+Expected plan:
+SELECT * FROM (VALUES
+    ('{105}'::INT[], 'UPDATE'::import.plan_operation_type, 1, '2023-12-31'::DATE, '2023-12-31'::DATE, '2024-06-30'::DATE, '{"name": "Starts New"}'::JSONB, 'starts'::public.allen_interval_relation),
+    ('{105}'::INT[], 'INSERT'::import.plan_operation_type, 1, NULL::DATE, '2024-06-30'::DATE, 'infinity'::DATE, '{"name": "Original"}'::JSONB, 'starts'::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |          data          | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+------------------------+----------
+ {105}          | UPDATE    |         1 | 2023-12-31      | 2023-12-31      | 2024-06-30   | {"name": "Starts New"} | starts
+ {105}          | INSERT    |         1 |                 | 2024-06-30      | infinity     | {"name": "Original"}   | starts
+(2 rows)
+
+\echo 'Actual plan:'
+Actual plan:
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'source_schema', 'temp_source', :'entity_id_cols'::TEXT[], NULL, :'ephemeral_cols'::TEXT[]);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                       data                       | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+--------------------------------------------------+----------
+ {105}          | UPDATE    |         1 | 2023-12-31      | 2023-12-31      | 2024-06-30   | {"name": "Starts New", "edit_comment": "Starts"} | starts
+ {105}          | INSERT    |         1 |                 | 2024-06-30      | infinity     | {"name": "Original", "edit_comment": null}       | starts
 (2 rows)
 
 DROP TABLE temp_source;
@@ -248,16 +331,28 @@ Scenario 7: `finishes` relation (source truncates end of existing)
 CALL set_test_replace.reset_target();
 INSERT INTO set_test_replace.legal_unit (id, valid_after, valid_to, name, edit_comment) VALUES (1, '2023-12-31', '2024-06-30', 'Original', NULL);
 CREATE TEMP TABLE temp_source (
-    row_id INT, legal_unit_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT
+    row_id INT, id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT
 ) ON COMMIT DROP;
 INSERT INTO temp_source VALUES (106, 1, '2024-01-31', '2024-06-30', 'Finishes New', 'Finishes');
-\echo 'Generated Plan (Scenario 7):'
-Generated Plan (Scenario 7):
-SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
- source_row_id | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                         data                         | relation 
----------------+-----------+-----------+-----------------+-----------------+--------------+------------------------------------------------------+----------
-           106 | UPDATE    |         1 | 2023-12-31      | 2023-12-31      | 2024-01-31   | {"name": "Original", "edit_comment": null}           | finishes
-           106 | INSERT    |         1 |                 | 2024-01-31      | 2024-06-30   | {"name": "Finishes New", "edit_comment": "Finishes"} | finishes
+\echo 'Expected plan:'
+Expected plan:
+SELECT * FROM (VALUES
+    ('{106}'::INT[], 'UPDATE'::import.plan_operation_type, 1, '2023-12-31'::DATE, '2023-12-31'::DATE, '2024-01-31'::DATE, '{"name": "Original"}'::JSONB, 'finishes'::public.allen_interval_relation),
+    ('{106}'::INT[], 'INSERT'::import.plan_operation_type, 1, NULL::DATE, '2024-01-31'::DATE, '2024-06-30'::DATE, '{"name": "Finishes New"}'::JSONB, 'finishes'::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |           data           | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+--------------------------+----------
+ {106}          | UPDATE    |         1 | 2023-12-31      | 2023-12-31      | 2024-01-31   | {"name": "Original"}     | finishes
+ {106}          | INSERT    |         1 |                 | 2024-01-31      | 2024-06-30   | {"name": "Finishes New"} | finishes
+(2 rows)
+
+\echo 'Actual plan:'
+Actual plan:
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'source_schema', 'temp_source', :'entity_id_cols'::TEXT[], NULL, :'ephemeral_cols'::TEXT[]);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                         data                         | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+------------------------------------------------------+----------
+ {106}          | UPDATE    |         1 | 2023-12-31      | 2023-12-31      | 2024-01-31   | {"name": "Original", "edit_comment": null}           | finishes
+ {106}          | INSERT    |         1 |                 | 2024-01-31      | 2024-06-30   | {"name": "Finishes New", "edit_comment": "Finishes"} | finishes
 (2 rows)
 
 DROP TABLE temp_source;
@@ -267,16 +362,28 @@ Scenario 8: `overlaps` relation
 CALL set_test_replace.reset_target();
 INSERT INTO set_test_replace.legal_unit (id, valid_after, valid_to, name, edit_comment) VALUES (1, '2024-03-31', '2024-08-31', 'Original', NULL);
 CREATE TEMP TABLE temp_source (
-    row_id INT, legal_unit_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT
+    row_id INT, id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT
 ) ON COMMIT DROP;
 INSERT INTO temp_source VALUES (107, 1, '2023-12-31', '2024-06-30', 'Overlaps New', 'Overlaps');
-\echo 'Generated Plan (Scenario 8):'
-Generated Plan (Scenario 8):
-SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
- source_row_id | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                         data                         | relation 
----------------+-----------+-----------+-----------------+-----------------+--------------+------------------------------------------------------+----------
-           107 | UPDATE    |         1 | 2024-03-31      | 2023-12-31      | 2024-06-30   | {"name": "Overlaps New", "edit_comment": "Overlaps"} | overlaps
-           107 | INSERT    |         1 |                 | 2024-06-30      | 2024-08-31   | {"name": "Original", "edit_comment": null}           | overlaps
+\echo 'Expected plan:'
+Expected plan:
+SELECT * FROM (VALUES
+    ('{107}'::INT[], 'UPDATE'::import.plan_operation_type, 1, '2024-03-31'::DATE, '2024-06-30'::DATE, '2024-08-31'::DATE, '{"name": "Original"}'::JSONB, 'overlaps'::public.allen_interval_relation),
+    ('{107}'::INT[], 'INSERT'::import.plan_operation_type, 1, NULL::DATE, '2023-12-31'::DATE, '2024-06-30'::DATE, '{"name": "Overlaps New"}'::JSONB, 'overlaps'::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |           data           | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+--------------------------+----------
+ {107}          | UPDATE    |         1 | 2024-03-31      | 2024-06-30      | 2024-08-31   | {"name": "Original"}     | overlaps
+ {107}          | INSERT    |         1 |                 | 2023-12-31      | 2024-06-30   | {"name": "Overlaps New"} | overlaps
+(2 rows)
+
+\echo 'Actual plan:'
+Actual plan:
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'source_schema', 'temp_source', :'entity_id_cols'::TEXT[], NULL, :'ephemeral_cols'::TEXT[]);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                         data                         | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+------------------------------------------------------+----------
+ {107}          | UPDATE    |         1 | 2024-03-31      | 2023-12-31      | 2024-06-30   | {"name": "Overlaps New", "edit_comment": "Overlaps"} | overlaps
+ {107}          | INSERT    |         1 |                 | 2024-06-30      | 2024-08-31   | {"name": "Original", "edit_comment": null}           | overlaps
 (2 rows)
 
 DROP TABLE temp_source;
@@ -286,15 +393,25 @@ Scenario 9: `meets` relation (different data)
 CALL set_test_replace.reset_target();
 INSERT INTO set_test_replace.legal_unit (id, valid_after, valid_to, name, edit_comment) VALUES (1, '2024-03-31', '2024-08-31', 'Original', NULL);
 CREATE TEMP TABLE temp_source (
-    row_id INT, legal_unit_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT
+    row_id INT, id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT
 ) ON COMMIT DROP;
 INSERT INTO temp_source VALUES (108, 1, '2023-12-31', '2024-03-31', 'Meets New', 'Meets new');
-\echo 'Generated Plan (Scenario 9):'
-Generated Plan (Scenario 9):
-SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
- source_row_id | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                        data                        | relation 
----------------+-----------+-----------+-----------------+-----------------+--------------+----------------------------------------------------+----------
-           108 | INSERT    |         1 |                 | 2023-12-31      | 2024-03-31   | {"name": "Meets New", "edit_comment": "Meets new"} | meets
+\echo 'Expected plan:'
+Expected plan:
+SELECT * FROM (VALUES
+    ('{108}'::INT[], 'INSERT'::import.plan_operation_type, 1, NULL::DATE, '2023-12-31'::DATE, '2024-03-31'::DATE, '{"name": "Meets New", "edit_comment": "Meets new"}'::JSONB, 'meets'::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                        data                        | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+----------------------------------------------------+----------
+ {108}          | INSERT    |         1 |                 | 2023-12-31      | 2024-03-31   | {"name": "Meets New", "edit_comment": "Meets new"} | meets
+(1 row)
+
+\echo 'Actual plan:'
+Actual plan:
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'source_schema', 'temp_source', :'entity_id_cols'::TEXT[], NULL, :'ephemeral_cols'::TEXT[]);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                        data                        | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+----------------------------------------------------+----------
+ {108}          | INSERT    |         1 |                 | 2023-12-31      | 2024-03-31   | {"name": "Meets New", "edit_comment": "Meets new"} | meets
 (1 row)
 
 DROP TABLE temp_source;
@@ -304,15 +421,25 @@ Scenario 10: `meets` relation (same data, should coalesce)
 CALL set_test_replace.reset_target();
 INSERT INTO set_test_replace.legal_unit (id, valid_after, valid_to, name, edit_comment) VALUES (1, '2024-03-31', '2024-08-31', 'Original', NULL);
 CREATE TEMP TABLE temp_source (
-    row_id INT, legal_unit_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT
+    row_id INT, id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT
 ) ON COMMIT DROP;
 INSERT INTO temp_source VALUES (109, 1, '2023-12-31', '2024-03-31', 'Original', 'Meets same');
-\echo 'Generated Plan (Scenario 10):'
-Generated Plan (Scenario 10):
-SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
- source_row_id | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                        data                        | relation 
----------------+-----------+-----------+-----------------+-----------------+--------------+----------------------------------------------------+----------
-           109 | UPDATE    |         1 | 2024-03-31      | 2023-12-31      | 2024-08-31   | {"name": "Original", "edit_comment": "Meets same"} | meets
+\echo 'Expected plan:'
+Expected plan:
+SELECT * FROM (VALUES
+    ('{109}'::INT[], 'UPDATE'::import.plan_operation_type, 1, '2024-03-31'::DATE, '2023-12-31'::DATE, '2024-08-31'::DATE, '{"name": "Original"}'::JSONB, 'meets'::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |         data         | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+----------------------+----------
+ {109}          | UPDATE    |         1 | 2024-03-31      | 2023-12-31      | 2024-08-31   | {"name": "Original"} | meets
+(1 row)
+
+\echo 'Actual plan:'
+Actual plan:
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'source_schema', 'temp_source', :'entity_id_cols'::TEXT[], NULL, :'ephemeral_cols'::TEXT[]);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                        data                        | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+----------------------------------------------------+----------
+ {109}          | UPDATE    |         1 | 2024-03-31      | 2023-12-31      | 2024-08-31   | {"name": "Original", "edit_comment": "Meets same"} | meets
 (1 row)
 
 DROP TABLE temp_source;
@@ -322,15 +449,25 @@ Scenario 11: `met_by` relation (source is met by existing)
 CALL set_test_replace.reset_target();
 INSERT INTO set_test_replace.legal_unit (id, valid_after, valid_to, name, edit_comment) VALUES (1, '2023-12-31', '2024-03-31', 'Original', NULL);
 CREATE TEMP TABLE temp_source (
-    row_id INT, legal_unit_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT
+    row_id INT, id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT
 ) ON COMMIT DROP;
 INSERT INTO temp_source VALUES (111, 1, '2024-03-31', '2024-08-31', 'Met By New', 'Met By');
-\echo 'Generated Plan (Scenario 11):'
-Generated Plan (Scenario 11):
-SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
- source_row_id | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                       data                       | relation 
----------------+-----------+-----------+-----------------+-----------------+--------------+--------------------------------------------------+----------
-           111 | INSERT    |         1 |                 | 2024-03-31      | 2024-08-31   | {"name": "Met By New", "edit_comment": "Met By"} | met_by
+\echo 'Expected plan:'
+Expected plan:
+SELECT * FROM (VALUES
+    ('{111}'::INT[], 'INSERT'::import.plan_operation_type, 1, NULL::DATE, '2024-03-31'::DATE, '2024-08-31'::DATE, '{"name": "Met By New", "edit_comment": "Met By"}'::JSONB, 'met_by'::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                       data                       | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+--------------------------------------------------+----------
+ {111}          | INSERT    |         1 |                 | 2024-03-31      | 2024-08-31   | {"name": "Met By New", "edit_comment": "Met By"} | met_by
+(1 row)
+
+\echo 'Actual plan:'
+Actual plan:
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'source_schema', 'temp_source', :'entity_id_cols'::TEXT[], NULL, :'ephemeral_cols'::TEXT[]);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                       data                       | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+--------------------------------------------------+----------
+ {111}          | INSERT    |         1 |                 | 2024-03-31      | 2024-08-31   | {"name": "Met By New", "edit_comment": "Met By"} | met_by
 (1 row)
 
 DROP TABLE temp_source;
@@ -340,15 +477,25 @@ Scenario 12: `preceded_by` relation (no interaction)
 CALL set_test_replace.reset_target();
 INSERT INTO set_test_replace.legal_unit (id, valid_after, valid_to, name, edit_comment) VALUES (1, '2024-08-31', '2024-12-31', 'Original', NULL);
 CREATE TEMP TABLE temp_source (
-    row_id INT, legal_unit_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT
+    row_id INT, id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT
 ) ON COMMIT DROP;
 INSERT INTO temp_source VALUES (112, 1, '2023-12-31', '2024-03-31', 'Preceded By New', 'Preceded By');
-\echo 'Generated Plan (Scenario 12):'
-Generated Plan (Scenario 12):
-SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
- source_row_id | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                            data                            | relation 
----------------+-----------+-----------+-----------------+-----------------+--------------+------------------------------------------------------------+----------
-           112 | INSERT    |         1 |                 | 2023-12-31      | 2024-03-31   | {"name": "Preceded By New", "edit_comment": "Preceded By"} | precedes
+\echo 'Expected plan:'
+Expected plan:
+SELECT * FROM (VALUES
+    ('{112}'::INT[], 'INSERT'::import.plan_operation_type, 1, NULL::DATE, '2023-12-31'::DATE, '2024-03-31'::DATE, '{"name": "Preceded By New"}'::JSONB, 'precedes'::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |            data             | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+-----------------------------+----------
+ {112}          | INSERT    |         1 |                 | 2023-12-31      | 2024-03-31   | {"name": "Preceded By New"} | precedes
+(1 row)
+
+\echo 'Actual plan:'
+Actual plan:
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'source_schema', 'temp_source', :'entity_id_cols'::TEXT[], NULL, :'ephemeral_cols'::TEXT[]);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                            data                            | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+------------------------------------------------------------+----------
+ {112}          | INSERT    |         1 |                 | 2023-12-31      | 2024-03-31   | {"name": "Preceded By New", "edit_comment": "Preceded By"} | precedes
 (1 row)
 
 DROP TABLE temp_source;
@@ -360,18 +507,166 @@ CALL set_test_replace.reset_target();
 INSERT INTO set_test_replace.legal_unit (id, valid_after, valid_to, name, edit_comment) VALUES
 (1, '2023-12-31', '2024-03-31', 'History Part 1', 'Original 1'),
 (1, '2024-08-31', '2024-12-31', 'History Part 2', 'Original 2');
-CREATE TEMP TABLE temp_source ( row_id INT, legal_unit_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT ) ON COMMIT DROP;
+CREATE TEMP TABLE temp_source ( row_id INT, id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT ) ON COMMIT DROP;
 -- Source data only interacts with "History Part 1"
 INSERT INTO temp_source VALUES (113, 1, '2024-01-31', '2024-02-29', 'Updated Slice', 'Update');
-\echo 'Generated Plan (Scenario 13):'
-Generated Plan (Scenario 13):
-SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'target_entity_id_col', :'source_schema', 'temp_source', :'source_entity_id_col', NULL, :'ephemeral_cols'::TEXT[]);
- source_row_id | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                           data                           | relation 
----------------+-----------+-----------+-----------------+-----------------+--------------+----------------------------------------------------------+----------
-           113 | UPDATE    |         1 | 2023-12-31      | 2023-12-31      | 2024-01-31   | {"name": "History Part 1", "edit_comment": "Original 1"} | during
-           113 | INSERT    |         1 |                 | 2024-01-31      | 2024-02-29   | {"name": "Updated Slice", "edit_comment": "Update"}      | during
-           113 | INSERT    |         1 |                 | 2024-02-29      | 2024-03-31   | {"name": "History Part 1", "edit_comment": "Original 1"} | during
+\echo 'Expected plan:'
+Expected plan:
+SELECT * FROM (VALUES
+    ('{113}'::INT[], 'UPDATE'::import.plan_operation_type, 1, '2023-12-31'::DATE, '2023-12-31'::DATE, '2024-01-31'::DATE, '{"name": "History Part 1"}'::JSONB, 'during'::public.allen_interval_relation),
+    ('{113}'::INT[], 'INSERT'::import.plan_operation_type, 1, NULL::DATE, '2024-01-31'::DATE, '2024-02-29'::DATE, '{"name": "Updated Slice"}'::JSONB, 'during'::public.allen_interval_relation),
+    ('{113}'::INT[], 'INSERT'::import.plan_operation_type, 1, NULL::DATE, '2024-02-29'::DATE, '2024-03-31'::DATE, '{"name": "History Part 1"}'::JSONB, 'during'::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |            data            | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+----------------------------+----------
+ {113}          | UPDATE    |         1 | 2023-12-31      | 2023-12-31      | 2024-01-31   | {"name": "History Part 1"} | during
+ {113}          | INSERT    |         1 |                 | 2024-01-31      | 2024-02-29   | {"name": "Updated Slice"}  | during
+ {113}          | INSERT    |         1 |                 | 2024-02-29      | 2024-03-31   | {"name": "History Part 1"} | during
 (3 rows)
+
+\echo 'Actual plan:'
+Actual plan:
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'source_schema', 'temp_source', :'entity_id_cols'::TEXT[], NULL, :'ephemeral_cols'::TEXT[]);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                           data                           | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+----------------------------------------------------------+----------
+ {113}          | UPDATE    |         1 | 2023-12-31      | 2023-12-31      | 2024-01-31   | {"name": "History Part 1", "edit_comment": "Original 1"} | during
+ {113}          | INSERT    |         1 |                 | 2024-01-31      | 2024-02-29   | {"name": "Updated Slice", "edit_comment": "Update"}      | during
+ {113}          | INSERT    |         1 |                 | 2024-02-29      | 2024-03-31   | {"name": "History Part 1", "edit_comment": "Original 1"} | during
+(3 rows)
+
+DROP TABLE temp_source;
+-- Scenario 14: Adjacent but non-contiguous source rows with same data should not coalesce
+\echo 'Scenario 14: Adjacent but non-contiguous source rows with same data should not coalesce'
+Scenario 14: Adjacent but non-contiguous source rows with same data should not coalesce
+CALL set_test_replace.reset_target();
+-- No initial target data for this entity
+CREATE TEMP TABLE temp_source ( row_id INT, id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT ) ON COMMIT DROP;
+-- Two source rows with identical data but a one-day gap between them
+INSERT INTO temp_source VALUES
+(114, 1, '2024-01-31', '2024-03-31', 'Same Data', 'Part A'),
+(115, 1, '2024-04-01', '2024-06-30', 'Same Data', 'Part B');
+\echo 'Expected plan:'
+Expected plan:
+SELECT * FROM (VALUES
+    ('{114}'::INT[], 'INSERT'::import.plan_operation_type, 1, NULL::DATE, '2024-01-31'::DATE, '2024-03-31'::DATE, '{"name": "Same Data", "edit_comment": "Part A"}'::JSONB, NULL::public.allen_interval_relation),
+    ('{115}'::INT[], 'INSERT'::import.plan_operation_type, 1, NULL::DATE, '2024-04-01'::DATE, '2024-06-30'::DATE, '{"name": "Same Data", "edit_comment": "Part B"}'::JSONB, NULL::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                      data                       | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+-------------------------------------------------+----------
+ {114}          | INSERT    |         1 |                 | 2024-01-31      | 2024-03-31   | {"name": "Same Data", "edit_comment": "Part A"} | 
+ {115}          | INSERT    |         1 |                 | 2024-04-01      | 2024-06-30   | {"name": "Same Data", "edit_comment": "Part B"} | 
+(2 rows)
+
+\echo 'Actual plan:'
+Actual plan:
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'source_schema', 'temp_source', :'entity_id_cols'::TEXT[], NULL, :'ephemeral_cols'::TEXT[]);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                      data                       | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+-------------------------------------------------+----------
+ {114}          | INSERT    |         1 |                 | 2024-01-31      | 2024-03-31   | {"name": "Same Data", "edit_comment": "Part A"} | 
+ {115}          | INSERT    |         1 |                 | 2024-04-01      | 2024-06-30   | {"name": "Same Data", "edit_comment": "Part B"} | 
+(2 rows)
+
+DROP TABLE temp_source;
+-- Scenario 15: `meets` relation, same core data, different ephemeral data (should merge and update ephemeral)
+\echo 'Scenario 15: `meets` relation, same core data, different ephemeral data (should merge and update ephemeral)'
+Scenario 15: `meets` relation, same core data, different ephemeral data (should merge and update ephemeral)
+CALL set_test_replace.reset_target();
+INSERT INTO set_test_replace.legal_unit (id, valid_after, valid_to, name, edit_comment) VALUES (1, '2024-01-31', '2024-03-31', 'Same Core', 'Comment A');
+CREATE TEMP TABLE temp_source ( row_id INT, id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT ) ON COMMIT DROP;
+INSERT INTO temp_source VALUES (116, 1, '2024-03-31', '2024-06-30', 'Same Core', 'Comment B');
+\echo 'Expected plan:'
+Expected plan:
+SELECT * FROM (VALUES
+    ('{116}'::INT[], 'UPDATE'::import.plan_operation_type, 1, '2024-01-31'::DATE, '2024-01-31'::DATE, '2024-06-30'::DATE, '{"name": "Same Core", "edit_comment": "Comment B"}'::JSONB, 'met_by'::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                        data                        | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+----------------------------------------------------+----------
+ {116}          | UPDATE    |         1 | 2024-01-31      | 2024-01-31      | 2024-06-30   | {"name": "Same Core", "edit_comment": "Comment B"} | met_by
+(1 row)
+
+\echo 'Actual plan:'
+Actual plan:
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'source_schema', 'temp_source', :'entity_id_cols'::TEXT[], NULL, :'ephemeral_cols'::TEXT[]);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                        data                        | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+----------------------------------------------------+----------
+ {116}          | UPDATE    |         1 | 2024-01-31      | 2024-01-31      | 2024-06-30   | {"name": "Same Core", "edit_comment": "Comment B"} | met_by
+(1 row)
+
+DROP TABLE temp_source;
+-- Scenario 16: Contiguous source rows with same core data should coalesce
+\echo 'Scenario 16: Contiguous source rows with same core data should coalesce'
+Scenario 16: Contiguous source rows with same core data should coalesce
+CALL set_test_replace.reset_target();
+-- No initial target data for this entity
+CREATE TEMP TABLE temp_source ( row_id INT, id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT ) ON COMMIT DROP;
+-- Two source rows with identical core data and different ephemeral data, and are contiguous
+INSERT INTO temp_source VALUES
+(117, 1, '2024-01-31', '2024-03-31', 'Same Data', 'Part A'),
+(118, 1, '2024-03-31', '2024-06-30', 'Same Data', 'Part B');
+\echo 'Expected plan:'
+Expected plan:
+SELECT * FROM (VALUES
+    ('{117,118}'::INT[], 'INSERT'::import.plan_operation_type, 1, NULL::DATE, '2024-01-31'::DATE, '2024-06-30'::DATE, '{"name": "Same Data", "edit_comment": "Part B"}'::JSONB, NULL::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                      data                       | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+-------------------------------------------------+----------
+ {117,118}      | INSERT    |         1 |                 | 2024-01-31      | 2024-06-30   | {"name": "Same Data", "edit_comment": "Part B"} | 
+(1 row)
+
+\echo 'Actual plan:'
+Actual plan:
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'source_schema', 'temp_source', :'entity_id_cols'::TEXT[], NULL, :'ephemeral_cols'::TEXT[]);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                      data                       | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+-------------------------------------------------+----------
+ {117,118}      | INSERT    |         1 |                 | 2024-01-31      | 2024-06-30   | {"name": "Same Data", "edit_comment": "Part B"} | 
+(1 row)
+
+DROP TABLE temp_source;
+-- Scenario 17: Test causal attribution with multiple source rows splitting a target row
+\echo 'Scenario 17: Test causal attribution with multiple source rows splitting a target row'
+Scenario 17: Test causal attribution with multiple source rows splitting a target row
+CALL set_test_replace.reset_target();
+-- Target has one continuous record
+INSERT INTO set_test_replace.legal_unit (id, valid_after, valid_to, name, edit_comment) VALUES (1, '2023-12-31', '2024-12-31', 'Original', 'Original Comment');
+CREATE TEMP TABLE temp_source ( row_id INT, id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT ) ON COMMIT DROP;
+-- Two source rows that split the target, creating a preserved segment between them
+INSERT INTO temp_source VALUES
+(119, 1, '2024-02-29', '2024-04-01', 'Update A', 'Caused by 119'),
+(120, 1, '2024-08-31', '2024-10-01', 'Update B', 'Caused by 120');
+\echo 'Expected plan:'
+Expected plan:
+SELECT * FROM (VALUES
+    -- Preserved start segment, caused by the first interacting source row (119)
+    ('{119}'::INT[], 'UPDATE'::import.plan_operation_type, 1, '2023-12-31'::DATE, '2023-12-31'::DATE, '2024-02-29'::DATE, '{"name": "Original"}'::JSONB, 'during'::public.allen_interval_relation),
+    -- Inserted segment from source row 119
+    ('{119}'::INT[], 'INSERT'::import.plan_operation_type, 1, NULL::DATE, '2024-02-29'::DATE, '2024-04-01'::DATE, '{"name": "Update A"}'::JSONB, 'during'::public.allen_interval_relation),
+    -- Preserved middle segment. Should be attributed to the closest preceding source row (119)
+    ('{119}'::INT[], 'INSERT'::import.plan_operation_type, 1, NULL::DATE, '2024-04-01'::DATE, '2024-08-31'::DATE, '{"name": "Original"}'::JSONB, 'during'::public.allen_interval_relation),
+    -- Inserted segment from source row 120
+    ('{120}'::INT[], 'INSERT'::import.plan_operation_type, 1, NULL::DATE, '2024-08-31'::DATE, '2024-10-01'::DATE, '{"name": "Update B"}'::JSONB, 'during'::public.allen_interval_relation),
+    -- Preserved end segment, caused by the second interacting source row (120)
+    ('{120}'::INT[], 'INSERT'::import.plan_operation_type, 1, NULL::DATE, '2024-10-01'::DATE, '2024-12-31'::DATE, '{"name": "Original"}'::JSONB, 'during'::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |         data         | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+----------------------+----------
+ {119}          | UPDATE    |         1 | 2023-12-31      | 2023-12-31      | 2024-02-29   | {"name": "Original"} | during
+ {119}          | INSERT    |         1 |                 | 2024-02-29      | 2024-04-01   | {"name": "Update A"} | during
+ {119}          | INSERT    |         1 |                 | 2024-04-01      | 2024-08-31   | {"name": "Original"} | during
+ {120}          | INSERT    |         1 |                 | 2024-08-31      | 2024-10-01   | {"name": "Update B"} | during
+ {120}          | INSERT    |         1 |                 | 2024-10-01      | 2024-12-31   | {"name": "Original"} | during
+(5 rows)
+
+\echo 'Actual plan:'
+Actual plan:
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.plan_set_insert_or_replace_generic_valid_time_table(:'target_schema', :'target_table', :'source_schema', 'temp_source', :'entity_id_cols'::TEXT[], NULL, :'ephemeral_cols'::TEXT[]);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                           data                           | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+----------------------------------------------------------+----------
+ {119}          | UPDATE    |         1 | 2023-12-31      | 2023-12-31      | 2024-02-29   | {"name": "Original", "edit_comment": "Original Comment"} | during
+ {119}          | INSERT    |         1 |                 | 2024-02-29      | 2024-04-01   | {"name": "Update A", "edit_comment": "Caused by 119"}    | during
+ {119}          | INSERT    |         1 |                 | 2024-04-01      | 2024-08-31   | {"name": "Original", "edit_comment": "Original Comment"} | during
+ {120}          | INSERT    |         1 |                 | 2024-08-31      | 2024-10-01   | {"name": "Update B", "edit_comment": "Caused by 120"}    | during
+ {120}          | INSERT    |         1 |                 | 2024-10-01      | 2024-12-31   | {"name": "Original", "edit_comment": "Original Comment"} | during
+(5 rows)
 
 DROP TABLE temp_source;
 -- Cleanup

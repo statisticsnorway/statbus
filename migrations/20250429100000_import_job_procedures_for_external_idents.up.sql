@@ -121,6 +121,7 @@ BEGIN
         source_ident_code TEXT, -- The code/column name from the _data table e.g. 'tax_ident'
         ident_value TEXT,
         ident_type_id INT,      -- Resolved ID from external_ident_type, NULL if source_ident_code is unknown
+        prefix_unit_type public.statistical_unit_type, -- The unit type derived from the column prefix
         resolved_lu_id INT,
         resolved_est_id INT,
         is_cross_type_conflict BOOLEAN,
@@ -131,32 +132,47 @@ BEGIN
 
     v_unpivot_sql := '';
     v_add_separator := FALSE;
-    -- For external_idents step, the import_data_column.column_name *is* the external_ident_type.code
-    FOR v_col_rec IN SELECT value->>'column_name' as idc_column_name -- This is the actual external_ident_type.code
+    FOR v_col_rec IN SELECT value->>'column_name' as idc_column_name
                      FROM jsonb_array_elements(v_ident_data_cols) value
     LOOP
-        -- idc_column_name itself will be used to join with external_ident_type.code
         IF v_col_rec.idc_column_name IS NULL THEN
-             RAISE DEBUG '[Job %] analyse_external_idents: Skipping column as its name is null in import_data_column_list for step external_idents.', p_job_id;
+             RAISE DEBUG '[Job %] analyse_external_idents: Skipping column as its name is null in import_data_column_list.', p_job_id;
              CONTINUE;
         END IF;
 
-        IF v_add_separator THEN v_unpivot_sql := v_unpivot_sql || ' UNION ALL '; END IF;
-        v_unpivot_sql := v_unpivot_sql || format(
-            $$SELECT dt.row_id,
-                     %1$L AS source_column_name_in_data_table, -- This is the name of the column in _data table (e.g., 'tax_ident')
-                     %2$L AS ident_type_code_to_join_on,     -- This is also the external_ident_type.code (e.g., 'tax_ident')
-                     NULLIF(dt.%3$I, '') AS ident_value
-             FROM public.%4$I dt
-             JOIN temp_relevant_rows tr ON tr.data_row_id = dt.row_id
-             WHERE NULLIF(dt.%5$I, '') IS NOT NULL AND dt.action IS DISTINCT FROM 'skip'$$,
-             v_col_rec.idc_column_name, -- %1$L Name of column in _data table
-             v_col_rec.idc_column_name, -- %2$L Code to join with external_ident_type
-             v_col_rec.idc_column_name, -- %3$I Column to select value from in _data table
-             v_data_table_name,         -- %4$I
-             v_col_rec.idc_column_name  -- %5$I
-        );
-        v_add_separator := TRUE;
+        DECLARE
+            v_ident_type_code_to_join TEXT;
+            v_prefix_type_sql_literal TEXT;
+        BEGIN
+            v_ident_type_code_to_join := v_col_rec.idc_column_name;
+            v_prefix_type_sql_literal := 'NULL::public.statistical_unit_type'; -- Default: no prefix
+
+            IF v_col_rec.idc_column_name LIKE 'legal_unit_%' THEN
+                v_ident_type_code_to_join := regexp_replace(v_col_rec.idc_column_name, '^legal_unit_', '');
+                v_prefix_type_sql_literal := '''legal_unit''::public.statistical_unit_type';
+            ELSIF v_col_rec.idc_column_name LIKE 'establishment_%' THEN
+                v_ident_type_code_to_join := regexp_replace(v_col_rec.idc_column_name, '^establishment_', '');
+                v_prefix_type_sql_literal := '''establishment''::public.statistical_unit_type';
+            END IF;
+
+            IF v_add_separator THEN v_unpivot_sql := v_unpivot_sql || ' UNION ALL '; END IF;
+            v_unpivot_sql := v_unpivot_sql || format(
+                $$SELECT dt.row_id,
+                         %1$L AS source_column_name_in_data_table,
+                         %2$L AS ident_type_code_to_join_on,
+                         %3$s AS prefix_unit_type,
+                         NULLIF(dt.%4$I, '') AS ident_value
+                 FROM public.%5$I dt
+                 JOIN temp_relevant_rows tr ON tr.data_row_id = dt.row_id
+                 WHERE NULLIF(dt.%4$I, '') IS NOT NULL AND dt.action IS DISTINCT FROM 'skip'$$,
+                 v_col_rec.idc_column_name,     /* %1$L */
+                 v_ident_type_code_to_join,     /* %2$L */
+                 v_prefix_type_sql_literal,     /* %3$s */
+                 v_col_rec.idc_column_name,     /* %4$I */
+                 v_data_table_name              /* %5$I */
+            );
+            v_add_separator := TRUE;
+        END;
     END LOOP;
 
     IF v_unpivot_sql = '' THEN
@@ -182,12 +198,13 @@ BEGIN
     -- temp_unpivoted_idents population directly using is_cross_type_conflict and conflicting_unit_jsonb.
 
     v_sql := format($$
-        INSERT INTO temp_unpivoted_idents (data_row_id, source_ident_code, ident_value, ident_type_id, resolved_lu_id, resolved_est_id, is_cross_type_conflict, conflicting_unit_jsonb, conflicting_est_is_formal)
+        INSERT INTO temp_unpivoted_idents (data_row_id, source_ident_code, ident_value, ident_type_id, prefix_unit_type, resolved_lu_id, resolved_est_id, is_cross_type_conflict, conflicting_unit_jsonb, conflicting_est_is_formal)
         SELECT
             up.row_id, 
             up.source_column_name_in_data_table AS source_ident_code, 
             up.ident_value, 
             xit.id AS ident_type_id,
+            up.prefix_unit_type,
             xi.legal_unit_id, 
             xi.establishment_id,
             CASE %2$L -- v_job_mode
@@ -276,7 +293,15 @@ BEGIN
                 COUNT(DISTINCT tui.resolved_est_id) FILTER (WHERE tui.resolved_est_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS distinct_est_ids,
                 MAX(tui.resolved_lu_id) FILTER (WHERE tui.resolved_lu_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS final_lu_id,
                 MAX(tui.resolved_est_id) FILTER (WHERE tui.resolved_est_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS final_est_id,
-                jsonb_object_agg(tui.source_ident_code, tui.ident_value) FILTER (WHERE tui.ident_type_id IS NOT NULL AND tui.ident_value IS NOT NULL) AS entity_signature,
+                jsonb_object_agg(tui.source_ident_code, tui.ident_value) FILTER (
+                    WHERE tui.ident_type_id IS NOT NULL AND tui.ident_value IS NOT NULL AND
+                    CASE %4$L -- v_job_mode
+                        WHEN 'legal_unit' THEN (tui.prefix_unit_type IS NULL OR tui.prefix_unit_type = 'legal_unit')
+                        WHEN 'establishment_formal' THEN (tui.prefix_unit_type IS NULL OR tui.prefix_unit_type = 'establishment')
+                        WHEN 'establishment_informal' THEN (tui.prefix_unit_type IS NULL OR tui.prefix_unit_type = 'establishment')
+                        ELSE TRUE -- generic_unit mode considers all identifiers
+                    END
+                ) AS entity_signature,
                 BOOL_OR(tui.conflicting_est_is_formal) AS agg_conflicting_est_is_formal,
                 -- Aggregate cross-type conflicts: key is source_ident_code, value is conflict message
                 jsonb_object_agg(
@@ -439,46 +464,6 @@ BEGIN
     EXECUTE v_sql;
     
     -- Debug: Log results from RowChecks and OrderedBatchEntities logic
-    DECLARE
-        debug_rec RECORD;
-        debug_sql TEXT;
-    BEGIN
-        debug_sql := format($$
-            WITH RowChecks AS (
-                SELECT
-                    orig.data_row_id,
-                    dt.derived_valid_from,
-                    COUNT(tui.ident_value) FILTER (WHERE tui.ident_value IS NOT NULL) AS num_raw_idents_with_value,
-                    COUNT(tui.ident_type_id) FILTER (WHERE tui.ident_value IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS num_valid_type_idents_with_value,
-                    array_agg(DISTINCT tui.source_ident_code) FILTER (WHERE tui.ident_value IS NOT NULL AND tui.ident_type_id IS NULL) as unknown_ident_codes,
-                    COUNT(DISTINCT tui.resolved_lu_id) FILTER (WHERE tui.resolved_lu_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS distinct_lu_ids,
-                    COUNT(DISTINCT tui.resolved_est_id) FILTER (WHERE tui.resolved_est_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS distinct_est_ids,
-                    MAX(tui.resolved_lu_id) FILTER (WHERE tui.resolved_lu_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS final_lu_id,
-                    MAX(tui.resolved_est_id) FILTER (WHERE tui.resolved_est_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS final_est_id,
-                    jsonb_object_agg(tui.source_ident_code, tui.ident_value) FILTER (WHERE tui.ident_type_id IS NOT NULL AND tui.ident_value IS NOT NULL) AS entity_signature
-                FROM temp_relevant_rows AS orig
-                JOIN public.%1$I AS dt ON orig.data_row_id = dt.row_id
-                LEFT JOIN temp_unpivoted_idents AS tui ON orig.data_row_id = tui.data_row_id
-                GROUP BY orig.data_row_id, dt.derived_valid_from
-            ),
-            OrderedBatchEntities AS (
-                SELECT
-                    rc.*,
-                    ROW_NUMBER() OVER (PARTITION BY rc.entity_signature ORDER BY rc.derived_valid_from NULLS LAST, rc.data_row_id) as rn_in_batch_for_entity
-                FROM RowChecks rc
-            )
-            SELECT obe.*
-            FROM OrderedBatchEntities obe
-            ORDER BY obe.entity_signature, obe.rn_in_batch_for_entity;
-        $$, v_data_table_name);
-
-        RAISE DEBUG '[Job %] analyse_external_idents: Debugging OrderedBatchEntities logic with SQL: %', p_job_id, debug_sql;
-        FOR debug_rec IN EXECUTE debug_sql
-        LOOP
-            RAISE DEBUG '[Job %]   OBE: data_row_id=%, final_lu_id=%, final_est_id=%, entity_signature=%, rn_in_batch_for_entity=%, derived_valid_from=%',
-                        p_job_id, debug_rec.data_row_id, debug_rec.final_lu_id, debug_rec.final_est_id, debug_rec.entity_signature, debug_rec.rn_in_batch_for_entity, debug_rec.derived_valid_from;
-        END LOOP;
-    END;
 
     -- Step 3: Single-pass Batch Update for All Rows with dynamically constructed SET clause
     v_set_clause := format($$

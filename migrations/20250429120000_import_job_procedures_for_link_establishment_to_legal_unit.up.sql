@@ -161,10 +161,9 @@ BEGIN
     EXECUTE v_sql;
     RAISE DEBUG '[Job %] Holistic pre-calculation phase complete.', p_job_id;
 
-    -- STEP 2: SINGLE HOLISTIC UPDATE
-    -- With the pre-calculation done, a single update is safe and efficient.
-    RAISE DEBUG '[Job %] Starting single holistic update phase.', p_job_id;
-    v_sql := format($$
+
+    -- Update priority for rows that were initially skipped
+    EXECUTE format($$
         UPDATE public.%1$I dt SET
             legal_unit_id = CASE WHEN pre.error_jsonb IS NULL THEN pre.resolved_lu_id ELSE dt.legal_unit_id END,
             primary_for_legal_unit = CASE WHEN pre.error_jsonb IS NULL THEN pre.primary_for_legal_unit ELSE dt.primary_for_legal_unit END,

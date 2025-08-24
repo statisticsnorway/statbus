@@ -444,24 +444,24 @@ BEGIN
             RAISE DEBUG '[Job %] process_legal_unit: Identified % LUs for demotion. Populated temp_lu_demotion_ops.', p_job_id, (SELECT count(*) FROM temp_lu_demotion_ops);
 
             FOR v_batch_result IN
-                SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
+                SELECT * FROM import.set_insert_or_replace_generic_valid_time_table(
                     p_target_schema_name => 'public',
                     p_target_table_name => 'legal_unit',
                     p_source_schema_name => 'pg_temp',
                     p_source_table_name => 'temp_lu_demotion_ops',
-                    p_unique_columns => '[]'::jsonb,
-                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
-                    p_id_column_name => 'id'
+                    p_entity_id_column_names => ARRAY['id'],
+                    p_source_row_ids => NULL,
+                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
                 )
             LOOP
                 IF v_batch_result.status = 'ERROR' THEN
-                    RAISE WARNING '[Job %] process_legal_unit: Error during demotion batch_replace for LU ID % (source_row_id %): %',
-                                  p_job_id, v_batch_result.upserted_record_id, v_batch_result.source_row_id, v_batch_result.error_message;
-                    UPDATE public.import_job SET error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('demotion_error_lu_' || v_batch_result.upserted_record_id, v_batch_result.error_message)
+                    RAISE WARNING '[Job %] process_legal_unit: Error during demotion batch_replace for LU IDs % (source_row_id %): %',
+                                  p_job_id, v_batch_result.target_entity_ids, v_batch_result.source_row_id, v_batch_result.error_message;
+                    UPDATE public.import_job SET error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('demotion_error_lu_' || array_to_string(v_batch_result.target_entity_ids, ','), v_batch_result.error_message)
                     WHERE id = p_job_id;
                 ELSE
-                    RAISE DEBUG '[Job %] process_legal_unit: Successfully processed demotion for LU ID % (source_row_id %)',
-                                  p_job_id, v_batch_result.upserted_record_id, v_batch_result.source_row_id;
+                    RAISE DEBUG '[Job %] process_legal_unit: Successfully processed demotion for LU IDs % (source_row_id %)',
+                                  p_job_id, v_batch_result.target_entity_ids, v_batch_result.source_row_id;
                 END IF;
             END LOOP;
         ELSE
@@ -549,155 +549,72 @@ BEGIN
                 FROM temp_created_lus tcl
                 WHERE dt.row_id = tcl.data_row_id AND dt.state != 'error';
             $$, v_data_table_name /* %1$I */, 'processing'::public.import_data_state /* %2$L */);
-            RAISE DEBUG '[Job %] process_legal_unit: Updated _data table for % new LUs.', p_job_id, v_inserted_new_lu_count;
-        END IF;
+            GET DIAGNOSTICS v_current_op_row_count = ROW_COUNT;
+            RAISE DEBUG '[Job %] process_legal_unit: Updated _data table for % new LUs (data_row_ids).', p_job_id, v_current_op_row_count;
 
-        -- Handle REPLACE action
-        RAISE DEBUG '[Job %] process_legal_unit: Handling REPLACE action for existing LUs.', p_job_id;
-        INSERT INTO temp_lu_replace_source (
-            row_id, founding_row_id, id, valid_after, valid_from, valid_to, name, birth_date, death_date, active,
-            sector_id, unit_size_id, status_id, legal_form_id, enterprise_id,
-            primary_for_enterprise, data_source_id, invalid_codes, -- Added invalid_codes
-            edit_by_user_id, edit_at, edit_comment
-        )
-        SELECT
-            tbd.data_row_id, tbd.founding_row_id, tbd.existing_lu_id, tbd.valid_after, tbd.valid_from, tbd.valid_to, tbd.name,
-            tbd.typed_birth_date, tbd.typed_death_date, true, -- Assuming active=true for replace actions
-            tbd.sector_id, tbd.unit_size_id, tbd.status_id, tbd.legal_form_id, tbd.enterprise_id,
-            tbd.primary_for_enterprise, tbd.data_source_id,
-            tbd.invalid_codes,
-            tbd.edit_by_user_id, tbd.edit_at,
-            tbd.edit_comment
-        FROM (
-            SELECT DISTINCT ON (existing_lu_id, valid_after) * -- Select one row per LU ID and valid_after
-            FROM temp_batch_data
-            WHERE action = 'replace'
-            ORDER BY existing_lu_id ASC NULLS LAST, valid_after ASC, data_row_id ASC -- Deterministic pick
-        ) tbd;
-
-        GET DIAGNOSTICS v_intended_replace_lu_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] process_legal_unit: Populated temp_lu_replace_source with % rows for action=replace.', p_job_id, v_intended_replace_lu_count;
-
-        IF v_intended_replace_lu_count > 0 THEN
-            -- Before replacing legal_unit segments, manage dependent child records sequentially.
-            RAISE DEBUG '[Job %] process_legal_unit: Surgically managing child records for % legal units being replaced.', p_job_id, v_intended_replace_lu_count;
-            DECLARE
-                rec_replace_op RECORD;
-            BEGIN
-                FOR rec_replace_op IN
-                    SELECT * FROM temp_lu_replace_source ORDER BY id, valid_from
-                LOOP
-                    -- Manage Activities (DELETE then UPDATE)
-                    DELETE FROM public.activity WHERE legal_unit_id = rec_replace_op.id AND valid_from >= rec_replace_op.valid_from;
-                    UPDATE public.activity SET valid_to = rec_replace_op.valid_from - 1
-                        WHERE legal_unit_id = rec_replace_op.id
-                        AND valid_from < rec_replace_op.valid_from
-                        AND valid_to >= rec_replace_op.valid_from;
-
-                    -- Manage Locations
-                    DELETE FROM public.location WHERE legal_unit_id = rec_replace_op.id AND valid_from >= rec_replace_op.valid_from;
-                    UPDATE public.location SET valid_to = rec_replace_op.valid_from - 1
-                        WHERE legal_unit_id = rec_replace_op.id
-                        AND valid_from < rec_replace_op.valid_from
-                        AND valid_to >= rec_replace_op.valid_from;
-
-                    -- Manage Contacts
-                    DELETE FROM public.contact WHERE legal_unit_id = rec_replace_op.id AND valid_from >= rec_replace_op.valid_from;
-                    UPDATE public.contact SET valid_to = rec_replace_op.valid_from - 1
-                        WHERE legal_unit_id = rec_replace_op.id
-                        AND valid_from < rec_replace_op.valid_from
-                        AND valid_to >= rec_replace_op.valid_from;
-
-                    -- Manage Stats
-                    DELETE FROM public.stat_for_unit WHERE legal_unit_id = rec_replace_op.id AND valid_from >= rec_replace_op.valid_from;
-                    UPDATE public.stat_for_unit SET valid_to = rec_replace_op.valid_from - 1
-                        WHERE legal_unit_id = rec_replace_op.id
-                        AND valid_from < rec_replace_op.valid_from
-                        AND valid_to >= rec_replace_op.valid_from;
-                END LOOP;
-            END;
-            RAISE DEBUG '[Job %] process_legal_unit: Finished surgically managing child records.', p_job_id;
-
-            v_batch_error_row_ids := ARRAY[]::INTEGER[];
-            v_batch_success_row_ids := ARRAY[]::INTEGER[];
-            RAISE DEBUG '[Job %] process_legal_unit: Calling batch_insert_or_replace_generic_valid_time_table for legal_unit (replace).', p_job_id;
-            FOR v_batch_result IN
-                SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
-                    p_target_schema_name => 'public',
-                    p_target_table_name => 'legal_unit',
-                    p_source_schema_name => 'pg_temp',
-                    p_source_table_name => 'temp_lu_replace_source',
-                    p_unique_columns => '[]'::jsonb,
-                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
-                    p_id_column_name => 'id'
-                )
-            LOOP
-                IF v_batch_result.status = 'ERROR' THEN
-                    v_batch_error_row_ids := array_append(v_batch_error_row_ids, v_batch_result.source_row_id);
-                    EXECUTE format($$
-                        UPDATE public.%1$I SET state = %2$L, error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('batch_replace_lu_error', %3$L)
-                        -- last_completed_priority is preserved (not changed) on error
-                        WHERE row_id = %4$L;
-                    $$, v_data_table_name /* %1$I */, 'error'::public.import_data_state /* %2$L */, v_batch_result.error_message /* %3$L */, v_batch_result.source_row_id /* %4$L */);
-                ELSE
-                    v_batch_success_row_ids := array_append(v_batch_success_row_ids, v_batch_result.source_row_id);
-                    INSERT INTO temp_processed_action_lu_ids (data_row_id, actual_legal_unit_id)
-                    VALUES (v_batch_result.source_row_id, v_batch_result.upserted_record_id); -- Corrected to upserted_record_id
-                END IF;
+            -- Propagate to CHILD rows (e.g., establishments) in the batch that reference these new LUs via external identifiers.
+            RAISE DEBUG '[Job %] process_legal_unit: Starting dynamic propagation of new legal_unit_ids to child rows in the same batch.', p_job_id;
+            FOR rec_ident_type IN SELECT * FROM public.external_ident_type_active LOOP
+                DECLARE
+                    v_lu_child_ref_col_name TEXT := format('legal_unit_%s', rec_ident_type.code);
+                    v_lu_parent_ident_col_name TEXT := rec_ident_type.code;
+                BEGIN
+                    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = v_data_table_name AND column_name = v_lu_child_ref_col_name) THEN
+                        RAISE DEBUG '[Job %] process_legal_unit: Found linking column %. Attempting propagation.', p_job_id, v_lu_child_ref_col_name;
+                        v_sql := format($$
+                            WITH new_lu_idents AS (
+                                SELECT tcl.new_legal_unit_id, dt.%1$I AS ident_value
+                                FROM temp_created_lus tcl
+                                JOIN public.%2$I dt ON tcl.data_row_id = dt.row_id WHERE NULLIF(dt.%1$I, '') IS NOT NULL
+                            )
+                            UPDATE public.%2$I dt SET legal_unit_id = nli.new_legal_unit_id
+                            FROM new_lu_idents nli
+                            WHERE dt.row_id = ANY($1) AND dt.%3$I = nli.ident_value AND dt.legal_unit_id IS NULL;
+                        $$, v_lu_parent_ident_col_name, v_data_table_name, v_lu_child_ref_col_name);
+                        EXECUTE v_sql USING p_batch_row_ids;
+                        IF FOUND THEN GET DIAGNOSTICS v_current_op_row_count = ROW_COUNT; RAISE DEBUG '[Job %] process_legal_unit: Propagated new LU IDs to % child rows via %.', p_job_id, v_current_op_row_count, v_lu_child_ref_col_name; END IF;
+                    END IF;
+                END;
             END LOOP;
 
-            v_actually_replaced_lu_count := array_length(v_batch_success_row_ids, 1);
-            v_error_count := array_length(v_batch_error_row_ids, 1);
-            RAISE DEBUG '[Job %] process_legal_unit: Batch replace finished. Success: %, Errors: %', p_job_id, v_actually_replaced_lu_count, v_error_count;
+        END IF;
 
-            IF v_actually_replaced_lu_count > 0 THEN
-                FOR rec_created_lu IN
-                    SELECT
-                        tbd.data_row_id,
-                        tpai.actual_legal_unit_id as new_legal_unit_id,
-                        tbd.edit_by_user_id,
-                        tbd.edit_at,
-                        tbd.edit_comment
-                    FROM temp_batch_data tbd
-                    JOIN temp_processed_action_lu_ids tpai ON tbd.data_row_id = tpai.data_row_id
-                    WHERE tbd.data_row_id = ANY(v_batch_success_row_ids) AND tbd.action = 'replace'
-                LOOP
-                    CALL import.shared_upsert_external_idents_for_unit(
-                        p_job_id => p_job_id,
-                        p_data_table_name => v_data_table_name,
-                        p_data_row_id => rec_created_lu.data_row_id,
-                        p_unit_id => rec_created_lu.new_legal_unit_id,
-                        p_unit_type => 'legal_unit',
-                        p_edit_by_user_id => rec_created_lu.edit_by_user_id,
-                        p_edit_at => rec_created_lu.edit_at,
-                        p_edit_comment => rec_created_lu.edit_comment
-                    );
-                END LOOP;
-                RAISE DEBUG '[Job %] process_legal_unit: Ensured/Updated external_ident for % successfully replaced LUs using shared procedure.', p_job_id, v_actually_replaced_lu_count;
+        -- Handle REPLACE and UPDATE actions
+        RAISE DEBUG '[Job %] process_legal_unit: Handling REPLACE/UPDATE actions for existing LUs using strategy ''%''.', p_job_id, v_strategy;
+        
+        -- Mark 'replace'/'update' actions on non-existent entities as errors before proceeding
+        v_sql := format($$
+            WITH invalid_actions AS (
+                SELECT data_row_id FROM temp_batch_data
+                WHERE action IN ('replace', 'update') AND existing_lu_id IS NULL
+            ),
+            update_rows AS (
+                UPDATE public.%1$I dt
+                SET state = 'error',
+                    error = COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('process_legal_unit_error', 'Cannot perform ''replace'' or ''update'' on an entity that was not found or created.')
+                FROM invalid_actions ia
+                WHERE dt.row_id = ia.data_row_id
+                RETURNING dt.row_id
+            )
+            SELECT count(*) FROM update_rows;
+        $$, v_data_table_name);
+        EXECUTE v_sql INTO v_current_op_row_count;
 
-                EXECUTE format($$
-                    UPDATE public.%1$I dt SET
-                        legal_unit_id = tpai.actual_legal_unit_id,
-                        error = NULL,
-                        state = %2$L
-                    FROM temp_processed_action_lu_ids tpai
-                    WHERE dt.row_id = tpai.data_row_id AND dt.row_id = ANY($1) AND dt.action = 'replace';
-                $$, v_data_table_name /* %1$I */, 'processing'::public.import_data_state /* %2$L */) USING v_batch_success_row_ids;
-                RAISE DEBUG '[Job %] process_legal_unit: Updated _data table for % successfully replaced LUs with correct ID.', p_job_id, v_actually_replaced_lu_count;
-            END IF;
-        END IF; -- End v_intended_replace_lu_count > 0
+        IF v_current_op_row_count > 0 THEN
+            RAISE DEBUG '[Job %] process_legal_unit: Marked % rows as error due to invalid action (replace/update on non-existent LU).', p_job_id, v_current_op_row_count;
+            v_error_count := v_error_count + v_current_op_row_count;
+        END IF;
 
-        -- Handle UPDATE action
-        RAISE DEBUG '[Job %] process_legal_unit: Handling UPDATE action for existing LUs.', p_job_id;
+        -- Use a single source temp table for both update and replace actions
         INSERT INTO temp_lu_update_source (
             row_id, founding_row_id, id, valid_after, valid_to, name, birth_date, death_date, active,
             sector_id, unit_size_id, status_id, legal_form_id, enterprise_id,
-            primary_for_enterprise, data_source_id, invalid_codes, -- Added invalid_codes
+            primary_for_enterprise, data_source_id, invalid_codes,
             edit_by_user_id, edit_at, edit_comment
         )
         SELECT
             tbd.data_row_id, tbd.founding_row_id, tbd.existing_lu_id, tbd.valid_after, tbd.valid_to, tbd.name,
-            tbd.typed_birth_date, tbd.typed_death_date, true, -- Assuming active=true for update actions
+            tbd.typed_birth_date, tbd.typed_death_date, true, -- Assuming active=true for actions
             tbd.sector_id, tbd.unit_size_id, tbd.status_id, tbd.legal_form_id, tbd.enterprise_id,
             tbd.primary_for_enterprise, tbd.data_source_id,
             tbd.invalid_codes,
@@ -706,69 +623,103 @@ BEGIN
         FROM (
             SELECT DISTINCT ON (existing_lu_id, valid_after) * -- Select one row per LU ID and valid_after
             FROM temp_batch_data
-            WHERE action = 'update'
-            ORDER BY existing_lu_id ASC NULLS LAST, valid_after ASC, data_row_id ASC -- Deterministic pick
+            WHERE action IN ('replace', 'update') AND existing_lu_id IS NOT NULL
+            ORDER BY existing_lu_id ASC, valid_after ASC, data_row_id ASC -- Deterministic pick
         ) tbd;
 
         GET DIAGNOSTICS v_intended_update_lu_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] process_legal_unit: Populated temp_lu_update_source with % rows for action=update.', p_job_id, v_intended_update_lu_count;
+        RAISE DEBUG '[Job %] process_legal_unit: Populated temp_lu_update_source with % rows for action in (replace, update).', p_job_id, v_intended_update_lu_count;
 
         IF v_intended_update_lu_count > 0 THEN
             v_batch_error_row_ids := ARRAY[]::INTEGER[];
             v_batch_success_row_ids := ARRAY[]::INTEGER[];
-            -- Clear and reuse temp_processed_action_lu_ids for this action type if needed, or ensure it's empty.
-            -- For simplicity, if external_idents are not re-processed for 'update', this might not be strictly needed for ID storage,
-            -- but good for consistency if the _data table's legal_unit_id needs updating.
-            DELETE FROM temp_processed_action_lu_ids WHERE data_row_id = ANY (SELECT data_row_id FROM temp_lu_update_source);
+            DELETE FROM temp_processed_action_lu_ids;
 
-            RAISE DEBUG '[Job %] process_legal_unit: Calling batch_insert_or_update_generic_valid_time_table for legal_unit (update).', p_job_id;
-            FOR v_batch_result IN
-                SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
-                    p_target_schema_name => 'public', p_target_table_name => 'legal_unit',
-                    p_source_schema_name => 'pg_temp', p_source_table_name => 'temp_lu_update_source',
-                    p_id_column_name => 'id', -- Ensure this is the PK in temp_lu_update_source
-                    p_unique_columns => '[]'::jsonb,
-                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at', 'primary_for_enterprise', 'invalid_codes']
-                )
-            LOOP
-                IF v_batch_result.status = 'ERROR' THEN
-                    v_batch_error_row_ids := array_append(v_batch_error_row_ids, v_batch_result.source_row_id);
-                    EXECUTE format($$
-                        UPDATE public.%1$I SET state = %2$L, error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('batch_update_lu_error', %3$L)
-                        -- last_completed_priority is preserved (not changed) on error
-                        WHERE row_id = %4$L;
-                    $$, v_data_table_name /* %1$I */, 'error'::public.import_data_state /* %2$L */, v_batch_result.error_message /* %3$L */, v_batch_result.source_row_id /* %4$L */);
-                ELSE
-                    v_batch_success_row_ids := array_append(v_batch_success_row_ids, v_batch_result.source_row_id);
-                    INSERT INTO temp_processed_action_lu_ids (data_row_id, actual_legal_unit_id)
-                    VALUES (v_batch_result.source_row_id, v_batch_result.upserted_record_id); -- Corrected to upserted_record_id
-                END IF;
-            END LOOP;
+            IF v_strategy = 'insert_or_replace' THEN
+                RAISE DEBUG '[Job %] process_legal_unit: Calling set_insert_or_replace_generic_valid_time_table for legal_unit.', p_job_id;
+                FOR v_batch_result IN
+                    SELECT * FROM import.set_insert_or_replace_generic_valid_time_table(
+                        p_target_schema_name => 'public', p_target_table_name => 'legal_unit',
+                        p_source_schema_name => 'pg_temp', p_source_table_name => 'temp_lu_update_source',
+                        p_entity_id_column_names => ARRAY['id'],
+                        p_source_row_ids => NULL, p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
+                    )
+                LOOP
+                    -- Logic to handle results is identical for both functions, so keep it common
+                    IF v_batch_result.status = 'ERROR' THEN
+                        v_batch_error_row_ids := array_append(v_batch_error_row_ids, v_batch_result.source_row_id);
+                        EXECUTE format($$ UPDATE public.%1$I SET state = 'error', error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('set_based_upsert_lu_error', %2$L) WHERE row_id = %3$L; $$, v_data_table_name, v_batch_result.error_message, v_batch_result.source_row_id);
+                    ELSE
+                        DECLARE
+                            v_actual_id INT;
+                        BEGIN
+                            v_actual_id := ((v_batch_result.target_entity_ids[1]) ->> 'id')::INT;
+                            IF v_actual_id IS NULL THEN
+                                v_batch_error_row_ids := array_append(v_batch_error_row_ids, v_batch_result.source_row_id);
+                                EXECUTE format($$ UPDATE public.%1$I SET state = 'error', error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('set_based_upsert_lu_error', 'Set-based function returned success but no entity ID.') WHERE row_id = %2$L; $$, v_data_table_name, v_batch_result.source_row_id);
+                            ELSE
+                                v_batch_success_row_ids := array_append(v_batch_success_row_ids, v_batch_result.source_row_id);
+                                INSERT INTO temp_processed_action_lu_ids (data_row_id, actual_legal_unit_id) VALUES (v_batch_result.source_row_id, v_actual_id);
+                            END IF;
+                        END;
+                    END IF;
+                END LOOP;
+            ELSE -- Handles 'insert_or_update', 'insert_only', 'replace_only'
+                RAISE DEBUG '[Job %] process_legal_unit: Calling set_insert_or_update_generic_valid_time_table for legal_unit.', p_job_id;
+                FOR v_batch_result IN
+                    SELECT * FROM import.set_insert_or_update_generic_valid_time_table(
+                        p_target_schema_name => 'public', p_target_table_name => 'legal_unit',
+                        p_source_schema_name => 'pg_temp', p_source_table_name => 'temp_lu_update_source',
+                        p_entity_id_column_names => ARRAY['id'],
+                        p_source_row_ids => NULL, p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at', 'primary_for_enterprise', 'invalid_codes']
+                    )
+                LOOP
+                    -- Logic to handle results is identical for both functions, so keep it common
+                    IF v_batch_result.status = 'ERROR' THEN
+                        v_batch_error_row_ids := array_append(v_batch_error_row_ids, v_batch_result.source_row_id);
+                        EXECUTE format($$ UPDATE public.%1$I SET state = 'error', error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('set_based_upsert_lu_error', %2$L) WHERE row_id = %3$L; $$, v_data_table_name, v_batch_result.error_message, v_batch_result.source_row_id);
+                    ELSE
+                        DECLARE
+                            v_actual_id INT;
+                        BEGIN
+                            v_actual_id := ((v_batch_result.target_entity_ids[1]) ->> 'id')::INT;
+                            IF v_actual_id IS NULL THEN
+                                v_batch_error_row_ids := array_append(v_batch_error_row_ids, v_batch_result.source_row_id);
+                                EXECUTE format($$ UPDATE public.%1$I SET state = 'error', error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('set_based_upsert_lu_error', 'Set-based function returned success but no entity ID.') WHERE row_id = %2$L; $$, v_data_table_name, v_batch_result.source_row_id);
+                            ELSE
+                                v_batch_success_row_ids := array_append(v_batch_success_row_ids, v_batch_result.source_row_id);
+                                INSERT INTO temp_processed_action_lu_ids (data_row_id, actual_legal_unit_id) VALUES (v_batch_result.source_row_id, v_actual_id);
+                            END IF;
+                        END;
+                    END IF;
+                END LOOP;
+            END IF;
 
             v_actually_updated_lu_count := array_length(v_batch_success_row_ids, 1);
+            v_actually_replaced_lu_count := v_actually_updated_lu_count; -- For logging consistency
             v_error_count := v_error_count + array_length(v_batch_error_row_ids, 1);
-            RAISE DEBUG '[Job %] process_legal_unit: Batch update finished. Success: %, Errors: %',
-                        p_job_id, v_actually_updated_lu_count, array_length(v_batch_error_row_ids, 1);
+            RAISE DEBUG '[Job %] process_legal_unit: Set-based upsert finished. Success: %, Errors: %', p_job_id, v_actually_updated_lu_count, array_length(v_batch_error_row_ids, 1);
 
             IF v_actually_updated_lu_count > 0 THEN
-                -- External idents are generally not re-processed on 'update' unless the definition implies they can change.
-                -- If they could, logic similar to 'replace' would be needed here.
-                -- Update the _data table with the actual ID and advance state.
+                -- The upsert of external idents is handled for 'insert' actions when the new LU is created.
+                -- For 'replace' actions, idents are not expected to change, so we don't call it again.
+                -- This removes the duplicated logic mentioned in the spec.
+
                 EXECUTE format($$
                     UPDATE public.%1$I dt SET
                         legal_unit_id = tpai.actual_legal_unit_id,
                         error = NULL,
                         state = %2$L
                     FROM temp_processed_action_lu_ids tpai
-                    WHERE dt.row_id = tpai.data_row_id AND dt.row_id = ANY($1) AND dt.action = 'update';
+                    WHERE dt.row_id = tpai.data_row_id AND dt.row_id = ANY($1);
                 $$, v_data_table_name /* %1$I */, 'processing'::public.import_data_state /* %2$L */) USING v_batch_success_row_ids;
-                RAISE DEBUG '[Job %] process_legal_unit: Updated _data table for % successfully updated LUs with correct ID.', p_job_id, v_actually_updated_lu_count;
+                RAISE DEBUG '[Job %] process_legal_unit: Updated _data table for % successfully upserted LUs with correct ID.', p_job_id, v_actually_updated_lu_count;
             END IF;
         END IF; -- End v_intended_update_lu_count > 0
 
     EXCEPTION WHEN OTHERS THEN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
-        RAISE WARNING '[Job %] process_legal_unit: Error during batch operation: %', p_job_id, replace(error_message, '%', '%%');
+        RAISE WARNING '[Job %] process_legal_unit: Error during set-based upsert operation: %', p_job_id, replace(error_message, '%', '%%');
         UPDATE public.import_job
         SET error = jsonb_build_object('process_legal_unit_error', error_message),
             state = 'finished'
