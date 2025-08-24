@@ -196,21 +196,28 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const currentIsAuthenticated = authLoadableValue.state === 'hasData' && authLoadableValue.data.isAuthenticated;
 
-    // Only perform setup checks when authenticated on the dashboard page.
-    if (pathname === '/' && currentIsAuthenticated && restClient) {
-      let targetSetupPath: string | null = null;
-  
-      if (activityStandard === null) {
-        targetSetupPath = '/getting-started/activity-standard';
-      } else if (numberOfRegions === null || numberOfRegions === 0) {
-        targetSetupPath = '/getting-started/upload-regions';
-      } else if (baseData.statDefinitions.length > 0 && !baseData.hasStatisticalUnits) {
-        targetSetupPath = '/import';
-      }
-  
-      // Set the required redirect. The RedirectHandler is responsible for clearing it.
-      setRequiredSetupRedirect(targetSetupPath);
+    // Setup checks are only relevant if on the dashboard ('/') and authenticated.
+    // The auth check must be complete (which is implicit in currentIsAuthenticated)
+    // and the REST client must be ready.
+    if (pathname !== '/' || !currentIsAuthenticated || !restClient) {
+      // If not in a state where setup redirects are relevant, ensure no setup redirect is pending.
+      setRequiredSetupRedirect(null);
+      return;
     }
+
+    // At this point: on '/', authenticated, not loading, client ready, initial auth check done.
+    let targetSetupPath: string | null = null;
+
+    if (activityStandard === null) {
+      targetSetupPath = '/getting-started/activity-standard';
+    } else if (numberOfRegions === null || numberOfRegions === 0) {
+      targetSetupPath = '/getting-started/upload-regions';
+    } else if (baseData.statDefinitions.length > 0 && !baseData.hasStatisticalUnits) {
+      targetSetupPath = '/import';
+    }
+
+    // Set or clear the setup redirect atom based on checks.
+    setRequiredSetupRedirect(targetSetupPath);
   }, [
     pathname,
     authLoadableValue,
