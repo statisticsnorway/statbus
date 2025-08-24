@@ -76,40 +76,34 @@ export const requiredSetupRedirectAtom = atom<string | null>(null);
 export const appReadyAtom = atom((get) => {
   const authLoadable = get(authStatusLoadableAtom);
   const baseDataLoadable = get(baseDataLoadableAtom);
-  const baseD = get(baseDataAtom);
 
-  const isLoadingBaseD = baseDataLoadable.state === 'loading';
   const isAuthLoading = authLoadable.state === 'loading';
-  
-  // If auth is not loading, its "process" is complete for readiness purposes.
-  const isAuthProcessComplete = !isAuthLoading; 
+  const isLoadingBaseData = baseDataLoadable.state === 'loading';
+
+  const isAuthProcessComplete = !isAuthLoading;
   const isAuthenticatedUser = authLoadable.state === 'hasData' && authLoadable.data.isAuthenticated;
   const currentUser = authLoadable.state === 'hasData' ? authLoadable.data.user : null;
 
-  // Base data is considered ready if not loading and has essential data (e.g., stat definitions).
-  const isBaseDataProcessComplete = !isLoadingBaseD && baseD.statDefinitions.length > 0;
+  // Base data is considered ready if not loading and has essential data.
+  // We derive the data safely from the loadable to avoid unexpected suspense.
+  const hasLoadedStatDefinitions =
+    baseDataLoadable.state === 'hasData' &&
+    baseDataLoadable.data.statDefinitions.length > 0;
+  const isBaseDataProcessComplete = !isLoadingBaseData && hasLoadedStatDefinitions;
 
   // The dashboard is ready to render if auth is complete and base data is loaded.
-  const isReadyToRenderDashboard = 
+  const isReadyToRenderDashboard =
     isAuthProcessComplete &&
     isAuthenticatedUser &&
     isBaseDataProcessComplete;
-    
-  // isSetupComplete is removed from this global atom. 
-  // If a global "is the very basic setup done (e.g. units exist)" flag is needed,
-  // it could be derived from baseDataAtom.hasStatisticalUnits, but it won't gate the dashboard rendering here.
 
   return {
     isLoadingAuth: isAuthLoading,
-    isLoadingBaseData: isLoadingBaseD,
-
+    isLoadingBaseData: isLoadingBaseData,
     isAuthProcessComplete,
     isAuthenticated: isAuthenticatedUser,
-    
     isBaseDataLoaded: isBaseDataProcessComplete,
-
     isReadyToRenderDashboard,
-
     user: currentUser,
   };
 });
