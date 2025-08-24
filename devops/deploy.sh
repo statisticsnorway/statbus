@@ -104,7 +104,7 @@ if test -n "$dbseed_changes" || test -n "$migrations_changes" || test -n "${RECR
   fi
 else
   echo "No changes requiring DB recreation found, applying any pending migrations and restarting app"
-  ./devops/manage-statbus.sh migrate up
+  ./cli/bin/statbus migrate up
   echo "Building and starting the frontend"
   ./devops/manage-statbus.sh start app || { echo "Failed to start the app"; exit 1; }
 fi
