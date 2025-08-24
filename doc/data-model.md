@@ -6,7 +6,7 @@ This document provides a compact overview of the StatBus database schema, focusi
 The system revolves around four main statistical units, often with temporal validity (`valid_from`, `valid_after`, `valid_to`):
 - `enterprise_group(id, name, short_name, enterprise_group_type_id, unit_size_id, data_source_id, reorg_type_id, foreign_participation_id, valid_from, valid_after, valid_to, active, ...)` (EG) (temporal)
   - Key FKs: `enterprise_group_type_id`, `unit_size_id`, `data_source_id`, `reorg_type_id`, `foreign_participation_id`.
-- `enterprise(id, short_name, active, edit_by_user_id, ...)` (E) (temporal)
+- `enterprise(id, short_name, active, edit_by_user_id, ...)` (E)
   - Belongs to an EG implicitly. Core attributes are often linked via its Legal Units or Establishments.
 - `legal_unit(id, name, short_name, enterprise_id, sector_id, status_id, legal_form_id, unit_size_id, foreign_participation_id, data_source_id, valid_from, valid_after, valid_to, active, ...)` (LU) (temporal)
   - Belongs to one `enterprise` (E). (Relationship: E 1--* LU)
