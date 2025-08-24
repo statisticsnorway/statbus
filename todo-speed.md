@@ -433,3 +433,19 @@ The separate development of `_update` and `_replace` functions was crucial for e
 
 *   **Status**: **COMPLETED**.
 
+---
+## 15. Phase 9: Post-Rebase Regression Analysis
+
+*   **Context**: The project branch was rebased onto the latest `master` branch. This integration may have introduced regressions due to merge conflicts or interactions with new code from `master`.
+*   **Task**: Systematically analyze the results of the full test suite to identify and diagnose any failing tests.
+    *   **Step 1: Reorder tests**. To focus on the core `temporal_merge` functionality first, tests `118` and `119` have been renumbered to `015` and `016` respectively. This isolates their failures from downstream integration tests. (Completed)
+    *   **Step 2: Fix core regressions**. The core regressions in tests `015` and `016` have been successfully fixed and verified. (Completed)
+    *   **Step 3: Address integration test failures**. With the core functions now stable, the next step is to analyze and fix the first failing integration test, `103_legal_units_with_data_source`.
+*   **Task**: Systematically analyze the results of the full test suite to identify and diagnose any failing tests.
+    *   **Step 1: Reorder tests**. To focus on the core `temporal_merge` functionality first, tests `118` and `119` have been renumbered to `015` and `016` respectively. This isolates their failures from downstream integration tests. (Completed)
+    *   **Step 2: Fix core regressions**. The core regressions in tests `015` and `016` have been successfully fixed and verified. (Completed)
+    *   **Step 3: Address integration test failures**.
+        *   **Part A (Legacy Calls)**: All legacy `process_*` calls have been successfully replaced with the unified `temporal_merge` function. (Completed)
+        *   **Part B (Analysis Bug)**: A widespread failure, `duplicate key value violates unique constraint "temp_precalc_pkey"`, has been identified as the next priority. It stems from flawed logic in `import.analyse_link_establishment_to_legal_unit`.
+*   **Status**: **ACTIVE**. Awaiting file content to fix the `temp_precalc_pkey` error.
+
