@@ -426,8 +426,10 @@ The separate development of `_update` and `_replace` functions was crucial for e
         1.  **Completeness**: All test scenarios from the old files have been correctly ported.
         2.  **Coverage**: The new suite continues to provide comprehensive coverage for all relevant Allen's Interval Algebra relations.
 
-5.  **Cleanup (Post-Verification)**:
-    *   **Only after the verification is approved**, the old migration files (`..._replace_functions.up.sql`, `..._update_functions.up.sql`) and old test files (`113`, `114`, `115`, `116`, `117`) will be deleted.
+*   **Status**: **COMPLETED** (Verified on 2025-08-24).
 
-*   **Status**: **PENDING**. Awaiting approval to begin this refactoring.
+5.  **Cleanup (Post-Verification)**:
+    *   **Only after the verification is approved**, the old migration files (`..._replace_functions.up.sql`, `..._update_functions.up.sql`) and old test files (`113`, `114`, `115`, `116`, `117`) were deleted.
+
+*   **Status**: **COMPLETED**.
 

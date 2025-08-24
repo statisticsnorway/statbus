@@ -1,31 +1,26 @@
--- Migration: create_set_based_temporal_replace_functions
+-- Migration: create_temporal_merge_functions
 --
--- This migration introduces the set-based functions for handling temporal
--- data "insert or update" operations. These functions
--- are intended to eventually replace the iterative, row-by-row functions
--- (e.g., batch_insert_or_replace_generic_valid_time_table).
+-- This migration consolidates the logic from the separate `_update` and `_replace`
+-- functions into a single, unified, and more robust implementation. The new
+-- functions, `temporal_merge_plan` and `temporal_merge`, use an explicit `p_mode`
+-- parameter to control the operational semantics (e.g., `upsert_patch` vs.
+-- `replace_only`), providing a clear and maintainable API.
 --
--- The core idea is to process an entire batch of source data from a temporary
--- table in a single, holistic operation, which is expected to be significantly
--- more performant for large import jobs.
---
--- This initial version provides only the function signatures and a placeholder
--- implementation to allow for the parallel development of test cases.
+-- This consolidation reduces code duplication and aligns the implementation with
+-- the final vision for the `sql_saga.temporal_merge` procedure.
 
 BEGIN;
 
-DO $$ BEGIN
-    -- This type is dropped and recreated to ensure the new values and order are correct.
-    -- In a production environment, this would be an ALTER TYPE statement.
-    DROP TYPE IF EXISTS import.set_operation_mode CASCADE;
-    CREATE TYPE import.set_operation_mode AS ENUM (
-        'upsert_patch',
-        'upsert_replace',
-        'patch_only',
-        'replace_only',
-        'insert_only'
-    );
-END $$;
+-- This type is dropped and recreated to ensure the new values and order are correct.
+-- In a production environment, this would be an ALTER TYPE statement.
+DROP TYPE IF EXISTS import.set_operation_mode CASCADE;
+CREATE TYPE import.set_operation_mode AS ENUM (
+    'upsert_patch',
+    'upsert_replace',
+    'patch_only',
+    'replace_only',
+    'insert_only'
+);
 
 DO $$ BEGIN
     CREATE TYPE import.set_result_status AS ENUM ('SUCCESS', 'MISSING_TARGET', 'ERROR');
@@ -53,19 +48,24 @@ EXCEPTION
 END $$;
 
 -- Defines the structure for a single operation in a temporal execution plan.
-CREATE TYPE import.temporal_plan_op AS (
-    source_row_ids INTEGER[],
-    operation import.plan_operation_type,
-    entity_ids JSONB, -- A JSONB object representing the composite key, e.g. {"id": 1} or {"stat_definition_id": 1, "establishment_id": 101}
-    old_valid_after DATE,
-    new_valid_after DATE,
-    new_valid_to DATE,
-    data JSONB,
-    relation public.allen_interval_relation
-);
+DO $$ BEGIN
+    CREATE TYPE import.temporal_plan_op AS (
+        source_row_ids INTEGER[],
+        operation import.plan_operation_type,
+        entity_ids JSONB, -- A JSONB object representing the composite key, e.g. {"id": 1} or {"stat_definition_id": 1, "establishment_id": 101}
+        old_valid_after DATE,
+        new_valid_after DATE,
+        new_valid_to DATE,
+        data JSONB,
+        relation public.allen_interval_relation
+    );
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
 
--- Planning Function for Insert or Replace
-CREATE OR REPLACE FUNCTION import.plan_set_insert_or_replace_generic_valid_time_table(
+
+-- Unified Planning Function
+CREATE OR REPLACE FUNCTION import.temporal_merge_plan(
     p_target_schema_name TEXT,
     p_target_table_name TEXT,
     p_source_schema_name TEXT,
@@ -74,15 +74,17 @@ CREATE OR REPLACE FUNCTION import.plan_set_insert_or_replace_generic_valid_time_
     p_source_row_ids INTEGER[],
     p_ephemeral_columns TEXT[],
     p_insert_defaulted_columns TEXT[] DEFAULT '{}',
-    p_mode import.set_operation_mode DEFAULT 'upsert_replace'
+    p_mode import.set_operation_mode DEFAULT 'upsert_patch'
 ) RETURNS SETOF import.temporal_plan_op
-LANGUAGE plpgsql STABLE AS $plan_set_insert_or_replace_generic_valid_time_table$
+LANGUAGE plpgsql STABLE AS $temporal_merge_plan$
 DECLARE
     v_sql TEXT;
     v_source_data_cols_jsonb_build TEXT;
     v_target_data_cols_jsonb_build TEXT;
     v_entity_id_as_jsonb TEXT;
     v_source_table_regclass REGCLASS;
+    v_source_data_payload_expr TEXT;
+    v_resolved_data_payload_expr TEXT;
 BEGIN
     -- Dynamically construct a jsonb object from the entity id columns to use as a single key for partitioning and joining.
     SELECT
@@ -98,8 +100,6 @@ BEGIN
     END IF;
 
     -- 1. Dynamically get the list of common data columns from SOURCE and TARGET tables.
-    -- This ensures that the data payload only includes columns that exist in both,
-    -- preventing errors and ensuring consistent comparisons.
     WITH source_cols AS (
         SELECT pa.attname
         FROM pg_catalog.pg_attribute pa
@@ -130,52 +130,61 @@ BEGIN
     v_source_data_cols_jsonb_build := COALESCE(v_source_data_cols_jsonb_build, '''{}''::jsonb');
     v_target_data_cols_jsonb_build := COALESCE(v_target_data_cols_jsonb_build, '''{}''::jsonb');
 
+    -- 2. Construct expressions based on the mode to handle NULLs correctly.
+    IF p_mode IN ('upsert_patch', 'patch_only') THEN
+        v_source_data_payload_expr := format('jsonb_strip_nulls(%s)', v_source_data_cols_jsonb_build);
+        v_resolved_data_payload_expr := $$(CASE WHEN s.data_payload IS NOT NULL THEN (COALESCE(t.data_payload, '{}'::jsonb) || s.data_payload) ELSE t.data_payload END)$$;
+    ELSE -- upsert_replace, replace_only
+        v_source_data_payload_expr := v_source_data_cols_jsonb_build;
+        v_resolved_data_payload_expr := $$COALESCE(s.data_payload, t.data_payload)$$;
+    END IF;
+
+
     -- 3. Construct and execute the main query to generate the execution plan.
     v_sql := format($SQL$
-        WITH
-        source_initial AS (
-            SELECT
-                t.row_id,
-                %1$s as entity_id,
-                t.valid_after,
-                t.valid_to,
-                %2$s AS data_payload -- Do NOT strip nulls for REPLACE. A NULL in the source is a meaningful value.
-            FROM %3$s.%4$s t
-            WHERE (%5$L IS NULL OR t.row_id = ANY(%5$L))
-              AND t.valid_after < t.valid_to
-        ),
-        target_rows AS (
-            SELECT
-                %1$s as entity_id,
-                t.valid_after,
-                t.valid_to,
-                %9$s AS data_payload
-            FROM %6$s.%7$s t
-            -- Optimization: only consider target rows for entities present in the source batch.
-            WHERE (%1$s) IN (SELECT DISTINCT entity_id FROM source_initial)
-        ),
-        source_rows AS (
-            -- Filter the initial source rows based on the operation mode.
-            SELECT
-                si.row_id as source_row_id,
-                si.entity_id,
-                si.valid_after,
-                si.valid_to,
-                si.data_payload
-            FROM source_initial si
-            WHERE CASE %10$L::import.set_operation_mode
-                -- For upsert modes, include all initial source rows.
-                WHEN 'upsert_replace' THEN true
-                WHEN 'upsert_patch' THEN true -- Should not be passed to _replace func, but handle gracefully
-                -- For _only modes, only include rows for entities that already exist in the target.
-                WHEN 'replace_only' THEN si.entity_id IN (SELECT tr.entity_id FROM target_rows tr)
-                WHEN 'patch_only' THEN si.entity_id IN (SELECT tr.entity_id FROM target_rows tr) -- Should not be passed here
-                -- For insert_only, only include rows for entities that DO NOT exist in the target.
-                WHEN 'insert_only' THEN si.entity_id NOT IN (SELECT tr.entity_id FROM target_rows tr)
-                ELSE false
-            END
-        ),
-        all_rows AS (
+WITH
+source_initial AS (
+    SELECT
+        t.row_id,
+        %1$s as entity_id,
+        t.valid_after,
+        t.valid_to,
+        %2$s AS data_payload
+    FROM %3$s.%4$s t
+    WHERE (%5$L IS NULL OR t.row_id = ANY(%5$L))
+      AND t.valid_after < t.valid_to
+),
+target_rows AS (
+    SELECT
+        %1$s as entity_id,
+        t.valid_after,
+        t.valid_to,
+        %9$s AS data_payload
+    FROM %6$s.%7$s t
+    WHERE (%1$s) IN (SELECT DISTINCT entity_id FROM source_initial)
+),
+source_rows AS (
+    -- Filter the initial source rows based on the operation mode.
+    SELECT
+        si.row_id as source_row_id,
+        si.entity_id,
+        si.valid_after,
+        si.valid_to,
+        si.data_payload
+    FROM source_initial si
+    WHERE CASE %10$L::import.set_operation_mode
+        -- For upsert modes, include all initial source rows.
+        WHEN 'upsert_patch' THEN true
+        WHEN 'upsert_replace' THEN true
+        -- For _only modes, only include rows for entities that already exist in the target.
+        WHEN 'patch_only' THEN si.entity_id IN (SELECT tr.entity_id FROM target_rows tr)
+        WHEN 'replace_only' THEN si.entity_id IN (SELECT tr.entity_id FROM target_rows tr)
+        -- For insert_only, only include rows for entities that DO NOT exist in the target.
+        WHEN 'insert_only' THEN si.entity_id NOT IN (SELECT tr.entity_id FROM target_rows tr)
+        ELSE false
+    END
+),
+all_rows AS (
     SELECT entity_id, valid_after, valid_to FROM source_rows
     UNION ALL
     SELECT entity_id, valid_after, valid_to FROM target_rows
@@ -211,17 +220,9 @@ resolved_atomic_segments AS (
                       )
                   )
               )
-            -- Order by temporal proximity to find the *closest* causal source row,
-            -- using row_id as a deterministic tie-breaker.
-            ORDER BY
-                GREATEST(
-                    CASE WHEN sr.valid_to = 'infinity' THEN -2147483647 ELSE seg.valid_after - sr.valid_to END,
-                    CASE WHEN seg.valid_to = 'infinity' THEN -2147483647 ELSE sr.valid_after - seg.valid_to END
-                ),
-                sr.source_row_id
-            LIMIT 1
+            ORDER BY sr.source_row_id LIMIT 1
         ) as source_row_id,
-        COALESCE(s.data_payload, t.data_payload) as data_payload,
+        %11$s as data_payload,
         CASE WHEN s.data_payload IS NOT NULL THEN 1 ELSE 2 END as priority
     FROM atomic_segments seg
     LEFT JOIN LATERAL (
@@ -237,7 +238,7 @@ resolved_atomic_segments AS (
           AND daterange(seg.valid_after, seg.valid_to, '(]') <@ daterange(sr.valid_after, sr.valid_to, '(]')
     ) s ON true
     WHERE seg.valid_after < seg.valid_to
-      AND (s.data_payload IS NOT NULL OR t.data_payload IS NOT NULL) -- For REPLACE (Temporal Patch), segments covered by source OR target data form the new timeline
+      AND (s.data_payload IS NOT NULL OR t.data_payload IS NOT NULL) -- Filter out gaps
 ),
 coalesced_timeline_segments AS (
     SELECT
@@ -268,12 +269,8 @@ coalesced_timeline_segments AS (
 anchored_timeline_segments AS (
     SELECT f.*,
         CASE
-            -- Case 1: The coalesced block starts at the same time as an original record. This is a clear UPDATE.
             WHEN f.valid_after = f.candidate_anchor THEN f.candidate_anchor
-            -- Case 2: It's a MERGE. The start time is different, but it was formed by coalescing
-            -- multiple adjacent segments (including an original target segment). This should also be an UPDATE.
             WHEN f.valid_after != f.candidate_anchor AND f.candidate_anchor IS NOT NULL AND f.segments_in_group > 1 THEN f.candidate_anchor
-            -- All other cases are INSERTs (no anchor).
             ELSE NULL
         END as anchor_t_valid_after
     FROM coalesced_timeline_segments f
@@ -282,11 +279,7 @@ diff AS (
     SELECT
         f.entity_id as f_entity_id, f.valid_after as f_after, f.valid_to as f_to, f.data_payload as f_data, f.representative_source_row_id as f_representative_source_row_id, f.source_row_ids as f_source_row_ids,
         t.entity_id as t_entity_id, t.valid_after as t_after, t.valid_to as t_to, t.data_payload as t_data,
-        -- Rank update candidates. The one whose data matches the original target is rank 1 (the survivor).
-        ROW_NUMBER() OVER(PARTITION BY t.entity_id, t.valid_after ORDER BY
-            CASE WHEN (f.data_payload - %8$L::text[]) IS NOT DISTINCT FROM (t.data_payload - %8$L::text[])
-            THEN 0 ELSE 1 END, f.valid_after
-        ) as update_candidate_rank
+        ROW_NUMBER() OVER(PARTITION BY t.entity_id, t.valid_after ORDER BY f.valid_after) as update_candidate_rank
     FROM anchored_timeline_segments f
     FULL OUTER JOIN target_rows t ON f.entity_id = t.entity_id AND f.anchor_t_valid_after = t.valid_after
     WHERE f.entity_id IS NULL -- A row from target_rows was deleted
@@ -300,14 +293,13 @@ plan AS (
         d.source_row_ids,
         d.representative_source_row_id,
         CASE
-            WHEN d.f_entity_id IS NULL THEN 'DELETE'::import.internal_plan_operation_type
+            WHEN d.f_after IS NULL THEN 'DELETE'::import.internal_plan_operation_type
             WHEN d.t_after IS NULL THEN 'INSERT'::import.internal_plan_operation_type
             WHEN d.update_candidate_rank > 1 THEN 'INSERT'::import.internal_plan_operation_type
             WHEN d.operation_type = 'UPDATE' THEN 'UPDATE'::import.internal_plan_operation_type
             ELSE 'NOOP'::import.internal_plan_operation_type
         END as operation,
         d.entity_id,
-        -- `old_valid_after` is populated for actual UPDATEs/DELETEs.
         d.old_valid_after,
         d.new_valid_after,
         d.new_valid_to,
@@ -317,12 +309,13 @@ plan AS (
             COALESCE(f_source_row_ids, ARRAY[(SELECT s.source_row_id FROM source_rows s WHERE s.entity_id = COALESCE(f_entity_id, t_entity_id) AND (daterange(s.valid_after, s.valid_to, '(]') && daterange(COALESCE(f_after, t_after), COALESCE(f_to, t_to), '(]') OR daterange(s.valid_after, s.valid_to, '(]') -|- daterange(COALESCE(f_after, t_after), COALESCE(f_to, t_to), '(]')) ORDER BY s.source_row_id LIMIT 1)]) AS source_row_ids,
             COALESCE(f_representative_source_row_id, (SELECT s.source_row_id FROM source_rows s WHERE s.entity_id = COALESCE(f_entity_id, t_entity_id) AND (daterange(s.valid_after, s.valid_to, '(]') && daterange(COALESCE(f_after, t_after), COALESCE(f_to, t_to), '(]') OR daterange(s.valid_after, s.valid_to, '(]') -|- daterange(COALESCE(f_after, t_after), COALESCE(f_to, t_to), '(]')) ORDER BY s.source_row_id LIMIT 1)) AS representative_source_row_id,
             COALESCE(f_entity_id, t_entity_id) as entity_id,
-            t_after as old_valid_after,
+            CASE WHEN update_candidate_rank > 1 THEN NULL ELSE t_after END as old_valid_after,
             f_after as new_valid_after,
             f_to as new_valid_to,
             f_data as data,
             f_entity_id, t_entity_id, t_after,
             update_candidate_rank,
+            f_after as f_after,
             CASE
                 WHEN (f_data - %8$L::text[]) IS DISTINCT FROM (t_data - %8$L::text[]) THEN 'UPDATE'
                 WHEN f_to IS DISTINCT FROM t_to THEN 'UPDATE'
@@ -334,7 +327,7 @@ plan AS (
 )
 SELECT
     p.source_row_ids,
-    p.operation::text::import.plan_operation_type, -- Cast back to the public enum
+    p.operation::text::import.plan_operation_type,
     p.entity_id AS entity_ids,
     p.old_valid_after,
     p.new_valid_after,
@@ -346,7 +339,6 @@ LEFT JOIN LATERAL (
     SELECT rel.relation FROM (
         SELECT
             (CASE
-                -- Naming convention: s is source, t is target. Relation describes s relative to t.
                 WHEN s.valid_after = t.valid_after AND s.valid_to = t.valid_to THEN 'equals'
                 WHEN s.valid_after = t.valid_after AND s.valid_to < t.valid_to THEN 'starts'
                 WHEN s.valid_after = t.valid_after AND s.valid_to > t.valid_to THEN 'started_by'
@@ -361,8 +353,6 @@ LEFT JOIN LATERAL (
                 WHEN s.valid_to < t.valid_after THEN 'precedes'
                 WHEN s.valid_after > t.valid_to THEN 'preceded_by'
             END)::public.allen_interval_relation as relation,
-            -- For non-overlapping, distance is positive. For overlapping, it's negative.
-            -- Infinity-safe version of GREATEST(s.valid_after - t.valid_to, t.valid_after - s.valid_to)
             GREATEST(
                 CASE WHEN t.valid_to = 'infinity' THEN -2147483647 ELSE s.valid_after - t.valid_to END,
                 CASE WHEN s.valid_to = 'infinity' THEN -2147483647 ELSE t.valid_after - s.valid_to END
@@ -370,9 +360,6 @@ LEFT JOIN LATERAL (
         FROM source_rows s
         JOIN target_rows t ON s.entity_id = t.entity_id
         WHERE s.source_row_id = p.representative_source_row_id
-        -- For UPDATE/DELETE operations, find relation to the specific target row.
-        -- For INSERT, find relation to the closest target row.
-          AND (p.old_valid_after IS NULL OR t.valid_after = p.old_valid_after)
     ) rel
     ORDER BY rel.distance
     LIMIT 1
@@ -385,7 +372,7 @@ ORDER BY
     COALESCE(new_valid_after, old_valid_after);
 $SQL$,
         v_entity_id_as_jsonb,           -- 1
-        v_source_data_cols_jsonb_build, -- 2
+        v_source_data_payload_expr,     -- 2
         p_source_schema_name,           -- 3
         p_source_table_name,            -- 4
         p_source_row_ids,               -- 5
@@ -393,15 +380,17 @@ $SQL$,
         p_target_table_name,            -- 7
         p_ephemeral_columns,            -- 8
         v_target_data_cols_jsonb_build, -- 9
-        p_mode                          -- 10
+        p_mode,                         -- 10
+        v_resolved_data_payload_expr    -- 11
     );
 
     RETURN QUERY EXECUTE v_sql;
 END;
-$plan_set_insert_or_replace_generic_valid_time_table$;
+$temporal_merge_plan$;
 
--- Main Orchestrator Function for Insert or Replace
-CREATE OR REPLACE FUNCTION import.set_insert_or_replace_generic_valid_time_table(
+
+-- Unified Orchestrator Function
+CREATE OR REPLACE FUNCTION import.temporal_merge(
     p_target_schema_name TEXT,
     p_target_table_name TEXT,
     p_source_schema_name TEXT,
@@ -410,7 +399,7 @@ CREATE OR REPLACE FUNCTION import.set_insert_or_replace_generic_valid_time_table
     p_source_row_ids INTEGER[],
     p_ephemeral_columns TEXT[],
     p_insert_defaulted_columns TEXT[] DEFAULT '{}',
-    p_mode import.set_operation_mode DEFAULT 'upsert_replace'
+    p_mode import.set_operation_mode DEFAULT 'upsert_patch'
 )
 RETURNS TABLE (
     source_row_id INTEGER,
@@ -418,7 +407,7 @@ RETURNS TABLE (
     status import.set_result_status,
     error_message TEXT
 )
-LANGUAGE plpgsql VOLATILE AS $set_insert_or_replace_generic_valid_time_table$
+LANGUAGE plpgsql VOLATILE AS $temporal_merge$
 DECLARE
     v_target_table_ident TEXT := format('%I.%I', p_target_schema_name, p_target_table_name);
     v_data_cols_ident TEXT;
@@ -441,7 +430,7 @@ BEGIN
 
     BEGIN
         INSERT INTO temp_plan
-        SELECT * FROM import.plan_set_insert_or_replace_generic_valid_time_table(
+        SELECT * FROM import.temporal_merge_plan(
             p_target_schema_name, p_target_table_name,
             p_source_schema_name, p_source_table_name,
             p_entity_id_column_names, p_source_row_ids, p_ephemeral_columns,
@@ -462,9 +451,6 @@ BEGIN
             WHERE c.table_schema = p_target_schema_name
               AND c.table_name = p_target_table_name
               AND c.column_name NOT IN ('valid_after', 'valid_to', 'era_id', 'era_name')
-              -- Exclude surrogate PK columns from the INSERT list. A column is a surrogate PK if it's in the primary
-              -- key but not part of the conceptual entity ID. Include all other columns. This is logically equivalent
-              -- to: (is_not_pk_col) OR (is_entity_id_col).
               AND (pk.cols IS NULL OR c.column_name <> ALL(pk.cols) OR c.column_name = ANY(p_entity_id_column_names))
             ORDER BY c.ordinal_position
         )
@@ -482,19 +468,9 @@ BEGIN
             v_all_cols_select
         FROM target_cols;
 
-        -- Execute the plan using DEFERRED constraints. This is critical for two reasons:
-        -- 1. Exclusion Constraints: The DML operations may create temporary, harmless
-        --    overlaps (e.g., an INSERT followed by an UPDATE that shortens an existing
-        --    record). Deferring exclusion constraints allows these temporary states.
-        -- 2. Temporal Foreign Keys (sql_saga): sql_saga's triggers are also deferred.
-        --    They validate the timeline's integrity at the end of the transaction.
-        --
-        -- The DML operations MUST run in the "add-then-modify" order (INSERT -> UPDATE -> DELETE).
-        -- This ensures that when sql_saga's triggers eventually run, their data snapshots
-        -- (taken at the start of each DML statement) see a consistent state of the timeline,
-        -- preventing incorrect foreign key violation errors.
         SET CONSTRAINTS ALL DEFERRED;
 
+        -- INSERT -> UPDATE -> DELETE order is critical for sql_saga compatibility.
         -- 1. Execute INSERT operations
         IF v_all_cols_ident IS NOT NULL THEN
             EXECUTE format($$ INSERT INTO %1$s (%2$s, valid_after, valid_to)
@@ -542,24 +518,14 @@ BEGIN
     END;
 
     RETURN QUERY
-        -- Report success for source rows that generated plan operations.
-        -- Unnest the source_row_ids array so that every source row gets a result.
-        -- A single plan operation can resolve multiple source rows (merge), and a single
-        -- source row can result in multiple plan operations (split).
         SELECT
             s.row_id as source_row_id,
-            -- Aggregate all entity IDs that this source row contributed to.
             jsonb_agg(DISTINCT p.entity_ids) FILTER (WHERE p.entity_ids IS NOT NULL) AS target_entity_ids,
             'SUCCESS'::import.set_result_status,
             NULL::TEXT
         FROM temp_plan p, unnest(p.source_row_ids) AS s(row_id)
         GROUP BY s.row_id
         UNION ALL
-        -- Report on rows that were not in the plan. This can happen for two reasons:
-        -- 1. The source data was for an entity that does not exist in the target table.
-        --    The planner correctly generates no plan, so we report 'MISSING_TARGET'.
-        -- 2. The source data was a true NOOP (identical to the target). This also results
-        --    in no plan and is reported as 'MISSING_TARGET' as it required no action.
         SELECT
             r.row_id,
             '[]'::jsonb,
@@ -568,14 +534,10 @@ BEGIN
         FROM unnest(COALESCE(p_source_row_ids, ARRAY[]::INTEGER[])) AS r(row_id)
         WHERE NOT EXISTS (SELECT 1 FROM temp_plan p, unnest(p.source_row_ids) s(id) WHERE s.id = r.row_id);
 END;
-$set_insert_or_replace_generic_valid_time_table$;
+$temporal_merge$;
 
-COMMENT ON FUNCTION import.set_insert_or_replace_generic_valid_time_table IS
-'Orchestrates a set-based temporal "insert or replace" operation. It generates a plan using plan_set_... and then executes it.
-- p_target_schema_name: Schema of the target table.
-- p_target_table_name: Name of the target temporal table.
-- p_source_schema_name: Schema of the source table.
-- p_source_table_name: Name of the source table containing the new data.
-- p_entity_id_column_names: Array of column names that form the unique, stable entity identifier (e.g., ARRAY[''id''] or ARRAY[''stat_definition_id'', ''establishment_id'']).
-- p_source_row_ids: Optional array of row_ids to process from the source table. If NULL, process all rows.
-- p_ephemeral_columns: Array of column names to be excluded from data equivalence checks.';
+COMMENT ON FUNCTION import.temporal_merge IS
+'Orchestrates a set-based temporal merge operation. It generates a plan using temporal_merge_plan and then executes it.';
+
+
+COMMIT;
