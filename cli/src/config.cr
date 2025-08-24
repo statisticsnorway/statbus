@@ -1,4 +1,5 @@
 require "poncho"
+require "uri"
 
 class Config
   include Poncho
@@ -109,7 +110,22 @@ class Config
     nil
   end
 
-  def connection_string : String
-    "postgres://#{postgres_user}:#{postgres_password}@#{postgres_host}:#{postgres_port}/#{postgres_db}"
+  def connection_string(application_name : String? = nil) : String
+    base_string = "postgres://#{postgres_user}:#{postgres_password}@#{postgres_host}:#{postgres_port}/#{postgres_db}"
+    if app_name = application_name
+      begin
+        uri = URI.parse(base_string)
+        params = URI::Params.parse(uri.query || "")
+        params["application_name"] = app_name
+        uri.query = params.to_s
+        return uri.to_s
+      rescue ex
+        # This should not fail, but if it does, log a warning and return the base string
+        # to ensure the application can still attempt to connect.
+        puts "WARN: Could not set application_name in connection string: #{ex.message}"
+        return base_string
+      end
+    end
+    base_string
   end
 end

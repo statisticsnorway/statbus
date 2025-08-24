@@ -1007,23 +1007,25 @@ AS $function$
 DECLARE
   v_reset_count int := 0;
   v_task RECORD;
+  v_stale_pid INT;
 BEGIN
-  -- Find tasks stuck in 'processing', terminate their backends if they are still
-  -- running, and then reset the task status to 'pending'.
-  FOR v_task IN
-    SELECT id, worker_pid FROM worker.tasks WHERE state = 'processing'::worker.task_state FOR UPDATE
+  -- Terminate all other lingering worker backends.
+  -- The current worker holds the global advisory lock, so any other process with
+  -- application_name = 'worker' is a stale remnant from a previous crash.
+  FOR v_stale_pid IN
+    SELECT pid FROM pg_stat_activity
+    WHERE application_name = 'worker' AND pid <> pg_backend_pid()
   LOOP
-    -- If the PID exists and is an active backend, terminate it.
-    IF v_task.worker_pid IS NOT NULL AND EXISTS (
-      SELECT 1 FROM pg_stat_activity WHERE pid = v_task.worker_pid
-    ) THEN
-      RAISE LOG 'Terminating abandoned worker PID % for task %', v_task.worker_pid, v_task.id;
-      -- pg_terminate_backend returns true on success, false otherwise.
-      -- We don't need to check the result, just attempt it.
-      PERFORM pg_terminate_backend(v_task.worker_pid);
-    END IF;
+    RAISE LOG 'Terminating stale worker PID %', v_stale_pid;
+    PERFORM pg_terminate_backend(v_stale_pid);
+  END LOOP;
 
-    -- Reset the task to pending state regardless of whether the PID was found/terminated.
+  -- Find tasks stuck in 'processing' and reset their status to 'pending'.
+  -- The backends have already been terminated above.
+  FOR v_task IN
+    SELECT id FROM worker.tasks WHERE state = 'processing'::worker.task_state FOR UPDATE
+  LOOP
+    -- Reset the task to pending state.
     UPDATE worker.tasks
     SET state = 'pending'::worker.task_state,
         worker_pid = NULL,

@@ -259,7 +259,7 @@ module Statbus
           # Wait for discovery signal
           @queue_discovery_channel.receive
 
-          DB.connect(@config.connection_string) do |db|
+          DB.connect(@config.connection_string("worker")) do |db|
             # Get all available queues from the database
             current_queues = db.query_all "SELECT DISTINCT queue FROM worker.command_registry", as: String
 
@@ -346,7 +346,7 @@ module Statbus
           @log.debug { "Connecting to database at #{@config.postgres_host}:#{@config.postgres_port}..." }
 
           # Connect to the database and acquire a global worker advisory lock
-          DB.connect(@config.connection_string) do |db|
+          DB.connect(@config.connection_string("worker")) do |db|
             version = db.query_one("SELECT version()", as: String)
             @log.debug { "Database connection verified: #{version}" }
             @log.debug { "Connected to database at #{@config.postgres_host}:#{@config.postgres_port}" }
@@ -392,7 +392,7 @@ module Statbus
 
             # Create a PG connection for listening with error handling
             begin
-              PG.connect_listen(@config.connection_string, channels: ["worker_tasks", "worker_queue_change"], blocking: false) do |notification|
+              PG.connect_listen(@config.connection_string("worker"), channels: ["worker_tasks", "worker_queue_change"], blocking: false) do |notification|
                 if notification.channel == "worker_tasks"
                   # Get the queue from the notification payload
                   queue_name = notification.payload.presence
@@ -646,7 +646,7 @@ module Statbus
         tables_exist = false
 
         begin
-          DB.connect(@config.connection_string) do |db|
+          DB.connect(@config.connection_string("worker")) do |db|
             # Check if worker schema exists
             schema_exists = db.query_one? "SELECT EXISTS (
                                            SELECT FROM pg_namespace
@@ -682,7 +682,7 @@ module Statbus
 
     # Find the next scheduled task
     private def find_next_scheduled_task : {Time?, String?}
-      DB.connect(@config.connection_string) do |db|
+      DB.connect(@config.connection_string("worker")) do |db|
         result = db.query_one? "SELECT
                                  MIN(t.scheduled_at) AS next_scheduled_at,
                                  cr.queue
@@ -872,7 +872,7 @@ module Statbus
 
       begin
         # Use a connection pool or reuse connection if possible
-        DB.connect(@config.connection_string) do |db|
+        DB.connect(@config.connection_string("worker")) do |db|
           # Call worker.process_tasks() procedure
           # The p_queue parameter ensures we only process tasks for this specific queue
           # Note: worker.process_tasks() handles its own transactions internally
