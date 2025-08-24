@@ -314,23 +314,52 @@ const RedirectHandler = () => {
   const [loginActionIsActive, setLoginActionInProgress] = useAtom(loginActionInProgressAtom);
   const router = useRouter();
   const pathname = usePathname();
+  // A ref to track the pathname from the previous render. This is the key to
+  // detecting when a user-initiated navigation has occurred, allowing us to
+  // cancel any pending programmatic redirects.
+  const prevPathnameRef = React.useRef(pathname);
 
   // Determine the single desired target path. Explicit redirects take priority.
   const targetPath = explicitRedirect || setupRedirect;
 
-  // A single, consolidated effect to handle navigation and state clearing.
+  // This effect runs on every render where pathname or a redirect atom changes.
+  // It's the core of the centralized navigation logic.
   useEffect(() => {
+    const prevPathname = prevPathnameRef.current;
+    // Update ref for the next render *before* any early returns. This ensures
+    // the ref is always current for the next comparison.
+    prevPathnameRef.current = pathname;
+
+    // SCENARIO 1: User-initiated navigation overrides a pending redirect.
+    // We detect this by checking if a redirect was pending (`targetPath`), if the URL
+    // has changed (`pathname !== prevPathname`), AND if the new URL is NOT our
+    // intended redirect destination. If all are true, the user has taken control
+    // (e.g., by clicking a <Link>). We must cancel our redirect and yield.
+    if (targetPath && pathname !== prevPathname && targetPath.split('?')[0] !== pathname) {
+      if (explicitRedirect) {
+        setExplicitRedirect(null);
+      }
+      if (setupRedirect) {
+        setSetupRedirect(null);
+      }
+      return; // Stop processing to allow the user's navigation to complete.
+    }
+
+    // If there's no target path, there's nothing to do.
     if (!targetPath) {
       return;
     }
 
     const targetPathname = targetPath.split('?')[0];
 
-    // If we are not at the target destination, navigate.
+    // SCENARIO 2: Execute a pending programmatic redirect.
+    // If we are not already at the target destination, navigate.
     if (targetPathname !== pathname) {
       router.push(targetPath);
     } else {
-      // If we are at the target destination, clear the state that caused the redirect.
+      // SCENARIO 3: Cleanup after a successful redirect.
+      // We have arrived at our destination. Clear the state that triggered the
+      // redirect to prevent loops.
       if (explicitRedirect) {
         setExplicitRedirect(null);
         if (loginActionIsActive) {
