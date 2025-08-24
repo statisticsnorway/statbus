@@ -461,7 +461,6 @@ __pycache__/
 build/
 
 # Temporary files
-/tmp/
 
 # Parcel Intermediate Files
 .parcel-cache/**
@@ -487,10 +486,8 @@ key-*.xml
 # Ignore postgres data files
 /postgres/volumes/db/data
 
-# Ignore AI journal
-journal.md
-
 # Ignore aider AI tool files, except those useful.
 .aider*
 !.aider.conf.yml
 !.aiderignore
+

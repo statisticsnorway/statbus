@@ -14,6 +14,9 @@ watch-files: true
 
 subtree-only: true
 
+# Allow editing of tmp files that are ignored by git.
+add-gitignore-files: true 
+
 ##########################################################
 # Sample .aider.conf.yml
 # This file lists *all* the valid configuration entries.
