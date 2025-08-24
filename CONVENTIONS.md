@@ -116,7 +116,7 @@ For more details, see the main `README.md` file or run `./cli/bin/statbus migrat
 All development work, especially bug fixing, must follow a rigorous, hypothesis-driven cycle to ensure progress is verifiable and the system remains stable. A task is not complete until the final step of this cycle has been successfully executed.
 
 ### 1. Formulate and State a Hypothesis
-- **Action:** Before making any code changes, clearly state your hypothesis about the root cause of the problem in `journal.md`. This creates a permanent record of the debugging process.
+- **Action:** Before making any code changes, clearly state your hypothesis about the root cause of the problem in `tmp/journal.md`. This creates a locally persistent log of your thought process, helping maintain context through interruptions (e.g., an AI context reset or a crash). The journal is temporary and typically cleared between major tasks. Before clearing it, consider if any recurring patterns or insights should be used to improve this `CONVENTIONS.md` file.
 - **Example:** "Hypothesis: The test regressions are caused by the 'scorched earth' `replace` logic deleting child records that tests expect to survive a partial import."
 
 ### 2. Create or Identify a Reproducing Test
