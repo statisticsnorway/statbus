@@ -457,14 +457,21 @@ BEGIN
             RAISE DEBUG '[Job %] process_statistical_variables: Using entity ID columns: %', p_job_id, v_entity_id_cols;
 
             FOR v_batch_upsert_result IN
-                SELECT * FROM import.set_insert_or_replace_generic_valid_time_table(
-                    p_target_schema_name => 'public',
-                    p_target_table_name => 'stat_for_unit',
-                    p_source_schema_name => 'pg_temp',
-                    p_source_table_name => 'temp_stat_upsert_source',
-                    p_entity_id_column_names => v_entity_id_cols,
-                    p_source_row_ids => NULL, -- Process all rows from the temp source
-                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
+                SELECT * FROM import.temporal_merge(
+                    p_target_schema_name       => 'public',
+                    p_target_table_name        => 'stat_for_unit',
+                    p_source_schema_name       => 'pg_temp',
+                    p_source_table_name        => 'temp_stat_upsert_source',
+                    p_entity_id_column_names   => v_entity_id_cols,
+                    p_mode                     => CASE v_strategy
+                                                      WHEN 'insert_or_replace' THEN 'upsert_replace'::import.set_operation_mode
+                                                      WHEN 'insert_or_update'  THEN 'upsert_patch'::import.set_operation_mode
+                                                      WHEN 'replace_only'      THEN 'replace_only'::import.set_operation_mode
+                                                      WHEN 'update_only'       THEN 'patch_only'::import.set_operation_mode
+                                                      WHEN 'insert_only'       THEN 'insert_only'::import.set_operation_mode
+                                                  END,
+                    p_source_row_ids           => NULL, -- Process all rows from the temp source
+                    p_ephemeral_columns        => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
                     p_insert_defaulted_columns => ARRAY['id', 'created_at'] || v_excluded_unit_id_cols
                 )
             LOOP
