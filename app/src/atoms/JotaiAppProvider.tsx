@@ -250,16 +250,25 @@ const PathSaver = () => {
       return;
     }
 
-    // Continuously save the current path to sessionStorage while the user is authenticated.
-    // This ensures that if a logout event occurs, the last known good path is already stored.
-    if (authStatus.isAuthenticated) {
-      const fullPath = `${pathname}${search ? `?${search}` : ''}`;
-      // Don't save the login page itself as a restoration target.
-      if (pathname !== '/login') {
-        // If on the root path, ensure we save exactly "/" as the default restoration path.
-        if (pathname === '/') {
-          setLastPath('/');
-        } else {
+    // Continuously save the user's location to sessionStorage. This is crucial for
+    // correctly redirecting the user back to where they were after a login,
+    // especially if the redirect was triggered by a transient auth state flap.
+    const fullPath = `${pathname}${search ? `?${search}` : ''}`;
+
+    // We never want to save the login page as the "last known path", as it
+    // could create redirect loops.
+    if (pathname !== '/login') {
+      if (authStatus.isAuthenticated) {
+        // If the user is authenticated, we are on a valid, accessible page.
+        // Save this path as the new ground truth.
+        setLastPath(pathname === '/' ? '/' : fullPath);
+      } else {
+        // If the user is NOT authenticated, they may be on a protected page and
+        // about to be redirected to /login by the RedirectGuard. By saving the
+        // path here, we capture their intended destination. We avoid saving any
+        // other public paths to prevent incorrect redirects.
+        const publicPaths = ['/login']; // Redundant check, but safe.
+        if (!publicPaths.some(p => pathname.startsWith(p))) {
           setLastPath(fullPath);
         }
       }
