@@ -72,6 +72,10 @@ export const pendingRedirectAtom = atom<string | null>(null);
 // Atom to signal a redirect required by application setup state (e.g., missing regions)
 export const requiredSetupRedirectAtom = atom<string | null>(null);
 
+// Atom to track if the initial auth check has completed successfully. This is used
+// by RedirectGuard to prevent premature redirects during app startup or auth flaps.
+export const initialAuthCheckCompletedAtom = atom(false);
+
 // Combined authentication and base data status
 export const appReadyAtom = atom((get) => {
   const authLoadable = get(authStatusLoadableAtom);
@@ -81,7 +85,9 @@ export const appReadyAtom = atom((get) => {
   const isLoadingBaseData = baseDataLoadable.state === 'loading';
 
   const isAuthProcessComplete = !isAuthLoading;
-  const isAuthenticatedUser = authLoadable.state === 'hasData' && authLoadable.data.isAuthenticated;
+  // Use the stabilized isAuthenticatedAtom for readiness checks. This makes the app's
+  // concept of "readiness" resilient to transient auth-state flaps.
+  const isAuthenticatedUser = get(isAuthenticatedAtom);
   const currentUser = authLoadable.state === 'hasData' ? authLoadable.data.user : null;
 
   // Base data is considered ready if not loading and has essential data.
