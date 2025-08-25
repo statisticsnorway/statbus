@@ -652,21 +652,106 @@ export const useManualInit = () => {
 /**
  * Development component that shows current atom states
  */
+// Helper to recursively calculate the difference between two objects.
+const objectDiff = (obj1: any, obj2: any): any | undefined => {
+  // Simple comparison for non-objects or if they are identical
+  if (Object.is(obj1, obj2)) {
+    return undefined;
+  }
+  // If one is not an object (or is null), return the change
+  if (typeof obj1 !== 'object' || obj1 === null || typeof obj2 !== 'object' || obj2 === null) {
+    return { oldValue: obj1, newValue: obj2 };
+  }
+
+  // For arrays, we'll do a simple stringify compare for brevity, not a deep diff
+  if (Array.isArray(obj1) || Array.isArray(obj2)) {
+    if (JSON.stringify(obj1) !== JSON.stringify(obj2)) {
+      return { oldValue: obj1, newValue: obj2 };
+    }
+    return undefined;
+  }
+
+  const keys = [...new Set([...Object.keys(obj1), ...Object.keys(obj2)])];
+  const diff: { [key: string]: any } = {};
+  let hasChanges = false;
+
+  for (const key of keys) {
+    const result = objectDiff(obj1[key], obj2[key]);
+    if (result !== undefined) {
+      diff[key] = result;
+      hasChanges = true;
+    }
+  }
+
+  return hasChanges ? diff : undefined;
+};
+
+// Helper to format the diff object into a readable string for clipboard.
+const formatDiffToString = (diff: any, path: string = ''): string => {
+  let result = '';
+  if (!diff) return '';
+  for (const key in diff) {
+    const newPath = path ? `${path}.${key}` : key;
+    const value = diff[key];
+    if (value && typeof value.oldValue !== 'undefined') {
+      result += `- ${newPath}: ${JSON.stringify(value.oldValue)}\n`;
+      result += `+ ${newPath}: ${JSON.stringify(value.newValue)}\n`;
+    } else if (typeof value === 'object' && value !== null) {
+      result += formatDiffToString(value, newPath);
+    }
+  }
+  return result;
+};
+
+// Helper component to visually render the diff.
+const DiffViewer = ({ diffData }: { diffData: any }) => {
+  if (!diffData) return <div className="pl-4 mt-1">No changes detected to next state.</div>;
+  return (
+    <div className="pl-4 mt-1 space-y-1 font-mono text-xs">
+      {Object.entries(diffData).map(([key, value]: [string, any]) => {
+        if (value && typeof value.oldValue !== 'undefined') {
+          return (
+            <div key={key}>
+              <span className="text-gray-400">{key}: </span>
+              <span className="text-red-500" style={{ textDecoration: 'line-through' }}>
+                {JSON.stringify(value.oldValue)}
+              </span>
+              <span className="text-gray-400"> → </span>
+              <span className="text-green-500">{JSON.stringify(value.newValue)}</span>
+            </div>
+          );
+        }
+        if (value && typeof value === 'object') {
+          return (
+            <div key={key}>
+              <span className="font-semibold text-gray-300">{key}:</span>
+              <DiffViewer diffData={value} />
+            </div>
+          );
+        }
+        return null;
+      })}
+    </div>
+  );
+};
+
+
 export const StateInspector = () => {
   const [isVisible, setIsVisible] = useAtom(stateInspectorVisibleAtom);
   const [mounted, setMounted] = React.useState(false);
   const [isExpanded, setIsExpanded] = React.useState(false);
   const [copyStatus, setCopyStatus] = React.useState(''); // For "Copied!" message
+  const [history, setHistory] = React.useState<any[]>([]);
+  const [viewingIndex, setViewingIndex] = React.useState<number>(0);
+  const [diff, setDiff] = React.useState<any | null>(null);
 
   // Atoms for general state
   const authLoadableValue = useAtomValue(authStatusLoadableAtom);
   const baseDataLoadableValue = useAtomValue(baseDataLoadableAtom);
-  // Use the combined workerStatusAtom for the inspector.
-  // It already includes loading and error states.
   const workerStatusValue = useAtomValue(workerStatusAtom); 
 
   // Atoms for redirect logic debugging
-  const pathname = usePathname(); // Get current pathname
+  const pathname = usePathname();
   const isAuthenticatedValue = useAtomValue(isAuthenticatedAtom);
   const initialAuthCheckCompletedValue = useAtomValue(initialAuthCheckCompletedAtom);
   const pendingRedirectValue = useAtomValue(pendingRedirectAtom);
@@ -676,13 +761,11 @@ export const StateInspector = () => {
   const restClientFromAtom = useAtomValue(importedRestClientAtom);
   const activityStandardFromAtom = useAtomValue(activityCategoryStandardSettingAtomAsync);
   const numberOfRegionsFromAtom = useAtomValue(numberOfRegionsAtomAsync);
-  // baseData.hasStatisticalUnits and baseData.statDefinitions.length are derived from baseDataLoadableValue
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Add keydown listener to toggle visibility
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.key === 'k' || e.key === 'K') && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
@@ -691,187 +774,161 @@ export const StateInspector = () => {
       }
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [setIsVisible]);
 
-  if (!isVisible) {
-    return null;
-  }
-
-  if (!mounted) {
-    return (
-      <div className="fixed bottom-4 right-4 bg-black bg-opacity-80 text-white p-2 rounded-lg text-xs max-w-md">
-        <span className="font-bold">State Inspector:</span> Loading...
-      </div>
-    );
-  }
-
-  const toggleExpand = () => setIsExpanded(!isExpanded);
-
-  const handleCopyToClipboard = () => {
-    const stateToCopy = {
-      pathname,
-      authStatus: {
-        state: authLoadableValue.state,
-        isAuthenticated: authLoadableValue.state === 'hasData' ? authLoadableValue.data.isAuthenticated : undefined,
-        user: authLoadableValue.state === 'hasData' ? authLoadableValue.data.user : undefined,
-        expired_access_token_call_refresh: authLoadableValue.state === 'hasData' ? authLoadableValue.data.expired_access_token_call_refresh : undefined,
-        error: authLoadableValue.state === 'hasError' ? String(authLoadableValue.error) : undefined,
-      },
-      baseData: {
-        state: baseDataLoadableValue.state,
-        statDefinitionsCount: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.statDefinitions.length : undefined,
-        externalIdentTypesCount: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.externalIdentTypes.length : undefined,
-        statbusUsersCount: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.statbusUsers.length : undefined,
-        timeContextsCount: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.timeContexts.length : undefined,
-        defaultTimeContextIdent: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.defaultTimeContext?.ident : undefined,
-        hasStatisticalUnits: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.hasStatisticalUnits : undefined,
-        error: baseDataLoadableValue.state === 'hasError' ? String(baseDataLoadableValue.error) : undefined,
-      },
-      workerStatus: {
-        state: workerStatusValue.loading ? 'loading' : workerStatusValue.error ? 'hasError' : 'hasData',
-        isImporting: workerStatusValue.isImporting,
-        isDerivingUnits: workerStatusValue.isDerivingUnits,
-        isDerivingReports: workerStatusValue.isDerivingReports,
-        loading: workerStatusValue.loading,
-        error: workerStatusValue.error,
-      },
-      navigationState: {
-        pendingRedirect: pendingRedirectValue,
-        requiredSetupRedirect: requiredSetupRedirectValue,
-        loginActionInProgress: loginActionInProgressValue,
-        lastKnownPathBeforeAuthChange: lastKnownPathValue,
-      },
-      redirectRelevantState: {
-        isAuthenticated_STABLE: isAuthenticatedValue,
-        initialAuthCheckCompleted: initialAuthCheckCompletedValue,
-        authCheckDone: authLoadableValue.state !== 'loading',
-        isRestClientReady: !!restClientFromAtom,
-        activityStandard: activityStandardFromAtom, // This is the actual data or null
-        numberOfRegions: numberOfRegionsFromAtom, // This is the actual count or null
-        // from baseData:
-        baseDataHasStatisticalUnits: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.hasStatisticalUnits : 'BaseDataNotLoaded',
-        baseDataStatDefinitionsLength: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.statDefinitions.length : 'BaseDataNotLoaded',
-      }
-    };
-    navigator.clipboard.writeText(JSON.stringify(stateToCopy, null, 2))
-      .then(() => {
-        setCopyStatus('Copied!');
-        setTimeout(() => setCopyStatus(''), 2000);
-      })
-      .catch(err => {
-        console.error('Failed to copy state to clipboard:', err);
-        setCopyStatus('Failed to copy');
-        setTimeout(() => setCopyStatus(''), 2000);
-      });
+  const fullState = {
+    pathname,
+    authStatus: { state: authLoadableValue.state, isAuthenticated: authLoadableValue.state === 'hasData' ? authLoadableValue.data.isAuthenticated : undefined, user: authLoadableValue.state === 'hasData' ? authLoadableValue.data.user : undefined, expired_access_token_call_refresh: authLoadableValue.state === 'hasData' ? authLoadableValue.data.expired_access_token_call_refresh : undefined, error: authLoadableValue.state === 'hasError' ? String(authLoadableValue.error) : undefined },
+    baseData: { state: baseDataLoadableValue.state, statDefinitionsCount: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.statDefinitions.length : undefined, externalIdentTypesCount: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.externalIdentTypes.length : undefined, statbusUsersCount: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.statbusUsers.length : undefined, timeContextsCount: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.timeContexts.length : undefined, defaultTimeContextIdent: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.defaultTimeContext?.ident : undefined, hasStatisticalUnits: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.hasStatisticalUnits : undefined, error: baseDataLoadableValue.state === 'hasError' ? String(baseDataLoadableValue.error) : undefined },
+    workerStatus: { state: workerStatusValue.loading ? 'loading' : workerStatusValue.error ? 'hasError' : 'hasData', isImporting: workerStatusValue.isImporting, isDerivingUnits: workerStatusValue.isDerivingUnits, isDerivingReports: workerStatusValue.isDerivingReports, loading: workerStatusValue.loading, error: workerStatusValue.error },
+    navigationState: { pendingRedirect: pendingRedirectValue, requiredSetupRedirect: requiredSetupRedirectValue, loginActionInProgress: loginActionInProgressValue, lastKnownPathBeforeAuthChange: lastKnownPathValue },
+    redirectRelevantState: { isAuthenticated_STABLE: isAuthenticatedValue, initialAuthCheckCompleted: initialAuthCheckCompletedValue, authCheckDone: authLoadableValue.state !== 'loading', isRestClientReady: !!restClientFromAtom, activityStandard: activityStandardFromAtom, numberOfRegions: numberOfRegionsFromAtom, baseDataHasStatisticalUnits: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.hasStatisticalUnits : 'BaseDataNotLoaded', baseDataStatDefinitionsLength: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.statDefinitions.length : 'BaseDataNotLoaded' }
   };
 
-  const getSimpleStatus = (loadable: any) => {
-    if (loadable.state === 'loading') return 'Loading';
-    if (loadable.state === 'hasError') return 'Error';
-    if (loadable.state === 'hasData') return 'OK';
-    return 'Unknown';
+  const fullStateString = JSON.stringify(fullState);
+
+  useEffect(() => {
+    setHistory(prev => {
+      if (prev.length > 0 && JSON.stringify(prev[prev.length - 1]) === fullStateString) return prev;
+      const newHistory = [...prev, fullState].slice(-5);
+      setViewingIndex(newHistory.length - 1);
+      return newHistory;
+    });
+  }, [fullStateString]);
+
+  useEffect(() => {
+    if (viewingIndex < history.length - 1) {
+      setDiff(objectDiff(history[viewingIndex], history[viewingIndex + 1]));
+    } else {
+      setDiff(null);
+    }
+  }, [viewingIndex, history]);
+
+  const handleCopy = () => {
+    const content = diff ? formatDiffToString(diff) : JSON.stringify(history[viewingIndex], null, 2);
+    const status = diff ? 'Diff Copied!' : 'State Copied!';
+    navigator.clipboard.writeText(content).then(() => {
+      setCopyStatus(status);
+      setTimeout(() => setCopyStatus(''), 2000);
+    }).catch(err => {
+      console.error('Failed to copy:', err);
+      setCopyStatus('Failed to copy');
+    });
   };
-  
-  const getWorkerSummary = (data: any) => {
-    if (!data) return 'N/A';
-    if (data.isImporting) return 'Importing';
-    if (data.isDerivingUnits) return 'Deriving Units';
-    if (data.isDerivingReports) return 'Deriving Reports';
-    return 'Idle';
-  }
+
+  const getSimpleStatus = (s: any) => s.state === 'loading' ? 'Loading' : s.state === 'hasError' ? 'Error' : 'OK';
+  const getWorkerSummary = (d: any) => !d ? 'N/A' : d.isImporting ? 'Importing' : d.isDerivingUnits ? 'Deriving Units' : d.isDerivingReports ? 'Deriving Reports' : 'Idle';
+
+  if (!isVisible) return null;
+  if (!mounted) return <div className="fixed bottom-4 right-4 bg-black bg-opacity-80 text-white p-2 rounded-lg text-xs max-w-md"><span className="font-bold">State Inspector:</span> Loading...</div>;
+
+  const stateToDisplay = history[viewingIndex] || {};
 
   return (
     <div className="fixed bottom-4 right-4 bg-black bg-opacity-80 text-white p-2 rounded-lg text-xs max-w-md max-h-[80vh] overflow-auto z-[9999]">
       <div className="flex justify-between items-center">
-        <span onClick={toggleExpand} className="cursor-pointer font-bold">State Inspector {isExpanded ? '▼' : '▶'}</span>
-        <button 
-          onClick={handleCopyToClipboard} 
-          className="ml-2 px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs"
-          title="Copy all state to clipboard"
-        >
-          {copyStatus || 'Copy State'}
+        <span onClick={() => setIsExpanded(!isExpanded)} className="cursor-pointer font-bold">State Inspector {isExpanded ? '▼' : '▶'}</span>
+        <button onClick={handleCopy} className="ml-2 px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs" title={diff ? 'Copy diff to next state' : 'Copy full state'}>
+          {copyStatus || (diff ? 'Copy Diff' : 'Copy State')}
         </button>
       </div>
-      {!isExpanded && (
+      {!isExpanded && history.length > 0 && (
         <div className="mt-1">
-          <span>Auth: {getSimpleStatus(authLoadableValue)}</span> | <span>Base: {getSimpleStatus(baseDataLoadableValue)}</span> | <span>Worker: {workerStatusValue.loading ? 'Loading' : workerStatusValue.error ? 'Error' : getWorkerSummary(workerStatusValue)}</span>
+          <span>Auth: {getSimpleStatus(stateToDisplay.authStatus)}</span> | <span>Base: {getSimpleStatus(stateToDisplay.baseData)}</span> | <span>Worker: {stateToDisplay.workerStatus?.loading ? 'Loading' : stateToDisplay.workerStatus?.error ? 'Error' : getWorkerSummary(stateToDisplay.workerStatus)}</span>
         </div>
       )}
-      {isExpanded && (
+      {isExpanded && history.length > 0 && (
         <div className="mt-2 space-y-2">
+          <div className="flex items-center space-x-1">
+            <strong>History:</strong>
+            {history.map((_, index) => {
+              const label = index - (history.length - 1);
+              return (
+                <button key={index} onClick={() => setViewingIndex(index)} disabled={index === viewingIndex} className={`px-2 py-0.5 text-xs rounded ${index === viewingIndex ? 'bg-blue-600 text-white' : 'bg-gray-600 hover:bg-gray-500'}`} title={`View state from ${label === 0 ? 'now' : `${Math.abs(label)} renders ago`}`}>
+                  {label === 0 ? 'Now' : label}
+                </button>
+              );
+            })}
+          </div>
+
+          {diff && (
+            <div>
+              <strong>State Diff to Next:</strong>
+              <DiffViewer diffData={diff} />
+              <hr className="my-2 border-gray-500" />
+            </div>
+          )}
+
           <div>
-            <strong>Auth Status:</strong> {authLoadableValue.state}
+            <strong>Auth Status:</strong> {stateToDisplay.authStatus?.state}
             <div className="pl-4 mt-1 space-y-1">
-              {authLoadableValue.state === 'hasData' && (
+              {stateToDisplay.authStatus?.state === 'hasData' && (
                 <>
-                  <div><strong>Authenticated:</strong> {authLoadableValue.data.isAuthenticated ? 'Yes' : 'No'}</div>
-                  <div><strong>User:</strong> {authLoadableValue.data.user?.email || 'None'}</div>
-                  <div><strong>UID:</strong> {authLoadableValue.data.user?.uid || 'N/A'}</div>
-                  <div><strong>Role:</strong> {authLoadableValue.data.user?.role || 'N/A'}</div>
-                  <div><strong>Statbus Role:</strong> {authLoadableValue.data.user?.statbus_role || 'N/A'}</div>
-                  <div><strong>Refresh Needed:</strong> {authLoadableValue.data.expired_access_token_call_refresh ? 'Yes' : 'No'}</div>
+                  <div><strong>Authenticated:</strong> {stateToDisplay.authStatus.isAuthenticated ? 'Yes' : 'No'}</div>
+                  <div><strong>User:</strong> {stateToDisplay.authStatus.user?.email || 'None'}</div>
+                  <div><strong>UID:</strong> {stateToDisplay.authStatus.user?.uid || 'N/A'}</div>
+                  <div><strong>Role:</strong> {stateToDisplay.authStatus.user?.role || 'N/A'}</div>
+                  <div><strong>Statbus Role:</strong> {stateToDisplay.authStatus.user?.statbus_role || 'N/A'}</div>
+                  <div><strong>Refresh Needed:</strong> {stateToDisplay.authStatus.expired_access_token_call_refresh ? 'Yes' : 'No'}</div>
                 </>
               )}
-              {authLoadableValue.state === 'hasError' && <div><strong>Error:</strong> {String(authLoadableValue.error)}</div>}
+              {stateToDisplay.authStatus?.state === 'hasError' && <div><strong>Error:</strong> {String(stateToDisplay.authStatus.error)}</div>}
             </div>
           </div>
 
           <div>
-            <strong>Base Data Status:</strong> {baseDataLoadableValue.state}
+            <strong>Base Data Status:</strong> {stateToDisplay.baseData?.state}
             <div className="pl-4 mt-1 space-y-1">
-              {baseDataLoadableValue.state === 'hasData' && (
+              {stateToDisplay.baseData?.state === 'hasData' && (
                 <>
-                  <div><strong>Stat Definitions:</strong> {baseDataLoadableValue.data.statDefinitions.length}</div>
-                  <div><strong>External Ident Types:</strong> {baseDataLoadableValue.data.externalIdentTypes.length}</div>
-                  <div><strong>Statbus Users:</strong> {baseDataLoadableValue.data.statbusUsers.length}</div>
-                  <div><strong>Time Contexts:</strong> {baseDataLoadableValue.data.timeContexts.length}</div>
-                  <div><strong>Default Time Context:</strong> {baseDataLoadableValue.data.defaultTimeContext?.ident || 'None'}</div>
-                  <div><strong>Has Statistical Units:</strong> {baseDataLoadableValue.data.hasStatisticalUnits ? 'Yes' : 'No'}</div>
+                  <div><strong>Stat Definitions:</strong> {stateToDisplay.baseData.statDefinitionsCount}</div>
+                  <div><strong>External Ident Types:</strong> {stateToDisplay.baseData.externalIdentTypesCount}</div>
+                  <div><strong>Statbus Users:</strong> {stateToDisplay.baseData.statbusUsersCount}</div>
+                  <div><strong>Time Contexts:</strong> {stateToDisplay.baseData.timeContextsCount}</div>
+                  <div><strong>Default Time Context:</strong> {stateToDisplay.baseData.defaultTimeContextIdent || 'None'}</div>
+                  <div><strong>Has Statistical Units:</strong> {stateToDisplay.baseData.hasStatisticalUnits ? 'Yes' : 'No'}</div>
                 </>
               )}
-              {baseDataLoadableValue.state === 'hasError' && <div><strong>Error:</strong> {String(baseDataLoadableValue.error)}</div>}
+              {stateToDisplay.baseData?.state === 'hasError' && <div><strong>Error:</strong> {String(stateToDisplay.baseData.error)}</div>}
             </div>
           </div>
 
           <div>
-            <strong>Worker Status:</strong> {workerStatusValue.loading ? 'Loading' : workerStatusValue.error ? 'Error' : 'OK'}
+            <strong>Worker Status:</strong> {stateToDisplay.workerStatus?.loading ? 'Loading' : stateToDisplay.workerStatus?.error ? 'Error' : 'OK'}
             <div className="pl-4 mt-1 space-y-1">
-              {!workerStatusValue.loading && !workerStatusValue.error && (
+              {stateToDisplay.workerStatus && !stateToDisplay.workerStatus.loading && !stateToDisplay.workerStatus.error && (
                 <>
-                  <div><strong>Importing:</strong> {workerStatusValue.isImporting === null ? 'N/A' : workerStatusValue.isImporting ? 'Yes' : 'No'}</div>
-                  <div><strong>Deriving Units:</strong> {workerStatusValue.isDerivingUnits === null ? 'N/A' : workerStatusValue.isDerivingUnits ? 'Yes' : 'No'}</div>
-                  <div><strong>Deriving Reports:</strong> {workerStatusValue.isDerivingReports === null ? 'N/A' : workerStatusValue.isDerivingReports ? 'Yes' : 'No'}</div>
+                  <div><strong>Importing:</strong> {stateToDisplay.workerStatus.isImporting === null ? 'N/A' : stateToDisplay.workerStatus.isImporting ? 'Yes' : 'No'}</div>
+                  <div><strong>Deriving Units:</strong> {stateToDisplay.workerStatus.isDerivingUnits === null ? 'N/A' : stateToDisplay.workerStatus.isDerivingUnits ? 'Yes' : 'No'}</div>
+                  <div><strong>Deriving Reports:</strong> {stateToDisplay.workerStatus.isDerivingReports === null ? 'N/A' : stateToDisplay.workerStatus.isDerivingReports ? 'Yes' : 'No'}</div>
                 </>
               )}
-              {workerStatusValue.error && <div><strong>Error:</strong> {workerStatusValue.error}</div>}
+              {stateToDisplay.workerStatus?.error && <div><strong>Error:</strong> {stateToDisplay.workerStatus.error}</div>}
             </div>
           </div>
 
           <div>
             <strong>Navigation & Redirect Debugging:</strong>
             <div className="pl-4 mt-1 space-y-1">
-              <div><strong>(Stable) isAuthenticated:</strong> {isAuthenticatedValue ? 'Yes' : 'No'}</div>
-              <div><strong>Initial Auth Check Completed:</strong> {initialAuthCheckCompletedValue ? 'Yes' : 'No'}</div>
+              <div><strong>(Stable) isAuthenticated:</strong> {stateToDisplay.redirectRelevantState?.isAuthenticated_STABLE ? 'Yes' : 'No'}</div>
+              <div><strong>Initial Auth Check Completed:</strong> {stateToDisplay.redirectRelevantState?.initialAuthCheckCompleted ? 'Yes' : 'No'}</div>
               <hr className="my-1 border-gray-500" />
-              <div><strong>Pathname:</strong> {pathname}</div>
-              <div><strong>Active Redirect Target:</strong> {(pendingRedirectValue || requiredSetupRedirectValue) || 'None'}</div>
-              <div><strong>Pending Redirect:</strong> {pendingRedirectValue || 'None'}</div>
-              <div><strong>Required Setup Redirect:</strong> {requiredSetupRedirectValue || 'None'}</div>
-              <div><strong>Login Action in Progress:</strong> {loginActionInProgressValue ? 'Yes' : 'No'}</div>
-              <div><strong>Last Known Path (pre-auth):</strong> {lastKnownPathValue || 'None'}</div>
+              <div><strong>Pathname:</strong> {stateToDisplay.pathname}</div>
+              <div><strong>Active Redirect Target:</strong> {(stateToDisplay.navigationState?.pendingRedirect || stateToDisplay.navigationState?.requiredSetupRedirect) || 'None'}</div>
+              <div><strong>Pending Redirect:</strong> {stateToDisplay.navigationState?.pendingRedirect || 'None'}</div>
+              <div><strong>Required Setup Redirect:</strong> {stateToDisplay.navigationState?.requiredSetupRedirect || 'None'}</div>
+              <div><strong>Login Action in Progress:</strong> {stateToDisplay.navigationState?.loginActionInProgress ? 'Yes' : 'No'}</div>
+              <div><strong>Last Known Path (pre-auth):</strong> {stateToDisplay.navigationState?.lastKnownPathBeforeAuthChange || 'None'}</div>
               <hr className="my-1 border-gray-500" />
-              <div><strong>Auth Check Done:</strong> {authLoadableValue.state !== 'loading' ? 'Yes' : 'No'}</div>
-              <div><strong>REST Client Ready:</strong> {restClientFromAtom ? 'Yes' : 'No'}</div>
-              <div><strong>Activity Standard:</strong> {activityStandardFromAtom === null ? 'Null' : JSON.stringify(activityStandardFromAtom)}</div>
-              <div><strong>Number of Regions:</strong> {numberOfRegionsFromAtom === null ? 'Null/Loading' : numberOfRegionsFromAtom}</div>
-              <div><strong>BaseData - Has Statistical Units:</strong> {baseDataLoadableValue.state === 'hasData' ? (baseDataLoadableValue.data.hasStatisticalUnits ? 'Yes' : 'No') : 'BaseDataNotLoaded'}</div>
-              <div><strong>BaseData - Stat Definitions Count:</strong> {baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.statDefinitions.length : 'BaseDataNotLoaded'}</div>
+              <div><strong>Auth Check Done:</strong> {stateToDisplay.redirectRelevantState?.authCheckDone ? 'Yes' : 'No'}</div>
+              <div><strong>REST Client Ready:</strong> {stateToDisplay.redirectRelevantState?.isRestClientReady ? 'Yes' : 'No'}</div>
+              <div><strong>Activity Standard:</strong> {stateToDisplay.redirectRelevantState?.activityStandard === null ? 'Null' : JSON.stringify(stateToDisplay.redirectRelevantState?.activityStandard)}</div>
+              <div><strong>Number of Regions:</strong> {stateToDisplay.redirectRelevantState?.numberOfRegions === null ? 'Null/Loading' : stateToDisplay.redirectRelevantState?.numberOfRegions}</div>
+              <div><strong>BaseData - Has Statistical Units:</strong> {stateToDisplay.redirectRelevantState?.baseDataHasStatisticalUnits === 'BaseDataNotLoaded' ? 'BaseDataNotLoaded' : (stateToDisplay.redirectRelevantState?.baseDataHasStatisticalUnits ? 'Yes' : 'No')}</div>
+              <div><strong>BaseData - Stat Definitions Count:</strong> {stateToDisplay.redirectRelevantState?.baseDataStatDefinitionsLength}</div>
             </div>
           </div>
-
         </div>
       )}
     </div>
