@@ -1,3 +1,67 @@
+-- =============================================================================
+-- Test Suite: `import.temporal_merge` (Single Key)
+--
+-- Description:
+--   This test suite provides comprehensive validation for the unified
+--   `temporal_merge_plan` and `temporal_merge` functions for entities with
+--   a single-column primary key.
+--
+-- Table of Contents:
+--   - Setup
+--   - Scenario 1: Initial Data Load (Empty Target)
+--   - Scenarios for `upsert_patch` mode (Allen's Interval Algebra)
+--     - Scenario 2: `starts`
+--     - Scenario 3: `finishes`
+--     - Scenario 4: `during` / `contains`
+--     - Scenario 5: `overlaps`
+--     - Scenario 6: `overlapped by`
+--     - Scenario 7: `meets`
+--     - Scenario 8: `met by`
+--     - Scenario 9: `before`
+--     - Scenario 10: `after`
+--     - Scenario 11: `equals`
+--   - Scenarios for `upsert_replace` mode
+--     - Scenario 12: `starts`
+--     - Scenario 13: `finishes`
+--     - Scenario 14: `during` / `contains`
+--     - Scenario 15: `overlaps`
+--     - Scenario 16: `equals`
+--     - Scenario 17: `replace` with NULL source value
+--   - Scenarios for `_only` modes (NOOP behavior)
+--     - Scenario 18: `patch_only` on non-existent entity
+--     - Scenario 19: `replace_only` on non-existent entity
+--   - Scenarios for NULL handling in `patch` mode
+--     - Scenario 20: `upsert_patch` with NULL source value
+--     - Scenario 21: `patch_only` with NULL source value
+--   - Scenarios for Ephemeral Columns
+--     - Scenario 22: `equals` with different ephemeral data
+--     - Scenario 23: `equals` with identical data (should be NOOP)
+--   - Scenarios for Multi-Row Source Data
+--     - Scenario 24: Multiple disjoint source rows
+--     - Scenario 25: Multiple overlapping source rows
+--     - Scenario 26: Multiple source rows creating a hole
+--   - Scenarios for `sql_saga` Integration
+--     - Scenario 27: `starts` with deferred foreign key
+--   - Scenarios for `insert_defaulted_columns`
+--     - Scenario 28: Initial INSERT with default columns
+--   - Scenarios for SAVEPOINT and Transactional Correctness
+--     - Scenario 29: Test `meets` relation
+--     - Scenario 30: Test `starts` relation
+--     - Scenario 31: Test `during` relation
+--     - Scenario 32: Test `overlaps` relation
+--     - Scenario 33: Test `finishes` relation
+--     - Scenario 34: Test `equals` relation
+--   - Scenarios for Batch-Level Feedback
+--     - Scenario 35: `patch_only` with mixed valid/invalid entities
+--   - Scenarios for Merging and Coalescing
+--     - Scenario 36: `upsert_patch` with two consecutive, identical source rows
+--     - Scenario 37: `upsert_patch` with three consecutive, identical source rows
+--     - Scenario 38: `upsert_patch` with two consecutive but DIFFERENT source rows
+--     - Scenario 39: `upsert_patch` where source row is consecutive with existing target row
+--   - Scenarios for `insert_defaulted_columns`
+--     - Scenario 40: `INSERT` with `created_at` defaulted
+--   - Final Cleanup
+-- =============================================================================
 BEGIN;
 SET client_min_messages TO WARNING;
 -- Test schema
@@ -100,10 +164,10 @@ SELECT source_row_id, target_entity_ids, status, error_message FROM import.tempo
     p_source_schema_name       => :'source_schema',
     p_source_table_name        => 'temp_source_1',
     p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
-    p_mode                     => 'upsert_patch',
     p_source_row_ids           => NULL,
     p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
-    p_insert_defaulted_columns => '{}'::TEXT[]
+    p_insert_defaulted_columns => '{}'::TEXT[],
+    p_mode                     => 'upsert_patch'
 );
  source_row_id | target_entity_ids | status  | error_message 
 ---------------+-------------------+---------+---------------
@@ -130,15 +194,779 @@ SELECT id, legal_unit_id, valid_after, valid_to, name, employees, edit_comment F
 
 DROP TABLE temp_source_1;
 --------------------------------------------------------------------------------
-\echo 'Scenario 18: `upsert_replace` with `equals` relation (Source NULL replaces existing value)'
-Scenario 18: `upsert_replace` with `equals` relation (Source NULL replaces existing value)
+\echo 'Scenario 2: `upsert_patch` with `starts` relation'
+Scenario 2: `upsert_patch` with `starts` relation
+--------------------------------------------------------------------------------
+CALL set_test_merge.reset_target();
+INSERT INTO set_test_merge.establishment (id, legal_unit_id, valid_after, valid_to, name, employees, edit_comment) VALUES (2, 1, '2023-12-31', '2025-12-31', 'Original', 20, 'Original slice');
+CREATE TEMP TABLE temp_source_2 ( row_id INT, id INT, legal_unit_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, employees INT, edit_comment TEXT ) ON COMMIT DROP;
+INSERT INTO temp_source_2 VALUES (102, 2, 1, '2023-12-31', '2024-12-31', 'Patched', 25, 'Starts patch');
+\echo '--- Planner: Expected Plan ---'
+--- Planner: Expected Plan ---
+SELECT * FROM (VALUES
+    ('{102}'::INT[], 'UPDATE'::import.plan_operation_type, 2, '2023-12-31'::DATE, '2023-12-31'::DATE, '2024-12-31'::DATE, '{"name": "Patched", "employees": 25, "legal_unit_id": 1, "edit_comment": "Starts patch"}'::JSONB, 'starts'::public.allen_interval_relation),
+    ('{102}'::INT[], 'INSERT'::import.plan_operation_type, 2, NULL::DATE,         '2024-12-31'::DATE, '2025-12-31'::DATE, '{"name": "Original", "employees": 20, "legal_unit_id": 1, "edit_comment": "Original slice"}'::JSONB, NULL::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                                            data                                             | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+---------------------------------------------------------------------------------------------+----------
+ {102}          | UPDATE    |         2 | 12-31-2023      | 12-31-2023      | 12-31-2024   | {"name": "Patched", "employees": 25, "edit_comment": "Starts patch", "legal_unit_id": 1}    | starts
+ {102}          | INSERT    |         2 |                 | 12-31-2024      | 12-31-2025   | {"name": "Original", "employees": 20, "edit_comment": "Original slice", "legal_unit_id": 1} | 
+(2 rows)
+
+\echo '--- Planner: Actual Plan ---'
+--- Planner: Actual Plan ---
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.temporal_merge_plan(
+    p_target_schema_name       => :'target_schema',
+    p_target_table_name        => :'target_table',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_2',
+    p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
+    p_mode                     => 'upsert_patch',
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[]
+);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                                            data                                             | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+---------------------------------------------------------------------------------------------+----------
+ {102}          | UPDATE    |         2 | 12-31-2023      | 12-31-2023      | 12-31-2024   | {"name": "Patched", "employees": 25, "edit_comment": "Starts patch", "legal_unit_id": 1}    | starts
+ {102}          | INSERT    |         2 |                 | 12-31-2024      | 12-31-2025   | {"name": "Original", "employees": 20, "edit_comment": "Original slice", "legal_unit_id": 1} | 
+(2 rows)
+
+\echo '--- Orchestrator: Expected Final State ---'
+--- Orchestrator: Expected Final State ---
+SELECT * FROM (VALUES
+    (2, 1, '2023-12-31'::DATE, '2024-12-31'::DATE, 'Patched', 25, 'Starts patch'),
+    (2, 1, '2024-12-31'::DATE, '2025-12-31'::DATE, 'Original', 20, 'Original slice')
+) AS t (id, legal_unit_id, valid_after, valid_to, name, employees, edit_comment);
+ id | legal_unit_id | valid_after |  valid_to  |   name   | employees |  edit_comment  
+----+---------------+-------------+------------+----------+-----------+----------------
+  2 |             1 | 12-31-2023  | 12-31-2024 | Patched  |        25 | Starts patch
+  2 |             1 | 12-31-2024  | 12-31-2025 | Original |        20 | Original slice
+(2 rows)
+
+\echo '--- Orchestrator: Actual Final State ---'
+--- Orchestrator: Actual Final State ---
+CALL set_test_merge.reset_target();
+INSERT INTO set_test_merge.establishment (id, legal_unit_id, valid_after, valid_to, name, employees, edit_comment) VALUES (2, 1, '2023-12-31', '2025-12-31', 'Original', 20, 'Original slice');
+SELECT * FROM import.temporal_merge(
+    p_target_schema_name       => :'target_schema',
+    p_target_table_name        => :'target_table',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_2',
+    p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
+    p_mode                     => 'upsert_patch'
+);
+ source_row_id | target_entity_ids | status  | error_message 
+---------------+-------------------+---------+---------------
+           102 | [{"id": 2}]       | SUCCESS | 
+(1 row)
+
+SELECT id, legal_unit_id, valid_after, valid_to, name, employees, edit_comment FROM set_test_merge.establishment WHERE id = 2 ORDER BY valid_after;
+ id | legal_unit_id | valid_after |  valid_to  |   name   | employees |  edit_comment  
+----+---------------+-------------+------------+----------+-----------+----------------
+  2 |             1 | 12-31-2023  | 12-31-2024 | Patched  |        25 | Starts patch
+  2 |             1 | 12-31-2024  | 12-31-2025 | Original |        20 | Original slice
+(2 rows)
+
+DROP TABLE temp_source_2;
+--------------------------------------------------------------------------------
+\echo 'Scenario 3: `upsert_patch` with `finishes` relation'
+Scenario 3: `upsert_patch` with `finishes` relation
+--------------------------------------------------------------------------------
+CALL set_test_merge.reset_target();
+INSERT INTO set_test_merge.establishment (id, legal_unit_id, valid_after, valid_to, name, employees) VALUES (3, 1, '2023-12-31', '2025-12-31', 'Original', 30);
+CREATE TEMP TABLE temp_source_3 ( row_id INT, id INT, legal_unit_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, employees INT) ON COMMIT DROP;
+INSERT INTO temp_source_3 VALUES (103, 3, 1, '2024-12-31', '2025-12-31', 'Patched', 35);
+\echo '--- Planner: Expected Plan ---'
+--- Planner: Expected Plan ---
+SELECT * FROM (VALUES
+    ('{103}'::INT[],    'UPDATE'::import.plan_operation_type, 3, '2023-12-31'::DATE, '2023-12-31'::DATE, '2024-12-31'::DATE, '{"name": "Original", "employees": 30, "legal_unit_id": 1}'::JSONB, 'starts'::public.allen_interval_relation),
+    ('{103}'::INT[], 'INSERT'::import.plan_operation_type, 3, NULL::DATE, '2024-12-31'::DATE, '2025-12-31'::DATE, '{"name": "Patched", "employees": 35, "legal_unit_id": 1}'::JSONB, NULL::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                           data                            | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+-----------------------------------------------------------+----------
+ {103}          | UPDATE    |         3 | 12-31-2023      | 12-31-2023      | 12-31-2024   | {"name": "Original", "employees": 30, "legal_unit_id": 1} | starts
+ {103}          | INSERT    |         3 |                 | 12-31-2024      | 12-31-2025   | {"name": "Patched", "employees": 35, "legal_unit_id": 1}  | 
+(2 rows)
+
+\echo '--- Planner: Actual Plan ---'
+--- Planner: Actual Plan ---
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.temporal_merge_plan(
+    p_target_schema_name       => :'target_schema',
+    p_target_table_name        => :'target_table',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_3',
+    p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
+    p_mode                     => 'upsert_patch',
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[]
+);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                           data                            | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+-----------------------------------------------------------+----------
+ {103}          | UPDATE    |         3 | 12-31-2023      | 12-31-2023      | 12-31-2024   | {"name": "Original", "employees": 30, "legal_unit_id": 1} | starts
+ {103}          | INSERT    |         3 |                 | 12-31-2024      | 12-31-2025   | {"name": "Patched", "employees": 35, "legal_unit_id": 1}  | 
+(2 rows)
+
+\echo '--- Orchestrator: Expected Final State ---'
+--- Orchestrator: Expected Final State ---
+SELECT * FROM (VALUES
+    (3, 1, '2023-12-31'::DATE, '2024-12-31'::DATE, 'Original', 30),
+    (3, 1, '2024-12-31'::DATE, '2025-12-31'::DATE, 'Patched', 35)
+) AS t (id, legal_unit_id, valid_after, valid_to, name, employees);
+ id | legal_unit_id | valid_after |  valid_to  |   name   | employees 
+----+---------------+-------------+------------+----------+-----------
+  3 |             1 | 12-31-2023  | 12-31-2024 | Original |        30
+  3 |             1 | 12-31-2024  | 12-31-2025 | Patched  |        35
+(2 rows)
+
+\echo '--- Orchestrator: Actual Final State ---'
+--- Orchestrator: Actual Final State ---
+CALL set_test_merge.reset_target();
+INSERT INTO set_test_merge.establishment (id, legal_unit_id, valid_after, valid_to, name, employees) VALUES (3, 1, '2023-12-31', '2025-12-31', 'Original', 30);
+SELECT * FROM import.temporal_merge(
+    p_target_schema_name       => :'target_schema',
+    p_target_table_name        => :'target_table',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_3',
+    p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
+    p_mode                     => 'upsert_patch'
+);
+ source_row_id | target_entity_ids | status  | error_message 
+---------------+-------------------+---------+---------------
+           103 | [{"id": 3}]       | SUCCESS | 
+(1 row)
+
+SELECT id, legal_unit_id, valid_after, valid_to, name, employees FROM set_test_merge.establishment WHERE id = 3 ORDER BY valid_after;
+ id | legal_unit_id | valid_after |  valid_to  |   name   | employees 
+----+---------------+-------------+------------+----------+-----------
+  3 |             1 | 12-31-2023  | 12-31-2024 | Original |        30
+  3 |             1 | 12-31-2024  | 12-31-2025 | Patched  |        35
+(2 rows)
+
+DROP TABLE temp_source_3;
+--------------------------------------------------------------------------------
+\echo 'Scenario 4: `upsert_patch` with `during` relation'
+Scenario 4: `upsert_patch` with `during` relation
+--------------------------------------------------------------------------------
+CALL set_test_merge.reset_target();
+INSERT INTO set_test_merge.establishment (id, legal_unit_id, valid_after, valid_to, name, employees) VALUES (4, 1, '2023-12-31', '2025-12-31', 'Original', 40);
+CREATE TEMP TABLE temp_source_4 ( row_id INT, id INT, legal_unit_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, employees INT) ON COMMIT DROP;
+INSERT INTO temp_source_4 VALUES (104, 4, 1, '2024-06-30', '2024-12-31', 'Patched', 45);
+\echo '--- Planner: Expected Plan ---'
+--- Planner: Expected Plan ---
+SELECT * FROM (VALUES
+    ('{104}'::INT[], 'UPDATE'::import.plan_operation_type, 4, '2023-12-31'::DATE, '2023-12-31'::DATE, '2024-06-30'::DATE, '{"name": "Original", "employees": 40, "legal_unit_id": 1}'::JSONB, 'starts'::public.allen_interval_relation),
+    ('{104}'::INT[], 'INSERT'::import.plan_operation_type, 4, NULL::DATE,         '2024-06-30'::DATE, '2024-12-31'::DATE, '{"name": "Patched", "employees": 45, "legal_unit_id": 1}'::JSONB,  NULL::public.allen_interval_relation),
+    ('{104}'::INT[], 'INSERT'::import.plan_operation_type, 4, NULL::DATE,         '2024-12-31'::DATE, '2025-12-31'::DATE, '{"name": "Original", "employees": 40, "legal_unit_id": 1}'::JSONB, NULL::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                           data                            | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+-----------------------------------------------------------+----------
+ {104}          | UPDATE    |         4 | 12-31-2023      | 12-31-2023      | 06-30-2024   | {"name": "Original", "employees": 40, "legal_unit_id": 1} | starts
+ {104}          | INSERT    |         4 |                 | 06-30-2024      | 12-31-2024   | {"name": "Patched", "employees": 45, "legal_unit_id": 1}  | 
+ {104}          | INSERT    |         4 |                 | 12-31-2024      | 12-31-2025   | {"name": "Original", "employees": 40, "legal_unit_id": 1} | 
+(3 rows)
+
+\echo '--- Planner: Actual Plan ---'
+--- Planner: Actual Plan ---
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.temporal_merge_plan(
+    p_target_schema_name       => :'target_schema',
+    p_target_table_name        => :'target_table',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_4',
+    p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
+    p_mode                     => 'upsert_patch',
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[]
+);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                           data                            | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+-----------------------------------------------------------+----------
+ {104}          | UPDATE    |         4 | 12-31-2023      | 12-31-2023      | 06-30-2024   | {"name": "Original", "employees": 40, "legal_unit_id": 1} | starts
+ {104}          | INSERT    |         4 |                 | 06-30-2024      | 12-31-2024   | {"name": "Patched", "employees": 45, "legal_unit_id": 1}  | 
+ {104}          | INSERT    |         4 |                 | 12-31-2024      | 12-31-2025   | {"name": "Original", "employees": 40, "legal_unit_id": 1} | 
+(3 rows)
+
+\echo '--- Orchestrator: Expected Final State ---'
+--- Orchestrator: Expected Final State ---
+SELECT * FROM (VALUES
+    (4, 1, '2023-12-31'::DATE, '2024-06-30'::DATE, 'Original', 40),
+    (4, 1, '2024-06-30'::DATE, '2024-12-31'::DATE, 'Patched', 45),
+    (4, 1, '2024-12-31'::DATE, '2025-12-31'::DATE, 'Original', 40)
+) AS t (id, legal_unit_id, valid_after, valid_to, name, employees);
+ id | legal_unit_id | valid_after |  valid_to  |   name   | employees 
+----+---------------+-------------+------------+----------+-----------
+  4 |             1 | 12-31-2023  | 06-30-2024 | Original |        40
+  4 |             1 | 06-30-2024  | 12-31-2024 | Patched  |        45
+  4 |             1 | 12-31-2024  | 12-31-2025 | Original |        40
+(3 rows)
+
+\echo '--- Orchestrator: Actual Final State ---'
+--- Orchestrator: Actual Final State ---
+CALL set_test_merge.reset_target();
+INSERT INTO set_test_merge.establishment (id, legal_unit_id, valid_after, valid_to, name, employees) VALUES (4, 1, '2023-12-31', '2025-12-31', 'Original', 40);
+SELECT * FROM import.temporal_merge(
+    p_target_schema_name       => :'target_schema',
+    p_target_table_name        => :'target_table',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_4',
+    p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
+    p_mode                     => 'upsert_patch'
+);
+ source_row_id | target_entity_ids | status  | error_message 
+---------------+-------------------+---------+---------------
+           104 | [{"id": 4}]       | SUCCESS | 
+(1 row)
+
+SELECT id, legal_unit_id, valid_after, valid_to, name, employees FROM set_test_merge.establishment WHERE id = 4 ORDER BY valid_after;
+ id | legal_unit_id | valid_after |  valid_to  |   name   | employees 
+----+---------------+-------------+------------+----------+-----------
+  4 |             1 | 12-31-2023  | 06-30-2024 | Original |        40
+  4 |             1 | 06-30-2024  | 12-31-2024 | Patched  |        45
+  4 |             1 | 12-31-2024  | 12-31-2025 | Original |        40
+(3 rows)
+
+DROP TABLE temp_source_4;
+--------------------------------------------------------------------------------
+\echo 'Scenario 5: `upsert_patch` with `overlaps` relation'
+Scenario 5: `upsert_patch` with `overlaps` relation
+--------------------------------------------------------------------------------
+CALL set_test_merge.reset_target();
+INSERT INTO set_test_merge.establishment (id, legal_unit_id, valid_after, valid_to, name, employees) VALUES (5, 1, '2023-12-31', '2024-12-31', 'Original', 50);
+CREATE TEMP TABLE temp_source_5 ( row_id INT, id INT, legal_unit_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, employees INT) ON COMMIT DROP;
+INSERT INTO temp_source_5 VALUES (105, 5, 1, '2024-06-30', '2025-06-30', 'Patched', 55);
+\echo '--- Planner: Expected Plan ---'
+--- Planner: Expected Plan ---
+SELECT * FROM (VALUES
+    ('{105}'::INT[], 'UPDATE'::import.plan_operation_type, 5, '2023-12-31'::DATE, '2023-12-31'::DATE, '2024-06-30'::DATE, '{"name": "Original", "employees": 50, "legal_unit_id": 1}'::JSONB, 'starts'::public.allen_interval_relation),
+    ('{105}'::INT[], 'INSERT'::import.plan_operation_type, 5, NULL::DATE, '2024-06-30'::DATE, '2025-06-30'::DATE, '{"name": "Patched", "employees": 55, "legal_unit_id": 1}'::JSONB, NULL::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                           data                            | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+-----------------------------------------------------------+----------
+ {105}          | UPDATE    |         5 | 12-31-2023      | 12-31-2023      | 06-30-2024   | {"name": "Original", "employees": 50, "legal_unit_id": 1} | starts
+ {105}          | INSERT    |         5 |                 | 06-30-2024      | 06-30-2025   | {"name": "Patched", "employees": 55, "legal_unit_id": 1}  | 
+(2 rows)
+
+\echo '--- Planner: Actual Plan ---'
+--- Planner: Actual Plan ---
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.temporal_merge_plan(
+    p_target_schema_name       => :'target_schema',
+    p_target_table_name        => :'target_table',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_5',
+    p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
+    p_mode                     => 'upsert_patch',
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[]
+);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                           data                            | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+-----------------------------------------------------------+----------
+ {105}          | UPDATE    |         5 | 12-31-2023      | 12-31-2023      | 06-30-2024   | {"name": "Original", "employees": 50, "legal_unit_id": 1} | starts
+ {105}          | INSERT    |         5 |                 | 06-30-2024      | 06-30-2025   | {"name": "Patched", "employees": 55, "legal_unit_id": 1}  | 
+(2 rows)
+
+\echo '--- Orchestrator: Expected Final State ---'
+--- Orchestrator: Expected Final State ---
+SELECT * FROM (VALUES
+    (5, 1, '2023-12-31'::DATE, '2024-06-30'::DATE, 'Original', 50),
+    (5, 1, '2024-06-30'::DATE, '2025-06-30'::DATE, 'Patched', 55)
+) AS t (id, legal_unit_id, valid_after, valid_to, name, employees);
+ id | legal_unit_id | valid_after |  valid_to  |   name   | employees 
+----+---------------+-------------+------------+----------+-----------
+  5 |             1 | 12-31-2023  | 06-30-2024 | Original |        50
+  5 |             1 | 06-30-2024  | 06-30-2025 | Patched  |        55
+(2 rows)
+
+\echo '--- Orchestrator: Actual Final State ---'
+--- Orchestrator: Actual Final State ---
+CALL set_test_merge.reset_target();
+INSERT INTO set_test_merge.establishment (id, legal_unit_id, valid_after, valid_to, name, employees) VALUES (5, 1, '2023-12-31', '2024-12-31', 'Original', 50);
+SELECT * FROM import.temporal_merge(
+    p_target_schema_name       => :'target_schema',
+    p_target_table_name        => :'target_table',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_5',
+    p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
+    p_mode                     => 'upsert_patch'
+);
+ source_row_id | target_entity_ids | status  | error_message 
+---------------+-------------------+---------+---------------
+           105 | [{"id": 5}]       | SUCCESS | 
+(1 row)
+
+SELECT id, legal_unit_id, valid_after, valid_to, name, employees FROM set_test_merge.establishment WHERE id = 5 ORDER BY valid_after;
+ id | legal_unit_id | valid_after |  valid_to  |   name   | employees 
+----+---------------+-------------+------------+----------+-----------
+  5 |             1 | 12-31-2023  | 06-30-2024 | Original |        50
+  5 |             1 | 06-30-2024  | 06-30-2025 | Patched  |        55
+(2 rows)
+
+DROP TABLE temp_source_5;
+--------------------------------------------------------------------------------
+\echo 'Scenario 6: `upsert_patch` with `overlapped by` relation'
+Scenario 6: `upsert_patch` with `overlapped by` relation
+--------------------------------------------------------------------------------
+CALL set_test_merge.reset_target();
+INSERT INTO set_test_merge.establishment (id, legal_unit_id, valid_after, valid_to, name, employees) VALUES (6, 1, '2024-06-30', '2025-06-30', 'Original', 60);
+CREATE TEMP TABLE temp_source_6 ( row_id INT, id INT, legal_unit_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, employees INT) ON COMMIT DROP;
+INSERT INTO temp_source_6 VALUES (106, 6, 1, '2023-12-31', '2024-12-31', 'Patched', 65);
+\echo '--- Planner: Expected Plan ---'
+--- Planner: Expected Plan ---
+SELECT * FROM (VALUES
+    ('{106}'::INT[], 'UPDATE'::import.plan_operation_type, 6, '2024-06-30'::DATE, '2024-12-31'::DATE, '2025-06-30'::DATE, '{"name": "Original", "employees": 60, "legal_unit_id": 1}'::JSONB, 'finishes'::public.allen_interval_relation),
+    ('{106}'::INT[], 'INSERT'::import.plan_operation_type, 6, NULL::DATE,         '2023-12-31'::DATE, '2024-12-31'::DATE, '{"name": "Patched", "employees": 65, "legal_unit_id": 1}'::JSONB,   NULL::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                           data                            | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+-----------------------------------------------------------+----------
+ {106}          | UPDATE    |         6 | 06-30-2024      | 12-31-2024      | 06-30-2025   | {"name": "Original", "employees": 60, "legal_unit_id": 1} | finishes
+ {106}          | INSERT    |         6 |                 | 12-31-2023      | 12-31-2024   | {"name": "Patched", "employees": 65, "legal_unit_id": 1}  | 
+(2 rows)
+
+\echo '--- Planner: Actual Plan ---'
+--- Planner: Actual Plan ---
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.temporal_merge_plan(
+    p_target_schema_name       => :'target_schema',
+    p_target_table_name        => :'target_table',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_6',
+    p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
+    p_mode                     => 'upsert_patch',
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[]
+);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                           data                            | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+-----------------------------------------------------------+----------
+ {106}          | UPDATE    |         6 | 06-30-2024      | 12-31-2024      | 06-30-2025   | {"name": "Original", "employees": 60, "legal_unit_id": 1} | finishes
+ {106}          | INSERT    |         6 |                 | 12-31-2023      | 12-31-2024   | {"name": "Patched", "employees": 65, "legal_unit_id": 1}  | 
+(2 rows)
+
+\echo '--- Orchestrator: Expected Final State ---'
+--- Orchestrator: Expected Final State ---
+SELECT * FROM (VALUES
+    (6, 1, '2023-12-31'::DATE, '2024-12-31'::DATE, 'Patched', 65),
+    (6, 1, '2024-12-31'::DATE, '2025-06-30'::DATE, 'Original', 60)
+) AS t (id, legal_unit_id, valid_after, valid_to, name, employees);
+ id | legal_unit_id | valid_after |  valid_to  |   name   | employees 
+----+---------------+-------------+------------+----------+-----------
+  6 |             1 | 12-31-2023  | 12-31-2024 | Patched  |        65
+  6 |             1 | 12-31-2024  | 06-30-2025 | Original |        60
+(2 rows)
+
+\echo '--- Orchestrator: Actual Final State ---'
+--- Orchestrator: Actual Final State ---
+CALL set_test_merge.reset_target();
+INSERT INTO set_test_merge.establishment (id, legal_unit_id, valid_after, valid_to, name, employees) VALUES (6, 1, '2024-06-30', '2025-06-30', 'Original', 60);
+SELECT * FROM import.temporal_merge(
+    p_target_schema_name       => :'target_schema',
+    p_target_table_name        => :'target_table',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_6',
+    p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
+    p_mode                     => 'upsert_patch'
+);
+ source_row_id | target_entity_ids | status  | error_message 
+---------------+-------------------+---------+---------------
+           106 | [{"id": 6}]       | SUCCESS | 
+(1 row)
+
+SELECT id, legal_unit_id, valid_after, valid_to, name, employees FROM set_test_merge.establishment WHERE id = 6 ORDER BY valid_after;
+ id | legal_unit_id | valid_after |  valid_to  |   name   | employees 
+----+---------------+-------------+------------+----------+-----------
+  6 |             1 | 12-31-2023  | 12-31-2024 | Patched  |        65
+  6 |             1 | 12-31-2024  | 06-30-2025 | Original |        60
+(2 rows)
+
+DROP TABLE temp_source_6;
+--------------------------------------------------------------------------------
+\echo 'Scenario 7: `upsert_patch` with `meets` relation'
+Scenario 7: `upsert_patch` with `meets` relation
+--------------------------------------------------------------------------------
+CALL set_test_merge.reset_target();
+INSERT INTO set_test_merge.establishment (id, legal_unit_id, valid_after, valid_to, name, employees) VALUES (7, 1, '2024-12-31', '2025-12-31', 'Original', 70);
+CREATE TEMP TABLE temp_source_7 ( row_id INT, id INT, legal_unit_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, employees INT) ON COMMIT DROP;
+INSERT INTO temp_source_7 VALUES (107, 7, 1, '2023-12-31', '2024-12-31', 'Patched', 75);
+\echo '--- Planner: Expected Plan ---'
+--- Planner: Expected Plan ---
+SELECT * FROM (VALUES
+    ('{107}'::INT[], 'INSERT'::import.plan_operation_type, 7, NULL::DATE, '2023-12-31'::DATE, '2024-12-31'::DATE, '{"name": "Patched", "employees": 75, "legal_unit_id": 1}'::JSONB, NULL::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                           data                           | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+----------------------------------------------------------+----------
+ {107}          | INSERT    |         7 |                 | 12-31-2023      | 12-31-2024   | {"name": "Patched", "employees": 75, "legal_unit_id": 1} | 
+(1 row)
+
+\echo '--- Planner: Actual Plan ---'
+--- Planner: Actual Plan ---
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.temporal_merge_plan(
+    p_target_schema_name       => :'target_schema',
+    p_target_table_name        => :'target_table',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_7',
+    p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
+    p_mode                     => 'upsert_patch',
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[]
+);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                           data                           | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+----------------------------------------------------------+----------
+ {107}          | INSERT    |         7 |                 | 12-31-2023      | 12-31-2024   | {"name": "Patched", "employees": 75, "legal_unit_id": 1} | 
+(1 row)
+
+\echo '--- Orchestrator: Expected Final State ---'
+--- Orchestrator: Expected Final State ---
+SELECT * FROM (VALUES
+    (7, 1, '2023-12-31'::DATE, '2024-12-31'::DATE, 'Patched', 75),
+    (7, 1, '2024-12-31'::DATE, '2025-12-31'::DATE, 'Original', 70)
+) AS t (id, legal_unit_id, valid_after, valid_to, name, employees);
+ id | legal_unit_id | valid_after |  valid_to  |   name   | employees 
+----+---------------+-------------+------------+----------+-----------
+  7 |             1 | 12-31-2023  | 12-31-2024 | Patched  |        75
+  7 |             1 | 12-31-2024  | 12-31-2025 | Original |        70
+(2 rows)
+
+\echo '--- Orchestrator: Actual Final State ---'
+--- Orchestrator: Actual Final State ---
+CALL set_test_merge.reset_target();
+INSERT INTO set_test_merge.establishment (id, legal_unit_id, valid_after, valid_to, name, employees) VALUES (7, 1, '2024-12-31', '2025-12-31', 'Original', 70);
+SELECT * FROM import.temporal_merge(
+    p_target_schema_name       => :'target_schema',
+    p_target_table_name        => :'target_table',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_7',
+    p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
+    p_mode                     => 'upsert_patch'
+);
+ source_row_id | target_entity_ids | status  | error_message 
+---------------+-------------------+---------+---------------
+           107 | [{"id": 7}]       | SUCCESS | 
+(1 row)
+
+SELECT id, legal_unit_id, valid_after, valid_to, name, employees FROM set_test_merge.establishment WHERE id = 7 ORDER BY valid_after;
+ id | legal_unit_id | valid_after |  valid_to  |   name   | employees 
+----+---------------+-------------+------------+----------+-----------
+  7 |             1 | 12-31-2023  | 12-31-2024 | Patched  |        75
+  7 |             1 | 12-31-2024  | 12-31-2025 | Original |        70
+(2 rows)
+
+DROP TABLE temp_source_7;
+--------------------------------------------------------------------------------
+\echo 'Scenario 8: `upsert_patch` with `met by` relation'
+Scenario 8: `upsert_patch` with `met by` relation
+--------------------------------------------------------------------------------
+CALL set_test_merge.reset_target();
+INSERT INTO set_test_merge.establishment (id, legal_unit_id, valid_after, valid_to, name, employees) VALUES (8, 1, '2023-12-31', '2024-12-31', 'Original', 80);
+CREATE TEMP TABLE temp_source_8 ( row_id INT, id INT, legal_unit_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, employees INT) ON COMMIT DROP;
+INSERT INTO temp_source_8 VALUES (108, 8, 1, '2024-12-31', '2025-12-31', 'Patched', 85);
+\echo '--- Planner: Expected Plan ---'
+--- Planner: Expected Plan ---
+SELECT * FROM (VALUES
+    ('{108}'::INT[], 'INSERT'::import.plan_operation_type, 8, NULL::DATE, '2024-12-31'::DATE, '2025-12-31'::DATE, '{"name": "Patched", "employees": 85, "legal_unit_id": 1}'::JSONB, NULL::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                           data                           | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+----------------------------------------------------------+----------
+ {108}          | INSERT    |         8 |                 | 12-31-2024      | 12-31-2025   | {"name": "Patched", "employees": 85, "legal_unit_id": 1} | 
+(1 row)
+
+\echo '--- Planner: Actual Plan ---'
+--- Planner: Actual Plan ---
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.temporal_merge_plan(
+    p_target_schema_name       => :'target_schema',
+    p_target_table_name        => :'target_table',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_8',
+    p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
+    p_mode                     => 'upsert_patch',
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[]
+);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                           data                           | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+----------------------------------------------------------+----------
+ {108}          | INSERT    |         8 |                 | 12-31-2024      | 12-31-2025   | {"name": "Patched", "employees": 85, "legal_unit_id": 1} | 
+(1 row)
+
+\echo '--- Orchestrator: Expected Final State ---'
+--- Orchestrator: Expected Final State ---
+SELECT * FROM (VALUES
+    (8, 1, '2023-12-31'::DATE, '2024-12-31'::DATE, 'Original', 80),
+    (8, 1, '2024-12-31'::DATE, '2025-12-31'::DATE, 'Patched', 85)
+) AS t (id, legal_unit_id, valid_after, valid_to, name, employees);
+ id | legal_unit_id | valid_after |  valid_to  |   name   | employees 
+----+---------------+-------------+------------+----------+-----------
+  8 |             1 | 12-31-2023  | 12-31-2024 | Original |        80
+  8 |             1 | 12-31-2024  | 12-31-2025 | Patched  |        85
+(2 rows)
+
+\echo '--- Orchestrator: Actual Final State ---'
+--- Orchestrator: Actual Final State ---
+CALL set_test_merge.reset_target();
+INSERT INTO set_test_merge.establishment (id, legal_unit_id, valid_after, valid_to, name, employees) VALUES (8, 1, '2023-12-31', '2024-12-31', 'Original', 80);
+SELECT * FROM import.temporal_merge(
+    p_target_schema_name       => :'target_schema',
+    p_target_table_name        => :'target_table',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_8',
+    p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
+    p_mode                     => 'upsert_patch'
+);
+ source_row_id | target_entity_ids | status  | error_message 
+---------------+-------------------+---------+---------------
+           108 | [{"id": 8}]       | SUCCESS | 
+(1 row)
+
+SELECT id, legal_unit_id, valid_after, valid_to, name, employees FROM set_test_merge.establishment WHERE id = 8 ORDER BY valid_after;
+ id | legal_unit_id | valid_after |  valid_to  |   name   | employees 
+----+---------------+-------------+------------+----------+-----------
+  8 |             1 | 12-31-2023  | 12-31-2024 | Original |        80
+  8 |             1 | 12-31-2024  | 12-31-2025 | Patched  |        85
+(2 rows)
+
+DROP TABLE temp_source_8;
+--------------------------------------------------------------------------------
+\echo 'Scenario 9: `upsert_patch` with `before` relation (non-contiguous)'
+Scenario 9: `upsert_patch` with `before` relation (non-contiguous)
+--------------------------------------------------------------------------------
+CALL set_test_merge.reset_target();
+INSERT INTO set_test_merge.establishment (id, legal_unit_id, valid_after, valid_to, name, employees) VALUES (9, 1, '2025-01-01', '2025-12-31', 'Original', 90);
+CREATE TEMP TABLE temp_source_9 ( row_id INT, id INT, legal_unit_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, employees INT) ON COMMIT DROP;
+INSERT INTO temp_source_9 VALUES (109, 9, 1, '2023-12-31', '2024-12-31', 'Patched', 95);
+\echo '--- Planner: Expected Plan ---'
+--- Planner: Expected Plan ---
+SELECT * FROM (VALUES
+    ('{109}'::INT[], 'INSERT'::import.plan_operation_type, 9, NULL::DATE, '2023-12-31'::DATE, '2024-12-31'::DATE, '{"name": "Patched", "employees": 95, "legal_unit_id": 1}'::JSONB, NULL::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                           data                           | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+----------------------------------------------------------+----------
+ {109}          | INSERT    |         9 |                 | 12-31-2023      | 12-31-2024   | {"name": "Patched", "employees": 95, "legal_unit_id": 1} | 
+(1 row)
+
+\echo '--- Planner: Actual Plan ---'
+--- Planner: Actual Plan ---
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.temporal_merge_plan(
+    p_target_schema_name       => :'target_schema',
+    p_target_table_name        => :'target_table',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_9',
+    p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
+    p_mode                     => 'upsert_patch',
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[]
+);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                           data                           | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+----------------------------------------------------------+----------
+ {109}          | INSERT    |         9 |                 | 12-31-2023      | 12-31-2024   | {"name": "Patched", "employees": 95, "legal_unit_id": 1} | 
+(1 row)
+
+\echo '--- Orchestrator: Expected Final State ---'
+--- Orchestrator: Expected Final State ---
+SELECT * FROM (VALUES
+    (9, 1, '2023-12-31'::DATE, '2024-12-31'::DATE, 'Patched', 95),
+    (9, 1, '2025-01-01'::DATE, '2025-12-31'::DATE, 'Original', 90)
+) AS t (id, legal_unit_id, valid_after, valid_to, name, employees);
+ id | legal_unit_id | valid_after |  valid_to  |   name   | employees 
+----+---------------+-------------+------------+----------+-----------
+  9 |             1 | 12-31-2023  | 12-31-2024 | Patched  |        95
+  9 |             1 | 01-01-2025  | 12-31-2025 | Original |        90
+(2 rows)
+
+\echo '--- Orchestrator: Actual Final State ---'
+--- Orchestrator: Actual Final State ---
+CALL set_test_merge.reset_target();
+INSERT INTO set_test_merge.establishment (id, legal_unit_id, valid_after, valid_to, name, employees) VALUES (9, 1, '2025-01-01', '2025-12-31', 'Original', 90);
+SELECT * FROM import.temporal_merge(
+    p_target_schema_name       => :'target_schema',
+    p_target_table_name        => :'target_table',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_9',
+    p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
+    p_mode                     => 'upsert_patch'
+);
+ source_row_id | target_entity_ids | status  | error_message 
+---------------+-------------------+---------+---------------
+           109 | [{"id": 9}]       | SUCCESS | 
+(1 row)
+
+SELECT id, legal_unit_id, valid_after, valid_to, name, employees FROM set_test_merge.establishment WHERE id = 9 ORDER BY valid_after;
+ id | legal_unit_id | valid_after |  valid_to  |   name   | employees 
+----+---------------+-------------+------------+----------+-----------
+  9 |             1 | 12-31-2023  | 12-31-2024 | Patched  |        95
+  9 |             1 | 01-01-2025  | 12-31-2025 | Original |        90
+(2 rows)
+
+DROP TABLE temp_source_9;
+--------------------------------------------------------------------------------
+\echo 'Scenario 10: `upsert_patch` with `after` relation (non-contiguous)'
+Scenario 10: `upsert_patch` with `after` relation (non-contiguous)
+--------------------------------------------------------------------------------
+CALL set_test_merge.reset_target();
+INSERT INTO set_test_merge.establishment (id, legal_unit_id, valid_after, valid_to, name, employees) VALUES (10, 1, '2023-12-31', '2024-12-31', 'Original', 100);
+CREATE TEMP TABLE temp_source_10 ( row_id INT, id INT, legal_unit_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, employees INT) ON COMMIT DROP;
+INSERT INTO temp_source_10 VALUES (110, 10, 1, '2025-01-01', '2025-12-31', 'Patched', 105);
+\echo '--- Planner: Expected Plan ---'
+--- Planner: Expected Plan ---
+SELECT * FROM (VALUES
+    ('{110}'::INT[], 'INSERT'::import.plan_operation_type, 10, NULL::DATE, '2025-01-01'::DATE, '2025-12-31'::DATE, '{"name": "Patched", "employees": 105, "legal_unit_id": 1}'::JSONB, NULL::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                           data                            | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+-----------------------------------------------------------+----------
+ {110}          | INSERT    |        10 |                 | 01-01-2025      | 12-31-2025   | {"name": "Patched", "employees": 105, "legal_unit_id": 1} | 
+(1 row)
+
+\echo '--- Planner: Actual Plan ---'
+--- Planner: Actual Plan ---
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.temporal_merge_plan(
+    p_target_schema_name       => :'target_schema',
+    p_target_table_name        => :'target_table',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_10',
+    p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
+    p_mode                     => 'upsert_patch',
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[]
+);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                           data                            | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+-----------------------------------------------------------+----------
+ {110}          | INSERT    |        10 |                 | 01-01-2025      | 12-31-2025   | {"name": "Patched", "employees": 105, "legal_unit_id": 1} | 
+(1 row)
+
+\echo '--- Orchestrator: Expected Final State ---'
+--- Orchestrator: Expected Final State ---
+SELECT * FROM (VALUES
+    (10, 1, '2023-12-31'::DATE, '2024-12-31'::DATE, 'Original', 100),
+    (10, 1, '2025-01-01'::DATE, '2025-12-31'::DATE, 'Patched', 105)
+) AS t (id, legal_unit_id, valid_after, valid_to, name, employees);
+ id | legal_unit_id | valid_after |  valid_to  |   name   | employees 
+----+---------------+-------------+------------+----------+-----------
+ 10 |             1 | 12-31-2023  | 12-31-2024 | Original |       100
+ 10 |             1 | 01-01-2025  | 12-31-2025 | Patched  |       105
+(2 rows)
+
+\echo '--- Orchestrator: Actual Final State ---'
+--- Orchestrator: Actual Final State ---
+CALL set_test_merge.reset_target();
+INSERT INTO set_test_merge.establishment (id, legal_unit_id, valid_after, valid_to, name, employees) VALUES (10, 1, '2023-12-31', '2024-12-31', 'Original', 100);
+SELECT * FROM import.temporal_merge(
+    p_target_schema_name       => :'target_schema',
+    p_target_table_name        => :'target_table',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_10',
+    p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
+    p_mode                     => 'upsert_patch'
+);
+ source_row_id | target_entity_ids | status  | error_message 
+---------------+-------------------+---------+---------------
+           110 | [{"id": 10}]      | SUCCESS | 
+(1 row)
+
+SELECT id, legal_unit_id, valid_after, valid_to, name, employees FROM set_test_merge.establishment WHERE id = 10 ORDER BY valid_after;
+ id | legal_unit_id | valid_after |  valid_to  |   name   | employees 
+----+---------------+-------------+------------+----------+-----------
+ 10 |             1 | 12-31-2023  | 12-31-2024 | Original |       100
+ 10 |             1 | 01-01-2025  | 12-31-2025 | Patched  |       105
+(2 rows)
+
+DROP TABLE temp_source_10;
+--------------------------------------------------------------------------------
+\echo 'Scenario 11: `upsert_patch` with `equals` relation'
+Scenario 11: `upsert_patch` with `equals` relation
+--------------------------------------------------------------------------------
+CALL set_test_merge.reset_target();
+INSERT INTO set_test_merge.establishment (id, legal_unit_id, valid_after, valid_to, name, employees) VALUES (11, 1, '2023-12-31', '2024-12-31', 'Original', 110);
+CREATE TEMP TABLE temp_source_11 ( row_id INT, id INT, legal_unit_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, employees INT) ON COMMIT DROP;
+INSERT INTO temp_source_11 VALUES (111, 11, 1, '2023-12-31', '2024-12-31', 'Patched', 115);
+\echo '--- Planner: Expected Plan ---'
+--- Planner: Expected Plan ---
+SELECT * FROM (VALUES
+    ('{111}'::INT[], 'UPDATE'::import.plan_operation_type, 11, '2023-12-31'::DATE, '2023-12-31'::DATE, '2024-12-31'::DATE, '{"name": "Patched", "employees": 115, "legal_unit_id": 1}'::JSONB, 'equals'::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                           data                            | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+-----------------------------------------------------------+----------
+ {111}          | UPDATE    |        11 | 12-31-2023      | 12-31-2023      | 12-31-2024   | {"name": "Patched", "employees": 115, "legal_unit_id": 1} | equals
+(1 row)
+
+\echo '--- Planner: Actual Plan ---'
+--- Planner: Actual Plan ---
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.temporal_merge_plan(
+    p_target_schema_name       => :'target_schema',
+    p_target_table_name        => :'target_table',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_11',
+    p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
+    p_mode                     => 'upsert_patch',
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[]
+);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                           data                            | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+-----------------------------------------------------------+----------
+ {111}          | UPDATE    |        11 | 12-31-2023      | 12-31-2023      | 12-31-2024   | {"name": "Patched", "employees": 115, "legal_unit_id": 1} | equals
+(1 row)
+
+\echo '--- Orchestrator: Expected Final State ---'
+--- Orchestrator: Expected Final State ---
+SELECT * FROM (VALUES
+    (11, 1, '2023-12-31'::DATE, '2024-12-31'::DATE, 'Patched', 115)
+) AS t (id, legal_unit_id, valid_after, valid_to, name, employees);
+ id | legal_unit_id | valid_after |  valid_to  |  name   | employees 
+----+---------------+-------------+------------+---------+-----------
+ 11 |             1 | 12-31-2023  | 12-31-2024 | Patched |       115
+(1 row)
+
+\echo '--- Orchestrator: Actual Final State ---'
+--- Orchestrator: Actual Final State ---
+CALL set_test_merge.reset_target();
+INSERT INTO set_test_merge.establishment (id, legal_unit_id, valid_after, valid_to, name, employees) VALUES (11, 1, '2023-12-31', '2024-12-31', 'Original', 110);
+SELECT * FROM import.temporal_merge(
+    p_target_schema_name       => :'target_schema',
+    p_target_table_name        => :'target_table',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_11',
+    p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
+    p_mode                     => 'upsert_patch'
+);
+ source_row_id | target_entity_ids | status  | error_message 
+---------------+-------------------+---------+---------------
+           111 | [{"id": 11}]      | SUCCESS | 
+(1 row)
+
+SELECT id, legal_unit_id, valid_after, valid_to, name, employees FROM set_test_merge.establishment WHERE id = 11 ORDER BY valid_after;
+ id | legal_unit_id | valid_after |  valid_to  |  name   | employees 
+----+---------------+-------------+------------+---------+-----------
+ 11 |             1 | 12-31-2023  | 12-31-2024 | Patched |       115
+(1 row)
+
+DROP TABLE temp_source_11;
+--------------------------------------------------------------------------------
+\echo '================================================================================'
+================================================================================
+\echo 'Begin Scenarios for UPSERT_REPLACE mode'
+Begin Scenarios for UPSERT_REPLACE mode
+\echo '================================================================================'
+================================================================================
+\echo 'Scenario 17: `upsert_replace` with `equals` relation (Source NULL replaces existing value)'
+Scenario 17: `upsert_replace` with `equals` relation (Source NULL replaces existing value)
 --------------------------------------------------------------------------------
 CALL set_test_merge.reset_target();
 INSERT INTO set_test_merge.establishment (id, legal_unit_id, valid_after, valid_to, name, employees, edit_comment) VALUES (1, 1, '2023-12-31', '2024-12-31', 'Old Name', 10, 'Old Comment');
-CREATE TEMP TABLE temp_source_18 (
+CREATE TEMP TABLE temp_source_17 (
     row_id INT, id INT, legal_unit_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, edit_comment TEXT, employees INT
 ) ON COMMIT DROP;
-INSERT INTO temp_source_18 VALUES (102, 1, 1, '2023-12-31', '2024-12-31', NULL, 'Replaced with NULL', NULL);
+INSERT INTO temp_source_17 VALUES (102, 1, 1, '2023-12-31', '2024-12-31', NULL, 'Replaced with NULL', NULL);
 \echo '--- Planner: Expected Plan ---'
 --- Planner: Expected Plan ---
 SELECT * FROM (VALUES
@@ -155,7 +983,7 @@ SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_val
     p_target_schema_name       => :'target_schema',
     p_target_table_name        => :'target_table',
     p_source_schema_name       => :'source_schema',
-    p_source_table_name        => 'temp_source_18',
+    p_source_table_name        => 'temp_source_17',
     p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
     p_mode                     => 'upsert_replace',
     p_source_row_ids           => NULL,
@@ -181,12 +1009,12 @@ SELECT source_row_id, target_entity_ids, status, error_message FROM import.tempo
     p_target_schema_name       => :'target_schema',
     p_target_table_name        => :'target_table',
     p_source_schema_name       => :'source_schema',
-    p_source_table_name        => 'temp_source_18',
+    p_source_table_name        => 'temp_source_17',
     p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
-    p_mode                     => 'upsert_replace',
     p_source_row_ids           => NULL,
     p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
-    p_insert_defaulted_columns => '{}'::TEXT[]
+    p_insert_defaulted_columns => '{}'::TEXT[],
+    p_mode                     => 'upsert_replace'
 );
  source_row_id | target_entity_ids | status  | error_message 
 ---------------+-------------------+---------+---------------
@@ -211,7 +1039,7 @@ SELECT id, legal_unit_id, valid_after, valid_to, name, employees, edit_comment F
   1 |             1 | 12-31-2023  | 12-31-2024 |      |           | Replaced with NULL
 (1 row)
 
-DROP TABLE temp_source_18;
+DROP TABLE temp_source_17;
 --------------------------------------------------------------------------------
 \echo 'Scenario 35: `SAVEPOINT` test demonstrating necessity of `process_*` call ordering'
 Scenario 35: `SAVEPOINT` test demonstrating necessity of `process_*` call ordering
@@ -240,10 +1068,10 @@ SELECT source_row_id, target_entity_ids, status, error_message FROM import.tempo
     p_source_schema_name       => :'source_schema',
     p_source_table_name        => 'temp_source_35',
     p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
-    p_mode                     => 'patch_only',
     p_source_row_ids           => NULL,
     p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
-    p_insert_defaulted_columns => '{}'::TEXT[]
+    p_insert_defaulted_columns => '{}'::TEXT[],
+    p_mode                     => 'patch_only'
 );
  source_row_id | target_entity_ids |     status     | error_message 
 ---------------+-------------------+----------------+---------------
@@ -279,10 +1107,10 @@ SELECT source_row_id, target_entity_ids, status, error_message FROM import.tempo
     p_source_schema_name       => :'source_schema',
     p_source_table_name        => 'temp_source_35',
     p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
-    p_mode                     => 'upsert_patch',
     p_source_row_ids           => NULL,
     p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
-    p_insert_defaulted_columns => '{}'::TEXT[]
+    p_insert_defaulted_columns => '{}'::TEXT[],
+    p_mode                     => 'upsert_patch'
 );
  source_row_id | target_entity_ids | status  | error_message 
 ---------------+-------------------+---------+---------------
@@ -299,10 +1127,10 @@ SELECT source_row_id, target_entity_ids, status, error_message FROM import.tempo
     p_source_schema_name       => :'source_schema',
     p_source_table_name        => 'temp_source_35',
     p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
-    p_mode                     => 'patch_only',
     p_source_row_ids           => NULL,
     p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
-    p_insert_defaulted_columns => '{}'::TEXT[]
+    p_insert_defaulted_columns => '{}'::TEXT[],
+    p_mode                     => 'patch_only'
 );
  source_row_id | target_entity_ids | status  | error_message 
 ---------------+-------------------+---------+---------------
@@ -332,6 +1160,397 @@ SELECT id, legal_unit_id, valid_after, valid_to, name, employees, edit_comment F
 
 RELEASE SAVEPOINT before_wrong_order;
 DROP TABLE temp_source_35;
+--------------------------------------------------------------------------------
+-- Scenarios for Merging and Coalescing
+--------------------------------------------------------------------------------
+\echo '================================================================================'
+================================================================================
+\echo 'Begin Scenarios for Merging and Coalescing'
+Begin Scenarios for Merging and Coalescing
+\echo '================================================================================'
+================================================================================
+--------------------------------------------------------------------------------
+\echo 'Scenario 36: `upsert_patch` with consecutive, identical source rows (should merge into one operation)'
+Scenario 36: `upsert_patch` with consecutive, identical source rows (should merge into one operation)
+--------------------------------------------------------------------------------
+CALL set_test_merge.reset_target();
+CREATE TEMP TABLE temp_source_36 (
+    row_id INT, legal_unit_id INT, id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, employees INT
+) ON COMMIT DROP;
+-- Two source rows, contiguous in time, with identical data.
+INSERT INTO temp_source_36 VALUES
+(401, 1, 4, '2023-01-01', '2023-06-30', 'Continuous Op', 20),
+(402, 1, 4, '2023-06-30', '2023-12-31', 'Continuous Op', 20);
+\echo '--- Planner: Expected Plan (A single INSERT for the full period) ---'
+--- Planner: Expected Plan (A single INSERT for the full period) ---
+SELECT * FROM (VALUES
+    ('{401, 402}'::INT[], 'INSERT'::import.plan_operation_type, 4, NULL::DATE, '2023-01-01'::DATE, '2023-12-31'::DATE, '{"name": "Continuous Op", "employees": 20, "legal_unit_id": 1}'::JSONB, NULL::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                              data                              | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+----------------------------------------------------------------+----------
+ {401,402}      | INSERT    |         4 |                 | 01-01-2023      | 12-31-2023   | {"name": "Continuous Op", "employees": 20, "legal_unit_id": 1} | 
+(1 row)
+
+\echo '--- Planner: Actual Plan ---'
+--- Planner: Actual Plan ---
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.temporal_merge_plan(
+    p_target_schema_name       => :'target_schema',
+    p_target_table_name        => :'target_table',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_36',
+    p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
+    p_mode                     => 'upsert_patch',
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
+    p_insert_defaulted_columns => '{}'::TEXT[]
+);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                              data                              | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+----------------------------------------------------------------+----------
+ {401,402}      | INSERT    |         4 |                 | 01-01-2023      | 12-31-2023   | {"name": "Continuous Op", "employees": 20, "legal_unit_id": 1} | 
+(1 row)
+
+\echo '--- Orchestrator: Expected Feedback ---'
+--- Orchestrator: Expected Feedback ---
+SELECT * FROM (VALUES
+    (401, '{"id": 4}'::JSONB, 'SUCCESS'::import.set_result_status, NULL::TEXT),
+    (402, '{"id": 4}'::JSONB, 'SUCCESS'::import.set_result_status, NULL::TEXT)
+) AS t (source_row_id, target_entity_ids, status, error_message);
+ source_row_id | target_entity_ids | status  | error_message 
+---------------+-------------------+---------+---------------
+           401 | {"id": 4}         | SUCCESS | 
+           402 | {"id": 4}         | SUCCESS | 
+(2 rows)
+
+\echo '--- Orchestrator: Actual Feedback ---'
+--- Orchestrator: Actual Feedback ---
+SELECT source_row_id, target_entity_ids, status, error_message FROM import.temporal_merge(
+    p_target_schema_name       => :'target_schema',
+    p_target_table_name        => :'target_table',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_36',
+    p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
+    p_insert_defaulted_columns => '{}'::TEXT[],
+    p_mode                     => 'upsert_patch'
+);
+ source_row_id | target_entity_ids | status  | error_message 
+---------------+-------------------+---------+---------------
+           401 | [{"id": 4}]       | SUCCESS | 
+           402 | [{"id": 4}]       | SUCCESS | 
+(2 rows)
+
+\echo '--- Orchestrator: Expected Final State (A single merged row) ---'
+--- Orchestrator: Expected Final State (A single merged row) ---
+SELECT * FROM (VALUES
+    (4, 1, '2023-01-01'::DATE, '2023-12-31'::DATE, 'Continuous Op'::TEXT, 20, NULL::TEXT)
+) AS t (id, legal_unit_id, valid_after, valid_to, name, employees, edit_comment);
+ id | legal_unit_id | valid_after |  valid_to  |     name      | employees | edit_comment 
+----+---------------+-------------+------------+---------------+-----------+--------------
+  4 |             1 | 01-01-2023  | 12-31-2023 | Continuous Op |        20 | 
+(1 row)
+
+\echo '--- Orchestrator: Actual Final State ---'
+--- Orchestrator: Actual Final State ---
+SELECT id, legal_unit_id, valid_after, valid_to, name, employees, edit_comment FROM set_test_merge.establishment WHERE id = 4 ORDER BY valid_after;
+ id | legal_unit_id | valid_after |  valid_to  |     name      | employees | edit_comment 
+----+---------------+-------------+------------+---------------+-----------+--------------
+  4 |             1 | 01-01-2023  | 12-31-2023 | Continuous Op |        20 | 
+(1 row)
+
+DROP TABLE temp_source_36;
+--------------------------------------------------------------------------------
+\echo 'Scenario 37: `upsert_patch` with three consecutive, identical source rows (should merge)'
+Scenario 37: `upsert_patch` with three consecutive, identical source rows (should merge)
+--------------------------------------------------------------------------------
+CALL set_test_merge.reset_target();
+CREATE TEMP TABLE temp_source_37 (
+    row_id INT, legal_unit_id INT, id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, employees INT
+) ON COMMIT DROP;
+INSERT INTO temp_source_37 VALUES
+(501, 1, 5, '2023-01-01', '2023-03-31', 'Three-part Op', 30),
+(502, 1, 5, '2023-03-31', '2023-06-30', 'Three-part Op', 30),
+(503, 1, 5, '2023-06-30', '2023-09-30', 'Three-part Op', 30);
+\echo '--- Planner: Expected Plan (A single INSERT for the full period) ---'
+--- Planner: Expected Plan (A single INSERT for the full period) ---
+SELECT * FROM (VALUES
+    ('{501, 502, 503}'::INT[], 'INSERT'::import.plan_operation_type, 5, NULL::DATE, '2023-01-01'::DATE, '2023-09-30'::DATE, '{"name": "Three-part Op", "employees": 30, "legal_unit_id": 1}'::JSONB, NULL::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                              data                              | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+----------------------------------------------------------------+----------
+ {501,502,503}  | INSERT    |         5 |                 | 01-01-2023      | 09-30-2023   | {"name": "Three-part Op", "employees": 30, "legal_unit_id": 1} | 
+(1 row)
+
+\echo '--- Planner: Actual Plan ---'
+--- Planner: Actual Plan ---
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.temporal_merge_plan(
+    p_target_schema_name       => :'target_schema',
+    p_target_table_name        => :'target_table',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_37',
+    p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
+    p_mode                     => 'upsert_patch',
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
+    p_insert_defaulted_columns => '{}'::TEXT[]
+);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                              data                              | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+----------------------------------------------------------------+----------
+ {501,502,503}  | INSERT    |         5 |                 | 01-01-2023      | 09-30-2023   | {"name": "Three-part Op", "employees": 30, "legal_unit_id": 1} | 
+(1 row)
+
+DROP TABLE temp_source_37;
+--------------------------------------------------------------------------------
+\echo 'Scenario 38: `upsert_patch` with two consecutive but DIFFERENT source rows (should NOT merge)'
+Scenario 38: `upsert_patch` with two consecutive but DIFFERENT source rows (should NOT merge)
+--------------------------------------------------------------------------------
+CALL set_test_merge.reset_target();
+CREATE TEMP TABLE temp_source_38 (
+    row_id INT, legal_unit_id INT, id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, employees INT
+) ON COMMIT DROP;
+INSERT INTO temp_source_38 VALUES
+(601, 1, 6, '2023-01-01', '2023-06-30', 'First Part', 40),
+(602, 1, 6, '2023-06-30', '2023-12-31', 'Second Part', 50);
+\echo '--- Planner: Expected Plan (Two separate INSERTs) ---'
+--- Planner: Expected Plan (Two separate INSERTs) ---
+SELECT * FROM (VALUES
+    ('{601}'::INT[], 'INSERT'::import.plan_operation_type, 6, NULL::DATE, '2023-01-01'::DATE, '2023-06-30'::DATE, '{"name": "First Part", "employees": 40, "legal_unit_id": 1}'::JSONB, NULL::public.allen_interval_relation),
+    ('{602}'::INT[], 'INSERT'::import.plan_operation_type, 6, NULL::DATE, '2023-06-30'::DATE, '2023-12-31'::DATE, '{"name": "Second Part", "employees": 50, "legal_unit_id": 1}'::JSONB, NULL::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                             data                             | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+--------------------------------------------------------------+----------
+ {601}          | INSERT    |         6 |                 | 01-01-2023      | 06-30-2023   | {"name": "First Part", "employees": 40, "legal_unit_id": 1}  | 
+ {602}          | INSERT    |         6 |                 | 06-30-2023      | 12-31-2023   | {"name": "Second Part", "employees": 50, "legal_unit_id": 1} | 
+(2 rows)
+
+\echo '--- Planner: Actual Plan ---'
+--- Planner: Actual Plan ---
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.temporal_merge_plan(
+    p_target_schema_name       => :'target_schema',
+    p_target_table_name        => :'target_table',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_38',
+    p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
+    p_mode                     => 'upsert_patch',
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
+    p_insert_defaulted_columns => '{}'::TEXT[]
+);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                             data                             | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+--------------------------------------------------------------+----------
+ {601}          | INSERT    |         6 |                 | 01-01-2023      | 06-30-2023   | {"name": "First Part", "employees": 40, "legal_unit_id": 1}  | 
+ {602}          | INSERT    |         6 |                 | 06-30-2023      | 12-31-2023   | {"name": "Second Part", "employees": 50, "legal_unit_id": 1} | 
+(2 rows)
+
+DROP TABLE temp_source_38;
+--------------------------------------------------------------------------------
+\echo 'Scenario 39: `upsert_patch` where source row is consecutive with existing target row (should merge/extend)'
+Scenario 39: `upsert_patch` where source row is consecutive with existing target row (should merge/extend)
+--------------------------------------------------------------------------------
+CALL set_test_merge.reset_target();
+INSERT INTO set_test_merge.establishment (id, legal_unit_id, valid_after, valid_to, name, employees) VALUES (7, 1, '2022-12-31', '2023-06-30', 'Existing Op', 60);
+CREATE TEMP TABLE temp_source_39 (
+    row_id INT, legal_unit_id INT, id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, employees INT
+) ON COMMIT DROP;
+-- This source row meets the existing target row, with identical data.
+INSERT INTO temp_source_39 VALUES (701, 1, 7, '2023-06-30', '2023-12-31', 'Existing Op', 60);
+\echo '--- Planner: Expected Plan (A single UPDATE extending the target row) ---'
+--- Planner: Expected Plan (A single UPDATE extending the target row) ---
+SELECT * FROM (VALUES
+    ('{701}'::INT[], 'UPDATE'::import.plan_operation_type, 7, '2022-12-31'::DATE, '2022-12-31'::DATE, '2023-12-31'::DATE, '{"name": "Existing Op", "employees": 60, "legal_unit_id": 1}'::JSONB, 'started_by'::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                             data                             |  relation  
+----------------+-----------+-----------+-----------------+-----------------+--------------+--------------------------------------------------------------+------------
+ {701}          | UPDATE    |         7 | 12-31-2022      | 12-31-2022      | 12-31-2023   | {"name": "Existing Op", "employees": 60, "legal_unit_id": 1} | started_by
+(1 row)
+
+\echo '--- Planner: Actual Plan ---'
+--- Planner: Actual Plan ---
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.temporal_merge_plan(
+    p_target_schema_name       => :'target_schema',
+    p_target_table_name        => :'target_table',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_39',
+    p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
+    p_mode                     => 'upsert_patch',
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
+    p_insert_defaulted_columns => '{}'::TEXT[]
+);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                             data                             |  relation  
+----------------+-----------+-----------+-----------------+-----------------+--------------+--------------------------------------------------------------+------------
+ {701}          | UPDATE    |         7 | 12-31-2022      | 12-31-2022      | 12-31-2023   | {"name": "Existing Op", "employees": 60, "legal_unit_id": 1} | started_by
+(1 row)
+
+\echo '--- Orchestrator: Expected Final State (A single merged row) ---'
+--- Orchestrator: Expected Final State (A single merged row) ---
+SELECT * FROM (VALUES
+    (7, 1, '2022-12-31'::DATE, '2023-12-31'::DATE, 'Existing Op'::TEXT, 60, NULL::TEXT)
+) AS t (id, legal_unit_id, valid_after, valid_to, name, employees, edit_comment);
+ id | legal_unit_id | valid_after |  valid_to  |    name     | employees | edit_comment 
+----+---------------+-------------+------------+-------------+-----------+--------------
+  7 |             1 | 12-31-2022  | 12-31-2023 | Existing Op |        60 | 
+(1 row)
+
+\echo '--- Orchestrator: Actual Final State ---'
+--- Orchestrator: Actual Final State ---
+CALL set_test_merge.reset_target();
+INSERT INTO set_test_merge.establishment (id, legal_unit_id, valid_after, valid_to, name, employees) VALUES (7, 1, '2022-12-31', '2023-06-30', 'Existing Op', 60);
+SELECT * FROM import.temporal_merge(
+    p_target_schema_name       => :'target_schema',
+    p_target_table_name        => :'target_table',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_39',
+    p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
+    p_mode                     => 'upsert_patch'
+);
+ source_row_id | target_entity_ids | status  | error_message 
+---------------+-------------------+---------+---------------
+           701 | [{"id": 7}]       | SUCCESS | 
+(1 row)
+
+SELECT id, legal_unit_id, valid_after, valid_to, name, employees, edit_comment FROM set_test_merge.establishment WHERE id = 7 ORDER BY valid_after;
+ id | legal_unit_id | valid_after |  valid_to  |    name     | employees | edit_comment 
+----+---------------+-------------+------------+-------------+-----------+--------------
+  7 |             1 | 12-31-2022  | 12-31-2023 | Existing Op |        60 | 
+(1 row)
+
+DROP TABLE temp_source_39;
+-- Final Cleanup before independent tests.
+DROP PROCEDURE set_test_merge.reset_target();
+DROP TABLE set_test_merge.establishment;
+DROP TABLE set_test_merge.legal_unit;
+DROP SEQUENCE set_test_merge.establishment_id_seq;
+DROP SEQUENCE set_test_merge.legal_unit_id_seq;
+DROP SCHEMA set_test_merge CASCADE;
+SET client_min_messages TO NOTICE;
+ROLLBACK;
+BEGIN;
+SET client_min_messages TO WARNING;
+-- Test schema
+CREATE SCHEMA set_test_merge;
+-- Sequences for auto-generated IDs
+CREATE SEQUENCE set_test_merge.legal_unit_id_seq;
+CREATE SEQUENCE set_test_merge.establishment_id_seq;
+-- Target tables (simplified versions for testing)
+CREATE TABLE set_test_merge.legal_unit (
+    id INT PRIMARY KEY,
+    name TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE TABLE set_test_merge.establishment (
+    id INT NOT NULL,
+    legal_unit_id INT NOT NULL,
+    valid_after DATE NOT NULL,
+    valid_to DATE NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    name TEXT,
+    employees INT,
+    edit_comment TEXT,
+    PRIMARY KEY (id, valid_after)
+);
+-- Helper procedure to reset target table state between scenarios
+CREATE PROCEDURE set_test_merge.reset_target() LANGUAGE plpgsql AS $$
+BEGIN
+    TRUNCATE set_test_merge.establishment;
+    TRUNCATE set_test_merge.legal_unit;
+    -- Seed with a legal unit for FK constraints
+    INSERT INTO set_test_merge.legal_unit (id, name) VALUES (1, 'Test LU');
+    ALTER SEQUENCE set_test_merge.establishment_id_seq RESTART WITH 1;
+END;
+$$;
+-- psql variables for the test
+\set target_schema 'set_test_merge'
+\set target_table 'establishment'
+\set source_schema 'pg_temp'
+\set entity_id_cols '{id}'
+\set ephemeral_cols '{edit_comment}'
+--------------------------------------------------------------------------------
+\echo 'Scenario 40: `INSERT` with `created_at` defaulted'
+Scenario 40: `INSERT` with `created_at` defaulted
+--------------------------------------------------------------------------------
+CALL set_test_merge.reset_target();
+CREATE TEMP TABLE temp_source_40 (
+    row_id INT, legal_unit_id INT, id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, name TEXT, employees INT, edit_comment TEXT
+) ON COMMIT DROP;
+INSERT INTO temp_source_40 VALUES (801, 1, 40, '2023-12-31', '2024-12-31', 'Default Test', 10, 'Default Insert');
+\echo '--- Planner: Expected Plan ---'
+--- Planner: Expected Plan ---
+-- The planner should NOT include `created_at` in the data payload, allowing the DB default to apply.
+SELECT * FROM (VALUES
+    ('{801}'::INT[], 'INSERT'::import.plan_operation_type, 40, NULL::DATE, '2023-12-31'::DATE, '2024-12-31'::DATE, '{"name": "Default Test", "employees": 10, "edit_comment": "Default Insert", "legal_unit_id": 1}'::JSONB, NULL::public.allen_interval_relation)
+) AS t (source_row_ids, operation, entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                                              data                                               | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+-------------------------------------------------------------------------------------------------+----------
+ {801}          | INSERT    |        40 |                 | 12-31-2023      | 12-31-2024   | {"name": "Default Test", "employees": 10, "edit_comment": "Default Insert", "legal_unit_id": 1} | 
+(1 row)
+
+\echo '--- Planner: Actual Plan ---'
+--- Planner: Actual Plan ---
+SELECT source_row_ids, operation, (entity_ids->>'id')::INT AS entity_id, old_valid_after, new_valid_after, new_valid_to, data, relation FROM import.temporal_merge_plan(
+    p_target_schema_name       => :'target_schema',
+    p_target_table_name        => :'target_table',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_40',
+    p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
+    p_mode                     => 'upsert_patch',
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
+    p_insert_defaulted_columns => ARRAY['created_at']
+);
+ source_row_ids | operation | entity_id | old_valid_after | new_valid_after | new_valid_to |                                              data                                               | relation 
+----------------+-----------+-----------+-----------------+-----------------+--------------+-------------------------------------------------------------------------------------------------+----------
+ {801}          | INSERT    |        40 |                 | 12-31-2023      | 12-31-2024   | {"name": "Default Test", "employees": 10, "edit_comment": "Default Insert", "legal_unit_id": 1} | 
+(1 row)
+
+\echo '--- Orchestrator: Expected Feedback ---'
+--- Orchestrator: Expected Feedback ---
+SELECT * FROM (VALUES (801, '{"id": 40}'::JSONB, 'SUCCESS'::import.set_result_status, NULL::TEXT)) AS t (source_row_id, target_entity_ids, status, error_message);
+ source_row_id | target_entity_ids | status  | error_message 
+---------------+-------------------+---------+---------------
+           801 | {"id": 40}        | SUCCESS | 
+(1 row)
+
+\echo '--- Orchestrator: Actual Feedback ---'
+--- Orchestrator: Actual Feedback ---
+SELECT source_row_id, target_entity_ids, status, error_message FROM import.temporal_merge(
+    p_target_schema_name       => :'target_schema',
+    p_target_table_name        => :'target_table',
+    p_source_schema_name       => :'source_schema',
+    p_source_table_name        => 'temp_source_40',
+    p_entity_id_column_names   => :'entity_id_cols'::TEXT[],
+    p_source_row_ids           => NULL,
+    p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
+    p_insert_defaulted_columns => ARRAY['created_at', 'updated_at'],
+    p_mode                     => 'upsert_patch'
+);
+ source_row_id | target_entity_ids | status  | error_message 
+---------------+-------------------+---------+---------------
+           801 | [{"id": 40}]      | SUCCESS | 
+(1 row)
+
+\echo '--- Orchestrator: Expected Final State (created_at should NOT be null) ---'
+--- Orchestrator: Expected Final State (created_at should NOT be null) ---
+-- We only check that created_at is not null, as the exact time is non-deterministic.
+SELECT 1 AS row_count WHERE EXISTS (SELECT 1 FROM set_test_merge.establishment WHERE id = 40 AND created_at IS NOT NULL);
+ row_count 
+-----------
+         1
+(1 row)
+
+\echo '--- Orchestrator: Actual Final State ---'
+--- Orchestrator: Actual Final State ---
+SELECT count(*)::INT AS row_count FROM set_test_merge.establishment WHERE id = 40 AND created_at IS NOT NULL;
+ row_count 
+-----------
+         1
+(1 row)
+
+DROP TABLE temp_source_40;
 -- Final Cleanup
 DROP PROCEDURE set_test_merge.reset_target();
 DROP TABLE set_test_merge.establishment;

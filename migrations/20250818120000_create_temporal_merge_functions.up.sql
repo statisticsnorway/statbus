@@ -87,6 +87,8 @@ DECLARE
     v_final_data_payload_expr TEXT;
     v_resolver_ctes TEXT;
     v_resolver_from TEXT;
+    v_diff_join_condition TEXT;
+    v_plan_source_row_ids_expr TEXT;
 BEGIN
     -- Dynamically construct a jsonb object from the entity id columns to use as a single key for partitioning and joining.
     SELECT
@@ -119,7 +121,6 @@ BEGIN
         FROM source_cols s JOIN target_cols t ON s.attname = t.attname
         WHERE s.attname NOT IN ('row_id', 'valid_after', 'valid_to', 'era_id', 'era_name')
           AND s.attname <> ALL(p_entity_id_column_names)
-          AND s.attname <> ALL(p_insert_defaulted_columns)
     )
     SELECT
         format('jsonb_build_object(%s)', string_agg(format('%L, t.%I', attname, attname), ', '))
@@ -138,13 +139,21 @@ BEGIN
         -- Historical data from preceding time slices is inherited into gaps.
         v_source_data_payload_expr := format('jsonb_strip_nulls(%s)', v_source_data_cols_jsonb_build);
         v_resolver_ctes := $$,
-payload_groups AS (
-    SELECT *,
-        SUM(CASE WHEN t_data_payload IS NOT NULL THEN 1 ELSE 0 END) OVER (PARTITION BY entity_id ORDER BY valid_after) as payload_group
+segments_with_target_start AS (
+    SELECT
+        *,
+        (t_valid_after = valid_after) as is_target_start_segment
     FROM resolved_atomic_segments_with_payloads
 ),
+payload_groups AS (
+    SELECT
+        *,
+        SUM(CASE WHEN is_target_start_segment THEN 1 ELSE 0 END) OVER (PARTITION BY entity_id ORDER BY valid_after) as payload_group
+    FROM segments_with_target_start
+),
 resolved_atomic_segments_with_inherited_payload AS (
-    SELECT *,
+    SELECT
+        *,
         FIRST_VALUE(t_data_payload) OVER (PARTITION BY entity_id, payload_group ORDER BY valid_after) as inherited_t_data_payload
     FROM payload_groups
 )
@@ -159,12 +168,42 @@ $$;
         -- In 'replace' modes, the source data payload overwrites the target. NULLs are meaningful.
         v_source_data_payload_expr := v_source_data_cols_jsonb_build;
         v_resolver_ctes := '';
+        -- In `replace` mode, we prioritize the source data (`s_data_payload`). If there is no
+        -- source data for a given time segment, we preserve the target data (`t_data_payload`).
+        -- This correctly implements the "Temporal Patch" semantic.
         v_final_data_payload_expr := $$COALESCE(s_data_payload, t_data_payload)$$;
         v_resolver_from := 'resolved_atomic_segments_with_payloads';
     END IF;
 
 
-    -- 3. Construct and execute the main query to generate the execution plan.
+    -- 3. Conditionally define planner logic based on mode
+    IF p_mode IN ('upsert_patch', 'patch_only') THEN
+        -- For `patch` mode, we use a complex join condition to find "remainder" slices of
+        -- the original timeline and generate UPDATEs for them, avoiding DELETES.
+        v_diff_join_condition := $$
+           f.f_after = t.t_after
+           OR (
+               f.f_to = t.t_to AND f.f_data IS NOT DISTINCT FROM t.t_data
+               AND NOT EXISTS (
+                   SELECT 1 FROM coalesced_final_segments f_inner
+                   WHERE f_inner.entity_id = t.t_entity_id AND f_inner.valid_after = t.t_after
+               )
+           )
+        $$;
+        -- This expression ensures the source_row_ids from the causal source row are attributed
+        -- to the "remainder" slice, which would otherwise have NULL for its source_row_ids.
+        v_plan_source_row_ids_expr := $$COALESCE(
+            d.f_source_row_ids,
+            MAX(d.f_source_row_ids) OVER (PARTITION BY d.entity_id, d.t_after)
+        )$$;
+    ELSE -- replace modes
+        -- For `replace` mode, a simple join is correct. This results in a robust
+        -- DELETE and INSERT plan for any timeline splits.
+        v_diff_join_condition := 'f.f_after = t.t_after';
+        v_plan_source_row_ids_expr := 'd.f_source_row_ids';
+    END IF;
+
+    -- 4. Construct and execute the main query to generate the execution plan.
     v_sql := format($SQL$
 WITH
 source_initial AS (
@@ -276,90 +315,89 @@ resolved_atomic_segments AS (
         CASE WHEN s_data_payload IS NOT NULL THEN 1 ELSE 2 END as priority
     FROM %13$s
 ),
-coalesced_timeline_segments AS (
+coalesced_final_segments AS (
     SELECT
         entity_id,
         MIN(valid_after) as valid_after,
         MAX(valid_to) as valid_to,
-        (array_agg(data_payload ORDER BY priority, valid_after DESC))[1] as data_payload,
-        (array_agg(source_row_id ORDER BY priority, valid_after DESC))[1] as representative_source_row_id,
-        array_agg(DISTINCT source_row_id) FILTER (WHERE source_row_id IS NOT NULL) as source_row_ids,
-        (array_agg(t_valid_after ORDER BY valid_after) FILTER (WHERE t_valid_after IS NOT NULL))[1] as candidate_anchor,
-        COUNT(*) as segments_in_group
+        data_payload,
+        -- Aggregate the source_row_id from each atomic segment into a single array for the merged block.
+        array_agg(DISTINCT source_row_id) FILTER (WHERE source_row_id IS NOT NULL) as source_row_ids
     FROM (
-        SELECT *,
-            SUM(CASE WHEN is_new_group THEN 1 ELSE 0 END) OVER (PARTITION BY entity_id ORDER BY valid_after) as group_id
+        SELECT
+            *,
+            -- This window function creates a grouping key (segment_group). A new group starts
+            -- whenever there is a time gap or a change in the data payload.
+            SUM(is_new_segment) OVER (PARTITION BY entity_id ORDER BY valid_after) as segment_group
         FROM (
-            SELECT fss.*,
-                COALESCE(
-                    (LAG(fss.data_payload - %8$L::text[], 1) OVER (PARTITION BY fss.entity_id ORDER BY fss.valid_after) IS DISTINCT FROM (fss.data_payload - %8$L::text[]))
-                    OR
-                    (LAG(fss.valid_to, 1) OVER (PARTITION BY fss.entity_id ORDER BY fss.valid_after) IS DISTINCT FROM fss.valid_after),
-                    true
-                ) as is_new_group
-            FROM resolved_atomic_segments fss
-        ) with_new_group_flag
-    ) with_group_id
-    GROUP BY entity_id, group_id
+            SELECT
+                ras.*,
+                CASE
+                    -- A new segment starts if there is a gap between it and the previous one,
+                    -- or if the data payload changes. For (exclusive, inclusive] intervals,
+                    -- contiguity is defined as the previous `valid_to` being equal to the current `valid_after`.
+                    WHEN LAG(ras.valid_to) OVER (PARTITION BY ras.entity_id ORDER BY ras.valid_after) = ras.valid_after
+                     AND LAG(ras.data_payload - %8$L::text[]) OVER (PARTITION BY ras.entity_id ORDER BY ras.valid_after) IS NOT DISTINCT FROM (ras.data_payload - %8$L::text[])
+                    THEN 0 -- Not a new group (contiguous and same data)
+                    ELSE 1 -- Is a new group (time gap or different data)
+                END as is_new_segment
+            FROM resolved_atomic_segments ras
+        ) with_new_segment_flag
+    ) with_segment_group
+    GROUP BY
+        entity_id,
+        segment_group,
+        data_payload
 ),
-anchored_timeline_segments AS (
-    SELECT f.*,
-        CASE
-            WHEN f.valid_after = f.candidate_anchor THEN f.candidate_anchor
-            WHEN f.valid_after != f.candidate_anchor AND f.candidate_anchor IS NOT NULL AND f.segments_in_group > 1 THEN f.candidate_anchor
-            ELSE NULL
-        END as anchor_t_valid_after
-    FROM coalesced_timeline_segments f
-),
+
 diff AS (
     SELECT
-        f.entity_id as f_entity_id, f.valid_after as f_after, f.valid_to as f_to, f.data_payload as f_data, f.representative_source_row_id as f_representative_source_row_id, f.source_row_ids as f_source_row_ids,
-        t.entity_id as t_entity_id, t.valid_after as t_after, t.valid_to as t_to, t.data_payload as t_data,
-        ROW_NUMBER() OVER(PARTITION BY t.entity_id, t.valid_after ORDER BY f.valid_after) as update_candidate_rank
-    FROM anchored_timeline_segments f
-    FULL OUTER JOIN target_rows t ON f.entity_id = t.entity_id AND f.anchor_t_valid_after = t.valid_after
-    WHERE f.entity_id IS NULL -- A row from target_rows was deleted
-       OR t.entity_id IS NULL -- A row from the final state is new
-       OR (f.data_payload - %8$L::text[]) IS DISTINCT FROM (t.data_payload - %8$L::text[]) -- A row was updated (data changed)
-       OR f.valid_to IS DISTINCT FROM t.valid_to -- A row was updated (timeline changed)
-       OR f.valid_after IS DISTINCT FROM t.valid_after -- A row was updated (timeline changed, e.g. a merge)
+        -- Use COALESCE on entity_id to handle full additions/deletions
+        COALESCE(f.f_entity_id, t.t_entity_id) as entity_id,
+        f.f_after, f.f_to, f.f_data, f.f_source_row_ids,
+        t.t_after, t.t_to, t.t_data,
+        -- This function call determines the Allen Interval Relation between the final state and target state segments
+        public.allen_get_relation(f.f_after, f.f_to, t.t_after, t.t_to) as relation
+    FROM
+    (
+        SELECT
+            entity_id AS f_entity_id,
+            valid_after AS f_after,
+            valid_to AS f_to,
+            data_payload AS f_data,
+            source_row_ids AS f_source_row_ids
+        FROM coalesced_final_segments
+        WHERE data_payload IS NOT NULL
+    ) f
+    FULL OUTER JOIN
+    (
+        SELECT
+            entity_id as t_entity_id,
+            valid_after as t_after,
+            valid_to as t_to,
+            data_payload as t_data
+        FROM target_rows
+    ) t
+    ON f.f_entity_id = t.t_entity_id AND (%14$s)
 ),
 plan AS (
     SELECT
-        d.source_row_ids,
-        d.representative_source_row_id,
+        %15$s as source_row_ids,
         CASE
-            WHEN d.f_after IS NULL THEN 'DELETE'::import.internal_plan_operation_type
-            WHEN d.t_after IS NULL THEN 'INSERT'::import.internal_plan_operation_type
-            WHEN d.update_candidate_rank > 1 THEN 'INSERT'::import.internal_plan_operation_type
-            WHEN d.operation_type = 'UPDATE' THEN 'UPDATE'::import.internal_plan_operation_type
-            ELSE 'NOOP'::import.internal_plan_operation_type
+            WHEN d.f_data IS NULL THEN 'DELETE'::import.internal_plan_operation_type
+            WHEN d.t_data IS NULL THEN 'INSERT'::import.internal_plan_operation_type
+            ELSE 'UPDATE'::import.internal_plan_operation_type
         END as operation,
         d.entity_id,
-        d.old_valid_after,
-        d.new_valid_after,
-        d.new_valid_to,
-        d.data
-    FROM (
-        SELECT
-            COALESCE(f_source_row_ids, ARRAY[(SELECT s.source_row_id FROM source_rows s WHERE s.entity_id = COALESCE(f_entity_id, t_entity_id) AND (daterange(s.valid_after, s.valid_to, '(]') && daterange(COALESCE(f_after, t_after), COALESCE(f_to, t_to), '(]') OR daterange(s.valid_after, s.valid_to, '(]') -|- daterange(COALESCE(f_after, t_after), COALESCE(f_to, t_to), '(]')) ORDER BY s.source_row_id LIMIT 1)]) AS source_row_ids,
-            COALESCE(f_representative_source_row_id, (SELECT s.source_row_id FROM source_rows s WHERE s.entity_id = COALESCE(f_entity_id, t_entity_id) AND (daterange(s.valid_after, s.valid_to, '(]') && daterange(COALESCE(f_after, t_after), COALESCE(f_to, t_to), '(]') OR daterange(s.valid_after, s.valid_to, '(]') -|- daterange(COALESCE(f_after, t_after), COALESCE(f_to, t_to), '(]')) ORDER BY s.source_row_id LIMIT 1)) AS representative_source_row_id,
-            COALESCE(f_entity_id, t_entity_id) as entity_id,
-            CASE WHEN update_candidate_rank > 1 THEN NULL ELSE t_after END as old_valid_after,
-            f_after as new_valid_after,
-            f_to as new_valid_to,
-            f_data as data,
-            f_entity_id, t_entity_id, t_after,
-            update_candidate_rank,
-            f_after as f_after,
-            CASE
-                WHEN (f_data - %8$L::text[]) IS DISTINCT FROM (t_data - %8$L::text[]) THEN 'UPDATE'
-                WHEN f_to IS DISTINCT FROM t_to THEN 'UPDATE'
-                WHEN f_after IS DISTINCT FROM t_after THEN 'UPDATE'
-                ELSE 'NOOP'
-            END as operation_type
-        FROM diff
-    ) d
+        d.t_after as old_valid_after,
+        d.f_after as new_valid_after,
+        d.f_to as new_valid_to,
+        d.f_data as data,
+        d.relation
+    FROM diff d
+    WHERE d.f_data IS DISTINCT FROM d.t_data
+       OR d.f_after IS DISTINCT FROM d.t_after
+       OR d.f_to IS DISTINCT FROM d.t_to
 )
 SELECT
     p.source_row_ids,
@@ -369,40 +407,11 @@ SELECT
     p.new_valid_after,
     p.new_valid_to,
     p.data,
-    rel.relation
+    p.relation
 FROM plan p
-LEFT JOIN LATERAL (
-    SELECT rel.relation FROM (
-        SELECT
-            (CASE
-                WHEN s.valid_after = t.valid_after AND s.valid_to = t.valid_to THEN 'equals'
-                WHEN s.valid_after = t.valid_after AND s.valid_to < t.valid_to THEN 'starts'
-                WHEN s.valid_after = t.valid_after AND s.valid_to > t.valid_to THEN 'started_by'
-                WHEN s.valid_after > t.valid_after AND s.valid_to = t.valid_to THEN 'finishes'
-                WHEN s.valid_after < t.valid_after AND s.valid_to = t.valid_to THEN 'finished_by'
-                WHEN s.valid_after > t.valid_after AND s.valid_to < t.valid_to THEN 'during'
-                WHEN s.valid_after < t.valid_after AND s.valid_to > t.valid_to THEN 'contains'
-                WHEN s.valid_to = t.valid_after THEN 'meets'
-                WHEN s.valid_after = t.valid_to THEN 'met_by'
-                WHEN s.valid_after < t.valid_after AND s.valid_to > t.valid_after AND s.valid_to < t.valid_to THEN 'overlaps'
-                WHEN t.valid_after < s.valid_after AND t.valid_to > s.valid_after AND t.valid_to < s.valid_to THEN 'overlapped_by'
-                WHEN s.valid_to < t.valid_after THEN 'precedes'
-                WHEN s.valid_after > t.valid_to THEN 'preceded_by'
-            END)::public.allen_interval_relation as relation,
-            GREATEST(
-                CASE WHEN t.valid_to = 'infinity' THEN -2147483647 ELSE s.valid_after - t.valid_to END,
-                CASE WHEN s.valid_to = 'infinity' THEN -2147483647 ELSE t.valid_after - s.valid_to END
-            ) as distance
-        FROM source_rows s
-        JOIN target_rows t ON s.entity_id = t.entity_id
-        WHERE s.source_row_id = p.representative_source_row_id
-    ) rel
-    ORDER BY rel.distance
-    LIMIT 1
-) rel ON p.representative_source_row_id IS NOT NULL
 WHERE p.operation::text <> 'NOOP'
 ORDER BY
-    representative_source_row_id,
+    (p.source_row_ids[1]),
     operation DESC, -- DELETEs first
     entity_id,
     COALESCE(new_valid_after, old_valid_after);
@@ -419,7 +428,9 @@ $SQL$,
         p_mode,                         -- 10
         v_final_data_payload_expr,      -- 11
         v_resolver_ctes,                -- 12
-        v_resolver_from                 -- 13
+        v_resolver_from,                -- 13
+        v_diff_join_condition,          -- 14
+        v_plan_source_row_ids_expr      -- 15
     );
 
     RETURN QUERY EXECUTE v_sql;
@@ -493,43 +504,58 @@ BEGIN
             p_insert_defaulted_columns, p_mode
         );
 
-        -- Get dynamic column lists for DML.
-        WITH target_cols AS (
-            SELECT c.column_name
-            FROM information_schema.columns c
-            LEFT JOIN (
-                SELECT array_agg(a.attname) as cols
-                FROM   pg_index i
-                JOIN   pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
-                WHERE  i.indrelid = v_target_table_ident::regclass
-                AND    i.indisprimary
-            ) pk ON true
-            WHERE c.table_schema = p_target_schema_name
-              AND c.table_name = p_target_table_name
-              AND c.column_name NOT IN ('valid_after', 'valid_to', 'era_id', 'era_name')
-              AND (pk.cols IS NULL OR c.column_name <> ALL(pk.cols) OR c.column_name = ANY(p_entity_id_column_names))
-            ORDER BY c.ordinal_position
-        )
-        SELECT
-            string_agg(format('%I', column_name), ', ') FILTER (WHERE column_name <> ALL(p_entity_id_column_names)),
-            string_agg(format('jpr_data.%I', column_name), ', ') FILTER (WHERE column_name <> ALL(p_entity_id_column_names)),
-            string_agg(format('%I = jpr_data.%I', column_name, column_name), ', ') FILTER (WHERE column_name <> ALL(p_entity_id_column_names)),
-            string_agg(format('%I', column_name), ', ') FILTER (WHERE column_name <> ALL(p_insert_defaulted_columns)),
-            string_agg(format('jpr_all.%I', column_name), ', ') FILTER (WHERE column_name <> ALL(p_insert_defaulted_columns))
-        INTO
-            v_data_cols_ident,
-            v_data_cols_select,
-            v_update_set_clause,
-            v_all_cols_ident,
-            v_all_cols_select
-        FROM target_cols;
+        -- Get dynamic column lists for DML, mimicking the planner's introspection logic for consistency.
+        DECLARE
+            v_source_table_regclass REGCLASS;
+        BEGIN
+            IF p_source_schema_name = 'pg_temp' THEN
+                v_source_table_regclass := to_regclass(p_source_table_name);
+            ELSE
+                v_source_table_regclass := to_regclass(format('%I.%I', p_source_schema_name, p_source_table_name));
+            END IF;
+
+            WITH source_cols AS (
+                SELECT pa.attname
+                FROM pg_catalog.pg_attribute pa
+                WHERE pa.attrelid = v_source_table_regclass AND pa.attnum > 0 AND NOT pa.attisdropped
+            ),
+            target_cols AS (
+                SELECT pa.attname
+                FROM pg_catalog.pg_attribute pa
+                WHERE pa.attrelid = v_target_table_ident::regclass AND pa.attnum > 0 AND NOT pa.attisdropped
+            ),
+            common_data_cols AS (
+                SELECT s.attname
+                FROM source_cols s JOIN target_cols t ON s.attname = t.attname
+                WHERE s.attname NOT IN ('row_id', 'valid_after', 'valid_to', 'era_id', 'era_name')
+                  AND s.attname <> ALL(p_entity_id_column_names)
+            ),
+            all_available_cols AS (
+                SELECT attname FROM common_data_cols
+                UNION ALL
+                SELECT unnest(p_entity_id_column_names)
+            )
+            SELECT
+                string_agg(format('%I', attname), ', ') FILTER (WHERE attname <> ALL(p_entity_id_column_names)),
+                string_agg(format('jpr_data.%I', attname), ', ') FILTER (WHERE attname <> ALL(p_entity_id_column_names)),
+                string_agg(format('%I = jpr_data.%I', attname, attname), ', ') FILTER (WHERE attname <> ALL(p_entity_id_column_names)),
+                string_agg(format('%I', attname), ', ') FILTER (WHERE attname <> ALL(p_insert_defaulted_columns)),
+                string_agg(format('jpr_all.%I', attname), ', ') FILTER (WHERE attname <> ALL(p_insert_defaulted_columns))
+            INTO
+                v_data_cols_ident,
+                v_data_cols_select,
+                v_update_set_clause,
+                v_all_cols_ident,
+                v_all_cols_select
+            FROM all_available_cols;
+        END;
 
         SET CONSTRAINTS ALL DEFERRED;
 
         -- INSERT -> UPDATE -> DELETE order is critical for sql_saga compatibility.
         -- 1. Execute INSERT operations
         IF v_all_cols_ident IS NOT NULL THEN
-            EXECUTE format($$ INSERT INTO %1$s (%2$s, valid_after, valid_to)
+             EXECUTE format($$ INSERT INTO %1$s (%2$s, valid_after, valid_to)
                 SELECT %3$s, p.new_valid_after, p.new_valid_to
                 FROM temp_plan p, LATERAL jsonb_populate_record(null::%1$s, p.entity_ids || p.data) AS jpr_all
                 WHERE p.operation = 'INSERT';
@@ -563,7 +589,7 @@ BEGIN
 
         SET CONSTRAINTS ALL IMMEDIATE;
     EXCEPTION WHEN OTHERS THEN
-        DROP TABLE IF EXISTS temp_plan;
+        IF to_regclass('temp_plan') IS NOT NULL THEN DROP TABLE temp_plan; END IF;
         RETURN QUERY
             SELECT r.row_id, '[]'::JSONB, 'ERROR'::import.set_result_status, SQLERRM
             FROM unnest(COALESCE(v_all_source_row_ids, ARRAY[]::INTEGER[])) AS r(row_id);
