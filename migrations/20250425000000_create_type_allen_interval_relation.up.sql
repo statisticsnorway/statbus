@@ -49,4 +49,38 @@ COMMENT ON TYPE public.allen_interval_relation IS
 'Allen''s interval algebra relations for two intervals X=(X.va, X.vt] and Y=(Y.va, Y.vt], using (exclusive_start, inclusive_end] semantics.
 The ASCII art illustrates interval X relative to interval Y.';
 
+CREATE OR REPLACE FUNCTION public.allen_get_relation(
+    x_va DATE, x_vt DATE,
+    y_va DATE, y_vt DATE
+) RETURNS public.allen_interval_relation
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS
+$BODY$
+    SELECT CASE
+        -- Cases where start points are the same
+        WHEN x_va = y_va AND x_vt = y_vt THEN 'equals'::public.allen_interval_relation
+        WHEN x_va = y_va AND x_vt < y_vt THEN 'starts'::public.allen_interval_relation
+        WHEN x_va = y_va AND x_vt > y_vt THEN 'started_by'::public.allen_interval_relation
+        -- Cases where end points are the same
+        WHEN x_va > y_va AND x_vt = y_vt THEN 'finishes'::public.allen_interval_relation
+        WHEN x_va < y_va AND x_vt = y_vt THEN 'finished_by'::public.allen_interval_relation
+        -- Case where one interval is during another
+        WHEN x_va > y_va AND x_vt < y_vt THEN 'during'::public.allen_interval_relation
+        WHEN x_va < y_va AND x_vt > y_vt THEN 'contains'::public.allen_interval_relation
+        -- Cases where intervals are adjacent
+        WHEN x_vt = y_va THEN 'meets'::public.allen_interval_relation
+        WHEN y_vt = x_va THEN 'met_by'::public.allen_interval_relation
+        -- Cases where intervals overlap
+        WHEN x_va < y_va AND x_vt > y_va AND x_vt < y_vt THEN 'overlaps'::public.allen_interval_relation
+        WHEN y_va < x_va AND y_vt > x_va AND y_vt < x_vt THEN 'overlapped_by'::public.allen_interval_relation
+        -- Cases where intervals are disjoint
+        WHEN x_vt < y_va THEN 'precedes'::public.allen_interval_relation
+        WHEN y_vt < x_va THEN 'preceded_by'::public.allen_interval_relation
+    END;
+$BODY$;
+
+COMMENT ON FUNCTION public.allen_get_relation IS
+'Calculates the Allen Interval Algebra relation between two intervals X and Y,
+assuming (exclusive_start, inclusive_end] semantics. The exclusive start (va) means
+a record is valid from the day AFTER va.';
+
 END;
