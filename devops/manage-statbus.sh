@@ -369,9 +369,9 @@ case "$action" in
               'pipe')
                   echo "Running diff for test: $test"
                   if [ -n "$head_lines" ]; then
-                      diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty | head -n "$head_lines" || true
+                    command diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out | head -n "$head_lines" || true
                   else
-                      diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty || true
+                    command diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out || true
                   fi
                   ;;
               *)
@@ -418,11 +418,10 @@ case "$action" in
                   ;;
               'pipe')
                   echo "Running diff for test: $test"
-                  # Note the pipe from /dev/tty to avoid the diff alias running an interactive program.
                   if [ -n "$head_lines" ]; then
-                      diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty | head -n "$head_lines" || true
+                    command diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out | head -n "$head_lines" || true
                   else
-                      diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty || true
+                    command diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out || true
                   fi
                   ;;
               *)
