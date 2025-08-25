@@ -16,7 +16,7 @@ import { useCallback } from 'react'
 
 import type { Database, Tables } from '@/lib/database.types'
 import { restClientAtom } from './app'
-import { isAuthenticatedAtom } from './auth'
+import { isAuthenticatedAtom, authStatusLoadableAtom } from './auth'
 
 // ============================================================================
 // BASE DATA ATOMS - Replace BaseDataStore + BaseDataContext
@@ -130,6 +130,7 @@ function isBaseDataEqual(a: BaseData, b: BaseData): boolean {
 export const baseDataAtom = atom<BaseData & { loading: boolean; error: string | null }>(
   (get): BaseData & { loading: boolean; error: string | null } => {
     const loadableState = get(baseDataLoadableAtom);
+    const authLoadable = get(authStatusLoadableAtom);
     let result: BaseData & { loading: boolean; error: string | null };
 
     switch (loadableState.state) {
@@ -149,6 +150,10 @@ export const baseDataAtom = atom<BaseData & { loading: boolean; error: string | 
       default: // Should not happen with loadable
         result = { ...initialBaseData, loading: false, error: 'Unknown loadable state' };
     }
+    
+    // The "flap guard" logic has been removed from this atom. The flap is now
+    // prevented at its source by the new, stabilized `isAuthenticatedAtom`.
+    // This makes this atom much simpler and more direct.
     
     // If the new result is meaningfully the same as the last one, return the last one
     // to preserve object reference and prevent unnecessary re-renders.

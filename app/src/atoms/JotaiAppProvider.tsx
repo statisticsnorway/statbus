@@ -13,6 +13,7 @@ import { useAtomValue, useSetAtom } from 'jotai';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import {
   clientMountedAtom,
+  initialAuthCheckCompletedAtom,
   pendingRedirectAtom,
   requiredSetupRedirectAtom,
   restClientAtom,
@@ -23,6 +24,7 @@ import {
   authStatusAtom,
   authStatusLoadableAtom,
   clientSideRefreshAtom,
+  isAuthenticatedAtom,
   lastKnownPathBeforeAuthChangeAtom,
   loginActionInProgressAtom,
 } from './auth';
@@ -51,6 +53,7 @@ import { AuthCrossTabSyncer } from './AuthCrossTabSyncer'; // Import the new syn
 
 const AppInitializer = ({ children }: { children: ReactNode }) => {
   const authLoadableValue = useAtomValue(authStatusLoadableAtom);
+  const isAuthenticated = useAtomValue(isAuthenticatedAtom);
   const authStatus = useAtomValue(authStatusAtom);
   const clientSideRefresh = useSetAtom(clientSideRefreshAtom);
   const restClient = useAtomValue(restClientAtom);
@@ -70,12 +73,29 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   const setPendingRedirect = useSetAtom(pendingRedirectAtom);
   const setLastPath = useSetAtom(lastKnownPathBeforeAuthChangeAtom);
   const setClientMounted = useSetAtom(clientMountedAtom);
+  const initialAuthCheckCompleted = useAtomValue(initialAuthCheckCompletedAtom);
+  const setInitialAuthCheckCompleted = useSetAtom(initialAuthCheckCompletedAtom);
   // isRedirectingToSetup flag is removed as RedirectHandler manages actual navigation.
   
   // Effect to signal that the client has mounted. This helps prevent hydration issues.
   useEffect(() => {
     setClientMounted(true);
   }, [setClientMounted]);
+
+  // Effect to establish when the first successful authentication check has completed.
+  // This creates a stable "app is ready" signal for other components like RedirectGuard,
+  // preventing them from acting on transient, intermediate auth states.
+  useEffect(() => {
+    // If we've already completed the check, we're done here.
+    if (initialAuthCheckCompleted) {
+      return;
+    }
+    // Once auth status has data for the first time, we mark the initial check as complete.
+    // This flag will persist for the lifetime of the app session.
+    if (authLoadableValue.state === 'hasData') {
+      setInitialAuthCheckCompleted(true);
+    }
+  }, [authLoadableValue, initialAuthCheckCompleted, setInitialAuthCheckCompleted]);
 
   // Effect to handle proactive token refresh when an access token expires
   useEffect(() => {
@@ -130,11 +150,10 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
     let mounted = true;
 
     const initializeApp = async () => {
-      const currentAuthIsAuthenticated = authLoadableValue.state === 'hasData' && authLoadableValue.data.isAuthenticated;
-
       // Core conditions: user must be authenticated and REST client ready.
-      // currentAuthIsAuthenticated is false if auth state is loading or has an error.
-      if (!currentAuthIsAuthenticated || !restClient) {
+      // We use the new, stabilized `isAuthenticated` atom here to prevent the
+      // "auth flap" from disrupting the initial data load.
+      if (!isAuthenticated || !restClient) {
         return;
       }
 
@@ -170,7 +189,7 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
       mounted = false;
     };
   }, [
-    authLoadableValue,
+    isAuthenticated,
     restClient,
     appDataInitialized,
     refreshUnitCounts
@@ -194,12 +213,10 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
 
   // Effect for redirecting to setup pages if necessary
   useEffect(() => {
-    const currentIsAuthenticated = authLoadableValue.state === 'hasData' && authLoadableValue.data.isAuthenticated;
-
     // Setup checks are only relevant if on the dashboard ('/') and authenticated.
-    // The auth check must be complete (which is implicit in currentIsAuthenticated)
-    // and the REST client must be ready.
-    if (pathname !== '/' || !currentIsAuthenticated || !restClient) {
+    // We use the stabilized `isAuthenticated` atom to prevent flaps from incorrectly
+    // clearing a pending setup redirect.
+    if (pathname !== '/' || !isAuthenticated || !restClient) {
       // If not in a state where setup redirects are relevant, ensure no setup redirect is pending.
       setRequiredSetupRedirect(null);
       return;
@@ -220,7 +237,7 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
     setRequiredSetupRedirect(targetSetupPath);
   }, [
     pathname,
-    authLoadableValue,
+    isAuthenticated,
     restClient,
     activityStandard,
     numberOfRegions,
@@ -240,40 +257,22 @@ const PathSaver = () => {
   const pathname = usePathname();
   const search = useSearchParams().toString();
   const setLastPath = useSetAtom(lastKnownPathBeforeAuthChangeAtom);
-  const authStatus = useAtomValue(authStatusAtom);
-  const pendingRedirect = useAtomValue(pendingRedirectAtom);
+  const isAuthenticated = useAtomValue(isAuthenticatedAtom);
 
   useEffect(() => {
-    // Do not save path if a redirect is pending. This prevents an intermediate
-    // page (like '/') during a redirect loop from overwriting the original path.
-    if (pendingRedirect) {
-      return;
-    }
-
-    // Continuously save the user's location to sessionStorage. This is crucial for
-    // correctly redirecting the user back to where they were after a login,
-    // especially if the redirect was triggered by a transient auth state flap.
-    const fullPath = `${pathname}${search ? `?${search}` : ''}`;
-
-    // We never want to save the login page as the "last known path", as it
-    // could create redirect loops.
-    if (pathname !== '/login') {
-      if (authStatus.isAuthenticated) {
-        // If the user is authenticated, we are on a valid, accessible page.
-        // Save this path as the new ground truth.
-        setLastPath(pathname === '/' ? '/' : fullPath);
-      } else {
-        // If the user is NOT authenticated, they may be on a protected page and
-        // about to be redirected to /login by the RedirectGuard. By saving the
-        // path here, we capture their intended destination. We avoid saving any
-        // other public paths to prevent incorrect redirects.
-        const publicPaths = ['/login']; // Redundant check, but safe.
-        if (!publicPaths.some(p => pathname.startsWith(p))) {
-          setLastPath(fullPath);
-        }
+    // Continuously save the current path to sessionStorage while the user is authenticated.
+    // This ensures that if a logout event occurs, or an auth change requires a
+    // redirect, the last known good path is already stored.
+    // The logic is now simpler because the stabilized `isAuthenticated` atom prevents
+    // the complex "flap" scenario this component previously had to handle.
+    if (isAuthenticated) {
+      const fullPath = `${pathname}${search ? `?${search}` : ''}`;
+      // Don't save the login page itself as a restoration target.
+      if (pathname !== '/login') {
+        setLastPath(fullPath);
       }
     }
-  }, [pathname, search, authStatus.isAuthenticated, setLastPath, pendingRedirect]);
+  }, [pathname, search, isAuthenticated, setLastPath]);
 
   return null;
 };
@@ -283,32 +282,35 @@ const PathSaver = () => {
 // ============================================================================
 
 const RedirectGuard = () => {
-  const authLoadableValue = useAtomValue(authStatusLoadableAtom);
+  const isAuthenticated = useAtomValue(isAuthenticatedAtom);
+  const authLoadableValue = useAtomValue(authStatusLoadableAtom); // Still needed for `canRefresh`
   const pathname = usePathname();
   const setPendingRedirect = useSetAtom(pendingRedirectAtom);
   const [pendingRedirectValue] = useAtom(pendingRedirectAtom);
+  const initialAuthCheckCompleted = useAtomValue(initialAuthCheckCompletedAtom);
 
   useEffect(() => {
-    // Wait until the initial authentication check is complete.
-    if (authLoadableValue.state === 'loading') {
+    // Wait until the initial authentication check has successfully completed at least once.
+    if (!initialAuthCheckCompleted) {
       return;
     }
 
     // Do not trigger a new redirect if one is already pending.
-    // This helps prevent loops if auth state flaps during navigation.
     if (pendingRedirectValue) {
       return;
     }
 
-    const currentIsAuthenticated = authLoadableValue.state === 'hasData' && authLoadableValue.data.isAuthenticated;
+    // Get `canRefresh` from the latest auth data, even if loading.
     const canRefresh = authLoadableValue.state === 'hasData' && authLoadableValue.data.expired_access_token_call_refresh;
     const publicPaths = ['/login'];
 
-    if (!currentIsAuthenticated && !canRefresh && !publicPaths.some(p => pathname.startsWith(p))) {
+    // Use the stabilized `isAuthenticated` atom to prevent redirects during auth flaps.
+    // Redirect if not authenticated, not on a public path, and a token refresh isn't pending.
+    if (!isAuthenticated && !canRefresh && !publicPaths.some(p => pathname.startsWith(p))) {
       // The path has already been saved by PathSaver. Just trigger the redirect.
       setPendingRedirect('/login');
     }
-  }, [pathname, authLoadableValue, setPendingRedirect, pendingRedirectValue]);
+  }, [pathname, isAuthenticated, authLoadableValue, setPendingRedirect, pendingRedirectValue, initialAuthCheckCompleted]);
 
   return null;
 };
@@ -389,16 +391,15 @@ const RedirectHandler = () => {
 // ============================================================================
 
 const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
-  const authLoadableValue = useAtomValue(authStatusLoadableAtom);
+  const isAuthenticated = useAtomValue(isAuthenticatedAtom);
   const refreshInitialWorkerStatus = useSetAtom(refreshWorkerStatusAtom)
   const setWorkerStatus = useSetAtom(setWorkerStatusAtom);
   
   useEffect(() => {
-    // Connect SSE only if authenticated and not in a loading state
-    const currentIsAuthenticated = authLoadableValue.state === 'hasData' && authLoadableValue.data.isAuthenticated;
-    const isAuthLoading = authLoadableValue.state === 'loading';
-
-    if (!currentIsAuthenticated || isAuthLoading) return
+    // Connect SSE only when the user is in a stable authenticated state.
+    // Using the stabilized `isAuthenticatedAtom` prevents unnecessary
+    // disconnects/reconnects during transient auth state flaps.
+    if (!isAuthenticated) return
     
     let eventSource: EventSource | null = null
     let reconnectTimeout: NodeJS.Timeout | null = null
@@ -463,7 +464,7 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
         eventSource.close()
       }
     }
-  }, [authLoadableValue, refreshInitialWorkerStatus, setWorkerStatus])
+  }, [isAuthenticated, refreshInitialWorkerStatus, setWorkerStatus])
   
   return <>{children}</>
 }

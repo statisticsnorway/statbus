@@ -116,9 +116,34 @@ export const authStatusAtom = atom<ClientAuthStatus>(
   }
 );
 
-export const isAuthenticatedAtom = atom((get) => {
+// This atom reflects the raw, immediate authentication state. It can "flap" to false
+// during a re-validation or transient network issue. It should not be used by atoms
+// that fetch data, as that can cause data to be unnecessarily cleared.
+const _unstableIsAuthenticatedAtom = atom((get) => {
   const loadableState: Loadable<CoreAuthStatus> = get(authStatusLoadableAtom);
   return loadableState.state === 'hasData' && loadableState.data.isAuthenticated;
+});
+
+// A module-level variable to cache the last known stable authenticated state.
+let lastStableIsAuthenticated: boolean | null = null;
+
+// A derived atom that provides a "stabilized" authentication status.
+// It prevents rapid "flapping" from true -> false -> true. If the app was authenticated,
+// it will continue to report `true` while the auth state is re-validating. This is the
+// atom that should be used by data-fetching atoms like `baseDataCoreAtom`.
+export const isAuthenticatedAtom = atom(get => {
+    const isAuth = get(_unstableIsAuthenticatedAtom);
+    const authLoadable = get(authStatusLoadableAtom);
+
+    // If auth is re-validating (loading), and we were previously authenticated,
+    // continue to report `true` to prevent downstream data atoms from clearing.
+    if (authLoadable.state === 'loading' && lastStableIsAuthenticated === true) {
+        return true;
+    }
+
+    // Otherwise, report the current actual state and update the stable cache.
+    lastStableIsAuthenticated = isAuth;
+    return isAuth;
 });
 export const currentUserAtom = atom((get) => {
   const loadableState: Loadable<CoreAuthStatus> = get(authStatusLoadableAtom);
