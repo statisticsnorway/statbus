@@ -37,6 +37,7 @@ import {
   activityCategoryStandardSettingAtomAsync,
   numberOfRegionsAtomAsync,
 } from './getting-started';
+import { loadable } from 'jotai/utils';
 import { refreshAllUnitCountsAtom } from './import';
 import { initializeTableColumnsAtom } from './search';
 import {
@@ -67,9 +68,13 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname(); // Still needed to gate setup checks
   const baseData = useAtomValue(baseDataAtom);
   const { statDefinitions } = baseData;
-  const activityStandard = useAtomValue(activityCategoryStandardSettingAtomAsync);
-  const numberOfRegions = useAtomValue(numberOfRegionsAtomAsync);
   const setRequiredSetupRedirect = useSetAtom(requiredSetupRedirectAtom);
+  
+  // Use Jotai's `loadable` utility to check the status of async atoms
+  // without causing the component to suspend. This is key to preventing
+  // redirects based on stale data.
+  const activityStandardLoadable = useAtomValue(loadable(activityCategoryStandardSettingAtomAsync));
+  const numberOfRegionsLoadable = useAtomValue(loadable(numberOfRegionsAtomAsync));
   const setPendingRedirect = useSetAtom(pendingRedirectAtom);
   const setLastPath = useSetAtom(lastKnownPathBeforeAuthChangeAtom);
   const setClientMounted = useSetAtom(clientMountedAtom);
@@ -213,21 +218,31 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
 
   // Effect for redirecting to setup pages if necessary
   useEffect(() => {
-    // Setup checks are only relevant if on the dashboard ('/') and authenticated.
-    // We use the stabilized `isAuthenticated` atom to prevent flaps from incorrectly
-    // clearing a pending setup redirect.
+    // Setup checks are only relevant on the dashboard ('/') and when authenticated.
     if (pathname !== '/' || !isAuthenticated || !restClient) {
-      // If not in a state where setup redirects are relevant, ensure no setup redirect is pending.
       setRequiredSetupRedirect(null);
       return;
     }
 
-    // At this point: on '/', authenticated, not loading, client ready, initial auth check done.
+    // Wait until all required data has finished loading before making a decision.
+    // This prevents redirects based on stale data from a previous page that is still refreshing.
+    if (
+        activityStandardLoadable.state === 'loading' ||
+        numberOfRegionsLoadable.state === 'loading' ||
+        baseData.loading
+    ) {
+      return; // Data is not ready, wait for the next render.
+    }
+
+    // At this point, all data is loaded and stable. We can now safely check the values.
+    const currentActivityStandard = activityStandardLoadable.state === 'hasData' ? activityStandardLoadable.data : null;
+    const currentNumberOfRegions = numberOfRegionsLoadable.state === 'hasData' ? numberOfRegionsLoadable.data : null;
+
     let targetSetupPath: string | null = null;
 
-    if (activityStandard === null) {
+    if (currentActivityStandard === null) {
       targetSetupPath = '/getting-started/activity-standard';
-    } else if (numberOfRegions === null || numberOfRegions === 0) {
+    } else if (currentNumberOfRegions === null || currentNumberOfRegions === 0) {
       targetSetupPath = '/getting-started/upload-regions';
     } else if (baseData.statDefinitions.length > 0 && !baseData.hasStatisticalUnits) {
       targetSetupPath = '/import';
@@ -239,10 +254,9 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
     pathname,
     isAuthenticated,
     restClient,
-    activityStandard,
-    numberOfRegions,
-    baseData.hasStatisticalUnits,
-    baseData.statDefinitions.length,
+    activityStandardLoadable,
+    numberOfRegionsLoadable,
+    baseData,
     setRequiredSetupRedirect
   ]);
   
