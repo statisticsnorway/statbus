@@ -120,19 +120,9 @@ AS $derive_statistical_unit$
 DECLARE
   v_affected_count int;
 BEGIN
-  -- Lock all source tables in SHARE MODE to prevent concurrent modification
-  -- during timeline generation, which was causing inconsistent reads.
-  LOCK TABLE public.enterprise IN SHARE MODE;
-  LOCK TABLE public.legal_unit IN SHARE MODE;
-  LOCK TABLE public.establishment IN SHARE MODE;
-  LOCK TABLE public.activity IN SHARE MODE;
-  LOCK TABLE public.location IN SHARE MODE;
-  LOCK TABLE public.contact IN SHARE MODE;
-  LOCK TABLE public.stat_for_unit IN SHARE MODE;
-  LOCK TABLE public.person_for_unit IN SHARE MODE;
-  LOCK TABLE public.external_ident IN SHARE MODE;
-  LOCK TABLE public.tag_for_unit IN SHARE MODE;
-  LOCK TABLE public.unit_notes IN SHARE MODE;
+  -- The explicit SHARE locks were removed to prevent deadlocks with the concurrent import queue.
+  -- PostgreSQL's default READ COMMITTED transaction isolation is sufficient, and the analytics
+  -- queue is serial, which prevents race conditions between derivation tasks.
 
   PERFORM public.timesegments_refresh(p_valid_after => p_valid_after, p_valid_to => p_valid_to);
   PERFORM public.timesegments_years_refresh();
