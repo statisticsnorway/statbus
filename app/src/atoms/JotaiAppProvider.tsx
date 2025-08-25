@@ -314,13 +314,18 @@ const RedirectGuard = () => {
       return;
     }
 
+    // Explicitly check the loading state to make the guard more robust.
+    // Even with a stabilized `isAuthenticatedAtom`, this prevents any possibility of
+    // redirecting during a transient loading state (an "auth flap").
+    const isAuthLoading = authLoadableValue.state === 'loading';
+
     // Get `canRefresh` from the latest auth data, even if loading.
     const canRefresh = authLoadableValue.state === 'hasData' && authLoadableValue.data.expired_access_token_call_refresh;
     const publicPaths = ['/login'];
 
-    // Use the stabilized `isAuthenticated` atom to prevent redirects during auth flaps.
-    // Redirect if not authenticated, not on a public path, and a token refresh isn't pending.
-    if (!isAuthenticated && !canRefresh && !publicPaths.some(p => pathname.startsWith(p))) {
+    // Redirect if auth is not loading, user is not authenticated, not on a public path, 
+    // and a token refresh isn't pending.
+    if (!isAuthLoading && !isAuthenticated && !canRefresh && !publicPaths.some(p => pathname.startsWith(p))) {
       // The path has already been saved by PathSaver. Just trigger the redirect.
       setPendingRedirect('/login');
     }
@@ -662,6 +667,8 @@ export const StateInspector = () => {
 
   // Atoms for redirect logic debugging
   const pathname = usePathname(); // Get current pathname
+  const isAuthenticatedValue = useAtomValue(isAuthenticatedAtom);
+  const initialAuthCheckCompletedValue = useAtomValue(initialAuthCheckCompletedAtom);
   const pendingRedirectValue = useAtomValue(pendingRedirectAtom);
   const requiredSetupRedirectValue = useAtomValue(requiredSetupRedirectAtom);
   const loginActionInProgressValue = useAtomValue(loginActionInProgressAtom);
@@ -738,6 +745,8 @@ export const StateInspector = () => {
         lastKnownPathBeforeAuthChange: lastKnownPathValue,
       },
       redirectRelevantState: {
+        isAuthenticated_STABLE: isAuthenticatedValue,
+        initialAuthCheckCompleted: initialAuthCheckCompletedValue,
         authCheckDone: authLoadableValue.state !== 'loading',
         isRestClientReady: !!restClientFromAtom,
         activityStandard: activityStandardFromAtom, // This is the actual data or null
@@ -844,6 +853,9 @@ export const StateInspector = () => {
           <div>
             <strong>Navigation & Redirect Debugging:</strong>
             <div className="pl-4 mt-1 space-y-1">
+              <div><strong>(Stable) isAuthenticated:</strong> {isAuthenticatedValue ? 'Yes' : 'No'}</div>
+              <div><strong>Initial Auth Check Completed:</strong> {initialAuthCheckCompletedValue ? 'Yes' : 'No'}</div>
+              <hr className="my-1 border-gray-500" />
               <div><strong>Pathname:</strong> {pathname}</div>
               <div><strong>Active Redirect Target:</strong> {(pendingRedirectValue || requiredSetupRedirectValue) || 'None'}</div>
               <div><strong>Pending Redirect:</strong> {pendingRedirectValue || 'None'}</div>
