@@ -560,12 +560,14 @@ BEGIN
   )
   AND after_to_overlaps(sud.valid_after, sud.valid_to, v_valid_after, v_valid_to);
 
-  -- Delete ALL existing records for the units that are being updated within the given time range.
-  -- This "scorched earth" approach for the affected units prevents the exclusion constraint violation.
+  -- Delete ALL existing records for any unit related to the change within the given time range.
+  -- This "scorched earth" approach prevents exclusion constraint violations and ensures
+  -- that units that cease to exist are properly removed.
   DELETE FROM public.statistical_unit su
-  WHERE EXISTS (
-    SELECT 1 FROM temp_statistical_unit tsu
-    WHERE tsu.unit_type = su.unit_type AND tsu.unit_id = su.unit_id
+  WHERE (
+    (p_establishment_ids IS NULL OR su.related_establishment_ids && p_establishment_ids) OR
+    (p_legal_unit_ids    IS NULL OR su.related_legal_unit_ids && p_legal_unit_ids) OR
+    (p_enterprise_ids    IS NULL OR su.related_enterprise_ids && p_enterprise_ids)
   )
   AND after_to_overlaps(su.valid_after, su.valid_to, v_valid_after, v_valid_to);
 
