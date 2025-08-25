@@ -217,7 +217,7 @@ lu_location_establishment AS (
     FROM public.location AS l
     JOIN es_for_lu AS es_lu
        ON l.establishment_id = es_lu.id
-    WHERE l.establishment_id IS NOT NULL
+    WHERE es_lu.legal_unit_id IS NOT NULL
       AND after_to_overlaps(l.valid_after, l.valid_to, es_lu.valid_after, es_lu.valid_to)
 ),
 lu_contact_establishment AS (
@@ -228,7 +228,7 @@ lu_contact_establishment AS (
     FROM public.contact AS c
     JOIN es_for_lu AS es_lu
        ON c.establishment_id = es_lu.id
-    WHERE c.establishment_id IS NOT NULL
+    WHERE es_lu.legal_unit_id IS NOT NULL
       AND after_to_overlaps(c.valid_after, c.valid_to, es_lu.valid_after, es_lu.valid_to)
 ),
 lu_person_for_unit_establishment AS (
@@ -239,7 +239,7 @@ lu_person_for_unit_establishment AS (
     FROM public.person_for_unit AS pfu
     JOIN es_for_lu AS es_lu
        ON pfu.establishment_id = es_lu.id
-    WHERE pfu.establishment_id IS NOT NULL
+    WHERE es_lu.legal_unit_id IS NOT NULL
       AND after_to_overlaps(pfu.valid_after, pfu.valid_to, es_lu.valid_after, es_lu.valid_to)
 ),
 lu_activity_establishment AS (
@@ -250,7 +250,7 @@ lu_activity_establishment AS (
     FROM public.activity AS a
     JOIN es_for_lu AS es_lu
        ON a.establishment_id = es_lu.id
-    WHERE a.establishment_id IS NOT NULL
+    WHERE es_lu.legal_unit_id IS NOT NULL
       AND after_to_overlaps(a.valid_after, a.valid_to, es_lu.valid_after, es_lu.valid_to)
 ),
 lu_stat_establishment AS (
@@ -261,7 +261,7 @@ lu_stat_establishment AS (
     FROM public.stat_for_unit AS sfu
     JOIN es_for_lu AS es_lu
        ON sfu.establishment_id = es_lu.id
-    WHERE sfu.establishment_id IS NOT NULL
+    WHERE es_lu.legal_unit_id IS NOT NULL
       AND after_to_overlaps(sfu.valid_after, sfu.valid_to, es_lu.valid_after, es_lu.valid_to)
 ),
 lu_combined AS (
