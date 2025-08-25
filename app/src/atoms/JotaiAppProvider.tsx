@@ -342,6 +342,7 @@ const RedirectHandler = () => {
   const [explicitRedirect, setExplicitRedirect] = useAtom(pendingRedirectAtom);
   const [setupRedirect, setSetupRedirect] = useAtom(requiredSetupRedirectAtom);
   const [loginActionIsActive, setLoginActionInProgress] = useAtom(loginActionInProgressAtom);
+  const setLastPathBeforeAuthChange = useSetAtom(lastKnownPathBeforeAuthChangeAtom);
   const router = useRouter();
   const pathname = usePathname();
   // A ref to track the pathname from the previous render. This is the key to
@@ -394,6 +395,7 @@ const RedirectHandler = () => {
         setExplicitRedirect(null);
         if (loginActionIsActive) {
           setLoginActionInProgress(false);
+          setLastPathBeforeAuthChange(null);
         }
       }
       if (setupRedirect) {
@@ -747,7 +749,12 @@ export const StateInspector = () => {
 
   // Atoms for general state
   const authLoadableValue = useAtomValue(authStatusLoadableAtom);
-  const baseDataLoadableValue = useAtomValue(baseDataLoadableAtom);
+  const baseDataFromAtom = useAtomValue(baseDataAtom);
+  const baseDataLoadableValue = React.useMemo(() => ({
+    state: baseDataFromAtom.loading ? 'loading' : baseDataFromAtom.error ? 'hasError' : 'hasData',
+    data: baseDataFromAtom,
+    error: baseDataFromAtom.error,
+  }), [baseDataFromAtom]);
   const workerStatusValue = useAtomValue(workerStatusAtom); 
 
   // Atoms for redirect logic debugging
@@ -806,13 +813,43 @@ export const StateInspector = () => {
   }, [viewingIndex, history]);
 
   const handleCopy = () => {
-    const content = diff ? formatDiffToString(diff) : JSON.stringify(history[viewingIndex], null, 2);
-    const status = diff ? 'Diff Copied!' : 'State Copied!';
-    navigator.clipboard.writeText(content).then(() => {
-      setCopyStatus(status);
+    if (!history[viewingIndex]) return; // Guard against empty history
+
+    // 1. Get current state string
+    const currentStateString = JSON.stringify(history[viewingIndex], null, 2);
+    const selectedStateLabel = viewingIndex === history.length - 1 ? 'Now' : String(viewingIndex - (history.length - 1));
+
+    // 2. Get historical diffs string
+    let fullDiffReport = '';
+    const totalStates = history.length;
+    if (totalStates > 1) {
+      for (let i = totalStates - 2; i >= 0; i--) {
+        const currentDiff = objectDiff(history[i], history[i + 1]);
+        if (!currentDiff) continue;
+
+        const fromLabel = i - (totalStates - 1);
+        const toLabel = (i + 1 - (totalStates - 1)) || 'Now';
+
+        fullDiffReport += `--- Diff from state ${fromLabel} to ${toLabel} ---\n`;
+        fullDiffReport += formatDiffToString(currentDiff);
+        fullDiffReport += '\n';
+      }
+    }
+
+    // 3. Combine them
+    let content = `== Selected State (${selectedStateLabel}) ==\n${currentStateString}\n\n`;
+    if (fullDiffReport.trim()) {
+      content += `== Historical Diffs ==\n${fullDiffReport}`;
+    } else if (totalStates > 1) {
+      content += `== No historical diffs detected ==\n`;
+    }
+
+    // 4. Copy to clipboard
+    navigator.clipboard.writeText(content.trim()).then(() => {
+      setCopyStatus('Debug Info Copied!');
       setTimeout(() => setCopyStatus(''), 2000);
     }).catch(err => {
-      console.error('Failed to copy:', err);
+      console.error('Failed to copy debug info:', err);
       setCopyStatus('Failed to copy');
     });
   };
@@ -829,8 +866,12 @@ export const StateInspector = () => {
     <div className="fixed bottom-4 right-4 bg-black bg-opacity-80 text-white p-2 rounded-lg text-xs max-w-md max-h-[80vh] overflow-auto z-[9999]">
       <div className="flex justify-between items-center">
         <span onClick={() => setIsExpanded(!isExpanded)} className="cursor-pointer font-bold">State Inspector {isExpanded ? '▼' : '▶'}</span>
-        <button onClick={handleCopy} className="ml-2 px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs" title={diff ? 'Copy diff to next state' : 'Copy full state'}>
-          {copyStatus || (diff ? 'Copy Diff' : 'Copy State')}
+        <button
+          onClick={handleCopy}
+          className="ml-2 px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs"
+          title="Copy selected state and all historical diffs"
+        >
+          {copyStatus || 'Copy Debug Info'}
         </button>
       </div>
       {!isExpanded && history.length > 0 && (
