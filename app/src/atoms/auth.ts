@@ -116,14 +116,6 @@ export const authStatusAtom = atom<ClientAuthStatus>(
   }
 );
 
-// This atom reflects the raw, immediate authentication state. It can "flap" to false
-// during a re-validation or transient network issue. It should not be used by atoms
-// that fetch data, as that can cause data to be unnecessarily cleared.
-const _unstableIsAuthenticatedAtom = atom((get) => {
-  const loadableState: Loadable<CoreAuthStatus> = get(authStatusLoadableAtom);
-  return loadableState.state === 'hasData' && loadableState.data.isAuthenticated;
-});
-
 // A module-level variable to cache the last known stable authenticated state.
 let lastStableIsAuthenticated: boolean | null = null;
 
@@ -132,13 +124,18 @@ let lastStableIsAuthenticated: boolean | null = null;
 // it will continue to report `true` while the auth state is re-validating. This is the
 // atom that should be used by data-fetching atoms like `baseDataCoreAtom`.
 export const isAuthenticatedAtom = atom(get => {
-    const isAuth = get(_unstableIsAuthenticatedAtom);
     const authLoadable = get(authStatusLoadableAtom);
 
     // If auth is re-validating (loading), and we were previously authenticated,
     // continue to report `true` to prevent downstream data atoms from clearing.
     if (authLoadable.state === 'loading' && lastStableIsAuthenticated === true) {
         return true;
+    }
+
+    let isAuth = false;
+    if (authLoadable.state === 'hasData') {
+        // Considered authenticated if the token is valid OR if it's expired but refreshable.
+        isAuth = authLoadable.data.isAuthenticated || authLoadable.data.expired_access_token_call_refresh;
     }
 
     // Otherwise, report the current actual state and update the stable cache.
@@ -361,15 +358,16 @@ export const clientSideRefreshAtom = atom<null, [], Promise<void>>(
 
     const oldAuthStatus = get(authStatusAtom);
 
-    const { data, error } = await client.rpc('refresh');
+    const refreshPromise = (async () => {
+      const { data, error } = await client.rpc('refresh');
+      const responseBody = error || data;
+      return _parseAuthStatusRpcResponseToAuthStatus(responseBody);
+    })();
 
-    const responseBody = error || data;
-    const newAuthStatus = _parseAuthStatusRpcResponseToAuthStatus(responseBody);
+    set(authStatusCoreAtom, refreshPromise);
+    const newAuthStatus = await refreshPromise; // Stabilize
 
-    set(authStatusCoreAtom, Promise.resolve(newAuthStatus));
-    await get(authStatusCoreAtom); // Stabilize
-
-    if (oldAuthStatus.isAuthenticated !== newAuthStatus.isAuthenticated) {
+    if (!oldAuthStatus.loading && oldAuthStatus.isAuthenticated !== newAuthStatus.isAuthenticated) {
       set(updateSyncTimestampAtom, Date.now());
     }
   }
@@ -428,13 +426,15 @@ export const logoutAtom = atom(
 // ============================================================================
 
 export const useAuth = () => {
-  const authStatusValue = useAtomValue(authStatusAtom); // This is the synchronous derived atom
+  const authStatusValue = useAtomValue(authStatusAtom); // Raw status for loading, user, error etc.
+  const isAuthenticated = useAtomValue(isAuthenticatedAtom); // Stabilized boolean
   const login = useSetAtom(loginAtom);
   const logout = useSetAtom(logoutAtom);
   const refreshToken = useSetAtom(clientSideRefreshAtom);
 
   return {
-    ...authStatusValue,
+    ...authStatusValue, // Spread the raw status object (e.g., for `loading`, `user`)...
+    isAuthenticated,   // ...but overwrite `isAuthenticated` with the stable version.
     login,
     logout,
     refreshToken,
