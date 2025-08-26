@@ -297,7 +297,7 @@ const PathSaver = () => {
 
 const RedirectGuard = () => {
   const isAuthenticated = useAtomValue(isAuthenticatedAtom);
-  const authLoadableValue = useAtomValue(authStatusLoadableAtom); // Still needed for `canRefresh`
+  const authLoadable = useAtomValue(authStatusLoadableAtom);
   const pathname = usePathname();
   const setPendingRedirect = useSetAtom(pendingRedirectAtom);
   const [pendingRedirectValue] = useAtom(pendingRedirectAtom);
@@ -314,22 +314,18 @@ const RedirectGuard = () => {
       return;
     }
 
-    // Explicitly check the loading state to make the guard more robust.
-    // Even with a stabilized `isAuthenticatedAtom`, this prevents any possibility of
-    // redirecting during a transient loading state (an "auth flap").
-    const isAuthLoading = authLoadableValue.state === 'loading';
-
-    // Get `canRefresh` from the latest auth data, even if loading.
-    const canRefresh = authLoadableValue.state === 'hasData' && authLoadableValue.data.expired_access_token_call_refresh;
+    // We still check the loading state from the loadable to prevent redirecting
+    // during the very first, initial auth check before `isAuthenticated` has stabilized.
+    const isAuthLoading = authLoadable.state === 'loading';
     const publicPaths = ['/login'];
 
-    // Redirect if auth is not loading, user is not authenticated, not on a public path, 
-    // and a token refresh isn't pending.
-    if (!isAuthLoading && !isAuthenticated && !canRefresh && !publicPaths.some(p => pathname.startsWith(p))) {
+    // Redirect if auth is not loading, user is not authenticated, and not on a public path.
+    // The `isAuthenticated` atom is stabilized and already accounts for pending token refreshes.
+    if (!isAuthLoading && !isAuthenticated && !publicPaths.some(p => pathname.startsWith(p))) {
       // The path has already been saved by PathSaver. Just trigger the redirect.
       setPendingRedirect('/login');
     }
-  }, [pathname, isAuthenticated, authLoadableValue, setPendingRedirect, pendingRedirectValue, initialAuthCheckCompleted]);
+  }, [pathname, isAuthenticated, authLoadable, setPendingRedirect, pendingRedirectValue, initialAuthCheckCompleted]);
 
   return null;
 };
@@ -543,27 +539,6 @@ const ErrorBoundary = ({ children }: { children: ReactNode }) => {
 }
 
 // ============================================================================
-// AUTH STATUS HANDLER
-// ============================================================================
-
-const AuthStatusHandler = ({ children }: { children: ReactNode }) => {
-  const authStatus = useAtomValue(authStatusAtom)
-  
-  // You can add redirect logic here if needed
-  // For example, redirect to login if not authenticated
-  /*
-  useEffect(() => {
-    if (!authStatus.isAuthenticated) {
-      // Redirect to login page
-      window.location.href = '/login'
-    }
-  }, [authStatus.isAuthenticated])
-  */
-  
-  return <>{children}</>
-}
-
-// ============================================================================
 // MAIN PROVIDER COMPONENT
 // ============================================================================
 
@@ -584,19 +559,17 @@ export const JotaiAppProvider = ({
     <Provider>
       <Suspense fallback={loadingFallback}>
         <AppInitializer>
-          <AuthStatusHandler>
-            <PathSaver />
-            <RedirectGuard />
-            <RedirectHandler />
-            <AuthCrossTabSyncer /> {/* Add the cross-tab syncer */}
-            {enableSSE ? (
-              <SSEConnectionManager>
-                {children}
-              </SSEConnectionManager>
-            ) : (
-              children
-            )}
-          </AuthStatusHandler>
+          <PathSaver />
+          <RedirectGuard />
+          <RedirectHandler />
+          <AuthCrossTabSyncer /> {/* Add the cross-tab syncer */}
+          {enableSSE ? (
+            <SSEConnectionManager>
+              {children}
+            </SSEConnectionManager>
+          ) : (
+            children
+          )}
         </AppInitializer>
       </Suspense>
     </Provider>
@@ -786,11 +759,11 @@ export const StateInspector = () => {
 
   const fullState = {
     pathname,
-    authStatus: { state: authLoadableValue.state, isAuthenticated: authLoadableValue.state === 'hasData' ? authLoadableValue.data.isAuthenticated : undefined, user: authLoadableValue.state === 'hasData' ? authLoadableValue.data.user : undefined, expired_access_token_call_refresh: authLoadableValue.state === 'hasData' ? authLoadableValue.data.expired_access_token_call_refresh : undefined, error: authLoadableValue.state === 'hasError' ? String(authLoadableValue.error) : undefined },
+    authStatus: { state: authLoadableValue.state, isAuthenticated: isAuthenticatedValue, isAuthenticated_RAW: authLoadableValue.state === 'hasData' ? authLoadableValue.data.isAuthenticated : undefined, user: authLoadableValue.state === 'hasData' ? authLoadableValue.data.user : undefined, expired_access_token_call_refresh: authLoadableValue.state === 'hasData' ? authLoadableValue.data.expired_access_token_call_refresh : undefined, error: authLoadableValue.state === 'hasError' ? String(authLoadableValue.error) : undefined },
     baseData: { state: baseDataLoadableValue.state, statDefinitionsCount: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.statDefinitions.length : undefined, externalIdentTypesCount: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.externalIdentTypes.length : undefined, statbusUsersCount: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.statbusUsers.length : undefined, timeContextsCount: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.timeContexts.length : undefined, defaultTimeContextIdent: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.defaultTimeContext?.ident : undefined, hasStatisticalUnits: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.hasStatisticalUnits : undefined, error: baseDataLoadableValue.state === 'hasError' ? String(baseDataLoadableValue.error) : undefined },
     workerStatus: { state: workerStatusValue.loading ? 'loading' : workerStatusValue.error ? 'hasError' : 'hasData', isImporting: workerStatusValue.isImporting, isDerivingUnits: workerStatusValue.isDerivingUnits, isDerivingReports: workerStatusValue.isDerivingReports, loading: workerStatusValue.loading, error: workerStatusValue.error },
     navigationState: { pendingRedirect: pendingRedirectValue, requiredSetupRedirect: requiredSetupRedirectValue, loginActionInProgress: loginActionInProgressValue, lastKnownPathBeforeAuthChange: lastKnownPathValue },
-    redirectRelevantState: { isAuthenticated_STABLE: isAuthenticatedValue, initialAuthCheckCompleted: initialAuthCheckCompletedValue, authCheckDone: authLoadableValue.state !== 'loading', isRestClientReady: !!restClientFromAtom, activityStandard: activityStandardFromAtom, numberOfRegions: numberOfRegionsFromAtom, baseDataHasStatisticalUnits: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.hasStatisticalUnits : 'BaseDataNotLoaded', baseDataStatDefinitionsLength: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.statDefinitions.length : 'BaseDataNotLoaded' }
+    redirectRelevantState: { initialAuthCheckCompleted: initialAuthCheckCompletedValue, authCheckDone: authLoadableValue.state !== 'loading', isRestClientReady: !!restClientFromAtom, activityStandard: activityStandardFromAtom, numberOfRegions: numberOfRegionsFromAtom, baseDataHasStatisticalUnits: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.hasStatisticalUnits : 'BaseDataNotLoaded', baseDataStatDefinitionsLength: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.statDefinitions.length : 'BaseDataNotLoaded' }
   };
 
   const fullStateString = JSON.stringify(fullState);
@@ -906,7 +879,8 @@ export const StateInspector = () => {
             <div className="pl-4 mt-1 space-y-1">
               {stateToDisplay.authStatus?.state === 'hasData' && (
                 <>
-                  <div><strong>Authenticated:</strong> {stateToDisplay.authStatus.isAuthenticated ? 'Yes' : 'No'}</div>
+                  <div><strong>Authenticated (Stable):</strong> {stateToDisplay.authStatus.isAuthenticated ? 'Yes' : 'No'}</div>
+                  <div><strong>Authenticated (Raw):</strong> {stateToDisplay.authStatus.isAuthenticated_RAW ? 'Yes' : 'No'}</div>
                   <div><strong>User:</strong> {stateToDisplay.authStatus.user?.email || 'None'}</div>
                   <div><strong>UID:</strong> {stateToDisplay.authStatus.user?.uid || 'N/A'}</div>
                   <div><strong>Role:</strong> {stateToDisplay.authStatus.user?.role || 'N/A'}</div>
@@ -952,7 +926,6 @@ export const StateInspector = () => {
           <div>
             <strong>Navigation & Redirect Debugging:</strong>
             <div className="pl-4 mt-1 space-y-1">
-              <div><strong>(Stable) isAuthenticated:</strong> {stateToDisplay.redirectRelevantState?.isAuthenticated_STABLE ? 'Yes' : 'No'}</div>
               <div><strong>Initial Auth Check Completed:</strong> {stateToDisplay.redirectRelevantState?.initialAuthCheckCompleted ? 'Yes' : 'No'}</div>
               <hr className="my-1 border-gray-500" />
               <div><strong>Pathname:</strong> {stateToDisplay.pathname}</div>
