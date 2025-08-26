@@ -370,7 +370,9 @@ export const loginAtom = atom(
       // Prioritize nextPath if available and valid, otherwise default to '/'.
       let redirectTarget = nextPath && nextPath.startsWith('/') ? nextPath : '/';
       // Ensure we don't redirect back to the login page after a successful login.
-      if (redirectTarget === '/login') {
+      // Check just the pathname part of the target, ignoring query params.
+      const redirectPathname = redirectTarget.split('?')[0];
+      if (redirectPathname === '/login') {
         redirectTarget = '/';
       }
       set(pendingRedirectAtom, redirectTarget);
