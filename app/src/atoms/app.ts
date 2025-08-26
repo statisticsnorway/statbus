@@ -16,7 +16,7 @@ import type { Database, Tables } from '@/lib/database.types'
 import type { PostgrestClient } from '@supabase/postgrest-js'
 
 import { authStatusLoadableAtom, isAuthenticatedAtom, authStatusAtom } from './auth'
-import { baseDataAtom, baseDataLoadableAtom, defaultTimeContextAtom, timeContextsAtom, refreshBaseDataAtom, useBaseData } from './base-data'
+import { baseDataAtom, defaultTimeContextAtom, timeContextsAtom, refreshBaseDataAtom, useBaseData } from './base-data'
 import { refreshWorkerStatusAtom, useWorkerStatus, type WorkerStatusType } from './worker_status'
 import { selectedUnitsAtom, searchStateAtom } from './search'
 
@@ -79,10 +79,10 @@ export const initialAuthCheckCompletedAtom = atom(false);
 // Combined authentication and base data status
 export const appReadyAtom = atom((get) => {
   const authLoadable = get(authStatusLoadableAtom);
-  const baseDataLoadable = get(baseDataLoadableAtom);
+  const baseData = get(baseDataAtom);
 
   const isAuthLoading = authLoadable.state === 'loading';
-  const isLoadingBaseData = baseDataLoadable.state === 'loading';
+  const isLoadingBaseData = baseData.loading;
 
   const isAuthProcessComplete = !isAuthLoading;
   // Use the stabilized isAuthenticatedAtom for readiness checks. This makes the app's
@@ -91,11 +91,11 @@ export const appReadyAtom = atom((get) => {
   const currentUser = authLoadable.state === 'hasData' ? authLoadable.data.user : null;
 
   // Base data is considered ready if not loading and has essential data.
-  // We derive the data safely from the loadable to avoid unexpected suspense.
   const hasLoadedStatDefinitions =
-    baseDataLoadable.state === 'hasData' &&
-    baseDataLoadable.data.statDefinitions.length > 0;
-  const isBaseDataProcessComplete = !isLoadingBaseData && hasLoadedStatDefinitions;
+    !baseData.loading &&
+    !baseData.error &&
+    baseData.statDefinitions.length > 0;
+  const isBaseDataProcessComplete = hasLoadedStatDefinitions;
 
   // The dashboard is ready to render if auth is complete and base data is loaded.
   const isReadyToRenderDashboard =
