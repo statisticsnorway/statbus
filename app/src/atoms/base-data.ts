@@ -9,7 +9,7 @@
  */
 
 import { atom } from 'jotai'
-import { loadable } from 'jotai/utils'
+import { loadable, selectAtom } from 'jotai/utils'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { atomWithRefresh } from 'jotai/utils'
 import { useCallback } from 'react'
@@ -100,10 +100,6 @@ export const baseDataCoreAtom = atomWithRefresh<Promise<BaseData>>(async (get): 
 
 export const baseDataLoadableAtom = loadable(baseDataCoreAtom);
 
-// Add a module-level variable to hold the last stable value.
-// This is a pragmatic approach for client-side state to ensure object reference stability.
-let lastStableBaseData: (BaseData & { loading: boolean; error: string | null }) | null = null;
-
 /**
  * Performs a "good enough" deep comparison of two BaseData objects to check for meaningful changes.
  * It avoids full recursive comparison by creating a compound key from the array contents.
@@ -126,8 +122,16 @@ function isBaseDataEqual(a: BaseData, b: BaseData): boolean {
   return true;
 }
 
+function areBaseDataResultsEqual(
+  a: BaseData & { loading: boolean; error: string | null },
+  b: BaseData & { loading: boolean; error: string | null }
+): boolean {
+  if (a.loading !== b.loading) return false;
+  if (a.error !== b.error) return false;
+  return isBaseDataEqual(a, b);
+}
 
-export const baseDataAtom = atom<BaseData & { loading: boolean; error: string | null }>(
+const rawBaseDataAtom = atom<BaseData & { loading: boolean; error: string | null }>(
   (get): BaseData & { loading: boolean; error: string | null } => {
     const loadableState = get(baseDataLoadableAtom);
     const authLoadable = get(authStatusLoadableAtom);
@@ -155,20 +159,11 @@ export const baseDataAtom = atom<BaseData & { loading: boolean; error: string | 
     // prevented at its source by the new, stabilized `isAuthenticatedAtom`.
     // This makes this atom much simpler and more direct.
     
-    // If the new result is meaningfully the same as the last one, return the last one
-    // to preserve object reference and prevent unnecessary re-renders.
-    if (lastStableBaseData &&
-        lastStableBaseData.loading === result.loading &&
-        lastStableBaseData.error === result.error &&
-        isBaseDataEqual(lastStableBaseData, result)
-    ) {
-        return lastStableBaseData;
-    }
-
-    lastStableBaseData = result;
     return result;
   }
 );
+
+export const baseDataAtom = selectAtom(rawBaseDataAtom, (v) => v, areBaseDataResultsEqual);
 
 // Derived atoms for individual data pieces
 export const statDefinitionsAtom = atom((get) => get(baseDataAtom).statDefinitions)

@@ -27,10 +27,12 @@ import {
   isAuthenticatedAtom,
   lastKnownPathBeforeAuthChangeAtom,
   loginActionInProgressAtom,
+  authStateStabilizerEffect,
+  lastStableIsAuthenticatedAtom,
+  rawAuthStatusDetailsAtom,
 } from './auth';
 import {
   baseDataAtom,
-  baseDataLoadableAtom,
   refreshBaseDataAtom,
 } from './base-data';
 import {
@@ -53,6 +55,7 @@ import { AuthCrossTabSyncer } from './AuthCrossTabSyncer'; // Import the new syn
 // ============================================================================
 
 const AppInitializer = ({ children }: { children: ReactNode }) => {
+  useAtom(authStateStabilizerEffect); // Mount the effect to stabilize auth state
   const authLoadableValue = useAtomValue(authStatusLoadableAtom);
   const isAuthenticated = useAtomValue(isAuthenticatedAtom);
   const authStatus = useAtomValue(authStatusAtom);
@@ -722,25 +725,22 @@ export const StateInspector = () => {
 
   // Atoms for general state
   const authLoadableValue = useAtomValue(authStatusLoadableAtom);
+  const rawAuthStatusDetailsValue = useAtomValue(rawAuthStatusDetailsAtom);
   const baseDataFromAtom = useAtomValue(baseDataAtom);
-  const baseDataLoadableValue = React.useMemo(() => ({
-    state: baseDataFromAtom.loading ? 'loading' : baseDataFromAtom.error ? 'hasError' : 'hasData',
-    data: baseDataFromAtom,
-    error: baseDataFromAtom.error,
-  }), [baseDataFromAtom]);
   const workerStatusValue = useAtomValue(workerStatusAtom); 
 
   // Atoms for redirect logic debugging
   const pathname = usePathname();
   const isAuthenticatedValue = useAtomValue(isAuthenticatedAtom);
+  const lastStableIsAuthenticatedValue = useAtomValue(lastStableIsAuthenticatedAtom);
   const initialAuthCheckCompletedValue = useAtomValue(initialAuthCheckCompletedAtom);
   const pendingRedirectValue = useAtomValue(pendingRedirectAtom);
   const requiredSetupRedirectValue = useAtomValue(requiredSetupRedirectAtom);
   const loginActionInProgressValue = useAtomValue(loginActionInProgressAtom);
   const lastKnownPathValue = useAtomValue(lastKnownPathBeforeAuthChangeAtom);
   const restClientFromAtom = useAtomValue(importedRestClientAtom);
-  const activityStandardFromAtom = useAtomValue(activityCategoryStandardSettingAtomAsync);
-  const numberOfRegionsFromAtom = useAtomValue(numberOfRegionsAtomAsync);
+  const activityStandardLoadable = useAtomValue(loadable(activityCategoryStandardSettingAtomAsync));
+  const numberOfRegionsLoadable = useAtomValue(loadable(numberOfRegionsAtomAsync));
 
   useEffect(() => {
     setMounted(true);
@@ -757,13 +757,22 @@ export const StateInspector = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [setIsVisible]);
 
+  const baseDataState = baseDataFromAtom.loading ? 'loading' : baseDataFromAtom.error ? 'hasError' : 'hasData';
   const fullState = {
     pathname,
-    authStatus: { state: authLoadableValue.state, isAuthenticated: isAuthenticatedValue, isAuthenticated_RAW: authLoadableValue.state === 'hasData' ? authLoadableValue.data.isAuthenticated : undefined, user: authLoadableValue.state === 'hasData' ? authLoadableValue.data.user : undefined, expired_access_token_call_refresh: authLoadableValue.state === 'hasData' ? authLoadableValue.data.expired_access_token_call_refresh : undefined, error: authLoadableValue.state === 'hasError' ? String(authLoadableValue.error) : undefined },
-    baseData: { state: baseDataLoadableValue.state, statDefinitionsCount: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.statDefinitions.length : undefined, externalIdentTypesCount: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.externalIdentTypes.length : undefined, statbusUsersCount: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.statbusUsers.length : undefined, timeContextsCount: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.timeContexts.length : undefined, defaultTimeContextIdent: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.defaultTimeContext?.ident : undefined, hasStatisticalUnits: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.hasStatisticalUnits : undefined, error: baseDataLoadableValue.state === 'hasError' ? String(baseDataLoadableValue.error) : undefined },
+    authStatus: {
+      state: rawAuthStatusDetailsValue.loading ? 'loading' : rawAuthStatusDetailsValue.error_code ? 'hasError' : 'hasData',
+      isAuthenticated: isAuthenticatedValue,
+      lastStableIsAuthenticated: lastStableIsAuthenticatedValue,
+      isAuthenticated_RAW: rawAuthStatusDetailsValue.isAuthenticated,
+      user: rawAuthStatusDetailsValue.user,
+      expired_access_token_call_refresh: rawAuthStatusDetailsValue.expired_access_token_call_refresh,
+      error: rawAuthStatusDetailsValue.error_code,
+    },
+    baseData: { state: baseDataState, statDefinitionsCount: baseDataState === 'hasData' ? baseDataFromAtom.statDefinitions.length : undefined, externalIdentTypesCount: baseDataState === 'hasData' ? baseDataFromAtom.externalIdentTypes.length : undefined, statbusUsersCount: baseDataState === 'hasData' ? baseDataFromAtom.statbusUsers.length : undefined, timeContextsCount: baseDataState === 'hasData' ? baseDataFromAtom.timeContexts.length : undefined, defaultTimeContextIdent: baseDataState === 'hasData' ? baseDataFromAtom.defaultTimeContext?.ident : undefined, hasStatisticalUnits: baseDataState === 'hasData' ? baseDataFromAtom.hasStatisticalUnits : undefined, error: baseDataState === 'hasError' ? String(baseDataFromAtom.error) : undefined },
     workerStatus: { state: workerStatusValue.loading ? 'loading' : workerStatusValue.error ? 'hasError' : 'hasData', isImporting: workerStatusValue.isImporting, isDerivingUnits: workerStatusValue.isDerivingUnits, isDerivingReports: workerStatusValue.isDerivingReports, loading: workerStatusValue.loading, error: workerStatusValue.error },
     navigationState: { pendingRedirect: pendingRedirectValue, requiredSetupRedirect: requiredSetupRedirectValue, loginActionInProgress: loginActionInProgressValue, lastKnownPathBeforeAuthChange: lastKnownPathValue },
-    redirectRelevantState: { initialAuthCheckCompleted: initialAuthCheckCompletedValue, authCheckDone: authLoadableValue.state !== 'loading', isRestClientReady: !!restClientFromAtom, activityStandard: activityStandardFromAtom, numberOfRegions: numberOfRegionsFromAtom, baseDataHasStatisticalUnits: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.hasStatisticalUnits : 'BaseDataNotLoaded', baseDataStatDefinitionsLength: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.statDefinitions.length : 'BaseDataNotLoaded' }
+    redirectRelevantState: { initialAuthCheckCompleted: initialAuthCheckCompletedValue, authCheckDone: authLoadableValue.state !== 'loading', isRestClientReady: !!restClientFromAtom, activityStandard: activityStandardLoadable.state === 'hasData' ? activityStandardLoadable.data : null, numberOfRegions: numberOfRegionsLoadable.state === 'hasData' ? numberOfRegionsLoadable.data : null, baseDataHasStatisticalUnits: baseDataState === 'hasData' ? baseDataFromAtom.hasStatisticalUnits : 'BaseDataNotLoaded', baseDataStatDefinitionsLength: baseDataState === 'hasData' ? baseDataFromAtom.statDefinitions.length : 'BaseDataNotLoaded' }
   };
 
   const fullStateString = JSON.stringify(fullState);
@@ -880,6 +889,7 @@ export const StateInspector = () => {
               {stateToDisplay.authStatus?.state === 'hasData' && (
                 <>
                   <div><strong>Authenticated (Stable):</strong> {stateToDisplay.authStatus.isAuthenticated ? 'Yes' : 'No'}</div>
+                  <div><strong>Last Stable Is Authenticated:</strong> {stateToDisplay.authStatus.lastStableIsAuthenticated === null ? 'N/A' : stateToDisplay.authStatus.lastStableIsAuthenticated ? 'Yes' : 'No'}</div>
                   <div><strong>Authenticated (Raw):</strong> {stateToDisplay.authStatus.isAuthenticated_RAW ? 'Yes' : 'No'}</div>
                   <div><strong>User:</strong> {stateToDisplay.authStatus.user?.email || 'None'}</div>
                   <div><strong>UID:</strong> {stateToDisplay.authStatus.user?.uid || 'N/A'}</div>
