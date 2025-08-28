@@ -41,7 +41,12 @@ import {
 } from './getting-started';
 import { loadable } from 'jotai/utils';
 import { refreshAllUnitCountsAtom } from './import';
-import { initializeTableColumnsAtom } from './search';
+import {
+  initializeTableColumnsAtom,
+  searchResultAtom,
+  searchStateAtom,
+  selectedUnitsAtom,
+} from './search';
 import {
   refreshWorkerStatusAtom,
   setWorkerStatusAtom,
@@ -728,7 +733,10 @@ export const StateInspector = () => {
   const authLoadableValue = useAtomValue(authStatusLoadableAtom);
   const rawAuthStatusDetailsValue = useAtomValue(rawAuthStatusDetailsAtom);
   const baseDataFromAtom = useAtomValue(baseDataAtom);
-  const workerStatusValue = useAtomValue(workerStatusAtom); 
+  const workerStatusValue = useAtomValue(workerStatusAtom);
+  const searchStateValue = useAtomValue(searchStateAtom);
+  const searchResultValue = useAtomValue(searchResultAtom);
+  const selectedUnitsValue = useAtomValue(selectedUnitsAtom);
 
   // Atoms for redirect logic debugging
   const pathname = usePathname();
@@ -772,6 +780,18 @@ export const StateInspector = () => {
     },
     baseData: { state: baseDataState, statDefinitionsCount: baseDataState === 'hasData' ? baseDataFromAtom.statDefinitions.length : undefined, externalIdentTypesCount: baseDataState === 'hasData' ? baseDataFromAtom.externalIdentTypes.length : undefined, statbusUsersCount: baseDataState === 'hasData' ? baseDataFromAtom.statbusUsers.length : undefined, timeContextsCount: baseDataState === 'hasData' ? baseDataFromAtom.timeContexts.length : undefined, defaultTimeContextIdent: baseDataState === 'hasData' ? baseDataFromAtom.defaultTimeContext?.ident : undefined, hasStatisticalUnits: baseDataState === 'hasData' ? baseDataFromAtom.hasStatisticalUnits : undefined, error: baseDataState === 'hasError' ? String(baseDataFromAtom.error) : undefined },
     workerStatus: { state: workerStatusValue.loading ? 'loading' : workerStatusValue.error ? 'hasError' : 'hasData', isImporting: workerStatusValue.isImporting, isDerivingUnits: workerStatusValue.isDerivingUnits, isDerivingReports: workerStatusValue.isDerivingReports, loading: workerStatusValue.loading, error: workerStatusValue.error },
+    searchAndSelection: {
+      searchText: searchStateValue.query,
+      activeFilterCodes: Object.keys(searchStateValue.filters),
+      pagination: searchStateValue.pagination,
+      order: searchStateValue.sorting,
+      selectedUnitsCount: selectedUnitsValue.length,
+      searchResult: {
+        total: searchResultValue.total,
+        loading: searchResultValue.loading,
+        error: searchResultValue.error ? String(searchResultValue.error) : null,
+      },
+    },
     navigationState: { pendingRedirect: pendingRedirectValue, requiredSetupRedirect: requiredSetupRedirectValue, loginActionInProgress: loginActionInProgressValue, lastKnownPathBeforeAuthChange: lastKnownPathValue },
     redirectRelevantState: { initialAuthCheckCompleted: initialAuthCheckCompletedValue, authCheckDone: authLoadableValue.state !== 'loading', isRestClientReady: !!restClientFromAtom, activityStandard: activityStandardLoadable.state === 'hasData' ? activityStandardLoadable.data : null, numberOfRegions: numberOfRegionsLoadable.state === 'hasData' ? numberOfRegionsLoadable.data : null, baseDataHasStatisticalUnits: baseDataState === 'hasData' ? baseDataFromAtom.hasStatisticalUnits : 'BaseDataNotLoaded', baseDataStatDefinitionsLength: baseDataState === 'hasData' ? baseDataFromAtom.statDefinitions.length : 'BaseDataNotLoaded' }
   };
@@ -917,6 +937,19 @@ export const StateInspector = () => {
                 </>
               )}
               {stateToDisplay.baseData?.state === 'hasError' && <div><strong>Error:</strong> {String(stateToDisplay.baseData.error)}</div>}
+            </div>
+          </div>
+
+          <div>
+            <strong>Search & Selection State:</strong>
+            <div className="pl-4 mt-1 space-y-1">
+              <div><strong>Search Text:</strong> {stateToDisplay.searchAndSelection?.searchText || 'None'}</div>
+              <div><strong>Active Filters:</strong> {stateToDisplay.searchAndSelection?.activeFilterCodes?.join(', ') || 'None'}</div>
+              <div><strong>Pagination:</strong> Page {stateToDisplay.searchAndSelection?.pagination?.page}, Size {stateToDisplay.searchAndSelection?.pagination?.pageSize}</div>
+              <div><strong>Order:</strong> {stateToDisplay.searchAndSelection?.order?.field} {stateToDisplay.searchAndSelection?.order?.direction}</div>
+              <div><strong>Selected Units:</strong> {stateToDisplay.searchAndSelection?.selectedUnitsCount}</div>
+              <div><strong>Search Result:</strong> Total {stateToDisplay.searchAndSelection?.searchResult?.total ?? 'N/A'}, Loading: {stateToDisplay.searchAndSelection?.searchResult?.loading ? 'Yes' : 'No'}</div>
+              {stateToDisplay.searchAndSelection?.searchResult?.error && <div><strong>Search Error:</strong> {stateToDisplay.searchAndSelection.searchResult.error}</div>}
             </div>
           </div>
 
