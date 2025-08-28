@@ -311,6 +311,18 @@ BEGIN
                 FIRST_VALUE(rc.data_row_id) OVER (PARTITION BY rc.entity_signature ORDER BY rc.derived_valid_from NULLS LAST, rc.data_row_id) as actual_founding_row_id
             FROM RowChecks rc
         ),
+        -- OPTIMIZED: Pre-calculates existing identifiers for all entities found in the batch to avoid a correlated subquery.
+        ExistingIdents AS (
+            SELECT
+                obe.final_lu_id,
+                obe.final_est_id,
+                jsonb_object_agg(xit.code, ei.ident) as idents
+            FROM OrderedBatchEntities obe
+            JOIN public.external_ident ei ON (ei.legal_unit_id = obe.final_lu_id OR ei.establishment_id = obe.final_est_id)
+            JOIN public.external_ident_type_active xit ON ei.type_id = xit.id
+            WHERE obe.final_lu_id IS NOT NULL OR obe.final_est_id IS NOT NULL
+            GROUP BY obe.final_lu_id, obe.final_est_id
+        ),
         AnalysisWithOperation AS ( -- Determines operation based on DB existence and batch order
             SELECT
                 obe.data_row_id,
@@ -318,22 +330,16 @@ BEGIN
                 obe.final_lu_id,
                 obe.final_est_id,
                 obe.entity_signature, -- Pass through for error propagation
-                ( -- Subquery to calculate unstable_identifier_errors
+                obe.rn_in_batch_for_entity, -- Pass through for operation determination
+                -- OPTIMIZED: Replaced correlated subquery with a join to the pre-aggregated ExistingIdents CTE
+                (
                     SELECT jsonb_object_agg(
-                               input_data.ident_code,
-                               'Identifier ' || input_data.ident_code || ' value ''' || input_data.input_value || ''' from input attempts to change existing value ''' || COALESCE(existing_ei.ident, 'NULL') || ''''
-                           )
-                    FROM (SELECT key AS ident_code, value AS input_value FROM jsonb_each_text(obe.entity_signature)) AS input_data
-                    JOIN public.external_ident_type_active xit ON xit.code = input_data.ident_code
-                    LEFT JOIN public.external_ident existing_ei ON
-                        existing_ei.type_id = xit.id AND
-                        (
-                            (obe.final_lu_id IS NOT NULL AND existing_ei.legal_unit_id = obe.final_lu_id) OR
-                            (obe.final_est_id IS NOT NULL AND existing_ei.establishment_id = obe.final_est_id)
-                        )
-                    WHERE (obe.final_lu_id IS NOT NULL OR obe.final_est_id IS NOT NULL)
-                      AND existing_ei.ident IS NOT NULL
-                      AND input_data.input_value IS DISTINCT FROM existing_ei.ident
+                        input_data.ident_code,
+                        'Identifier ' || input_data.ident_code || ' value ''' || input_data.input_value || ''' from input attempts to change existing value ''' || (existing.idents->>input_data.ident_code) || ''''
+                    )
+                    FROM (SELECT key AS ident_code, value#>>'{}' AS input_value FROM jsonb_each(obe.entity_signature)) AS input_data
+                    WHERE existing.idents ? input_data.ident_code -- The identifier type exists for this unit in the DB
+                      AND (existing.idents->>input_data.ident_code) IS DISTINCT FROM input_data.input_value
                 ) AS unstable_identifier_errors_jsonb,
                 (
                     COALESCE(
@@ -367,11 +373,20 @@ BEGIN
                         '{}'::jsonb
                     ) ||
                     COALESCE(obe.cross_type_conflict_errors, '{}'::jsonb)
-                ) as base_error_jsonb,
+                ) as base_error_jsonb
+            FROM OrderedBatchEntities obe
+            LEFT JOIN ExistingIdents existing ON
+                (obe.final_lu_id IS NOT NULL AND existing.final_lu_id = obe.final_lu_id) OR
+                (obe.final_est_id IS NOT NULL AND existing.final_est_id = obe.final_est_id)
+        ),
+        -- This CTE determines the operation based on whether the entity exists in the DB and its order within the batch.
+        OperationDetermination AS (
+            SELECT
+                awo.*,
                 CASE
-                    WHEN obe.final_lu_id IS NULL AND obe.final_est_id IS NULL THEN -- Entity is new to the DB
+                    WHEN awo.final_lu_id IS NULL AND awo.final_est_id IS NULL THEN -- Entity is new to the DB
                         CASE
-                            WHEN obe.rn_in_batch_for_entity = 1 THEN 'insert'::public.import_row_operation_type
+                            WHEN awo.rn_in_batch_for_entity = 1 THEN 'insert'::public.import_row_operation_type
                             ELSE -- Subsequent row for a new entity within this batch
                                 CASE
                                     WHEN %3$L::public.import_strategy IN ('insert_or_update', 'update_only') THEN 'update'::public.import_row_operation_type -- %3$L is v_strategy
@@ -384,25 +399,25 @@ BEGIN
                             ELSE 'replace'::public.import_row_operation_type
                         END
                 END as operation
-            FROM OrderedBatchEntities obe
+            FROM AnalysisWithOperation awo
         ),
-         propagated_errors as (
-            select
-                awo.*,
-                (awo.base_error_jsonb || COALESCE(awo.unstable_identifier_errors_jsonb, '{}'::jsonb)) as final_error_jsonb,
+        PropagatedErrors AS (
+            SELECT
+                od.*,
+                (od.base_error_jsonb || COALESCE(od.unstable_identifier_errors_jsonb, '{}'::jsonb)) as final_error_jsonb,
                 -- Check if any row within the same new entity has an error.
-                BOOL_OR((awo.base_error_jsonb || COALESCE(awo.unstable_identifier_errors_jsonb, '{}'::jsonb)) != '{}'::jsonb)
-                    OVER (PARTITION BY CASE WHEN awo.final_lu_id IS NULL AND awo.final_est_id IS NULL THEN awo.entity_signature ELSE jsonb_build_object('data_row_id', awo.data_row_id) END) as entity_has_error,
+                BOOL_OR((od.base_error_jsonb || COALESCE(od.unstable_identifier_errors_jsonb, '{}'::jsonb)) != '{}'::jsonb)
+                    OVER (PARTITION BY CASE WHEN od.final_lu_id IS NULL AND od.final_est_id IS NULL THEN od.entity_signature ELSE jsonb_build_object('data_row_id', od.data_row_id) END) as entity_has_error,
                 -- Collect row_ids of rows with errors within the same new entity.
-                array_remove(array_agg(CASE WHEN (awo.base_error_jsonb || COALESCE(awo.unstable_identifier_errors_jsonb, '{}'::jsonb)) != '{}'::jsonb THEN awo.data_row_id ELSE NULL END)
-                    OVER (PARTITION BY CASE WHEN awo.final_lu_id IS NULL AND awo.final_est_id IS NULL THEN awo.entity_signature ELSE jsonb_build_object('data_row_id', awo.data_row_id) END), NULL) as entity_error_source_row_ids
-            from AnalysisWithOperation awo
+                array_remove(array_agg(CASE WHEN (od.base_error_jsonb || COALESCE(od.unstable_identifier_errors_jsonb, '{}'::jsonb)) != '{}'::jsonb THEN od.data_row_id ELSE NULL END)
+                    OVER (PARTITION BY CASE WHEN od.final_lu_id IS NULL AND od.final_est_id IS NULL THEN od.entity_signature ELSE jsonb_build_object('data_row_id', od.data_row_id) END), NULL) as entity_error_source_row_ids
+            FROM OperationDetermination od
         )
         INSERT INTO temp_batch_analysis (data_row_id, error_jsonb, resolved_lu_id, resolved_est_id, operation, action, derived_founding_row_id)
         SELECT
             pe.data_row_id,
             CASE
-                -- Case 1: This is a new entity, and some row in the entity has an error.
+                -- Case 1: This is a new entity, and some row in the entity has an error. Propagate it to all rows for that entity.
                 WHEN pe.entity_has_error AND pe.final_lu_id IS NULL AND pe.final_est_id IS NULL THEN
                     CASE
                         -- Subcase 1.1: This specific row has an error. Use its own error.
@@ -427,7 +442,7 @@ BEGIN
                 ELSE (pe.operation::text)::public.import_row_action_type
             END as action,
             pe.actual_founding_row_id
-        FROM propagated_errors pe;
+        FROM PropagatedErrors pe;
     $$, 
         v_relevant_row_ids,             /* %1$L */
         v_data_table_name,              /* %2$I */
