@@ -356,6 +356,18 @@ export const loginAtom = atom(
       // with other components that might react to the auth state change.
       set(loginActionInProgressAtom, true);
 
+      // Set pendingRedirectAtom to trigger navigation BEFORE stabilization.
+      // This ensures that RedirectHandler sees both loginActionInProgress and
+      // the pendingRedirect at the same time, avoiding race conditions.
+      let redirectTarget = nextPath && nextPath.startsWith('/') ? nextPath : '/';
+      // Ensure we don't redirect back to the login page after a successful login.
+      // Check just the pathname part of the target, ignoring query params.
+      const redirectPathname = redirectTarget.split('?')[0];
+      if (redirectPathname === '/login') {
+        redirectTarget = '/';
+      }
+      set(pendingRedirectAtom, redirectTarget);
+
       // Update auth status directly from login response to avoid a re-fetch race condition.
       const newAuthStatus = _parseAuthStatusRpcResponseToAuthStatus(responseData);
       set(authStatusCoreAtom, Promise.resolve(newAuthStatus));
@@ -365,17 +377,6 @@ export const loginAtom = atom(
       if (!oldAuthStatus.loading && !oldAuthStatus.isAuthenticated && newAuthStatus.isAuthenticated) {
         set(updateSyncTimestampAtom, Date.now());
       }
-
-      // Set pendingRedirectAtom to trigger navigation.
-      // Prioritize nextPath if available and valid, otherwise default to '/'.
-      let redirectTarget = nextPath && nextPath.startsWith('/') ? nextPath : '/';
-      // Ensure we don't redirect back to the login page after a successful login.
-      // Check just the pathname part of the target, ignoring query params.
-      const redirectPathname = redirectTarget.split('?')[0];
-      if (redirectPathname === '/login') {
-        redirectTarget = '/';
-      }
-      set(pendingRedirectAtom, redirectTarget);
 
     } catch (error) {
       console.error('[loginAtom] Login attempt failed.'); // Less verbose for production

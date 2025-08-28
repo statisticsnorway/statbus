@@ -401,7 +401,7 @@ const RedirectHandler = () => {
         setSetupRedirect(null);
       }
     }
-  }, [targetPath, pathname, router, explicitRedirect, setupRedirect, loginActionIsActive, setExplicitRedirect, setSetupRedirect, setLoginActionInProgress]);
+  }, [targetPath, pathname, router, explicitRedirect, setupRedirect, loginActionIsActive, setExplicitRedirect, setSetupRedirect, setLoginActionInProgress, setLastPathBeforeAuthChange]);
 
   return null;
 };
