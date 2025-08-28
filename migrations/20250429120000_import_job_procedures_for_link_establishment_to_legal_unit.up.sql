@@ -127,31 +127,62 @@ BEGIN
             FROM RowChecks rc JOIN public.%4$I dt ON rc.data_row_id = dt.row_id
             WHERE rc.resolved_lu_id IS NOT NULL
         ),
-        RankedForPrimary AS (
+        -- This set of CTEs correctly identifies the primary establishment for a legal unit,
+        -- even when the import batch contains multiple non-overlapping time periods for the same LU.
+        -- It works by identifying "islands" of overlapping/adjacent time periods and selecting
+        -- the first candidate within each island.
+        PrimaryCandidates AS (
             SELECT
-                rl.data_row_id, rl.resolved_lu_id,
+                rl.*,
                 (NOT EXISTS (
                     SELECT 1 FROM public.establishment est
                     WHERE est.legal_unit_id = rl.resolved_lu_id AND est.primary_for_legal_unit = TRUE
                       AND est.id IS DISTINCT FROM rl.current_establishment_id
                       AND public.after_to_overlaps(est.valid_after, est.valid_to, rl.est_derived_valid_after, rl.est_derived_valid_to)
-                )) AS no_overlapping_primary_in_db
+                )) AS is_primary_candidate
             FROM ResolvedLinks rl
+        ),
+        -- Identify the start of each new "island" of time periods. An island starts when an interval
+        -- begins after the maximum end time of all preceding intervals for that legal unit.
+        TimeIslands AS (
+            SELECT
+                *,
+                MAX(est_derived_valid_to) OVER (
+                    PARTITION BY resolved_lu_id
+                    ORDER BY est_derived_valid_after, est_derived_valid_to, original_data_table_row_id
+                    ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+                ) as max_prev_to
+            FROM PrimaryCandidates
+            WHERE is_primary_candidate
+        ),
+        IslandGroups AS (
+            SELECT
+                data_row_id,
+                -- A cumulative sum of the "is_island_start" flag creates a unique ID for each group.
+                SUM(CASE WHEN est_derived_valid_after >= COALESCE(max_prev_to, '-infinity'::date) THEN 1 ELSE 0 END) OVER (
+                    PARTITION BY resolved_lu_id
+                    ORDER BY est_derived_valid_after, est_derived_valid_to, original_data_table_row_id
+                ) AS island_id
+            FROM TimeIslands
+        ),
+        -- Finally, rank candidates within each island using the original file order for determinism.
+        RankedForPrimary AS (
+            SELECT
+                pc.data_row_id,
+                pc.is_primary_candidate,
+                ROW_NUMBER() OVER (
+                    PARTITION BY pc.resolved_lu_id, ig.island_id
+                    ORDER BY pc.original_data_table_row_id
+                ) as row_num
+            FROM PrimaryCandidates pc
+            LEFT JOIN IslandGroups ig ON pc.data_row_id = ig.data_row_id
         )
         INSERT INTO temp_precalc (data_row_id, resolved_lu_id, primary_for_legal_unit, error_jsonb)
         SELECT
             tr.data_row_id,
             rl.resolved_lu_id,
-            (   rfp.no_overlapping_primary_in_db AND
-                NOT EXISTS ( -- Check for conflicts within the import file itself
-                    SELECT 1 FROM RankedForPrimary other_rfp
-                    JOIN ResolvedLinks other_rl ON other_rfp.data_row_id = other_rl.data_row_id
-                    WHERE other_rfp.resolved_lu_id = rfp.resolved_lu_id
-                      AND other_rl.original_data_table_row_id < rl.original_data_table_row_id -- Deterministic tie-break
-                      AND other_rfp.no_overlapping_primary_in_db
-                      AND public.after_to_overlaps(other_rl.est_derived_valid_after, other_rl.est_derived_valid_to, rl.est_derived_valid_after, rl.est_derived_valid_to)
-                )
-            ) AS primary_for_legal_unit,
+            -- A row is primary if it is a candidate AND it's the first one for its LU and time-island.
+            (rfp.is_primary_candidate AND rfp.row_num = 1) AS primary_for_legal_unit,
             err.error_jsonb
         FROM temp_relevant_rows tr
         LEFT JOIN Errors err ON tr.data_row_id = err.data_row_id
