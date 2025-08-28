@@ -392,10 +392,11 @@ const RedirectHandler = () => {
       // redirect to prevent loops.
       if (explicitRedirect) {
         setExplicitRedirect(null);
-        if (loginActionIsActive) {
-          setLoginActionInProgress(false);
-          setLastPathBeforeAuthChange(null);
-        }
+        // After any successful explicit redirect, the "login action" is complete (if one was active)
+        // and the "last known path" has been restored or is no longer relevant.
+        // We clear all related state to prevent stale values from causing issues.
+        setLoginActionInProgress(false);
+        setLastPathBeforeAuthChange(null);
       }
       if (setupRedirect) {
         setSetupRedirect(null);

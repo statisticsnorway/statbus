@@ -457,6 +457,9 @@ export const logoutAtom = atom(
     set(importStateAtom, initialImportState);
     set(unitCountsAtom, { legalUnits: null, establishmentsWithLegalUnit: null, establishmentsWithoutLegalUnit: null });
 
+    // Also clear any lingering navigation state from session storage.
+    set(lastKnownPathBeforeAuthChangeAtom, null);
+
     // Redirect to login.
     set(pendingRedirectAtom, '/login');
   }
