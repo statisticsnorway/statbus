@@ -108,14 +108,14 @@ BEGIN
         GET DIAGNOSTICS v_processed_non_skip_count = ROW_COUNT; -- This counts rows updated by the above SQL (action='replace' and mode='establishment_informal')
         RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: Processed % "replace" rows for informal establishments (includes potential errors).', p_job_id, v_processed_non_skip_count;
 
-        -- Update priority for 'insert' and 'skip' rows, and 'replace' rows not matching the first UPDATE's criteria (e.g. not informal, or establishment_id was NULL)
+        -- Update priority for 'insert' rows, and 'replace' rows not matching the first UPDATE's criteria. Skipped rows are not touched.
         v_sql := format($$
             UPDATE public.%1$I dt SET -- v_data_table_name
                 last_completed_priority = %2$s, -- v_step.priority
                 state = 'analysing'::public.import_data_state,
                 error = CASE WHEN (dt.error - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %3$L::TEXT[]) END -- v_error_keys_to_clear_arr
             WHERE dt.row_id = ANY($1) -- p_batch_row_ids
-              AND (dt.action = 'insert' OR dt.action = 'skip' OR (dt.action = 'replace' AND dt.last_completed_priority < %2$s)); -- v_step.priority
+              AND (dt.action = 'insert' OR (dt.action = 'replace' AND dt.last_completed_priority < %2$s)); -- v_step.priority
         $$,
             v_data_table_name,              -- %1$I
             v_step.priority,                -- %2$s

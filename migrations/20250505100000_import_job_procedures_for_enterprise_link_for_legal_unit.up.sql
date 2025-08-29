@@ -123,12 +123,12 @@ BEGIN
                 state = CASE WHEN tear.is_error THEN 'error'::public.import_data_state ELSE 'analysing'::public.import_data_state END,
                 error = CASE
                             WHEN tear.is_error THEN COALESCE(dt.error, '{}'::jsonb) || tear.error_details
-                            ELSE CASE WHEN (dt.error - %2$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %3$L::TEXT[]) END
+                            ELSE CASE WHEN (dt.error - %2$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %2$L::TEXT[]) END
                         END,
-                last_completed_priority = %4$L
+                last_completed_priority = %3$L
             FROM temp_enterprise_analysis_results tear
             WHERE dt.row_id = tear.row_id;
-        $$, v_data_table_name /* %1$I */, v_error_keys_to_clear_arr /* %2$L */, v_error_keys_to_clear_arr /* %3$L */, v_step.priority /* %4$L */);
+        $$, v_data_table_name /* %1$I */, v_error_keys_to_clear_arr /* %2$L */, v_step.priority /* %3$L */);
 
         RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Updating _data table from temp_enterprise_analysis_results: %', p_job_id, v_sql;
         EXECUTE v_sql;
@@ -136,18 +136,19 @@ BEGIN
         RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Updated % rows in _data table from temp table.', p_job_id, v_processed_non_skip_count;
 
         -- Update priority for rows not processed by the temp table logic
-        -- This includes 'insert', 'skip', and 'replace' rows where legal_unit_id was NULL (so not in temp table).
-        -- These rows are considered successful for this step's analysis phase or were already skipped/had no LU to link.
+        -- This includes 'insert' and 'replace' rows where legal_unit_id was NULL. Skipped rows are not touched.
+        -- These rows are considered successful for this step's analysis phase.
         v_sql := format($$
             UPDATE public.%1$I dt SET
                 last_completed_priority = %2$L,
                 state = 'analysing'::public.import_data_state,
-                error = CASE WHEN (dt.error - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %4$L::TEXT[]) END -- Clear this step's error if not an error from this step
+                error = CASE WHEN (dt.error - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %3$L::TEXT[]) END -- Clear this step's error if not an error from this step
             WHERE dt.row_id = ANY($1)
+              AND dt.action IS DISTINCT FROM 'skip'
               AND NOT EXISTS (SELECT 1 FROM temp_enterprise_analysis_results tear WHERE tear.row_id = dt.row_id);
         $$,
             v_data_table_name /* %1$I */, v_step.priority /* %2$L */,
-            v_error_keys_to_clear_arr /* %3$L */, v_error_keys_to_clear_arr /* %4$L */
+            v_error_keys_to_clear_arr /* %3$L */
         );
 
         RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Updating LCP for remaining rows: %', p_job_id, v_sql;

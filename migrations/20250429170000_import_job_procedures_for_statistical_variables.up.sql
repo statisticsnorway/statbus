@@ -269,25 +269,32 @@ BEGIN
     v_strategy := v_definition.strategy;
     v_edit_by_user_id := v_job.user_id;
 
-    v_add_separator := FALSE;
-    -- Iterate over all source_input columns from the snapshot and check if they are defined stats
-    FOR v_col_rec IN 
-        SELECT idc.value->>'column_name' as col_name
-        FROM jsonb_array_elements(v_stat_data_cols) idc -- Full list from snapshot
-        JOIN public.stat_definition_active sda ON sda.code = (idc.value->>'column_name') -- Check if it's a stat
-        WHERE idc.value->>'purpose' = 'source_input' -- Only consider source_input columns
-    LOOP
-        IF v_add_separator THEN v_unpivot_sql := v_unpivot_sql || ' UNION ALL '; END IF;
-        -- Ensure we only try to unpivot if the column actually has a non-empty, non-whitespace value.
-        -- The IS NOT NULL check is good, but char_length(trim(...)) > 0 is more robust for TEXT fields that might contain only whitespace.
-        v_unpivot_sql := v_unpivot_sql || format($$SELECT %1$L AS stat_code, dt.%2$I AS stat_value, dt.row_id AS data_row_id_from_source FROM public.%3$I dt WHERE dt.%4$I IS NOT NULL AND char_length(trim(dt.%4$I)) > 0 AND dt.row_id = ANY($1) AND dt.action != 'skip'$$, 
-                                                 v_col_rec.col_name, /* %1$L */
-                                                 v_col_rec.col_name, /* %2$I */
-                                                 v_data_table_name,  /* %3$I */
-                                                 v_col_rec.col_name  /* %4$I */
-                                                );
-        v_add_separator := TRUE;
-    END LOOP;
+    -- Efficiently build the unpivot SQL using LATERAL VALUES to perform a single scan on the data table.
+    v_unpivot_sql := (
+        SELECT string_agg(format('(%L, %I)', col_name, col_name), ', ')
+        FROM (
+            SELECT idc.value->>'column_name' as col_name
+            FROM jsonb_array_elements(v_stat_data_cols) idc -- Full list from snapshot
+            JOIN public.stat_definition_active sda ON sda.code = (idc.value->>'column_name') -- Check if it's a stat
+            WHERE idc.value->>'purpose' = 'source_input' -- Only consider source_input columns
+        ) q
+    );
+    
+    IF v_unpivot_sql IS NOT NULL AND v_unpivot_sql != '' THEN
+        v_unpivot_sql := format($$
+            SELECT
+                v.stat_code,
+                v.stat_value,
+                dt.row_id as data_row_id_from_source
+            FROM public.%1$I dt,
+            LATERAL (VALUES %2$s) AS v(stat_code, stat_value)
+            WHERE dt.row_id = ANY($1)
+              AND dt.action IS DISTINCT FROM 'skip'
+              AND v.stat_value IS NOT NULL AND char_length(trim(v.stat_value)) > 0
+        $$, v_data_table_name, v_unpivot_sql);
+    ELSE
+        v_unpivot_sql := '';
+    END IF;
 
     IF v_unpivot_sql = '' THEN
          RAISE DEBUG '[Job %] process_statistical_variables: No stat data columns found in snapshot for target % or all rows skipped. Skipping operation.', p_job_id, v_step.id;

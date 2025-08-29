@@ -45,7 +45,7 @@ BEGIN
     CREATE TEMP TABLE temp_relevant_rows (id SERIAL PRIMARY KEY, data_row_id INTEGER NOT NULL) ON COMMIT DROP;
     EXECUTE format($$INSERT INTO temp_relevant_rows (data_row_id)
                      SELECT row_id FROM public.%1$I
-                     WHERE state = 'analysing' AND last_completed_priority < %2$L$$,
+                     WHERE action IS DISTINCT FROM 'skip' AND last_completed_priority < %2$L$$,
                      v_data_table_name, v_step.priority);
     GET DIAGNOSTICS v_total_rows_to_process = ROW_COUNT;
     IF v_total_rows_to_process = 0 THEN RAISE DEBUG '[Job %] No rows to process for %.', p_job_id, p_step_code; RETURN; END IF;
@@ -64,17 +64,29 @@ BEGIN
         RETURN;
     END IF;
 
-    -- Build unpivot SQL for all relevant legal unit identifiers
-    FOR v_col_rec IN SELECT value->>'column_name' AS col_name FROM jsonb_array_elements(v_link_data_cols) LOOP
-        IF v_add_separator THEN v_unpivot_sql := v_unpivot_sql || ' UNION ALL '; END IF;
-        v_unpivot_sql := v_unpivot_sql || format(
-            $$SELECT dt.row_id AS data_row_id, %1$L AS ident_code, dt.%2$I AS ident_value
-              FROM public.%3$I dt JOIN temp_relevant_rows tr ON tr.data_row_id = dt.row_id
-              WHERE dt.%2$I IS NOT NULL AND dt.action != 'skip'$$,
-            v_col_rec.col_name, v_col_rec.col_name, v_data_table_name
-        );
-        v_add_separator := TRUE;
-    END LOOP;
+    -- Build an efficient unpivot SQL statement using LATERAL VALUES to perform a single scan
+    v_unpivot_sql := (
+        SELECT string_agg(format('(%L, %I)', col_name, col_name), ', ')
+        FROM (
+            SELECT value->>'column_name' AS col_name FROM jsonb_array_elements(v_link_data_cols)
+        ) q
+    );
+
+    IF v_unpivot_sql IS NOT NULL AND v_unpivot_sql != '' THEN
+        v_unpivot_sql := format($$
+            SELECT
+                dt.row_id as data_row_id,
+                v.ident_code,
+                v.ident_value
+            FROM public.%1$I dt
+            JOIN temp_relevant_rows tr ON tr.data_row_id = dt.row_id,
+            LATERAL (VALUES %2$s) AS v(ident_code, ident_value)
+            WHERE v.ident_value IS NOT NULL AND char_length(trim(v.ident_value)) > 0
+        $$, v_data_table_name, v_unpivot_sql);
+    ELSE
+        -- Ensure it's a valid query that returns nothing if no link columns are defined
+        v_unpivot_sql := 'SELECT NULL::INT, NULL::TEXT, NULL::TEXT WHERE FALSE';
+    END IF;
     SELECT array_agg(value->>'column_name') INTO v_error_keys_to_clear_arr FROM jsonb_array_elements(v_link_data_cols) value;
     v_fallback_error_key := COALESCE(v_error_keys_to_clear_arr[1], 'link_establishment_to_legal_unit_error');
 

@@ -246,7 +246,7 @@ BEGIN
             LEFT JOIN LATERAL import.try_cast_to_numeric_specific(dt_sub.postal_latitude, 'NUMERIC(9,6)') AS lat_post(p_value, p_error_message) ON TRUE
             LEFT JOIN LATERAL import.try_cast_to_numeric_specific(dt_sub.postal_longitude, 'NUMERIC(9,6)') AS lon_post(p_value, p_error_message) ON TRUE
             LEFT JOIN LATERAL import.try_cast_to_numeric_specific(dt_sub.postal_altitude, 'NUMERIC(6,1)') AS alt_post(p_value, p_error_message) ON TRUE
-            WHERE dt_sub.row_id = ANY($1) AND dt_sub.action != 'skip'
+            WHERE dt_sub.row_id = ANY($1) AND dt_sub.action IS DISTINCT FROM 'skip'
         )
         UPDATE public.%1$I dt SET
             physical_region_id = l.resolved_physical_region_id,
@@ -281,7 +281,7 @@ BEGIN
                     ),
             last_completed_priority = %9$L::INTEGER -- Always v_step.priority
         FROM lookups l
-        WHERE dt.row_id = l.data_row_id AND dt.row_id = ANY($1) AND dt.action IS DISTINCT FROM 'skip';
+        WHERE dt.row_id = l.data_row_id; -- Join is sufficient, lookups CTE is already filtered
     $$,
         v_data_table_name,                      /* %1$I (target table) */
         p_batch_row_ids,                        /* %2$L (kept for numbering alignment) */
@@ -476,7 +476,7 @@ BEGIN
             dt.%9$I, dt.%10$I,
             dt.%11$I, dt.%12$I, dt.%13$I,
             dt.action
-         FROM public.%1$I dt WHERE dt.row_id = ANY($1) AND dt.action != 'skip';
+         FROM public.%1$I dt WHERE dt.row_id = ANY($1) AND dt.action IS DISTINCT FROM 'skip';
     $$,
         v_data_table_name, /* %1$I */
         v_select_lu_id_expr, /* %2$s */
