@@ -3,11 +3,11 @@
 import React, { useEffect, useState } from "react";
 import { useSearchParams, usePathname } from "next/navigation";
 import { useAtomValue, useSetAtom, useAtom } from "jotai";
-import { clientMountedAtom, pendingRedirectAtom } from "@/atoms/app";
+import { clientMountedAtom, pendingRedirectAtom, setupRedirectCheckAtom } from "@/atoms/app";
 import {
   authStatusAtom,
   lastKnownPathBeforeAuthChangeAtom,
-  loginActionInProgressAtom,
+  isLoginActionInProgressAtom,
   loginPageMachineAtom,
 } from "@/atoms/auth";
 import LoginForm from "./LoginForm";
@@ -30,11 +30,11 @@ export default function LoginClientBoundary() {
   const nextPath = searchParams.get('next');
   const authStatus = useAtomValue(authStatusAtom);
   const [pendingRedirect, setPendingRedirect] = useAtom(pendingRedirectAtom);
-  const loginActionIsActive = useAtomValue(loginActionInProgressAtom);
   const [lastPathBeforeAuthChange, setLastPathBeforeAuthChange] = useAtom(lastKnownPathBeforeAuthChangeAtom);
   const pathname = usePathname();
   const [state, send] = useAtom(loginPageMachineAtom);
   const clientMounted = useAtomValue(clientMountedAtom);
+  const setupRedirectCheck = useAtomValue(setupRedirectCheckAtom);
 
   // Effect to reset the machine to idle on mount. This ensures a clean state for every visit,
   // which is crucial for handling React 18 Strict Mode and Fast Refresh in development.
@@ -63,33 +63,59 @@ export default function LoginClientBoundary() {
     });
   }, [clientMounted, authStatus.loading, authStatus.isAuthenticated, pathname, send]);
 
-  // Effect to handle the side-effect of redirection when the machine enters the 'redirecting' state.
+  // Effect to handle the side-effect of redirection when the machine is finalizing.
   useEffect(() => {
     // Gate this logic on clientMounted to ensure lastPathBeforeAuthChange is hydrated.
     if (!clientMounted) {
       return;
     }
 
-    // If the machine wants to redirect AND no redirect is currently pending,
-    // AND a login action isn't already handling the redirect, set one.
-    if (state.matches('redirecting') && pendingRedirect === null && !loginActionIsActive) {
+    if (state.matches('finalizing')) {
+      // Wait for the setup check to complete before deciding on a destination.
+      if (setupRedirectCheck.isLoading) {
+        return; // Still checking, do nothing. The effect will re-run when the atom updates.
+      }
+
+      // If a redirect is already pending, don't set another one.
+      if (pendingRedirect !== null) {
+        return;
+      }
+      
+      const setupPath = setupRedirectCheck.path;
       let targetRedirectPath: string;
 
-      // Prioritize the path stored before a cross-tab auth change.
-      if (lastPathBeforeAuthChange) {
+      if (setupPath) {
+        // A required setup step takes highest priority.
+        targetRedirectPath = setupPath;
+      } else if (lastPathBeforeAuthChange) {
+        // Then, restore the path from before a potential cross-tab auth change.
         targetRedirectPath = lastPathBeforeAuthChange;
       } else {
         // Otherwise, use the 'next' URL parameter or default to the dashboard.
         targetRedirectPath = nextPath && nextPath.startsWith('/') ? nextPath : '/';
+      }
+      
+      // Final safeguard: ensure we never redirect back to the login page.
+      const targetPathname = targetRedirectPath.split('?')[0];
+      if (targetPathname === '/login') {
+        targetRedirectPath = '/'; // Default to dashboard.
       }
 
       setPendingRedirect(targetRedirectPath);
       // Clear the last path atom after using it for a redirect.
       setLastPathBeforeAuthChange(null);
     }
-  }, [clientMounted, state, nextPath, lastPathBeforeAuthChange, setLastPathBeforeAuthChange, pendingRedirect, setPendingRedirect, loginActionIsActive]);
+  }, [clientMounted, state, setupRedirectCheck, nextPath, lastPathBeforeAuthChange, setLastPathBeforeAuthChange, pendingRedirect, setPendingRedirect]);
 
   // Render content based on the machine's state.
+  if (state.matches('finalizing')) {
+    return (
+      <div className="text-center text-gray-500 pt-8">
+        <p>Finalizing login...</p>
+      </div>
+    );
+  }
+
   if (state.matches('showingForm')) {
     return <LoginForm nextPath={nextPath} />;
   }

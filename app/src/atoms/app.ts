@@ -76,6 +76,44 @@ export const requiredSetupRedirectAtom = atom<string | null>(null);
 // by RedirectGuard to prevent premature redirects during app startup or auth flaps.
 export const initialAuthCheckCompletedAtom = atom(false);
 
+// Atom to calculate the required setup redirect path, if any.
+// It also exposes a loading state so consumers can wait for the check to complete.
+export const setupRedirectCheckAtom = atom((get) => {
+  // Use require here to break circular dependency cycles
+  const { loadable } = require('jotai/utils');
+  const { activityCategoryStandardSettingAtomAsync, numberOfRegionsAtomAsync } = require('./getting-started');
+  const { baseDataAtom } = require('./base-data');
+
+  const activityStandardLoadable = get(loadable(activityCategoryStandardSettingAtomAsync));
+  const numberOfRegionsLoadable = get(loadable(numberOfRegionsAtomAsync));
+  const baseData = get(baseDataAtom);
+
+  const isLoading =
+    activityStandardLoadable.state === 'loading' ||
+    numberOfRegionsLoadable.state === 'loading' ||
+    baseData.loading;
+
+  if (isLoading) {
+    return { path: null, isLoading: true };
+  }
+
+  // At this point, all data is loaded and stable.
+  const currentActivityStandard = activityStandardLoadable.state === 'hasData' ? activityStandardLoadable.data : null;
+  const currentNumberOfRegions = numberOfRegionsLoadable.state === 'hasData' ? numberOfRegionsLoadable.data : null;
+
+  let path: string | null = null;
+
+  if (currentActivityStandard === null) {
+    path = '/getting-started/activity-standard';
+  } else if (currentNumberOfRegions === null || currentNumberOfRegions === 0) {
+    path = '/getting-started/upload-regions';
+  } else if (baseData.statDefinitions.length > 0 && !baseData.hasStatisticalUnits) {
+    path = '/import';
+  }
+
+  return { path, isLoading: false };
+});
+
 // Combined authentication and base data status
 export const appReadyAtom = atom((get) => {
   const authLoadable = get(authStatusLoadableAtom);
@@ -90,12 +128,8 @@ export const appReadyAtom = atom((get) => {
   const isAuthenticatedUser = get(isAuthenticatedAtom);
   const currentUser = authLoadable.state === 'hasData' ? authLoadable.data.user : null;
 
-  // Base data is considered ready if not loading and has essential data.
-  const hasLoadedStatDefinitions =
-    !baseData.loading &&
-    !baseData.error &&
-    baseData.statDefinitions.length > 0;
-  const isBaseDataProcessComplete = hasLoadedStatDefinitions;
+  // Base data is considered ready if it's finished loading without errors.
+  const isBaseDataProcessComplete = !baseData.loading && !baseData.error;
 
   // The dashboard is ready to render if auth is complete and base data is loaded.
   const isReadyToRenderDashboard =
