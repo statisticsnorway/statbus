@@ -182,6 +182,8 @@ DECLARE
     v_parent_unavailable_error_message TEXT;
     v_parent_check_update_count INT := 0;
     v_update_count INT; -- Declaration for v_update_count used in propagation
+    v_row RECORD; -- For debugging loop
+    v_error_jsonb JSONB;
 BEGIN
     RAISE DEBUG '[Job %] process_activity (Batch) for step_code %: Starting operation for % rows', p_job_id, p_step_code, array_length(p_batch_row_ids, 1);
 
@@ -224,7 +226,7 @@ BEGIN
         v_select_lu_id_expr := 'dt.legal_unit_id';
         v_select_est_id_expr := 'NULL::INTEGER';
     ELSIF v_job_mode = 'establishment_formal' THEN
-        v_select_lu_id_expr := 'dt.legal_unit_id';
+        v_select_lu_id_expr := 'NULL::INTEGER'; -- The activity is for the establishment, not the LU it belongs to.
         v_select_est_id_expr := 'dt.establishment_id';
     ELSIF v_job_mode = 'establishment_informal' THEN
         v_select_lu_id_expr := 'NULL::INTEGER';
@@ -281,6 +283,7 @@ BEGIN
     END IF;
 
     -- Step 1: Fetch batch data into a temporary table (will now exclude rows marked 'skip' above)
+    IF to_regclass('pg_temp.temp_batch_data') IS NOT NULL THEN DROP TABLE temp_batch_data; END IF;
     CREATE TEMP TABLE temp_batch_data (
         data_row_id INTEGER PRIMARY KEY,
         founding_row_id INTEGER, -- Added
@@ -303,208 +306,164 @@ BEGIN
             data_row_id, founding_row_id, legal_unit_id, establishment_id, valid_after, valid_from, valid_to, data_source_id, category_id, edit_by_user_id, edit_at, edit_comment, action -- Added edit_comment, valid_after, founding_row_id
         )
         SELECT
-            row_id, founding_row_id, %1$s, %2$s, -- Use dynamic expressions for LU/EST IDs, Added founding_row_id
-            derived_valid_after, -- Added
-            derived_valid_from, 
-            derived_valid_to,   
-            data_source_id,
-            %3$I, -- Select the correct category ID column based on target
-            edit_by_user_id, edit_at, edit_comment, -- Added
-            action 
-         FROM public.%4$I dt WHERE row_id = ANY($1) AND %5$I IS NOT NULL AND action != 'skip'; -- Added alias dt. Only process rows with a category ID for this type and not skipped
+            dt.row_id, dt.founding_row_id, %1$s, %2$s, -- Use dynamic expressions for LU/EST IDs, Added founding_row_id
+            dt.derived_valid_after, -- Added
+            dt.derived_valid_from, 
+            dt.derived_valid_to,   
+            dt.data_source_id,
+            dt.%3$I, -- Select the correct category ID column based on target
+            dt.edit_by_user_id, dt.edit_at, dt.edit_comment, -- Added
+            dt.action 
+         FROM public.%4$I dt WHERE dt.row_id = ANY($1) AND dt.%5$I IS NOT NULL AND dt.action != 'skip'; -- Added alias dt. Only process rows with a category ID for this type and not skipped
     $$, v_select_lu_id_expr /* %1$s */, v_select_est_id_expr /* %2$s */, v_category_id_col /* %3$I */, v_data_table_name /* %4$I */, v_category_id_col /* %5$I */);
     RAISE DEBUG '[Job %] process_activity: Fetching batch data for type %: %', p_job_id, v_activity_type, v_sql;
     EXECUTE v_sql USING p_batch_row_ids;
 
     -- Step 2: Determine existing activity IDs
     v_sql := format($$
-        UPDATE temp_batch_data tbd SET
-            existing_act_id = act.id
-        FROM public.activity act
-        WHERE act.type = %1$L -- Lookup existing activity by type and unit ID only
-          AND CASE
-                WHEN %2$L = 'legal_unit' THEN
-                    act.legal_unit_id = tbd.legal_unit_id AND act.establishment_id IS NULL
-                WHEN %3$L IN ('establishment_formal', 'establishment_informal') THEN
-                    act.establishment_id = tbd.establishment_id AND act.legal_unit_id IS NULL
-                ELSE FALSE -- Should not happen
-              END;
-    $$, v_activity_type /* %1$L */, v_job_mode /* %2$L */, v_job_mode /* %3$L */);
+        UPDATE temp_batch_data tbd
+        SET existing_act_id = (
+            SELECT a.id
+            FROM public.activity a
+            WHERE a.type = %1$L
+              AND CASE
+                    WHEN %2$L = 'legal_unit' THEN a.legal_unit_id = tbd.legal_unit_id AND a.establishment_id IS NULL
+                    WHEN %3$L IN ('establishment_formal', 'establishment_informal') THEN a.establishment_id = tbd.establishment_id AND a.legal_unit_id IS NULL
+                    ELSE FALSE
+                  END
+            LIMIT 1
+        );
+    $$, v_activity_type, v_job_mode, v_job_mode);
     RAISE DEBUG '[Job %] process_activity: Determining existing IDs: %', p_job_id, v_sql;
     EXECUTE v_sql;
 
     -- Temp table to store newly created activity_ids and their original data_row_id
+    IF to_regclass('pg_temp.temp_created_acts') IS NOT NULL THEN DROP TABLE temp_created_acts; END IF;
     CREATE TEMP TABLE temp_created_acts (
         data_row_id INTEGER PRIMARY KEY,
         new_activity_id INT NOT NULL
     ) ON COMMIT DROP;
 
+    -- Temp table for INSERT action
+    IF to_regclass('pg_temp.temp_act_insert_source') IS NOT NULL THEN DROP TABLE temp_act_insert_source; END IF;
+    CREATE TEMP TABLE temp_act_insert_source (
+        row_id INTEGER PRIMARY KEY, id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL,
+        legal_unit_id INT, establishment_id INT, type public.activity_type, category_id INT,
+        data_source_id INT, edit_by_user_id INT, edit_at TIMESTAMPTZ, edit_comment TEXT
+    ) ON COMMIT DROP;
+    
+    -- Temp table for UPDATE/REPLACE action
+    IF to_regclass('pg_temp.temp_act_upsert_source') IS NOT NULL THEN DROP TABLE temp_act_upsert_source; END IF;
+    CREATE TEMP TABLE temp_act_upsert_source (
+        row_id INTEGER PRIMARY KEY, id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL,
+        legal_unit_id INT, establishment_id INT, type public.activity_type, category_id INT,
+        data_source_id INT, edit_by_user_id INT, edit_at TIMESTAMPTZ, edit_comment TEXT
+    ) ON COMMIT DROP;
+
+    -- Temp table to gather all processed IDs
+    IF to_regclass('pg_temp.temp_processed_action_ids') IS NOT NULL THEN DROP TABLE temp_processed_action_ids; END IF;
+    CREATE TEMP TABLE temp_processed_action_ids (
+        data_row_id INTEGER PRIMARY KEY,
+        actual_activity_id INT NOT NULL
+    ) ON COMMIT DROP;
+
+
     BEGIN
-        -- Handle INSERTs for new activities (action = 'insert') using MERGE
-        RAISE DEBUG '[Job %] process_activity: Handling INSERTS for new activities (type: %) using MERGE.', p_job_id, v_activity_type;
 
-        WITH source_for_insert AS (
-            SELECT * FROM temp_batch_data 
-            WHERE action = 'insert' AND category_id IS NOT NULL
-        ),
-        merged_activities AS (
-            MERGE INTO public.activity act
-            USING source_for_insert sfi
-            ON 1 = 0 -- Always false to force INSERT
-            WHEN NOT MATCHED THEN
-                INSERT (
-                    legal_unit_id, establishment_id, type, category_id,
-                    data_source_id, valid_after, valid_to, -- Changed
-                    edit_by_user_id, edit_at, edit_comment
-                )
-                VALUES (
-                    CASE WHEN v_job_mode = 'legal_unit' THEN sfi.legal_unit_id ELSE NULL END,
-                    CASE WHEN v_job_mode IN ('establishment_formal', 'establishment_informal') THEN sfi.establishment_id ELSE NULL END,
-                    v_activity_type, sfi.category_id,
-                    sfi.data_source_id, sfi.valid_after, sfi.valid_to, -- Changed
-                    sfi.edit_by_user_id, sfi.edit_at, sfi.edit_comment -- Use sfi.edit_comment
-                )
-            RETURNING act.id AS new_activity_id, sfi.data_row_id
-        )
-        INSERT INTO temp_created_acts (data_row_id, new_activity_id)
-        SELECT data_row_id, new_activity_id
-        FROM merged_activities;
-
-        GET DIAGNOSTICS v_inserted_new_act_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] process_activity: Inserted % new activities into temp_created_acts via MERGE (type: %).', p_job_id, v_inserted_new_act_count, v_activity_type;
-
-        IF v_inserted_new_act_count > 0 THEN
-            EXECUTE format($$
-                UPDATE public.%1$I dt SET
-                    %2$I = tca.new_activity_id,
-                    error = NULL,
-                    state = %3$L
-                FROM temp_created_acts tca
-                WHERE dt.row_id = tca.data_row_id AND dt.state != 'error';
-            $$, v_data_table_name /* %1$I */, v_final_id_col /* %2$I */, 'processing'::public.import_data_state /* %3$L */);
-            RAISE DEBUG '[Job %] process_activity: Updated _data table for % new activities (type: %).', p_job_id, v_inserted_new_act_count, v_activity_type;
-        END IF;
-
-        -- Propagate newly created activity_ids to other rows in temp_batch_data
-        -- belonging to the same logical entity (identified by founding_row_id and unit id).
-        IF v_inserted_new_act_count > 0 THEN
-            RAISE DEBUG '[Job %] process_activity: Propagating new activity_ids within temp_batch_data (type: %).', p_job_id, v_activity_type;
-            WITH new_entity_details AS (
-                SELECT
-                    tca.new_activity_id,
-                    tbd_founder.founding_row_id,
-                    tbd_founder.legal_unit_id,
-                    tbd_founder.establishment_id
-                FROM temp_created_acts tca
-                JOIN temp_batch_data tbd_founder ON tca.data_row_id = tbd_founder.data_row_id
-            )
-            UPDATE temp_batch_data tbd
-            SET existing_act_id = ned.new_activity_id
-            FROM new_entity_details ned
-            WHERE tbd.founding_row_id = ned.founding_row_id
-              AND tbd.existing_act_id IS NULL -- Only update if not already set
-              AND tbd.action IN ('replace', 'update'); -- Apply to subsequent actions for the same new entity
-            GET DIAGNOSTICS v_update_count = ROW_COUNT; -- Re-declare v_update_count or use a different local variable if needed for other counts
-            RAISE DEBUG '[Job %] process_activity: Propagated new activity_ids to % rows in temp_batch_data (type: %).', p_job_id, v_update_count, v_activity_type;
-        END IF;
-
-        -- Handle REPLACES for existing activities (action = 'replace' or 'update')
-        RAISE DEBUG '[Job %] process_activity: Handling REPLACE/UPDATE actions for existing activities (type: %) using strategy ''%''.', p_job_id, v_activity_type, v_strategy;
-        -- Create temp source table for batch upsert
-        CREATE TEMP TABLE temp_act_upsert_source (
-            row_id INTEGER PRIMARY KEY, -- Link back to original _data row
-            id INT, -- Target activity ID
-            valid_after DATE NOT NULL, -- Changed
-            valid_to DATE NOT NULL,
-            legal_unit_id INT,
-            establishment_id INT,
-            type public.activity_type,
-            category_id INT,
-            data_source_id INT,
-            edit_by_user_id INT,
-            edit_at TIMESTAMPTZ,
-            edit_comment TEXT
-        ) ON COMMIT DROP;
-
-        -- Populate temp source table (for 'replace' and 'update' actions)
-        INSERT INTO temp_act_upsert_source (
-            row_id, id, valid_after, valid_to, legal_unit_id, establishment_id, type, category_id, -- Changed valid_from to valid_after
-            data_source_id, edit_by_user_id, edit_at, edit_comment
-        )
-        SELECT
-            tbd.data_row_id, -- This becomes row_id in temp_act_upsert_source
-            tbd.existing_act_id,
-            tbd.valid_after, -- Changed
-            tbd.valid_to,
-            CASE WHEN v_job_mode = 'legal_unit' THEN tbd.legal_unit_id ELSE NULL END,
-            CASE WHEN v_job_mode IN ('establishment_formal', 'establishment_informal') THEN tbd.establishment_id ELSE NULL END,
-            v_activity_type,
-            tbd.category_id,
-            tbd.data_source_id,
-            tbd.edit_by_user_id,
-            tbd.edit_at,
-            tbd.edit_comment -- Use tbd.edit_comment
+        -- Stage 1: Handle INSERT actions for new activities
+        RAISE DEBUG '[Job %] process_activity: Handling INSERT actions for new activities (type: %).', p_job_id, v_activity_type;
+        INSERT INTO temp_act_insert_source (row_id, id, valid_after, valid_to, legal_unit_id, establishment_id, type, category_id, data_source_id, edit_by_user_id, edit_at, edit_comment)
+        SELECT tbd.data_row_id, tbd.existing_act_id, tbd.valid_after, tbd.valid_to,
+               CASE WHEN v_job_mode = 'legal_unit' THEN tbd.legal_unit_id ELSE NULL END,
+               CASE WHEN v_job_mode IN ('establishment_formal', 'establishment_informal') THEN tbd.establishment_id ELSE NULL END,
+               v_activity_type, tbd.category_id, tbd.data_source_id, tbd.edit_by_user_id, tbd.edit_at, tbd.edit_comment
         FROM temp_batch_data tbd
-        WHERE tbd.action IN ('replace', 'update'); 
+        WHERE (tbd.action = 'insert' OR (tbd.action IN ('replace', 'update') AND tbd.existing_act_id IS NULL)) -- This is a local INSERT
+        ORDER BY tbd.data_row_id;
+        GET DIAGNOSTICS v_inserted_new_act_count = ROW_COUNT;
 
-        GET DIAGNOSTICS v_updated_existing_act_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] process_activity: Populated temp_act_upsert_source with % rows for set-based upsert (type: %).', p_job_id, v_updated_existing_act_count, v_activity_type;
+        IF v_inserted_new_act_count > 0 THEN
+            v_batch_upsert_error_row_ids := ARRAY[]::INTEGER[];
+            DELETE FROM temp_created_acts;
 
-        IF v_updated_existing_act_count > 0 THEN
-            RAISE DEBUG '[Job %] process_activity: Calling temporal_merge for activity (type: %, strategy: %).', p_job_id, v_activity_type, v_strategy;
             FOR v_batch_upsert_result IN
                 SELECT * FROM import.temporal_merge(
-                    p_target_schema_name       => 'public',
-                    p_target_table_name        => 'activity',
-                    p_source_schema_name       => 'pg_temp',
-                    p_source_table_name        => 'temp_act_upsert_source',
-                    p_entity_id_column_names   => ARRAY['id'],
-                    p_mode                     => CASE v_strategy
-                                                      WHEN 'insert_or_replace' THEN 'upsert_replace'::import.set_operation_mode
-                                                      WHEN 'insert_or_update'  THEN 'upsert_patch'::import.set_operation_mode
-                                                      WHEN 'replace_only'      THEN 'replace_only'::import.set_operation_mode
-                                                      WHEN 'update_only'       THEN 'patch_only'::import.set_operation_mode
-                                                      WHEN 'insert_only'       THEN 'insert_only'::import.set_operation_mode
-                                                  END,
-                    p_source_row_ids           => NULL,
-                    p_ephemeral_columns        => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
+                    p_target_schema_name => 'public', p_target_table_name => 'activity', p_source_schema_name => 'pg_temp',
+                    p_source_table_name => 'temp_act_insert_source', p_entity_id_column_names => ARRAY['id'],
+                    p_mode => CASE v_strategy WHEN 'insert_or_replace' THEN 'upsert_replace'::import.set_operation_mode WHEN 'insert_or_update'  THEN 'upsert_patch'::import.set_operation_mode WHEN 'insert_only' THEN 'insert_only'::import.set_operation_mode ELSE 'upsert_replace'::import.set_operation_mode END,
+                    p_source_row_ids => NULL, p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
+                    p_insert_defaulted_columns => ARRAY['id']
+                )
+            LOOP
+                IF v_batch_upsert_result.status = 'ERROR' THEN v_batch_upsert_error_row_ids := array_append(v_batch_upsert_error_row_ids, v_batch_upsert_result.source_row_id);
+                ELSE INSERT INTO temp_created_acts (data_row_id, new_activity_id) VALUES (v_batch_upsert_result.source_row_id, ((v_batch_upsert_result.target_entity_ids[0]) ->> 'id')::INT); END IF;
+            END LOOP;
+
+            -- ID Propagation
+            UPDATE temp_batch_data tbd_target SET existing_act_id = tca.new_activity_id
+            FROM temp_created_acts tca
+            JOIN temp_batch_data tbd_source ON tca.data_row_id = tbd_source.data_row_id
+            WHERE tbd_target.founding_row_id = tbd_source.founding_row_id;
+        END IF;
+
+        -- Stage 2: Handle REPLACE and UPDATE actions
+        RAISE DEBUG '[Job %] process_activity: Handling REPLACE/UPDATE actions for existing activities (type: %).', p_job_id, v_activity_type;
+
+        INSERT INTO temp_act_upsert_source (row_id, id, valid_after, valid_to, legal_unit_id, establishment_id, type, category_id, data_source_id, edit_by_user_id, edit_at, edit_comment)
+        SELECT tbd.data_row_id, tbd.existing_act_id, tbd.valid_after, tbd.valid_to,
+               CASE WHEN v_job_mode = 'legal_unit' THEN tbd.legal_unit_id ELSE NULL END,
+               CASE WHEN v_job_mode IN ('establishment_formal', 'establishment_informal') THEN tbd.establishment_id ELSE NULL END,
+               v_activity_type, tbd.category_id, tbd.data_source_id, tbd.edit_by_user_id, tbd.edit_at, tbd.edit_comment
+        FROM temp_batch_data tbd
+        WHERE tbd.action IN ('replace', 'update') AND tbd.data_row_id NOT IN (SELECT row_id FROM temp_act_insert_source) -- This is a local UPDATE/REPLACE
+        ORDER BY tbd.data_row_id;
+        GET DIAGNOSTICS v_updated_existing_act_count = ROW_COUNT;
+
+        IF v_updated_existing_act_count > 0 THEN
+            v_batch_upsert_error_row_ids := ARRAY[]::INTEGER[];
+            DELETE FROM temp_processed_action_ids;
+
+            FOR v_batch_upsert_result IN
+                SELECT * FROM import.temporal_merge(
+                    p_target_schema_name => 'public', p_target_table_name => 'activity', p_source_schema_name => 'pg_temp',
+                    p_source_table_name => 'temp_act_upsert_source', p_entity_id_column_names => ARRAY['id'],
+                    p_mode => CASE v_strategy WHEN 'insert_or_replace' THEN 'replace_only'::import.set_operation_mode WHEN 'replace_only' THEN 'replace_only'::import.set_operation_mode WHEN 'insert_or_update'  THEN 'patch_only'::import.set_operation_mode WHEN 'update_only' THEN 'patch_only'::import.set_operation_mode ELSE 'replace_only'::import.set_operation_mode END,
+                    p_source_row_ids => NULL, p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
                 )
             LOOP
                 IF v_batch_upsert_result.status = 'ERROR' THEN
                     v_batch_upsert_error_row_ids := array_append(v_batch_upsert_error_row_ids, v_batch_upsert_result.source_row_id);
-                    EXECUTE format($$ UPDATE public.%1$I SET state = 'error', error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('set_based_upsert_activity_error', %2$L) WHERE row_id = %3$L; $$, v_data_table_name, v_batch_upsert_result.error_message, v_batch_upsert_result.source_row_id);
-                ELSE
-                    v_batch_upsert_success_row_ids := array_append(v_batch_upsert_success_row_ids, v_batch_upsert_result.source_row_id);
-                END IF;
+                ELSIF v_batch_upsert_result.status = 'SUCCESS' THEN
+                    INSERT INTO temp_processed_action_ids (data_row_id, actual_activity_id) VALUES (v_batch_upsert_result.source_row_id, ((v_batch_upsert_result.target_entity_ids[0]) ->> 'id')::INT);
+                END IF; -- MISSING_TARGET is ignored because we pre-emptively marked them as errors
             END LOOP;
-
-            v_error_count := array_length(v_batch_upsert_error_row_ids, 1);
-            RAISE DEBUG '[Job %] process_activity: Set-based upsert finished for type %. Success: %, Errors: %', p_job_id, v_activity_type, array_length(v_batch_upsert_success_row_ids, 1), v_error_count;
-
-            IF array_length(v_batch_upsert_success_row_ids, 1) > 0 THEN
-                v_sql := format($$
-                    UPDATE public.%1$I dt SET
-                        %2$I = tbd.existing_act_id, 
-                        error = NULL,
-                        state = %3$L
-                    FROM temp_batch_data tbd
-                    WHERE dt.row_id = tbd.data_row_id
-                      AND dt.row_id = ANY($1);
-                $$, v_data_table_name /* %1$I */, v_final_id_col /* %2$I */, 'processing'::public.import_data_state /* %3$L */);
-                RAISE DEBUG '[Job %] process_activity: Updating _data table for successful upsert rows (type: %): %', p_job_id, v_activity_type, v_sql;
-                EXECUTE v_sql USING v_batch_upsert_success_row_ids;
-            END IF;
         END IF;
-        IF to_regclass('pg_temp.temp_act_upsert_source') IS NOT NULL THEN DROP TABLE temp_act_upsert_source; END IF;
+
+        -- Finalization
+        INSERT INTO temp_processed_action_ids (data_row_id, actual_activity_id)
+        SELECT data_row_id, new_activity_id FROM temp_created_acts
+        ON CONFLICT (data_row_id) DO NOTHING;
+
+        v_update_count := (SELECT count(*) FROM temp_processed_action_ids);
+        v_error_count := v_error_count + array_length(v_batch_upsert_error_row_ids, 1);
+        SELECT array_agg(data_row_id) INTO v_batch_upsert_success_row_ids FROM temp_processed_action_ids;
+
+        IF v_update_count > 0 THEN
+             EXECUTE format($$
+                UPDATE public.%1$I dt SET
+                    %2$I = tpai.actual_activity_id,
+                    error = NULL,
+                    state = 'processed',
+                    last_completed_priority = %3$s
+                FROM temp_processed_action_ids tpai
+                WHERE dt.row_id = tpai.data_row_id AND dt.row_id = ANY($1);
+            $$, v_data_table_name, v_final_id_col, v_step.priority) USING v_batch_upsert_success_row_ids;
+        END IF;
 
     EXCEPTION WHEN OTHERS THEN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
-        RAISE WARNING '[Job %] process_activity: Error during set-based upsert operation for type %: %', p_job_id, v_activity_type, error_message;
-        UPDATE public.import_job
-        SET error = jsonb_build_object('process_activity_error', format('Error for type %s: %s', v_activity_type, error_message)),
-            state = 'finished'
-        WHERE id = p_job_id;
-        RAISE DEBUG '[Job %] process_activity: Marked job as failed due to error for type %: %', p_job_id, v_activity_type, error_message;
+        RAISE WARNING '[Job %] process_activity: Error during operation for type %: %', p_job_id, v_activity_type, error_message;
+        UPDATE public.import_job SET error = jsonb_build_object('process_activity_error', format('Error for type %s: %s', v_activity_type, error_message)), state = 'finished' WHERE id = p_job_id;
         RAISE;
     END;
 
@@ -512,9 +471,6 @@ BEGIN
 
     RAISE DEBUG '[Job %] process_activity (Batch): Finished. New: %, Replaced: %. Errors: %',
         p_job_id, v_inserted_new_act_count, v_updated_existing_act_count, v_error_count;
-
-    IF to_regclass('pg_temp.temp_batch_data') IS NOT NULL THEN DROP TABLE temp_batch_data; END IF;
-    IF to_regclass('pg_temp.temp_created_acts') IS NOT NULL THEN DROP TABLE temp_created_acts; END IF;
 END;
 $process_activity$;
 

@@ -115,12 +115,10 @@ CREATE TEMP TABLE temp_source_1 (
 ) ON COMMIT DROP;
 INSERT INTO temp_source_1 VALUES (1, 10, 100, '2024-04-01', '2024-08-31', 55, 'Corrected value for mid-year');
 
--- Note: Planner test omitted for brevity in composite key scenarios, focus is on orchestrator.
-
-\echo '--- Orchestrator: Expected Feedback ---'
-SELECT * FROM (VALUES (1, '[{"establishment_id": 100, "stat_definition_id": 10}]'::JSONB, 'SUCCESS'::import.set_result_status, NULL::TEXT)) AS t (source_row_id, target_entity_ids, status, error_message);
-\echo '--- Orchestrator: Actual Feedback ---'
-SELECT source_row_id, target_entity_ids, status, error_message FROM import.temporal_merge(
+-- Run the orchestrator and store its feedback
+CREATE TEMP TABLE actual_feedback_1 (LIKE import.temporal_merge_result) ON COMMIT DROP;
+INSERT INTO actual_feedback_1
+SELECT * FROM import.temporal_merge(
     p_target_schema_name       => 'set_test_merge_composite',
     p_target_table_name        => 'stat_for_unit',
     p_source_schema_name       => :'source_schema',
@@ -131,6 +129,22 @@ SELECT source_row_id, target_entity_ids, status, error_message FROM import.tempo
     p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
     p_insert_defaulted_columns => '{}'::TEXT[]
 );
+
+\echo '--- Planner: Expected Plan ---'
+SELECT * FROM (VALUES
+    (1, '{1}'::INT[], 'UPDATE'::import.plan_operation_type, '{"establishment_id": 100, "stat_definition_id": 10}'::JSONB, '2024-01-01'::DATE, '2024-01-01'::DATE, '2024-04-01'::DATE, '{"value": 50, "edit_comment": "Original Value"}'::JSONB, 'starts'::public.allen_interval_relation),
+    (2, '{1}'::INT[], 'INSERT'::import.plan_operation_type, '{"establishment_id": 100, "stat_definition_id": 10}'::JSONB, NULL::DATE,         '2024-04-01'::DATE, '2024-08-31'::DATE, '{"value": 55, "edit_comment": "Corrected value for mid-year"}'::JSONB,  NULL::public.allen_interval_relation),
+    (3, '{1}'::INT[], 'INSERT'::import.plan_operation_type, '{"establishment_id": 100, "stat_definition_id": 10}'::JSONB, NULL::DATE,         '2024-08-31'::DATE, '2024-12-31'::DATE, '{"value": 50, "edit_comment": "Original Value"}'::JSONB, NULL::public.allen_interval_relation)
+) AS t (plan_op_seq, source_row_ids, operation, entity_ids, old_valid_after, new_valid_after, new_valid_to, data, relation);
+
+\echo '--- Planner: Actual Plan (from Orchestrator) ---'
+SELECT plan_op_seq, source_row_ids, operation, entity_ids, old_valid_after, new_valid_after, new_valid_to, data, relation FROM __temp_last_temporal_merge_plan;
+
+\echo '--- Orchestrator: Expected Feedback ---'
+SELECT * FROM (VALUES (1, '[{"establishment_id": 100, "stat_definition_id": 10}]'::JSONB, 'SUCCESS'::import.set_result_status, NULL::TEXT)) AS t (source_row_id, target_entity_ids, status, error_message);
+
+\echo '--- Orchestrator: Actual Feedback ---'
+SELECT * FROM actual_feedback_1;
 
 \echo '--- Orchestrator: Expected Final State ---'
 SELECT * FROM (VALUES
@@ -155,10 +169,10 @@ CREATE TEMP TABLE temp_source_2 (
 -- Source has a NULL value for 'edit_comment'. In patch mode, this should NOT overwrite the existing value.
 INSERT INTO temp_source_2 VALUES (1, 10, 100, '2024-04-01', '2024-08-31', 55, NULL);
 
-\echo '--- Orchestrator: Expected Feedback ---'
-SELECT * FROM (VALUES (1, '[{"establishment_id": 100, "stat_definition_id": 10}]'::JSONB, 'SUCCESS'::import.set_result_status, NULL::TEXT)) AS t (source_row_id, target_entity_ids, status, error_message);
-\echo '--- Orchestrator: Actual Feedback ---'
-SELECT source_row_id, target_entity_ids, status, error_message FROM import.temporal_merge(
+-- Run the orchestrator and store its feedback
+CREATE TEMP TABLE actual_feedback_2 (LIKE import.temporal_merge_result) ON COMMIT DROP;
+INSERT INTO actual_feedback_2
+SELECT * FROM import.temporal_merge(
     p_target_schema_name       => 'set_test_merge_composite',
     p_target_table_name        => 'stat_for_unit',
     p_source_schema_name       => :'source_schema',
@@ -169,6 +183,22 @@ SELECT source_row_id, target_entity_ids, status, error_message FROM import.tempo
     p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
     p_insert_defaulted_columns => '{}'::TEXT[]
 );
+
+\echo '--- Planner: Expected Plan ---'
+SELECT * FROM (VALUES
+    (1, '{1}'::INT[], 'UPDATE'::import.plan_operation_type, '{"establishment_id": 100, "stat_definition_id": 10}'::JSONB, '2024-01-01'::DATE, '2024-01-01'::DATE, '2024-04-01'::DATE, '{"value": 50, "edit_comment": "Original Value"}'::JSONB, 'starts'::public.allen_interval_relation),
+    (2, '{1}'::INT[], 'INSERT'::import.plan_operation_type, '{"establishment_id": 100, "stat_definition_id": 10}'::JSONB, NULL::DATE,         '2024-04-01'::DATE, '2024-08-31'::DATE, '{"value": 55, "edit_comment": "Original Value"}'::JSONB,  NULL::public.allen_interval_relation),
+    (3, '{1}'::INT[], 'INSERT'::import.plan_operation_type, '{"establishment_id": 100, "stat_definition_id": 10}'::JSONB, NULL::DATE,         '2024-08-31'::DATE, '2024-12-31'::DATE, '{"value": 50, "edit_comment": "Original Value"}'::JSONB, NULL::public.allen_interval_relation)
+) AS t (plan_op_seq, source_row_ids, operation, entity_ids, old_valid_after, new_valid_after, new_valid_to, data, relation);
+
+\echo '--- Planner: Actual Plan (from Orchestrator) ---'
+SELECT plan_op_seq, source_row_ids, operation, entity_ids, old_valid_after, new_valid_after, new_valid_to, data, relation FROM __temp_last_temporal_merge_plan;
+
+\echo '--- Orchestrator: Expected Feedback ---'
+SELECT * FROM (VALUES (1, '[{"establishment_id": 100, "stat_definition_id": 10}]'::JSONB, 'SUCCESS'::import.set_result_status, NULL::TEXT)) AS t (source_row_id, target_entity_ids, status, error_message);
+
+\echo '--- Orchestrator: Actual Feedback ---'
+SELECT * FROM actual_feedback_2;
 
 \echo '--- Orchestrator: Expected Final State ---'
 SELECT * FROM (VALUES
@@ -193,10 +223,10 @@ CREATE TEMP TABLE temp_source_3 (
 ) ON COMMIT DROP;
 INSERT INTO temp_source_3 VALUES (1, 10, 100, '2024-04-01', '2024-08-31', 55, 'Corrected value for mid-year', 'some extra data');
 
-\echo '--- Orchestrator: Expected Feedback ---'
-SELECT * FROM (VALUES (1, '[{"establishment_id": 100, "stat_definition_id": 10}]'::JSONB, 'SUCCESS'::import.set_result_status, NULL::TEXT)) AS t (source_row_id, target_entity_ids, status, error_message);
-\echo '--- Orchestrator: Actual Feedback ---'
-SELECT source_row_id, target_entity_ids, status, error_message FROM import.temporal_merge(
+-- Run the orchestrator and store its feedback
+CREATE TEMP TABLE actual_feedback_3 (LIKE import.temporal_merge_result) ON COMMIT DROP;
+INSERT INTO actual_feedback_3
+SELECT * FROM import.temporal_merge(
     p_target_schema_name       => 'set_test_merge_composite',
     p_target_table_name        => 'stat_for_unit',
     p_source_schema_name       => :'source_schema',
@@ -207,6 +237,23 @@ SELECT source_row_id, target_entity_ids, status, error_message FROM import.tempo
     p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
     p_insert_defaulted_columns => '{}'::TEXT[]
 );
+
+\echo '--- Planner: Expected Plan ---'
+SELECT * FROM (VALUES
+    (1, '{1}'::INT[], 'UPDATE'::import.plan_operation_type, '{"establishment_id": 100, "stat_definition_id": 10}'::JSONB, '2024-01-01'::DATE, '2024-01-01'::DATE, '2024-04-01'::DATE, '{"value": 50, "edit_comment": "Original Value"}'::JSONB, 'starts'::public.allen_interval_relation),
+    (2, '{1}'::INT[], 'INSERT'::import.plan_operation_type, '{"establishment_id": 100, "stat_definition_id": 10}'::JSONB, NULL::DATE,         '2024-04-01'::DATE, '2024-08-31'::DATE, '{"value": 55, "edit_comment": "Corrected value for mid-year"}'::JSONB,  NULL::public.allen_interval_relation),
+    (3, '{1}'::INT[], 'INSERT'::import.plan_operation_type, '{"establishment_id": 100, "stat_definition_id": 10}'::JSONB, NULL::DATE,         '2024-08-31'::DATE, '2024-12-31'::DATE, '{"value": 50, "edit_comment": "Original Value"}'::JSONB, NULL::public.allen_interval_relation)
+) AS t (plan_op_seq, source_row_ids, operation, entity_ids, old_valid_after, new_valid_after, new_valid_to, data, relation);
+
+\echo '--- Planner: Actual Plan (from Orchestrator) ---'
+SELECT plan_op_seq, source_row_ids, operation, entity_ids, old_valid_after, new_valid_after, new_valid_to, data, relation FROM __temp_last_temporal_merge_plan;
+
+\echo '--- Orchestrator: Expected Feedback ---'
+SELECT * FROM (VALUES (1, '[{"establishment_id": 100, "stat_definition_id": 10}]'::JSONB, 'SUCCESS'::import.set_result_status, NULL::TEXT)) AS t (source_row_id, target_entity_ids, status, error_message);
+
+\echo '--- Orchestrator: Actual Feedback ---'
+SELECT * FROM actual_feedback_3;
+
 \echo '--- Orchestrator: Expected Final State ---'
 SELECT * FROM (VALUES
     (10, 100, '2024-01-01'::DATE, '2024-04-01'::DATE, 50::BIGINT, 'Original Value'::TEXT),
@@ -226,10 +273,10 @@ CREATE TEMP TABLE temp_source_4 (
 ) ON COMMIT DROP;
 INSERT INTO temp_source_4 VALUES (1, 10, 100, '2024-01-01', '2024-12-31', 100, 'Initial Value');
 
-\echo '--- Orchestrator: Expected Feedback ---'
-SELECT * FROM (VALUES (1, '[{"establishment_id": 100, "stat_definition_id": 10}]'::JSONB, 'SUCCESS'::import.set_result_status, NULL::TEXT)) AS t (source_row_id, target_entity_ids, status, error_message);
-\echo '--- Orchestrator: Actual Feedback ---'
-SELECT source_row_id, target_entity_ids, status, error_message FROM import.temporal_merge(
+-- Run the orchestrator and store its feedback
+CREATE TEMP TABLE actual_feedback_4 (LIKE import.temporal_merge_result) ON COMMIT DROP;
+INSERT INTO actual_feedback_4
+SELECT * FROM import.temporal_merge(
     p_target_schema_name       => 'set_test_merge_composite',
     p_target_table_name        => 'stat_for_unit_with_id',
     p_source_schema_name       => :'source_schema',
@@ -240,6 +287,21 @@ SELECT source_row_id, target_entity_ids, status, error_message FROM import.tempo
     p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
     p_insert_defaulted_columns => ARRAY['id']
 );
+
+\echo '--- Planner: Expected Plan ---'
+SELECT * FROM (VALUES
+    (1, '{1}'::INT[], 'INSERT'::import.plan_operation_type, '{"id": 1, "establishment_id": 100, "stat_definition_id": 10}'::JSONB, NULL::DATE, '2024-01-01'::DATE, '2024-12-31'::DATE, '{"value": 100, "edit_comment": "Initial Value"}'::JSONB, NULL::public.allen_interval_relation)
+) AS t (plan_op_seq, source_row_ids, operation, entity_ids, old_valid_after, new_valid_after, new_valid_to, data, relation);
+
+\echo '--- Planner: Actual Plan (from Orchestrator) ---'
+SELECT plan_op_seq, source_row_ids, operation, entity_ids, old_valid_after, new_valid_after, new_valid_to, data, relation FROM __temp_last_temporal_merge_plan;
+
+\echo '--- Orchestrator: Expected Feedback ---'
+SELECT * FROM (VALUES (1, '[{"id": 1, "establishment_id": 100, "stat_definition_id": 10}]'::JSONB, 'SUCCESS'::import.set_result_status, NULL::TEXT)) AS t (source_row_id, target_entity_ids, status, error_message);
+
+\echo '--- Orchestrator: Actual Feedback ---'
+SELECT * FROM actual_feedback_4;
+
 \echo '--- Orchestrator: Expected Final State ---'
 SELECT * FROM (VALUES
     (1, 10, 100, '2024-01-01'::DATE, '2024-12-31'::DATE, 100::BIGINT, 'Initial Value'::TEXT)
@@ -257,10 +319,10 @@ CREATE TEMP TABLE temp_source_5 (
 ) ON COMMIT DROP;
 INSERT INTO temp_source_5 VALUES (1, 10, 100, '2024-01-01', '2024-12-31', 100, 'Initial Value');
 
-\echo '--- Orchestrator: Expected Feedback ---'
-SELECT * FROM (VALUES (1, '[{"establishment_id": 100, "stat_definition_id": 10}]'::JSONB, 'SUCCESS'::import.set_result_status, NULL::TEXT)) AS t (source_row_id, target_entity_ids, status, error_message);
-\echo '--- Orchestrator: Actual Feedback ---'
-SELECT source_row_id, target_entity_ids, status, error_message FROM import.temporal_merge(
+-- Run the orchestrator and store its feedback
+CREATE TEMP TABLE actual_feedback_5 (LIKE import.temporal_merge_result) ON COMMIT DROP;
+INSERT INTO actual_feedback_5
+SELECT * FROM import.temporal_merge(
     p_target_schema_name       => 'set_test_merge_composite',
     p_target_table_name        => 'stat_for_unit_with_identity',
     p_source_schema_name       => :'source_schema',
@@ -271,6 +333,21 @@ SELECT source_row_id, target_entity_ids, status, error_message FROM import.tempo
     p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
     p_insert_defaulted_columns => ARRAY['id']
 );
+
+\echo '--- Planner: Expected Plan ---'
+SELECT * FROM (VALUES
+    (1, '{1}'::INT[], 'INSERT'::import.plan_operation_type, '{"id": 1, "establishment_id": 100, "stat_definition_id": 10}'::JSONB, NULL::DATE, '2024-01-01'::DATE, '2024-12-31'::DATE, '{"value": 100, "edit_comment": "Initial Value"}'::JSONB, NULL::public.allen_interval_relation)
+) AS t (plan_op_seq, source_row_ids, operation, entity_ids, old_valid_after, new_valid_after, new_valid_to, data, relation);
+
+\echo '--- Planner: Actual Plan (from Orchestrator) ---'
+SELECT plan_op_seq, source_row_ids, operation, entity_ids, old_valid_after, new_valid_after, new_valid_to, data, relation FROM __temp_last_temporal_merge_plan;
+
+\echo '--- Orchestrator: Expected Feedback ---'
+SELECT * FROM (VALUES (1, '[{"id": 1, "establishment_id": 100, "stat_definition_id": 10}]'::JSONB, 'SUCCESS'::import.set_result_status, NULL::TEXT)) AS t (source_row_id, target_entity_ids, status, error_message);
+
+\echo '--- Orchestrator: Actual Feedback ---'
+SELECT * FROM actual_feedback_5;
+
 \echo '--- Orchestrator: Expected Final State ---'
 SELECT * FROM (VALUES
     (1, 10, 100, '2024-01-01'::DATE, '2024-12-31'::DATE, 100::BIGINT, 'Initial Value'::TEXT)
@@ -287,10 +364,10 @@ CREATE TEMP TABLE temp_source_6 (
     row_id INT, stat_definition_id INT, establishment_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, value BIGINT, edit_comment TEXT
 ) ON COMMIT DROP;
 INSERT INTO temp_source_6 VALUES (104, 10, 100, '2023-12-31', '2024-12-31', 100, 'Initial stat');
-\echo '--- Orchestrator: Expected Feedback ---'
-SELECT * FROM (VALUES (104, '[{"establishment_id": 100, "stat_definition_id": 10}]'::JSONB, 'SUCCESS'::import.set_result_status, NULL::TEXT)) AS t (source_row_id, target_entity_ids, status, error_message);
-\echo '--- Orchestrator: Actual Feedback ---'
-SELECT source_row_id, target_entity_ids, status, error_message FROM import.temporal_merge(
+-- Run the orchestrator and store its feedback
+CREATE TEMP TABLE actual_feedback_6 (LIKE import.temporal_merge_result) ON COMMIT DROP;
+INSERT INTO actual_feedback_6
+SELECT * FROM import.temporal_merge(
     p_target_schema_name       => 'set_test_merge_composite',
     p_target_table_name        => 'stat_for_unit_with_id',
     p_source_schema_name       => 'pg_temp',
@@ -301,6 +378,21 @@ SELECT source_row_id, target_entity_ids, status, error_message FROM import.tempo
     p_ephemeral_columns        => '{edit_comment}'::TEXT[],
     p_insert_defaulted_columns => ARRAY['id']
 );
+
+\echo '--- Planner: Expected Plan ---'
+SELECT * FROM (VALUES
+    (1, '{104}'::INT[], 'INSERT'::import.plan_operation_type, '{"id": 1, "establishment_id": 100, "stat_definition_id": 10}'::JSONB, NULL::DATE, '2023-12-31'::DATE, '2024-12-31'::DATE, '{"value": 100, "edit_comment": "Initial stat"}'::JSONB, NULL::public.allen_interval_relation)
+) AS t (plan_op_seq, source_row_ids, operation, entity_ids, old_valid_after, new_valid_after, new_valid_to, data, relation);
+
+\echo '--- Planner: Actual Plan (from Orchestrator) ---'
+SELECT plan_op_seq, source_row_ids, operation, entity_ids, old_valid_after, new_valid_after, new_valid_to, data, relation FROM __temp_last_temporal_merge_plan;
+
+\echo '--- Orchestrator: Expected Feedback ---'
+SELECT * FROM (VALUES (104, '[{"id": 1, "establishment_id": 100, "stat_definition_id": 10}]'::JSONB, 'SUCCESS'::import.set_result_status, NULL::TEXT)) AS t (source_row_id, target_entity_ids, status, error_message);
+
+\echo '--- Orchestrator: Actual Feedback ---'
+SELECT * FROM actual_feedback_6;
+
 \echo '--- Orchestrator: Expected Final State ---'
 SELECT * FROM (VALUES
     (1, 10, 100, '2023-12-31'::DATE, '2024-12-31'::DATE, 100::BIGINT, 'Initial stat'::TEXT)
@@ -317,10 +409,10 @@ CREATE TEMP TABLE temp_source_7 (
     row_id INT, stat_definition_id INT, establishment_id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL, value BIGINT, edit_comment TEXT
 ) ON COMMIT DROP;
 INSERT INTO temp_source_7 VALUES (105, 10, 100, '2023-12-31', '2024-12-31', 100, 'Initial stat');
-\echo '--- Orchestrator: Expected Feedback ---'
-SELECT * FROM (VALUES (105, '[{"establishment_id": 100, "stat_definition_id": 10}]'::JSONB, 'SUCCESS'::import.set_result_status, NULL::TEXT)) AS t (source_row_id, target_entity_ids, status, error_message);
-\echo '--- Orchestrator: Actual Feedback ---'
-SELECT source_row_id, target_entity_ids, status, error_message FROM import.temporal_merge(
+-- Run the orchestrator and store its feedback
+CREATE TEMP TABLE actual_feedback_7 (LIKE import.temporal_merge_result) ON COMMIT DROP;
+INSERT INTO actual_feedback_7
+SELECT * FROM import.temporal_merge(
     p_target_schema_name       => 'set_test_merge_composite',
     p_target_table_name        => 'stat_for_unit_with_identity',
     p_source_schema_name       => 'pg_temp',
@@ -331,6 +423,21 @@ SELECT source_row_id, target_entity_ids, status, error_message FROM import.tempo
     p_ephemeral_columns        => '{edit_comment}'::TEXT[],
     p_insert_defaulted_columns => ARRAY['id']
 );
+
+\echo '--- Planner: Expected Plan ---'
+SELECT * FROM (VALUES
+    (1, '{105}'::INT[], 'INSERT'::import.plan_operation_type, '{"id": 1, "establishment_id": 100, "stat_definition_id": 10}'::JSONB, NULL::DATE, '2023-12-31'::DATE, '2024-12-31'::DATE, '{"value": 100, "edit_comment": "Initial stat"}'::JSONB, NULL::public.allen_interval_relation)
+) AS t (plan_op_seq, source_row_ids, operation, entity_ids, old_valid_after, new_valid_after, new_valid_to, data, relation);
+
+\echo '--- Planner: Actual Plan (from Orchestrator) ---'
+SELECT plan_op_seq, source_row_ids, operation, entity_ids, old_valid_after, new_valid_after, new_valid_to, data, relation FROM __temp_last_temporal_merge_plan;
+
+\echo '--- Orchestrator: Expected Feedback ---'
+SELECT * FROM (VALUES (105, '[{"id": 1, "establishment_id": 100, "stat_definition_id": 10}]'::JSONB, 'SUCCESS'::import.set_result_status, NULL::TEXT)) AS t (source_row_id, target_entity_ids, status, error_message);
+
+\echo '--- Orchestrator: Actual Feedback ---'
+SELECT * FROM actual_feedback_7;
+
 \echo '--- Orchestrator: Expected Final State ---'
 SELECT * FROM (VALUES
     (1, 10, 100, '2023-12-31'::DATE, '2024-12-31'::DATE, 100::BIGINT, 'Initial stat'::TEXT)
@@ -348,10 +455,10 @@ CREATE TEMP TABLE temp_source_8 (
 ) ON COMMIT DROP;
 INSERT INTO temp_source_8 VALUES (1, 10, 100, '2024-01-01', '2024-12-31', 100, 'Initial Value');
 
-\echo '--- Orchestrator: Expected Feedback ---'
-SELECT * FROM (VALUES (1, '[{"establishment_id": 100, "stat_definition_id": 10}]'::JSONB, 'SUCCESS'::import.set_result_status, NULL::TEXT)) AS t (source_row_id, target_entity_ids, status, error_message);
-\echo '--- Orchestrator: Actual Feedback ---'
-SELECT source_row_id, target_entity_ids, status, error_message FROM import.temporal_merge(
+-- Run the orchestrator and store its feedback
+CREATE TEMP TABLE actual_feedback_8 (LIKE import.temporal_merge_result) ON COMMIT DROP;
+INSERT INTO actual_feedback_8
+SELECT * FROM import.temporal_merge(
     p_target_schema_name       => 'set_test_merge_composite',
     p_target_table_name        => 'stat_for_unit_no_pk',
     p_source_schema_name       => :'source_schema',
@@ -362,6 +469,21 @@ SELECT source_row_id, target_entity_ids, status, error_message FROM import.tempo
     p_ephemeral_columns        => :'ephemeral_cols'::TEXT[],
     p_insert_defaulted_columns => ARRAY['id']
 );
+
+\echo '--- Planner: Expected Plan ---'
+SELECT * FROM (VALUES
+    (1, '{1}'::INT[], 'INSERT'::import.plan_operation_type, '{"id": 1, "establishment_id": 100, "stat_definition_id": 10}'::JSONB, NULL::DATE, '2024-01-01'::DATE, '2024-12-31'::DATE, '{"value": 100, "edit_comment": "Initial Value"}'::JSONB, NULL::public.allen_interval_relation)
+) AS t (plan_op_seq, source_row_ids, operation, entity_ids, old_valid_after, new_valid_after, new_valid_to, data, relation);
+
+\echo '--- Planner: Actual Plan (from Orchestrator) ---'
+SELECT plan_op_seq, source_row_ids, operation, entity_ids, old_valid_after, new_valid_after, new_valid_to, data, relation FROM __temp_last_temporal_merge_plan;
+
+\echo '--- Orchestrator: Expected Feedback ---'
+SELECT * FROM (VALUES (1, '[{"id": 1, "establishment_id": 100, "stat_definition_id": 10}]'::JSONB, 'SUCCESS'::import.set_result_status, NULL::TEXT)) AS t (source_row_id, target_entity_ids, status, error_message);
+
+\echo '--- Orchestrator: Actual Feedback ---'
+SELECT * FROM actual_feedback_8;
+
 \echo '--- Orchestrator: Expected Final State ---'
 SELECT * FROM (VALUES
     (1, 10, 100, '2024-01-01'::DATE, '2024-12-31'::DATE, 100::BIGINT, 'Initial Value'::TEXT)

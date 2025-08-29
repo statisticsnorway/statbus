@@ -29,12 +29,6 @@ DECLARE
     v_job_mode public.import_mode; -- Added to use v_job_mode
     v_cross_type_conflict_check_sql TEXT; -- For dynamic SQL based on job_mode
 BEGIN
-    -- Clean up any lingering temp tables from a previous failed run in this session,
-    -- using to_regclass to avoid noisy NOTICEs if the tables don't exist.
-    IF to_regclass('pg_temp.temp_relevant_rows') IS NOT NULL THEN DROP TABLE temp_relevant_rows; END IF;
-    IF to_regclass('pg_temp.temp_unpivoted_idents') IS NOT NULL THEN DROP TABLE temp_unpivoted_idents; END IF;
-    IF to_regclass('pg_temp.temp_batch_analysis') IS NOT NULL THEN DROP TABLE temp_batch_analysis; END IF;
-
     -- This is a HOLISTIC procedure. It is called once and processes all relevant rows for this step.
     -- The p_batch_row_ids parameter is ignored (it will be NULL).
     RAISE DEBUG '[Job %] analyse_external_idents (Holistic): Starting analysis.', p_job_id;
@@ -52,6 +46,7 @@ BEGIN
     END IF;
 
     -- Holistic execution: materialize relevant rows for this step to avoid giant in-memory arrays.
+    IF to_regclass('pg_temp.temp_relevant_rows') IS NOT NULL THEN DROP TABLE temp_relevant_rows; END IF;
     CREATE TEMP TABLE temp_relevant_rows (data_row_id INTEGER PRIMARY KEY) ON COMMIT DROP;
     EXECUTE format($$INSERT INTO temp_relevant_rows
                     SELECT row_id FROM public.%1$I
@@ -116,6 +111,7 @@ BEGIN
     RAISE DEBUG '[Job %] analyse_external_idents: Error keys to clear for this step: %', p_job_id, v_error_keys_to_clear_arr;
 
     -- Step 1: Unpivot provided identifiers and lookup existing units
+    IF to_regclass('pg_temp.temp_unpivoted_idents') IS NOT NULL THEN DROP TABLE temp_unpivoted_idents; END IF;
     CREATE TEMP TABLE temp_unpivoted_idents (
         data_row_id INTEGER,
         source_ident_code TEXT, -- The code/column name from the _data table e.g. 'tax_ident'
@@ -189,8 +185,6 @@ BEGIN
         EXECUTE v_sql;
         GET DIAGNOSTICS v_error_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_external_idents (Batch): Finished analysis for batch. Errors: % (all rows missing identifiers or mappings for external_idents step)', p_job_id, v_error_count;
-        IF to_regclass('pg_temp.temp_unpivoted_idents') IS NOT NULL THEN DROP TABLE temp_unpivoted_idents; END IF;
-        IF to_regclass('pg_temp.temp_relevant_rows') IS NOT NULL THEN DROP TABLE temp_relevant_rows; END IF;
         RETURN;
     END IF;
 
@@ -268,6 +262,7 @@ BEGIN
     END;
 
     -- Step 2: Identify and Aggregate Errors, Determine Operation and Action
+    IF to_regclass('pg_temp.temp_batch_analysis') IS NOT NULL THEN DROP TABLE temp_batch_analysis; END IF;
     CREATE TEMP TABLE temp_batch_analysis (
         data_row_id INTEGER PRIMARY KEY,
         error_jsonb JSONB,
@@ -509,17 +504,10 @@ BEGIN
     GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
     RAISE DEBUG '[Job %] analyse_external_idents: Updated last_completed_priority for % pre-skipped rows.', p_job_id, v_skipped_update_count;
 
-    IF to_regclass('pg_temp.temp_unpivoted_idents') IS NOT NULL THEN DROP TABLE temp_unpivoted_idents; END IF;
-    IF to_regclass('pg_temp.temp_batch_analysis') IS NOT NULL THEN DROP TABLE temp_batch_analysis; END IF;
-    IF to_regclass('pg_temp.temp_relevant_rows') IS NOT NULL THEN DROP TABLE temp_relevant_rows; END IF;
-
     RAISE DEBUG '[Job %] analyse_external_idents (Batch): Finished analysis for batch. Total errors in batch: %', p_job_id, v_error_count;
 
 EXCEPTION WHEN OTHERS THEN
     RAISE WARNING '[Job %] analyse_external_idents: Error during analysis: %', p_job_id, SQLERRM;
-    -- Ensure cleanup even on error
-    IF to_regclass('pg_temp.temp_unpivoted_idents') IS NOT NULL THEN DROP TABLE temp_unpivoted_idents; END IF;
-    IF to_regclass('pg_temp.temp_batch_analysis') IS NOT NULL THEN DROP TABLE temp_batch_analysis; END IF;
     -- Mark the job itself as failed
     UPDATE public.import_job
     SET error = jsonb_build_object('analyse_external_idents_error', SQLERRM),

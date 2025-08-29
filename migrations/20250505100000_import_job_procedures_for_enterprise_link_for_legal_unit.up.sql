@@ -62,7 +62,7 @@ BEGIN
     END IF;
 
     -- Create a temporary table to hold analysis results for 'replace' actions
-    -- Per user guidance, explicit DROP is at the end / exception, not at the beginning for multi-call-in-one-tx test scenario.
+    IF to_regclass('pg_temp.temp_enterprise_analysis_results') IS NOT NULL THEN DROP TABLE temp_enterprise_analysis_results; END IF;
     CREATE TEMP TABLE temp_enterprise_analysis_results (
         row_id INTEGER PRIMARY KEY,
         resolved_enterprise_id INT,
@@ -165,16 +165,11 @@ BEGIN
         WHERE id = p_job_id;
         RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Marked job as failed due to error: %', p_job_id, replace(error_message, '%', '%%');
         
-        -- Ensure cleanup on error
-        IF to_regclass('pg_temp.temp_enterprise_analysis_results') IS NOT NULL THEN DROP TABLE temp_enterprise_analysis_results; END IF;
         RAISE;
     END;
 
     -- Propagate errors to all rows of a new entity if one fails
     CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_row_ids, v_error_keys_to_clear_arr, 'analyse_enterprise_link_for_legal_unit');
-
-    -- Ensure cleanup on successful completion of this block
-    IF to_regclass('pg_temp.temp_enterprise_analysis_results') IS NOT NULL THEN DROP TABLE temp_enterprise_analysis_results; END IF;
 
     RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit (Batch): Finished analysis successfully.', p_job_id;
 END;
@@ -213,6 +208,7 @@ BEGIN
     END IF;
 
     -- Step 1: Identify rows needing enterprise creation (new LUs, action = 'insert')
+    IF to_regclass('pg_temp.temp_new_lu_for_enterprise_creation') IS NOT NULL THEN DROP TABLE temp_new_lu_for_enterprise_creation; END IF;
     CREATE TEMP TABLE temp_new_lu_for_enterprise_creation (
         data_row_id INTEGER PRIMARY KEY, -- This will be the founding_row_id for the new LU entity
         lu_name TEXT,
@@ -231,6 +227,7 @@ BEGIN
 
     -- Step 2: Create new enterprises for LUs in temp_new_lu_for_enterprise_creation and map them
     -- temp_created_enterprises.data_row_id will store the founding_row_id of the LU
+    IF to_regclass('pg_temp.temp_created_enterprises') IS NOT NULL THEN DROP TABLE temp_created_enterprises; END IF;
     CREATE TEMP TABLE temp_created_enterprises (
         data_row_id INTEGER PRIMARY KEY, -- Stores the founding_row_id of the LU
         enterprise_id INT NOT NULL
@@ -291,15 +288,9 @@ BEGIN
 
     RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit (Batch): Finished operation. Linked % LUs to enterprises (includes new and existing).', p_job_id, v_update_count; -- v_update_count here is from the last UPDATE (skipped rows)
 
-    IF to_regclass('pg_temp.temp_new_lu_for_enterprise_creation') IS NOT NULL THEN DROP TABLE temp_new_lu_for_enterprise_creation; END IF;
-    IF to_regclass('pg_temp.temp_created_enterprises') IS NOT NULL THEN DROP TABLE temp_created_enterprises; END IF;
-
 EXCEPTION WHEN OTHERS THEN
     GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
     RAISE WARNING '[Job %] process_enterprise_link_for_legal_unit: Unhandled error during operation: %', p_job_id, replace(error_message, '%', '%%');
-    -- Ensure cleanup even on unexpected error
-    IF to_regclass('pg_temp.temp_new_lu_for_enterprise_creation') IS NOT NULL THEN DROP TABLE temp_new_lu_for_enterprise_creation; END IF;
-    IF to_regclass('pg_temp.temp_created_enterprises') IS NOT NULL THEN DROP TABLE temp_created_enterprises; END IF;
     -- Update job error
     UPDATE public.import_job
     SET error = jsonb_build_object('process_enterprise_link_for_legal_unit_error', error_message),

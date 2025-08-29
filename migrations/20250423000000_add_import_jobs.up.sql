@@ -2211,7 +2211,7 @@ BEGIN
         BEGIN
             CALL admin.import_job_process_batch(job, v_batch_row_ids);
 
-            EXECUTE format($$UPDATE public.%1$I SET state = 'processed' WHERE row_id = ANY($1)$$,
+            EXECUTE format($$UPDATE public.%1$I SET state = 'processed' WHERE row_id = ANY($1) AND state = 'processing'$$,
                            job.data_table_name /* %1$I */) USING v_batch_row_ids;
             RAISE DEBUG '[Job %] Batch successfully processed. Marked % rows as processed.', job.id, array_length(v_batch_row_ids, 1);
         EXCEPTION WHEN OTHERS THEN

@@ -50,6 +50,7 @@ END $$;
 -- Defines the structure for a single operation in a temporal execution plan.
 DO $$ BEGIN
     CREATE TYPE import.temporal_plan_op AS (
+        plan_op_seq BIGINT,
         source_row_ids INTEGER[],
         operation import.plan_operation_type,
         entity_ids JSONB, -- A JSONB object representing the composite key, e.g. {"id": 1} or {"stat_definition_id": 1, "establishment_id": 101}
@@ -58,6 +59,18 @@ DO $$ BEGIN
         new_valid_to DATE,
         data JSONB,
         relation public.allen_interval_relation
+    );
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+
+-- Defines the structure for a temporal merge operation result.
+DO $$ BEGIN
+    CREATE TYPE import.temporal_merge_result AS (
+        source_row_id INTEGER,
+        target_entity_ids JSONB,
+        status import.set_result_status,
+        error_message TEXT
     );
 EXCEPTION
     WHEN duplicate_object THEN null;
@@ -89,6 +102,7 @@ DECLARE
     v_resolver_from TEXT;
     v_diff_join_condition TEXT;
     v_plan_source_row_ids_expr TEXT;
+    v_entity_id_check_is_null_expr TEXT;
 BEGIN
     -- Dynamically construct a jsonb object from the entity id columns to use as a single key for partitioning and joining.
     SELECT
@@ -119,7 +133,7 @@ BEGIN
     common_data_cols AS (
         SELECT s.attname
         FROM source_cols s JOIN target_cols t ON s.attname = t.attname
-        WHERE s.attname NOT IN ('row_id', 'valid_after', 'valid_to', 'era_id', 'era_name')
+        WHERE s.attname NOT IN ('row_id', 'valid_after', 'valid_to', 'valid_from', 'era_id', 'era_name')
           AND s.attname <> ALL(p_entity_id_column_names)
     )
     SELECT
@@ -132,6 +146,13 @@ BEGIN
     v_target_data_cols_jsonb_build := v_source_data_cols_jsonb_build; -- Both source and target use the same payload structure
     v_source_data_cols_jsonb_build := COALESCE(v_source_data_cols_jsonb_build, '''{}''::jsonb');
     v_target_data_cols_jsonb_build := COALESCE(v_target_data_cols_jsonb_build, '''{}''::jsonb');
+
+    -- Construct an expression to reliably check if all entity_id columns for a source row are NULL.
+    SELECT
+        string_agg(format('t.%I IS NULL', col), ' AND ')
+    INTO
+        v_entity_id_check_is_null_expr
+    FROM unnest(p_entity_id_column_names) AS col;
 
     -- 2. Construct expressions and resolver CTEs based on the mode.
     IF p_mode IN ('upsert_patch', 'patch_only') THEN
@@ -212,7 +233,8 @@ source_initial AS (
         %1$s as entity_id,
         t.valid_after,
         t.valid_to,
-        %2$s AS data_payload
+        %2$s AS data_payload,
+        %16$s as is_new_entity
     FROM %3$s.%4$s t
     WHERE (%5$L IS NULL OR t.row_id = ANY(%5$L))
       AND t.valid_after < t.valid_to
@@ -230,7 +252,13 @@ source_rows AS (
     -- Filter the initial source rows based on the operation mode.
     SELECT
         si.row_id as source_row_id,
-        si.entity_id,
+        -- If it's a new entity, synthesize a temporary unique ID by embedding the source_row_id,
+        -- so the planner can distinguish it from other new entities in the same batch.
+        CASE
+            WHEN si.is_new_entity
+            THEN si.entity_id || jsonb_build_object('__temp_planner_id', si.row_id)
+            ELSE si.entity_id
+        END as entity_id,
         si.valid_after,
         si.valid_to,
         si.data_payload
@@ -400,9 +428,10 @@ plan AS (
        OR d.f_to IS DISTINCT FROM d.t_to
 )
 SELECT
+    row_number() OVER (ORDER BY (SELECT 1))::BIGINT as plan_op_seq,
     p.source_row_ids,
     p.operation::text::import.plan_operation_type,
-    p.entity_id AS entity_ids,
+    p.entity_id - '__temp_planner_id' AS entity_ids, -- Remove the temporary planner ID before returning
     p.old_valid_after,
     p.new_valid_after,
     p.new_valid_to,
@@ -430,7 +459,8 @@ $SQL$,
         v_resolver_ctes,                -- 12
         v_resolver_from,                -- 13
         v_diff_join_condition,          -- 14
-        v_plan_source_row_ids_expr      -- 15
+        v_plan_source_row_ids_expr,     -- 15
+        v_entity_id_check_is_null_expr  -- 16
     );
 
     RETURN QUERY EXECUTE v_sql;
@@ -450,12 +480,7 @@ CREATE OR REPLACE FUNCTION import.temporal_merge(
     p_insert_defaulted_columns TEXT[] DEFAULT '{}',
     p_mode import.set_operation_mode DEFAULT 'upsert_patch'
 )
-RETURNS TABLE (
-    source_row_id INTEGER,
-    target_entity_ids JSONB,
-    status import.set_result_status,
-    error_message TEXT
-)
+RETURNS SETOF import.temporal_merge_result
 LANGUAGE plpgsql VOLATILE AS $temporal_merge$
 DECLARE
     v_target_table_ident TEXT := format('%I.%I', p_target_schema_name, p_target_table_name);
@@ -490,13 +515,14 @@ BEGIN
     INTO
         v_entity_key_join_clause
     FROM unnest(p_entity_id_column_names) AS col;
-    IF to_regclass('temp_plan') IS NOT NULL THEN
-        DROP TABLE temp_plan;
+    IF to_regclass('pg_temp.__temp_last_temporal_merge_plan') IS NOT NULL THEN
+        DROP TABLE __temp_last_temporal_merge_plan;
     END IF;
-    CREATE TEMP TABLE temp_plan (LIKE import.temporal_plan_op) ON COMMIT DROP;
+    CREATE TEMP TABLE __temp_last_temporal_merge_plan (LIKE import.temporal_plan_op) ON COMMIT DROP;
+    ALTER TABLE __temp_last_temporal_merge_plan ADD PRIMARY KEY (plan_op_seq);
 
     BEGIN
-        INSERT INTO temp_plan
+        INSERT INTO __temp_last_temporal_merge_plan
         SELECT * FROM import.temporal_merge_plan(
             p_target_schema_name, p_target_table_name,
             p_source_schema_name, p_source_table_name,
@@ -527,7 +553,7 @@ BEGIN
             common_data_cols AS (
                 SELECT s.attname
                 FROM source_cols s JOIN target_cols t ON s.attname = t.attname
-                WHERE s.attname NOT IN ('row_id', 'valid_after', 'valid_to', 'era_id', 'era_name')
+                WHERE s.attname NOT IN ('row_id', 'valid_after', 'valid_to', 'valid_from', 'era_id', 'era_name')
                   AND s.attname <> ALL(p_entity_id_column_names)
             ),
             all_available_cols AS (
@@ -553,65 +579,177 @@ BEGIN
         SET CONSTRAINTS ALL DEFERRED;
 
         -- INSERT -> UPDATE -> DELETE order is critical for sql_saga compatibility.
-        -- 1. Execute INSERT operations
+        -- 1. Execute INSERT operations and capture generated IDs
         IF v_all_cols_ident IS NOT NULL THEN
-             EXECUTE format($$ INSERT INTO %1$s (%2$s, valid_after, valid_to)
-                SELECT %3$s, p.new_valid_after, p.new_valid_to
-                FROM temp_plan p, LATERAL jsonb_populate_record(null::%1$s, p.entity_ids || p.data) AS jpr_all
-                WHERE p.operation = 'INSERT';
-            $$, v_target_table_ident, v_all_cols_ident, v_all_cols_select);
+             DECLARE
+                v_entity_id_update_jsonb_build TEXT;
+             BEGIN
+                -- Build the expression to construct the entity_ids feedback JSONB.
+                -- This should include the conceptual entity ID columns AND any surrogate key.
+                -- A simple and effective heuristic is to always include a column named 'id' if it exists on the target table.
+                WITH target_cols AS (
+                    SELECT pa.attname
+                    FROM pg_catalog.pg_attribute pa
+                    WHERE pa.attrelid = v_target_table_ident::regclass
+                      AND pa.attnum > 0 AND NOT pa.attisdropped
+                ),
+                feedback_id_cols AS (
+                    SELECT unnest(p_entity_id_column_names) as col
+                    UNION
+                    SELECT 'id'
+                    WHERE 'id' IN (SELECT attname FROM target_cols)
+                )
+                SELECT
+                    format('jsonb_build_object(%s)', string_agg(format('%L, ir.%I', col, col), ', '))
+                INTO
+                    v_entity_id_update_jsonb_build
+                FROM feedback_id_cols;
+
+                EXECUTE format($$
+                    WITH
+                    inserts_with_rn AS (
+                        SELECT
+                            p.plan_op_seq,
+                            p.new_valid_after,
+                            p.new_valid_to,
+                            p.entity_ids || p.data as full_data,
+                            row_number() OVER (ORDER BY p.plan_op_seq) as rn
+                        FROM __temp_last_temporal_merge_plan p
+                        WHERE p.operation = 'INSERT'
+                    ),
+                    inserted_rows AS (
+                        INSERT INTO %1$s (%2$s, valid_after, valid_to)
+                        SELECT %3$s, i.new_valid_after, i.new_valid_to
+                        FROM inserts_with_rn i, LATERAL jsonb_populate_record(null::%1$s, i.full_data) as jpr_all
+                        ORDER BY i.rn
+                        RETURNING *
+                    ),
+                    inserted_rows_with_rn AS (
+                        SELECT *, row_number() OVER () as rn
+                        FROM inserted_rows
+                    )
+                    UPDATE __temp_last_temporal_merge_plan p
+                    SET entity_ids = %4$s
+                    FROM inserts_with_rn i
+                    JOIN inserted_rows_with_rn ir ON i.rn = ir.rn
+                    WHERE p.plan_op_seq = i.plan_op_seq;
+                $$,
+                    v_target_table_ident,
+                    v_all_cols_ident,
+                    v_all_cols_select,
+                    v_entity_id_update_jsonb_build
+                );
+             END;
         ELSE
-             EXECUTE format($$ INSERT INTO %1$s (valid_after, valid_to)
-                SELECT p.new_valid_after, p.new_valid_to FROM temp_plan p WHERE p.operation = 'INSERT';
-            $$, v_target_table_ident);
+            -- This case handles tables with only temporal and defaulted ID columns.
+             DECLARE
+                v_entity_id_update_jsonb_build TEXT;
+             BEGIN
+                -- Build the expression to construct the entity_ids feedback JSONB.
+                -- This should include the conceptual entity ID columns AND any surrogate key.
+                -- A simple and effective heuristic is to always include a column named 'id' if it exists on the target table.
+                WITH target_cols AS (
+                    SELECT pa.attname
+                    FROM pg_catalog.pg_attribute pa
+                    WHERE pa.attrelid = v_target_table_ident::regclass
+                      AND pa.attnum > 0 AND NOT pa.attisdropped
+                ),
+                feedback_id_cols AS (
+                    SELECT unnest(p_entity_id_column_names) as col
+                    UNION
+                    SELECT 'id'
+                    WHERE 'id' IN (SELECT attname FROM target_cols)
+                )
+                SELECT
+                    format('jsonb_build_object(%s)', string_agg(format('%L, ir.%I', col, col), ', '))
+                INTO
+                    v_entity_id_update_jsonb_build
+                FROM feedback_id_cols;
+
+                EXECUTE format($$
+                    WITH
+                    inserts_with_rn AS (
+                        SELECT
+                            p.plan_op_seq,
+                            p.new_valid_after,
+                            p.new_valid_to,
+                            row_number() OVER (ORDER BY p.plan_op_seq) as rn
+                        FROM __temp_last_temporal_merge_plan p
+                        WHERE p.operation = 'INSERT'
+                    ),
+                    inserted_rows AS (
+                        INSERT INTO %1$s (valid_after, valid_to)
+                        SELECT i.new_valid_after, i.new_valid_to
+                        FROM inserts_with_rn i
+                        ORDER BY i.rn
+                        RETURNING *
+                    ),
+                    inserted_rows_with_rn AS (
+                        SELECT *, row_number() OVER () as rn
+                        FROM inserted_rows
+                    )
+                    UPDATE __temp_last_temporal_merge_plan p
+                    SET entity_ids = %2$s
+                    FROM inserts_with_rn i
+                    JOIN inserted_rows_with_rn ir ON i.rn = ir.rn
+                    WHERE p.plan_op_seq = i.plan_op_seq;
+                $$,
+                    v_target_table_ident,
+                    v_entity_id_update_jsonb_build
+                );
+             END;
         END IF;
 
         -- 2. Execute UPDATE operations
         IF v_update_set_clause IS NOT NULL THEN
             EXECUTE format($$ UPDATE %1$s t SET valid_after = p.new_valid_after, valid_to = p.new_valid_to, %2$s
-                FROM temp_plan p,
+                FROM __temp_last_temporal_merge_plan p,
                      LATERAL jsonb_populate_record(null::%1$s, p.data) AS jpr_data,
                      LATERAL jsonb_populate_record(null::%1$s, p.entity_ids) AS jpr_entity
                 WHERE p.operation = 'UPDATE' AND %3$s AND t.valid_after = p.old_valid_after;
             $$, v_target_table_ident, v_update_set_clause, v_entity_key_join_clause);
         ELSE
             EXECUTE format($$ UPDATE %1$s t SET valid_after = p.new_valid_after, valid_to = p.new_valid_to
-                FROM temp_plan p, LATERAL jsonb_populate_record(null::%1$s, p.entity_ids) AS jpr_entity
+                FROM __temp_last_temporal_merge_plan p, LATERAL jsonb_populate_record(null::%1$s, p.entity_ids) AS jpr_entity
                 WHERE p.operation = 'UPDATE' AND %2$s AND t.valid_after = p.old_valid_after;
             $$, v_target_table_ident, v_entity_key_join_clause);
         END IF;
 
         -- 3. Execute DELETE operations
         EXECUTE format($$ DELETE FROM %1$s t
-            USING temp_plan p, LATERAL jsonb_populate_record(null::%1$s, p.entity_ids) AS jpr_entity
+            USING __temp_last_temporal_merge_plan p, LATERAL jsonb_populate_record(null::%1$s, p.entity_ids) AS jpr_entity
             WHERE p.operation = 'DELETE' AND %2$s AND t.valid_after = p.old_valid_after;
         $$, v_target_table_ident, v_entity_key_join_clause);
 
         SET CONSTRAINTS ALL IMMEDIATE;
     EXCEPTION WHEN OTHERS THEN
-        IF to_regclass('temp_plan') IS NOT NULL THEN DROP TABLE temp_plan; END IF;
+        IF to_regclass('pg_temp.__temp_last_temporal_merge_plan') IS NOT NULL THEN DROP TABLE __temp_last_temporal_merge_plan; END IF;
         RETURN QUERY
             SELECT r.row_id, '[]'::JSONB, 'ERROR'::import.set_result_status, SQLERRM
             FROM unnest(COALESCE(v_all_source_row_ids, ARRAY[]::INTEGER[])) AS r(row_id);
         RETURN;
     END;
 
+    -- 4. Generate and return feedback
     RETURN QUERY
         SELECT
-            s.row_id as source_row_id,
-            jsonb_agg(DISTINCT p.entity_ids) FILTER (WHERE p.entity_ids IS NOT NULL) AS target_entity_ids,
-            'SUCCESS'::import.set_result_status,
-            NULL::TEXT
-        FROM temp_plan p, unnest(p.source_row_ids) AS s(row_id)
-        GROUP BY s.row_id
-        UNION ALL
-        SELECT
-            r.row_id,
-            '[]'::jsonb,
-            'MISSING_TARGET'::import.set_result_status,
-            NULL::TEXT
-        FROM unnest(COALESCE(v_all_source_row_ids, ARRAY[]::INTEGER[])) AS r(row_id)
-        WHERE NOT EXISTS (SELECT 1 FROM temp_plan p, unnest(p.source_row_ids) s(id) WHERE s.id = r.row_id);
+            s.row_id AS source_row_id,
+            COALESCE(jsonb_agg(DISTINCT p_unnested.entity_ids) FILTER (WHERE p_unnested.entity_ids IS NOT NULL), '[]'::jsonb) AS target_entity_ids,
+            CASE
+                WHEN bool_and(p_unnested.plan_op_seq IS NOT NULL) THEN 'SUCCESS'::import.set_result_status
+                ELSE 'MISSING_TARGET'::import.set_result_status
+            END AS status,
+            NULL::TEXT AS error_message
+        FROM
+            (SELECT unnest(v_all_source_row_ids) as row_id) s
+        LEFT JOIN (
+            SELECT unnest(p.source_row_ids) as source_row_id, p.plan_op_seq, p.entity_ids
+            FROM __temp_last_temporal_merge_plan p
+        ) p_unnested ON s.row_id = p_unnested.source_row_id
+        GROUP BY
+            s.row_id
+        ORDER BY
+            s.row_id;
 END;
 $temporal_merge$;
 

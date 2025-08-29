@@ -54,6 +54,9 @@ SELECT
 \echo "User uploads the legal units (via import job: import_35_lu_era_status)"
 \copy public.import_35_lu_era_status_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code,status_code) FROM 'test/data/35_norwegian-legal-units-with-status.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
+\echo "Run worker processing for the Legal Unit import job"
+CALL worker.process_tasks(p_queue => 'import');
+
 -- Create Import Job for Establishments with Status
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
 SELECT
@@ -65,7 +68,7 @@ SELECT
 \echo "User uploads the establishments (via import job: import_35_esflu_era_status)"
 \copy public.import_35_esflu_era_status_upload(valid_from, valid_to, tax_ident,legal_unit_tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,employees,turnover,status_code) FROM 'test/data/35_norwegian-establishments-with-status.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
-\echo Run worker processing for import jobs
+\echo "Run worker processing for the Establishment import job"
 CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
@@ -73,6 +76,11 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error
 FROM public.import_job
 WHERE slug LIKE 'import_35_%' ORDER BY slug;
+
+\echo "Checking establishment import data table for errors"
+SELECT row_id, state, action, error, invalid_codes, tax_ident, name
+FROM public.import_35_esflu_era_status_data
+ORDER BY row_id;
 
 \echo Run worker processing for analytics tasks
 CALL worker.process_tasks(p_queue => 'analytics');

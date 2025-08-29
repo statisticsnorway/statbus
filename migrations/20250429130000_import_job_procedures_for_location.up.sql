@@ -395,12 +395,15 @@ DECLARE
     v_batch_upsert_success_row_ids INTEGER[] := ARRAY[]::INTEGER[];
     v_final_id_col TEXT;
     v_row RECORD; -- For debugging loop
+    v_error_jsonb JSONB;
 BEGIN
     RAISE DEBUG '[Job %] process_location (Batch) for step_code %: Starting operation for % rows', p_job_id, p_step_code, array_length(p_batch_row_ids, 1);
 
     SELECT * INTO v_job FROM public.import_job ij WHERE id = p_job_id;
     v_data_table_name := v_job.data_table_name;
     SELECT * INTO v_definition FROM jsonb_populate_record(NULL::public.import_definition, v_job.definition_snapshot->'import_definition');
+
+    v_job_mode := v_definition.mode;
 
     IF v_definition IS NULL THEN
         RAISE EXCEPTION '[Job %] Failed to load valid import_definition object from definition_snapshot', p_job_id;
@@ -478,6 +481,7 @@ BEGIN
         RAISE DEBUG '[Job %] process_location: Marked % rows as skipped due to missing parent unit ID.', p_job_id, v_parent_check_update_count;
     END IF;
 
+    IF to_regclass('pg_temp.temp_batch_data') IS NOT NULL THEN DROP TABLE temp_batch_data; END IF;
     CREATE TEMP TABLE temp_batch_data (
         data_row_id INTEGER PRIMARY KEY,
         founding_row_id INTEGER, -- Added to link rows of the same logical entity
@@ -534,241 +538,170 @@ BEGIN
     RAISE DEBUG '[Job %] process_location: Fetching batch data for type %: %', p_job_id, v_location_type, v_sql;
     EXECUTE v_sql USING p_batch_row_ids;
 
-    -- Debug: Log content of temp_batch_data
-    FOR v_row IN SELECT * FROM temp_batch_data LOOP
-        RAISE DEBUG '[Job %] process_location: temp_batch_data content for data_row_id %: FRID:% LU_ID:%, EST_ID:%, ExLocID:% VF:% VT:% Action:% Addr1:% Postcode:%',
-            p_job_id, v_row.data_row_id, v_row.founding_row_id, v_row.legal_unit_id, v_row.establishment_id, v_row.existing_loc_id, v_row.valid_from, v_row.valid_to, v_row.action, v_row.address_part1, v_row.postcode;
-    END LOOP;
-
     -- Step 2: Determine existing_loc_id for entities that pre-exist in public.location
     -- This updates temp_batch_data.existing_loc_id for all rows matching a unit.
     -- It uses a CTE to first find the location ID based on the direct parent ID (for existing units)
     -- and then uses founding_row_id to propagate that location ID to all other rows of that same unit within the batch.
     v_sql := format($$
-        WITH found_locs AS (
-            SELECT DISTINCT
-                COALESCE(tbd.founding_row_id, tbd.data_row_id) AS representative_row_id,
-                loc.id AS loc_id
-            FROM temp_batch_data tbd
-            JOIN public.location loc ON loc.type = %1$L AND
-                (
-                    (%2$L = 'legal_unit' AND loc.legal_unit_id = tbd.legal_unit_id AND tbd.legal_unit_id IS NOT NULL) OR
-                    (%2$L IN ('establishment_formal', 'establishment_informal') AND loc.establishment_id = tbd.establishment_id AND tbd.establishment_id IS NOT NULL)
-                )
-        )
         UPDATE temp_batch_data tbd
-        SET existing_loc_id = fl.loc_id
-        FROM found_locs fl
-        WHERE COALESCE(tbd.founding_row_id, tbd.data_row_id) = fl.representative_row_id;
+        SET existing_loc_id = (
+            SELECT l.id
+            FROM public.location l
+            WHERE l.type = %1$L
+              AND CASE
+                    WHEN %2$L = 'legal_unit' THEN l.legal_unit_id = tbd.legal_unit_id AND l.establishment_id IS NULL
+                    WHEN %2$L IN ('establishment_formal', 'establishment_informal') THEN l.establishment_id = tbd.establishment_id AND l.legal_unit_id IS NULL
+                    ELSE FALSE
+                  END
+            LIMIT 1
+        );
     $$, v_location_type, v_job_mode);
     RAISE DEBUG '[Job %] process_location: Determining existing IDs (mode: %): %', p_job_id, v_job_mode, v_sql;
     EXECUTE v_sql;
 
     -- Temp table to store newly created location_ids and their original data_row_id
+    IF to_regclass('pg_temp.temp_created_locs') IS NOT NULL THEN DROP TABLE temp_created_locs; END IF;
     CREATE TEMP TABLE temp_created_locs (
         data_row_id INTEGER PRIMARY KEY,
         new_location_id INT NOT NULL
     ) ON COMMIT DROP;
 
+    -- Temp table for INSERT action
+    IF to_regclass('pg_temp.temp_loc_insert_source') IS NOT NULL THEN DROP TABLE temp_loc_insert_source; END IF;
+    CREATE TEMP TABLE temp_loc_insert_source (
+        row_id INTEGER PRIMARY KEY, id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL,
+        legal_unit_id INT, establishment_id INT, type public.location_type,
+        address_part1 TEXT, address_part2 TEXT, address_part3 TEXT,
+        postcode TEXT, postplace TEXT, region_id INT, country_id INT,
+        latitude NUMERIC, longitude NUMERIC, altitude NUMERIC,
+        data_source_id INT, edit_by_user_id INT, edit_at TIMESTAMPTZ, edit_comment TEXT
+    ) ON COMMIT DROP;
+
+    -- Temp table for UPDATE/REPLACE action
+    IF to_regclass('pg_temp.temp_loc_upsert_source') IS NOT NULL THEN DROP TABLE temp_loc_upsert_source; END IF;
+    CREATE TEMP TABLE temp_loc_upsert_source (
+        row_id INTEGER PRIMARY KEY, id INT, valid_after DATE NOT NULL, valid_to DATE NOT NULL,
+        legal_unit_id INT, establishment_id INT, type public.location_type,
+        address_part1 TEXT, address_part2 TEXT, address_part3 TEXT,
+        postcode TEXT, postplace TEXT, region_id INT, country_id INT,
+        latitude NUMERIC, longitude NUMERIC, altitude NUMERIC,
+        data_source_id INT, edit_by_user_id INT, edit_at TIMESTAMPTZ, edit_comment TEXT
+    ) ON COMMIT DROP;
+
+    -- Temp table to gather all processed IDs
+    IF to_regclass('pg_temp.temp_processed_action_ids') IS NOT NULL THEN DROP TABLE temp_processed_action_ids; END IF;
+    CREATE TEMP TABLE temp_processed_action_ids (
+        data_row_id INTEGER PRIMARY KEY,
+        actual_location_id INT NOT NULL
+    ) ON COMMIT DROP;
+
+
     BEGIN
-        -- Handle INSERTs for new locations (action = 'insert') using MERGE
-        RAISE DEBUG '[Job %] process_location: Handling INSERTS for new locations (type: %) using MERGE.', p_job_id, v_location_type;
-
-        WITH source_for_insert AS (
-            SELECT
-                tbd.data_row_id, tbd.legal_unit_id, tbd.establishment_id, tbd.valid_after, tbd.valid_from, tbd.valid_to, tbd.data_source_id, -- Added valid_after
-                tbd.edit_by_user_id, tbd.edit_at, tbd.edit_comment,
-                tbd.address_part1, tbd.address_part2, tbd.address_part3, tbd.postcode, tbd.postplace,
-                tbd.region_id, tbd.country_id, tbd.latitude, tbd.longitude, tbd.altitude
-            FROM temp_batch_data tbd
-            WHERE tbd.action = 'insert' AND tbd.existing_loc_id IS NULL -- Only insert if no existing location ID was found
-            AND (tbd.region_id IS NOT NULL OR tbd.country_id IS NOT NULL OR tbd.address_part1 IS NOT NULL OR tbd.postcode IS NOT NULL) -- Ensure some actual location data exists
-        ),
-        merged_locations AS (
-            MERGE INTO public.location loc
-            USING source_for_insert sfi
-            ON 1 = 0 -- Always false to force INSERT for all rows from sfi
-            WHEN NOT MATCHED THEN
-                INSERT (
-                    legal_unit_id, establishment_id, type,
-                    address_part1, address_part2, address_part3, postcode, postplace,
-                    region_id, country_id, latitude, longitude, altitude,
-                    data_source_id, valid_after, valid_to, -- Changed
-                    edit_by_user_id, edit_at, edit_comment
-                )
-                VALUES (
-                    CASE WHEN v_job_mode = 'legal_unit' THEN sfi.legal_unit_id ELSE NULL END,
-                    CASE WHEN v_job_mode IN ('establishment_formal', 'establishment_informal') THEN sfi.establishment_id ELSE NULL END,
-                    v_location_type,
-                    sfi.address_part1, sfi.address_part2, sfi.address_part3, sfi.postcode, sfi.postplace,
-                    sfi.region_id, sfi.country_id, sfi.latitude, sfi.longitude, sfi.altitude,
-                    sfi.data_source_id, sfi.valid_after, sfi.valid_to, -- Changed
-                    sfi.edit_by_user_id, sfi.edit_at, sfi.edit_comment -- Use sfi.edit_comment
-                )
-            RETURNING loc.id AS new_location_id, sfi.data_row_id AS data_row_id
-        )
-        INSERT INTO temp_created_locs (data_row_id, new_location_id)
-        SELECT ml.data_row_id, ml.new_location_id
-        FROM merged_locations ml;
-
-        GET DIAGNOSTICS v_inserted_new_loc_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] process_location: Inserted % new locations into temp_created_locs via MERGE (type: %).', p_job_id, v_inserted_new_loc_count, v_location_type;
-
-        IF v_inserted_new_loc_count > 0 THEN
-            EXECUTE format($$
-                UPDATE public.%1$I dt SET
-                    %2$I = tcl.new_location_id,
-                    error = NULL,
-                    state = %3$L
-                FROM temp_created_locs tcl
-                WHERE dt.row_id = tcl.data_row_id AND dt.state != 'error';
-            $$, v_data_table_name /* %1$I */, v_final_id_col /* %2$I */, 'processing'::public.import_data_state /* %3$L */);
-            RAISE DEBUG '[Job %] process_location: Updated _data table for % new locations (type: %).', p_job_id, v_inserted_new_loc_count, v_location_type;
-        END IF;
-
-        -- Step 4: Propagate newly created location_ids to other rows in temp_batch_data
-        -- belonging to the same logical entity (identified by founding_row_id and unit id).
-        -- This ensures that 'replace' actions for newly created entities use the correct location_id.
-        IF v_inserted_new_loc_count > 0 THEN
-            RAISE DEBUG '[Job %] process_location: Propagating new location_ids within temp_batch_data (type: %).', p_job_id, v_location_type;
-            WITH new_entity_details AS (
-                SELECT
-                    tcl.new_location_id,
-                    tbd_founder.founding_row_id,
-                    tbd_founder.legal_unit_id,
-                    tbd_founder.establishment_id
-                FROM temp_created_locs tcl
-                JOIN temp_batch_data tbd_founder ON tcl.data_row_id = tbd_founder.data_row_id -- tbd_founder is the row that caused the insert
-            )
-            UPDATE temp_batch_data tbd -- tbd are the rows to be updated
-            SET existing_loc_id = ned.new_location_id
-            FROM new_entity_details ned
-            WHERE tbd.founding_row_id = ned.founding_row_id
-              AND tbd.existing_loc_id IS NULL -- Only update if not already set
-              AND tbd.action IN ('replace', 'update'); -- Apply to subsequent actions for the same new entity
-            GET DIAGNOSTICS v_update_count = ROW_COUNT;
-            RAISE DEBUG '[Job %] process_location: Propagated new location_ids to % rows in temp_batch_data (type: %).', p_job_id, v_update_count, v_location_type;
-        END IF;
-
-        -- Handle REPLACES for existing locations (action = 'replace' or 'update')
-        RAISE DEBUG '[Job %] process_location: Handling REPLACE/UPDATE actions for existing locations (type: %) using strategy ''%''.', p_job_id, v_location_type, v_strategy;
-        -- Create temp source table for batch upsert
-        CREATE TEMP TABLE temp_loc_upsert_source (
-            row_id INTEGER PRIMARY KEY,
-            id INT,
-            valid_after DATE NOT NULL, -- Changed
-            valid_to DATE NOT NULL,
-            legal_unit_id INT,
-            establishment_id INT,
-            type public.location_type,
-            address_part1 TEXT, address_part2 TEXT, address_part3 TEXT,
-            postcode TEXT, postplace TEXT, region_id INT, country_id INT,
-            latitude NUMERIC, longitude NUMERIC, altitude NUMERIC,
-            data_source_id INT,
-            edit_by_user_id INT,
-            edit_at TIMESTAMPTZ,
-            edit_comment TEXT
-        ) ON COMMIT DROP;
-
-        INSERT INTO temp_loc_upsert_source (
-            row_id, id, valid_after, valid_to, legal_unit_id, establishment_id, type, -- Changed valid_from to valid_after
-            address_part1, address_part2, address_part3, postcode, postplace, region_id, country_id,
-            latitude, longitude, altitude, data_source_id, edit_by_user_id, edit_at, edit_comment
-        )
-        SELECT
-            tbd.data_row_id, -- This becomes row_id in temp_loc_upsert_source
-            tbd.existing_loc_id,
-            tbd.valid_after, -- Changed
-            tbd.valid_to,
-            CASE WHEN v_job_mode = 'legal_unit' THEN tbd.legal_unit_id ELSE NULL END,
-            CASE WHEN v_job_mode IN ('establishment_formal', 'establishment_informal') THEN tbd.establishment_id ELSE NULL END,
-            v_location_type,
-            tbd.address_part1, tbd.address_part2, tbd.address_part3, tbd.postcode, tbd.postplace,
-            tbd.region_id, tbd.country_id, tbd.latitude, tbd.longitude, tbd.altitude,
-            tbd.data_source_id, tbd.edit_by_user_id, tbd.edit_at,
-            tbd.edit_comment
+        -- Stage 1: Handle INSERT actions for new locations
+        RAISE DEBUG '[Job %] process_location: Handling INSERT actions for new locations (type: %).', p_job_id, v_location_type;
+        INSERT INTO temp_loc_insert_source (row_id, id, valid_after, valid_to, legal_unit_id, establishment_id, type, address_part1, address_part2, address_part3, postcode, postplace, region_id, country_id, latitude, longitude, altitude, data_source_id, edit_by_user_id, edit_at, edit_comment)
+        SELECT tbd.data_row_id, tbd.existing_loc_id, tbd.valid_after, tbd.valid_to,
+               CASE WHEN v_job_mode = 'legal_unit' THEN tbd.legal_unit_id ELSE NULL END,
+               CASE WHEN v_job_mode IN ('establishment_formal', 'establishment_informal') THEN tbd.establishment_id ELSE NULL END,
+               v_location_type, tbd.address_part1, tbd.address_part2, tbd.address_part3, tbd.postcode, tbd.postplace, tbd.region_id, tbd.country_id, tbd.latitude, tbd.longitude, tbd.altitude,
+               tbd.data_source_id, tbd.edit_by_user_id, tbd.edit_at, tbd.edit_comment
         FROM temp_batch_data tbd
-        WHERE tbd.action IN ('replace', 'update') -- Process both 'replace' and 'update' actions here
-        AND tbd.existing_loc_id IS NOT NULL -- Crucially, only process if we have a location ID
-        AND (tbd.region_id IS NOT NULL OR tbd.country_id IS NOT NULL OR tbd.address_part1 IS NOT NULL OR tbd.postcode IS NOT NULL); -- Ensure some actual location data exists
+        WHERE (tbd.action = 'insert' OR (tbd.action IN ('replace', 'update') AND tbd.existing_loc_id IS NULL)) -- This is a local INSERT
+          AND (tbd.region_id IS NOT NULL OR tbd.country_id IS NOT NULL OR tbd.address_part1 IS NOT NULL OR tbd.postcode IS NOT NULL)
+        ORDER BY tbd.data_row_id;
+        GET DIAGNOSTICS v_inserted_new_loc_count = ROW_COUNT;
 
-        GET DIAGNOSTICS v_updated_existing_loc_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] process_location: Populated temp_loc_upsert_source with % rows for set-based upsert (type: %).', p_job_id, v_updated_existing_loc_count, v_location_type;
+        IF v_inserted_new_loc_count > 0 THEN
+            v_batch_upsert_error_row_ids := ARRAY[]::INTEGER[];
+            DELETE FROM temp_created_locs;
 
-        IF v_updated_existing_loc_count > 0 THEN
-            RAISE DEBUG '[Job %] process_location: Calling temporal_merge for location (type: %, strategy: %). Found % rows to process.', p_job_id, v_location_type, v_strategy, v_updated_existing_loc_count;
             FOR v_batch_upsert_result IN
                 SELECT * FROM import.temporal_merge(
-                    p_target_schema_name       => 'public',
-                    p_target_table_name        => 'location',
-                    p_source_schema_name       => 'pg_temp',
-                    p_source_table_name        => 'temp_loc_upsert_source',
-                    p_entity_id_column_names   => ARRAY['id'],
-                    p_mode                     => CASE v_strategy
-                                                      WHEN 'insert_or_replace' THEN 'upsert_replace'::import.set_operation_mode
-                                                      WHEN 'insert_or_update'  THEN 'upsert_patch'::import.set_operation_mode
-                                                      WHEN 'replace_only'      THEN 'replace_only'::import.set_operation_mode
-                                                      WHEN 'update_only'       THEN 'patch_only'::import.set_operation_mode
-                                                      WHEN 'insert_only'       THEN 'insert_only'::import.set_operation_mode
-                                                  END,
-                    p_source_row_ids           => NULL,
-                    p_ephemeral_columns        => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
+                    p_target_schema_name => 'public', p_target_table_name => 'location', p_source_schema_name => 'pg_temp',
+                    p_source_table_name => 'temp_loc_insert_source', p_entity_id_column_names => ARRAY['id'],
+                    p_mode => CASE v_strategy WHEN 'insert_or_replace' THEN 'upsert_replace'::import.set_operation_mode WHEN 'insert_or_update'  THEN 'upsert_patch'::import.set_operation_mode WHEN 'insert_only' THEN 'insert_only'::import.set_operation_mode ELSE 'upsert_replace'::import.set_operation_mode END,
+                    p_source_row_ids => NULL, p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
+                    p_insert_defaulted_columns => ARRAY['id']
+                )
+            LOOP
+                IF v_batch_upsert_result.status = 'ERROR' THEN v_batch_upsert_error_row_ids := array_append(v_batch_upsert_error_row_ids, v_batch_upsert_result.source_row_id);
+                ELSE INSERT INTO temp_created_locs (data_row_id, new_location_id) VALUES (v_batch_upsert_result.source_row_id, ((v_batch_upsert_result.target_entity_ids[0]) ->> 'id')::INT); END IF;
+            END LOOP;
+
+            -- ID Propagation
+            UPDATE temp_batch_data tbd_target SET existing_loc_id = tcl.new_location_id
+            FROM temp_created_locs tcl
+            JOIN temp_batch_data tbd_source ON tcl.data_row_id = tbd_source.data_row_id
+            WHERE tbd_target.founding_row_id = tbd_source.founding_row_id;
+        END IF;
+
+        -- Stage 2: Handle REPLACE and UPDATE actions for existing locations
+        RAISE DEBUG '[Job %] process_location: Handling REPLACE/UPDATE actions for existing locations (type: %).', p_job_id, v_location_type;
+
+        INSERT INTO temp_loc_upsert_source (row_id, id, valid_after, valid_to, legal_unit_id, establishment_id, type, address_part1, address_part2, address_part3, postcode, postplace, region_id, country_id, latitude, longitude, altitude, data_source_id, edit_by_user_id, edit_at, edit_comment)
+        SELECT tbd.data_row_id, tbd.existing_loc_id, tbd.valid_after, tbd.valid_to,
+               CASE WHEN v_job_mode = 'legal_unit' THEN tbd.legal_unit_id ELSE NULL END,
+               CASE WHEN v_job_mode IN ('establishment_formal', 'establishment_informal') THEN tbd.establishment_id ELSE NULL END,
+               v_location_type, tbd.address_part1, tbd.address_part2, tbd.address_part3, tbd.postcode, tbd.postplace, tbd.region_id, tbd.country_id, tbd.latitude, tbd.longitude, tbd.altitude,
+               tbd.data_source_id, tbd.edit_by_user_id, tbd.edit_at, tbd.edit_comment
+        FROM temp_batch_data tbd
+        WHERE tbd.action IN ('replace', 'update') AND tbd.data_row_id NOT IN (SELECT row_id FROM temp_loc_insert_source) -- This is a local UPDATE/REPLACE
+          AND (tbd.region_id IS NOT NULL OR tbd.country_id IS NOT NULL OR tbd.address_part1 IS NOT NULL OR tbd.postcode IS NOT NULL)
+        ORDER BY tbd.data_row_id;
+        GET DIAGNOSTICS v_updated_existing_loc_count = ROW_COUNT;
+        
+        IF v_updated_existing_loc_count > 0 THEN
+            v_batch_upsert_error_row_ids := ARRAY[]::INTEGER[];
+            DELETE FROM temp_processed_action_ids;
+
+            FOR v_batch_upsert_result IN
+                SELECT * FROM import.temporal_merge(
+                    p_target_schema_name => 'public', p_target_table_name => 'location', p_source_schema_name => 'pg_temp',
+                    p_source_table_name => 'temp_loc_upsert_source', p_entity_id_column_names => ARRAY['id'],
+                    p_mode => CASE v_strategy WHEN 'insert_or_replace' THEN 'replace_only'::import.set_operation_mode WHEN 'replace_only' THEN 'replace_only'::import.set_operation_mode WHEN 'insert_or_update'  THEN 'patch_only'::import.set_operation_mode WHEN 'update_only' THEN 'patch_only'::import.set_operation_mode ELSE 'replace_only'::import.set_operation_mode END,
+                    p_source_row_ids => NULL, p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
                 )
             LOOP
                 IF v_batch_upsert_result.status = 'ERROR' THEN
                     v_batch_upsert_error_row_ids := array_append(v_batch_upsert_error_row_ids, v_batch_upsert_result.source_row_id);
-                    EXECUTE format($$ UPDATE public.%1$I SET state = 'error', error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('set_based_upsert_location_error', %2$L) WHERE row_id = %3$L; $$, v_data_table_name, v_batch_upsert_result.error_message, v_batch_upsert_result.source_row_id);
-                ELSE
-                    v_batch_upsert_success_row_ids := array_append(v_batch_upsert_success_row_ids, v_batch_upsert_result.source_row_id);
-                END IF;
+                ELSIF v_batch_upsert_result.status = 'SUCCESS' THEN
+                    INSERT INTO temp_processed_action_ids (data_row_id, actual_location_id) VALUES (v_batch_upsert_result.source_row_id, ((v_batch_upsert_result.target_entity_ids[0]) ->> 'id')::INT);
+                END IF; -- MISSING_TARGET is ignored
             END LOOP;
-
-            v_error_count := array_length(v_batch_upsert_error_row_ids, 1);
-            RAISE DEBUG '[Job %] process_location: Set-based upsert finished for type %. Success: %, Errors: %', p_job_id, v_location_type, array_length(v_batch_upsert_success_row_ids, 1), v_error_count;
-
-            IF array_length(v_batch_upsert_success_row_ids, 1) > 0 THEN
-                v_sql := format($$
-                    UPDATE public.%1$I dt SET
-                        %2$I = tbd.existing_loc_id,
-                        error = NULL,
-                        state = %3$L
-                    FROM temp_batch_data tbd
-                    WHERE dt.row_id = tbd.data_row_id
-                      AND dt.row_id = ANY($1);
-                $$, v_data_table_name /* %1$I */, v_final_id_col /* %2$I */, 'processing'::public.import_data_state /* %3$L */);
-                RAISE DEBUG '[Job %] process_location: Updating _data table for successful upsert rows (type: %): %', p_job_id, v_location_type, v_sql;
-                EXECUTE v_sql USING v_batch_upsert_success_row_ids;
-            END IF;
         END IF;
-        IF to_regclass('pg_temp.temp_loc_upsert_source') IS NOT NULL THEN DROP TABLE temp_loc_upsert_source; END IF;
 
+        -- Finalization
+        INSERT INTO temp_processed_action_ids (data_row_id, actual_location_id)
+        SELECT data_row_id, new_location_id FROM temp_created_locs
+        ON CONFLICT (data_row_id) DO NOTHING;
+
+        v_update_count := (SELECT count(*) FROM temp_processed_action_ids);
+        v_error_count := v_error_count + array_length(v_batch_upsert_error_row_ids, 1);
+        SELECT array_agg(data_row_id) INTO v_batch_upsert_success_row_ids FROM temp_processed_action_ids;
+
+        IF v_update_count > 0 THEN
+             EXECUTE format($$
+                UPDATE public.%1$I dt SET
+                    %2$I = tpai.actual_location_id,
+                    error = NULL,
+                    state = 'processed',
+                    last_completed_priority = %3$s
+                FROM temp_processed_action_ids tpai
+                WHERE dt.row_id = tpai.data_row_id AND dt.row_id = ANY($1);
+            $$, v_data_table_name, v_final_id_col, v_step.priority) USING v_batch_upsert_success_row_ids;
+        END IF;
+        
     EXCEPTION WHEN OTHERS THEN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
-        RAISE WARNING '[Job %] process_location: Error during set-based upsert operation for type %: %. SQLSTATE: %', p_job_id, v_location_type, error_message, SQLSTATE;
-        -- Attempt to mark individual data rows as error (best effort)
-        BEGIN
-            v_sql := format($$UPDATE public.%1$I SET state = %2$L, error = COALESCE(error, '{}'::jsonb) || %3$L WHERE row_id = ANY($1)$$, -- LCP not changed here
-                           v_data_table_name /* %1$I */, 'error'::public.import_data_state /* %2$L */, jsonb_build_object('set_based_error_process_location', error_message) /* %3$L */);
-            EXECUTE v_sql USING p_batch_row_ids;
-        EXCEPTION WHEN OTHERS THEN
-            RAISE WARNING '[Job %] process_location: Could not mark individual data rows as error: %', p_job_id, SQLERRM;
-        END;
-        -- Mark the job as failed
-        UPDATE public.import_job
-        SET error = jsonb_build_object('process_location_error', format($$Error for type %s: %s$$, v_location_type, error_message)),
-            state = 'finished' -- Consistently set state to 'finished' on error
-        WHERE id = p_job_id;
-        RAISE DEBUG '[Job %] process_location: Marked job as failed due to error for type %: %', p_job_id, v_location_type, error_message;
-        RAISE; -- Re-throw the exception to halt the phase
+        RAISE WARNING '[Job %] process_location: Error during operation for type %: %. SQLSTATE: %', p_job_id, v_location_type, error_message, SQLSTATE;
+        UPDATE public.import_job SET error = jsonb_build_object('process_location_error', format('Error for type %s: %s', v_location_type, error_message)), state = 'finished' WHERE id = p_job_id;
+        RAISE;
     END;
 
     -- The framework now handles advancing priority for all rows, including unprocessed and skipped rows. No update needed here.
 
     RAISE DEBUG '[Job %] process_location (Batch): Finished. New: %, Replaced: %. Errors: %',
         p_job_id, v_inserted_new_loc_count, v_updated_existing_loc_count, v_error_count;
-
-    IF to_regclass('pg_temp.temp_batch_data') IS NOT NULL THEN DROP TABLE temp_batch_data; END IF;
-    IF to_regclass('pg_temp.temp_created_locs') IS NOT NULL THEN DROP TABLE temp_created_locs; END IF;
 END;
 $process_location$;
 

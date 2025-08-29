@@ -23,12 +23,8 @@ DECLARE
     v_start_time TIMESTAMPTZ;
     v_duration_ms NUMERIC;
     v_total_rows_to_process INT;
+    v_row_count INT;
 BEGIN
-    -- Clean up any lingering temp tables from a previous failed run in this session
-    IF to_regclass('pg_temp.temp_relevant_rows') IS NOT NULL THEN DROP TABLE temp_relevant_rows; END IF;
-    IF to_regclass('pg_temp.temp_precalc') IS NOT NULL THEN DROP TABLE temp_precalc; END IF;
-    IF to_regclass('pg_temp.temp_batch_errors') IS NOT NULL THEN DROP TABLE temp_batch_errors; END IF;
-
     v_start_time := clock_timestamp();
     RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit (Hybrid): Starting analysis.', p_job_id;
 
@@ -42,6 +38,7 @@ BEGIN
     IF NOT FOUND THEN RAISE EXCEPTION '[Job %] % step not found in snapshot', p_job_id, p_step_code; END IF;
 
     -- Materialize the set of rows to be processed for this step
+    IF to_regclass('pg_temp.temp_relevant_rows') IS NOT NULL THEN DROP TABLE temp_relevant_rows; END IF;
     CREATE TEMP TABLE temp_relevant_rows (id SERIAL PRIMARY KEY, data_row_id INTEGER NOT NULL) ON COMMIT DROP;
     EXECUTE format($$INSERT INTO temp_relevant_rows (data_row_id)
                      SELECT row_id FROM public.%1$I
@@ -79,6 +76,7 @@ BEGIN
     v_fallback_error_key := COALESCE(v_error_keys_to_clear_arr[1], 'link_establishment_to_legal_unit_error');
 
     -- Create and populate the main pre-calculation table
+    IF to_regclass('pg_temp.temp_precalc') IS NOT NULL THEN DROP TABLE temp_precalc; END IF;
     CREATE TEMP TABLE temp_precalc (
         data_row_id INTEGER PRIMARY KEY,
         resolved_lu_id INTEGER,
@@ -87,83 +85,125 @@ BEGIN
     ) ON COMMIT DROP;
 
     -- This large CTE performs all lookups and logic holistically.
-    v_sql := format($$
-        WITH Unpivoted AS ( %1$s ),
-        ResolvedIdents AS (
-            SELECT up.data_row_id, up.ident_code, up.ident_value, xi.legal_unit_id
-            FROM Unpivoted up
-            JOIN public.external_ident_type xit ON xit.code = substring(up.ident_code from 'legal_unit_(.*)')
-            LEFT JOIN public.external_ident xi ON xi.type_id = xit.id AND xi.ident = up.ident_value AND xi.legal_unit_id IS NOT NULL
-        ),
-        RowChecks AS (
-            SELECT
-                tr.data_row_id,
-                jsonb_build_object(
-                    'num_idents_provided', COUNT(ri.data_row_id),
-                    'distinct_lu_ids', COUNT(DISTINCT ri.legal_unit_id),
-                    'found_lu', MAX(CASE WHEN ri.legal_unit_id IS NOT NULL THEN 1 ELSE 0 END),
-                    'provided_input_ident_codes', jsonb_agg(DISTINCT ri.ident_code) FILTER (WHERE ri.ident_value IS NOT NULL)
-                ) as checks,
-                (array_agg(ri.legal_unit_id) FILTER (WHERE ri.legal_unit_id IS NOT NULL))[1] AS resolved_lu_id
-            FROM temp_relevant_rows tr
-            LEFT JOIN ResolvedIdents ri ON tr.data_row_id = ri.data_row_id
-            GROUP BY tr.data_row_id
-        ),
-        Errors AS (
-            SELECT
-                rc.data_row_id,
-                CASE
-                    WHEN (rc.checks->>'num_idents_provided')::int = 0 THEN (SELECT jsonb_object_agg(key, 'Missing legal unit identifier.') FROM unnest(%3$L::TEXT[] || ARRAY[%2$L]) AS key)
-                    WHEN (rc.checks->>'num_idents_provided')::int > 0 AND (rc.checks->>'found_lu')::int = 0 THEN (SELECT jsonb_object_agg(key, 'Legal unit not found with provided identifiers.') FROM jsonb_array_elements_text(COALESCE(rc.checks->'provided_input_ident_codes', '["%2$s"]'::jsonb)) AS key)
-                    WHEN (rc.checks->>'distinct_lu_ids')::int > 1 THEN (SELECT jsonb_object_agg(key, 'Provided identifiers resolve to different Legal Units.') FROM jsonb_array_elements_text(COALESCE(rc.checks->'provided_input_ident_codes', '["%2$s"]'::jsonb)) AS key)
-                    ELSE NULL
-                END as error_jsonb
-            FROM RowChecks rc
-        ),
-        ResolvedLinks AS (
-            SELECT DISTINCT ON (rc.data_row_id)
-                   rc.data_row_id, rc.resolved_lu_id, dt.establishment_id AS current_establishment_id,
-                   dt.row_id AS original_data_table_row_id, dt.derived_valid_after AS est_derived_valid_after, dt.derived_valid_to AS est_derived_valid_to
-            FROM RowChecks rc JOIN public.%4$I dt ON rc.data_row_id = dt.row_id
-            WHERE rc.resolved_lu_id IS NOT NULL
-        ),
-        RankedForPrimary AS (
-            SELECT
-                rl.data_row_id, rl.resolved_lu_id,
-                (NOT EXISTS (
-                    SELECT 1 FROM public.establishment est
-                    WHERE est.legal_unit_id = rl.resolved_lu_id AND est.primary_for_legal_unit = TRUE
-                      AND est.id IS DISTINCT FROM rl.current_establishment_id
-                      AND public.after_to_overlaps(est.valid_after, est.valid_to, rl.est_derived_valid_after, rl.est_derived_valid_to)
-                )) AS no_overlapping_primary_in_db
-            FROM ResolvedLinks rl
-        )
-        INSERT INTO temp_precalc (data_row_id, resolved_lu_id, primary_for_legal_unit, error_jsonb)
+    -- For debugging, CTEs are materialized into temp tables.
+    IF to_regclass('pg_temp.temp_unpivoted') IS NOT NULL THEN DROP TABLE temp_unpivoted; END IF;
+    v_sql := format('CREATE TEMP TABLE temp_unpivoted AS %s', v_unpivot_sql);
+    EXECUTE v_sql;
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: temp_unpivoted created with % rows.', p_job_id, v_row_count;
+
+    IF to_regclass('pg_temp.temp_resolved_idents') IS NOT NULL THEN DROP TABLE temp_resolved_idents; END IF;
+    CREATE TEMP TABLE temp_resolved_idents AS
+        SELECT up.data_row_id, up.ident_code, up.ident_value, xi.legal_unit_id
+        FROM temp_unpivoted up
+        JOIN public.external_ident_type xit ON xit.code = substring(up.ident_code from 'legal_unit_(.*)')
+        LEFT JOIN public.external_ident xi ON xi.type_id = xit.id AND xi.ident = up.ident_value AND xi.legal_unit_id IS NOT NULL;
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: temp_resolved_idents created with % rows.', p_job_id, v_row_count;
+
+    IF to_regclass('pg_temp.temp_row_checks') IS NOT NULL THEN DROP TABLE temp_row_checks; END IF;
+    CREATE TEMP TABLE temp_row_checks AS
         SELECT
             tr.data_row_id,
-            rl.resolved_lu_id,
-            (   rfp.no_overlapping_primary_in_db AND
-                NOT EXISTS ( -- Check for conflicts within the import file itself
-                    SELECT 1 FROM RankedForPrimary other_rfp
-                    JOIN ResolvedLinks other_rl ON other_rfp.data_row_id = other_rl.data_row_id
-                    WHERE other_rfp.resolved_lu_id = rfp.resolved_lu_id
-                      AND other_rl.original_data_table_row_id < rl.original_data_table_row_id -- Deterministic tie-break
-                      AND other_rfp.no_overlapping_primary_in_db
-                      AND public.after_to_overlaps(other_rl.est_derived_valid_after, other_rl.est_derived_valid_to, rl.est_derived_valid_after, rl.est_derived_valid_to)
-                )
-            ) AS primary_for_legal_unit,
-            err.error_jsonb
+            jsonb_build_object(
+                'num_idents_provided', COUNT(ri.data_row_id),
+                'distinct_lu_ids', COUNT(DISTINCT ri.legal_unit_id),
+                'found_lu', MAX(CASE WHEN ri.legal_unit_id IS NOT NULL THEN 1 ELSE 0 END),
+                'provided_input_ident_codes', jsonb_agg(DISTINCT ri.ident_code) FILTER (WHERE ri.ident_value IS NOT NULL)
+            ) as checks,
+            (array_agg(ri.legal_unit_id) FILTER (WHERE ri.legal_unit_id IS NOT NULL))[1] AS resolved_lu_id
         FROM temp_relevant_rows tr
-        LEFT JOIN Errors err ON tr.data_row_id = err.data_row_id
-        LEFT JOIN ResolvedLinks rl ON tr.data_row_id = rl.data_row_id
-        LEFT JOIN RankedForPrimary rfp ON tr.data_row_id = rfp.data_row_id;
-    $$, v_unpivot_sql, v_fallback_error_key, v_error_keys_to_clear_arr, v_data_table_name);
+        LEFT JOIN temp_resolved_idents ri ON tr.data_row_id = ri.data_row_id
+        GROUP BY tr.data_row_id;
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: temp_row_checks created with % rows.', p_job_id, v_row_count;
+
+    IF to_regclass('pg_temp.temp_errors') IS NOT NULL THEN DROP TABLE temp_errors; END IF;
+    CREATE TEMP TABLE temp_errors AS
+        SELECT
+            rc.data_row_id,
+            CASE
+                WHEN (rc.checks->>'num_idents_provided')::int = 0 THEN (SELECT jsonb_object_agg(key, 'Missing legal unit identifier.') FROM unnest(v_error_keys_to_clear_arr::TEXT[] || ARRAY[v_fallback_error_key]) AS key)
+                WHEN (rc.checks->>'num_idents_provided')::int > 0 AND (rc.checks->>'found_lu')::int = 0 THEN (SELECT jsonb_object_agg(key, 'Legal unit not found with provided identifiers.') FROM jsonb_array_elements_text(COALESCE(rc.checks->'provided_input_ident_codes', format('["%s"]', v_fallback_error_key)::jsonb)) AS key)
+                WHEN (rc.checks->>'distinct_lu_ids')::int > 1 THEN (SELECT jsonb_object_agg(key, 'Provided identifiers resolve to different Legal Units.') FROM jsonb_array_elements_text(COALESCE(rc.checks->'provided_input_ident_codes', format('["%s"]', v_fallback_error_key)::jsonb)) AS key)
+                ELSE NULL
+            END as error_jsonb
+        FROM temp_row_checks rc;
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: temp_errors created with % rows.', p_job_id, v_row_count;
+
+    IF to_regclass('pg_temp.temp_resolved_links') IS NOT NULL THEN DROP TABLE temp_resolved_links; END IF;
+    v_sql := format($$
+        CREATE TEMP TABLE temp_resolved_links AS
+        SELECT DISTINCT ON (rc.data_row_id)
+               rc.data_row_id, rc.resolved_lu_id, dt.establishment_id AS current_establishment_id,
+               dt.row_id AS original_data_table_row_id, dt.derived_valid_after AS est_derived_valid_after, dt.derived_valid_to AS est_derived_valid_to
+        FROM temp_row_checks rc JOIN public.%I dt ON rc.data_row_id = dt.row_id
+        WHERE rc.resolved_lu_id IS NOT NULL;
+    $$, v_data_table_name);
     EXECUTE v_sql;
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: temp_resolved_links created with % rows.', p_job_id, v_row_count;
+
+    IF to_regclass('pg_temp.temp_ranked_for_primary') IS NOT NULL THEN DROP TABLE temp_ranked_for_primary; END IF;
+    CREATE TEMP TABLE temp_ranked_for_primary AS
+        SELECT
+            rl.data_row_id,
+            rl.resolved_lu_id,
+            COUNT(est.id) = 0 AS no_overlapping_primary_in_db
+        FROM temp_resolved_links rl
+        LEFT JOIN public.establishment est
+            ON est.legal_unit_id = rl.resolved_lu_id
+            AND est.primary_for_legal_unit = TRUE
+            AND est.id IS DISTINCT FROM rl.current_establishment_id
+            AND public.after_to_overlaps(est.valid_after, est.valid_to, rl.est_derived_valid_after, rl.est_derived_valid_to)
+        GROUP BY rl.data_row_id, rl.resolved_lu_id;
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: temp_ranked_for_primary created with % rows.', p_job_id, v_row_count;
+
+    IF to_regclass('pg_temp.temp_primary_candidates') IS NOT NULL THEN DROP TABLE temp_primary_candidates; END IF;
+    CREATE TEMP TABLE temp_primary_candidates AS
+    SELECT
+        rl.data_row_id,
+        rl.resolved_lu_id,
+        rl.original_data_table_row_id,
+        rl.est_derived_valid_after,
+        rl.est_derived_valid_to
+    FROM temp_resolved_links rl
+    JOIN temp_ranked_for_primary rfp ON rl.data_row_id = rfp.data_row_id
+    WHERE rfp.no_overlapping_primary_in_db;
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: temp_primary_candidates created with % rows.', p_job_id, v_row_count;
+
+    IF to_regclass('pg_temp.temp_intra_file_conflicts') IS NOT NULL THEN DROP TABLE temp_intra_file_conflicts; END IF;
+    CREATE TEMP TABLE temp_intra_file_conflicts AS
+    SELECT DISTINCT c1.data_row_id
+    FROM temp_primary_candidates c1
+    JOIN temp_primary_candidates c2
+        ON c1.resolved_lu_id = c2.resolved_lu_id
+        AND c1.original_data_table_row_id > c2.original_data_table_row_id
+        AND public.after_to_overlaps(c1.est_derived_valid_after, c1.est_derived_valid_to, c2.est_derived_valid_after, c2.est_derived_valid_to);
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: temp_intra_file_conflicts created with % rows.', p_job_id, v_row_count;
+
+    INSERT INTO temp_precalc (data_row_id, resolved_lu_id, primary_for_legal_unit, error_jsonb)
+    SELECT
+        tr.data_row_id,
+        rl.resolved_lu_id,
+        (pc.data_row_id IS NOT NULL AND ifc.data_row_id IS NULL) AS primary_for_legal_unit,
+        err.error_jsonb
+    FROM temp_relevant_rows tr
+    LEFT JOIN temp_errors err ON tr.data_row_id = err.data_row_id
+    LEFT JOIN temp_resolved_links rl ON tr.data_row_id = rl.data_row_id
+    LEFT JOIN temp_primary_candidates pc ON tr.data_row_id = pc.data_row_id
+    LEFT JOIN temp_intra_file_conflicts ifc ON tr.data_row_id = ifc.data_row_id;
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: temp_precalc populated with % rows.', p_job_id, v_row_count;
     RAISE DEBUG '[Job %] Holistic pre-calculation phase complete.', p_job_id;
 
 
     -- Update priority for rows that were initially skipped
-    EXECUTE format($$
+    v_sql := format($$
         UPDATE public.%1$I dt SET
             legal_unit_id = CASE WHEN pre.error_jsonb IS NULL THEN pre.resolved_lu_id ELSE dt.legal_unit_id END,
             primary_for_legal_unit = CASE WHEN pre.error_jsonb IS NULL THEN pre.primary_for_legal_unit ELSE dt.primary_for_legal_unit END,
@@ -178,6 +218,7 @@ BEGIN
     RAISE DEBUG '[Job %] Holistic update complete.', p_job_id;
 
     -- Propagate errors to related new entity rows (uses a temp table of errored rows)
+    IF to_regclass('pg_temp.temp_batch_errors') IS NOT NULL THEN DROP TABLE temp_batch_errors; END IF;
     CREATE TEMP TABLE temp_batch_errors (data_row_id INTEGER PRIMARY KEY) ON COMMIT DROP;
     INSERT INTO temp_batch_errors (data_row_id) SELECT data_row_id FROM temp_precalc WHERE error_jsonb IS NOT NULL;
     CALL import.propagate_fatal_error_to_entity_holistic(p_job_id, v_data_table_name, 'temp_batch_errors', v_error_keys_to_clear_arr, p_step_code);

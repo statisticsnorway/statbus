@@ -178,6 +178,7 @@ BEGIN
     END IF;
 
     -- Step 1: Identify rows needing enterprise creation (new standalone ESTs, action = 'insert')
+    IF to_regclass('pg_temp.temp_new_est_for_enterprise_creation') IS NOT NULL THEN DROP TABLE temp_new_est_for_enterprise_creation; END IF;
     CREATE TEMP TABLE temp_new_est_for_enterprise_creation (
         data_row_id INTEGER PRIMARY KEY, -- This will be the founding_row_id for the new EST entity
         est_name TEXT,
@@ -196,6 +197,7 @@ BEGIN
 
     -- Step 2: Create new enterprises for ESTs in temp_new_est_for_enterprise_creation and map them
     -- temp_created_enterprises.data_row_id will store the founding_row_id of the EST
+    IF to_regclass('pg_temp.temp_created_enterprises') IS NOT NULL THEN DROP TABLE temp_created_enterprises; END IF;
     CREATE TEMP TABLE temp_created_enterprises (
         data_row_id INTEGER PRIMARY KEY, -- Stores the founding_row_id of the EST
         enterprise_id INT NOT NULL
@@ -256,15 +258,9 @@ BEGIN
 
     RAISE DEBUG '[Job %] process_enterprise_link_for_establishment (Batch): Finished operation. Created % enterprises.', p_job_id, v_created_enterprise_count;
 
-    IF to_regclass('pg_temp.temp_new_est_for_enterprise_creation') IS NOT NULL THEN DROP TABLE temp_new_est_for_enterprise_creation; END IF;
-    IF to_regclass('pg_temp.temp_created_enterprises') IS NOT NULL THEN DROP TABLE temp_created_enterprises; END IF;
-
 EXCEPTION WHEN OTHERS THEN
     GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
     RAISE WARNING '[Job %] process_enterprise_link_for_establishment: Unhandled error during operation: %', p_job_id, replace(error_message, '%', '%%');
-    -- Ensure cleanup even on unexpected error
-    IF to_regclass('pg_temp.temp_new_est_for_enterprise_creation') IS NOT NULL THEN DROP TABLE temp_new_est_for_enterprise_creation; END IF;
-    IF to_regclass('pg_temp.temp_created_enterprises') IS NOT NULL THEN DROP TABLE temp_created_enterprises; END IF;
     -- Update job error
     UPDATE public.import_job
     SET error = jsonb_build_object('process_enterprise_link_for_establishment_error', error_message),

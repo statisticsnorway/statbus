@@ -192,6 +192,7 @@ BEGIN
         p_job_id, v_job_mode, v_select_lu_id_expr, v_select_est_id_expr, v_data_table_name;
 
     -- Step 1: Fetch batch data into a temporary table
+    IF to_regclass('pg_temp.temp_batch_data') IS NOT NULL THEN DROP TABLE temp_batch_data; END IF;
     CREATE TEMP TABLE temp_batch_data (
         data_row_id INTEGER PRIMARY KEY,
         legal_unit_id INT,
@@ -343,13 +344,10 @@ BEGIN
             state = 'finished' -- Or a new 'failed' state
         WHERE id = p_job_id;
         RAISE DEBUG '[Job %] process_tags: Marked job as failed due to error: %', p_job_id, error_message;
-        IF to_regclass('pg_temp.temp_batch_data') IS NOT NULL THEN DROP TABLE temp_batch_data; END IF;
         RAISE; -- Re-raise the original exception
     END;
 
     RAISE DEBUG '[Job %] process_tags (Batch): Finished operation for batch. Initial batch size: %. Errors (estimated): %', p_job_id, array_length(p_batch_row_ids, 1), v_error_count;
-
-    IF to_regclass('pg_temp.temp_batch_data') IS NOT NULL THEN DROP TABLE temp_batch_data; END IF;
 END;
 $process_tags$;
 

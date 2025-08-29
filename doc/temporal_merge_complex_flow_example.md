@@ -4,7 +4,7 @@
 
 This document provides a detailed, step-by-step explanation of how the import system's architecture robustly handles the most complex intra-batch dependency scenario: processing a batch of historical records for a **new entity** whose database ID is not yet known.
 
-This scenario proves why a "Batch Fence" mechanism is unnecessary. The combination of the two-stage logic within the `process_*` procedures and the explicit `mode` parameter passed to the `temporal_merge` function solves this problem efficiently and safely within a single transaction.
+This scenario demonstrates why the explicit two-stage pattern within the `process_*` procedures is the chosen solution. It is both sufficient and superior to alternative approaches like a "Batch Fence" or a more complex, "smarter" `temporal_merge` function that would need to contain business-specific logic. The combination of this pattern and the explicit `mode` parameter solves the dependency problem efficiently and safely within a single transaction.
 
 ## 2. The Scenario: A New Legal Unit's History
 
