@@ -16,12 +16,11 @@ import {
   initialAuthCheckCompletedAtom,
   pendingRedirectAtom,
   requiredSetupRedirectAtom,
-  restClientAtom,
-  restClientAtom as importedRestClientAtom, // Alias to avoid conflict with local restClient variable
   selectedTimeContextAtom,
   setupRedirectCheckAtom,
   stateInspectorVisibleAtom,
 } from './app';
+import { restClientAtom } from './rest-client';
 import {
   authStatusAtom,
   authStatusLoadableAtom,
@@ -723,7 +722,7 @@ export const StateInspector = () => {
   const requiredSetupRedirectValue = useAtomValue(requiredSetupRedirectAtom);
   const isLoginActionInProgressValue = useAtomValue(isLoginActionInProgressAtom);
   const lastKnownPathValue = useAtomValue(lastKnownPathBeforeAuthChangeAtom);
-  const restClientFromAtom = useAtomValue(importedRestClientAtom);
+  const restClientFromAtom = useAtomValue(restClientAtom);
   const activityStandardLoadable = useAtomValue(loadable(activityCategoryStandardSettingAtomAsync));
   const numberOfRegionsLoadable = useAtomValue(loadable(numberOfRegionsAtomAsync));
   const selectedTimeContextValue = useAtomValue(selectedTimeContextAtom);

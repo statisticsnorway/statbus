@@ -15,7 +15,7 @@ import { atomWithRefresh } from 'jotai/utils'
 import { useCallback } from 'react'
 
 import type { Database, Tables } from '@/lib/database.types'
-import { restClientAtom } from './app'
+import { restClientAtom } from './rest-client'
 import { isAuthenticatedAtom, authStatusLoadableAtom } from './auth'
 
 // ============================================================================

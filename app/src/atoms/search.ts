@@ -42,7 +42,8 @@ import {
   DATA_SOURCE,
 } from '../app/search/filters/url-search-params'
 
-import { restClientAtom, selectedTimeContextAtom } from './app'
+import { selectedTimeContextAtom } from './app'
+import { restClientAtom } from './rest-client'
 import { externalIdentTypesAtom, statDefinitionsAtom } from './base-data'
 
 // ============================================================================
