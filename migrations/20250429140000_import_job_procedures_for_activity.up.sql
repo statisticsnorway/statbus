@@ -81,7 +81,7 @@ BEGIN
             FROM public.%1$I dt_sub -- Target data table
             LEFT JOIN public.activity_category pac ON dt_sub.primary_activity_category_code IS NOT NULL AND pac.code = dt_sub.primary_activity_category_code
             LEFT JOIN public.activity_category sac ON dt_sub.secondary_activity_category_code IS NOT NULL AND sac.code = dt_sub.secondary_activity_category_code
-            WHERE dt_sub.row_id = ANY($1) AND dt_sub.action != 'skip' -- Exclude skipped rows from main processing
+            WHERE dt_sub.row_id = ANY($1) AND dt_sub.action IS DISTINCT FROM 'skip' -- Exclude skipped rows from main processing
         )
         UPDATE public.%1$I dt SET -- Target data table
             primary_activity_category_id = CASE
@@ -102,7 +102,7 @@ BEGIN
                             END,
             last_completed_priority = %6$L::INTEGER -- Always advance priority for this step
         FROM lookups l
-        WHERE dt.row_id = l.data_row_id AND dt.row_id = ANY($1) AND dt.action != 'skip'; -- Process only non-skipped rows matched in lookups
+        WHERE dt.row_id = l.data_row_id; -- Join is sufficient, lookups CTE is already filtered
     $$,
         v_data_table_name /* %1$I */,                           -- Used for both CTE and UPDATE target
         p_step_code /* %2$L */,                                 -- Reused in both primary/secondary CASEs
@@ -263,7 +263,7 @@ BEGIN
             error = COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object(%2$L, %3$L)
             -- last_completed_priority is not used in the processing phase
         WHERE dt.row_id = ANY($1)
-          AND dt.action != 'skip' -- Only consider rows not already skipped by prior analysis steps
+          AND dt.action IS DISTINCT FROM 'skip' -- Only consider rows not already skipped by prior analysis steps
           AND dt.%4$I IS NOT NULL -- Only if an activity code was provided (otherwise this step is N/A for the row)
           AND (%5$s); -- The check for parent ID being NULL
     $$, v_data_table_name /* %1$I */, 
@@ -308,7 +308,7 @@ BEGIN
             %3$I, -- Select the correct category ID column based on target
             edit_by_user_id, edit_at, edit_comment, -- Added
             action 
-         FROM public.%4$I dt WHERE row_id = ANY($1) AND %5$I IS NOT NULL AND action != 'skip'; -- Added alias dt. Only process rows with a category ID for this type and not skipped
+         FROM public.%4$I dt WHERE row_id = ANY($1) AND %5$I IS NOT NULL AND action IS DISTINCT FROM 'skip'; -- Added alias dt. Only process rows with a category ID for this type and not skipped
     $$, v_select_lu_id_expr /* %1$s */, v_select_est_id_expr /* %2$s */, v_category_id_col /* %3$I */, v_data_table_name /* %4$I */, v_category_id_col /* %5$I */);
     RAISE DEBUG '[Job %] process_activity: Fetching batch data for type %: %', p_job_id, v_activity_type, v_sql;
     EXECUTE v_sql USING p_batch_row_ids;
