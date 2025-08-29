@@ -79,7 +79,7 @@ BEGIN
             SELECT row_id FROM public.%1$I WHERE row_id = ANY($1) AND action IS DISTINCT FROM 'skip' -- v_data_table_name, p_batch_row_ids
         ) base
         LEFT JOIN resolved_tags rt ON base.row_id = rt.row_id
-        WHERE dt.row_id = base.row_id AND dt.action IS DISTINCT FROM 'skip';
+        WHERE dt.row_id = base.row_id;
     $$,
         v_data_table_name,          -- %1$I
         v_error_keys_to_clear_arr,  -- %2$L
@@ -237,7 +237,7 @@ BEGIN
                        NULL,              -- establishment_id must be NULL for LU tag
                        dt.edit_by_user_id, dt.edit_at, tbd.edit_comment
                 FROM temp_batch_data tbd JOIN public.%1$I dt ON tbd.data_row_id = dt.row_id
-                WHERE tbd.action = 'insert' AND tbd.legal_unit_id IS NOT NULL AND tbd.existing_link_id IS NULL; -- Only insert new LU links
+                WHERE tbd.action = 'insert' AND tbd.legal_unit_id IS NOT NULL AND tbd.establishment_id IS NULL AND tbd.existing_link_id IS NULL; -- Only insert new LU links if no EST
             $$, v_data_table_name /* %1$I */);
             RAISE DEBUG '[Job %] process_tags (insert_only LU): %', p_job_id, v_sql_lu;
             EXECUTE v_sql_lu;
@@ -280,7 +280,7 @@ BEGIN
                        NULL, -- establishment_id is NULL for LU-specific constraint
                        dt.edit_by_user_id, dt.edit_at, tbd.edit_comment
                 FROM temp_batch_data tbd JOIN public.%1$I dt ON tbd.data_row_id = dt.row_id
-                WHERE tbd.action IN ('insert', 'replace') AND tbd.legal_unit_id IS NOT NULL
+                WHERE tbd.action IN ('insert', 'replace') AND tbd.legal_unit_id IS NOT NULL AND tbd.establishment_id IS NULL
                 ON CONFLICT (tag_id, legal_unit_id) WHERE legal_unit_id IS NOT NULL DO UPDATE SET
                     edit_by_user_id = EXCLUDED.edit_by_user_id,
                     edit_at = EXCLUDED.edit_at,
