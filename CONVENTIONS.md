@@ -19,7 +19,7 @@ Key tools available for you to suggest:
 - **`echo "..." | ./devops/manage-statbus.sh psql`**: Run arbitrary SQL for debugging or inspection. You can also write complex queries to a temporary `.sql` file and pipe it.
 
 For file system operations and large-scale edits, prefer suggesting shell commands over generating `SEARCH/REPLACE` blocks where appropriate. This is faster and more efficient.
-- Use `rm` to delete files and `git mv` to move or rename them.
+- Use `rm` to delete files and `git mv` to move or rename them. Do not suggest deleting files from the `tmp/` directory, as they are gitignored and serve as a useful log of diagnostic snippets.
 - For simple content replacement (e.g., replacing an entire file's contents), `echo "new content" > filename` can be used instead of a large `SEARCH/REPLACE` block.
 - For large-scale, repetitive search-and-replace operations across multiple files, powerful tools like `ruplacer` and `renamer` are available and should be used.
 
@@ -116,7 +116,7 @@ For more details, see the main `README.md` file or run `./cli/bin/statbus migrat
 All development work, especially bug fixing, must follow a rigorous, hypothesis-driven cycle to ensure progress is verifiable and the system remains stable. A task is not complete until the final step of this cycle has been successfully executed.
 
 ### 1. Formulate and State a Hypothesis
-- **Action:** Before making any code changes, clearly state your hypothesis about the root cause of the problem in `tmp/journal.md`. This creates a locally persistent log of your thought process, helping maintain context through interruptions (e.g., an AI context reset or a crash). The journal is temporary and typically cleared between major tasks. Before clearing it, consider if any recurring patterns or insights should be used to improve this `CONVENTIONS.md` file.
+- **Action:** Before making any code changes, clearly state your hypothesis about the root cause of the problem in `tmp/journal.md`. This creates a locally persistent log of your thought process, helping maintain context through interruptions (e.g., an AI context reset or a crash). Files in the `tmp/` directory are gitignored and provide a useful history of investigation; do not suggest deleting them. Before starting a new major task, consider if any recurring patterns or insights from the journal should be used to improve this `CONVENTIONS.md` file.
 - **Example:** "Hypothesis: The test regressions are caused by the 'scorched earth' `replace` logic deleting child records that tests expect to survive a partial import."
 
 ### 2. Create or Identify a Reproducing Test
