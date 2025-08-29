@@ -31,7 +31,8 @@ import {
   tableColumnsAtom,
 } from './search'
 import { refreshWorkerStatusAtom } from './worker_status'
-import { restClientAtom, pendingRedirectAtom } from './app'
+import { pendingRedirectAtom } from './app'
+import { restClientAtom } from './rest-client'
 
 // ============================================================================
 // AUTH ATOMS - Replace AuthStore + AuthContext

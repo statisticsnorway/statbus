@@ -8,23 +8,17 @@
  */
 
 import { atom } from 'jotai'
-import { atomWithStorage } from 'jotai/utils'
+import { atomWithStorage, loadable } from 'jotai/utils'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { useEffect } from 'react'
 
-import type { Database, Tables } from '@/lib/database.types'
-import type { PostgrestClient } from '@supabase/postgrest-js'
+import type { Tables } from '@/lib/database.types'
 
 import { authStatusLoadableAtom, isAuthenticatedAtom, authStatusAtom } from './auth'
 import { baseDataAtom, defaultTimeContextAtom, timeContextsAtom, refreshBaseDataAtom, useBaseData } from './base-data'
+import { activityCategoryStandardSettingAtomAsync, numberOfRegionsAtomAsync } from './getting-started'
 import { refreshWorkerStatusAtom, useWorkerStatus, type WorkerStatusType } from './worker_status'
 import { selectedUnitsAtom, searchStateAtom } from './search'
-
-// ============================================================================
-// REST CLIENT ATOM - Replace RestClientStore
-// ============================================================================
-
-export const restClientAtom = atom<PostgrestClient<Database> | null>(null)
 
 // ============================================================================
 // TIME CONTEXT ATOMS & HOOKS - Replace TimeContext
@@ -79,11 +73,6 @@ export const initialAuthCheckCompletedAtom = atom(false);
 // Atom to calculate the required setup redirect path, if any.
 // It also exposes a loading state so consumers can wait for the check to complete.
 export const setupRedirectCheckAtom = atom((get) => {
-  // Use require here to break circular dependency cycles
-  const { loadable } = require('jotai/utils');
-  const { activityCategoryStandardSettingAtomAsync, numberOfRegionsAtomAsync } = require('./getting-started');
-  const { baseDataAtom } = require('./base-data');
-
   const activityStandardLoadable = get(loadable(activityCategoryStandardSettingAtomAsync));
   const numberOfRegionsLoadable = get(loadable(numberOfRegionsAtomAsync));
   const baseData = get(baseDataAtom);

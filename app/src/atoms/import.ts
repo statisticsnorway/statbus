@@ -50,7 +50,7 @@ import { atom, useAtomValue, useSetAtom } from 'jotai'
 import { useMemo, useCallback, useEffect } from 'react'
 
 import type { Database, Enums, Tables, TablesInsert } from '@/lib/database.types'
-import { restClientAtom } from './app'
+import { restClientAtom } from './rest-client'
 import { useBaseData } from './base-data'
 import { isAuthenticatedAtom } from './auth'
 
@@ -316,7 +316,7 @@ export const loadImportDefinitionsAtom = atom(
       set(importStateAtom, (prev) => ({ ...prev, availableDefinitions: data }));
 
       // Set a default selected definition. Prefer 'job_provided' if available.
-      const defaultSelection = data.find(d => d.valid_time_from === 'job_provided') || data[0];
+      const defaultSelection = data.find((d: Tables<'import_definition'>) => d.valid_time_from === 'job_provided') || data[0];
       if (defaultSelection) {
         set(importStateAtom, (prev) => ({ ...prev, selectedDefinition: defaultSelection }));
       }

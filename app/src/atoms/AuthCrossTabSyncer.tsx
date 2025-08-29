@@ -2,7 +2,8 @@
 
 import { useEffect } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
-import { clientMountedAtom, restClientAtom } from './app';
+import { clientMountedAtom } from './app';
+import { restClientAtom } from './rest-client';
 import {
   authChangeTriggerAtom,
   fetchAuthStatusAtom,

@@ -10,7 +10,7 @@
 import { atom } from 'jotai';
 import { useAtomValue } from 'jotai';
 import { refreshBaseDataAtom } from './base-data';
-import { restClientAtom } from './app';
+import { restClientAtom } from './rest-client';
 import { isAuthenticatedAtom } from './auth';
 
 // ============================================================================
