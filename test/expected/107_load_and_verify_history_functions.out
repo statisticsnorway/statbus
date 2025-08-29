@@ -538,15 +538,16 @@ WITH timepoints_with_tax_ident AS (
     SELECT tp.unit_type,
            tp.unit_id,
            tp.timepoint,
-           COALESCE(
-               public.get_external_idents(tp.unit_type, tp.unit_id)->>'tax_ident',
-               eei.external_idents->>'tax_ident'
-           ) AS tax_ident
+           -- For enterprises, the tax_ident is constant over its life. Find it once robustly.
+           CASE
+               WHEN tp.unit_type = 'enterprise' THEN
+                   (SELECT tei.external_idents->>'tax_ident'
+                    FROM public.enterprise_external_idents AS tei
+                    WHERE tei.unit_id = tp.unit_id ORDER BY tei.valid_after LIMIT 1)
+               ELSE
+                   public.get_external_idents(tp.unit_type, tp.unit_id)->>'tax_ident'
+           END AS tax_ident
     FROM public.timepoints AS tp
-    LEFT JOIN public.enterprise_external_idents AS eei
-           ON eei.unit_type = tp.unit_type
-          AND eei.unit_id = tp.unit_id
-          AND eei.valid_after <= tp.timepoint AND tp.timepoint <= eei.valid_to
 )
 SELECT tpti.unit_type,
        tpti.tax_ident,
@@ -599,15 +600,16 @@ WITH timesegments_with_tax_ident AS (
            ts.unit_id,
            ts.valid_after,
            ts.valid_to,
-           COALESCE(
-               public.get_external_idents(ts.unit_type, ts.unit_id)->>'tax_ident',
-               eei.external_idents->>'tax_ident'
-           ) AS tax_ident
+           -- For enterprises, the tax_ident is constant over its life. Find it once robustly.
+           CASE
+               WHEN ts.unit_type = 'enterprise' THEN
+                   (SELECT tei.external_idents->>'tax_ident'
+                    FROM public.enterprise_external_idents AS tei
+                    WHERE tei.unit_id = ts.unit_id ORDER BY tei.valid_after LIMIT 1)
+               ELSE
+                   public.get_external_idents(ts.unit_type, ts.unit_id)->>'tax_ident'
+           END AS tax_ident
     FROM public.timesegments AS ts
-    LEFT JOIN public.enterprise_external_idents AS eei
-           ON eei.unit_type = ts.unit_type
-          AND eei.unit_id = ts.unit_id
-          AND eei.valid_after <= ts.valid_after AND ts.valid_to <= eei.valid_to
 )
 SELECT tsti.unit_type,
        tsti.tax_ident,
