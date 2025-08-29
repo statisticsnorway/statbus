@@ -48,7 +48,7 @@ BEGIN
             -- LEFT JOIN public.status s ON NULLIF(dt_sub.status_code, '') IS NOT NULL AND s.code = NULLIF(dt_sub.status_code, '') AND s.active = true -- Removed
             LEFT JOIN public.sector_available sec ON NULLIF(dt_sub.sector_code, '') IS NOT NULL AND sec.code = NULLIF(dt_sub.sector_code, '')
             LEFT JOIN public.unit_size_available us ON NULLIF(dt_sub.unit_size_code, '') IS NOT NULL AND us.code = NULLIF(dt_sub.unit_size_code, '')
-            WHERE dt_sub.row_id = ANY($1) AND dt_sub.action != 'skip' -- Exclude skipped rows
+            WHERE dt_sub.row_id = ANY($1) AND dt_sub.action IS DISTINCT FROM 'skip' -- Exclude skipped rows
         )
         UPDATE public.%2$I dt SET
             data_source_id = l.resolved_data_source_id,
@@ -58,17 +58,17 @@ BEGIN
             typed_birth_date = l.resolved_typed_birth_date,
             typed_death_date = l.resolved_typed_death_date,
             state = CASE
-                        WHEN dt.name IS NULL OR trim(dt.name) = '' THEN 'error'::public.import_data_state
+                        WHEN NULLIF(trim(dt.name), '') IS NULL THEN 'error'::public.import_data_state
                         WHEN dt.status_id IS NULL THEN 'error'::public.import_data_state
                         ELSE 'analysing'::public.import_data_state
                     END,
             action = CASE -- Added action update
-                        WHEN dt.name IS NULL OR trim(dt.name) = '' THEN 'skip'::public.import_row_action_type
+                        WHEN NULLIF(trim(dt.name), '') IS NULL THEN 'skip'::public.import_row_action_type
                         WHEN dt.status_id IS NULL THEN 'skip'::public.import_row_action_type
                         ELSE dt.action
                      END,
             error = CASE
-                        WHEN dt.name IS NULL OR trim(dt.name) = '' THEN
+                        WHEN NULLIF(trim(dt.name), '') IS NULL THEN
                             COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('name', 'Missing required name')
                         WHEN dt.status_id IS NULL THEN
                             COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('status_code', 'Status code could not be resolved and is required for this operation.')
@@ -76,7 +76,7 @@ BEGIN
                             CASE WHEN (dt.error - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %3$L::TEXT[]) END
                     END,
             invalid_codes = CASE
-                                WHEN (dt.name IS NOT NULL AND trim(dt.name) != '') AND dt.status_id IS NOT NULL THEN -- Only populate invalid_codes if no fatal error in this step
+                                WHEN (NULLIF(trim(dt.name), '') IS NOT NULL) AND dt.status_id IS NOT NULL THEN -- Only populate invalid_codes if no fatal error in this step
                                     jsonb_strip_nulls(
                                      COALESCE(dt.invalid_codes, '{}'::jsonb) - %4$L::TEXT[] || 
                                      jsonb_build_object('data_source_code', CASE WHEN NULLIF(dt.data_source_code, '') IS NOT NULL AND l.resolved_data_source_id IS NULL THEN dt.data_source_code ELSE NULL END) ||
@@ -89,7 +89,7 @@ BEGIN
                             END,
             last_completed_priority = %5$L -- Always v_step.priority
         FROM lookups l
-        WHERE dt.row_id = l.data_row_id AND dt.row_id = ANY($1) AND dt.action != 'skip'; -- Ensure main update also excludes skipped
+        WHERE dt.row_id = l.data_row_id; -- Join is sufficient, lookups CTE is already filtered
     $$,
         v_job.data_table_name /* %1$I */,                           -- For lookups CTE
         v_job.data_table_name /* %2$I */,                           -- For main UPDATE target
@@ -262,7 +262,7 @@ BEGIN
             existing_est_id, invalid_codes, edit_by_user_id, edit_at, edit_comment, action
         )
         SELECT %1$s
-         FROM public.%2$I dt WHERE dt.row_id = ANY($1) AND dt.action != 'skip';
+         FROM public.%2$I dt WHERE dt.row_id = ANY($1) AND dt.action IS DISTINCT FROM 'skip';
     $$, v_select_list /* %1$s */, v_data_table_name /* %2$I */);
     RAISE DEBUG '[Job %] process_establishment: Fetching batch data (including invalid_codes and founding_row_id): %', p_job_id, v_sql;
     EXECUTE v_sql USING p_batch_row_ids;
