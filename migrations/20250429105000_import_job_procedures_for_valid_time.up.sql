@@ -85,8 +85,8 @@ BEGIN
             derived_valid_after = cdc.casted_vf - INTERVAL '1 day',
             derived_valid_to = cdc.casted_vt,
             state = CASE
-                        WHEN cdc.original_vf IS NULL OR cdc.vf_error_msg IS NOT NULL OR 
-                             cdc.original_vt IS NULL OR cdc.vt_error_msg IS NOT NULL OR 
+                        WHEN NULLIF(cdc.original_vf, '') IS NULL OR cdc.vf_error_msg IS NOT NULL OR 
+                             NULLIF(cdc.original_vt, '') IS NULL OR cdc.vt_error_msg IS NOT NULL OR 
                              (cdc.casted_vf IS NOT NULL AND cdc.casted_vt IS NOT NULL AND (cdc.casted_vf - INTERVAL '1 day' >= cdc.casted_vt))
                         THEN 'error'::public.import_data_state
                         ELSE -- No error in this step
@@ -96,18 +96,18 @@ BEGIN
                             END
                     END,
             action = CASE
-                        WHEN cdc.original_vf IS NULL OR cdc.vf_error_msg IS NOT NULL OR 
-                             cdc.original_vt IS NULL OR cdc.vt_error_msg IS NOT NULL OR 
+                        WHEN NULLIF(cdc.original_vf, '') IS NULL OR cdc.vf_error_msg IS NOT NULL OR 
+                             NULLIF(cdc.original_vt, '') IS NULL OR cdc.vt_error_msg IS NOT NULL OR 
                              (cdc.casted_vf IS NOT NULL AND cdc.casted_vt IS NOT NULL AND (cdc.casted_vf - INTERVAL '1 day' >= cdc.casted_vt))
                         THEN 'skip'::public.import_row_action_type -- Error implies skip
                         ELSE dt.action -- Preserve action from previous steps if no new fatal error here
                      END,
             error = CASE
-                        WHEN cdc.original_vf IS NULL THEN -- Mandatory value missing
+                        WHEN NULLIF(cdc.original_vf, '') IS NULL THEN -- Mandatory value missing
                             COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('valid_from', 'Missing mandatory value')
                         WHEN cdc.vf_error_msg IS NOT NULL THEN -- Cast error for valid_from
                             COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('valid_from', cdc.vf_error_msg)
-                        WHEN cdc.original_vt IS NULL THEN -- Mandatory value missing
+                        WHEN NULLIF(cdc.original_vt, '') IS NULL THEN -- Mandatory value missing
                             COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('valid_to', 'Missing mandatory value')
                         WHEN cdc.vt_error_msg IS NOT NULL THEN -- Cast error for valid_to
                             COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('valid_to', cdc.vt_error_msg)
@@ -117,16 +117,16 @@ BEGIN
                                 'valid_to',   'Resulting period is invalid: derived_valid_after (' || (cdc.casted_vf - INTERVAL '1 day')::TEXT || ') is not before valid_to (' || cdc.casted_vt::TEXT || ')'
                             )
                         ELSE -- No error from this step, clear specific keys
-                            CASE WHEN (dt.error - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %4$L::TEXT[]) END
+                            CASE WHEN (dt.error - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %3$L::TEXT[]) END
                     END,
-            last_completed_priority = %5$L -- Always v_step.priority
+            last_completed_priority = %4$L -- Always v_step.priority
         FROM casted_dates_cte cdc -- Use cdc alias
         WHERE dt.row_id = cdc.row_id AND dt.action IS DISTINCT FROM 'skip'; -- Process if action was not already 'skip' from a prior step.
     $$,
         v_data_table_name /* %1$I */,                           -- %1$I (CTE source table)
         v_data_table_name /* %2$I */,                           -- %2$I (main UPDATE target)
-        v_error_keys_to_clear_arr /* %3$L */, v_error_keys_to_clear_arr /* %4$L */,   -- For error CASE (clear)
-        v_step.priority /* %5$L */                              -- For last_completed_priority (always this step's priority)
+        v_error_keys_to_clear_arr /* %3$L */,                    -- For error CASE (clear)
+        v_step.priority /* %4$L */                              -- For last_completed_priority (always this step's priority)
     );
     RAISE DEBUG '[Job %] analyse_valid_time: Single-pass batch update for non-skipped rows: %', p_job_id, v_sql;
 
