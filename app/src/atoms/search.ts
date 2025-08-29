@@ -305,15 +305,6 @@ export const availableTableColumnsAtom = atom<TableColumn[]>((get) => {
       } as AdaptableTableColumn)
   );
 
-  // Ensure statDefinitions is not undefined before proceeding.
-  // If statDefinitionsAtom has not resolved or is empty, return a basic set or empty array.
-  if (!statDefinitions || statDefinitions.length === 0) {
-     // Return a minimal set of columns or empty array if statDefinitions are not ready
-     // This prevents errors if this atom is read before statDefinitions are available.
-     // Alternatively, this could throw or return a specific "loading" state if preferred.
-    return [ { type: "Always", code: "name", label: "Name" } ];
-  }
-
   return [
     { type: "Always", code: "name", label: "Name" },
     {

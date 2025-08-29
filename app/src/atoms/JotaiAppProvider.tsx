@@ -18,6 +18,8 @@ import {
   requiredSetupRedirectAtom,
   restClientAtom,
   restClientAtom as importedRestClientAtom, // Alias to avoid conflict with local restClient variable
+  selectedTimeContextAtom,
+  setupRedirectCheckAtom,
   stateInspectorVisibleAtom,
 } from './app';
 import {
@@ -26,10 +28,9 @@ import {
   clientSideRefreshAtom,
   isAuthenticatedAtom,
   lastKnownPathBeforeAuthChangeAtom,
-  loginActionInProgressAtom,
-  authStateStabilizerEffect,
-  lastStableIsAuthenticatedAtom,
-  rawAuthStatusDetailsAtom,
+  isLoginActionInProgressAtom,
+  authStatusUnstableDetailsAtom,
+  fetchAuthStatusAtom,
 } from './auth';
 import {
   baseDataAtom,
@@ -60,11 +61,11 @@ import { AuthCrossTabSyncer } from './AuthCrossTabSyncer'; // Import the new syn
 // ============================================================================
 
 const AppInitializer = ({ children }: { children: ReactNode }) => {
-  useAtom(authStateStabilizerEffect); // Mount the effect to stabilize auth state
   const authLoadableValue = useAtomValue(authStatusLoadableAtom);
   const isAuthenticated = useAtomValue(isAuthenticatedAtom);
   const authStatus = useAtomValue(authStatusAtom);
   const clientSideRefresh = useSetAtom(clientSideRefreshAtom);
+  const fetchAuthStatus = useSetAtom(fetchAuthStatusAtom);
   const restClient = useAtomValue(restClientAtom);
   const refreshBaseData = useSetAtom(refreshBaseDataAtom)
   const refreshWorkerStatus = useSetAtom(refreshWorkerStatusAtom)
@@ -77,12 +78,7 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   const baseData = useAtomValue(baseDataAtom);
   const { statDefinitions } = baseData;
   const setRequiredSetupRedirect = useSetAtom(requiredSetupRedirectAtom);
-  
-  // Use Jotai's `loadable` utility to check the status of async atoms
-  // without causing the component to suspend. This is key to preventing
-  // redirects based on stale data.
-  const activityStandardLoadable = useAtomValue(loadable(activityCategoryStandardSettingAtomAsync));
-  const numberOfRegionsLoadable = useAtomValue(loadable(numberOfRegionsAtomAsync));
+  const setupRedirectCheck = useAtomValue(setupRedirectCheckAtom);
   const setPendingRedirect = useSetAtom(pendingRedirectAtom);
   const setLastPath = useSetAtom(lastKnownPathBeforeAuthChangeAtom);
   const setClientMounted = useSetAtom(clientMountedAtom);
@@ -150,8 +146,15 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
     }
   }, [setRestClient])
 
-  // Effect to fetch initial authentication status once REST client is ready and auth is not already loading
-  // This effect is removed. authStatusCoreAtom will fetch when restClient is ready due to its dependency.
+  // Effect to fetch initial authentication status once the REST client is ready.
+  useEffect(() => {
+    // We only fetch if restClient is available.
+    // authStatusCoreAtom is just a container for the promise, it doesn't fetch on its own.
+    // We need to explicitly trigger the fetch.
+    if (restClient) {
+      fetchAuthStatus();
+    }
+  }, [restClient, fetchAuthStatus]);
   
   // The useEffect that previously set authStatusInitiallyCheckedAtom is removed.
   // Its logic is now handled by initialAuthCheckDoneEffect from jotai-effect.
@@ -226,47 +229,15 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
 
   // Effect for redirecting to setup pages if necessary
   useEffect(() => {
-    // Setup checks are only relevant on the dashboard ('/') and when authenticated.
-    if (pathname !== '/' || !isAuthenticated || !restClient) {
+    // This effect acts as a gatekeeper for the dashboard ('/').
+    // If an authenticated user lands here and a setup step is required, redirect them.
+    if (pathname === '/' && isAuthenticated && !setupRedirectCheck.isLoading) {
+      setRequiredSetupRedirect(setupRedirectCheck.path);
+    } else {
+      // Clear the redirect if not on the dashboard or if conditions change.
       setRequiredSetupRedirect(null);
-      return;
     }
-
-    // Wait until all required data has finished loading before making a decision.
-    // This prevents redirects based on stale data from a previous page that is still refreshing.
-    if (
-        activityStandardLoadable.state === 'loading' ||
-        numberOfRegionsLoadable.state === 'loading' ||
-        baseData.loading
-    ) {
-      return; // Data is not ready, wait for the next render.
-    }
-
-    // At this point, all data is loaded and stable. We can now safely check the values.
-    const currentActivityStandard = activityStandardLoadable.state === 'hasData' ? activityStandardLoadable.data : null;
-    const currentNumberOfRegions = numberOfRegionsLoadable.state === 'hasData' ? numberOfRegionsLoadable.data : null;
-
-    let targetSetupPath: string | null = null;
-
-    if (currentActivityStandard === null) {
-      targetSetupPath = '/getting-started/activity-standard';
-    } else if (currentNumberOfRegions === null || currentNumberOfRegions === 0) {
-      targetSetupPath = '/getting-started/upload-regions';
-    } else if (baseData.statDefinitions.length > 0 && !baseData.hasStatisticalUnits) {
-      targetSetupPath = '/import';
-    }
-
-    // Set or clear the setup redirect atom based on checks.
-    setRequiredSetupRedirect(targetSetupPath);
-  }, [
-    pathname,
-    isAuthenticated,
-    restClient,
-    activityStandardLoadable,
-    numberOfRegionsLoadable,
-    baseData,
-    setRequiredSetupRedirect
-  ]);
+  }, [pathname, isAuthenticated, setupRedirectCheck, setRequiredSetupRedirect]);
   
   return <>{children}</>
 }
@@ -345,7 +316,7 @@ const RedirectGuard = () => {
 const RedirectHandler = () => {
   const [explicitRedirect, setExplicitRedirect] = useAtom(pendingRedirectAtom);
   const [setupRedirect, setSetupRedirect] = useAtom(requiredSetupRedirectAtom);
-  const [loginActionIsActive, setLoginActionInProgress] = useAtom(loginActionInProgressAtom);
+  const [isLoginActionActive, setIsLoginActionInProgress] = useAtom(isLoginActionInProgressAtom);
   const setLastPathBeforeAuthChange = useSetAtom(lastKnownPathBeforeAuthChangeAtom);
   const router = useRouter();
   const pathname = usePathname();
@@ -354,60 +325,66 @@ const RedirectHandler = () => {
   // cancel any pending programmatic redirects.
   const prevPathnameRef = React.useRef(pathname);
 
-  // Determine the single desired target path. Explicit redirects take priority.
-  const targetPath = explicitRedirect || setupRedirect;
-
   // This effect runs on every render where pathname or a redirect atom changes.
   // It's the core of the centralized navigation logic.
   useEffect(() => {
     const prevPathname = prevPathnameRef.current;
-    // Update ref for the next render *before* any early returns. This ensures
-    // the ref is always current for the next comparison.
+    // Update ref for the next render *before* any early returns.
     prevPathnameRef.current = pathname;
 
-    // SCENARIO 1: User-initiated navigation overrides a pending redirect.
-    // We detect this by checking if a redirect was pending (`targetPath`), if the URL
-    // has changed (`pathname !== prevPathname`), AND if the new URL is NOT our
-    // intended redirect destination. If all are true, the user has taken control
-    // (e.g., by clicking a <Link>). We must cancel our redirect and yield.
-    if (targetPath && pathname !== prevPathname && targetPath.split('?')[0] !== pathname) {
-      if (explicitRedirect) {
+    // --- Priority 1: Handle explicit redirects (login, logout, etc.) ---
+    if (explicitRedirect) {
+      const targetPathname = explicitRedirect.split('?')[0];
+
+      // User override: if path changed to something OTHER than our target, cancel.
+      if (pathname !== prevPathname && targetPathname !== pathname) {
         setExplicitRedirect(null);
+        return; // Let user navigation proceed.
       }
-      if (setupRedirect) {
-        setSetupRedirect(null);
-      }
-      return; // Stop processing to allow the user's navigation to complete.
-    }
-
-    // If there's no target path, there's nothing to do.
-    if (!targetPath) {
-      return;
-    }
-
-    const targetPathname = targetPath.split('?')[0];
-
-    // SCENARIO 2: Execute a pending programmatic redirect.
-    // If we are not already at the target destination, navigate.
-    if (targetPathname !== pathname) {
-      router.push(targetPath);
-    } else {
-      // SCENARIO 3: Cleanup after a successful redirect.
-      // We have arrived at our destination. Clear the state that triggered the
-      // redirect to prevent loops.
-      if (explicitRedirect) {
+      
+      // Execute redirect if not at destination.
+      if (targetPathname !== pathname) {
+        router.push(explicitRedirect);
+      } else {
+        // Cleanup on arrival.
         setExplicitRedirect(null);
-        // After any successful explicit redirect, the "login action" is complete (if one was active)
-        // and the "last known path" has been restored or is no longer relevant.
-        // We clear all related state to prevent stale values from causing issues.
-        setLoginActionInProgress(false);
-        setLastPathBeforeAuthChange(null);
+        if (isLoginActionActive) {
+          setIsLoginActionInProgress(false);
+          setLastPathBeforeAuthChange(null);
+        }
       }
-      if (setupRedirect) {
-        setSetupRedirect(null);
-      }
+      return; // Explicit redirect takes precedence, do not process setup redirect.
     }
-  }, [targetPath, pathname, router, explicitRedirect, setupRedirect, loginActionIsActive, setExplicitRedirect, setSetupRedirect, setLoginActionInProgress, setLastPathBeforeAuthChange]);
+
+    // --- Priority 2: Handle setup redirects (getting-started, import) ---
+    if (setupRedirect) {
+      const targetPathname = setupRedirect.split('?')[0];
+
+      // User override: if path changed to something OUTSIDE our target section, cancel.
+      // This allows navigation within the section (e.g., /import to /import/jobs).
+      if (pathname !== prevPathname && !pathname.startsWith(targetPathname)) {
+        setSetupRedirect(null);
+        return; // Let user navigation proceed.
+      }
+
+      // Execute redirect if outside the required section.
+      if (!pathname.startsWith(targetPathname)) {
+        router.push(setupRedirect);
+      }
+      // NO cleanup on arrival for setupRedirect. The redirect is "sticky" and should
+      // remain active until the underlying condition in AppInitializer is resolved.
+    }
+  }, [
+    pathname,
+    router,
+    explicitRedirect,
+    setupRedirect,
+    isLoginActionActive,
+    setExplicitRedirect,
+    setSetupRedirect,
+    setIsLoginActionInProgress,
+    setLastPathBeforeAuthChange
+  ]);
 
   return null;
 };
@@ -731,7 +708,7 @@ export const StateInspector = () => {
 
   // Atoms for general state
   const authLoadableValue = useAtomValue(authStatusLoadableAtom);
-  const rawAuthStatusDetailsValue = useAtomValue(rawAuthStatusDetailsAtom);
+  const authStatusUnstableDetailsValue = useAtomValue(authStatusUnstableDetailsAtom);
   const baseDataFromAtom = useAtomValue(baseDataAtom);
   const workerStatusValue = useAtomValue(workerStatusAtom);
   const searchStateValue = useAtomValue(searchStateAtom);
@@ -741,15 +718,15 @@ export const StateInspector = () => {
   // Atoms for redirect logic debugging
   const pathname = usePathname();
   const isAuthenticatedValue = useAtomValue(isAuthenticatedAtom);
-  const lastStableIsAuthenticatedValue = useAtomValue(lastStableIsAuthenticatedAtom);
   const initialAuthCheckCompletedValue = useAtomValue(initialAuthCheckCompletedAtom);
   const pendingRedirectValue = useAtomValue(pendingRedirectAtom);
   const requiredSetupRedirectValue = useAtomValue(requiredSetupRedirectAtom);
-  const loginActionInProgressValue = useAtomValue(loginActionInProgressAtom);
+  const isLoginActionInProgressValue = useAtomValue(isLoginActionInProgressAtom);
   const lastKnownPathValue = useAtomValue(lastKnownPathBeforeAuthChangeAtom);
   const restClientFromAtom = useAtomValue(importedRestClientAtom);
   const activityStandardLoadable = useAtomValue(loadable(activityCategoryStandardSettingAtomAsync));
   const numberOfRegionsLoadable = useAtomValue(loadable(numberOfRegionsAtomAsync));
+  const selectedTimeContextValue = useAtomValue(selectedTimeContextAtom);
 
   useEffect(() => {
     setMounted(true);
@@ -770,13 +747,19 @@ export const StateInspector = () => {
   const fullState = {
     pathname,
     authStatus: {
-      state: rawAuthStatusDetailsValue.loading ? 'loading' : rawAuthStatusDetailsValue.error_code ? 'hasError' : 'hasData',
+      state: authStatusUnstableDetailsValue.loading ? 'loading' : authStatusUnstableDetailsValue.error_code ? 'hasError' : 'hasData',
       isAuthenticated: isAuthenticatedValue,
-      lastStableIsAuthenticated: lastStableIsAuthenticatedValue,
-      isAuthenticated_RAW: rawAuthStatusDetailsValue.isAuthenticated,
-      user: rawAuthStatusDetailsValue.user,
-      expired_access_token_call_refresh: rawAuthStatusDetailsValue.expired_access_token_call_refresh,
-      error: rawAuthStatusDetailsValue.error_code,
+      isAuthenticated_UNSTABLE: authStatusUnstableDetailsValue.isAuthenticated,
+      user: authStatusUnstableDetailsValue.user,
+      expired_access_token_call_refresh: authStatusUnstableDetailsValue.expired_access_token_call_refresh,
+      error: authStatusUnstableDetailsValue.error_code,
+    },
+    appContext: {
+      selectedTimeContext: selectedTimeContextValue ? {
+        ident: selectedTimeContextValue.ident,
+        name_when_input: selectedTimeContextValue.name_when_input,
+        name_when_query: selectedTimeContextValue.name_when_query,
+      } : null,
     },
     baseData: { state: baseDataState, statDefinitionsCount: baseDataState === 'hasData' ? baseDataFromAtom.statDefinitions.length : undefined, externalIdentTypesCount: baseDataState === 'hasData' ? baseDataFromAtom.externalIdentTypes.length : undefined, statbusUsersCount: baseDataState === 'hasData' ? baseDataFromAtom.statbusUsers.length : undefined, timeContextsCount: baseDataState === 'hasData' ? baseDataFromAtom.timeContexts.length : undefined, defaultTimeContextIdent: baseDataState === 'hasData' ? baseDataFromAtom.defaultTimeContext?.ident : undefined, hasStatisticalUnits: baseDataState === 'hasData' ? baseDataFromAtom.hasStatisticalUnits : undefined, error: baseDataState === 'hasError' ? String(baseDataFromAtom.error) : undefined },
     workerStatus: { state: workerStatusValue.loading ? 'loading' : workerStatusValue.error ? 'hasError' : 'hasData', isImporting: workerStatusValue.isImporting, isDerivingUnits: workerStatusValue.isDerivingUnits, isDerivingReports: workerStatusValue.isDerivingReports, loading: workerStatusValue.loading, error: workerStatusValue.error },
@@ -792,7 +775,7 @@ export const StateInspector = () => {
         error: searchResultValue.error ? String(searchResultValue.error) : null,
       },
     },
-    navigationState: { pendingRedirect: pendingRedirectValue, requiredSetupRedirect: requiredSetupRedirectValue, loginActionInProgress: loginActionInProgressValue, lastKnownPathBeforeAuthChange: lastKnownPathValue },
+    navigationState: { pendingRedirect: pendingRedirectValue, requiredSetupRedirect: requiredSetupRedirectValue, isLoginActionInProgress: isLoginActionInProgressValue, lastKnownPathBeforeAuthChange: lastKnownPathValue },
     redirectRelevantState: { initialAuthCheckCompleted: initialAuthCheckCompletedValue, authCheckDone: authLoadableValue.state !== 'loading', isRestClientReady: !!restClientFromAtom, activityStandard: activityStandardLoadable.state === 'hasData' ? activityStandardLoadable.data : null, numberOfRegions: numberOfRegionsLoadable.state === 'hasData' ? numberOfRegionsLoadable.data : null, baseDataHasStatisticalUnits: baseDataState === 'hasData' ? baseDataFromAtom.hasStatisticalUnits : 'BaseDataNotLoaded', baseDataStatDefinitionsLength: baseDataState === 'hasData' ? baseDataFromAtom.statDefinitions.length : 'BaseDataNotLoaded' }
   };
 
@@ -910,8 +893,7 @@ export const StateInspector = () => {
               {stateToDisplay.authStatus?.state === 'hasData' && (
                 <>
                   <div><strong>Authenticated (Stable):</strong> {stateToDisplay.authStatus.isAuthenticated ? 'Yes' : 'No'}</div>
-                  <div><strong>Last Stable Is Authenticated:</strong> {stateToDisplay.authStatus.lastStableIsAuthenticated === null ? 'N/A' : stateToDisplay.authStatus.lastStableIsAuthenticated ? 'Yes' : 'No'}</div>
-                  <div><strong>Authenticated (Raw):</strong> {stateToDisplay.authStatus.isAuthenticated_RAW ? 'Yes' : 'No'}</div>
+                  <div><strong>Authenticated (Unstable):</strong> {stateToDisplay.authStatus.isAuthenticated_UNSTABLE ? 'Yes' : 'No'}</div>
                   <div><strong>User:</strong> {stateToDisplay.authStatus.user?.email || 'None'}</div>
                   <div><strong>UID:</strong> {stateToDisplay.authStatus.user?.uid || 'N/A'}</div>
                   <div><strong>Role:</strong> {stateToDisplay.authStatus.user?.role || 'N/A'}</div>
@@ -920,6 +902,20 @@ export const StateInspector = () => {
                 </>
               )}
               {stateToDisplay.authStatus?.state === 'hasError' && <div><strong>Error:</strong> {String(stateToDisplay.authStatus.error)}</div>}
+            </div>
+          </div>
+
+          <div>
+            <strong>App Context:</strong>
+            <div className="pl-4 mt-1 space-y-1">
+              <div><strong>Time Context:</strong> {(
+                  () => {
+                    const tc = stateToDisplay.appContext?.selectedTimeContext;
+                    if (!tc) return 'None';
+                    const displayName = tc.name_when_input || tc.name_when_query;
+                    return `${displayName} (${tc.ident})`;
+                  }
+                )()}</div>
             </div>
           </div>
 
@@ -976,7 +972,7 @@ export const StateInspector = () => {
               <div><strong>Active Redirect Target:</strong> {(stateToDisplay.navigationState?.pendingRedirect || stateToDisplay.navigationState?.requiredSetupRedirect) || 'None'}</div>
               <div><strong>Pending Redirect:</strong> {stateToDisplay.navigationState?.pendingRedirect || 'None'}</div>
               <div><strong>Required Setup Redirect:</strong> {stateToDisplay.navigationState?.requiredSetupRedirect || 'None'}</div>
-              <div><strong>Login Action in Progress:</strong> {stateToDisplay.navigationState?.loginActionInProgress ? 'Yes' : 'No'}</div>
+              <div><strong>Is Login Action in Progress:</strong> {stateToDisplay.navigationState?.isLoginActionInProgress ? 'Yes' : 'No'}</div>
               <div><strong>Last Known Path (pre-auth):</strong> {stateToDisplay.navigationState?.lastKnownPathBeforeAuthChange || 'None'}</div>
               <hr className="my-1 border-gray-500" />
               <div><strong>Auth Check Done:</strong> {stateToDisplay.redirectRelevantState?.authCheckDone ? 'Yes' : 'No'}</div>

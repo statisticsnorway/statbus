@@ -30,7 +30,6 @@ import {
   selectedUnitsAtom,
   tableColumnsAtom,
 } from './search'
-import { baseDataCoreAtom } from './base-data'
 import { refreshWorkerStatusAtom } from './worker_status'
 import { restClientAtom, pendingRedirectAtom } from './app'
 
@@ -47,7 +46,7 @@ export interface ClientAuthStatus extends CoreAuthStatus {
 
 // Base auth atom - holds the promise for the current auth status.
 // It starts with a non-resolving promise to represent the initial "loading" state.
-export const authStatusCoreAtom = atom<Promise<CoreAuthStatus>>(
+export const authStatusPromiseAtom = atom<Promise<CoreAuthStatus>>(
   new Promise<CoreAuthStatus>(() => {})
 );
 
@@ -57,16 +56,16 @@ export const fetchAuthStatusAtom = atom(null, async (get, set) => {
   const isClientSide = typeof window !== 'undefined';
 
   // Get the current auth status *before* fetching to compare later.
-  // We read the synchronous derived atom `rawAuthStatusDetailsAtom` to get the current state
-  // without blocking, which is crucial on initial load when `authStatusCoreAtom` is an
+  // We read the synchronous derived atom `authStatusUnstableDetailsAtom` to get the current state
+  // without blocking, which is crucial on initial load when `authStatusPromiseAtom` is an
   // unresolved promise.
-  const oldAuthStatus = get(rawAuthStatusDetailsAtom);
+  const oldAuthStatus = get(authStatusUnstableDetailsAtom);
 
   if (!client) {
     if (isClientSide) {
-      set(authStatusCoreAtom, new Promise(() => {}));
+      set(authStatusPromiseAtom, new Promise(() => {}));
     } else {
-      set(authStatusCoreAtom, Promise.resolve({ isAuthenticated: false, user: null, expired_access_token_call_refresh: false, error_code: 'CLIENT_NOT_READY_SSR' }));
+      set(authStatusPromiseAtom, Promise.resolve({ isAuthenticated: false, user: null, expired_access_token_call_refresh: false, error_code: 'CLIENT_NOT_READY_SSR' }));
     }
     return;
   }
@@ -87,7 +86,7 @@ export const fetchAuthStatusAtom = atom(null, async (get, set) => {
     }
   })();
 
-  set(authStatusCoreAtom, fetchPromise);
+  set(authStatusPromiseAtom, fetchPromise);
   const newAuth = await fetchPromise; // Wait for it to complete for stabilization before the action resolves.
 
   // After stabilizing, compare old and new auth states and trigger sync if needed.
@@ -97,15 +96,20 @@ export const fetchAuthStatusAtom = atom(null, async (get, set) => {
   }
 });
 
-export const authStatusLoadableAtom = loadable(authStatusCoreAtom);
+export const authStatusLoadableAtom = loadable(authStatusPromiseAtom);
 
 // Derived atoms for easier access
 
-// "Raw" status atom, exported for debugging. This contains the unstabilized `isAuthenticated` flag.
-export const rawAuthStatusDetailsAtom = atom<ClientAuthStatus>(
+// Unstable details atom that correctly interprets the loadable state, including stale data.
+export const authStatusUnstableDetailsAtom = atom<ClientAuthStatus>(
   (get): ClientAuthStatus => {
-    const loadableState: Loadable<CoreAuthStatus> = get(authStatusLoadableAtom);
+    const loadableState = get(authStatusLoadableAtom);
     if (loadableState.state === 'loading') {
+      // Preserve stale data if available to prevent UI flapping during re-fetches.
+      const staleData = (loadableState as { data?: CoreAuthStatus }).data;
+      if (staleData) {
+        return { loading: true, ...staleData };
+      }
       return { loading: true, isAuthenticated: false, user: null, expired_access_token_call_refresh: false, error_code: null };
     }
     if (loadableState.state === 'hasError') {
@@ -118,47 +122,14 @@ export const rawAuthStatusDetailsAtom = atom<ClientAuthStatus>(
   }
 );
 
-// Atom to hold the last known "stable" authenticated state (the value from the last completed check).
-export const lastStableIsAuthenticatedAtom = atom<boolean | null>(null);
-
-// An atom effect that observes the raw auth status and updates the "stable" atom
-// only when the status is fully resolved (i.e., not loading).
-export const authStateStabilizerEffect = atomEffect((get, set) => {
-  const authLoadable = get(authStatusLoadableAtom);
-
-  if (authLoadable.state !== 'loading') {
-    let isAuth = false;
-    if (authLoadable.state === 'hasData') {
-      isAuth = authLoadable.data.isAuthenticated || authLoadable.data.expired_access_token_call_refresh;
-    }
-    // Update the stable atom with the new resolved state.
-    set(lastStableIsAuthenticatedAtom, isAuth);
-  }
-});
-
-
 // A derived atom that provides a "stabilized" authentication status.
-// It prevents rapid "flapping" from true -> false -> true. If the app was authenticated,
-// it will continue to report `true` while the auth state is re-validating. This is the
-// atom that should be used by data-fetching atoms like `baseDataCoreAtom`.
+// It prevents rapid "flapping" from true -> false -> true during token refresh.
+// This is the primary atom to use for checking authentication status.
 export const isAuthenticatedAtom = atom(get => {
-    const authLoadable = get(authStatusLoadableAtom);
-    const lastStableIsAuthenticated = get(lastStableIsAuthenticatedAtom);
-
-    // If auth is re-validating (loading), and we were previously authenticated,
-    // continue to report `true` to prevent downstream data atoms from clearing.
-    if (authLoadable.state === 'loading' && lastStableIsAuthenticated === true) {
-        return true;
-    }
-
-    let isAuth = false;
-    if (authLoadable.state === 'hasData') {
-        // Considered authenticated if the token is valid OR if it's expired but refreshable.
-        isAuth = authLoadable.data.isAuthenticated || authLoadable.data.expired_access_token_call_refresh;
-    }
-
-    // Otherwise, report the current actual state. The stable cache is updated by `authStateStabilizerEffect`.
-    return isAuth;
+    const unstableStatus = get(authStatusUnstableDetailsAtom);
+    // This atom now provides the "stabilized" status by deriving from authStatusUnstableDetailsAtom,
+    // which correctly handles stale data during loading.
+    return unstableStatus.isAuthenticated || unstableStatus.expired_access_token_call_refresh;
 });
 
 /**
@@ -168,28 +139,23 @@ export const isAuthenticatedAtom = atom(get => {
  * This should be the default choice for most UI components.
  */
 export const authStatusAtom = atom((get) => {
-  const rawStatus = get(rawAuthStatusDetailsAtom);
+  const unstableStatus = get(authStatusUnstableDetailsAtom);
   const isAuthenticated = get(isAuthenticatedAtom); // The stabilized version
   return {
-    ...rawStatus,
+    ...unstableStatus,
     isAuthenticated, // Overwrite the raw value with the stable one
   };
 });
-export const currentUserAtom = atom((get) => {
-  const loadableState: Loadable<CoreAuthStatus> = get(authStatusLoadableAtom);
-  return loadableState.state === 'hasData' ? loadableState.data.user : null;
-});
-export const expiredAccessTokenAtom = atom((get) => {
-  const loadableState: Loadable<CoreAuthStatus> = get(authStatusLoadableAtom);
-  return loadableState.state === 'hasData' ? loadableState.data.expired_access_token_call_refresh : false;
-});
+export const currentUserAtom = atom((get) => get(authStatusUnstableDetailsAtom).user);
+export const expiredAccessTokenAtom = atom((get) => get(authStatusUnstableDetailsAtom).expired_access_token_call_refresh);
 
 // ============================================================================
 // AUTH-RELATED APP STATE ATOMS
 // ============================================================================
 
-// Atom to signal that a login action is currently managing a redirect
-export const loginActionInProgressAtom = atom(false);
+// Atom to signal that a login action is in progress. This helps coordinate
+// state cleanup after a successful login redirect.
+export const isLoginActionInProgressAtom = atom(false);
 
 // Atom to signal auth events across tabs
 export const authChangeTriggerAtom = atomWithStorage('authChangeTrigger', 0);
@@ -235,7 +201,7 @@ export const loginPageMachine = createMachine({
     evaluating: {
       always: [
         {
-          target: 'redirecting',
+          target: 'finalizing',
           guard: ({ context }) => context.isAuthenticated && context.isOnLoginPage,
         },
         {
@@ -243,8 +209,7 @@ export const loginPageMachine = createMachine({
         },
       ],
     },
-    redirecting: {
-      // This is no longer a final state, allowing it to be reset.
+    finalizing: {
       on: {
         EVALUATE: {
           target: 'evaluating',
@@ -288,8 +253,8 @@ export const loginPageMachineAtom = atomWithMachine((get) => {
 export const loginAtom = atom(
   null,
   async (get, set, { credentials, nextPath }: { credentials: { email: string; password: string }, nextPath: string | null }) => {
-    const oldAuthStatus = get(rawAuthStatusDetailsAtom);
-    // No need to manually set loading states on rawAuthStatusDetailsAtom now.
+    const oldAuthStatus = get(authStatusUnstableDetailsAtom);
+    // No need to manually set loading states on authStatusUnstableDetailsAtom now.
     // Components will observe authStatusLoadableAtom.
     const apiUrl = process.env.NEXT_PUBLIC_BROWSER_REST_URL || '';
     const loginUrl = `${apiUrl}/rest/rpc/login`;
@@ -351,27 +316,16 @@ export const loginAtom = atom(
       // Successfully authenticated (200 OK and is_authenticated: true implied or explicit from responseData)
       // After successful login, the backend sets cookies.
 
-      // Signal that a login action is now managing the redirect.
-      // This must be set BEFORE awaiting the auth status fetch to prevent race conditions
-      // with other components that might react to the auth state change.
-      set(loginActionInProgressAtom, true);
+      // Signal that a login action is in progress. This is read by LoginClientBoundary
+      // and RedirectHandler to orchestrate a clean redirect and state cleanup after
+      // the auth state has been updated.
+      set(isLoginActionInProgressAtom, true);
 
-      // Set pendingRedirectAtom to trigger navigation BEFORE stabilization.
-      // This ensures that RedirectHandler sees both loginActionInProgress and
-      // the pendingRedirect at the same time, avoiding race conditions.
-      let redirectTarget = nextPath && nextPath.startsWith('/') ? nextPath : '/';
-      // Ensure we don't redirect back to the login page after a successful login.
-      // Check just the pathname part of the target, ignoring query params.
-      const redirectPathname = redirectTarget.split('?')[0];
-      if (redirectPathname === '/login') {
-        redirectTarget = '/';
-      }
-      set(pendingRedirectAtom, redirectTarget);
-
-      // Update auth status directly from login response to avoid a re-fetch race condition.
+      // Update auth status directly from login response. The redirect will be triggered
+      // reactively by LoginClientBoundary when it sees the auth state change.
       const newAuthStatus = _parseAuthStatusRpcResponseToAuthStatus(responseData);
-      set(authStatusCoreAtom, Promise.resolve(newAuthStatus));
-      await get(authStatusCoreAtom); // Stabilize
+      set(authStatusPromiseAtom, Promise.resolve(newAuthStatus));
+      await get(authStatusPromiseAtom); // Stabilize
 
       // Trigger cross-tab sync if we transitioned from unauthenticated to authenticated.
       if (!oldAuthStatus.loading && !oldAuthStatus.isAuthenticated && newAuthStatus.isAuthenticated) {
@@ -393,19 +347,45 @@ export const clientSideRefreshAtom = atom<null, [], Promise<void>>(
     const client = get(restClientAtom);
     if (!client) {
       const errorState = _parseAuthStatusRpcResponseToAuthStatus({ error_code: "CLIENT_NOT_AVAILABLE" });
-      set(authStatusCoreAtom, Promise.resolve(errorState));
+      set(authStatusPromiseAtom, Promise.resolve(errorState));
       return;
     }
 
-    const oldAuthStatus = get(rawAuthStatusDetailsAtom);
+    const oldAuthStatus = get(authStatusUnstableDetailsAtom);
+
+    // Bypassing PostgREST client for refresh, as it sends an expired Authorization
+    // header that gets rejected before our RPC can run. Refresh is auth'd by httpOnly cookie.
+    const apiUrl = process.env.NEXT_PUBLIC_BROWSER_REST_URL || '';
+    const refreshUrl = `${apiUrl}/rest/rpc/refresh`;
 
     const refreshPromise = (async () => {
-      const { data, error } = await client.rpc('refresh');
-      const responseBody = error || data;
-      return _parseAuthStatusRpcResponseToAuthStatus(responseBody);
+      try {
+        const response = await fetch(refreshUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          // No body is needed for refresh RPC
+          credentials: 'include' // Crucial for sending the refresh_token cookie
+        });
+
+        const responseData = await response.json();
+
+        if (!response.ok) {
+          console.error('clientSideRefreshAtom: Refresh API call failed.', responseData);
+          // Even on failure, the response body from the RPC is what we should use
+          // as it might contain specific error codes.
+        }
+
+        return _parseAuthStatusRpcResponseToAuthStatus(responseData);
+      } catch (e) {
+        console.error("clientSideRefreshAtom: Exception during refresh fetch:", e);
+        return { isAuthenticated: false, user: null, expired_access_token_call_refresh: false, error_code: 'REFRESH_FETCH_ERROR' };
+      }
     })();
 
-    set(authStatusCoreAtom, refreshPromise);
+    set(authStatusPromiseAtom, refreshPromise);
     const newAuthStatus = await refreshPromise; // Stabilize
 
     if (!oldAuthStatus.loading && oldAuthStatus.isAuthenticated !== newAuthStatus.isAuthenticated) {
@@ -427,41 +407,45 @@ export const logoutAtom = atom(
         credentials: 'include'
       });
       const responseData = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(responseData.message || 'Server returned an error during logout.');
+      }
 
       // The logout RPC returns the new (unauthenticated) auth status.
       // Update state directly.
-      const oldAuthStatus = get(rawAuthStatusDetailsAtom);
+      const oldAuthStatus = get(authStatusUnstableDetailsAtom);
       const newAuthStatus = _parseAuthStatusRpcResponseToAuthStatus(responseData);
-      set(authStatusCoreAtom, Promise.resolve(newAuthStatus));
-      await get(authStatusCoreAtom); // Stabilize
+      set(authStatusPromiseAtom, Promise.resolve(newAuthStatus));
+      await get(authStatusPromiseAtom); // Stabilize
 
       // Trigger cross-tab sync if we were previously authenticated.
       if (oldAuthStatus.isAuthenticated) {
         set(updateSyncTimestampAtom, Date.now());
       }
 
+      // Reset all relevant application state that doesn't reset automatically
+      // by reacting to the new unauthenticated state.
+      set(refreshWorkerStatusAtom); // Resets worker status to non-authenticated state
+      set(searchStateAtom, initialSearchStateValues);
+      set(searchResultAtom, { data: [], total: 0, loading: false, error: null });
+      set(selectedUnitsAtom, []);
+      set(tableColumnsAtom, []);
+      set(gettingStartedUIStateAtom, { currentStep: 0, completedSteps: [], isVisible: true });
+      set(importStateAtom, initialImportState);
+      set(unitCountsAtom, { legalUnits: null, establishmentsWithLegalUnit: null, establishmentsWithoutLegalUnit: null });
+  
+      // Also clear any lingering navigation state from session storage.
+      set(lastKnownPathBeforeAuthChangeAtom, null);
+  
+      // Redirect to login.
+      set(pendingRedirectAtom, '/login');
+
     } catch (error) {
-      console.error('Error during logout API call, will refresh state for safety:', error);
-      // On any failure, refresh from auth_status to get a consistent state.
-      await set(fetchAuthStatusAtom);
+      console.error('Error during logout. State will not be cleared. User may need to refresh.', error);
+      // Re-throw the error so the UI layer (e.g., LogoutForm) can catch it and display a message.
+      throw error;
     }
-
-    // Reset all relevant application state.
-    set(baseDataCoreAtom);
-    set(refreshWorkerStatusAtom); // Resets worker status to non-authenticated state
-    set(searchStateAtom, initialSearchStateValues);
-    set(searchResultAtom, { data: [], total: 0, loading: false, error: null });
-    set(selectedUnitsAtom, []);
-    set(tableColumnsAtom, []);
-    set(gettingStartedUIStateAtom, { currentStep: 0, completedSteps: [], isVisible: true });
-    set(importStateAtom, initialImportState);
-    set(unitCountsAtom, { legalUnits: null, establishmentsWithLegalUnit: null, establishmentsWithoutLegalUnit: null });
-
-    // Also clear any lingering navigation state from session storage.
-    set(lastKnownPathBeforeAuthChangeAtom, null);
-
-    // Redirect to login.
-    set(pendingRedirectAtom, '/login');
   }
 )
 

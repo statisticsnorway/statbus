@@ -41,7 +41,7 @@ const initialBaseData: BaseData = {
 };
 
 // Explicitly type the return of the async function for atomWithRefresh
-export const baseDataCoreAtom = atomWithRefresh<Promise<BaseData>>(async (get): Promise<BaseData> => {
+export const baseDataPromiseAtom = atomWithRefresh<Promise<BaseData>>(async (get): Promise<BaseData> => {
   const isAuthenticated = get(isAuthenticatedAtom);
   const client = get(restClientAtom);
 
@@ -93,12 +93,12 @@ export const baseDataCoreAtom = atomWithRefresh<Promise<BaseData>>(async (get): 
       hasStatisticalUnits: !!statisticalUnitResult.count && statisticalUnitResult.count > 0,
     };
   } catch (error) {
-    console.error("baseDataCoreAtom: Failed to fetch base data:", error);
+    console.error("baseDataPromiseAtom: Failed to fetch base data:", error);
     return initialBaseData;
   }
 });
 
-export const baseDataLoadableAtom = loadable(baseDataCoreAtom);
+export const baseDataLoadableAtom = loadable(baseDataPromiseAtom);
 
 /**
  * Performs a "good enough" deep comparison of two BaseData objects to check for meaningful changes.
@@ -131,11 +131,18 @@ function areBaseDataResultsEqual(
   return isBaseDataEqual(a, b);
 }
 
-const rawBaseDataAtom = atom<BaseData & { loading: boolean; error: string | null }>(
+const baseDataUnstableDetailsAtom = atom<BaseData & { loading: boolean; error: string | null }>(
   (get): BaseData & { loading: boolean; error: string | null } => {
     const loadableState = get(baseDataLoadableAtom);
-    const authLoadable = get(authStatusLoadableAtom);
+    const isAuthenticated = get(isAuthenticatedAtom);
     let result: BaseData & { loading: boolean; error: string | null };
+
+    // Explicitly return initial data if not authenticated. This makes the atom's
+    // behavior during logout transition crystal clear and robust, preventing any
+    // possibility of showing stale data from a previous session.
+    if (!isAuthenticated) {
+      return { ...initialBaseData, loading: false, error: null };
+    }
 
     switch (loadableState.state) {
       case 'loading':
@@ -163,7 +170,7 @@ const rawBaseDataAtom = atom<BaseData & { loading: boolean; error: string | null
   }
 );
 
-export const baseDataAtom = selectAtom(rawBaseDataAtom, (v) => v, areBaseDataResultsEqual);
+export const baseDataAtom = selectAtom(baseDataUnstableDetailsAtom, (v) => v, areBaseDataResultsEqual);
 
 // Derived atoms for individual data pieces
 export const statDefinitionsAtom = atom((get) => get(baseDataAtom).statDefinitions)
@@ -175,7 +182,7 @@ export const hasStatisticalUnitsAtom = atom((get) => get(baseDataAtom).hasStatis
 
 // Action to refresh base data
 export const refreshBaseDataAtom = atom(null, (_get, set) => { // get is not used
-  set(baseDataCoreAtom);
+  set(baseDataPromiseAtom);
 });
 
 // ============================================================================

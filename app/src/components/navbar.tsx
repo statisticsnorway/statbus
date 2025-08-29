@@ -88,7 +88,7 @@ export default function Navbar() {
 
         {/* Center: Main Navigation Links / Mobile Menu Trigger */}
         <div className="flex flex-1 justify-center space-x-3">
-          {isAuthenticated && hasStatisticalUnits && ( // isAuthenticated implies not loading and authenticated
+          {isAuthenticated && ( // isAuthenticated implies not loading and authenticated
             <>
               {/* Mobile Menu Trigger (Hamburger) */}
               <CommandPaletteTriggerMobileMenuButton className="lg:hidden" />
@@ -108,36 +108,40 @@ export default function Navbar() {
                 <Upload size={16} />
                 <span>Import</span>
               </Link>
-              {/* Search Link */}
-              <Link
-                href="/search"
-                className={cn(
-                  buttonVariants({ variant: "ghost", size: "sm" }),
-                  "space-x-2 hidden lg:flex",
-                  // Add active state class
-                  "border-1", // Base border class
-                  isDerivingUnits ? "border-yellow-400" : // Processing state overrides active state
-                  pathname.startsWith("/search") ? "border-white" : "border-transparent" // Active/Inactive state
-                )}
-              >
-                <Search size={16} />
-                <span>Statistical Units</span>
-              </Link>
-              {/* Reports Link */}
-              <Link
-                href="/reports"
-                className={cn(
-                  buttonVariants({ variant: "ghost", size: "sm" }),
-                  "space-x-2 hidden lg:flex",
-                  // Add active state class
-                  "border-1", // Base border class
-                  isDerivingReports ? "border-yellow-400" : // Processing state overrides active state
-                  pathname.startsWith("/reports") ? "border-white" : "border-transparent" // Active/Inactive state
-                )}
-              >
-                <BarChartHorizontal size={16} />
-                <span>Reports</span>
-              </Link>
+              {hasStatisticalUnits && (
+                <>
+                  {/* Search Link */}
+                  <Link
+                    href="/search"
+                    className={cn(
+                      buttonVariants({ variant: "ghost", size: "sm" }),
+                      "space-x-2 hidden lg:flex",
+                      // Add active state class
+                      "border-1", // Base border class
+                      isDerivingUnits ? "border-yellow-400" : // Processing state overrides active state
+                      pathname.startsWith("/search") ? "border-white" : "border-transparent" // Active/Inactive state
+                    )}
+                  >
+                    <Search size={16} />
+                    <span>Statistical Units</span>
+                  </Link>
+                  {/* Reports Link */}
+                  <Link
+                    href="/reports"
+                    className={cn(
+                      buttonVariants({ variant: "ghost", size: "sm" }),
+                      "space-x-2 hidden lg:flex",
+                      // Add active state class
+                      "border-1", // Base border class
+                      isDerivingReports ? "border-yellow-400" : // Processing state overrides active state
+                      pathname.startsWith("/reports") ? "border-white" : "border-transparent" // Active/Inactive state
+                    )}
+                  >
+                    <BarChartHorizontal size={16} />
+                    <span>Reports</span>
+                  </Link>
+                </>
+              )}
             </>
           )}
         </div>
