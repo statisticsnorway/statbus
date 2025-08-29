@@ -106,7 +106,20 @@ The authentication state flows through a chain of atoms, starting from a core AP
 5.  Once the check is complete, the `useEffect` determines the single, correct destination path. The priority is: (1) a required setup path, (2) a pre-auth path from another tab, (3) the `next` URL parameter, or (4) the dashboard (`/`).
 6.  It then sets `pendingRedirectAtom` with this final path. This single action prevents any intermediate redirects or visual flashes of the dashboard.
 7.  The `RedirectHandler` component executes the redirect.
-8.  Upon arrival at the destination, the `RedirectHandler` performs its standard cleanup, clearing `pendingRedirectAtom` and, because `isLoginActionInProgressAtom` is true, also clearing the post-login state.
+8.  Upon arrival at the destination, a `useEffect` in `RedirectHandler` performs its standard cleanup, clearing `pendingRedirectAtom` and, because `isLoginActionInProgressAtom` is true, also clearing the post-login state.
+
+#### The Login Page State Machine (`loginPageMachine`)
+
+The UI logic on the login page is managed by a small XState state machine (`loginPageMachine` defined in `auth.ts`) to prevent race conditions and ensure a predictable user experience. This is especially important because the component re-evaluates its state based on multiple asynchronous inputs (user authentication status and the current browser path).
+
+The machine has the following states:
+
+-   `idle`: The initial state. It waits for an `EVALUATE` event to begin processing.
+-   `evaluating`: The central decision-making state. It uses guards to immediately transition to either `finalizing` or `showingForm` based on the current context (`isAuthenticated` and `isOnLoginPage`).
+-   `showingForm`: The machine is in this state when it's appropriate to display the login form to the user (i.e., they are unauthenticated on the login page).
+-   `finalizing`: The machine enters this state when the user is successfully authenticated but is still on the login page. The UI shows a "Finalizing login..." message while it waits for the redirect to happen. This state has `always` transitions that automatically move it to `showingForm` if auth is lost, or to `idle` once the user is no longer on the login page (i.e., the redirect has completed).
+
+This state machine approach makes the login UI robust against re-renders from React's Strict Mode or Fast Refresh, which could otherwise cause loops or inconsistent behavior.
 
 ### 4. User Logout
 
