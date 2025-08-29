@@ -211,9 +211,17 @@ export const loginPageMachine = createMachine({
       ],
     },
     finalizing: {
+      // Add `always` transitions to automatically exit this state when conditions change.
+      // This prevents getting stuck on the "Finalizing login..." message.
+      always: [
+        // If auth is lost for any reason, go back to showing the form.
+        { target: 'showingForm', guard: ({ context }) => !context.isAuthenticated },
+        // If we are no longer on the login page (i.e., the redirect has happened), go to idle.
+        { target: 'idle', guard: ({ context }) => !context.isOnLoginPage }
+      ],
       on: {
+        // Keep updating the context based on external changes.
         EVALUATE: {
-          target: 'evaluating',
           actions: assign({
             isAuthenticated: ({ event }) => event.context.isAuthenticated,
             isOnLoginPage: ({ event }) => event.context.isOnLoginPage,
