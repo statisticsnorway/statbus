@@ -25,6 +25,7 @@ import {
   authStatusAtom,
   authStatusLoadableAtom,
   clientSideRefreshAtom,
+  expireAccessTokenAtom,
   isAuthenticatedAtom,
   lastKnownPathBeforeAuthChangeAtom,
   isLoginActionInProgressAtom,
@@ -700,10 +701,13 @@ export const StateInspector = () => {
   const [isVisible, setIsVisible] = useAtom(stateInspectorVisibleAtom);
   const [mounted, setMounted] = React.useState(false);
   const [isExpanded, setIsExpanded] = React.useState(false);
+  const [isAuthManagementExpanded, setIsAuthManagementExpanded] = React.useState(false);
   const [copyStatus, setCopyStatus] = React.useState(''); // For "Copied!" message
   const [history, setHistory] = React.useState<any[]>([]);
   const [viewingIndex, setViewingIndex] = React.useState<number>(0);
   const [diff, setDiff] = React.useState<any | null>(null);
+  const refreshToken = useSetAtom(clientSideRefreshAtom);
+  const expireToken = useSetAtom(expireAccessTokenAtom);
 
   // Atoms for general state
   const authLoadableValue = useAtomValue(authStatusLoadableAtom);
@@ -848,24 +852,49 @@ export const StateInspector = () => {
   const stateToDisplay = history[viewingIndex] || {};
 
   return (
-    <div className="fixed bottom-4 right-4 bg-black bg-opacity-80 text-white p-2 rounded-lg text-xs max-w-md max-h-[80vh] overflow-auto z-[9999]">
-      <div className="flex justify-between items-center">
+    <div className="fixed bottom-4 right-4 bg-black bg-opacity-80 text-white rounded-lg text-xs max-w-md max-h-[80vh] overflow-auto z-[9999]">
+      <div className="sticky top-0 z-10 bg-black bg-opacity-80 p-2 flex justify-between items-center">
         <span onClick={() => setIsExpanded(!isExpanded)} className="cursor-pointer font-bold">State Inspector {isExpanded ? '▼' : '▶'}</span>
-        <button
-          onClick={handleCopy}
-          className="ml-2 px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs"
-          title="Copy selected state and all historical diffs"
-        >
-          {copyStatus || 'Copy Debug Info'}
-        </button>
+        <div className="flex items-center">
+          <button
+            onClick={handleCopy}
+            className="ml-2 px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs"
+            title="Copy selected state and all historical diffs"
+          >
+            {copyStatus || 'Copy Debug Info'}
+          </button>
+        </div>
       </div>
       {!isExpanded && history.length > 0 && (
-        <div className="mt-1">
+        <div className="px-2 pt-1 pb-2">
           <span>Auth: {getSimpleStatus(stateToDisplay.authStatus)}</span> | <span>Base: {getSimpleStatus(stateToDisplay.baseData)}</span> | <span>Worker: {stateToDisplay.workerStatus?.loading ? 'Loading' : stateToDisplay.workerStatus?.error ? 'Error' : getWorkerSummary(stateToDisplay.workerStatus)}</span>
         </div>
       )}
       {isExpanded && history.length > 0 && (
-        <div className="mt-2 space-y-2">
+        <div className="p-2 space-y-2">
+          <div>
+            <div onClick={() => setIsAuthManagementExpanded(!isAuthManagementExpanded)} className="cursor-pointer font-semibold">
+              Manage Auth {isAuthManagementExpanded ? '▼' : '▶'}
+            </div>
+            {isAuthManagementExpanded && (
+              <div className="pl-4 mt-2 flex space-x-2">
+                <button
+                  onClick={() => expireToken()}
+                  className="px-2 py-1 bg-yellow-600 hover:bg-yellow-500 rounded text-xs"
+                  title="Expire the current JWT access token, forcing a refresh on the next action"
+                >
+                  Expire Token
+                </button>
+                <button
+                  onClick={() => refreshToken()}
+                  className="px-2 py-1 bg-blue-700 hover:bg-blue-600 rounded text-xs"
+                  title="Trigger a client-side token refresh"
+                >
+                  Refresh Token
+                </button>
+              </div>
+            )}
+          </div>
           <div className="flex items-center space-x-1">
             <strong>History:</strong>
             {history.map((_, index) => {

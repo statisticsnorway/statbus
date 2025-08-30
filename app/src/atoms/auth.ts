@@ -350,6 +350,38 @@ export const loginAtom = atom(
   }
 )
 
+/**
+ * Action atom for developers to simulate an expired access token for testing purposes.
+ * It calls an RPC that invalidates the current access token but leaves the refresh
+ * token intact. It does NOT update the client-side auth state, allowing developers
+ * to test how the application handles an out-of-sync expired token on the next
+ * user action that requires authentication.
+ */
+export const expireAccessTokenAtom = atom<null, [], Promise<void>>(
+  null,
+  async (get, set) => {
+    const client = get(restClientAtom);
+    if (!client) {
+      console.error("expireAccessTokenAtom: Client not available.");
+      throw new Error("Client not available.");
+    }
+
+    try {
+      const { error } = await client.rpc('auth_expire_access_keep_refresh');
+      if (error) {
+        console.error("expireAccessTokenAtom: RPC failed.", error);
+        throw new Error(error.message || 'RPC to expire access token failed');
+      }
+      // NOTE: We intentionally DO NOT refetch auth status here.
+      // This allows testing the app's handling of a stale auth state.
+    } catch (error) {
+      console.error("expireAccessTokenAtom: Error during process:", error);
+      // Re-throw so the UI can handle it if needed.
+      throw error;
+    }
+  }
+);
+
 export const clientSideRefreshAtom = atom<null, [], Promise<void>>(
   null,
   async (get, set) => {
