@@ -706,6 +706,7 @@ export const StateInspector = () => {
   const [history, setHistory] = React.useState<any[]>([]);
   const [viewingIndex, setViewingIndex] = React.useState<number>(0);
   const [diff, setDiff] = React.useState<any | null>(null);
+  const [isTokenManuallyExpired, setIsTokenManuallyExpired] = React.useState(false);
   const refreshToken = useSetAtom(clientSideRefreshAtom);
   const expireToken = useSetAtom(expireAccessTokenAtom);
 
@@ -731,6 +732,22 @@ export const StateInspector = () => {
   const numberOfRegionsLoadable = useAtomValue(loadable(numberOfRegionsAtomAsync));
   const selectedTimeContextValue = useAtomValue(selectedTimeContextAtom);
 
+  const authStatusString = JSON.stringify(authStatusUnstableDetailsValue);
+  useEffect(() => {
+    // Re-enable the expire token button whenever the auth status actually changes.
+    // This will happen after a successful refresh triggered by the next user action.
+    setIsTokenManuallyExpired(false);
+  }, [authStatusString]);
+
+  const handleExpireToken = async () => {
+    try {
+      await expireToken();
+      setIsTokenManuallyExpired(true);
+    } catch (e) {
+      console.error('StateInspector: Failed to expire token', e);
+    }
+  };
+    
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -879,11 +896,16 @@ export const StateInspector = () => {
             {isAuthManagementExpanded && (
               <div className="pl-4 mt-2 flex space-x-2">
                 <button
-                  onClick={() => expireToken()}
-                  className="px-2 py-1 bg-yellow-600 hover:bg-yellow-500 rounded text-xs"
+                  onClick={handleExpireToken}
+                  disabled={isTokenManuallyExpired}
+                  className={`px-2 py-1 rounded text-xs ${
+                    isTokenManuallyExpired
+                      ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                      : 'bg-yellow-600 hover:bg-yellow-500'
+                  }`}
                   title="Expire the current JWT access token, forcing a refresh on the next action"
                 >
-                  Expire Token
+                  {isTokenManuallyExpired ? 'Token Expired' : 'Expire Token'}
                 </button>
                 <button
                   onClick={() => refreshToken()}
