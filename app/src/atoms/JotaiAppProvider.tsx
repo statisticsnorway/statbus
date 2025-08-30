@@ -712,10 +712,20 @@ export const StateInspector = () => {
   const [isTokenManuallyExpired, setIsTokenManuallyExpired] = React.useState(false);
   const refreshToken = useSetAtom(clientSideRefreshAtom);
   const expireToken = useSetAtom(expireAccessTokenAtom);
+  const checkAuth = useSetAtom(fetchAuthStatusAtom);
 
   // Atoms for general state
   const authLoadableValue = useAtomValue(authStatusLoadableAtom);
   const authStatusUnstableDetailsValue = useAtomValue(authStatusUnstableDetailsAtom);
+
+  // Effect to reset the manual expiry flag whenever auth state changes.
+  const authStatusString = JSON.stringify(authStatusUnstableDetailsValue);
+  useEffect(() => {
+    // This effect runs whenever the auth status changes, resetting the local state
+    // that tracks the manual token expiry. This re-enables the button.
+    setIsTokenManuallyExpired(false);
+  }, [authStatusString]);
+
   const baseDataFromAtom = useAtomValue(baseDataAtom);
   const workerStatusValue = useAtomValue(workerStatusAtom);
   const searchStateValue = useAtomValue(searchStateAtom);
@@ -735,16 +745,10 @@ export const StateInspector = () => {
   const numberOfRegionsLoadable = useAtomValue(loadable(numberOfRegionsAtomAsync));
   const selectedTimeContextValue = useAtomValue(selectedTimeContextAtom);
 
-  const authStatusString = JSON.stringify(authStatusUnstableDetailsValue);
-  useEffect(() => {
-    // Re-enable the expire token button whenever the auth status actually changes.
-    // This will happen after a successful refresh triggered by the next user action.
-    setIsTokenManuallyExpired(false);
-  }, [authStatusString]);
-
   const handleExpireToken = async () => {
     try {
       await expireToken();
+      // Set the local state to give the user immediate visual feedback.
       setIsTokenManuallyExpired(true);
     } catch (e) {
       console.error('StateInspector: Failed to expire token', e);
@@ -799,7 +803,8 @@ export const StateInspector = () => {
       },
     },
     navigationState: { pendingRedirect: pendingRedirectValue, requiredSetupRedirect: requiredSetupRedirectValue, isLoginActionInProgress: isLoginActionInProgressValue, lastKnownPathBeforeAuthChange: lastKnownPathValue },
-    redirectRelevantState: { initialAuthCheckCompleted: initialAuthCheckCompletedValue, authCheckDone: authLoadableValue.state !== 'loading', isRestClientReady: !!restClientFromAtom, activityStandard: activityStandardLoadable.state === 'hasData' ? activityStandardLoadable.data : null, numberOfRegions: numberOfRegionsLoadable.state === 'hasData' ? numberOfRegionsLoadable.data : null, baseDataHasStatisticalUnits: baseDataState === 'hasData' ? baseDataFromAtom.hasStatisticalUnits : 'BaseDataNotLoaded', baseDataStatDefinitionsLength: baseDataState === 'hasData' ? baseDataFromAtom.statDefinitions.length : 'BaseDataNotLoaded' }
+    redirectRelevantState: { initialAuthCheckCompleted: initialAuthCheckCompletedValue, authCheckDone: authLoadableValue.state !== 'loading', isRestClientReady: !!restClientFromAtom, activityStandard: activityStandardLoadable.state === 'hasData' ? activityStandardLoadable.data : null, numberOfRegions: numberOfRegionsLoadable.state === 'hasData' ? numberOfRegionsLoadable.data : null, baseDataHasStatisticalUnits: baseDataState === 'hasData' ? baseDataFromAtom.hasStatisticalUnits : 'BaseDataNotLoaded', baseDataStatDefinitionsLength: baseDataState === 'hasData' ? baseDataFromAtom.statDefinitions.length : 'BaseDataNotLoaded' },
+    devToolsState: { isTokenManuallyExpired: isTokenManuallyExpired },
   };
 
   const fullStateString = JSON.stringify(fullState);
@@ -908,10 +913,17 @@ export const StateInspector = () => {
             </button>
             <button
               onClick={() => refreshToken()}
-              className="px-2 py-1 bg-blue-700 hover:bg-blue-600 rounded text-xs"
+              className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs"
               title="Trigger a client-side token refresh"
             >
               Refresh Token
+            </button>
+            <button
+              onClick={() => checkAuth()}
+              className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs"
+              title="Trigger a server-side auth status check"
+            >
+              Check Auth
             </button>
           </div>
           <div className="flex items-center space-x-1">
@@ -1028,6 +1040,12 @@ export const StateInspector = () => {
               <div><strong>Number of Regions:</strong> {stateToDisplay.redirectRelevantState?.numberOfRegions === null ? 'Null/Loading' : stateToDisplay.redirectRelevantState?.numberOfRegions}</div>
               <div><strong>BaseData - Has Statistical Units:</strong> {stateToDisplay.redirectRelevantState?.baseDataHasStatisticalUnits === 'BaseDataNotLoaded' ? 'BaseDataNotLoaded' : (stateToDisplay.redirectRelevantState?.baseDataHasStatisticalUnits ? 'Yes' : 'No')}</div>
               <div><strong>BaseData - Stat Definitions Count:</strong> {stateToDisplay.redirectRelevantState?.baseDataStatDefinitionsLength}</div>
+            </div>
+          </div>
+          <div>
+            <strong>DevTools State:</strong>
+            <div className="pl-4 mt-1 space-y-1">
+              <div><strong>Token Manually Expired:</strong> {stateToDisplay.devToolsState?.isTokenManuallyExpired ? 'Yes' : 'No'}</div>
             </div>
           </div>
         </div>

@@ -7,7 +7,6 @@ import { clientMountedAtom, pendingRedirectAtom, setupRedirectCheckAtom } from "
 import {
   authStatusAtom,
   lastKnownPathBeforeAuthChangeAtom,
-  isLoginActionInProgressAtom,
   loginPageMachineAtom,
 } from "@/atoms/auth";
 import LoginForm from "./LoginForm";
@@ -30,7 +29,7 @@ export default function LoginClientBoundary() {
   const nextPath = searchParams.get('next');
   const authStatus = useAtomValue(authStatusAtom);
   const [pendingRedirect, setPendingRedirect] = useAtom(pendingRedirectAtom);
-  const lastPathBeforeAuthChange = useAtomValue(lastKnownPathBeforeAuthChangeAtom);
+  const [lastPathBeforeAuthChange, setLastPathBeforeAuthChange] = useAtom(lastKnownPathBeforeAuthChangeAtom);
   const pathname = usePathname();
   const [state, send] = useAtom(loginPageMachineAtom);
   const clientMounted = useAtomValue(clientMountedAtom);
@@ -102,8 +101,16 @@ export default function LoginClientBoundary() {
       }
 
       setPendingRedirect(targetRedirectPath);
+
+      // If we used the last known path to create the redirect, clear it now
+      // to prevent it from being reused on a subsequent visit to the login page
+      // within the same session. This is the key to breaking the redirect loop
+      // in passive auth refresh scenarios.
+      if (lastPathBeforeAuthChange) {
+        setLastPathBeforeAuthChange(null);
+      }
     }
-  }, [clientMounted, state, setupRedirectCheck, nextPath, lastPathBeforeAuthChange, pendingRedirect, setPendingRedirect]);
+  }, [clientMounted, state, setupRedirectCheck, nextPath, lastPathBeforeAuthChange, pendingRedirect, setPendingRedirect, setLastPathBeforeAuthChange]);
 
   // Render content based on the machine's state.
   if (state.matches('finalizing')) {
