@@ -30,7 +30,7 @@ export default function LoginClientBoundary() {
   const nextPath = searchParams.get('next');
   const authStatus = useAtomValue(authStatusAtom);
   const [pendingRedirect, setPendingRedirect] = useAtom(pendingRedirectAtom);
-  const [lastPathBeforeAuthChange, setLastPathBeforeAuthChange] = useAtom(lastKnownPathBeforeAuthChangeAtom);
+  const lastPathBeforeAuthChange = useAtomValue(lastKnownPathBeforeAuthChangeAtom);
   const pathname = usePathname();
   const [state, send] = useAtom(loginPageMachineAtom);
   const clientMounted = useAtomValue(clientMountedAtom);
@@ -102,10 +102,8 @@ export default function LoginClientBoundary() {
       }
 
       setPendingRedirect(targetRedirectPath);
-      // Clear the last path atom after using it for a redirect.
-      setLastPathBeforeAuthChange(null);
     }
-  }, [clientMounted, state, setupRedirectCheck, nextPath, lastPathBeforeAuthChange, setLastPathBeforeAuthChange, pendingRedirect, setPendingRedirect]);
+  }, [clientMounted, state, setupRedirectCheck, nextPath, lastPathBeforeAuthChange, pendingRedirect, setPendingRedirect]);
 
   // Render content based on the machine's state.
   if (state.matches('finalizing')) {

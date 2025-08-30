@@ -347,10 +347,14 @@ const RedirectHandler = () => {
         router.push(explicitRedirect);
       } else {
         // Cleanup on arrival.
+        const cameFromLogin = prevPathname === '/login';
         setExplicitRedirect(null);
-        if (isLoginActionActive) {
-          setIsLoginActionInProgress(false);
-          setLastPathBeforeAuthChange(null);
+
+        // If this redirect was triggered from the login page (either by form submit
+        // or by passive auth), perform full post-login cleanup.
+        if (isLoginActionActive || cameFromLogin) {
+          setIsLoginActionInProgress(false); // Reset in both cases
+          setLastPathBeforeAuthChange(null); // Reset in both cases
         }
       }
       return; // Explicit redirect takes precedence, do not process setup redirect.
