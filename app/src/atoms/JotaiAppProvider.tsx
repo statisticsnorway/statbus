@@ -705,7 +705,6 @@ export const StateInspector = () => {
   const [isVisible, setIsVisible] = useAtom(stateInspectorVisibleAtom);
   const [mounted, setMounted] = React.useState(false);
   const [isExpanded, setIsExpanded] = React.useState(false);
-  const [isAuthManagementExpanded, setIsAuthManagementExpanded] = React.useState(false);
   const [copyStatus, setCopyStatus] = React.useState(''); // For "Copied!" message
   const [history, setHistory] = React.useState<any[]>([]);
   const [viewingIndex, setViewingIndex] = React.useState<number>(0);
@@ -893,33 +892,27 @@ export const StateInspector = () => {
       )}
       {isExpanded && history.length > 0 && (
         <div className="p-2 space-y-2">
-          <div>
-            <div onClick={() => setIsAuthManagementExpanded(!isAuthManagementExpanded)} className="cursor-pointer font-semibold">
-              Manage Auth {isAuthManagementExpanded ? '▼' : '▶'}
-            </div>
-            {isAuthManagementExpanded && (
-              <div className="pl-4 mt-2 flex space-x-2">
-                <button
-                  onClick={handleExpireToken}
-                  disabled={isTokenManuallyExpired}
-                  className={`px-2 py-1 rounded text-xs ${
-                    isTokenManuallyExpired
-                      ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
-                      : 'bg-yellow-600 hover:bg-yellow-500'
-                  }`}
-                  title="Expire the current JWT access token, forcing a refresh on the next action"
-                >
-                  {isTokenManuallyExpired ? 'Token Expired' : 'Expire Token'}
-                </button>
-                <button
-                  onClick={() => refreshToken()}
-                  className="px-2 py-1 bg-blue-700 hover:bg-blue-600 rounded text-xs"
-                  title="Trigger a client-side token refresh"
-                >
-                  Refresh Token
-                </button>
-              </div>
-            )}
+          <div className="flex items-center space-x-1">
+            <strong>Manage Auth:</strong>
+            <button
+              onClick={handleExpireToken}
+              disabled={isTokenManuallyExpired}
+              className={`px-2 py-1 rounded text-xs ${
+                isTokenManuallyExpired
+                  ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                  : 'bg-yellow-600 hover:bg-yellow-500'
+              }`}
+              title="Expire the current JWT access token, forcing a refresh on the next action"
+            >
+              {isTokenManuallyExpired ? 'Token Expired' : 'Expire Token'}
+            </button>
+            <button
+              onClick={() => refreshToken()}
+              className="px-2 py-1 bg-blue-700 hover:bg-blue-600 rounded text-xs"
+              title="Trigger a client-side token refresh"
+            >
+              Refresh Token
+            </button>
           </div>
           <div className="flex items-center space-x-1">
             <strong>History:</strong>
