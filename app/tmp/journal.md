@@ -315,3 +315,58 @@ This created a deadlock:
 
 **Resolution**:
 The fix was a single-character change: `target: '.evaluating'` was corrected to `target: 'evaluating'`. This makes the target absolute, ensuring that any `CONTEXT_UPDATED` event correctly transitions the machine to its central `evaluating` state, breaking the deadlock and allowing the application to load correctly. This highlights the importance of precise, declarative syntax in state machine definitions.
+
+## The Final-Final-Final Nemesis: The Server Redirect Loop
+
+**Observation**: After all known client-side logic was perfected, the "Expire Token" -> "Navigate to private page" sequence still resulted in a redirect loop on the `/login` page.
+
+**Analysis**:
+The battle journal from Scenario C provided the decisive clue. The sequence of events is:
+1.  The user is on a private page (e.g., `/dashboard`).
+2.  The user clicks "Expire Token" in the State Inspector. This invalidates the server-side JWT, but the client-side state machine remains `idle_authenticated`.
+3.  The user performs a client-side navigation to another private page (e.g., `<Link href="/profile">`).
+4.  Next.js triggers a `fetch` for the new page's data, sending the now-expired token.
+5.  The server-side middleware correctly identifies the expired token and returns a `307 Redirect` to `/login`.
+6.  The browser obeys, and the application lands on `/login`. Crucially, the client-side React app is not unmounted, so its state persists.
+7.  The `NavigationManager` sees the context update: `pathname: '/login'`, `isAuthenticated: true`.
+8.  The `navigationMachine` correctly enters the `redirectingFromLogin` state, commanding a redirect back to a private page (e.g., `/dashboard`).
+9.  This commanded redirect triggers another `fetch`, which *again* uses the expired token, causing the server to issue another `307 Redirect`, trapping the user in a loop.
+
+The core flaw was the client's failure to distrust its own state upon being forcibly sent to the `/login` garrison. Landing on `/login` must be treated as a signal that the client's view of authentication may be out of sync with the server's reality.
+
+**Resolution (The Sentry at the Garrison)**:
+A critical piece of logic, a "sentry," was restored to the `LoginClientBoundary`.
+-   A `useEffect` was added that triggers whenever the user lands on the `/login` page.
+-   This effect sends a `CHECK` event to the central `authMachine`.
+-   A guard (`authState.can({ type: 'CHECK' })`) ensures this check is only sent when the machine is in a stable state, preventing its own infinite loops.
+
+This forces the client to re-validate its credentials with the server *before* any further navigation is attempted. The `authMachine` will then correctly detect the expired token, perform a background refresh (including the canary call), and only then will the `navigationMachine` proceed with the redirect away from `/login`, this time with a fresh, valid token. This definitively slays this head of the nemesis hydra.
+
+## The Loop of Honor: A Final Coordination Failure
+
+**Observation**: Even after installing the "Sentry at the Garrison," an infinite loop occurred when an authenticated user landed on the `/login` page. The Event Journal showed a high-frequency cycle of `auth: stable -> revalidating` and `nav: idle -> redirectingFromLogin -> idle`.
+
+**Analysis**:
+The loop was caused by a race condition between two declarative systems reacting to the same event.
+1.  The `navigationMachine`, seeing an authenticated user on `/login`, would correctly decide to transition to `redirectingFromLogin`.
+2.  Simultaneously, the `LoginClientBoundary`'s "sentry" `useEffect`, seeing the exact same conditions, would send a `CHECK` event to the `authMachine`.
+3.  The `CHECK` event was processed first, transitioning the `authMachine` to `revalidating`. This caused `isAuthLoading` to become `true`.
+4.  The `navigationMachine`, seeing `isAuthLoading: true`, would abort its redirect and fall back to `idle`.
+5.  The `authMachine` would then complete its check and return to `stable`.
+6.  This restored the initial conditions, causing the cycle to repeat, trapping the application.
+
+**Resolution (The Commander Takes Control)**: The "sentry" logic was removed from the `LoginClientBoundary` and absorbed directly into the `navigationMachine` by creating a new `revalidatingOnLoginPage` state.
+
+**The Final Battle: The Race Condition of Honor**
+The `revalidatingOnLoginPage` state, while correct in principle, was still vulnerable to a race condition. The Event Journal revealed two final flaws:
+1.  **The Redirect Race**: After a user performed an "Expire Token" -> "Reload" sequence, they would be correctly authenticated but would land on the dashboard (`/`) instead of the required setup page (`/getting-started/activity-standard`). This happened because the `revalidatingOnLoginPage` state's guard was only waiting for `!isAuthLoading`. It would proceed to the redirect phase before the `setupRedirectCheckAtom` had finished its own asynchronous work to determine the `setupPath`.
+2.  **The Loop of Honor**: The high-frequency loop persisted because the logic for re-evaluating the machine's state was too complex, leading to edge cases where the machine would interrupt its own command sequence.
+
+**Resolution (The Final Doctrines)**:
+Two final, definitive changes were made to achieve victory:
+
+1.  **Synchronized Maneuvers**: The guard on the `revalidatingOnLoginPage` state's `on.CONTEXT_UPDATED` handler was fortified. It now requires both authentication and setup checks to be complete before proceeding: `guard: ({ context }) => !context.isAuthLoading && !context.isSetupLoading`. This guarantees the machine will not decide on a redirect destination until it has all the necessary intelligence, solving the lost redirect bug.
+
+2.  **Uninterruptible Commands**: The guard on the *global* `on.CONTEXT_UPDATED` handler was replaced with a single, simple, and powerful doctrine: `guard: ({ context }) => !context.sideEffect`. This doctrine states: "Do not re-evaluate the grand strategy while a specific maneuver is in progress." If a state has commanded a side-effect (like `revalidateAuth` or `navigate`), the global re-evaluation is paused. The machine now waits patiently in its current state for a *local* `on.CONTEXT_UPDATED` handler—one that specifically watches for the completion of that maneuver—to fire. This makes the machine's command sequence uninterruptible, finally breaking all loops.
+
+With these changes, the Nemesis is slain in all its forms. The application's state is now guarded by a single, divine, and predictable power.

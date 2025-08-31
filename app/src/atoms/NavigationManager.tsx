@@ -11,6 +11,7 @@ import {
 import {
   lastKnownPathBeforeAuthChangeAtom,
   authStatusAtom,
+  authMachineAtom,
 } from './auth';
 import { clientMountedAtom, setupRedirectCheckAtom, stateInspectorVisibleAtom } from './app';
 
@@ -39,6 +40,7 @@ export const NavigationManager = () => {
   );
 
   const [state, send] = useAtom(navigationMachineAtom);
+  const [, sendAuth] = useAtom(authMachineAtom);
   const stateRef = useRef(state);
   stateRef.current = state;
   const isInspectorVisible = useAtomValue(stateInspectorVisibleAtom);
@@ -88,6 +90,8 @@ export const NavigationManager = () => {
       // Navigation is still deferred slightly to ensure the URL updates cleanly
       // before the machine re-evaluates the new page state.
       setTimeout(() => router.push(targetPath), 0);
+    } else if (action === 'revalidateAuth') {
+      sendAuth({ type: 'CHECK' });
     } else if (action === 'savePath') {
       const fullPath = `${pathname}${search ? `?${search}` : ''}`;
       if (pathname !== '/login') {
@@ -96,7 +100,7 @@ export const NavigationManager = () => {
     } else if (action === 'clearLastKnownPath') {
       setLastKnownPath(null);
     }
-  }, [state, pathname, search, router, setLastKnownPath]);
+  }, [state, pathname, search, router, setLastKnownPath, sendAuth]);
 
   return null;
 };

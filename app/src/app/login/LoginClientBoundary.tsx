@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useSearchParams, usePathname } from "next/navigation";
 import { useAtomValue, useSetAtom, useAtom } from "jotai";
 import { authMachineAtom, loginPageMachineAtom } from "@/atoms/auth";
+import { navigationMachineAtom } from "@/atoms/navigation-machine";
 import LoginForm from "./LoginForm";
 
 /**
@@ -28,8 +29,13 @@ export default function LoginClientBoundary() {
   const searchParams = useSearchParams();
   const nextPath = searchParams.get('next');
   const pathname = usePathname();
-  const [authState] = useAtom(authMachineAtom);
+  const [authState, sendAuth] = useAtom(authMachineAtom);
   const [loginPageState, sendLoginPage] = useAtom(loginPageMachineAtom);
+  const [navState] = useAtom(navigationMachineAtom);
+
+  // The useEffect that previously sent a CHECK event has been removed.
+  // This logic is now fully centralized within the navigationMachine to
+  // prevent race conditions and infinite loops.
 
   useEffect(() => {
     // On every render, send the latest context to the UI state machine.
