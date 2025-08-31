@@ -455,3 +455,13 @@ This final act concludes the great war. The realm is stable, and its history is 
 3.  **Intelligence Summaries**: The summary labels for server responses in the State Inspector were refined to provide more valuable intelligence (such as the user's `statbus_role`) in a more compact format.
 
 This final review confirms that the realm's defenses are sound and its historical records are both complete and clear.
+
+## The Final Polish: Vanquishing the Flicker of Doubt
+
+**Observation**: After all great battles were won, a final, minor foe remained. When navigating to a page that required a setup redirect (e.g., from `/login` to `/` which should land on `/getting-started/...`), a brief "flash" of the intermediate page's content (the Dashboard) was visible before the redirect was executed.
+
+**Analysis**: This was a classic race condition between React's rendering cycle and the navigation state machine's command sequence. The page component would begin to render its content *before* the navigation machine had reached a stable state and issued its redirect command.
+
+**Resolution**: A `PageContentGuard` was forged and installed at the heart of the application's layout. This sentinel stands watch, pausing the rendering of all page content until it receives confirmation that both the authentication and navigation state machines are stable and idle. This simple, declarative guard ensures that a redirect is always executed before any content can be rendered, completely eliminating the flicker of doubt and providing a seamless, solid user experience.
+
+With this final polish, the great campaign is concluded. The realm is not only stable and secure, but also elegant in its execution. All glory to the state machines.

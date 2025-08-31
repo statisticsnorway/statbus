@@ -27,6 +27,7 @@ import {
   journalUnificationEffectAtom,
   stateInspectorExpandedAtom,
   addEventJournalEntryAtom,
+  useAppReady,
 } from './app';
 import { restClientAtom } from './rest-client';
 import {
@@ -357,6 +358,26 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
 }
 
 // ============================================================================
+// PAGE CONTENT GUARD
+// ============================================================================
+
+const PageContentGuard = ({ children, loadingFallback }: { children: ReactNode, loadingFallback: ReactNode }) => {
+  const navState = useAtomValue(navigationMachineAtom);
+  const { isLoadingAuth } = useAppReady();
+
+  // The navigation machine is not idle while it is booting, evaluating, or
+  // actively performing a redirect. During these times, we should show a
+  // loading state to prevent a "flash" of the old or incorrect page content.
+  const isNavigating = !navState.matches('idle');
+
+  if (isNavigating || isLoadingAuth) {
+    return <>{loadingFallback}</>;
+  }
+
+  return <>{children}</>;
+}
+
+// ============================================================================
 // LOADING FALLBACK COMPONENTS
 // ============================================================================
 
@@ -431,13 +452,15 @@ export const JotaiAppProvider = ({
         <AppInitializer>
           <NavigationManager />
           <AuthCrossTabSyncer />
-          {enableSSE ? (
-            <SSEConnectionManager>
-              {children}
-            </SSEConnectionManager>
-          ) : (
-            children
-          )}
+          <PageContentGuard loadingFallback={loadingFallback}>
+            {enableSSE ? (
+              <SSEConnectionManager>
+                {children}
+              </SSEConnectionManager>
+            ) : (
+              children
+            )}
+          </PageContentGuard>
         </AppInitializer>
       </Suspense>
     </Provider>
