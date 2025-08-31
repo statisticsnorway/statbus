@@ -11,6 +11,8 @@ import {
   stateInspectorJournalVisibleAtom,
   stateInspectorStateVisibleAtom,
   stateInspectorCanaryExpandedAtom,
+  stateInspectorAuthStatusExpandedAtom,
+  stateInspectorRefreshExpandedAtom,
   isTokenManuallyExpiredAtom,
   combinedJournalViewAtom,
   clearAndMarkJournalAtom,
@@ -99,6 +101,8 @@ export const StateInspector = () => {
   const [isJournalVisible, setIsJournalVisible] = useAtom(stateInspectorJournalVisibleAtom);
   const [isStateVisible, setIsStateVisible] = useAtom(stateInspectorStateVisibleAtom);
   const [isCanaryExpanded, setIsCanaryExpanded] = useAtom(stateInspectorCanaryExpandedAtom);
+  const [isAuthStatusExpanded, setIsAuthStatusExpanded] = useAtom(stateInspectorAuthStatusExpandedAtom);
+  const [isRefreshExpanded, setIsRefreshExpanded] = useAtom(stateInspectorRefreshExpandedAtom);
   const [mounted, setMounted] = React.useState(false);
   const [copyStatus, setCopyStatus] = React.useState(''); // For "Copied!" message
   const [isTokenManuallyExpired, setIsTokenManuallyExpired] = useAtom(isTokenManuallyExpiredAtom);
@@ -245,6 +249,8 @@ export const StateInspector = () => {
     redirectRelevantState: redirectRelevantStateValue,
     devToolsState: { isTokenManuallyExpired: isTokenManuallyExpired },
     lastCanaryResponse: authState.context.lastCanaryResponse,
+    lastAuthStatusResponse: authState.context.lastAuthStatusResponse,
+    lastRefreshResponse: authState.context.lastRefreshResponse,
   };
 
   const handleCopy = () => {
@@ -509,6 +515,40 @@ export const StateInspector = () => {
                   {isCanaryExpanded && (
                     <div className="pl-4 mt-1 font-mono text-xs max-h-48 overflow-y-auto border border-gray-600 rounded p-1 bg-black/20">
                       <pre className="whitespace-pre-wrap break-all">{JSON.stringify(stateToDisplay.lastCanaryResponse, null, 2)}</pre>
+                    </div>
+                  )}
+                </div>
+              )}
+              {stateToDisplay.lastAuthStatusResponse && (
+                <div>
+                  <strong onClick={() => setIsAuthStatusExpanded(v => !v)} className="cursor-pointer">
+                    Last Auth Status: {isAuthStatusExpanded ? '▼' : '▶'}
+                    {!isAuthStatusExpanded && (
+                      <span className="pl-2 font-normal font-mono text-xs">
+                        {`[${new Date(stateToDisplay.lastAuthStatusResponse.timestamp).toLocaleTimeString()}] OK (${stateToDisplay.lastAuthStatusResponse.statbus_role}), Refresh?: ${stateToDisplay.lastAuthStatusResponse.expired_access_token_call_refresh}`}
+                      </span>
+                    )}
+                  </strong>
+                  {isAuthStatusExpanded && (
+                    <div className="pl-4 mt-1 font-mono text-xs max-h-48 overflow-y-auto border border-gray-600 rounded p-1 bg-black/20">
+                      <pre className="whitespace-pre-wrap break-all">{JSON.stringify(stateToDisplay.lastAuthStatusResponse, null, 2)}</pre>
+                    </div>
+                  )}
+                </div>
+              )}
+              {stateToDisplay.lastRefreshResponse && (
+                <div>
+                  <strong onClick={() => setIsRefreshExpanded(v => !v)} className="cursor-pointer">
+                    Last Refresh: {isRefreshExpanded ? '▼' : '▶'}
+                    {!isRefreshExpanded && (
+                      <span className="pl-2 font-normal font-mono text-xs">
+                        {`[${new Date(stateToDisplay.lastRefreshResponse.timestamp).toLocaleTimeString()}] OK (${stateToDisplay.lastRefreshResponse.statbus_role})`}
+                      </span>
+                    )}
+                  </strong>
+                  {isRefreshExpanded && (
+                    <div className="pl-4 mt-1 font-mono text-xs max-h-48 overflow-y-auto border border-gray-600 rounded p-1 bg-black/20">
+                      <pre className="whitespace-pre-wrap break-all">{JSON.stringify(stateToDisplay.lastRefreshResponse, null, 2)}</pre>
                     </div>
                   )}
                 </div>

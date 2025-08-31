@@ -444,3 +444,14 @@ This final, elegant solution ensures no event is ever lost to the fog of war. Th
 2.  The `StateInspector` UI was updated to hide the "on..." text for "unknown" events, resulting in a cleaner and more readable log.
 
 This final act concludes the great war. The realm is stable, and its history is now recorded with the clarity and honor it deserves.
+
+## Epilogue II: A Final Review of the Chronicles
+
+**Observation**: A final review of a complete login-logout battle journal was conducted to confirm victory and assess the quality of the chronicles. Two final matters were raised: could victory be definitively proven from the journal, and could the State Inspector's intelligence reports be further optimized?
+
+**Analysis & Resolution**:
+1.  **Proof of Victory**: The journal provides unequivocal proof that the nemesis is slain. The log tells a perfect story of every scenario: the flawless initial login, the seamless background refresh after a token expiration (critically, without ever flapping to an unauthenticated state), and the clean, predictable logout. The logging is not merely adequate; it is the definitive epitaph of our vanquished foe.
+2.  **The Initial Check**: The practice of calling `auth_status` on every fresh load, as seen in the journal, is a deliberate and critical security posture. It is a "trust, but verify" strategy. The server is the single source of truth, and this initial check guarantees the client and server are perfectly synchronized, preventing edge cases where a user's session was invalidated on the server without the client's knowledge. It is not an inefficiency, but the cornerstone of the application's robustness.
+3.  **Intelligence Summaries**: The summary labels for server responses in the State Inspector were refined to provide more valuable intelligence (such as the user's `statbus_role`) in a more compact format.
+
+This final review confirms that the realm's defenses are sound and its historical records are both complete and clear.
