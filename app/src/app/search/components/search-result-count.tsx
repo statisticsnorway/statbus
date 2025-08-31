@@ -1,16 +1,14 @@
 "use client";
 import { cn } from "@/lib/utils";
-import { useAtomValue } from 'jotai';
-import { searchStateAtom, searchResultAtom } from '@/atoms/search';
+import { useSearchResult, useSearchPagination } from '@/atoms/search';
 
 export const SearchResultCount = ({
   className,
 }: {
   readonly className?: string;
 }) => {
-  const searchState = useAtomValue(searchStateAtom);
-  const searchResult = useAtomValue(searchResultAtom);
-  const { pagination } = searchState;
+  const searchResult = useSearchResult();
+  const { pagination } = useSearchPagination();
 
   const hasResults = searchResult?.total;
   const startIndex = hasResults

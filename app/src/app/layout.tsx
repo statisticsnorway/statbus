@@ -10,7 +10,8 @@ import Footer, { FooterSkeleton } from "@/components/footer";
 import GlobalErrorReporter from "@/app/global-error-reporter";
 import PopStateHandler from "@/components/PopStateHandler";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
-import { JotaiAppProvider, StateInspector } from '@/atoms/JotaiAppProvider';
+import { JotaiAppProvider } from '@/atoms/JotaiAppProvider';
+import { StateInspector } from '@/components/dev/StateInspector';
 import { deploymentSlotName } from "@/lib/deployment-variables";
 import { headers } from "next/headers";
 

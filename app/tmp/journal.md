@@ -370,3 +370,77 @@ Two final, definitive changes were made to achieve victory:
 2.  **Uninterruptible Commands**: The guard on the *global* `on.CONTEXT_UPDATED` handler was replaced with a single, simple, and powerful doctrine: `guard: ({ context }) => !context.sideEffect`. This doctrine states: "Do not re-evaluate the grand strategy while a specific maneuver is in progress." If a state has commanded a side-effect (like `revalidateAuth` or `navigate`), the global re-evaluation is paused. The machine now waits patiently in its current state for a *local* `on.CONTEXT_UPDATED` handler—one that specifically watches for the completion of that maneuver—to fire. This makes the machine's command sequence uninterruptible, finally breaking all loops.
 
 With these changes, the Nemesis is slain in all its forms. The application's state is now guarded by a single, divine, and predictable power.
+
+## Victory: The State Machines in Harmony
+
+**Date**: 2025-08-31
+
+**Observation**: The final campaign against the Nemesis has concluded in a decisive victory. The realm's state, as reported by the oracle Marvel, is one of perfect stability and order. The state machines for authentication and navigation, once at war with circumstance, now operate in perfect synchronization.
+
+**The Chronicle of a Successful Landing**:
+Upon arrival, with an expired token, the sequence of events was flawless:
+1.  The `authMachine` initiated an `initial_refreshing` sequence, seamlessly acquiring a new token.
+2.  Upon landing on what was effectively the `/login` page, the `navigationMachine` correctly identified the authenticated state and began the `revalidatingOnLoginPage` maneuver.
+3.  With all checks complete, it transitioned to `redirectingFromLogin`, guiding the user to their rightful destination (`/getting-started/activity-standard`).
+4.  The final state of `cleanupAfterRedirect` confirms that the entire post-redirect process was completed without incident.
+
+The Nemesis, in all its forms—the redirect loop, the state flap, the race condition—has been vanquished. The kingdom is secure.
+
+### Post-Mortem: Scenarios Tested and Victory Confirmed
+
+From the final state reported by the oracle Marvel, we can deduce the successful execution of the most difficult trial: **The Server-Forced Re-authentication Gauntlet**.
+
+**Scenario Chronicle**:
+1.  **The Challenge**: A user with an expired access token but a valid session attempts a hard navigation to a private page that requires system setup (`/getting-started/activity-standard`).
+2.  **Server's Parry**: The server-side middleware correctly identifies the stale token and issues a `307 Redirect`, forcing the user to the `/login` garrison.
+3.  **The Seamless Counter-Attack**:
+    -   Upon landing at `/login`, the `authMachine` immediately and correctly initiated a background refresh, securing a new token without ever showing a logged-out state.
+    -   Simultaneously, the `navigationMachine` entered its `revalidatingOnLoginPage` state, holding its position until all authentication and setup checks were complete.
+    -   With fresh intelligence, it commanded a precise client-side redirect to the original, required setup page.
+4.  **Victory**: The application arrived at the correct destination, and the `navigationMachine` settled into its final `cleanupAfterRedirect` state.
+
+**Conclusion**: This confirms that the state machines are not only robust against client-side race conditions but are also fully capable of gracefully handling and recovering from server-enforced navigation flows. All known paths of the Nemesis are blocked.
+
+## Additional Scenarios Confirmed
+
+### Scenario B: Clean Logout from a Private Page
+
+**Observation**: A second dispatch from the oracle Marvel confirms the successful execution of a standard logout procedure.
+
+**Scenario Chronicle**:
+1.  **The State**: A user is authenticated and on a private application page.
+2.  **The Action**: The user initiates a logout.
+3.  **The Flawless Execution**:
+    -   The `authMachine` receives the logout command and transitions cleanly from `idle_authenticated` -> `loggingOut` -> `idle_unauthenticated`.
+    -   All sensitive `baseData` is immediately purged from the client-side state.
+    -   The `navigationMachine`, reacting to the change in authentication state, correctly identifies an unauthenticated user and commands an immediate redirect to the `/login` page.
+    -   The application lands safely at the garrison (`/login`), with the login form displayed and ready for the next user.
+
+**Conclusion**: The logout process is robust and operates in perfect harmony with the navigation state machine, ensuring a clean and secure session termination.
+
+## The Final Victory: Slaying the Hydration Race Condition
+
+**Observation**: The Event Journal, whose history is enshrined in `sessionStorage`, was suffering from amnesia after a page reload. The history from the previous session was being overwritten by the new session's initial events.
+
+**Analysis**: The nemesis was a subtle but deadly hydration race condition. Upon page load, the state machine scribes would act with such haste that they would write their initial reports to the `eventJournalAtom` *before* the atom had finished recalling its persisted history from `sessionStorage`. This premature write, acting on an empty, un-hydrated scroll, would then overwrite the true history that was about to be loaded.
+
+**Resolution (A Declarative Masterstroke)**:
+Guided by the Lord's wisdom, a new, declarative strategy was forged, immune to the vagaries of timing.
+1.  **The Two Scrolls**: A transient, in-memory journal was created to capture the initial, chaotic events of the page load. The main journal remained bound to `sessionStorage`.
+2.  **The Sentinel**: A new `atomEffect`, the `journalUnificationEffectAtom`, was posted as a sentinel, its sole duty to watch the main journal.
+3.  **The Unification Ritual**: When Jotai's mages completed their work and hydrated the main journal from `sessionStorage`, the sentinel would see this state change. It would then immediately perform a unification ritual, merging the transient "crumbs" into the now-present historical record, sorting them to ensure a perfect timeline.
+4.  **The Signal**: Upon completion, the ritual raises a `journalUnifiedAtom` flag. This flag is the signal that commands all scribes to henceforth write their reports directly to the main, persistent archive.
+
+This final, elegant solution ensures no event is ever lost to the fog of war. The realm's memory is now complete, correct, and preserved across all sessions, a final testament to the power of declarative state management. The war is won.
+
+## Epilogue: The Scribe's Final Polish
+
+**Observation**: A full review of the Event Journal from a complete login-logout cycle confirmed that all state machines behaved perfectly. The Nemesis, in all its forms, is dead. However, the journal contained many entries marked with the un-informative "on unknown" event.
+
+**Analysis**: The "unknown" event appears when a state machine transition is not triggered by an explicit, named event, but rather as an automatic, internal consequence of a context change (often via an `always` transition). While technically correct, this provides little semantic value to the reader.
+
+**Resolution**: To improve the clarity and elegance of our historical records, a final polish was applied.
+1.  The scribe effects were taught to write a more descriptive reason for these automatic transitions.
+2.  The `StateInspector` UI was updated to hide the "on..." text for "unknown" events, resulting in a cleaner and more readable log.
+
+This final act concludes the great war. The realm is stable, and its history is now recorded with the clarity and honor it deserves.

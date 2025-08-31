@@ -9,7 +9,7 @@
  */
 
 import { atom } from 'jotai'
-import { atomWithStorage } from 'jotai/utils'
+import { atomWithStorage, selectAtom } from 'jotai/utils'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { useCallback, useEffect, useMemo } from 'react'
 import { isEqual } from 'moderndash'
@@ -73,7 +73,7 @@ export interface SearchState {
   }
 }
 
-export const searchStateAtom = atom<SearchState>(initialSearchStateValues);
+export const searchStateAtom = atomWithStorage<SearchState>('searchState', initialSearchStateValues);
 
 export interface SearchResult {
   data: any[]
@@ -694,6 +694,73 @@ export const derivedApiSearchParamsAtom = atom((get) => {
 // HOOKS (Search, Selection, Table Columns)
 // ============================================================================
 
+// Granular hooks for performance. Consumers should prefer these over `useSearch`.
+export const useSearchPagination = () => {
+  const pagination = useAtomValue(selectAtom(searchStateAtom, s => s.pagination, isEqual));
+  const setSearchState = useSetAtom(searchStateAtom);
+  const updatePagination = useCallback((page: number, pageSize?: number) => {
+    setSearchState(prev => ({ ...prev, pagination: { page, pageSize: pageSize ?? prev.pagination.pageSize } }))
+  }, [setSearchState]);
+  return { pagination, updatePagination };
+};
+
+export const useSearchSorting = () => {
+  const sorting = useAtomValue(selectAtom(searchStateAtom, s => s.sorting, isEqual));
+  const setSearchState = useSetAtom(searchStateAtom);
+  const updateSorting = useCallback((field: string, direction: SearchDirection) => {
+    setSearchState(prev => {
+      if (prev.sorting.field === field && prev.sorting.direction === direction) return prev;
+      return { ...prev, sorting: { field, direction }, pagination: { ...prev.pagination, page: 1 } };
+    });
+  }, [setSearchState]);
+  return { sorting, updateSorting };
+};
+
+export const useSearchQuery = () => {
+  const query = useAtomValue(selectAtom(searchStateAtom, s => s.query));
+  const setSearchState = useSetAtom(searchStateAtom);
+  const updateSearchQuery = useCallback((query: string) => {
+    setSearchState(prev => {
+      if (prev.query === query) return prev;
+      return { ...prev, query, pagination: { ...prev.pagination, page: 1 } };
+    });
+  }, [setSearchState]);
+  return { query, updateSearchQuery };
+};
+
+export const useSearchFilters = () => {
+  const filters = useAtomValue(selectAtom(searchStateAtom, s => s.filters, isEqual));
+  const setSearchState = useSetAtom(searchStateAtom);
+  const updateFilters = useCallback((filters: Record<string, any>) => {
+    setSearchState(prev => {
+      if (isEqual(prev.filters, filters)) return prev;
+      return { ...prev, filters, pagination: { ...prev.pagination, page: 1 } };
+    });
+  }, [setSearchState]);
+  return { filters, updateFilters };
+};
+
+export const useSearchExecution = () => {
+  const performSearch = useSetAtom(performSearchAtom);
+  const executeSearch = useCallback(async () => {
+    try {
+      await performSearch();
+    } catch (error) {
+      console.error('Search failed:', error);
+      throw error;
+    }
+  }, [performSearch]);
+  return { executeSearch, performSearch };
+};
+
+export const useSearchResult = () => useAtomValue(searchResultAtom);
+export const useSearchPageData = () => useAtomValue(searchPageDataAtom);
+
+/**
+ * @deprecated This hook subscribes to the entire search state and can cause
+ * unnecessary re-renders. Prefer using the more granular hooks like
+ * `useSearchQuery`, `useSearchPagination`, `useSearchResult`, etc.
+ */
 export const useSearch = () => {
   const [searchState, setSearchState] = useAtom(searchStateAtom)
   const searchResult = useAtomValue(searchResultAtom)
