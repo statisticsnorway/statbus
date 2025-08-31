@@ -8,6 +8,9 @@ import { usePathname } from 'next/navigation';
 import {
   stateInspectorVisibleAtom,
   stateInspectorExpandedAtom,
+  stateInspectorJournalVisibleAtom,
+  stateInspectorStateVisibleAtom,
+  stateInspectorCanaryExpandedAtom,
   isTokenManuallyExpiredAtom,
   combinedJournalViewAtom,
   clearAndMarkJournalAtom,
@@ -93,6 +96,9 @@ const formatDiffToString = (diff: any, path: string = ''): string => {
 export const StateInspector = () => {
   const [isVisible, setIsVisible] = useAtom(stateInspectorVisibleAtom);
   const [isExpanded, setIsExpanded] = useAtom(stateInspectorExpandedAtom);
+  const [isJournalVisible, setIsJournalVisible] = useAtom(stateInspectorJournalVisibleAtom);
+  const [isStateVisible, setIsStateVisible] = useAtom(stateInspectorStateVisibleAtom);
+  const [isCanaryExpanded, setIsCanaryExpanded] = useAtom(stateInspectorCanaryExpandedAtom);
   const [mounted, setMounted] = React.useState(false);
   const [copyStatus, setCopyStatus] = React.useState(''); // For "Copied!" message
   const [isTokenManuallyExpired, setIsTokenManuallyExpired] = useAtom(isTokenManuallyExpiredAtom);
@@ -337,36 +343,39 @@ export const StateInspector = () => {
           </div>
 
           <div>
-            <strong>Event Journal:</strong>
-            <div ref={journalContainerRef} className="pl-4 mt-1 space-y-1 font-mono text-xs max-h-48 overflow-y-auto border border-gray-600 rounded p-1 bg-black/20">
-              {journal.length > 0 ? (
-                journal.map((entry, index) => {
-                  let machineColor = 'text-cyan-400'; // Default for auth, nav, login
-                  if (entry.machine === 'system') machineColor = 'text-purple-400';
-                  if (entry.machine === 'inspector') machineColor = 'text-orange-400';
+            <strong onClick={() => setIsJournalVisible(v => !v)} className="cursor-pointer">Event Journal: {isJournalVisible ? '▼' : '▶'}</strong>
+            {isJournalVisible && (
+              <div ref={journalContainerRef} className="pl-4 mt-1 space-y-1 font-mono text-xs max-h-48 overflow-y-auto border border-gray-600 rounded p-1 bg-black/20">
+                {journal.length > 0 ? (
+                  journal.map((entry, index) => {
+                    let machineColor = 'text-cyan-400'; // Default for auth, nav, login
+                    if (entry.machine === 'system') machineColor = 'text-purple-400';
+                    if (entry.machine === 'inspector') machineColor = 'text-orange-400';
 
-                  return (
-                    <div key={`${entry.timestamp_epoch}-${index}`}>
-                      <span className="text-gray-400">
-                        {new Date(entry.timestamp_epoch).toLocaleTimeString()}.{String(entry.timestamp_epoch % 1000).padStart(3, '0')}
-                      </span>
-                      <span className={`font-bold ${machineColor}`}> [{entry.machine.toUpperCase()}] </span>
-                      <span className="text-yellow-400">{JSON.stringify(entry.from)}</span>
-                      <span className="text-gray-400"> → </span>
-                      <span className="text-green-400">{JSON.stringify(entry.to)}</span>
-                      {entry.event.type !== 'unknown' && <span className="text-gray-500"> on {entry.event.type}</span>}
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="text-gray-500 italic">No events recorded since journal was cleared.</div>
-              )}
-            </div>
+                    return (
+                      <div key={`${entry.timestamp_epoch}-${index}`}>
+                        <span className="text-gray-400">
+                          {new Date(entry.timestamp_epoch).toLocaleTimeString()}.{String(entry.timestamp_epoch % 1000).padStart(3, '0')}
+                        </span>
+                        <span className={`font-bold ${machineColor}`}> [{entry.machine.toUpperCase()}] </span>
+                        <span className="text-yellow-400">{JSON.stringify(entry.from)}</span>
+                        <span className="text-gray-400"> → </span>
+                        <span className="text-green-400">{JSON.stringify(entry.to)}</span>
+                        {entry.event.type !== 'unknown' && <span className="text-gray-500"> on {entry.event.type}</span>}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-gray-500 italic">No events recorded since journal was cleared.</div>
+                )}
+              </div>
+            )}
           </div>
 
           <div>
-            <strong>Current State:</strong>
-            <div className="pl-4 mt-1 space-y-2 max-h-96 overflow-y-auto border border-gray-600 rounded p-1 bg-black/20">
+            <strong onClick={() => setIsStateVisible(v => !v)} className="cursor-pointer">Current State: {isStateVisible ? '▼' : '▶'}</strong>
+            {isStateVisible && (
+              <div className="pl-4 mt-1 space-y-2 max-h-96 overflow-y-auto border border-gray-600 rounded p-1 bg-black/20">
               <div>
                 <strong>State Machines:</strong>
                 <div className="pl-4 mt-1 space-y-1">
@@ -489,13 +498,23 @@ export const StateInspector = () => {
               </div>
               {stateToDisplay.lastCanaryResponse && (
                 <div>
-                  <strong>Last Canary Response:</strong>
-                  <div className="pl-4 mt-1 font-mono text-xs max-h-48 overflow-y-auto border border-gray-600 rounded p-1 bg-black/20">
-                    <pre className="whitespace-pre-wrap break-all">{JSON.stringify(stateToDisplay.lastCanaryResponse, null, 2)}</pre>
-                  </div>
+                  <strong onClick={() => setIsCanaryExpanded(v => !v)} className="cursor-pointer">
+                    Last Canary Response: {isCanaryExpanded ? '▼' : '▶'}
+                    {!isCanaryExpanded && (
+                      <span className="pl-2 font-normal font-mono text-xs">
+                        {`[${new Date(stateToDisplay.lastCanaryResponse.timestamp).toLocaleTimeString()}] Token {Valid: ${stateToDisplay.lastCanaryResponse.access_token?.valid}, Expired: ${stateToDisplay.lastCanaryResponse.access_token?.expired}}`}
+                      </span>
+                    )}
+                  </strong>
+                  {isCanaryExpanded && (
+                    <div className="pl-4 mt-1 font-mono text-xs max-h-48 overflow-y-auto border border-gray-600 rounded p-1 bg-black/20">
+                      <pre className="whitespace-pre-wrap break-all">{JSON.stringify(stateToDisplay.lastCanaryResponse, null, 2)}</pre>
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       )}
