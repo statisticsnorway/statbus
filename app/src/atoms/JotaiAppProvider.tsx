@@ -779,13 +779,13 @@ export const StateInspector = () => {
             <strong>Event Journal:</strong>
             <div ref={journalContainerRef} className="pl-4 mt-1 space-y-1 font-mono text-xs max-h-48 overflow-y-auto border border-gray-600 rounded p-1 bg-black/20">
               {journal.length > 0 ? (
-                journal.map((entry) => {
+                journal.map((entry, index) => {
                   let machineColor = 'text-cyan-400'; // Default for auth, nav, login
                   if (entry.machine === 'system') machineColor = 'text-purple-400';
                   if (entry.machine === 'inspector') machineColor = 'text-orange-400';
 
                   return (
-                    <div key={entry.timestamp_epoch}>
+                    <div key={`${entry.timestamp_epoch}-${index}`}>
                       <span className="text-gray-400">
                         {new Date(entry.timestamp_epoch).toLocaleTimeString()}.{String(entry.timestamp_epoch % 1000).padStart(3, '0')}
                       </span>

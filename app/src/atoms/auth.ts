@@ -341,7 +341,7 @@ const prevAuthMachineSnapshotAtom = atom<SnapshotFrom<typeof authMachine> | null
  * Scribe Effect for the Authentication State Machine.
  *
  * When the StateInspector is visible, this effect will log every state
- * transition to the state saga and the browser console, providing a detailed
+ * transition to the Event Journal and the browser console, providing a detailed
  * trace of the authentication flow for debugging purposes. It remains dormant
  * otherwise to avoid any performance overhead.
  */
@@ -358,7 +358,7 @@ export const authMachineScribeEffectAtom = atomEffect((get, set) => {
   const prevMachine = get(prevAuthMachineSnapshotAtom);
   set(prevAuthMachineSnapshotAtom, machine); // Update for next run
 
-  if (prevMachine && machine.value !== prevMachine.value) {
+  if (prevMachine && JSON.stringify(machine.value) !== JSON.stringify(prevMachine.value)) {
     const event = (machine as any).event ?? { type: 'unknown' };
     const entry = {
       machine: 'auth' as const,
@@ -761,9 +761,6 @@ const prevLoginPageMachineSnapshotAtom = atom<SnapshotFrom<typeof loginPageMachi
 
 /**
  * Scribe Effect for the Login Page UI State Machine.
- *
- * When the StateInspector is visible, this effect will log every state
- * transition to the state saga and the browser console.
  */
 export const loginPageMachineScribeEffectAtom = atomEffect((get, set) => {
   const isInspectorVisible = get(stateInspectorVisibleAtom);
@@ -776,9 +773,9 @@ export const loginPageMachineScribeEffectAtom = atomEffect((get, set) => {
 
   const machine = get(loginPageMachineAtom);
   const prevMachine = get(prevLoginPageMachineSnapshotAtom);
-  set(prevLoginPageMachineSnapshotAtom, machine); // Update for next run
+  set(prevLoginPageMachineSnapshotAtom, machine);
 
-  if (prevMachine && machine.value !== prevMachine.value) {
+  if (prevMachine && JSON.stringify(machine.value) !== JSON.stringify(prevMachine.value)) {
     const event = (machine as any).event ?? { type: 'unknown' };
     const entry = {
       machine: 'login' as const,

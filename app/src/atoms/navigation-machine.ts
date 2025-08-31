@@ -15,7 +15,7 @@ export interface NavigationContext {
   setupPath: string | null;
   lastKnownPath: string | null;
   sideEffect?: {
-    action: 'navigate' | 'savePath' | 'clearLastKnownPath';
+    action: 'navigate' | 'savePath' | 'clearLastKnownPath' | 'revalidateAuth';
     targetPath?: string;
   };
 }
@@ -38,30 +38,11 @@ export const navigationMachine = setup({
       {
         target: '.evaluating',
         // This is the guarded "re-evaluate" transition. It will only be taken if
-        // the machine is in a stable state and not in the middle of a command sequence.
-        guard: ({ context, event }) => {
-          const sideEffectAction = context.sideEffect?.action;
-
-          // Case 1: A navigation is in progress.
-          if (sideEffectAction === 'navigate') {
-            const onlyPathChanged = Object.keys(event.value).length === 1 && 'pathname' in event.value;
-            // If only the path changed, DO NOT re-evaluate. This allows the
-            // navigation to complete before the machine reacts to the new page.
-            if (onlyPathChanged) {
-              return false;
-            }
-          }
-          
-          // Case 2: A synchronous state update side-effect is in progress.
-          if (sideEffectAction && sideEffectAction !== 'navigate') {
-            // DO NOT re-evaluate. This is the key to preventing synchronous
-            // feedback loops between the machine and its host component.
-            return false;
-          }
-          
-          // Otherwise, it is safe to re-evaluate the machine's state.
-          return true;
-        },
+        // the machine has not commanded a side-effect. If a side-effect is active,
+        // the machine will wait in its current state, allowing local `on.CONTEXT_UPDATED`
+        // handlers to watch for the side-effect's completion. This is the core
+        // mechanism that prevents infinite loops.
+        guard: ({ context }) => !context.sideEffect,
         actions: assign(( { context, event } ) => ({ ...context, ...event.value })),
       },
       {
@@ -107,7 +88,7 @@ export const navigationMachine = setup({
             !isPublicPath(context.pathname),
         },
         {
-          target: 'redirectingFromLogin',
+          target: 'revalidatingOnLoginPage',
           guard: ({ context }) => context.isAuthenticated && !context.isAuthLoading && context.pathname === '/login',
         },
         {
@@ -128,6 +109,24 @@ export const navigationMachine = setup({
     idle: {
       // This state is now stable. The cleanup logic has been moved to be part
       // of the `redirectingFromLogin` flow, making it more robust.
+    },
+    /**
+     * An intermediate state that commands an auth re-validation when an authenticated
+     * user lands on the login page. This is a crucial step to break redirect loops
+     * caused by server-side redirects with stale tokens.
+     */
+    revalidatingOnLoginPage: {
+      entry: assign({ sideEffect: { action: 'revalidateAuth' } }),
+      on: {
+        CONTEXT_UPDATED: {
+          target: 'redirectingFromLogin',
+          // Guard: Wait for both auth and setup checks to complete before proceeding.
+          // This prevents a race condition where the redirect happens before the
+          // required setup path has been calculated.
+          guard: ({ context }) => !context.isAuthLoading && !context.isSetupLoading,
+          actions: assign(({ context, event }) => ({ ...context, ...event.value })),
+        }
+      }
     },
     /**
      * An intermediate state that triggers the 'savePath' side-effect to store the
@@ -221,7 +220,7 @@ const prevNavMachineSnapshotAtom = atom<SnapshotFrom<typeof navigationMachine> |
  * Scribe Effect for the Navigation State Machine.
  *
  * When the StateInspector is visible, this effect will log every state
- * transition to the state saga and the browser console, providing a detailed
+ * transition to the Event Journal and the browser console, providing a detailed
  * trace of all programmatic navigation decisions. It remains dormant otherwise.
  */
 export const navMachineScribeEffectAtom = atomEffect((get, set) => {
@@ -235,9 +234,9 @@ export const navMachineScribeEffectAtom = atomEffect((get, set) => {
 
   const machine = get(navigationMachineAtom);
   const prevMachine = get(prevNavMachineSnapshotAtom);
-  set(prevNavMachineSnapshotAtom, machine); // Update for next run
+  set(prevNavMachineSnapshotAtom, machine);
 
-  if (prevMachine && machine.value !== prevMachine.value) {
+  if (prevMachine && JSON.stringify(machine.value) !== JSON.stringify(prevMachine.value)) {
     const event = (machine as any).event ?? { type: 'unknown' };
     const entry = {
       machine: 'nav' as const,
