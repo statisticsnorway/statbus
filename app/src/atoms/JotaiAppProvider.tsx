@@ -43,7 +43,6 @@ import {
   isAuthActionInProgressAtom,
   authMachineScribeEffectAtom,
   loginPageMachineScribeEffectAtom,
-  canaryScribeEffectAtom,
 } from './auth';
 import {
   baseDataAtom,
@@ -80,7 +79,6 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   // that will run whenever their dependencies change, but only log when the
   // inspector is visible.
   useAtomValue(authMachineScribeEffectAtom);
-  useAtomValue(canaryScribeEffectAtom);
   useAtomValue(loginPageMachineScribeEffectAtom);
   useAtomValue(navMachineScribeEffectAtom);
   useAtomValue(pageUnloadDetectorEffectAtom);
@@ -361,29 +359,53 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
 // PAGE CONTENT GUARD
 // ============================================================================
 
-const PageContentGuard = ({ children, loadingFallback }: { children: ReactNode, loadingFallback: ReactNode }) => {
-  const [isMounted, setIsMounted] = useState(false);
+/**
+ * PageContentGuardInner contains the core logic that depends on client-side state.
+ * It's only rendered after the client has mounted, preventing its hooks from
+ * suspending on the server, which is a common cause of hydration errors.
+ */
+const PageContentGuardInner = ({ children, loadingFallback }: { children: ReactNode, loadingFallback: ReactNode }) => {
   const navState = useAtomValue(navigationMachineAtom);
   const { isLoadingAuth } = useAppReady();
+
+  // The navigation machine is considered to be busy (and thus the UI should wait)
+  // if its current state is not tagged as 'stable'. This is a more robust and
+  // maintainable approach than checking for specific state names. It prevents
+  // content from rendering while the machine is booting, evaluating, or redirecting.
+  const isNavigating = !navState.hasTag('stable');
+
+  // By the time this component renders, we are guaranteed to be on the client.
+  // We only need to check the application's readiness state.
+  if (isNavigating || isLoadingAuth) {
+    return <>{loadingFallback}</>;
+  }
+
+  return <>{children}</>;
+};
+
+
+/**
+ * PageContentGuard acts as a "client-only" boundary. It ensures that the server
+ * and the initial client render output the exact same thing (the loading fallback).
+ * This prevents hydration mismatches caused by hooks inside child components
+ * (like PageContentGuardInner) that might suspend on the server.
+ */
+const PageContentGuard = ({ children, loadingFallback }: { children: ReactNode, loadingFallback: ReactNode }) => {
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  // The navigation machine is not idle while it is booting, evaluating, or
-  // actively performing a redirect. During these times, we should show a
-  // loading state to prevent a "flash" of the old or incorrect page content.
-  const isNavigating = !navState.matches('idle');
-
-  // On the server and during the first client render (before mount), we must
-  // always show the loading fallback to prevent a hydration mismatch.
-  // The actual children will only be rendered on the client after the state
-  // machines have stabilized.
-  if (!isMounted || isNavigating || isLoadingAuth) {
+  // On server, and on initial client render, isMounted is false, so we render
+  // the fallback. This guarantees the server and client match.
+  if (!isMounted) {
     return <>{loadingFallback}</>;
   }
 
-  return <>{children}</>;
+  // After mounting on the client, we render the actual component which can
+  // now safely use client-side hooks without causing a hydration mismatch.
+  return <PageContentGuardInner loadingFallback={loadingFallback}>{children}</PageContentGuardInner>;
 }
 
 // ============================================================================
