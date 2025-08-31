@@ -4652,12 +4652,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 
 \echo "Explicitly refreshing timesegments before checking timeline_establishment_def"
 "Explicitly refreshing timesegments before checking timeline_establishment_def"
-SELECT public.timesegments_refresh();
- timesegments_refresh 
-----------------------
- 
-(1 row)
-
+CALL public.timesegments_refresh();
 \echo "Duplicate (unit_type, unit_id, timepoint) in public.timepoints for establishments:"
 "Duplicate (unit_type, unit_id, timepoint) in public.timepoints for establishments:"
 SELECT unit_type, unit_id, timepoint, COUNT(*)

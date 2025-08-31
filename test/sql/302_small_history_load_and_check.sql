@@ -88,11 +88,11 @@ ORDER BY slug;
 
 -- Note: Use 'SELECT * FROM ...' instead of 'PERFORM' for function calls at the top level in psql.
 -- 'PERFORM' is a PL/pgSQL statement and cannot be used directly in SQL.
-SELECT * FROM public.timesegments_refresh();
-SELECT * FROM public.timeline_establishment_refresh();
-SELECT * FROM public.timeline_legal_unit_refresh();
-SELECT * FROM public.timeline_enterprise_refresh(); -- Ensure enterprise timeline is refreshed
-SELECT * FROM public.statistical_unit_refresh();
+CALL public.timesegments_refresh();
+CALL public.timeline_establishment_refresh();
+CALL public.timeline_legal_unit_refresh();
+CALL public.timeline_enterprise_refresh(); -- Ensure enterprise timeline is refreshed
+CALL public.statistical_unit_refresh();
 
 \echo "Checking for multiple primary legal units for the same enterprise and overlapping time"
 SELECT

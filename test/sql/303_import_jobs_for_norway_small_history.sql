@@ -287,7 +287,7 @@ ORDER BY row_id;
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Explicitly refreshing timesegments before checking timeline_establishment_def"
-SELECT public.timesegments_refresh();
+CALL public.timesegments_refresh();
 
 \echo "Duplicate (unit_type, unit_id, timepoint) in public.timepoints for establishments:"
 SELECT unit_type, unit_id, timepoint, COUNT(*)

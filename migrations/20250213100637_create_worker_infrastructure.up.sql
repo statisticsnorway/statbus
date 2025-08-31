@@ -118,28 +118,125 @@ RETURNS void
 LANGUAGE plpgsql
 AS $derive_statistical_unit$
 DECLARE
-  v_affected_count int;
+    v_all_establishment_ids int[];
+    v_all_legal_unit_ids int[];
+    v_all_enterprise_ids int[];
 BEGIN
-  -- The explicit SHARE locks were removed to prevent deadlocks with the concurrent import queue.
-  -- PostgreSQL's default READ COMMITTED transaction isolation is sufficient, and the analytics
-  -- queue is serial, which prevents race conditions between derivation tasks.
+    -- This function orchestrates the "materialize and batch" derivation pipeline.
+    -- If any IDs are provided, it performs a partial refresh by finding all related
+    -- parent units and refreshing the entire affected hierarchy.
+    -- If no IDs are provided, it performs a full refresh of all data.
 
-  PERFORM public.timesegments_refresh(p_valid_after => p_valid_after, p_valid_to => p_valid_to);
-  PERFORM public.timesegments_years_refresh();
-  PERFORM public.timeline_establishment_refresh(p_valid_after => p_valid_after,p_valid_to => p_valid_to);
-  PERFORM public.timeline_legal_unit_refresh(p_valid_after => p_valid_after,p_valid_to => p_valid_to);
-  PERFORM public.timeline_enterprise_refresh(p_valid_after => p_valid_after,p_valid_to => p_valid_to);
+    IF p_establishment_ids IS NULL AND p_legal_unit_ids IS NULL AND p_enterprise_ids IS NULL THEN
+        -- Full refresh
+        CALL public.timepoints_refresh();
+        CALL public.timesegments_refresh();
+        PERFORM public.timesegments_years_refresh();
+        CALL public.timeline_establishment_refresh();
+        CALL public.timeline_legal_unit_refresh();
+        CALL public.timeline_enterprise_refresh();
+        CALL public.statistical_unit_refresh();
+    ELSE
+        -- Partial Refresh Algorithm:
+        -- The goal of a partial refresh is to recalculate the history for only the
+        -- statistical units that have changed, including any parent units that
+        -- might be affected by those changes. The algorithm traverses the hierarchy
+        -- upwards from the initially changed units.
+        --
+        -- 1. Initialization: Start with three accumulator arrays containing the
+        --    initial set of changed establishment, legal unit, and enterprise IDs.
+        --
+        -- 2. Upward Traversal from Establishments: For all establishments in the
+        --    accumulator, find their parent legal units and enterprises and add
+        --    them to the appropriate accumulator arrays.
+        --
+        -- 3. Upward Traversal from Legal Units: For all legal units now in the
+        --    accumulator (both initial and newly found), find their parent
+        --    enterprises and add them to the enterprise accumulator.
+        --
+        -- 4. Deduplication: Remove any duplicate IDs from the accumulator arrays.
+        --
+        -- 5. Execution: The final, complete sets of IDs for each unit type are then
+        --    passed to the various refresh procedures to recalculate their history.
+        --
+        -- 6. Finding Obsolete Dependencies: A critical part of this process is
+        --    finding not just the *current* parents of a changed unit, but also its
+        --    *previous* parents. For example, if an establishment moves from legal
+        --    unit A to legal unit B, both A and B must be refreshed. To achieve this,
+        --    the algorithm queries the `public.statistical_unit` table using its
+        --    `related_*_ids` columns and the array overlap operator (&&). This
+        --    single, efficient query finds all historical records related to the
+        --    changed units, from which a complete set of all affected units (current,
+        --    historical, and their parents) can be derived.
+        v_all_establishment_ids := COALESCE(p_establishment_ids, '{}');
+        v_all_legal_unit_ids    := COALESCE(p_legal_unit_ids, '{}');
+        v_all_enterprise_ids    := COALESCE(p_enterprise_ids, '{}');
 
-  -- Finally refresh statistical_unit
-  PERFORM public.statistical_unit_refresh(
-    p_establishment_ids => p_establishment_ids,
-    p_legal_unit_ids => p_legal_unit_ids,
-    p_enterprise_ids => p_enterprise_ids,
-    p_valid_after => p_valid_after,
-    p_valid_to => p_valid_to
-  );
+        -- Use a CTE to find all affected units, including historical parents.
+        WITH affected_units AS (
+            SELECT
+                unit_id,
+                unit_type,
+                related_establishment_ids,
+                related_legal_unit_ids,
+                related_enterprise_ids
+            FROM public.statistical_unit
+            WHERE
+                (cardinality(v_all_establishment_ids) > 0 AND related_establishment_ids && v_all_establishment_ids)
+                OR (cardinality(v_all_legal_unit_ids) > 0 AND related_legal_unit_ids && v_all_legal_unit_ids)
+                OR (cardinality(v_all_enterprise_ids) > 0 AND related_enterprise_ids && v_all_enterprise_ids)
+        )
+        SELECT
+            array_agg(DISTINCT u.id) FILTER (WHERE u.type = 'establishment'),
+            array_agg(DISTINCT u.id) FILTER (WHERE u.type = 'legal_unit'),
+            array_agg(DISTINCT u.id) FILTER (WHERE u.type = 'enterprise')
+        INTO
+            v_all_establishment_ids,
+            v_all_legal_unit_ids,
+            v_all_enterprise_ids
+        FROM (
+            -- Initial set of changed units
+            SELECT e_id AS id, 'establishment'::public.statistical_unit_type AS type FROM unnest(v_all_establishment_ids) e_id
+            UNION ALL
+            SELECT l_id, 'legal_unit' FROM unnest(v_all_legal_unit_ids) l_id
+            UNION ALL
+            SELECT e_id, 'enterprise' FROM unnest(v_all_enterprise_ids) e_id
+            UNION ALL
+            -- Units from affected historical slices
+            SELECT unit_id, unit_type FROM affected_units
+            UNION ALL
+            -- Related units from affected historical slices
+            SELECT e_id, 'establishment' FROM (SELECT unnest(related_establishment_ids) AS e_id FROM affected_units) AS u
+            UNION ALL
+            SELECT l_id, 'legal_unit' FROM (SELECT unnest(related_legal_unit_ids) AS l_id FROM affected_units) AS u
+            UNION ALL
+            SELECT e_id, 'enterprise' FROM (SELECT unnest(related_enterprise_ids) AS e_id FROM affected_units) AS u
+        ) AS u(id, type)
+        WHERE u.id IS NOT NULL;
 
-  -- Refresh derived data (used flags) - needed for statistical_unit filtering
+        -- Refresh each stage with the complete set of affected IDs
+        CALL public.timepoints_refresh(p_unit_ids => v_all_establishment_ids, p_unit_type => 'establishment');
+        CALL public.timepoints_refresh(p_unit_ids => v_all_legal_unit_ids, p_unit_type => 'legal_unit');
+        CALL public.timepoints_refresh(p_unit_ids => v_all_enterprise_ids, p_unit_type => 'enterprise');
+
+        CALL public.timesegments_refresh(p_unit_ids => v_all_establishment_ids, p_unit_type => 'establishment');
+        CALL public.timesegments_refresh(p_unit_ids => v_all_legal_unit_ids, p_unit_type => 'legal_unit');
+        CALL public.timesegments_refresh(p_unit_ids => v_all_enterprise_ids, p_unit_type => 'enterprise');
+
+        PERFORM public.timesegments_years_refresh();
+
+        CALL public.timeline_establishment_refresh(p_unit_ids => v_all_establishment_ids);
+        CALL public.timeline_legal_unit_refresh(p_unit_ids => v_all_legal_unit_ids);
+        CALL public.timeline_enterprise_refresh(p_unit_ids => v_all_enterprise_ids);
+
+        CALL public.statistical_unit_refresh(
+            p_establishment_ids => v_all_establishment_ids,
+            p_legal_unit_ids => v_all_legal_unit_ids,
+            p_enterprise_ids => v_all_enterprise_ids
+        );
+    END IF;
+
+    -- Refresh derived data (used flags) - these are always full refreshes for now
   PERFORM public.activity_category_used_derive();
   PERFORM public.region_used_derive();
   PERFORM public.sector_used_derive();
