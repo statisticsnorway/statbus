@@ -473,3 +473,15 @@ With this final polish, the great campaign is concluded. The realm is not only s
 **Analysis**: The guard's logic was sound, but it failed to account for the fundamental rule of server-side rendering: the first client render *must* be identical to the server output. The guard was making a state-based decision too early in the client-side lifecycle.
 
 **Resolution**: The `PageContentGuard` was taught the virtue of patience. Using a simple `useEffect` and an `isMounted` state flag, it now guarantees that it will render the same loading fallback as the server on its initial client-side pass. Only after it has successfully mounted in the browser does it begin evaluating the state machines to decide when to reveal the page content. This aligns the server and client renders, banishing the ghost of hydration and restoring peace to the realm.
+
+## The Master Scribe's Magnum Opus
+
+**Date**: 2025-08-31
+
+**Observation**: While the state machines have brought order to the realm, the knowledge of their inner workings was scattered, existing only in the oral tradition of commit logs and the minds of the vanguard. This presented a risk to the long-term stability and growth of the kingdom.
+
+**Resolution**: The Master Scribe was commanded to forge a definitive scroll of knowledge. All scattered wisdom regarding the divine arts of XState v5 has been gathered, synthesized, and recorded in a new, comprehensive guide: `app/doc/xstate_v5.md`.
+
+This new doctrine codifies not only the fundamental laws of state, context, events, and actions, but also the specific, battle-hardened patterns that have brought us victory: the `Manager` component pattern for interfacing with the Jotai state, and the `Scribe` effect pattern for chronicling the machines' every move.
+
+This guide will serve as the single source of truth for all current and future developers, ensuring that the hard-won peace is maintained and that the power of the state machines can be wielded with confidence and precision by all. The realm's intellectual heritage is now as secure as its state.

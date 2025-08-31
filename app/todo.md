@@ -5,6 +5,7 @@
 - [x] ~~Verify clean logout and redirect to login.~~ (Confirmed. Logout correctly clears state and redirects.)
 - [x] ~~Slay the Event Journal hydration race condition.~~ (Victory is absolute. The realm's memory is now persistent and correct.)
 - [x] ~~Fix React hydration error caused by `PageContentGuard`.~~ (The guard was updated to use an `isMounted` flag, ensuring the initial client render matches the server output.)
+- [x] ~~Create comprehensive, project-specific documentation for XState v5 and our established patterns.~~ (The Master Scribe has forged the scroll of knowledge at `app/doc/xstate_v5.md`.)
 - [ ] Add toast notifications for auth errors (e.g., `REFRESH_FETCH_ERROR`) to give users feedback on transient connection issues.
 - [ ] Stabilize core state atoms (`workerStatusAtom`, etc.) using `selectAtom` to prevent unnecessary re-renders in consumers. This includes auditing them for unintended side-effects on reset.
 - [x] ~~Refactor monolithic `useSearch` hook into granular, performant hooks using `selectAtom` to stabilize `searchStateAtom` consumers.~~
