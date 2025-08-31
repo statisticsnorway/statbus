@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useSetAtom } from "jotai";
-import { pendingRedirectAtom } from "@/atoms/app";
 import { AlertCircle, CheckCircle, Database, Upload } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Tables } from "@/lib/database.types"; // Import Tables type
@@ -31,8 +31,7 @@ export function ImportJobUpload({
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
-  // No context needed here anymore
-  const setPendingRedirect = useSetAtom(pendingRedirectAtom);
+  const router = useRouter();
 
   // Parent page is responsible for loading the job.
   // The parent page (e.g., LegalUnitsUploadPage) is responsible
@@ -48,14 +47,14 @@ export function ImportJobUpload({
         // refreshRelevantCounts is passed as a prop and should be memoized by the parent.
         // It already includes doRefreshBaseData().
         await refreshRelevantCounts();
-        setPendingRedirect(nextPage);
+        router.push(nextPage);
       }
     };
 
     handleFinishedJob();
     // Add refreshRelevantCounts to the dependency array.
     // Ensure it's memoized in the parent component to avoid unnecessary effect runs.
-  }, [job?.state, job?.slug, nextPage, setPendingRedirect, refreshRelevantCounts]);
+  }, [job?.state, job?.slug, nextPage, router, refreshRelevantCounts]);
 
   const handleUpload = useCallback(async (fileToUpload: File) => {
     if (!fileToUpload || !job) return;
@@ -260,7 +259,7 @@ export function ImportJobUpload({
       {/* Show continue button only when job is finished */}
       {/* Use job prop */}
       {job.state === "finished" && (
-        <Button onClick={() => setPendingRedirect(nextPage)} className="w-full mt-4">
+        <Button onClick={() => router.push(nextPage)} className="w-full mt-4">
           Continue to Next Step
         </Button>
       )}

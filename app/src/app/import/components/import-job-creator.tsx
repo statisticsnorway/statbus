@@ -1,10 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useImportManager, ImportMode } from "@/atoms/import"; // Updated import
 import { Button } from "@/components/ui/button";
-import { useSetAtom } from "jotai";
-import { pendingRedirectAtom } from "@/atoms/app";
 import { Spinner } from "@/components/ui/spinner";
 
 interface ImportJobCreatorProps {
@@ -23,7 +22,7 @@ export function ImportJobCreator({ importMode, uploadPath, unitType, onJobCreate
     loadDefinitions,
     timeContext,
   } = useImportManager();
-  const setPendingRedirect = useSetAtom(pendingRedirectAtom);
+  const router = useRouter();
 
   // Load the definition for this import mode when the component mounts
   React.useEffect(() => {
@@ -55,7 +54,7 @@ export function ImportJobCreator({ importMode, uploadPath, unitType, onJobCreate
       const job = await createImportJob();
       if (job) {
         onJobCreated?.();
-        setPendingRedirect(`${uploadPath}/${job.slug}`);
+        router.push(`${uploadPath}/${job.slug}`);
       } else {
         setError("Failed to create import job");
       }

@@ -18,19 +18,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { Enums } from "@/lib/database.types";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { useSetAtom } from "jotai";
 import { RESET } from "jotai/utils";
 import { gettingStartedUIStateAtom } from "@/atoms/getting-started";
-import { pendingRedirectAtom, selectedTimeContextAtom } from "@/atoms/app";
+import { selectedTimeContextAtom } from "@/atoms/app";
 
 export function ResetConfirmationDialog() {
   const { toast } = useToast();
+  const router = useRouter();
   const setGettingStartedUIState = useSetAtom(gettingStartedUIStateAtom);
   const setSelectedTimeContext = useSetAtom(selectedTimeContextAtom);
-  const setPendingRedirect = useSetAtom(pendingRedirectAtom);
 
   useEffect(() => {
     const showDialog = () => {
@@ -71,7 +72,7 @@ export function ResetConfirmationDialog() {
         // server data reset. The page reload will handle re-fetching data.
         setGettingStartedUIState(RESET);
         setSelectedTimeContext(RESET);
-        setPendingRedirect("/");
+        router.push("/");
       }
     } catch (error) {
       toast({

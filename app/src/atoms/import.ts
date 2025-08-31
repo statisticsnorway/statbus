@@ -52,7 +52,7 @@ import { useMemo, useCallback, useEffect } from 'react'
 import type { Database, Enums, Tables, TablesInsert } from '@/lib/database.types'
 import { restClientAtom } from './rest-client'
 import { useBaseData } from './base-data'
-import { isAuthenticatedAtom } from './auth'
+import { isAuthenticatedStrictAtom, authStateForDataFetchingAtom } from './auth'
 
 // ============================================================================
 // TYPES
@@ -194,14 +194,18 @@ export const refreshAllUnitCountsAtom = atom(
 export const refreshPendingJobsByModeAtom = atom(
   null,
   async (get, set, mode: ImportMode) => {
-    const isAuthenticated = get(isAuthenticatedAtom);
+    const authState = get(authStateForDataFetchingAtom);
     const client = get(restClientAtom);
 
-    if (!isAuthenticated) {
-      set(allPendingJobsByModeStateAtom, (prev) => ({
-        ...prev,
-        [mode]: { ...(prev[mode] || { jobs: [], error: null, lastFetched: null }), loading: false, error: "Not authenticated" },
-      }));
+    if (authState !== 'authenticated') {
+      if (authState === 'unauthenticated') {
+        set(allPendingJobsByModeStateAtom, (prev) => ({
+          ...prev,
+          [mode]: { ...(prev[mode] || { jobs: [], error: null, lastFetched: null }), loading: false, error: "Not authenticated" },
+        }));
+      }
+      // If checking or refreshing, we just wait and do nothing. The atom will be re-evaluated
+      // by Jotai once the auth state changes to 'authenticated' or 'unauthenticated'.
       return;
     }
 
@@ -524,7 +528,7 @@ export const useImportManager = () => {
 export const usePendingJobsByMode = (mode: ImportMode) => {
   const allJobsState = useAtomValue(allPendingJobsByModeStateAtom);
   const refreshJobsForMode = useSetAtom(refreshPendingJobsByModeAtom);
-  const isAuthenticated = useAtomValue(isAuthenticatedAtom);
+  const isAuthenticated = useAtomValue(isAuthenticatedStrictAtom);
 
   const state: PendingJobsData = useMemo(() => {
     return allJobsState[mode] || { jobs: [], loading: false, error: null, lastFetched: null };

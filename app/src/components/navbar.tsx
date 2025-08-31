@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { CommandPaletteTriggerMobileMenuButton } from "@/components/command-palette/command-palette-trigger-button";
 import TimeContextSelector from "@/components/time-context-selector";
-import { useAuth, isAuthenticatedAtom, currentUserAtom } from "@/atoms/auth";
+import { useAuth, isAuthenticatedStrictAtom, currentUserAtom } from "@/atoms/auth";
 import { useBaseData } from "@/atoms/base-data";
 import { useWorkerStatus } from "@/atoms/worker_status";
 import { useEffect, useState } from "react";
@@ -26,7 +26,7 @@ export function NavbarSkeleton() {
 }
 
 export default function Navbar() {
-  const isAuthenticated = useAtomValue(isAuthenticatedAtom); // Use derived atom
+  const isAuthenticated = useAtomValue(isAuthenticatedStrictAtom); // Use derived atom
   const currentUser = useAtomValue(currentUserAtom); // Use derived atom
   const { hasStatisticalUnits } = useBaseData();
   const workerStatus = useWorkerStatus();

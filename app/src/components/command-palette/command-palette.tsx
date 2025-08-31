@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ResetConfirmationDialog } from "./reset-confirmation-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/atoms/auth";
 import { useSetAtom } from "jotai";
-import { pendingRedirectAtom, stateInspectorVisibleAtom } from "@/atoms/app";
+import { stateInspectorVisibleAtom } from "@/atoms/app";
 import {
   BarChartHorizontal,
   Footprints,
@@ -39,7 +40,7 @@ import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
-  const setPendingRedirect = useSetAtom(pendingRedirectAtom);
+  const router = useRouter();
   const { logout } = useAuth();
   const setStateInspectorVisible = useSetAtom(stateInspectorVisibleAtom);
 
@@ -76,7 +77,7 @@ export function CommandPalette() {
 
   const navigate = (path: string) => {
     setOpen(false);
-    setPendingRedirect(path);
+    router.push(path);
   };
 
   const handleToggleStateInspector = () => {
@@ -132,8 +133,8 @@ export function CommandPalette() {
               onSelect={async () => {
                 setOpen(false);
                 await logout();
-                // The redirect to "/login" or "/" is now handled by RedirectHandler
-                // after logoutAtom sets pendingRedirectAtom (or similar mechanism).
+                // The redirect to "/login" is handled by the navigation state machine
+                // in response to the auth state changing.
               }}
               value="Logout"
             >

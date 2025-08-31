@@ -10,8 +10,6 @@ import { ErrorBox } from "@/components/error-box";
 import { uploadFile } from "@/app/getting-started/getting-started-server-actions";
 import type { UploadView } from "@/app/getting-started/getting-started-server-actions";
 import { useRouter } from "next/navigation";
-import { useSetAtom } from "jotai";
-import { pendingRedirectAtom } from "@/atoms/app";
 
 const UploadFormButtons = ({
   error,
@@ -58,14 +56,13 @@ export const UploadCSVForm = ({
     { error: null }
   );
   const router = useRouter();
-  const setPendingRedirect = useSetAtom(pendingRedirectAtom);
 
   useEffect(() => {
     if (state.success) {
-      setPendingRedirect(nextPage);
+      router.push(nextPage);
       refreshRelevantCounts();
     }
-  }, [state.success, setPendingRedirect, nextPage, refreshRelevantCounts]);
+  }, [state.success, router, nextPage, refreshRelevantCounts]);
 
   return (
     <form action={formAction} className="bg-ssb-light p-6">

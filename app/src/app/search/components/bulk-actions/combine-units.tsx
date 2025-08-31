@@ -3,13 +3,12 @@ import { cn } from "@/lib/utils";
 import { Combine } from "lucide-react";
 import { CommandItem } from "@/components/ui/command";
 import * as React from "react";
-import { useSetAtom } from "jotai";
-import { pendingRedirectAtom } from "@/atoms/app";
+import { useRouter } from "next/navigation";
 import logger from "@/lib/client-logger";
 import { useSelection, type StatisticalUnit } from "@/atoms/search"; // Changed to Jotai hook
 
 export default function CombineUnits() {
-  const setPendingRedirect = useSetAtom(pendingRedirectAtom);
+  const router = useRouter();
   const { selected } = useSelection(); // Use Jotai hook
 
   const isEligibleForCombination =
@@ -46,7 +45,7 @@ export default function CombineUnits() {
         return;
       }
 
-      setPendingRedirect(`/enterprises/${enterprise.unit_id}`);
+      router.push(`/enterprises/${enterprise.unit_id}`);
     } catch (e) {
       logger.error(e, "failed to set primary legal unit for enterprise");
     }
