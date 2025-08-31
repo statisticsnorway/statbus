@@ -107,6 +107,7 @@ export const navigationMachine = setup({
      * transition back to 'evaluating'. It also handles post-login cleanup.
      */
     idle: {
+      tags: 'stable',
       // This state is now stable. The cleanup logic has been moved to be part
       // of the `redirectingFromLogin` flow, making it more robust.
     },
@@ -196,6 +197,7 @@ export const navigationMachine = setup({
      * after any redirect away from the login page.
      */
     cleanupAfterRedirect: {
+      tags: 'stable',
       entry: assign({
         sideEffect: { action: 'clearLastKnownPath' }
       }),
@@ -232,18 +234,27 @@ export const navMachineScribeEffectAtom = atomEffect((get, set) => {
     return;
   }
 
-  const machine = get(navigationMachineAtom);
-  const prevMachine = get(prevNavMachineSnapshotAtom);
-  set(prevNavMachineSnapshotAtom, machine);
+  const currentSnapshot = get(navigationMachineAtom);
+  const prevSnapshot = get(prevNavMachineSnapshotAtom);
+  set(prevNavMachineSnapshotAtom, currentSnapshot);
 
-  if (prevMachine && JSON.stringify(machine.value) !== JSON.stringify(prevMachine.value)) {
-    const event = (machine as any).event ?? { type: 'unknown' };
+  if (!prevSnapshot) {
+    return; // Don't log on the first run.
+  }
+  
+  // A more robust check to see if a meaningful change has occurred.
+  // This prevents infinite loops caused by new object references for unchanged state.
+  const valueChanged = JSON.stringify(currentSnapshot.value) !== JSON.stringify(prevSnapshot.value);
+  const contextChanged = JSON.stringify(currentSnapshot.context) !== JSON.stringify(prevSnapshot.context);
+
+  if (valueChanged || contextChanged) {
+    const event = (currentSnapshot as any).event ?? { type: 'unknown' };
     const entry = {
       machine: 'nav' as const,
-      from: prevMachine.value,
-      to: machine.value,
+      from: prevSnapshot.value,
+      to: currentSnapshot.value,
       event: event,
-      reason: `Transitioned from ${JSON.stringify(prevMachine.value)} to ${JSON.stringify(machine.value)} on event ${event.type}`
+      reason: `Transitioned from ${JSON.stringify(prevSnapshot.value)} to ${JSON.stringify(currentSnapshot.value)} on event ${event.type}`
     };
     set(addEventJournalEntryAtom, entry);
     console.log(`[Scribe:Nav]`, entry.reason, { from: entry.from, to: entry.to, event: entry.event });

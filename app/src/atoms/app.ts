@@ -70,9 +70,9 @@ export const requiredSetupRedirectAtom = atom<string | null>(null);
 // by RedirectGuard to prevent premature redirects during app startup or auth flaps.
 export const initialAuthCheckCompletedAtom = atom(false);
 
-// Atom to calculate the required setup redirect path, if any.
-// It also exposes a loading state so consumers can wait for the check to complete.
-export const setupRedirectCheckAtom = atom((get) => {
+// Unstable atom that performs the core logic for checking setup redirects.
+// It is kept private to prevent components from depending on an unstable value.
+const setupRedirectCheckAtomUnstable = atom((get) => {
   // Depend on the strict `isAuthenticatedAtom`. If it's false (due to logout or refresh),
   // we cannot and should not perform setup checks.
   const isAuthenticated = get(isAuthenticatedStrictAtom);
@@ -116,6 +116,19 @@ export const setupRedirectCheckAtom = atom((get) => {
 
   return { path, isLoading: false };
 });
+
+/**
+ * Atom to calculate the required setup redirect path, if any.
+ * It also exposes a loading state so consumers can wait for the check to complete.
+ * This is the public, STABLE version of the atom. It uses `selectAtom` with a
+ * deep equality check to prevent returning a new object reference on every
+ * render, which would cause an infinite loop.
+ */
+export const setupRedirectCheckAtom = selectAtom(
+  setupRedirectCheckAtomUnstable,
+  (state) => state,
+  (a, b) => JSON.stringify(a) === JSON.stringify(b)
+);
 
 // Combined authentication and base data status
 export const appReadyAtom = atom((get) => {
