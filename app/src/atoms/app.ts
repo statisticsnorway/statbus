@@ -373,6 +373,9 @@ export const pageUnloadDetectorEffectAtom = atomEffect((get) => {
 
 export const stateInspectorVisibleAtom = atomWithStorage('stateInspectorVisible', false);
 export const stateInspectorExpandedAtom = atomWithStorage('stateInspectorExpanded', false);
+export const stateInspectorJournalVisibleAtom = atomWithStorage('stateInspectorJournalVisible', true);
+export const stateInspectorStateVisibleAtom = atomWithStorage('stateInspectorStateVisible', true);
+export const stateInspectorCanaryExpandedAtom = atomWithStorage('stateInspectorCanaryExpanded', false);
 
 // Dev Tools State
 export const isTokenManuallyExpiredAtom = atom(false);
