@@ -37,12 +37,17 @@ The authentication state flows through a chain of atoms, starting from a core AP
     -   **Purpose**: **This is a key atom for stabilization.** It reads `authStatusLoadableAtom` and translates it into a consistent `ClientAuthStatus` object (`{ loading, isAuthenticated, user, ... }`).
     -   **Key Behavior**: When `authStatusLoadableAtom` is in the `loading` state, this atom checks if there is stale data from a previous successful fetch. If so, it returns `{ loading: true, ...staleData }`. This is the core of the "non-flapping" mechanism.
 
--   `isAuthenticatedAtom` (`auth.ts`)
-    -   **Purpose**: The primary, **stabilized** boolean value for the user's authentication status.
-    -   **Flow**: It derives its state from `authStatusUnstableDetailsAtom`. Because `authStatusUnstableDetailsAtom` provides stale data during re-validation, this atom will consistently return `true` during a token refresh, preventing downstream consumers from seeing a momentary `false` state. **All data-fetching atoms should depend on this atom.**
+-   `isUserConsideredAuthenticatedForUIAtom` (`auth.ts`)
+    -   **Purpose**: A **stabilized** boolean for UI components and navigation logic.
+    -   **Flow**: Returns `true` if the user is authenticated OR if a token refresh is in progress. This prevents UI flicker (e.g., momentarily showing a login page) during background refreshes. This should be used for any logic that controls what the user *sees*.
+
+-   `isAuthenticatedStrictAtom` (`auth.ts`)
+    -   **Purpose**: A **strict** boolean, primarily for gating logic in `useEffect` hooks that should only run once a session is confirmed.
+    -   **Flow**: Returns `true` only when the application has a valid session (`'authenticated'` or initial `'refreshing'`). It is `false` during the initial `'checking'` phase, making it stricter than its UI counterpart. For atoms that fetch data and can suspend, `authStateForDataFetchingAtom` should be used directly.
 
 -   `authStatusAtom` (`auth.ts`)
-    -   **Purpose**: The main, UI-facing atom. It provides the full auth state details (`user`, `loading`, etc.) but overwrites the raw `isAuthenticated` flag with the stabilized one from `isAuthenticatedAtom`.
+    -   **Purpose**: The main, UI-facing atom for components. It provides the full auth state details (`user`, `loading`, etc.).
+    -   **Flow**: It is composed using the UI-stable `isUserConsideredAuthenticatedForUIAtom`, so that components using the `useAuth()` hook get the non-flapping behavior by default.
     -   **Flow**: This should be the default atom used by UI components via the `useAuth()` hook.
 
 ### 3. Navigation and Redirect State
@@ -54,14 +59,6 @@ The authentication state flows through a chain of atoms, starting from a core AP
 -   `lastKnownPathBeforeAuthChangeAtom` (`auth.ts`)
     -   **Purpose**: Stores the user's last valid URL before being redirected to `/login`. It uses `sessionStorage` to survive page reloads within a single tab.
     -   **Flow**: The `PathSaver` component continuously updates this atom with the current URL as long as the user is authenticated.
-
--   `pendingRedirectAtom` (`app.ts`)
-    -   **Purpose**: The central signal for triggering a programmatic redirect.
-    -   **Flow**: Set by components/atoms like `RedirectGuard` (to `/login`), `loginAtom` (to `/`), or `logoutAtom` (to `/login`). The `RedirectHandler` component listens to this atom and executes the navigation.
-
--   `isLoginActionInProgressAtom` (`auth.ts`)
-    -   **Purpose**: A flag to signal that a fresh login action is in progress.
-    -   **Flow**: `loginAtom` sets this to `true`. This allows `RedirectHandler` to perform specific cleanup actions (like clearing `lastKnownPathBeforeAuthChangeAtom`) only after a redirect triggered by a login, ensuring state from a previous session is properly cleared.
 
 -   `requiredSetupRedirectAtom` (`app.ts`)
     -   **Purpose**: Signals a mandatory redirect to a setup page based on the application's state (e.g., missing configuration).
@@ -80,9 +77,9 @@ The authentication state flows through a chain of atoms, starting from a core AP
 3.  A subsequent `useEffect` sees `restClientAtom` has a value and calls the `fetchAuthStatusAtom` action.
 4.  `fetchAuthStatusAtom` calls the `/rpc/auth_status` endpoint and places the returned `Promise` into `authStatusPromiseAtom`.
 5.  `authStatusLoadableAtom` transitions to `{ state: 'loading' }`.
-6.  `authStatusUnstableDetailsAtom` sees this and returns `{ loading: true, isAuthenticated: false, ... }`. `isAuthenticatedAtom` returns `false`.
+6.  `authStatusUnstableDetailsAtom` sees this and returns `{ loading: true, isAuthenticated: false, ... }`. Both `isAuthenticatedStrictAtom` (strict) and `isUserConsideredAuthenticatedForUIAtom` (UI) return `false`.
 7.  The API promise resolves. `authStatusLoadableAtom` transitions to `{ state: 'hasData', data: ... }`.
-8.  `authStatusUnstableDetailsAtom` now returns `{ loading: false, ...data }`. `isAuthenticatedAtom` returns the correct authenticated status (e.g., `true`).
+8.  `authStatusUnstableDetailsAtom` now returns `{ loading: false, ...data }`. Both auth atoms now return the correct authenticated status (e.g., `true`).
 9.  A `useEffect` in `AppInitializer` sees that `authStatusLoadableAtom` is now `'hasData'` and sets `initialAuthCheckCompletedAtom` to `true`.
 10. The `RedirectGuard` can now safely evaluate the user's authentication state and decide if a redirect is needed.
 
@@ -93,20 +90,21 @@ The authentication state flows through a chain of atoms, starting from a core AP
 3.  `clientSideRefreshAtom` makes a `fetch` call to `/rpc/refresh` and places the new `Promise` into `authStatusPromiseAtom`.
 4.  `authStatusLoadableAtom` transitions to `{ state: 'loading', data: <stale_auth_data> }`. **Crucially, Jotai preserves the data from the last successful resolution.**
 5.  `authStatusUnstableDetailsAtom` reads this state. It detects `'loading'` but also sees the stale data and returns `{ loading: true, ...stale_auth_data }`.
-6.  `isAuthenticatedAtom` reads from `authStatusUnstableDetailsAtom`. Since the stale data has `isAuthenticated: true`, it continues to return `true`.
-7.  **Result**: Downstream atoms like `baseDataPromiseAtom` and UI components that depend on `isAuthenticatedAtom` see no change and do not re-run or flicker. The application state remains stable.
+6.  `isUserConsideredAuthenticatedForUIAtom` reads the stale data and continues to return `true`. UI components and navigation guards remain stable.
+7.  `isAuthenticatedAtom` (the strict one) sees that a refresh is pending (via `expired_access_token_call_refresh: true` in the stale data) and returns `false`.
+8.  **Result**: Data-fetching atoms that depend on the strict `isAuthenticatedAtom` (like `baseDataPromiseAtom`) are now paused. UI components that depend on `isUserConsideredAuthenticatedForUIAtom` see no change and do not flicker. The race condition is resolved.
 8.  The refresh promise resolves. The state propagates as in the initial load, and the application now has a new valid access token.
 
 ### 3. User Login
 
 1.  User submits the login form, which calls the `loginAtom` action.
-2.  `loginAtom` sets `isLoginActionInProgressAtom` to `true` and updates `authStatusPromiseAtom` with the new, authenticated status.
-3.  The `LoginClientBoundary` component, active on the `/login` page, reacts to the auth state change. Its internal state machine transitions to a `finalizing` state, and the UI displays a "Finalizing login..." message.
-4.  A `useEffect` within `LoginClientBoundary` now waits for the `setupRedirectCheckAtom` to finish loading.
-5.  Once the check is complete, the `useEffect` determines the single, correct destination path. The priority is: (1) a required setup path, (2) a pre-auth path from another tab, (3) the `next` URL parameter, or (4) the dashboard (`/`).
-6.  It then sets `pendingRedirectAtom` with this final path. This single action prevents any intermediate redirects or visual flashes of the dashboard.
-7.  The `RedirectHandler` component executes the redirect.
-8.  Upon arrival at the destination, a `useEffect` in `RedirectHandler` performs its standard cleanup, clearing `pendingRedirectAtom` and, because `isLoginActionInProgressAtom` is true, also clearing the post-login state.
+2.  `loginAtom` sends a `LOGIN` event to the central `authMachine`, which transitions into its `loggingIn` state while it performs the authentication.
+3.  The `LoginClientBoundary` component on the `/login` page, now driven by its own local UI state machine, reacts to the global `authMachine`'s `loggingIn` state and transitions to a `finalizing` state, displaying a "Finalizing login..." message.
+4.  Simultaneously, the central `NavigationManager` receives the updated context from `authMachine` (`isAuthenticated: true`, `pathname: '/login'`).
+5.  The `navigationMachine` sees an authenticated user on the login page and transitions to the `redirectingFromLogin` state.
+6.  This state's `entry` action calculates the correct redirect path, prioritizing: (1) a required setup path, (2) the `lastKnownPathBeforeAuthChange`, or (3) the dashboard (`/`). It then sets a `sideEffect` in its context to navigate to this path.
+7.  The `NavigationManager` observes this side-effect and executes `router.push()`.
+8.  After navigating away from `/login`, the `navigationMachine` recognizes that the login flow is complete (by observing the `authMachine`'s state and the change in pathname) and can perform any necessary cleanup, such as clearing `lastKnownPathBeforeAuthChangeAtom`.
 
 #### The Login Page State Machine (`loginPageMachine`)
 
@@ -127,8 +125,7 @@ This state machine approach makes the login UI robust against re-renders from Re
 2.  `logoutAtom` calls the `/rpc/logout` endpoint. If this call fails, an error is thrown for the UI to handle, and the logout process is aborted.
 3.  Upon success, it directly updates `authStatusPromiseAtom` with the new unauthenticated status. This change propagates through the atom graph, causing dependent atoms like `baseDataAtom` to automatically reset to their initial state.
 4.  It then proceeds to explicitly reset all other relevant application state atoms that do not react to auth changes (e.g., `searchStateAtom`).
-5.  Finally, it sets `pendingRedirectAtom` to `'/login'`.
-6.  The `RedirectHandler` sees this change and navigates the user to the login page.
+5.  The state change to unauthenticated is detected by the `NavigationManager`, which transitions the `navigationMachine` to `savingPathForLoginRedirect` and then `redirectingToLogin`, handling the navigation automatically.
 
 ### 5. Conditional Setup Redirects (from Dashboard)
 
@@ -140,29 +137,36 @@ This flow handles cases where an already-authenticated user lands on the dashboa
 4.  The `useEffect` sets `requiredSetupRedirectAtom` to the path provided by `setupRedirectCheckAtom` (or `null` if no redirect is needed).
 5.  The `RedirectHandler` sees that `requiredSetupRedirectAtom` has a value and redirects the user to the appropriate setup page.
 
-## Redirect and Navigation Component Logic
+## Redirect and Navigation Logic (State Machine)
 
-The redirect system is orchestrated by three components mounted inside `JotaiAppProvider`.
+Programmatic navigation (redirects not initiated by a user clicking a `<Link>`) is handled by a robust, centralized XState state machine to prevent race conditions and tangled `useEffect` dependencies. This replaces the previous system of multiple, interacting `RedirectGuard` and `RedirectHandler` components.
 
--   `PathSaver`
-    -   **Job**: Continuously saves the current path to `lastKnownPathBeforeAuthChangeAtom` via a `useEffect` whenever `isAuthenticated` is `true`. This ensures the last known good location is always available in `sessionStorage`.
+The system consists of two main parts:
 
--   `RedirectGuard`
-    -   **Job**: Protects private routes from unauthenticated access.
-    -   **Logic**: A `useEffect` runs when `pathname`, `isAuthenticated`, or `authLoadable` change.
-    -   It **waits** for `initialAuthCheckCompletedAtom` to be `true`.
-    -   If the user is **not** authenticated, auth is **not** loading, and they are not on a public path, it sets `pendingRedirectAtom` to `'/login'`.
+-   `navigationMachineAtom` (`navigation-machine.ts`)
+    -   **Job**: An XState state machine that serves as the single source of truth for all navigation decisions. It receives context (authentication status, current path, setup requirements) and transitions between explicit states (`booting`, `evaluating`, `redirectingToLogin`, `idle`, etc.).
+    -   **Logic**: The machine's transitions are governed by guards that check the application's state. Based on its current state, it produces a `sideEffect` object in its context, instructing the `NavigationManager` on what action to perform (e.g., `navigate`, `savePath`).
 
--   `RedirectHandler`
-    -   **Job**: The **only** component that executes `router.push()` for programmatic redirects. It handles two types of redirects with different rules:
-        -   **Explicit Redirects** (from `pendingRedirectAtom`): Used for login/logout. These target an *exact* path.
-        -   **Setup Redirects** (from `requiredSetupRedirectAtom`): Used for guiding users. These target a *path prefix* (e.g., `/import`), allowing navigation to sub-pages like `/import/jobs`.
-    -   **Logic**: A `useEffect` runs on every navigation. Explicit redirects are always handled first.
-        1.  **Handle Explicit Redirect**:
-            -   **Execute**: If `pendingRedirectAtom` is set and the user is not at the exact target path, it calls `router.push()`.
-            -   **Cleanup**: Upon arrival at the exact path, it clears `pendingRedirectAtom` to prevent loops. It also performs post-login cleanup if needed.
-            -   **Cancel**: If the user navigates elsewhere manually, the pending redirect is cancelled.
-        2.  **Handle Setup Redirect**:
-            -   **Execute**: If no explicit redirect is active, `requiredSetupRedirectAtom` is set, and the user's current path does not *start with* the target path, it calls `router.push()`. This enforces that the user stays within the required setup section.
-            -   **No Cleanup on Arrival**: The `requiredSetupRedirectAtom` is *not* cleared upon arrival. This makes the redirect "sticky". It will only be cleared when the underlying setup condition is resolved (logic in `AppInitializer`) or if the user manually navigates to an unrelated part of the application.
-            -   **Cancel**: If the user navigates to a path outside the required section, the pending redirect is cancelled.
+-   `NavigationManager` (`NavigationManager.tsx`)
+    -   **Job**: A simple component mounted in `JotaiAppProvider` that acts as the bridge between Jotai and the state machine.
+    -   **Logic**: On every render, it:
+        1.  Gathers all relevant state from various Jotai atoms.
+        2.  Sends this state to the `navigationMachineAtom` as a `CONTEXT_UPDATED` event.
+        3.  Observes the `sideEffect` object in the machine's state.
+        4.  Executes the commanded side-effect, such as calling `router.push()` or updating other Jotai atoms.
+
+This architecture ensures that navigation is a predictable, testable, and deterministic function of the application's state, eliminating an entire class of bugs related to timing and asynchronous operations.
+
+### Conditional Setup Redirects (from Dashboard)
+
+This flow handles cases where an already-authenticated user lands on the dashboard but still needs to complete a setup step.
+
+1.  The user navigates to the dashboard (`/`).
+2.  The `NavigationManager` sends the updated `pathname` to the `navigationMachine`.
+3.  The machine transitions to its `evaluating` state.
+4.  A guard checks for three conditions: the user is authenticated, the current `pathname` is `/`, and the `setupRedirectCheckAtom` has determined a required setup path (e.g., `/getting-started/activity-standard` or `/import`).
+5.  If all conditions are met, the machine transitions to the `redirectingToSetup` state.
+6.  This state's `entry` action sets a `sideEffect` in the context to navigate to the required setup path.
+7.  The `NavigationManager` sees this side-effect and calls `router.push()`, redirecting the user.
+
+Because the guard explicitly checks for `pathname === '/'`, this redirect logic is only triggered from the dashboard, allowing the user to freely navigate to other pages like `/profile` even if setup is incomplete.

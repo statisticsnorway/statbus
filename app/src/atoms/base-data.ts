@@ -16,7 +16,7 @@ import { useCallback } from 'react'
 
 import type { Database, Tables } from '@/lib/database.types'
 import { restClientAtom } from './rest-client'
-import { isAuthenticatedAtom, authStatusLoadableAtom } from './auth'
+import { authStatusUnstableDetailsAtom } from './auth'
 
 // ============================================================================
 // BASE DATA ATOMS - Replace BaseDataStore + BaseDataContext
@@ -40,19 +40,31 @@ const initialBaseData: BaseData = {
   hasStatisticalUnits: false,
 };
 
+import { authStateForDataFetchingAtom } from './auth';
+import { isUserConsideredAuthenticatedForUIAtom } from './auth';
+
+// ...
+
 // Explicitly type the return of the async function for atomWithRefresh
 export const baseDataPromiseAtom = atomWithRefresh<Promise<BaseData>>(async (get): Promise<BaseData> => {
-  const isAuthenticated = get(isAuthenticatedAtom);
+  const authState = get(authStateForDataFetchingAtom);
   const client = get(restClientAtom);
 
-  if (!isAuthenticated) return initialBaseData;
+  // If a token refresh or an initial check is in progress, suspend. This prevents API
+  // calls with an expired or unknown token. The atom will re-evaluate when the
+  // auth machine's state changes.
+  if (authState === 'refreshing' || authState === 'checking') {
+    return new Promise<never>(() => {}); // Suspends the atom and any component that uses it
+  }
 
+  // Check for a stable authenticated state.
+  if (authState !== 'authenticated') {
+    return initialBaseData;
+  }
+  
   if (!client) {
-    if (typeof window !== 'undefined') {
-      // Client-side, authenticated, but client is not ready. Return a promise that never resolves.
-      return new Promise<BaseData>(() => {}); // Cast to expected Promise type
-    }
-    // Server-side, client not ready, or unauthenticated.
+    // If the client is not ready, return the initial empty data.
+    // The atom will be re-evaluated automatically by Jotai when restClientAtom changes.
     return initialBaseData;
   }
 
@@ -134,13 +146,13 @@ function areBaseDataResultsEqual(
 const baseDataUnstableDetailsAtom = atom<BaseData & { loading: boolean; error: string | null }>(
   (get): BaseData & { loading: boolean; error: string | null } => {
     const loadableState = get(baseDataLoadableAtom);
-    const isAuthenticated = get(isAuthenticatedAtom);
+    const isAuthenticatedForUI = get(isUserConsideredAuthenticatedForUIAtom);
     let result: BaseData & { loading: boolean; error: string | null };
 
-    // Explicitly return initial data if not authenticated. This makes the atom's
-    // behavior during logout transition crystal clear and robust, preventing any
-    // possibility of showing stale data from a previous session.
-    if (!isAuthenticated) {
+    // Explicitly return initial data if not authenticated (from a UI perspective).
+    // This makes the atom's behavior during logout transition crystal clear and robust,
+    // preventing any possibility of showing stale data from a previous session.
+    if (!isAuthenticatedForUI) {
       return { ...initialBaseData, loading: false, error: null };
     }
 

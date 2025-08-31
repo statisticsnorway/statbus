@@ -11,7 +11,7 @@ import { atom } from 'jotai';
 import { useAtomValue } from 'jotai';
 import { refreshBaseDataAtom } from './base-data';
 import { restClientAtom } from './rest-client';
-import { isAuthenticatedAtom } from './auth';
+import { isAuthenticatedStrictAtom } from './auth';
 
 // ============================================================================
 // WORKER STATUS ATOMS
@@ -82,7 +82,7 @@ export const setWorkerStatusAtom = atom(
 export const refreshWorkerStatusAtom = atom(
   null,
   async (get, set) => {
-    const isAuthenticated = get(isAuthenticatedAtom);
+    const isAuthenticated = get(isAuthenticatedStrictAtom);
     const client = get(restClientAtom);
     
     // Set loading state

@@ -42,10 +42,9 @@ atom awaits the completion of the core atom's refresh if subsequent logic or com
 `set(authStatusCoreAtom); await get(authStatusCoreAtom);`
         - Components performing side effects (like navigation via `router.push()`) based on Jotai state within `useEffect` hooks must ensure they react to a
 *stable* state. Check flags like `initialAuthCheckCompleted` and `authStatus.loading` to avoid acting on intermediate or stale data.
-        - **Programmatic Navigation**: To prevent race conditions and ensure state consistency, all programmatic client-side navigation (i.e., redirects not initiated by a user clicking a standard `<Link>`) **MUST** be handled through a centralized, state-driven mechanism.
-          - **DO NOT** call `router.push()`, `router.replace()`, or `window.location.href` directly from components, hooks, or action callbacks.
-          - **INSTEAD**, set the `pendingRedirectAtom` with the target path.
-          - A central `RedirectHandler` component within `JotaiAppProvider` observes this atom and executes the navigation. This approach guarantees that redirects are a controlled and predictable reaction to state changes.
+        - **Programmatic Navigation**: To prevent race conditions and ensure state consistency, all programmatic client-side navigation (i.e., redirects not initiated by a user clicking a standard `<Link>`) **MUST** be handled by the centralized XState state machine (`navigation-machine.ts`).
+          - Components should not perform programmatic redirects (e.g., after login/logout, or for setup flows). These are the sole responsibility of the state machine, which is driven by changes in global state (like authentication status).
+          - For direct, user-initiated navigation from within components (e.g., in a command palette or after a form submission), it is correct and expected to use the `useRouter` hook from `next/navigation`.
     - **Handling Complex Conditional Logic (e.g., Login Page):**
         - For UI flows with multiple conditions and potential race conditions (e.g., checking auth status, handling redirects, showing a form), use a state machine (`jotai-xstate`). This makes the logic explicit, robust, and immune to re-render loops caused by React Strict Mode or Fast Refresh.
         - The `LoginClientBoundary` is the reference implementation for this pattern. It uses a state machine to decide whether to show the login form or trigger a redirect away from the page.

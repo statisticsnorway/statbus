@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Github, Globe } from "lucide-react";
 import { CommandPaletteTriggerButton } from "@/components/command-palette/command-palette-trigger-button";
 import { useAtomValue } from "jotai"; // Import useAtomValue
-import { isAuthenticatedAtom } from "@/atoms/auth"; // Import isAuthenticatedAtom
+import { isAuthenticatedStrictAtom } from "@/atoms/auth"; // Import isAuthenticatedAtom
 
 export function FooterSkeleton() {
   return (
@@ -21,7 +21,7 @@ import { useEffect, useState } from "react";
 export default function Footer() {
   const [mounted, setMounted] = useState(false);
   // Use derived isAuthenticatedAtom which handles loading state internally
-  const isAuthenticated = useAtomValue(isAuthenticatedAtom);
+  const isAuthenticated = useAtomValue(isAuthenticatedStrictAtom);
 
   useEffect(() => {
     setMounted(true);

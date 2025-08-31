@@ -2,14 +2,14 @@
 import { User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAtomValue } from "jotai"; // Import useAtomValue
-import { isAuthenticatedAtom, currentUserAtom } from "@/atoms/auth"; // Import necessary atoms
+import { isAuthenticatedStrictAtom, currentUserAtom } from "@/atoms/auth"; // Import necessary atoms
 
 export default function ProfileAvatar({
   className,
 }: {
   readonly className?: string;
 }) {
-  const isAuthenticated = useAtomValue(isAuthenticatedAtom); // Use derived atom
+  const isAuthenticated = useAtomValue(isAuthenticatedStrictAtom); // Use derived atom
   const currentUser = useAtomValue(currentUserAtom); // Use derived atom
   
   // If not effectively authenticated (i.e., loading or actually not authenticated), don't show avatar

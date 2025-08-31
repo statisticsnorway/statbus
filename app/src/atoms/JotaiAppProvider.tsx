@@ -7,30 +7,38 @@
  * and handles app initialization without complex useEffect chains.
  */
 
-import React, { Suspense, useEffect, ReactNode, useState } from 'react';
-import { Provider, useAtom } from 'jotai'; // Added useAtom here
+import React, { Suspense, useEffect, ReactNode, useState, useRef } from 'react';
+import { Provider, useAtom } from 'jotai';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import {
   clientMountedAtom,
   initialAuthCheckCompletedAtom,
-  pendingRedirectAtom,
+  isTokenManuallyExpiredAtom,
   requiredSetupRedirectAtom,
   selectedTimeContextAtom,
   setupRedirectCheckAtom,
   stateInspectorVisibleAtom,
+  redirectRelevantStateAtom,
+  eventJournalAtom,
+  reloadEventJournalLoggerEffectAtom,
+  stateInspectorExpandedAtom,
+  addEventJournalEntryAtom,
 } from './app';
 import { restClientAtom } from './rest-client';
 import {
   authStatusAtom,
-  authStatusLoadableAtom,
   clientSideRefreshAtom,
   expireAccessTokenAtom,
-  isAuthenticatedAtom,
+  isAuthenticatedStrictAtom,
+  isUserConsideredAuthenticatedForUIAtom,
   lastKnownPathBeforeAuthChangeAtom,
-  isLoginActionInProgressAtom,
-  authStatusUnstableDetailsAtom,
+  authStatusDetailsAtom,
   fetchAuthStatusAtom,
+  authMachineAtom,
+  isAuthActionInProgressAtom,
+  authMachineScribeEffectAtom,
+  loginPageMachineScribeEffectAtom,
 } from './auth';
 import {
   baseDataAtom,
@@ -54,15 +62,25 @@ import {
   workerStatusAtom,
   type WorkerStatusType,
 } from './worker_status';
-import { AuthCrossTabSyncer } from './AuthCrossTabSyncer'; // Import the new syncer
+import { AuthCrossTabSyncer } from './AuthCrossTabSyncer';
+import { NavigationManager } from './NavigationManager';
+import { navigationMachineAtom, navMachineScribeEffectAtom } from './navigation-machine';
 
 // ============================================================================
 // APP INITIALIZER - Handles startup logic
 // ============================================================================
 
 const AppInitializer = ({ children }: { children: ReactNode }) => {
-  const authLoadableValue = useAtomValue(authStatusLoadableAtom);
-  const isAuthenticated = useAtomValue(isAuthenticatedAtom);
+  // Activate the state machine scribes and system loggers. These are effects
+  // that will run whenever their dependencies change, but only log when the
+  // inspector is visible.
+  useAtomValue(authMachineScribeEffectAtom);
+  useAtomValue(loginPageMachineScribeEffectAtom);
+  useAtomValue(navMachineScribeEffectAtom);
+  useAtomValue(reloadEventJournalLoggerEffectAtom);
+
+  const authStatusDetails = useAtomValue(authStatusDetailsAtom);
+  const isAuthenticated = useAtomValue(isAuthenticatedStrictAtom);
   const authStatus = useAtomValue(authStatusAtom);
   const clientSideRefresh = useSetAtom(clientSideRefreshAtom);
   const fetchAuthStatus = useSetAtom(fetchAuthStatusAtom);
@@ -77,13 +95,12 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname(); // Still needed to gate setup checks
   const baseData = useAtomValue(baseDataAtom);
   const { statDefinitions } = baseData;
-  const setRequiredSetupRedirect = useSetAtom(requiredSetupRedirectAtom);
   const setupRedirectCheck = useAtomValue(setupRedirectCheckAtom);
-  const setPendingRedirect = useSetAtom(pendingRedirectAtom);
   const setLastPath = useSetAtom(lastKnownPathBeforeAuthChangeAtom);
   const setClientMounted = useSetAtom(clientMountedAtom);
   const initialAuthCheckCompleted = useAtomValue(initialAuthCheckCompletedAtom);
   const setInitialAuthCheckCompleted = useSetAtom(initialAuthCheckCompletedAtom);
+  const [navState] = useAtom(navigationMachineAtom);
   // isRedirectingToSetup flag is removed as RedirectHandler manages actual navigation.
   
   // Effect to signal that the client has mounted. This helps prevent hydration issues.
@@ -101,17 +118,12 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
     }
     // Once auth status has data for the first time, we mark the initial check as complete.
     // This flag will persist for the lifetime of the app session.
-    if (authLoadableValue.state === 'hasData') {
+    if (!authStatusDetails.loading) {
       setInitialAuthCheckCompleted(true);
     }
-  }, [authLoadableValue, initialAuthCheckCompleted, setInitialAuthCheckCompleted]);
+  }, [authStatusDetails.loading, initialAuthCheckCompleted, setInitialAuthCheckCompleted]);
 
-  // Effect to handle proactive token refresh when an access token expires
-  useEffect(() => {
-    if (authStatus.expired_access_token_call_refresh) {
-      clientSideRefresh();
-    }
-  }, [authStatus.expired_access_token_call_refresh, clientSideRefresh]);
+  // The state machine now handles proactive token refreshes. This useEffect is no longer needed.
 
   // Initialize REST client
   useEffect(() => {
@@ -146,15 +158,16 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
     }
   }, [setRestClient])
 
-  // Effect to fetch initial authentication status once the REST client is ready.
+  const [, sendAuth] = useAtom(authMachineAtom);
+  // Effect to inform the auth machine when the REST client is ready.
   useEffect(() => {
-    // We only fetch if restClient is available.
-    // authStatusCoreAtom is just a container for the promise, it doesn't fetch on its own.
-    // We need to explicitly trigger the fetch.
     if (restClient) {
-      fetchAuthStatus();
+      sendAuth({ type: 'CLIENT_READY', client: restClient });
+    } else {
+      // This could happen if the client fails to initialize.
+      sendAuth({ type: 'CLIENT_UNREADY' });
     }
-  }, [restClient, fetchAuthStatus]);
+  }, [restClient, sendAuth]);
   
   // The useEffect that previously set authStatusInitiallyCheckedAtom is removed.
   // Its logic is now handled by initialAuthCheckDoneEffect from jotai-effect.
@@ -227,18 +240,10 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   }, [statDefinitions, initializeTableColumnsAction]);
 
 
-  // Effect for redirecting to setup pages if necessary
-  useEffect(() => {
-    // This effect acts as a gatekeeper for the dashboard ('/').
-    // If an authenticated user lands here and a setup step is required, redirect them.
-    if (pathname === '/' && isAuthenticated && !setupRedirectCheck.isLoading) {
-      setRequiredSetupRedirect(setupRedirectCheck.path);
-    } else {
-      // Clear the redirect if not on the dashboard or if conditions change.
-      setRequiredSetupRedirect(null);
-    }
-  }, [pathname, isAuthenticated, setupRedirectCheck, setRequiredSetupRedirect]);
-  
+  // The guard that showed a loading fallback when navState was not 'idle' has
+  // been removed. It was causing a deadlock by unmounting the NavigationManager
+  // before it could execute a redirect side-effect. The navigation machine is
+  // designed to be fast enough to prevent any significant "flash" of content.
   return <>{children}</>
 }
 
@@ -246,166 +251,23 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
 // PATH SAVER - Continuously saves the last known authenticated path
 // ============================================================================
 
-const PathSaver = () => {
-  const pathname = usePathname();
-  const search = useSearchParams().toString();
-  const setLastPath = useSetAtom(lastKnownPathBeforeAuthChangeAtom);
-  const isAuthenticated = useAtomValue(isAuthenticatedAtom);
-
-  useEffect(() => {
-    // Continuously save the current path to sessionStorage while the user is authenticated.
-    // This ensures that if a logout event occurs, or an auth change requires a
-    // redirect, the last known good path is already stored.
-    // The logic is now simpler because the stabilized `isAuthenticated` atom prevents
-    // the complex "flap" scenario this component previously had to handle.
-    if (isAuthenticated) {
-      const fullPath = `${pathname}${search ? `?${search}` : ''}`;
-      // Don't save the login page itself as a restoration target.
-      if (pathname !== '/login') {
-        setLastPath(fullPath);
-      }
-    }
-  }, [pathname, search, isAuthenticated, setLastPath]);
-
-  return null;
-};
-
-// ============================================================================
-// REDIRECT GUARD - Handles redirecting unauthenticated users to login
-// ============================================================================
-
-const RedirectGuard = () => {
-  const isAuthenticated = useAtomValue(isAuthenticatedAtom);
-  const authLoadable = useAtomValue(authStatusLoadableAtom);
-  const pathname = usePathname();
-  const setPendingRedirect = useSetAtom(pendingRedirectAtom);
-  const [pendingRedirectValue] = useAtom(pendingRedirectAtom);
-  const initialAuthCheckCompleted = useAtomValue(initialAuthCheckCompletedAtom);
-
-  useEffect(() => {
-    // Wait until the initial authentication check has successfully completed at least once.
-    if (!initialAuthCheckCompleted) {
-      return;
-    }
-
-    // Do not trigger a new redirect if one is already pending.
-    if (pendingRedirectValue) {
-      return;
-    }
-
-    // We still check the loading state from the loadable to prevent redirecting
-    // during the very first, initial auth check before `isAuthenticated` has stabilized.
-    const isAuthLoading = authLoadable.state === 'loading';
-    const publicPaths = ['/login'];
-
-    // Redirect if auth is not loading, user is not authenticated, and not on a public path.
-    // The `isAuthenticated` atom is stabilized and already accounts for pending token refreshes.
-    if (!isAuthLoading && !isAuthenticated && !publicPaths.some(p => pathname.startsWith(p))) {
-      // The path has already been saved by PathSaver. Just trigger the redirect.
-      setPendingRedirect('/login');
-    }
-  }, [pathname, isAuthenticated, authLoadable, setPendingRedirect, pendingRedirectValue, initialAuthCheckCompleted]);
-
-  return null;
-};
-
-// ============================================================================
-// REDIRECT HANDLER - Handles programmatic redirects
-// ============================================================================
-
-const RedirectHandler = () => {
-  const [explicitRedirect, setExplicitRedirect] = useAtom(pendingRedirectAtom);
-  const [setupRedirect, setSetupRedirect] = useAtom(requiredSetupRedirectAtom);
-  const [isLoginActionActive, setIsLoginActionInProgress] = useAtom(isLoginActionInProgressAtom);
-  const setLastPathBeforeAuthChange = useSetAtom(lastKnownPathBeforeAuthChangeAtom);
-  const router = useRouter();
-  const pathname = usePathname();
-  // A ref to track the pathname from the previous render. This is the key to
-  // detecting when a user-initiated navigation has occurred, allowing us to
-  // cancel any pending programmatic redirects.
-  const prevPathnameRef = React.useRef(pathname);
-
-  // This effect runs on every render where pathname or a redirect atom changes.
-  // It's the core of the centralized navigation logic.
-  useEffect(() => {
-    const prevPathname = prevPathnameRef.current;
-    // Update ref for the next render *before* any early returns.
-    prevPathnameRef.current = pathname;
-
-    // --- Priority 1: Handle explicit redirects (login, logout, etc.) ---
-    if (explicitRedirect) {
-      const targetPathname = explicitRedirect.split('?')[0];
-
-      // User override: if path changed to something OTHER than our target, cancel.
-      if (pathname !== prevPathname && targetPathname !== pathname) {
-        setExplicitRedirect(null);
-        return; // Let user navigation proceed.
-      }
-      
-      // Execute redirect if not at destination.
-      if (targetPathname !== pathname) {
-        router.push(explicitRedirect);
-      } else {
-        // Cleanup on arrival.
-        const cameFromLogin = prevPathname === '/login';
-        setExplicitRedirect(null);
-
-        // If this redirect was triggered from the login page (either by form submit
-        // or by passive auth), perform full post-login cleanup.
-        if (isLoginActionActive || cameFromLogin) {
-          setIsLoginActionInProgress(false); // Reset in both cases
-          setLastPathBeforeAuthChange(null); // Reset in both cases
-        }
-      }
-      return; // Explicit redirect takes precedence, do not process setup redirect.
-    }
-
-    // --- Priority 2: Handle setup redirects (getting-started, import) ---
-    if (setupRedirect) {
-      const targetPathname = setupRedirect.split('?')[0];
-
-      // User override: if path changed to something OUTSIDE our target section, cancel.
-      // This allows navigation within the section (e.g., /import to /import/jobs).
-      if (pathname !== prevPathname && !pathname.startsWith(targetPathname)) {
-        setSetupRedirect(null);
-        return; // Let user navigation proceed.
-      }
-
-      // Execute redirect if outside the required section.
-      if (!pathname.startsWith(targetPathname)) {
-        router.push(setupRedirect);
-      }
-      // NO cleanup on arrival for setupRedirect. The redirect is "sticky" and should
-      // remain active until the underlying condition in AppInitializer is resolved.
-    }
-  }, [
-    pathname,
-    router,
-    explicitRedirect,
-    setupRedirect,
-    isLoginActionActive,
-    setExplicitRedirect,
-    setSetupRedirect,
-    setIsLoginActionInProgress,
-    setLastPathBeforeAuthChange
-  ]);
-
-  return null;
-};
+// The old PathSaver, RedirectGuard, and RedirectHandler components are no longer needed.
+// Their logic has been centralized into the NavigationManager and its state machine.
 
 // ============================================================================
 // SSE CONNECTION MANAGER
 // ============================================================================
 
 const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
-  const isAuthenticated = useAtomValue(isAuthenticatedAtom);
+  const isAuthenticated = useAtomValue(isAuthenticatedStrictAtom);
   const refreshInitialWorkerStatus = useSetAtom(refreshWorkerStatusAtom)
   const setWorkerStatus = useSetAtom(setWorkerStatusAtom);
   
   useEffect(() => {
-    // Connect SSE only when the user is in a stable authenticated state.
-    // Using the stabilized `isAuthenticatedAtom` prevents unnecessary
-    // disconnects/reconnects during transient auth state flaps.
+    // Connect SSE only when the user is in a strict, stable authenticated state.
+    // Using the strict `isAuthenticatedAtom` (which is false during token refresh)
+    // prevents the connection from being established with an expired token,
+    // which would then be immediately cancelled.
     if (!isAuthenticated) return
     
     let eventSource: EventSource | null = null
@@ -549,10 +411,8 @@ export const JotaiAppProvider = ({
     <Provider>
       <Suspense fallback={loadingFallback}>
         <AppInitializer>
-          <PathSaver />
-          <RedirectGuard />
-          <RedirectHandler />
-          <AuthCrossTabSyncer /> {/* Add the cross-tab syncer */}
+          <NavigationManager />
+          <AuthCrossTabSyncer />
           {enableSSE ? (
             <SSEConnectionManager>
               {children}
@@ -669,62 +529,38 @@ const formatDiffToString = (diff: any, path: string = ''): string => {
 };
 
 // Helper component to visually render the diff.
-const DiffViewer = ({ diffData }: { diffData: any }) => {
-  if (!diffData) return <div className="pl-4 mt-1">No changes detected to next state.</div>;
-  return (
-    <div className="pl-4 mt-1 space-y-1 font-mono text-xs">
-      {Object.entries(diffData).map(([key, value]: [string, any]) => {
-        if (value && typeof value.oldValue !== 'undefined') {
-          return (
-            <div key={key}>
-              <span className="text-gray-400">{key}: </span>
-              <span className="text-red-500" style={{ textDecoration: 'line-through' }}>
-                {JSON.stringify(value.oldValue)}
-              </span>
-              <span className="text-gray-400"> → </span>
-              <span className="text-green-500">{JSON.stringify(value.newValue)}</span>
-            </div>
-          );
-        }
-        if (value && typeof value === 'object') {
-          return (
-            <div key={key}>
-              <span className="font-semibold text-gray-300">{key}:</span>
-              <DiffViewer diffData={value} />
-            </div>
-          );
-        }
-        return null;
-      })}
-    </div>
-  );
-};
-
-
 export const StateInspector = () => {
   const [isVisible, setIsVisible] = useAtom(stateInspectorVisibleAtom);
+  const [isExpanded, setIsExpanded] = useAtom(stateInspectorExpandedAtom);
   const [mounted, setMounted] = React.useState(false);
-  const [isExpanded, setIsExpanded] = React.useState(false);
   const [copyStatus, setCopyStatus] = React.useState(''); // For "Copied!" message
-  const [history, setHistory] = React.useState<any[]>([]);
-  const [viewingIndex, setViewingIndex] = React.useState<number>(0);
-  const [diff, setDiff] = React.useState<any | null>(null);
-  const [isTokenManuallyExpired, setIsTokenManuallyExpired] = React.useState(false);
+  const [isTokenManuallyExpired, setIsTokenManuallyExpired] = useAtom(isTokenManuallyExpiredAtom);
+  const journal = useAtomValue(eventJournalAtom);
+  const setJournal = useSetAtom(eventJournalAtom);
+  const addJournalEntry = useSetAtom(addEventJournalEntryAtom);
   const refreshToken = useSetAtom(clientSideRefreshAtom);
   const expireToken = useSetAtom(expireAccessTokenAtom);
   const checkAuth = useSetAtom(fetchAuthStatusAtom);
+  const [authState] = useAtom(authMachineAtom);
+  const isAuthActionInProgress = useAtomValue(isAuthActionInProgressAtom);
+  const [navState] = useAtom(navigationMachineAtom);
+  const journalContainerRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (journalContainerRef.current) {
+      journalContainerRef.current.scrollTop = journalContainerRef.current.scrollHeight;
+    }
+  }, [journal]);
 
   // Atoms for general state
-  const authLoadableValue = useAtomValue(authStatusLoadableAtom);
-  const authStatusUnstableDetailsValue = useAtomValue(authStatusUnstableDetailsAtom);
+  const authStatusDetailsValue = useAtomValue(authStatusDetailsAtom);
 
   // Effect to reset the manual expiry flag whenever auth state changes.
-  const authStatusString = JSON.stringify(authStatusUnstableDetailsValue);
   useEffect(() => {
-    // This effect runs whenever the auth status changes, resetting the local state
-    // that tracks the manual token expiry. This re-enables the button.
+    // This effect runs whenever auth state changes, resetting the global atom
+    // that tracks manual token expiry. This re-enables the button.
     setIsTokenManuallyExpired(false);
-  }, [authStatusString]);
+  }, [authStatusDetailsValue, setIsTokenManuallyExpired]);
 
   const baseDataFromAtom = useAtomValue(baseDataAtom);
   const workerStatusValue = useAtomValue(workerStatusAtom);
@@ -734,18 +570,22 @@ export const StateInspector = () => {
 
   // Atoms for redirect logic debugging
   const pathname = usePathname();
-  const isAuthenticatedValue = useAtomValue(isAuthenticatedAtom);
+  const isAuthenticatedStrictValue = useAtomValue(isAuthenticatedStrictAtom);
+  const isAuthenticatedUIValue = useAtomValue(isUserConsideredAuthenticatedForUIAtom);
   const initialAuthCheckCompletedValue = useAtomValue(initialAuthCheckCompletedAtom);
-  const pendingRedirectValue = useAtomValue(pendingRedirectAtom);
   const requiredSetupRedirectValue = useAtomValue(requiredSetupRedirectAtom);
-  const isLoginActionInProgressValue = useAtomValue(isLoginActionInProgressAtom);
   const lastKnownPathValue = useAtomValue(lastKnownPathBeforeAuthChangeAtom);
-  const restClientFromAtom = useAtomValue(restClientAtom);
-  const activityStandardLoadable = useAtomValue(loadable(activityCategoryStandardSettingAtomAsync));
-  const numberOfRegionsLoadable = useAtomValue(loadable(numberOfRegionsAtomAsync));
+  const redirectRelevantStateValue = useAtomValue(redirectRelevantStateAtom);
   const selectedTimeContextValue = useAtomValue(selectedTimeContextAtom);
 
   const handleExpireToken = async () => {
+    addJournalEntry({
+      machine: 'inspector',
+      from: 'user',
+      to: 'action',
+      event: { type: 'EXPIRE_TOKEN' },
+      reason: 'Manual action: Expire Token'
+    });
     try {
       await expireToken();
       // Set the local state to give the user immediate visual feedback.
@@ -753,6 +593,32 @@ export const StateInspector = () => {
     } catch (e) {
       console.error('StateInspector: Failed to expire token', e);
     }
+  };
+
+  const handleCheckAuth = () => {
+    addJournalEntry({
+      machine: 'inspector',
+      from: 'user',
+      to: 'action',
+      event: { type: 'CHECK_AUTH' },
+      reason: 'Manual action: Check Auth'
+    });
+    // The checkAuth atom is now a simple event dispatcher.
+    // Loading state is handled by the machine.
+    checkAuth();
+  };
+
+  const handleRefreshToken = () => {
+    addJournalEntry({
+      machine: 'inspector',
+      from: 'user',
+      to: 'action',
+      event: { type: 'REFRESH_TOKEN' },
+      reason: 'Manual action: Refresh Token'
+    });
+    // The refreshToken atom is now a simple event dispatcher.
+    // Loading state is handled by the machine.
+    refreshToken();
   };
     
   useEffect(() => {
@@ -771,15 +637,22 @@ export const StateInspector = () => {
   }, [setIsVisible]);
 
   const baseDataState = baseDataFromAtom.loading ? 'loading' : baseDataFromAtom.error ? 'hasError' : 'hasData';
+  const authDerivedState = authStatusDetailsValue.loading ? 'loading' : authStatusDetailsValue.error_code ? 'hasError' : 'hasData';
   const fullState = {
     pathname,
     authStatus: {
-      state: authStatusUnstableDetailsValue.loading ? 'loading' : authStatusUnstableDetailsValue.error_code ? 'hasError' : 'hasData',
-      isAuthenticated: isAuthenticatedValue,
-      isAuthenticated_UNSTABLE: authStatusUnstableDetailsValue.isAuthenticated,
-      user: authStatusUnstableDetailsValue.user,
-      expired_access_token_call_refresh: authStatusUnstableDetailsValue.expired_access_token_call_refresh,
-      error: authStatusUnstableDetailsValue.error_code,
+      machineState: authState.value,
+      derivedState: authDerivedState,
+      isAuthenticated: isAuthenticatedUIValue,
+      isAuthenticated_STRICT: isAuthenticatedStrictValue,
+      isAuthenticated_UNSTABLE: authStatusDetailsValue.isAuthenticated,
+      user: authStatusDetailsValue.user,
+      expired_access_token_call_refresh: authStatusDetailsValue.expired_access_token_call_refresh,
+      error: authStatusDetailsValue.error_code,
+    },
+    navMachine: {
+      state: navState.value,
+      context: (({ sideEffect, ...rest}) => rest)(navState.context) // Omit sideEffect for cleaner display
     },
     appContext: {
       selectedTimeContext: selectedTimeContextValue ? {
@@ -792,7 +665,7 @@ export const StateInspector = () => {
     workerStatus: { state: workerStatusValue.loading ? 'loading' : workerStatusValue.error ? 'hasError' : 'hasData', isImporting: workerStatusValue.isImporting, isDerivingUnits: workerStatusValue.isDerivingUnits, isDerivingReports: workerStatusValue.isDerivingReports, loading: workerStatusValue.loading, error: workerStatusValue.error },
     searchAndSelection: {
       searchText: searchStateValue.query,
-      activeFilterCodes: Object.keys(searchStateValue.filters),
+      activeFilterCodes: Object.keys(searchStateValue.filters).sort(),
       pagination: searchStateValue.pagination,
       order: searchStateValue.sorting,
       selectedUnitsCount: selectedUnitsValue.length,
@@ -802,65 +675,22 @@ export const StateInspector = () => {
         error: searchResultValue.error ? String(searchResultValue.error) : null,
       },
     },
-    navigationState: { pendingRedirect: pendingRedirectValue, requiredSetupRedirect: requiredSetupRedirectValue, isLoginActionInProgress: isLoginActionInProgressValue, lastKnownPathBeforeAuthChange: lastKnownPathValue },
-    redirectRelevantState: { initialAuthCheckCompleted: initialAuthCheckCompletedValue, authCheckDone: authLoadableValue.state !== 'loading', isRestClientReady: !!restClientFromAtom, activityStandard: activityStandardLoadable.state === 'hasData' ? activityStandardLoadable.data : null, numberOfRegions: numberOfRegionsLoadable.state === 'hasData' ? numberOfRegionsLoadable.data : null, baseDataHasStatisticalUnits: baseDataState === 'hasData' ? baseDataFromAtom.hasStatisticalUnits : 'BaseDataNotLoaded', baseDataStatDefinitionsLength: baseDataState === 'hasData' ? baseDataFromAtom.statDefinitions.length : 'BaseDataNotLoaded' },
+    navigationState: { requiredSetupRedirect: requiredSetupRedirectValue, lastKnownPathBeforeAuthChange: lastKnownPathValue },
+    redirectRelevantState: redirectRelevantStateValue,
     devToolsState: { isTokenManuallyExpired: isTokenManuallyExpired },
   };
 
-  const fullStateString = JSON.stringify(fullState);
-
-  useEffect(() => {
-    setHistory(prev => {
-      if (prev.length > 0 && JSON.stringify(prev[prev.length - 1]) === fullStateString) return prev;
-      const newHistory = [...prev, fullState].slice(-5);
-      setViewingIndex(newHistory.length - 1);
-      return newHistory;
-    });
-  }, [fullStateString]);
-
-  useEffect(() => {
-    if (viewingIndex < history.length - 1) {
-      setDiff(objectDiff(history[viewingIndex], history[viewingIndex + 1]));
-    } else {
-      setDiff(null);
-    }
-  }, [viewingIndex, history]);
-
   const handleCopy = () => {
-    if (!history[viewingIndex]) return; // Guard against empty history
+    const report = {
+      currentState: fullState,
+      journal: journal,
+    };
+    const reportString = JSON.stringify(report, null, 2);
 
-    // 1. Get current state string
-    const currentStateString = JSON.stringify(history[viewingIndex], null, 2);
-    const selectedStateLabel = viewingIndex === history.length - 1 ? 'Now' : String(viewingIndex - (history.length - 1));
-
-    // 2. Get historical diffs string
-    let fullDiffReport = '';
-    const totalStates = history.length;
-    if (totalStates > 1) {
-      for (let i = totalStates - 2; i >= 0; i--) {
-        const currentDiff = objectDiff(history[i], history[i + 1]);
-        if (!currentDiff) continue;
-
-        const fromLabel = i - (totalStates - 1);
-        const toLabel = (i + 1 - (totalStates - 1)) || 'Now';
-
-        fullDiffReport += `--- Diff from state ${fromLabel} to ${toLabel} ---\n`;
-        fullDiffReport += formatDiffToString(currentDiff);
-        fullDiffReport += '\n';
-      }
-    }
-
-    // 3. Combine them
-    let content = `== Selected State (${selectedStateLabel}) ==\n${currentStateString}\n\n`;
-    if (fullDiffReport.trim()) {
-      content += `== Historical Diffs ==\n${fullDiffReport}`;
-    } else if (totalStates > 1) {
-      content += `== No historical diffs detected ==\n`;
-    }
-
-    // 4. Copy to clipboard
-    navigator.clipboard.writeText(content.trim()).then(() => {
-      setCopyStatus('Debug Info Copied!');
+    navigator.clipboard.writeText(reportString).then(() => {
+      // Also log the object to the console for interactive exploration
+      console.log("[StateInspector] Debug Report:", report);
+      setCopyStatus('Copied!');
       setTimeout(() => setCopyStatus(''), 2000);
     }).catch(err => {
       console.error('Failed to copy debug info:', err);
@@ -868,42 +698,58 @@ export const StateInspector = () => {
     });
   };
 
+  const handleClearJournal = () => {
+    setJournal([]);
+  };
+
   const getSimpleStatus = (s: any) => s.state === 'loading' ? 'Loading' : s.state === 'hasError' ? 'Error' : 'OK';
   const getWorkerSummary = (d: any) => !d ? 'N/A' : d.isImporting ? 'Importing' : d.isDerivingUnits ? 'Deriving Units' : d.isDerivingReports ? 'Deriving Reports' : 'Idle';
 
+  if (!mounted) {
+    // During SSR or initial client render, we cannot know if the inspector should be visible
+    // because its state is in localStorage. To prevent a hydration mismatch, render nothing,
+    // which matches the server's behavior (where the atom's default value is `false`).
+    return null;
+  }
   if (!isVisible) return null;
-  if (!mounted) return <div className="fixed bottom-4 right-4 bg-black bg-opacity-80 text-white p-2 rounded-lg text-xs max-w-md"><span className="font-bold">State Inspector:</span> Loading...</div>;
 
-  const stateToDisplay = history[viewingIndex] || {};
+  const stateToDisplay = fullState;
 
   return (
     <div className="fixed bottom-4 right-4 bg-black bg-opacity-80 text-white rounded-lg text-xs max-w-md max-h-[80vh] overflow-auto z-[9999]">
       <div className="sticky top-0 z-10 bg-black bg-opacity-80 p-2 flex justify-between items-center">
         <span onClick={() => setIsExpanded(!isExpanded)} className="cursor-pointer font-bold">State Inspector {isExpanded ? '▼' : '▶'}</span>
-        <div className="flex items-center">
+        <div className="flex items-center space-x-1">
           <button
             onClick={handleCopy}
-            className="ml-2 px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs"
-            title="Copy selected state and all historical diffs"
+            className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs"
+            title="Copy current state and saga to clipboard"
           >
-            {copyStatus || 'Copy Debug Info'}
+            {copyStatus || 'Copy'}
+          </button>
+          <button
+            onClick={handleClearJournal}
+            className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs"
+            title="Clear the event journal"
+          >
+            Clear Journal
           </button>
         </div>
       </div>
-      {!isExpanded && history.length > 0 && (
+      {!isExpanded && (
         <div className="px-2 pt-1 pb-2">
           <span>Auth: {getSimpleStatus(stateToDisplay.authStatus)}</span> | <span>Base: {getSimpleStatus(stateToDisplay.baseData)}</span> | <span>Worker: {stateToDisplay.workerStatus?.loading ? 'Loading' : stateToDisplay.workerStatus?.error ? 'Error' : getWorkerSummary(stateToDisplay.workerStatus)}</span>
         </div>
       )}
-      {isExpanded && history.length > 0 && (
+      {isExpanded && (
         <div className="p-2 space-y-2">
           <div className="flex items-center space-x-1">
             <strong>Manage Auth:</strong>
             <button
               onClick={handleExpireToken}
-              disabled={isTokenManuallyExpired}
+              disabled={isAuthActionInProgress || isTokenManuallyExpired}
               className={`px-2 py-1 rounded text-xs ${
-                isTokenManuallyExpired
+                isTokenManuallyExpired || isAuthActionInProgress
                   ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
                   : 'bg-yellow-600 hover:bg-yellow-500'
               }`}
@@ -912,140 +758,174 @@ export const StateInspector = () => {
               {isTokenManuallyExpired ? 'Token Expired' : 'Expire Token'}
             </button>
             <button
-              onClick={() => refreshToken()}
-              className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs"
+              onClick={handleRefreshToken}
+              disabled={isAuthActionInProgress}
+              className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs disabled:opacity-50"
               title="Trigger a client-side token refresh"
             >
-              Refresh Token
+              {authState.matches({ idle_authenticated: 'background_refreshing' }) || authState.matches('initial_refreshing') ? 'Refreshing...' : 'Refresh Token'}
             </button>
             <button
-              onClick={() => checkAuth()}
-              className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs"
+              onClick={handleCheckAuth}
+              disabled={isAuthActionInProgress}
+              className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs disabled:opacity-50"
               title="Trigger a server-side auth status check"
             >
-              Check Auth
+              {authState.matches('checking') || authState.matches({ idle_authenticated: 'revalidating' }) ? 'Checking...' : 'Check Auth'}
             </button>
           </div>
-          <div className="flex items-center space-x-1">
-            <strong>History:</strong>
-            {history.map((_, index) => {
-              const label = index - (history.length - 1);
-              return (
-                <button key={index} onClick={() => setViewingIndex(index)} disabled={index === viewingIndex} className={`px-2 py-0.5 text-xs rounded ${index === viewingIndex ? 'bg-blue-600 text-white' : 'bg-gray-600 hover:bg-gray-500'}`} title={`View state from ${label === 0 ? 'now' : `${Math.abs(label)} renders ago`}`}>
-                  {label === 0 ? 'Now' : label}
-                </button>
-              );
-            })}
-          </div>
-
-          {diff && (
-            <div>
-              <strong>State Diff to Next:</strong>
-              <DiffViewer diffData={diff} />
-              <hr className="my-2 border-gray-500" />
-            </div>
-          )}
 
           <div>
-            <strong>Auth Status:</strong> {stateToDisplay.authStatus?.state}
-            <div className="pl-4 mt-1 space-y-1">
-              {stateToDisplay.authStatus?.state === 'hasData' && (
-                <>
-                  <div><strong>Authenticated (Stable):</strong> {stateToDisplay.authStatus.isAuthenticated ? 'Yes' : 'No'}</div>
-                  <div><strong>Authenticated (Unstable):</strong> {stateToDisplay.authStatus.isAuthenticated_UNSTABLE ? 'Yes' : 'No'}</div>
-                  <div><strong>User:</strong> {stateToDisplay.authStatus.user?.email || 'None'}</div>
-                  <div><strong>UID:</strong> {stateToDisplay.authStatus.user?.uid || 'N/A'}</div>
-                  <div><strong>Role:</strong> {stateToDisplay.authStatus.user?.role || 'N/A'}</div>
-                  <div><strong>Statbus Role:</strong> {stateToDisplay.authStatus.user?.statbus_role || 'N/A'}</div>
-                  <div><strong>Refresh Needed:</strong> {stateToDisplay.authStatus.expired_access_token_call_refresh ? 'Yes' : 'No'}</div>
-                </>
+            <strong>Event Journal:</strong>
+            <div ref={journalContainerRef} className="pl-4 mt-1 space-y-1 font-mono text-xs max-h-48 overflow-y-auto border border-gray-600 rounded p-1 bg-black/20">
+              {journal.length > 0 ? (
+                journal.map((entry) => {
+                  let machineColor = 'text-cyan-400'; // Default for auth, nav, login
+                  if (entry.machine === 'system') machineColor = 'text-purple-400';
+                  if (entry.machine === 'inspector') machineColor = 'text-orange-400';
+
+                  return (
+                    <div key={entry.timestamp_epoch}>
+                      <span className="text-gray-400">
+                        {new Date(entry.timestamp_epoch).toLocaleTimeString()}.{String(entry.timestamp_epoch % 1000).padStart(3, '0')}
+                      </span>
+                      <span className={`font-bold ${machineColor}`}> [{entry.machine.toUpperCase()}] </span>
+                      <span className="text-yellow-400">{JSON.stringify(entry.from)}</span>
+                      <span className="text-gray-400"> → </span>
+                      <span className="text-green-400">{JSON.stringify(entry.to)}</span>
+                      <span className="text-gray-500"> on {entry.event.type}</span>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-gray-500 italic">No events recorded since journal was cleared.</div>
               )}
-              {stateToDisplay.authStatus?.state === 'hasError' && <div><strong>Error:</strong> {String(stateToDisplay.authStatus.error)}</div>}
             </div>
           </div>
 
           <div>
-            <strong>App Context:</strong>
-            <div className="pl-4 mt-1 space-y-1">
-              <div><strong>Time Context:</strong> {(
-                  () => {
-                    const tc = stateToDisplay.appContext?.selectedTimeContext;
-                    if (!tc) return 'None';
-                    const displayName = tc.name_when_input || tc.name_when_query;
-                    return `${displayName} (${tc.ident})`;
-                  }
-                )()}</div>
-            </div>
-          </div>
+            <strong>Current State:</strong>
+            <div className="pl-4 mt-1 space-y-2 max-h-96 overflow-y-auto border border-gray-600 rounded p-1 bg-black/20">
+              <div>
+                <strong>State Machines:</strong>
+                <div className="pl-4 mt-1 space-y-1">
+                  <div><strong>Auth:</strong> {JSON.stringify(stateToDisplay.authStatus?.machineState)}</div>
+                  <div><strong>Nav:</strong> {JSON.stringify(stateToDisplay.navMachine?.state)}</div>
+                  {stateToDisplay.navMachine?.context && (
+                    <div className="pl-4 font-mono text-xs">
+                      {Object.entries(stateToDisplay.navMachine.context).map(([key, value]) => (
+                        <div key={key}>- {key}: {JSON.stringify(value)}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
 
-          <div>
-            <strong>Base Data Status:</strong> {stateToDisplay.baseData?.state}
-            <div className="pl-4 mt-1 space-y-1">
-              {stateToDisplay.baseData?.state === 'hasData' && (
-                <>
-                  <div><strong>Stat Definitions:</strong> {stateToDisplay.baseData.statDefinitionsCount}</div>
-                  <div><strong>External Ident Types:</strong> {stateToDisplay.baseData.externalIdentTypesCount}</div>
-                  <div><strong>Statbus Users:</strong> {stateToDisplay.baseData.statbusUsersCount}</div>
-                  <div><strong>Time Contexts:</strong> {stateToDisplay.baseData.timeContextsCount}</div>
-                  <div><strong>Default Time Context:</strong> {stateToDisplay.baseData.defaultTimeContextIdent || 'None'}</div>
-                  <div><strong>Has Statistical Units:</strong> {stateToDisplay.baseData.hasStatisticalUnits ? 'Yes' : 'No'}</div>
-                </>
-              )}
-              {stateToDisplay.baseData?.state === 'hasError' && <div><strong>Error:</strong> {String(stateToDisplay.baseData.error)}</div>}
-            </div>
-          </div>
+              <div>
+                <strong>Auth Details:</strong>
+                <div className="pl-4 mt-1 space-y-1">
+                  {stateToDisplay.authStatus?.derivedState === 'hasData' ? (
+                    <>
+                      <div><strong>Authenticated (UI):</strong> {stateToDisplay.authStatus.isAuthenticated ? 'Yes' : 'No'}</div>
+                      <div><strong>Authenticated (Strict/Data):</strong> {stateToDisplay.authStatus.isAuthenticated_STRICT ? 'Yes' : 'No'}</div>
+                      <div><strong>Authenticated (Unstable):</strong> {stateToDisplay.authStatus.isAuthenticated_UNSTABLE ? 'Yes' : 'No'}</div>
+                      <div><strong>User:</strong> {stateToDisplay.authStatus.user?.email || 'None'}</div>
+                      <div><strong>UID:</strong> {stateToDisplay.authStatus.user?.uid || 'N/A'}</div>
+                      <div><strong>Role:</strong> {stateToDisplay.authStatus.user?.role || 'N/A'}</div>
+                      <div><strong>Statbus Role:</strong> {stateToDisplay.authStatus.user?.statbus_role || 'N/A'}</div>
+                      <div><strong>Refresh Needed:</strong> {stateToDisplay.authStatus.expired_access_token_call_refresh ? 'Yes' : 'No'}</div>
+                    </>
+                  ) : (
+                    <>
+                      <div><strong>Derived State:</strong> {stateToDisplay.authStatus?.derivedState}</div>
+                      {stateToDisplay.authStatus?.derivedState === 'hasError' && <div><strong>Error:</strong> {String(stateToDisplay.authStatus.error)}</div>}
+                    </>
+                  )}
+                </div>
+              </div>
 
-          <div>
-            <strong>Search & Selection State:</strong>
-            <div className="pl-4 mt-1 space-y-1">
-              <div><strong>Search Text:</strong> {stateToDisplay.searchAndSelection?.searchText || 'None'}</div>
-              <div><strong>Active Filters:</strong> {stateToDisplay.searchAndSelection?.activeFilterCodes?.join(', ') || 'None'}</div>
-              <div><strong>Pagination:</strong> Page {stateToDisplay.searchAndSelection?.pagination?.page}, Size {stateToDisplay.searchAndSelection?.pagination?.pageSize}</div>
-              <div><strong>Order:</strong> {stateToDisplay.searchAndSelection?.order?.field} {stateToDisplay.searchAndSelection?.order?.direction}</div>
-              <div><strong>Selected Units:</strong> {stateToDisplay.searchAndSelection?.selectedUnitsCount}</div>
-              <div><strong>Search Result:</strong> Total {stateToDisplay.searchAndSelection?.searchResult?.total ?? 'N/A'}, Loading: {stateToDisplay.searchAndSelection?.searchResult?.loading ? 'Yes' : 'No'}</div>
-              {stateToDisplay.searchAndSelection?.searchResult?.error && <div><strong>Search Error:</strong> {stateToDisplay.searchAndSelection.searchResult.error}</div>}
-            </div>
-          </div>
+              <div>
+                <strong>App Context:</strong>
+                <div className="pl-4 mt-1 space-y-1">
+                  <div><strong>Time Context:</strong> {(
+                      () => {
+                        const tc = stateToDisplay.appContext?.selectedTimeContext;
+                        if (!tc) return 'None';
+                        const displayName = tc.name_when_input || tc.name_when_query;
+                        return `${displayName} (${tc.ident})`;
+                      }
+                    )()}</div>
+                </div>
+              </div>
 
-          <div>
-            <strong>Worker Status:</strong> {stateToDisplay.workerStatus?.loading ? 'Loading' : stateToDisplay.workerStatus?.error ? 'Error' : 'OK'}
-            <div className="pl-4 mt-1 space-y-1">
-              {stateToDisplay.workerStatus && !stateToDisplay.workerStatus.loading && !stateToDisplay.workerStatus.error && (
-                <>
-                  <div><strong>Importing:</strong> {stateToDisplay.workerStatus.isImporting === null ? 'N/A' : stateToDisplay.workerStatus.isImporting ? 'Yes' : 'No'}</div>
-                  <div><strong>Deriving Units:</strong> {stateToDisplay.workerStatus.isDerivingUnits === null ? 'N/A' : stateToDisplay.workerStatus.isDerivingUnits ? 'Yes' : 'No'}</div>
-                  <div><strong>Deriving Reports:</strong> {stateToDisplay.workerStatus.isDerivingReports === null ? 'N/A' : stateToDisplay.workerStatus.isDerivingReports ? 'Yes' : 'No'}</div>
-                </>
-              )}
-              {stateToDisplay.workerStatus?.error && <div><strong>Error:</strong> {stateToDisplay.workerStatus.error}</div>}
-            </div>
-          </div>
+              <div>
+                <strong>Base Data Status:</strong> {stateToDisplay.baseData?.state}
+                <div className="pl-4 mt-1 space-y-1">
+                  {stateToDisplay.baseData?.state === 'hasData' && (
+                    <>
+                      <div><strong>Stat Definitions:</strong> {stateToDisplay.baseData.statDefinitionsCount}</div>
+                      <div><strong>External Ident Types:</strong> {stateToDisplay.baseData.externalIdentTypesCount}</div>
+                      <div><strong>Statbus Users:</strong> {stateToDisplay.baseData.statbusUsersCount}</div>
+                      <div><strong>Time Contexts:</strong> {stateToDisplay.baseData.timeContextsCount}</div>
+                      <div><strong>Default Time Context:</strong> {stateToDisplay.baseData.defaultTimeContextIdent || 'None'}</div>
+                      <div><strong>Has Statistical Units:</strong> {stateToDisplay.baseData.hasStatisticalUnits ? 'Yes' : 'No'}</div>
+                    </>
+                  )}
+                  {stateToDisplay.baseData?.state === 'hasError' && <div><strong>Error:</strong> {String(stateToDisplay.baseData.error)}</div>}
+                </div>
+              </div>
 
-          <div>
-            <strong>Navigation & Redirect Debugging:</strong>
-            <div className="pl-4 mt-1 space-y-1">
-              <div><strong>Initial Auth Check Completed:</strong> {stateToDisplay.redirectRelevantState?.initialAuthCheckCompleted ? 'Yes' : 'No'}</div>
-              <hr className="my-1 border-gray-500" />
-              <div><strong>Pathname:</strong> {stateToDisplay.pathname}</div>
-              <div><strong>Active Redirect Target:</strong> {(stateToDisplay.navigationState?.pendingRedirect || stateToDisplay.navigationState?.requiredSetupRedirect) || 'None'}</div>
-              <div><strong>Pending Redirect:</strong> {stateToDisplay.navigationState?.pendingRedirect || 'None'}</div>
-              <div><strong>Required Setup Redirect:</strong> {stateToDisplay.navigationState?.requiredSetupRedirect || 'None'}</div>
-              <div><strong>Is Login Action in Progress:</strong> {stateToDisplay.navigationState?.isLoginActionInProgress ? 'Yes' : 'No'}</div>
-              <div><strong>Last Known Path (pre-auth):</strong> {stateToDisplay.navigationState?.lastKnownPathBeforeAuthChange || 'None'}</div>
-              <hr className="my-1 border-gray-500" />
-              <div><strong>Auth Check Done:</strong> {stateToDisplay.redirectRelevantState?.authCheckDone ? 'Yes' : 'No'}</div>
-              <div><strong>REST Client Ready:</strong> {stateToDisplay.redirectRelevantState?.isRestClientReady ? 'Yes' : 'No'}</div>
-              <div><strong>Activity Standard:</strong> {stateToDisplay.redirectRelevantState?.activityStandard === null ? 'Null' : JSON.stringify(stateToDisplay.redirectRelevantState?.activityStandard)}</div>
-              <div><strong>Number of Regions:</strong> {stateToDisplay.redirectRelevantState?.numberOfRegions === null ? 'Null/Loading' : stateToDisplay.redirectRelevantState?.numberOfRegions}</div>
-              <div><strong>BaseData - Has Statistical Units:</strong> {stateToDisplay.redirectRelevantState?.baseDataHasStatisticalUnits === 'BaseDataNotLoaded' ? 'BaseDataNotLoaded' : (stateToDisplay.redirectRelevantState?.baseDataHasStatisticalUnits ? 'Yes' : 'No')}</div>
-              <div><strong>BaseData - Stat Definitions Count:</strong> {stateToDisplay.redirectRelevantState?.baseDataStatDefinitionsLength}</div>
-            </div>
-          </div>
-          <div>
-            <strong>DevTools State:</strong>
-            <div className="pl-4 mt-1 space-y-1">
-              <div><strong>Token Manually Expired:</strong> {stateToDisplay.devToolsState?.isTokenManuallyExpired ? 'Yes' : 'No'}</div>
+              <div>
+                <strong>Search & Selection State:</strong>
+                <div className="pl-4 mt-1 space-y-1">
+                  <div><strong>Search Text:</strong> {stateToDisplay.searchAndSelection?.searchText || 'None'}</div>
+                  <div><strong>Active Filters:</strong> {stateToDisplay.searchAndSelection?.activeFilterCodes?.join(', ') || 'None'}</div>
+                  <div><strong>Pagination:</strong> Page {stateToDisplay.searchAndSelection?.pagination?.page}, Size {stateToDisplay.searchAndSelection?.pagination?.pageSize}</div>
+                  <div><strong>Order:</strong> {stateToDisplay.searchAndSelection?.order?.field} {stateToDisplay.searchAndSelection?.order?.direction}</div>
+                  <div><strong>Selected Units:</strong> {stateToDisplay.searchAndSelection?.selectedUnitsCount}</div>
+                  <div><strong>Search Result:</strong> Total {stateToDisplay.searchAndSelection?.searchResult?.total ?? 'N/A'}, Loading: {stateToDisplay.searchAndSelection?.searchResult?.loading ? 'Yes' : 'No'}</div>
+                  {stateToDisplay.searchAndSelection?.searchResult?.error && <div><strong>Search Error:</strong> {stateToDisplay.searchAndSelection.searchResult.error}</div>}
+                </div>
+              </div>
+
+              <div>
+                <strong>Worker Status:</strong> {stateToDisplay.workerStatus?.loading ? 'Loading' : stateToDisplay.workerStatus?.error ? 'Error' : 'OK'}
+                <div className="pl-4 mt-1 space-y-1">
+                  {stateToDisplay.workerStatus && !stateToDisplay.workerStatus.loading && !stateToDisplay.workerStatus.error && (
+                    <>
+                      <div><strong>Importing:</strong> {stateToDisplay.workerStatus.isImporting === null ? 'N/A' : stateToDisplay.workerStatus.isImporting ? 'Yes' : 'No'}</div>
+                      <div><strong>Deriving Units:</strong> {stateToDisplay.workerStatus.isDerivingUnits === null ? 'N/A' : stateToDisplay.workerStatus.isDerivingUnits ? 'Yes' : 'No'}</div>
+                      <div><strong>Deriving Reports:</strong> {stateToDisplay.workerStatus.isDerivingReports === null ? 'N/A' : stateToDisplay.workerStatus.isDerivingReports ? 'Yes' : 'No'}</div>
+                    </>
+                  )}
+                  {stateToDisplay.workerStatus?.error && <div><strong>Error:</strong> {stateToDisplay.workerStatus.error}</div>}
+                </div>
+              </div>
+
+              <div>
+                <strong>Navigation & Redirect Debugging:</strong>
+                <div className="pl-4 mt-1 space-y-1">
+                  <div><strong>Initial Auth Check Completed:</strong> {stateToDisplay.redirectRelevantState?.initialAuthCheckCompleted ? 'Yes' : 'No'}</div>
+                  <hr className="my-1 border-gray-500" />
+                  <div><strong>Pathname:</strong> {stateToDisplay.pathname}</div>
+                  <div><strong>Active Redirect Target:</strong> {stateToDisplay.navigationState?.requiredSetupRedirect || 'None'}</div>
+                  <div><strong>Required Setup Redirect:</strong> {stateToDisplay.navigationState?.requiredSetupRedirect || 'None'}</div>
+                  <div><strong>Last Known Path (pre-auth):</strong> {stateToDisplay.navigationState?.lastKnownPathBeforeAuthChange || 'None'}</div>
+                  <hr className="my-1 border-gray-500" />
+                  <div><strong>Auth Check Done:</strong> {stateToDisplay.redirectRelevantState?.authCheckDone ? 'Yes' : 'No'}</div>
+                  <div><strong>REST Client Ready:</strong> {stateToDisplay.redirectRelevantState?.isRestClientReady ? 'Yes' : 'No'}</div>
+                  <div><strong>Activity Standard:</strong> {stateToDisplay.redirectRelevantState?.activityStandard === null ? 'Null' : JSON.stringify(stateToDisplay.redirectRelevantState?.activityStandard)}</div>
+                  <div><strong>Number of Regions:</strong> {stateToDisplay.redirectRelevantState?.numberOfRegions === null ? 'Null/Loading' : stateToDisplay.redirectRelevantState?.numberOfRegions}</div>
+                  <div><strong>BaseData - Has Statistical Units:</strong> {stateToDisplay.redirectRelevantState?.baseDataHasStatisticalUnits === 'BaseDataNotLoaded' ? 'BaseDataNotLoaded' : (stateToDisplay.redirectRelevantState?.baseDataHasStatisticalUnits ? 'Yes' : 'No')}</div>
+                  <div><strong>BaseData - Stat Definitions Count:</strong> {stateToDisplay.redirectRelevantState?.baseDataStatDefinitionsLength}</div>
+                </div>
+              </div>
+              <div>
+                <strong>DevTools State:</strong>
+                <div className="pl-4 mt-1 space-y-1">
+                  <div><strong>Token Manually Expired:</strong> {stateToDisplay.devToolsState?.isTokenManuallyExpired ? 'Yes' : 'No'}</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

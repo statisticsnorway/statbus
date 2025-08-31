@@ -12,11 +12,11 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
+import { useRouter } from "next/navigation";
 import { useSetAtom } from 'jotai'; // Added useSetAtom
 import { activityCategoryStandardSettingAtomAsync } from '@/atoms/getting-started'; // Added specific atom
 import { Tables } from "@/lib/database.types";
 import { setCategoryStandard } from "@/app/getting-started/getting-started-server-actions";
-import { pendingRedirectAtom } from '@/atoms/app';
 
 interface CategoryStandardFormProps {
   readonly standards: Tables<"activity_category_standard">[] | null;
@@ -41,7 +41,7 @@ export default function CategoryStandardForm({
         settings?.[0]?.activity_category_standard_id,
     },
   });
-  const setPendingRedirect = useSetAtom(pendingRedirectAtom);
+  const router = useRouter();
   const refreshActivityStandardSetting = useSetAtom(activityCategoryStandardSettingAtomAsync);
 
   async function onSubmit({
@@ -55,7 +55,7 @@ export default function CategoryStandardForm({
     const result = await setCategoryStandard(formData);
     if (result.success) {
       await refreshActivityStandardSetting(); // Trigger refresh
-      setPendingRedirect("/getting-started/upload-custom-activity-standard-codes");
+      router.push("/getting-started/upload-custom-activity-standard-codes");
     }
   }
 
