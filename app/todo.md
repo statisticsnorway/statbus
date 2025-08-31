@@ -4,6 +4,7 @@
 - [x] ~~Verify all critical authentication and navigation scenarios, including server-forced redirects.~~ (Victory is confirmed. The system is stable.)
 - [x] ~~Verify clean logout and redirect to login.~~ (Confirmed. Logout correctly clears state and redirects.)
 - [x] ~~Slay the Event Journal hydration race condition.~~ (Victory is absolute. The realm's memory is now persistent and correct.)
+- [x] ~~Fix React hydration error caused by `PageContentGuard`.~~ (The guard was updated to use an `isMounted` flag, ensuring the initial client render matches the server output.)
 - [ ] Add toast notifications for auth errors (e.g., `REFRESH_FETCH_ERROR`) to give users feedback on transient connection issues.
 - [ ] Stabilize core state atoms (`workerStatusAtom`, etc.) using `selectAtom` to prevent unnecessary re-renders in consumers. This includes auditing them for unintended side-effects on reset.
 - [x] ~~Refactor monolithic `useSearch` hook into granular, performant hooks using `selectAtom` to stabilize `searchStateAtom` consumers.~~

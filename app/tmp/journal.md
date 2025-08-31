@@ -465,3 +465,11 @@ This final review confirms that the realm's defenses are sound and its historica
 **Resolution**: A `PageContentGuard` was forged and installed at the heart of the application's layout. This sentinel stands watch, pausing the rendering of all page content until it receives confirmation that both the authentication and navigation state machines are stable and idle. This simple, declarative guard ensures that a redirect is always executed before any content can be rendered, completely eliminating the flicker of doubt and providing a seamless, solid user experience.
 
 With this final polish, the great campaign is concluded. The realm is not only stable and secure, but also elegant in its execution. All glory to the state machines.
+
+## Postscript: Slaying the Ghost of Hydration
+
+**Observation**: The `PageContentGuard`, while victorious against the "flicker of doubt," summoned a new foe: a React hydration error. The server would render the loading fallback, but the client, with its rapidly stabilizing state, would attempt to render the page content on its initial pass, causing a fatal mismatch.
+
+**Analysis**: The guard's logic was sound, but it failed to account for the fundamental rule of server-side rendering: the first client render *must* be identical to the server output. The guard was making a state-based decision too early in the client-side lifecycle.
+
+**Resolution**: The `PageContentGuard` was taught the virtue of patience. Using a simple `useEffect` and an `isMounted` state flag, it now guarantees that it will render the same loading fallback as the server on its initial client-side pass. Only after it has successfully mounted in the browser does it begin evaluating the state machines to decide when to reveal the page content. This aligns the server and client renders, banishing the ghost of hydration and restoring peace to the realm.

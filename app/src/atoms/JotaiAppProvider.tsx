@@ -362,15 +362,24 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
 // ============================================================================
 
 const PageContentGuard = ({ children, loadingFallback }: { children: ReactNode, loadingFallback: ReactNode }) => {
+  const [isMounted, setIsMounted] = useState(false);
   const navState = useAtomValue(navigationMachineAtom);
   const { isLoadingAuth } = useAppReady();
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // The navigation machine is not idle while it is booting, evaluating, or
   // actively performing a redirect. During these times, we should show a
   // loading state to prevent a "flash" of the old or incorrect page content.
   const isNavigating = !navState.matches('idle');
 
-  if (isNavigating || isLoadingAuth) {
+  // On the server and during the first client render (before mount), we must
+  // always show the loading fallback to prevent a hydration mismatch.
+  // The actual children will only be rendered on the client after the state
+  // machines have stabilized.
+  if (!isMounted || isNavigating || isLoadingAuth) {
     return <>{loadingFallback}</>;
   }
 
