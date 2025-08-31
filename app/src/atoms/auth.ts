@@ -215,14 +215,6 @@ const authMachine = setup({
       initial: 'stable',
       states: {
         stable: {},
-        re_evaluating: {
-          always: [
-            // If the session is still valid after re-evaluation, return to stable.
-            { target: 'stable', guard: ({ context }) => context.isAuthenticated },
-            // If the session is no longer valid (e.g., revoked server-side), exit to the main unauthenticated state.
-            { target: '#auth.idle_unauthenticated' }
-          ]
-        },
         revalidating: {
           invoke: {
             id: 'checkAuthStatus',
@@ -238,9 +230,13 @@ const authMachine = setup({
                 guard: ({ event }) => event.output.outcome === 'refresh_needed',
               },
               {
-                // If no refresh is needed, update the context with the fresh data and re-evaluate.
-                target: 're_evaluating',
-                guard: ({ event }) => event.output.outcome === 'ok',
+                target: 'stable',
+                guard: ({ event }) => event.output.outcome === 'ok' && event.output.status.isAuthenticated,
+                actions: assign(({ event, context }) => ({ ...event.output.status, client: context.client })),
+              },
+              {
+                target: '#auth.idle_unauthenticated',
+                guard: ({ event }) => event.output.outcome === 'ok' && !event.output.status.isAuthenticated,
                 actions: assign(({ event, context }) => ({ ...event.output.status, client: context.client })),
               }
             ],
@@ -255,11 +251,18 @@ const authMachine = setup({
             id: 'refreshTokenInBackground',
             src: 'refreshToken',
             input: ({ context }) => ({ client: context.client }),
-            onDone: {
-              actions: assign(({ event, context }) => ({ ...event.output, client: context.client })),
-              // After a background refresh, re-evaluate the session.
-              target: 're_evaluating'
-            },
+            onDone: [
+              {
+                target: 'stable',
+                guard: ({ event }) => event.output.isAuthenticated,
+                actions: assign(({ event, context }) => ({ ...event.output, client: context.client })),
+              },
+              {
+                target: '#auth.idle_unauthenticated',
+                guard: ({ event }) => !event.output.isAuthenticated,
+                actions: assign(({ event, context }) => ({ ...event.output, client: context.client })),
+              },
+            ],
             onError: {
               target: '#auth.idle_unauthenticated',
               actions: assign({ isAuthenticated: false, user: null, expired_access_token_call_refresh: false, error_code: 'REFRESH_FETCH_ERROR' })
