@@ -17,7 +17,7 @@ import type { Loadable } from 'jotai/vanilla/utils/loadable'
 
 import { type User, type AuthStatus as CoreAuthStatus, _parseAuthStatusRpcResponseToAuthStatus } from '@/lib/auth.types';
 import type { Database, Tables, TablesInsert } from '@/lib/database.types'
-import { addEventJournalEntryAtom, stateInspectorVisibleAtom } from './app';
+import { addEventJournalEntryAtom, stateInspectorVisibleAtom, eventJournalAtom, isTokenManuallyExpiredAtom } from './app';
 import {
   importStateAtom,
   initialImportState,
@@ -360,12 +360,16 @@ export const authMachineScribeEffectAtom = atomEffect((get, set) => {
 
   if (prevMachine && JSON.stringify(machine.value) !== JSON.stringify(prevMachine.value)) {
     const event = (machine as any).event ?? { type: 'unknown' };
+    const reasonSuffix = event.type === 'unknown'
+      ? 'due to an automatic transition.'
+      : `on event ${event.type}`;
+    const reason = `Transitioned from ${JSON.stringify(prevMachine.value)} to ${JSON.stringify(machine.value)} ${reasonSuffix}`;
     const entry = {
       machine: 'auth' as const,
       from: prevMachine.value,
       to: machine.value,
       event: event,
-      reason: `Transitioned from ${JSON.stringify(prevMachine.value)} to ${JSON.stringify(machine.value)} on event ${event.type}`
+      reason: reason,
     };
     set(addEventJournalEntryAtom, entry);
     console.log(`[Scribe:Auth]`, entry.reason, { from: entry.from, to: entry.to, event: entry.event });
@@ -395,13 +399,6 @@ export const authStatusUnstableDetailsAtom = atom<ClientAuthStatus>(
     // which are substates of 'idle_authenticated'.
     const isLoading = !machine.matches({ idle_authenticated: 'stable' }) && !machine.matches('idle_unauthenticated');
     
-    if (get(stateInspectorVisibleAtom)) {
-      // Add detailed logging to trace the nemesis bug
-      console.log(
-        `[authStatusUnstableDetailsAtom] re-evaluating. Machine state: ${JSON.stringify(machine.value)}, context.isAuthenticated: ${coreStatus.isAuthenticated}, derived isLoading: ${isLoading}`
-      );
-    }
-
     return {
       ...coreStatus,
       loading: isLoading,
@@ -459,13 +456,6 @@ export const isUserConsideredAuthenticatedForUIAtom = atom(get => {
   // authenticated state. This prevents data cascades (the "nemesis" bug).
   const result = state.matches('idle_authenticated') || state.matches('checking') || state.matches('evaluating_initial_session') || state.matches('initial_refreshing') || state.matches('re_initializing');
   
-  if (get(stateInspectorVisibleAtom)) {
-    // Add detailed logging to trace the nemesis bug
-    console.log(
-      `[isUserConsideredAuthenticatedForUIAtom] re-evaluating. Machine state: ${JSON.stringify(state.value)}, result: ${result}`
-    );
-  }
-
   return result;
 });
 
@@ -502,13 +492,6 @@ export const authStateForDataFetchingAtom = atom(
       result = 'unauthenticated';
     }
 
-    if (get(stateInspectorVisibleAtom)) {
-      // Add detailed logging to trace the nemesis bug
-      console.log(
-        `[authStateForDataFetchingAtom] re-evaluating. Machine state: ${JSON.stringify(state.value)}, result: ${result}`
-      );
-    }
-    
     return result;
   }
 );
@@ -644,6 +627,8 @@ export const expireAccessTokenAtom = atom<null, [], Promise<void>>(
         console.error("expireAccessTokenAtom: RPC failed.", error);
         throw new Error(error.message || 'RPC to expire access token failed');
       }
+      // Set the flag to give the user immediate visual feedback in the inspector.
+      set(isTokenManuallyExpiredAtom, true);
       // NOTE: We intentionally DO NOT refetch auth status here.
       // This allows testing the app's handling of a stale auth state.
     } catch (error) {
@@ -674,7 +659,10 @@ export const logoutEffectAtom = atomEffect((get, set) => {
       set(updateSyncTimestampAtom, Date.now());
     }
 
-    // Reset all relevant application state.
+    // Reset all relevant application state. Any atom being reset here should be
+    // self-contained and not produce side-effects that impact other atoms' storage.
+    // The previous bug where the journal was cleared was caused by a faulty
+    // side-effect in the definition of one of these reset atoms.
     set(refreshWorkerStatusAtom);
     set(searchStateAtom, initialSearchStateValues);
     set(searchResultAtom, { data: [], total: 0, loading: false, error: null });
@@ -777,12 +765,16 @@ export const loginPageMachineScribeEffectAtom = atomEffect((get, set) => {
 
   if (prevMachine && JSON.stringify(machine.value) !== JSON.stringify(prevMachine.value)) {
     const event = (machine as any).event ?? { type: 'unknown' };
+    const reasonSuffix = event.type === 'unknown'
+      ? 'due to an automatic transition.'
+      : `on event ${event.type}`;
+    const reason = `Transitioned from ${JSON.stringify(prevMachine.value)} to ${JSON.stringify(machine.value)} ${reasonSuffix}`;
     const entry = {
       machine: 'login' as const,
       from: prevMachine.value,
       to: machine.value,
       event: event,
-      reason: `Transitioned from ${JSON.stringify(prevMachine.value)} to ${JSON.stringify(machine.value)} on event ${event.type}`
+      reason: reason,
     };
     set(addEventJournalEntryAtom, entry);
     console.log(`[Scribe:Login]`, entry.reason, { from: entry.from, to: entry.to, event: entry.event });

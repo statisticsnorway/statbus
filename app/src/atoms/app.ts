@@ -207,66 +207,164 @@ const EVENT_JOURNAL_MAX_LENGTH = 50; // Keep the last 50 transitions.
  * transitions. This serves as our stateful battle journal, surviving page
  * reloads to provide a complete debugging narrative.
  */
+/**
+ * A private, in-memory-only atom to capture state transitions that occur *before*
+ * the main persistent journal has been hydrated from sessionStorage. This prevents
+ * the loss of initial events due to the hydration race condition.
+ */
+const transientEventJournalAtom = atom<EventJournalEntry[]>([]);
+const journalUnifiedAtom = atom(false);
+
+/**
+ * The State Inspector Event Journal.
+ * A persistent, session-only atom that stores a capped history of state machine
+ * transitions. This serves as our stateful battle journal, surviving page
+ * reloads to provide a complete debugging narrative.
+ */
 export const eventJournalAtom = atomWithStorage<EventJournalEntry[]>('eventJournal', [], createJSONStorage(() => sessionStorage));
 
 /**
+ * A read-only derived atom that provides a unified view of both the persistent
+ * and transient journals. The StateInspector should use this to display a
+ * complete and chronologically-correct history at all times.
+ */
+export const combinedJournalViewAtom = atom(get => {
+  const persistent = get(eventJournalAtom);
+  const transient = get(transientEventJournalAtom);
+  const combined = [...persistent, ...transient];
+  combined.sort((a, b) => a.timestamp_epoch - b.timestamp_epoch);
+  return combined.slice(-EVENT_JOURNAL_MAX_LENGTH);
+});
+
+/**
  * Write-only atom for adding entries to the State Inspector Event Journal.
- * It automatically adds timestamps and enforces the maximum log length.
+ * It intelligently writes to a transient in-memory journal before the app is
+ * unified with persisted state, and to the persistent journal afterwards.
  */
 export const addEventJournalEntryAtom = atom(
   null,
   (get, set, entry: Omit<EventJournalEntry, 'timestamp_epoch' | 'timestamp_iso'>) => {
-    // This action is only performed if the inspector is visible, so we don't
-    // need to check the visibility flag here again.
+    const unificationComplete = get(journalUnifiedAtom);
     const now = new Date();
     const newEntry = {
       ...entry,
       timestamp_epoch: now.getTime(),
       timestamp_iso: now.toISOString(),
     };
-    const currentJournal = get(eventJournalAtom);
-    const newJournal = [...currentJournal, newEntry].slice(-EVENT_JOURNAL_MAX_LENGTH);
-    set(eventJournalAtom, newJournal);
+
+    if (unificationComplete) {
+      const currentJournal = get(eventJournalAtom);
+      const newJournal = [...currentJournal, newEntry].slice(-EVENT_JOURNAL_MAX_LENGTH);
+      set(eventJournalAtom, newJournal);
+    } else {
+      set(transientEventJournalAtom, (prev) => [...prev, newEntry]);
+    }
   }
 );
 
 /**
- * An effect that detects page reloads and logs them to the State Inspector Event Journal.
- * It uses sessionStorage to persist a flag across a reload.
+ * Action atom to be called once on initial client mount to unify the transient
+ * and persistent event journals.
  */
-export const reloadEventJournalLoggerEffectAtom = atomEffect((_get, set) => {
-  // This effect runs only on the client.
+export const unifyEventJournalsAtom = atom(
+  null,
+  (get, set) => {
+    // This action is now internal. The trigger is the effect below.
+    const isUnified = get(journalUnifiedAtom);
+    if (isUnified) return;
+
+    const transientCrumbs = get(transientEventJournalAtom);
+    const persistentHistory = get(eventJournalAtom);
+
+    const unifiedJournal = [...persistentHistory, ...transientCrumbs];
+    unifiedJournal.sort((a, b) => a.timestamp_epoch - b.timestamp_epoch);
+
+    set(eventJournalAtom, unifiedJournal.slice(-EVENT_JOURNAL_MAX_LENGTH));
+    set(transientEventJournalAtom, []);
+    set(journalUnifiedAtom, true);
+  }
+);
+
+/**
+ * A single, atomic action to clear the journal and leave a marker.
+ * This prevents the race conditions caused by multiple `set` calls in a
+ * single event handler.
+ */
+export const clearAndMarkJournalAtom = atom(
+  null,
+  (get, set) => {
+    set(transientEventJournalAtom, []);
+    const now = new Date();
+    const markerEntry: EventJournalEntry = {
+        machine: 'inspector',
+        from: 'system',
+        to: 'state',
+        event: { type: 'JOURNAL_CLEARED' },
+        reason: 'Journal cleared by user action.',
+        timestamp_epoch: now.getTime(),
+        timestamp_iso: now.toISOString(),
+    };
+    set(eventJournalAtom, [markerEntry]);
+    // Also assert that the journal is now considered unified.
+    set(journalUnifiedAtom, true);
+  }
+);
+
+/**
+ * Action atom to be called once on initial client mount to log a page reload event
+ * to the journal if one occurred.
+ */
+export const logReloadToJournalAtom = atom(
+  null,
+  (get, set) => {
+    if (typeof window === 'undefined') return;
+    // Check if a reload occurred.
+    if (sessionStorage.getItem('statbus_unloading') === 'true') {
+      if (get(stateInspectorVisibleAtom)) { // Only log if inspector is active
+        const entry: Omit<EventJournalEntry, 'timestamp_epoch' | 'timestamp_iso'> = {
+          machine: 'system',
+          from: 'unloaded',
+          to: 'loaded',
+          event: { type: 'RELOAD' },
+          reason: 'Page reloaded or refreshed.'
+        };
+        set(addEventJournalEntryAtom, entry);
+      }
+      sessionStorage.removeItem('statbus_unloading');
+    }
+  }
+);
+
+/**
+ * An effect that sets a flag in sessionStorage before the page unloads.
+ * This allows the app to detect a page refresh on the next load.
+ */
+export const journalUnificationEffectAtom = atomEffect((get, set) => {
+  // This sentinel watches the persistent journal.
+  get(eventJournalAtom); // Subscribe to changes.
+
+  const isUnified = get(journalUnifiedAtom);
+  const isMounted = get(clientMountedAtom);
+
+  // If the journal is not yet unified AND the app has mounted,
+  // it means we are ready for the unification ritual. This effect will
+  // fire when eventJournalAtom is hydrated by atomWithStorage, at which
+  // point it is safe to unify.
+  if (!isUnified && isMounted) {
+    set(unifyEventJournalsAtom);
+  }
+});
+
+export const pageUnloadDetectorEffectAtom = atomEffect((get) => {
   if (typeof window === 'undefined') return;
 
-  const get = _get; // Rename for clarity inside the effect
-
-  // Check if a reload occurred.
-  if (sessionStorage.getItem('statbus_unloading') === 'true') {
-    if (get(stateInspectorVisibleAtom)) { // Only log if inspector is active
-      const entry: Omit<EventJournalEntry, 'timestamp_epoch' | 'timestamp_iso'> = {
-        machine: 'system',
-        from: 'unloaded',
-        to: 'loaded',
-        event: { type: 'RELOAD' },
-        reason: 'Page reloaded or refreshed.'
-      };
-      set(addEventJournalEntryAtom, entry);
-      console.log(`[Scribe:System]`, entry.reason);
-    }
-    sessionStorage.removeItem('statbus_unloading');
-  }
-
-  // Set up the listener for the next unload.
   const handleBeforeUnload = () => {
-    // Only set the flag if the inspector is visible, to avoid unnecessary writes.
     if (get(stateInspectorVisibleAtom)) {
       sessionStorage.setItem('statbus_unloading', 'true');
     }
   };
 
   window.addEventListener('beforeunload', handleBeforeUnload);
-
-  // Return a cleanup function to remove the listener.
   return () => {
     window.removeEventListener('beforeunload', handleBeforeUnload);
   };
