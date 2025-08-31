@@ -48,7 +48,7 @@ export interface ClientAuthStatus extends CoreAuthStatus {
 
 const authMachine = setup({
   types: {
-    context: {} as CoreAuthStatus & { client: any | null; justLoggedOut?: boolean },
+    context: {} as CoreAuthStatus & { client: any | null; justLoggedOut?: boolean; lastCanaryResponse?: any },
     events: {} as
       | { type: 'CLIENT_READY'; client: any }
       | { type: 'CLIENT_UNREADY' }
@@ -82,6 +82,7 @@ const authMachine = setup({
         throw new Error('Refresh API call failed');
       }
 
+      let canaryData = null;
       // NEMESIS BUG FIX: After a successful refresh, the browser needs a moment
       // to process the Set-Cookie header. A subsequent navigation fetch might
       // use the old, stale cookie, causing a redirect loop with the server.
@@ -91,18 +92,20 @@ const authMachine = setup({
       // our synchronization point. By awaiting it, we pause the state machine
       // until it's safe to navigate.
       try {
-        const { error: canaryError } = await input.client.rpc('auth_status');
+        const { data, error: canaryError } = await input.client.rpc('auth_test');
         if (canaryError) {
-          console.error('refreshToken actor: Canary request to auth_status failed after refresh.', canaryError);
+          console.error('refreshToken actor: Canary request to auth_test failed after refresh.', canaryError);
           // If the canary fails, something is fundamentally wrong with the API. Treat as a failed refresh.
           throw new Error('Canary request failed after refresh.');
         }
+        canaryData = data;
       } catch (e) {
         console.error('refreshToken actor: Exception during canary request.', e);
         throw new Error('Exception during canary request.');
       }
 
-      return _parseAuthStatusRpcResponseToAuthStatus(responseData);
+      const parsedStatus = _parseAuthStatusRpcResponseToAuthStatus(responseData);
+      return { parsedStatus, canaryData };
     }),
     login: fromPromise(async ({ input }: { input: { client: any, credentials: { email: string; password: string } } }) => {
       const apiUrl = process.env.NEXT_PUBLIC_BROWSER_REST_URL || '';
@@ -142,6 +145,7 @@ const authMachine = setup({
     expired_access_token_call_refresh: false,
     error_code: null,
     justLoggedOut: false,
+    lastCanaryResponse: null,
   },
   states: {
     re_initializing: {
@@ -192,7 +196,11 @@ const authMachine = setup({
         src: 'refreshToken',
         input: ({ context }) => ({ client: context.client }),
         onDone: {
-          actions: assign(({ event, context }) => ({ ...event.output, client: context.client })),
+          actions: assign(({ event, context }) => ({
+            ...event.output.parsedStatus,
+            client: context.client,
+            lastCanaryResponse: event.output.canaryData,
+          })),
           // After a successful initial refresh, we are authenticated.
           target: 'idle_authenticated'
         },
@@ -254,13 +262,21 @@ const authMachine = setup({
             onDone: [
               {
                 target: 'stable',
-                guard: ({ event }) => event.output.isAuthenticated,
-                actions: assign(({ event, context }) => ({ ...event.output, client: context.client })),
+                guard: ({ event }) => event.output.parsedStatus.isAuthenticated,
+                actions: assign(({ event, context }) => ({
+                  ...event.output.parsedStatus,
+                  client: context.client,
+                  lastCanaryResponse: event.output.canaryData,
+                })),
               },
               {
                 target: '#auth.idle_unauthenticated',
-                guard: ({ event }) => !event.output.isAuthenticated,
-                actions: assign(({ event, context }) => ({ ...event.output, client: context.client })),
+                guard: ({ event }) => !event.output.parsedStatus.isAuthenticated,
+                actions: assign(({ event, context }) => ({
+                  ...event.output.parsedStatus,
+                  client: context.client,
+                  lastCanaryResponse: event.output.canaryData,
+                })),
               },
             ],
             onError: {
@@ -374,6 +390,35 @@ export const authMachineScribeEffectAtom = atomEffect((get, set) => {
     set(addEventJournalEntryAtom, entry);
     console.log(`[Scribe:Auth]`, entry.reason, { from: entry.from, to: entry.to, event: entry.event });
   }
+});
+
+const prevCanaryResponseAtom = atom<any | null>(null);
+
+export const canaryScribeEffectAtom = atomEffect((get, set) => {
+    const isInspectorVisible = get(stateInspectorVisibleAtom);
+    if (!isInspectorVisible) {
+        if (get(prevCanaryResponseAtom) !== null) {
+            set(prevCanaryResponseAtom, null);
+        }
+        return;
+    }
+
+    const machine = get(authMachineAtom);
+    const canaryResponse = machine.context.lastCanaryResponse;
+    const prevCanaryResponse = get(prevCanaryResponseAtom);
+
+    // Use stringify for a simple but effective object comparison.
+    if (canaryResponse && JSON.stringify(canaryResponse) !== JSON.stringify(prevCanaryResponse)) {
+        const entry = {
+            machine: 'system' as const,
+            from: 'canary_request',
+            to: 'canary_response',
+            event: { type: 'AUTH_TEST' },
+            reason: `Canary check response: ${JSON.stringify(canaryResponse)}`
+        };
+        set(addEventJournalEntryAtom, entry);
+        set(prevCanaryResponseAtom, canaryResponse);
+    }
 });
 
 const isExternalAuthActionRunningAtom = atom(false);

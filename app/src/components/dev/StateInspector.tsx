@@ -238,6 +238,7 @@ export const StateInspector = () => {
     navigationState: { requiredSetupRedirect: requiredSetupRedirectValue, lastKnownPathBeforeAuthChange: lastKnownPathValue },
     redirectRelevantState: redirectRelevantStateValue,
     devToolsState: { isTokenManuallyExpired: isTokenManuallyExpired },
+    lastCanaryResponse: authState.context.lastCanaryResponse,
   };
 
   const handleCopy = () => {
@@ -486,6 +487,14 @@ export const StateInspector = () => {
                   <div><strong>Token Manually Expired:</strong> {stateToDisplay.devToolsState?.isTokenManuallyExpired ? 'Yes' : 'No'}</div>
                 </div>
               </div>
+              {stateToDisplay.lastCanaryResponse && (
+                <div>
+                  <strong>Last Canary Response:</strong>
+                  <div className="pl-4 mt-1 font-mono text-xs max-h-48 overflow-y-auto border border-gray-600 rounded p-1 bg-black/20">
+                    <pre className="whitespace-pre-wrap break-all">{JSON.stringify(stateToDisplay.lastCanaryResponse, null, 2)}</pre>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
