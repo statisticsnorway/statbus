@@ -68,4 +68,58 @@ CREATE INDEX idx_gist_statistical_unit_external_idents ON public.statistical_uni
 CREATE INDEX idx_statistical_unit_tag_paths ON public.statistical_unit(tag_paths);
 CREATE INDEX idx_gist_statistical_unit_tag_paths ON public.statistical_unit USING GIST (tag_paths);
 
+CREATE INDEX IF NOT EXISTS idx_statistical_unit_related_establishment_ids ON public.statistical_unit USING gin (related_establishment_ids);
+CREATE INDEX IF NOT EXISTS idx_statistical_unit_related_legal_unit_ids ON public.statistical_unit USING gin (related_legal_unit_ids);
+CREATE INDEX IF NOT EXISTS idx_statistical_unit_related_enterprise_ids ON public.statistical_unit USING gin (related_enterprise_ids);
+
+
+CREATE OR REPLACE PROCEDURE public.statistical_unit_refresh(
+    p_establishment_ids int[] DEFAULT NULL,
+    p_legal_unit_ids int[] DEFAULT NULL,
+    p_enterprise_ids int[] DEFAULT NULL
+)
+LANGUAGE plpgsql AS $procedure$
+DECLARE
+    v_batch_size INT := 50000; v_unit_type public.statistical_unit_type;
+    v_min_id int; v_max_id int; v_start_id int; v_end_id int;
+BEGIN
+    IF p_establishment_ids IS NULL AND p_legal_unit_ids IS NULL AND p_enterprise_ids IS NULL THEN
+        -- Full refresh
+        FOREACH v_unit_type IN ARRAY ARRAY['establishment', 'legal_unit', 'enterprise']::public.statistical_unit_type[] LOOP
+            SELECT MIN(unit_id), MAX(unit_id) INTO v_min_id, v_max_id FROM public.timesegments WHERE unit_type = v_unit_type;
+            IF v_min_id IS NULL THEN CONTINUE; END IF;
+
+            FOR i IN v_min_id..v_max_id BY v_batch_size LOOP
+                v_start_id := i;
+                v_end_id := i + v_batch_size - 1;
+
+                -- Batched DELETE is used instead of TRUNCATE to avoid taking an ACCESS EXCLUSIVE lock,
+                -- which would block concurrent reads on the table. This is more MVCC-friendly.
+                DELETE FROM public.statistical_unit
+                WHERE unit_type = v_unit_type AND unit_id BETWEEN v_start_id AND v_end_id;
+
+                INSERT INTO public.statistical_unit SELECT * FROM public.statistical_unit_def
+                WHERE unit_type = v_unit_type AND unit_id BETWEEN v_start_id AND v_end_id;
+            END LOOP;
+        END LOOP;
+    ELSE
+        -- Partial refresh
+        IF p_establishment_ids IS NOT NULL AND cardinality(p_establishment_ids) > 0 THEN
+            DELETE FROM public.statistical_unit WHERE unit_type = 'establishment' AND unit_id = ANY(p_establishment_ids);
+            INSERT INTO public.statistical_unit SELECT * FROM public.statistical_unit_def WHERE unit_type = 'establishment' AND unit_id = ANY(p_establishment_ids);
+        END IF;
+        IF p_legal_unit_ids IS NOT NULL AND cardinality(p_legal_unit_ids) > 0 THEN
+            DELETE FROM public.statistical_unit WHERE unit_type = 'legal_unit' AND unit_id = ANY(p_legal_unit_ids);
+            INSERT INTO public.statistical_unit SELECT * FROM public.statistical_unit_def WHERE unit_type = 'legal_unit' AND unit_id = ANY(p_legal_unit_ids);
+        END IF;
+        IF p_enterprise_ids IS NOT NULL AND cardinality(p_enterprise_ids) > 0 THEN
+            DELETE FROM public.statistical_unit WHERE unit_type = 'enterprise' AND unit_id = ANY(p_enterprise_ids);
+            INSERT INTO public.statistical_unit SELECT * FROM public.statistical_unit_def WHERE unit_type = 'enterprise' AND unit_id = ANY(p_enterprise_ids);
+        END IF;
+    END IF;
+END;
+$procedure$;
+
+CALL public.statistical_unit_refresh();
+
 END;

@@ -984,6 +984,11 @@ erDiagram
 		jsonb stats
 		jsonb stats_summary
 	}
+	timepoints["timepoints"] {
+		statistical_unit_type unit_type
+		integer unit_id
+		date timepoint
+	}
 	timesegments["timesegments"] {
 		statistical_unit_type unit_type
 		integer unit_id
