@@ -144,6 +144,25 @@ export const navigationMachine = setup({
       entry: assign({
         sideEffect: { action: 'navigate', targetPath: '/login' },
       }),
+      always: 'waitingForRedirectToLogin'
+    },
+    waitingForRedirectToLogin: {
+      on: {
+        CONTEXT_UPDATED: [
+          {
+            // Escape hatch: If we become authenticated while redirecting to login
+            // (e.g., via another tab), stop waiting and re-evaluate immediately.
+            target: 'evaluating',
+            guard: ({ event }) => event.value.isAuthenticated === true,
+            actions: assign(( { context, event } ) => ({ ...context, ...event.value })),
+          },
+          {
+            target: 'idle',
+            guard: ({ event }) => event.value.pathname === '/login',
+            actions: assign(( { context, event } ) => ({ ...context, ...event.value })),
+          },
+        ],
+      }
     },
     /**
      * A state that triggers a 'navigate' side-effect to send the user to the
@@ -157,14 +176,26 @@ export const navigationMachine = setup({
           targetPath: context.setupPath!,
         }),
       }),
+      always: 'waitingForRedirectToSetup'
+    },
+    waitingForRedirectToSetup: {
       // After commanding the navigation, wait for the context to update with a new path.
       on: {
-        CONTEXT_UPDATED: {
-          target: '#navigationV2.evaluating',
-          // Guard: Only transition once we are no longer on the root path.
-          guard: ({ event }) => event.value.pathname !== '/',
-          actions: assign(( { context, event } ) => ({ ...context, ...event.value })),
-        }
+        CONTEXT_UPDATED: [
+          {
+            // Escape hatch: If we become unauthenticated while redirecting to setup,
+            // stop waiting and re-evaluate immediately.
+            target: 'evaluating',
+            guard: ({ event }) => event.value.isAuthenticated === false,
+            actions: assign(( { context, event } ) => ({ ...context, ...event.value })),
+          },
+          {
+            target: '#navigationV2.evaluating',
+            // Guard: Only transition once we are no longer on the root path.
+            guard: ({ event }) => event.value.pathname !== '/',
+            actions: assign(( { context, event } ) => ({ ...context, ...event.value })),
+          },
+        ],
       }
     },
     /**
@@ -182,14 +213,26 @@ export const navigationMachine = setup({
           };
         }
       }),
+      always: 'waitingForRedirectFromLogin'
+    },
+    waitingForRedirectFromLogin: {
       // After commanding navigation, wait for the context to update with a new path.
       on: {
-        CONTEXT_UPDATED: {
-          target: '#navigationV2.cleanupAfterRedirect',
-          // Guard: Only transition once we are no longer on the login page.
-          guard: ({ event }) => event.value.pathname !== '/login',
-          actions: assign(( { context, event } ) => ({ ...context, ...event.value })),
-        }
+        CONTEXT_UPDATED: [
+          {
+            // Escape hatch: If we become unauthenticated while redirecting away from login,
+            // stop waiting and re-evaluate immediately. This prevents a deadlock.
+            target: 'evaluating',
+            guard: ({ event }) => event.value.isAuthenticated === false,
+            actions: assign(( { context, event } ) => ({ ...context, ...event.value })),
+          },
+          {
+            target: '#navigationV2.cleanupAfterRedirect',
+            // Guard: Only transition once we are no longer on the login page.
+            guard: ({ event }) => event.value.pathname !== '/login',
+            actions: assign(( { context, event } ) => ({ ...context, ...event.value })),
+          },
+        ],
       }
     },
     /**

@@ -391,6 +391,7 @@ export const stateInspectorStateVisibleAtom = atomWithStorage('stateInspectorSta
 export const stateInspectorCanaryExpandedAtom = atomWithStorage('stateInspectorCanaryExpanded', false);
 export const stateInspectorAuthStatusExpandedAtom = atomWithStorage('stateInspectorAuthStatusExpanded', false);
 export const stateInspectorRefreshExpandedAtom = atomWithStorage('stateInspectorRefreshExpanded', false);
+export const stateInspectorEffectJournalVisibleAtom = atomWithStorage('stateInspectorEffectJournalVisible', false);
 
 // Dev Tools State
 export const isTokenManuallyExpiredAtom = atom(false);

@@ -389,55 +389,50 @@ export const authMachineScribeEffectAtom = atomEffect((get, set) => {
     return;
   }
 
-  const machine = get(authMachineAtom);
-  const prevMachine = get(prevAuthMachineSnapshotAtom);
-  set(prevAuthMachineSnapshotAtom, machine); // Update for next run
+  const currentSnapshot = get(authMachineAtom);
+  const prevSnapshot = get(prevAuthMachineSnapshotAtom);
+  set(prevAuthMachineSnapshotAtom, currentSnapshot); // Update for next run
 
-  if (prevMachine && JSON.stringify(machine.value) !== JSON.stringify(prevMachine.value)) {
-    const event = (machine as any).event ?? { type: 'unknown' };
+  if (!prevSnapshot) {
+    return; // Don't log on the first run.
+  }
+
+  // A more robust check to see if a meaningful change has occurred.
+  // This prevents infinite loops caused by new object references for unchanged state.
+  const valueChanged = JSON.stringify(currentSnapshot.value) !== JSON.stringify(prevSnapshot.value);
+  const contextChanged = JSON.stringify(currentSnapshot.context) !== JSON.stringify(prevSnapshot.context);
+
+  if (valueChanged || contextChanged) {
+    const event = (currentSnapshot as any).event ?? { type: 'unknown' };
     const reasonSuffix = event.type === 'unknown'
       ? 'due to an automatic transition.'
       : `on event ${event.type}`;
-    const reason = `Transitioned from ${JSON.stringify(prevMachine.value)} to ${JSON.stringify(machine.value)} ${reasonSuffix}`;
+    const reason = `Transitioned from ${JSON.stringify(prevSnapshot.value)} to ${JSON.stringify(currentSnapshot.value)} ${reasonSuffix}`;
     const entry = {
       machine: 'auth' as const,
-      from: prevMachine.value,
-      to: machine.value,
+      from: prevSnapshot.value,
+      to: currentSnapshot.value,
       event: event,
       reason: reason,
     };
     set(addEventJournalEntryAtom, entry);
     console.log(`[Scribe:Auth]`, entry.reason, { from: entry.from, to: entry.to, event: entry.event });
+
+    // After logging the main transition, check if a canary request just completed.
+    // This is safer than a separate effect atom.
+    const currentCanary = currentSnapshot.context.lastCanaryResponse;
+    const prevCanary = prevSnapshot?.context.lastCanaryResponse;
+    if (currentCanary && JSON.stringify(currentCanary) !== JSON.stringify(prevCanary)) {
+      const canaryEntry = {
+        machine: 'system' as const,
+        from: 'canary_request',
+        to: 'canary_response',
+        event: { type: 'AUTH_TEST' },
+        reason: `Canary check completed successfully, confirming browser cookie synchronization.`
+      };
+      set(addEventJournalEntryAtom, canaryEntry);
+    }
   }
-});
-
-const prevCanaryResponseAtom = atom<any | null>(null);
-
-export const canaryScribeEffectAtom = atomEffect((get, set) => {
-    const isInspectorVisible = get(stateInspectorVisibleAtom);
-    if (!isInspectorVisible) {
-        if (get(prevCanaryResponseAtom) !== null) {
-            set(prevCanaryResponseAtom, null);
-        }
-        return;
-    }
-
-    const machine = get(authMachineAtom);
-    const canaryResponse = machine.context.lastCanaryResponse;
-    const prevCanaryResponse = get(prevCanaryResponseAtom);
-
-    // Use stringify for a simple but effective object comparison.
-    if (canaryResponse && JSON.stringify(canaryResponse) !== JSON.stringify(prevCanaryResponse)) {
-        const entry = {
-            machine: 'system' as const,
-            from: 'canary_request',
-            to: 'canary_response',
-            event: { type: 'AUTH_TEST' },
-            reason: `Canary check completed. See 'Last Canary Response' for details.`
-        };
-        set(addEventJournalEntryAtom, entry);
-        set(prevCanaryResponseAtom, canaryResponse);
-    }
 });
 
 const isExternalAuthActionRunningAtom = atom(false);
@@ -823,20 +818,27 @@ export const loginPageMachineScribeEffectAtom = atomEffect((get, set) => {
     return;
   }
 
-  const machine = get(loginPageMachineAtom);
-  const prevMachine = get(prevLoginPageMachineSnapshotAtom);
-  set(prevLoginPageMachineSnapshotAtom, machine);
+  const currentSnapshot = get(loginPageMachineAtom);
+  const prevSnapshot = get(prevLoginPageMachineSnapshotAtom);
+  set(prevLoginPageMachineSnapshotAtom, currentSnapshot);
 
-  if (prevMachine && JSON.stringify(machine.value) !== JSON.stringify(prevMachine.value)) {
-    const event = (machine as any).event ?? { type: 'unknown' };
+  if (!prevSnapshot) {
+    return; // Don't log on the first run.
+  }
+  
+  const valueChanged = JSON.stringify(currentSnapshot.value) !== JSON.stringify(prevSnapshot.value);
+  const contextChanged = JSON.stringify(currentSnapshot.context) !== JSON.stringify(prevSnapshot.context);
+
+  if (valueChanged || contextChanged) {
+    const event = (currentSnapshot as any).event ?? { type: 'unknown' };
     const reasonSuffix = event.type === 'unknown'
       ? 'due to an automatic transition.'
       : `on event ${event.type}`;
-    const reason = `Transitioned from ${JSON.stringify(prevMachine.value)} to ${JSON.stringify(machine.value)} ${reasonSuffix}`;
+    const reason = `Transitioned from ${JSON.stringify(prevSnapshot.value)} to ${JSON.stringify(currentSnapshot.value)} ${reasonSuffix}`;
     const entry = {
       machine: 'login' as const,
-      from: prevMachine.value,
-      to: machine.value,
+      from: prevSnapshot.value,
+      to: currentSnapshot.value,
       event: event,
       reason: reason,
     };

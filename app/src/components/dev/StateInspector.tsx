@@ -13,6 +13,7 @@ import {
   stateInspectorCanaryExpandedAtom,
   stateInspectorAuthStatusExpandedAtom,
   stateInspectorRefreshExpandedAtom,
+  stateInspectorEffectJournalVisibleAtom,
   isTokenManuallyExpiredAtom,
   combinedJournalViewAtom,
   clearAndMarkJournalAtom,
@@ -41,6 +42,15 @@ import { baseDataAtom } from '@/atoms/base-data';
 import { workerStatusAtom } from '@/atoms/worker_status';
 import { searchStateAtom, searchResultAtom, selectedUnitsAtom } from '@/atoms/search';
 import { navigationMachineAtom } from '@/atoms/navigation-machine';
+import {
+  isGuardingEnabled,
+  haltedEffectsAtom,
+  triggeredEffectsAtom,
+  effectCallCountsAtom,
+  effectRecentCallCountsAtom,
+  LOOP_DETECTION_WINDOW_MS,
+  useGuardedEffect,
+} from '@/hooks/use-guarded-effect';
 
 
 // Helper to recursively calculate the difference between two objects.
@@ -103,6 +113,13 @@ export const StateInspector = () => {
   const [isCanaryExpanded, setIsCanaryExpanded] = useAtom(stateInspectorCanaryExpandedAtom);
   const [isAuthStatusExpanded, setIsAuthStatusExpanded] = useAtom(stateInspectorAuthStatusExpandedAtom);
   const [isRefreshExpanded, setIsRefreshExpanded] = useAtom(stateInspectorRefreshExpandedAtom);
+  const [isEffectJournalVisible, setIsEffectJournalVisible] = useAtom(stateInspectorEffectJournalVisibleAtom);
+  const [isEffectJournalHelpVisible, setIsEffectJournalHelpVisible] =
+    React.useState(false);
+  const haltedEffects = useAtomValue(haltedEffectsAtom);
+  const triggeredEffects = useAtomValue(triggeredEffectsAtom);
+  const callCounts = useAtomValue(effectCallCountsAtom);
+  const recentCallCounts = useAtomValue(effectRecentCallCountsAtom);
   const [mounted, setMounted] = React.useState(false);
   const [copyStatus, setCopyStatus] = React.useState(''); // For "Copied!" message
   const [isTokenManuallyExpired, setIsTokenManuallyExpired] = useAtom(isTokenManuallyExpiredAtom);
@@ -127,11 +144,11 @@ export const StateInspector = () => {
   const authStatusDetailsValue = useAtomValue(authStatusDetailsAtom);
 
   // Effect to reset the manual expiry flag whenever auth state changes.
-  useEffect(() => {
+  useGuardedEffect(() => {
     // This effect runs whenever auth state changes, resetting the global atom
     // that tracks manual token expiry. This re-enables the button.
     setIsTokenManuallyExpired(false);
-  }, [authStatusDetailsValue, setIsTokenManuallyExpired]);
+  }, [authStatusDetailsValue, setIsTokenManuallyExpired], 'StateInspector.tsx:resetManualExpiryFlag');
 
   const baseDataFromAtom = useAtomValue(baseDataAtom);
   const workerStatusValue = useAtomValue(workerStatusAtom);
@@ -374,6 +391,119 @@ export const StateInspector = () => {
                 ) : (
                   <div className="text-gray-500 italic">No events recorded since journal was cleared.</div>
                 )}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <div className="flex items-center">
+              <strong
+                onClick={() => setIsEffectJournalVisible((v) => !v)}
+                className="cursor-pointer"
+              >
+                Effect Journal:{' '}
+                {isGuardingEnabled ? (
+                  <span className="text-green-500">(Active)</span>
+                ) : (
+                  <span className="text-gray-500">(Disabled)</span>
+                )}{' '}
+                {isEffectJournalVisible ? '▼' : '▶'}
+              </strong>
+              <span
+                onClick={() => setIsEffectJournalHelpVisible((v) => !v)}
+                className="ml-2 px-1.5 py-0 bg-gray-600 rounded-full text-xs cursor-pointer hover:bg-gray-500"
+                title="Click for help on how to enable the Effect Guard"
+              >
+                ?
+              </span>
+            </div>
+            {isEffectJournalHelpVisible && (
+              <div className="pl-4 mt-1 text-xs text-gray-400 border border-gray-600 rounded p-2 bg-black/20 space-y-2">
+                <p>The Effect Guard is a development-only tool to find infinite loops.</p>
+                <div>
+                  <strong className="font-bold">For Local Development:</strong>
+                  <p className="mt-1">
+                    1. Add the following to your{' '}
+                    <code className="bg-gray-700 p-1 rounded">.env.local</code> file:
+                  </p>
+                  <pre className="mt-1 p-2 bg-gray-800 rounded">
+                    <code>NEXT_PUBLIC_ENABLE_EFFECT_GUARD=true</code>
+                  </pre>
+                  <p className="mt-1">2. Restart the Next.js development server.</p>
+                </div>
+                <div>
+                  <strong className="font-bold">For a Deployed Environment:</strong>
+                  <p className="mt-1">
+                    1. Set the environment variable:
+                  </p>
+                  <pre className="mt-1 p-2 bg-gray-800 rounded">
+                    <code>NEXT_PUBLIC_ENABLE_EFFECT_GUARD=true</code>
+                  </pre>
+                  <p className="mt-1">
+                    2. Restart the application:
+                  </p>
+                  <pre className="mt-1 p-2 bg-gray-800 rounded">
+                    <code>./devops/manage-statbus.sh restart app</code>
+                  </pre>
+                </div>
+              </div>
+            )}
+            {isEffectJournalVisible && isGuardingEnabled && (
+              <div className="pl-4 mt-1 space-y-2 font-mono text-xs max-h-48 overflow-y-auto border border-gray-600 rounded p-1 bg-black/20">
+                <div>
+                  <strong>Halted Effects ({haltedEffects.size}):</strong>
+                  {haltedEffects.size > 0 ? (
+                    Array.from(haltedEffects).sort().map((effectId) => (
+                      <div key={effectId} className="text-red-400 ml-2">
+                        HALTED: {effectId}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-gray-500 italic ml-2">None</div>
+                  )}
+                </div>
+                <div>
+                  <strong>Active Guarded Effects ({triggeredEffects.size}):</strong>
+                  {triggeredEffects.size > 0 ? (
+                    <div className="ml-2 mt-1 space-y-1">
+                      <div className="flex font-bold text-gray-400 border-b border-gray-600 pb-1">
+                        <div className="flex-grow pr-2">Effect ID</div>
+                        <div className="w-10 text-right pr-2">Total</div>
+                        <div className="w-28 text-right">
+                          Last {LOOP_DETECTION_WINDOW_MS}ms
+                        </div>
+                      </div>
+                      {Array.from(triggeredEffects)
+                        .sort()
+                        .map((effectId) => {
+                          const count = callCounts.get(effectId) || 0;
+                          const recentCount =
+                            recentCallCounts.get(effectId) || 0;
+                          return (
+                            <div
+                              key={effectId}
+                              className="flex text-cyan-400 items-center"
+                            >
+                              <div
+                                className="flex-grow truncate pr-2"
+                                title={effectId}
+                              >
+                                {effectId}
+                              </div>
+                              <div className="w-10 text-right pr-2">
+                                {count}
+                              </div>
+                              <div className="w-28 text-right">
+                                {recentCount}
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  ) : (
+                    <div className="text-gray-500 italic ml-2">None</div>
+                  )}
+                </div>
               </div>
             )}
           </div>

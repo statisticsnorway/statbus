@@ -7,7 +7,7 @@
  * and handles app initialization without complex useEffect chains.
  */
 
-import React, { Suspense, useEffect, ReactNode, useState, useRef } from 'react';
+import React, { Suspense, useEffect, ReactNode, useState } from 'react';
 import { Provider, useAtom } from 'jotai';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
