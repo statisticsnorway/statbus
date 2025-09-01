@@ -2,7 +2,8 @@
 import { TopologyItem } from "@/components/statistical-unit-hierarchy/topology-item";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { Label } from "@/components/ui/label";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import useHierarchyStats from "./use-hierarchy-stats";
@@ -24,9 +25,9 @@ export function Topology({ hierarchy, unitId, unitType }: TopologyProps) {
   const details = searchParams?.get("details");
   const [compact, setCompact] = useState(!details);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     setCompact(!details);
-  }, [details]);
+  }, [details], 'Topology:setCompact');
 
   const { hierarchyStats } = useHierarchyStats(unitId, unitType, compact);
 

@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { ImportJobUpload } from "../../../components/import-job-upload";
 import { ImportJobDetails } from "../../../components/import-job-details";
 import { useImportManager as useImportUnits, usePendingJobsByMode } from '@/atoms/import';
@@ -40,7 +41,7 @@ export default function EstablishmentsUploadPage({
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch job data on mount/slug change
-  useEffect(() => {
+  useGuardedEffect(() => {
     let isMounted = true; // Flag to prevent state updates on unmounted component
     
     async function loadJob() {
@@ -97,10 +98,10 @@ export default function EstablishmentsUploadPage({
     return () => {
       isMounted = false;
     };
-  }, [jobSlug]);
+  }, [jobSlug], 'UploadFormalEstablishmentsPage:loadJob');
 
   // --- SSE Connection Effect ---
-  useEffect(() => {
+  useGuardedEffect(() => {
     // Don't connect until job is loaded and has an ID
     if (!job?.id) {
       // Clean up any existing connection if job becomes null
@@ -216,7 +217,7 @@ export default function EstablishmentsUploadPage({
         reconnectTimeoutRef.current = null;
       }
     };
-  }, [job?.id]); // Re-run effect if job.id changes
+  }, [job?.id], 'UploadFormalEstablishmentsPage:sseListener'); // Re-run effect if job.id changes
 
   // --- Render Logic ---
   if (isLoading) {

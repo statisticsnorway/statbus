@@ -1,7 +1,8 @@
 "use client";
 
 import { useDrillDownData } from "@/app/reports/use-drill-down-data";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import * as highcharts from "highcharts";
 import { BreadCrumb } from "@/app/reports/bread-crumb";
 import { DrillDownChart } from "@/app/reports/drill-down-chart";
@@ -23,10 +24,10 @@ export default function ReportsPageClient({
 
   const { statDefinitions } = useBaseData();
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     import("highcharts/modules/drilldown");
     import("highcharts/modules/accessibility");
-  }, []);
+  }, [], 'ReportsPageClient:importHighchartsModules');
 
   const statisticalVariables = useMemo(() => {
     return [
@@ -40,7 +41,7 @@ export default function ReportsPageClient({
   }, [statDefinitions]);
 
   // Calculate max values only for unfiltered top-level data
-  useEffect(() => {
+  useGuardedEffect(() => {
     if (drillDown && !region && !activityCategory) {
       setMaxStatValuesNoFiltering((prevMaxValues) => {
         const newMaxValues = { ...prevMaxValues };
@@ -78,7 +79,7 @@ export default function ReportsPageClient({
         return newMaxValues;
       });
     }
-  }, [drillDown, region, activityCategory, statisticalVariables]);
+  }, [drillDown, region, activityCategory, statisticalVariables], 'ReportsPageClient:calculateMaxValues');
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col px-2 py-8 md:py-12">

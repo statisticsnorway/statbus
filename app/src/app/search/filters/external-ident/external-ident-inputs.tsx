@@ -2,7 +2,8 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useSearch } from "@/atoms/search"; // Changed to Jotai hook
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { Tables } from "@/lib/database.types";
 import { Button } from "@/components/ui/button";
 
@@ -24,7 +25,7 @@ export function ExternalIdentInputs({
   );
 
   // Effect to synchronize debouncedValues if external filters change (e.g., from URL or reset)
-  useEffect(() => {
+  useGuardedEffect(() => {
     setDebouncedValues(
       externalIdentTypes.reduce((acc, type) => {
         const filterValue = filters[type.code!];
@@ -32,7 +33,7 @@ export function ExternalIdentInputs({
         return acc;
       }, {} as Record<string, string>)
     );
-  }, [filters, externalIdentTypes]);
+  }, [filters, externalIdentTypes], 'ExternalIdentInputs:syncDebouncedValues');
 
   const updateIdentifier = useCallback(async (identType: Tables<"external_ident_type_ordered">, localValue: string) => {
     const code = identType.code!;
@@ -80,7 +81,7 @@ export function ExternalIdentInputs({
   }, [filters, externalIdentTypes, updateFilters, executeSearch]);
 
   // Add debounce effect for each input
-  useEffect(() => {
+  useGuardedEffect(() => {
     const handlers = externalIdentTypes.map(identType => {
       const handler = setTimeout(() => {
         const value = debouncedValues[identType.code!];
@@ -91,7 +92,7 @@ export function ExternalIdentInputs({
     });
 
     return () => handlers.forEach(cleanup => cleanup());
-  }, [debouncedValues, externalIdentTypes, updateIdentifier]);
+  }, [debouncedValues, externalIdentTypes, updateIdentifier], 'ExternalIdentInputs:debounceEffect');
 
   // Check if any identifier has a value
   const hasValues = Object.values(debouncedValues).some(value => value !== '');

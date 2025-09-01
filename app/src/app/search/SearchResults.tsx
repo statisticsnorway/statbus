@@ -1,6 +1,7 @@
 "use client";
 
-import { ReactNode, useMemo, useEffect } from "react";
+import { ReactNode, useMemo } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useTimeContext } from "@/atoms/app";
 import { useBaseData } from "@/atoms/base-data";
 import { useSearch } from "@/atoms/search";
@@ -104,7 +105,7 @@ export function SearchResults({
   const setSearchStateInitialized = useSetAtom(searchStateInitializedAtom);
 
   // Initialize Jotai search state from props and URL on mount
-  useEffect(() => {
+  useGuardedEffect(() => {
     setSearchStateInitialized(false); // Reset initialization flag
 
     // 1. Gather all SearchActions from URL parameters
@@ -190,10 +191,10 @@ export function SearchResults({
     setSearchState, setSearchStateInitialized,
     // Note: `initialUrlSearchParams` is used inside but is intentionally omitted from
     // the dependency array. Its stability is guaranteed by `initialUrlSearchParamsString`.
-  ]);
+  ], 'SearchResults:initializeSearchState');
 
   // Effect to set the initial allXxx data into Jotai state
-  useEffect(() => {
+  useGuardedEffect(() => {
     setSearchPageData({
       allRegions,
       allActivityCategories,
@@ -201,7 +202,7 @@ export function SearchResults({
       allUnitSizes,
       allDataSources,
     });
-  }, [allRegions, allActivityCategories, allStatuses, allUnitSizes, allDataSources, setSearchPageData]);
+  }, [allRegions, allActivityCategories, allStatuses, allUnitSizes, allDataSources, setSearchPageData], 'SearchResults:setSearchPageData');
 
   // SWR for data fetching, key is derived from Jotai's derivedApiSearchParamsAtom
   const derivedApiParamsString = derivedApiParamsFromJotai.toString();
@@ -214,7 +215,7 @@ export function SearchResults({
   );
   
   // Effect to sync SWR state to global Jotai searchResultAtom
-  useEffect(() => {
+  useGuardedEffect(() => {
     if (swrIsLoading) {
       setGlobalSearchResult(prev => ({ ...prev, loading: true, error: null }));
     } else if (swrError) {
@@ -232,7 +233,7 @@ export function SearchResults({
         error: null 
       });
     }
-  }, [swrData, swrError, swrIsLoading, setGlobalSearchResult]);
+  }, [swrData, swrError, swrIsLoading, setGlobalSearchResult], 'SearchResults:syncSWRtoGlobal');
 
   const currentGlobalSearchResult = useAtomValue(searchResultAtom);
   useDerivedUrlSearchParams(initialUrlSearchParamsString);

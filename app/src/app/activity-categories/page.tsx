@@ -1,5 +1,5 @@
 "use client";
-import { useEffect } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useSearchParams, useRouter } from "next/navigation";
 import { TableResultCount } from "@/components/table/table-result-count";
 import ActivityCategoryTable from "./activity-category-table";
@@ -12,7 +12,7 @@ export default function ActivityCategoryPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     const customParam = searchParams.get("custom");
     if (customParam === "true" || customParam === "false") {
       setQueries((prev) => ({ ...prev, custom: customParam === "true" }));

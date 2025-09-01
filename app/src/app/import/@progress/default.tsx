@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { NavItem } from "@/app/getting-started/@progress/nav-item";
 import { useBaseData } from "@/atoms/base-data";
 import { useImportManager } from "@/atoms/import";
@@ -10,9 +11,9 @@ import type { WorkerStatus } from "@/atoms/worker_status"; // Import the type
 
 export default function ImportStatus() {
   const [mounted, setMounted] = useState(false);
-  useEffect(() => {
+  useGuardedEffect(() => {
     setMounted(true);
-  }, []);
+  }, [], 'ImportStatus:setMounted');
 
   const {
     counts: {

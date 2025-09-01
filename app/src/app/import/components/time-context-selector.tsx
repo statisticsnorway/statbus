@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useImportManager } from "@/atoms/import";
 import { Label } from "@/components/ui/label";
 import { Tables } from "@/lib/database.types";
@@ -31,9 +32,9 @@ export function TimeContextSelector({ unitType }: TimeContextSelectorProps) {
   } = useImportManager();
 
   const [isClient, setIsClient] = useState(false);
-  useEffect(() => {
+  useGuardedEffect(() => {
     setIsClient(true);
-  }, []);
+  }, [], 'TimeContextSelector:setIsClient');
 
   const handleTimeContextChange = (value: string) => {
     setSelectedTimeContext(value);

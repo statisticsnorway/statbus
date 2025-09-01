@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
+import { useGuardedEffect } from '@/hooks/use-guarded-effect';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { clientMountedAtom } from './app';
 import { restClientAtom } from './rest-client';
@@ -31,7 +32,7 @@ export const AuthCrossTabSyncer = () => {
   const fetchAuthStatus = useSetAtom(fetchAuthStatusAtom);
   const isInitialMount = useRef(true);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     // Don't run until the client is mounted AND the REST client is ready.
     if (!clientMounted || !restClient) {
       return;

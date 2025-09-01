@@ -8,10 +8,11 @@ import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { CommandPaletteTriggerMobileMenuButton } from "@/components/command-palette/command-palette-trigger-button";
 import TimeContextSelector from "@/components/time-context-selector";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useAuth, isAuthenticatedStrictAtom, currentUserAtom } from "@/atoms/auth";
 import { useBaseData } from "@/atoms/base-data";
 import { useWorkerStatus } from "@/atoms/worker_status";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { usePathname } from "next/navigation"; // Import usePathname
 import { useAtomValue } from "jotai";
 
@@ -35,9 +36,9 @@ export default function Navbar() {
 
   const [isClient, setIsClient] = useState(false);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     setIsClient(true);
-  }, []);
+  }, [], 'Navbar:setIsClient');
 
   // isAuthenticatedAtom is false if auth is loading, so !isAuthenticated covers both cases
   if (!isClient || !isAuthenticated) { 

@@ -1,6 +1,7 @@
 "use client";
 import { DrillDown, DrillDownPoint } from "@/app/reports/types/drill-down";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import useSWR from "swr";
 import { useTimeContext } from '@/atoms/app';
 import { fetchWithAuthRefresh } from "@/context/RestClientStore";
@@ -27,9 +28,9 @@ export const useDrillDownData = () => {
 
   const cache = useMemo(() => new Map<string, DrillDown>(), []);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     cache.clear();
-  }, [cache]);
+  }, [cache], 'use-drill-down-data.tsx:clearCache');
 
   const fetcher = async (url: string) => {
     if (cache.has(url)) {

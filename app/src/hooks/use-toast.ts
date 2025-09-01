@@ -2,6 +2,7 @@
 
 // Inspired by react-hot-toast library
 import * as React from "react"
+import { useGuardedEffect } from "@/hooks/use-guarded-effect"
 
 import type {
   ToastActionElement,
@@ -174,7 +175,7 @@ function toast({ ...props }: Toast) {
 function useToast() {
   const [state, setState] = React.useState<State>(memoryState)
 
-  React.useEffect(() => {
+  useGuardedEffect(() => {
     listeners.push(setState)
     return () => {
       const index = listeners.indexOf(setState)
@@ -182,7 +183,7 @@ function useToast() {
         listeners.splice(index, 1)
       }
     }
-  }, [state])
+  }, [state], 'use-toast.ts:listener')
 
   return {
     ...state,

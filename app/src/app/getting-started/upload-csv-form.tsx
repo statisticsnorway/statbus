@@ -5,7 +5,8 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
-import React, { useEffect, useActionState } from "react";
+import React, { useActionState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { ErrorBox } from "@/components/error-box";
 import { uploadFile } from "@/app/getting-started/getting-started-server-actions";
 import type { UploadView } from "@/app/getting-started/getting-started-server-actions";
@@ -57,12 +58,12 @@ export const UploadCSVForm = ({
   );
   const router = useRouter();
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     if (state.success) {
       router.push(nextPage);
       refreshRelevantCounts();
     }
-  }, [state.success, router, nextPage, refreshRelevantCounts]);
+  }, [state.success, router, nextPage, refreshRelevantCounts], 'UploadCSVForm:redirectOnSuccess');
 
   return (
     <form action={formAction} className="bg-ssb-light p-6">

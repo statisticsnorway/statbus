@@ -1,5 +1,5 @@
 "use client";
-import { useEffect } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useSearchParams } from "next/navigation";
 import { useTimeContext } from '@/atoms/app';
 import { Tables } from '@/lib/database.types';
@@ -14,7 +14,7 @@ export default function PopStateHandler() {
   const { setSelectedTimeContext, timeContexts } = useTimeContext();
 
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     const handlePopState = () => {
       const query = new URLSearchParams(searchParams.toString());
       const tcQueryParam = query.get("tc");
@@ -36,7 +36,7 @@ export default function PopStateHandler() {
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
-  }, [searchParams, setSelectedTimeContext, timeContexts]);
+  }, [searchParams, setSelectedTimeContext, timeContexts], 'PopStateHandler:handlePopState');
 
   return null;
 }

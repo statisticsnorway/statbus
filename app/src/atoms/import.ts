@@ -47,7 +47,8 @@
  */
 
 import { atom, useAtomValue, useSetAtom } from 'jotai'
-import { useMemo, useCallback, useEffect } from 'react'
+import { useMemo, useCallback } from 'react'
+import { useGuardedEffect } from '@/hooks/use-guarded-effect'
 
 import type { Database, Enums, Tables, TablesInsert } from '@/lib/database.types'
 import { restClientAtom } from './rest-client'
@@ -433,7 +434,7 @@ export const useImportManager = () => {
     );
   }, [allTimeContextsFromBase]);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     if (currentImportState.selectedImportTimeContextIdent === null && availableImportTimeContexts.length > 0) {
       let newDefaultIdent: string | null = null;
 
@@ -459,7 +460,7 @@ export const useImportManager = () => {
     currentImportState.selectedImportTimeContextIdent, 
     doSetSelectedTimeContextIdent,
     defaultTimeContextFromBase
-  ]);
+  ], 'import.ts:useImportManager:autoSelectDefaultTimeContext');
 
   const selectedImportTimeContextObject = useMemo<Tables<'time_context'> | null>(() => {
     if (!currentImportState.selectedImportTimeContextIdent || !availableImportTimeContexts) return null;
@@ -538,11 +539,11 @@ export const usePendingJobsByMode = (mode: ImportMode) => {
     refreshJobsForMode(mode);
   }, [refreshJobsForMode, mode]);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     if (isAuthenticated && state.jobs.length === 0 && !state.loading && state.lastFetched === null) {
       refreshJobs();
     }
-  }, [isAuthenticated, state.jobs.length, state.loading, state.lastFetched, refreshJobs, mode]);
+  }, [isAuthenticated, state.jobs.length, state.loading, state.lastFetched, refreshJobs, mode], 'import.ts:usePendingJobsByMode:initialFetch');
 
   return {
     ...state,

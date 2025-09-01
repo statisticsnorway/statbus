@@ -10,7 +10,7 @@
 import { atom } from 'jotai'
 import { atomWithStorage, loadable, createJSONStorage } from 'jotai/utils'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { useEffect } from 'react'
+import { useGuardedEffect } from '@/hooks/use-guarded-effect'
 import { atomEffect } from 'jotai-effect'
 
 import type { Tables } from '@/lib/database.types'
@@ -39,11 +39,11 @@ export const useTimeContext = () => {
   const defaultTimeContext = useAtomValue(defaultTimeContextAtom)
   
   // Auto-select default if none selected and default exists
-  useEffect(() => {
+  useGuardedEffect(() => {
     if (!selectedTimeContext && defaultTimeContext) {
       setSelectedTimeContext(defaultTimeContext)
     }
-  }, [selectedTimeContext, defaultTimeContext, setSelectedTimeContext])
+  }, [selectedTimeContext, defaultTimeContext, setSelectedTimeContext], 'app.ts:useTimeContext:autoSelectDefault')
   
   return {
     selectedTimeContext,
@@ -404,11 +404,11 @@ export const isTokenManuallyExpiredAtom = atom(false);
  * Hook for debugging atom values in development
  */
 export const useAtomDebug = (atomName: string, atomValue: any) => {
-  useEffect(() => {
+  useGuardedEffect(() => {
     if (process.env.NODE_ENV === 'development') {
       console.log(`[Atom Debug] ${atomName}:`, atomValue)
     }
-  }, [atomName, atomValue])
+  }, [atomName, atomValue], `app.ts:useAtomDebug:${atomName}`)
 }
 
 export const useDebugInfo = () => {

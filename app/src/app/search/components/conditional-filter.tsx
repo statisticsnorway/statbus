@@ -6,7 +6,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import * as React from "react";
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import {
@@ -53,10 +54,10 @@ export function ConditionalFilter({
     setIsPopoverOpen(false);
   }, [operator, operand, onChange]);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     setOperator(selected?.operator ?? "eq");
     setOperand(selected?.operand ?? "");
-  }, [selected]);
+  }, [selected], 'ConditionalFilter:syncStateFromSelected');
 
   return (
     <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>

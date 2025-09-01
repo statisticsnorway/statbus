@@ -1,5 +1,5 @@
-import { useEffect } from "react";
 // import { SearchContextState } from "@/app/search/search-context"; // Removed
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useRouter } from "next/navigation";
 import { useSearch } from "@/atoms/search";
 import {
@@ -22,7 +22,7 @@ export default function useDerivedUrlSearchParams(initialUrlFromProps: string) {
   const externalIdentTypes = useAtomValue(externalIdentTypesAtom);
   const statDefinitions = useAtomValue(statDefinitionsAtom);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     if (!isSearchStateInitialized) {
       return; 
     }
@@ -107,5 +107,5 @@ export default function useDerivedUrlSearchParams(initialUrlFromProps: string) {
     initialUrlFromProps, 
     externalIdentTypes, 
     statDefinitions
-  ]);
+  ], 'useDerivedUrlSearchParams:syncUrl');
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useRouter } from "next/navigation";
 import { ResetConfirmationDialog } from "./reset-confirmation-dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -44,7 +45,7 @@ export function CommandPalette() {
   const { logout } = useAuth();
   const setStateInspectorVisible = useSetAtom(stateInspectorVisibleAtom);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     const open = () => {
       setOpen(true);
     };
@@ -67,7 +68,7 @@ export function CommandPalette() {
       document.removeEventListener("keydown", keydown);
       document.removeEventListener("toggle-command-palette", open);
     };
-  }, []);
+  }, [], 'CommandPalette:setupListeners');
 
   const handleResetAll = () => {
     setOpen(false);

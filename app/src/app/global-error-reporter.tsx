@@ -1,5 +1,5 @@
 "use client";
-import { useEffect } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import logger from "@/lib/client-logger";
 
 export default function GlobalErrorReporter() {
@@ -15,14 +15,14 @@ export default function GlobalErrorReporter() {
     );
   };
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     window.addEventListener("error", onError);
     window.addEventListener("unhandledrejection", onUnhandledRejection);
     return () => {
       window.removeEventListener("error", onError);
       window.removeEventListener("unhandledrejection", onUnhandledRejection);
     };
-  }, []);
+  }, [], 'GlobalErrorReporter:setupListeners');
 
   return null;
 }

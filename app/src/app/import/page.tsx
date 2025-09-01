@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -8,7 +9,7 @@ export default function ImportPage() {
   const router = useRouter();
   const [newJobs, setNewJobs] = useState<number[]>([]);
   
-  useEffect(() => {
+  useGuardedEffect(() => {
     let eventSource: EventSource | null = null;
     let reconnectTimer: NodeJS.Timeout | null = null;
     

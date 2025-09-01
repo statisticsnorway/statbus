@@ -1,16 +1,17 @@
 "use client";
 import { Input } from "@/components/ui/input";
 import { useSearch } from "@/atoms/search";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 
 export default function FullTextSearchFilter() {
   const { searchState, updateSearchQuery, executeSearch } = useSearch();
   const [debouncedValue, setDebouncedValue] = useState<string>(searchState.query);
 
   // Synchronize local debouncedValue with global searchState.query if it changes externally
-  useEffect(() => {
+  useGuardedEffect(() => {
     setDebouncedValue(searchState.query);
-  }, [searchState.query]);
+  }, [searchState.query], 'FullTextSearchFilter:syncDebouncedValue');
 
   const update = useCallback(
     async (value: string) => {
@@ -20,7 +21,7 @@ export default function FullTextSearchFilter() {
     [updateSearchQuery, executeSearch]
   );
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     const handler = setTimeout(() => {
       update(debouncedValue);
     }, 300); // 300ms delay
@@ -28,7 +29,7 @@ export default function FullTextSearchFilter() {
     return () => {
       clearTimeout(handler);
     };
-  }, [debouncedValue, update]);
+  }, [debouncedValue, update], 'FullTextSearchFilter:debounceEffect');
 
   return (
     <Input

@@ -3,7 +3,8 @@ import { getBrowserRestClient } from "@/context/RestClientStore";
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { AlertTriangle } from "lucide-react";
 import { useTimeContext } from '@/atoms/app';
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { PostgrestError } from "@supabase/postgrest-js";
 
 export const MissingRegionCard = () => {
@@ -11,7 +12,7 @@ export const MissingRegionCard = () => {
 
   const [data, setData] = useState<{ count: number | null; error: PostgrestError | null }>({ count: null, error: null });
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     const fetchData = async (validOn: string) => {
       const client = await getBrowserRestClient();
       const { count, error } = await client
@@ -34,7 +35,7 @@ export const MissingRegionCard = () => {
     };
 
     fetchDataAsync();
-  }, [selectedTimeContext]);
+  }, [selectedTimeContext], 'MissingRegionCard:fetchData');
 
   const { count, error } = data;
 

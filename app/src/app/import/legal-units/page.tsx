@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useRouter } from "next/navigation";
 import { useImportManager, usePendingJobsByMode } from "@/atoms/import"; // Updated import
 import { ImportJobCreator } from "../components/import-job-creator";
@@ -26,18 +27,18 @@ export default function LegalUnitsPage() {
   const [isClient, setIsClient] = useState(false);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     setIsClient(true);
-  }, []);
+  }, [], 'UploadLegalUnitsPage:setClient');
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     if (!isLoading) {
       setHasLoadedOnce(true);
     }
-  }, [isLoading]);
+  }, [isLoading], 'UploadLegalUnitsPage:setHasLoadedOnce');
 
   // Listen for any job updates and refresh the pending list
-  useEffect(() => {
+  useGuardedEffect(() => {
     // We connect after the initial load. If there are jobs, we listen for
     // updates to them. We always listen for new INSERTs.
     if (isLoading) return;
@@ -72,10 +73,10 @@ export default function LegalUnitsPage() {
     };
   }, [refreshJobs, isLoading, pendingJobs]);
 
-  // The useEffect in usePendingJobsByPattern handles initial fetch.
+  // The useGuardedEffect in usePendingJobsByPattern handles initial fetch.
   // If a manual refresh on mount is still desired for some reason, it can be added here,
   // but typically the hook's internal logic should suffice.
-  // useEffect(() => {
+  // useGuardedEffect(() => {
   //   refreshJobs();
   // }, [refreshJobs]); // This might cause a double fetch if the hook also fetches.
 

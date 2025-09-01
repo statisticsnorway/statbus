@@ -1,6 +1,7 @@
 "use client";
 
-import React, { Suspense, useEffect, ReactNode, useState, useRef } from 'react';
+import React, { Suspense, ReactNode, useState, useRef } from 'react';
+import { useGuardedEffect } from '@/hooks/use-guarded-effect';
 import { Provider, atom, useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { atomWithRefresh, loadable, atomWithStorage } from 'jotai/utils';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
@@ -382,14 +383,14 @@ const LocalRedirectHandler: React.FC = () => {
   const [redirectPath, setRedirectPath] = useAtom(localPendingRedirectAtom);
   const setLastIntentionalPath = useSetAtom(lastIntentionalPathAtom);
   const router = useRouter();
-  useEffect(() => {
+  useGuardedEffect(() => {
     if (redirectPath) {
       log(`LocalRedirectHandler: Detected redirectPath: "${redirectPath}". Navigating...`);
       setLastIntentionalPath(redirectPath);
       router.push(redirectPath);
       setRedirectPath(null);
     }
-  }, [redirectPath, router, setRedirectPath, setLastIntentionalPath]);
+  }, [redirectPath, router, setRedirectPath, setLastIntentionalPath], 'JotaiRefPage:LocalRedirectHandler');
   return null;
 };
 
@@ -520,7 +521,7 @@ const LocalAppInitializer: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [lastSyncTs, setLastSyncTs] = useAtom(lastSyncTimestampAtom);
 
   // Effect to initialize the REST client
-  useEffect(() => {
+  useGuardedEffect(() => {
     log('LocalAppInitializer: Mount/Effect for client initialization.');
     let mounted = true;
     const initialize = async () => {
@@ -552,10 +553,10 @@ const LocalAppInitializer: React.FC<{ children: ReactNode }> = ({ children }) =>
       log('LocalAppInitializer: Unmount/Cleanup for client initialization.');
       mounted = false;
     };
-  }, [setLocalRestClient, setLocalClientInitFailed, setClientMounted]);
+  }, [setLocalRestClient, setLocalClientInitFailed, setClientMounted], 'JotaiRefPage:initializeClient');
 
   // useEffect for auto-refresh logic
-  useEffect(() => {
+  useGuardedEffect(() => {
     if (!clientMounted || authStatus.loading || initialAuthFlowCompleted) {
       log('LocalAppInitializer: Auto-refresh check skipped.', { clientMounted, loading: authStatus.loading, initialAuthFlowCompleted });
       return;
@@ -570,10 +571,10 @@ const LocalAppInitializer: React.FC<{ children: ReactNode }> = ({ children }) =>
         log('LocalAppInitializer: Auto-refresh failed.', e);
       });
     }
-  }, [clientMounted, authStatus, autoRefreshEnabled, initialAuthFlowCompleted, setInitialAuthFlowCompleted, performRefresh]);
+  }, [clientMounted, authStatus, autoRefreshEnabled, initialAuthFlowCompleted, setInitialAuthFlowCompleted, performRefresh], 'JotaiRefPage:autoRefreshLogic');
 
   // useEffect for initial fetch and cross-tab synchronization
-  useEffect(() => {
+  useGuardedEffect(() => {
     // Don't run until the client is mounted, to ensure authChangeTimestamp is hydrated from storage.
     if (!clientMounted) {
       return;
@@ -589,7 +590,7 @@ const LocalAppInitializer: React.FC<{ children: ReactNode }> = ({ children }) =>
     } else {
       log('LocalAppInitializer: Timestamp is the same, no action needed.');
     }
-  }, [clientMounted, authChangeTimestamp, lastSyncTs, setLastSyncTs, fetchAuthStatus]);
+  }, [clientMounted, authChangeTimestamp, lastSyncTs, setLastSyncTs, fetchAuthStatus], 'JotaiRefPage:crossTabSync');
 
   return <>{children}</>;
 };
@@ -599,7 +600,7 @@ const UrlCleaner: React.FC = () => {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [lastIntentionalPath, setLastIntentionalPath] = useAtom(lastIntentionalPathAtom);
-  useEffect(() => {
+  useGuardedEffect(() => {
     const eventParam = searchParams.get('event');
     const tsParam = searchParams.get('ts');
     const currentQueryString = searchParams.toString();
@@ -614,7 +615,7 @@ const UrlCleaner: React.FC = () => {
         setLastIntentionalPath(currentActualPath);
       }
     }
-  }, [pathname, searchParams, lastIntentionalPath, setLastIntentionalPath, router]);
+  }, [pathname, searchParams, lastIntentionalPath, setLastIntentionalPath, router], 'JotaiRefPage:UrlCleaner');
   return null;
 };
 

@@ -2,7 +2,8 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import useSWR, { useSWRConfig } from 'swr';
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { Spinner } from "@/components/ui/spinner";
@@ -175,7 +176,7 @@ export default function ImportJobsPage() {
   // Memoize the job IDs string to prevent re-renders from creating a new SSE connection.
   const jobIdsForSSE = useMemo(() => jobsData.map(job => job.id).join(','), [jobsData]);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     // We wait for the initial load to complete before establishing the SSE connection.
     // This ensures we have the list of jobs to get UPDATES for.
     // If jobsData is empty after loading, we still connect to get INSERTs.
@@ -248,13 +249,13 @@ export default function ImportJobsPage() {
     return () => {
       eventSourceRef.current?.close();
     };
-  }, [isLoading, mutate, swrKey, jobIdsForSSE]);
+  }, [isLoading, mutate, swrKey, jobIdsForSSE], 'ImportJobsPage:sseListener');
 
   // Ref to hold the current SWR key, allows handleDeleteJobs to be stable
   const swrKeyRef = useRef(swrKey);
-  useEffect(() => {
+  useGuardedEffect(() => {
     swrKeyRef.current = swrKey;
-  }, [swrKey]);
+  }, [swrKey], 'ImportJobsPage:updateSwrKeyRef');
 
   const handleDeleteJobs = React.useCallback(async (jobIds: number[]) => {
     if (!window.confirm(`Are you sure you want to delete ${jobIds.length} job(s)? This action cannot be undone.`)) {

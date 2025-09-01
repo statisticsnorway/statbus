@@ -14,6 +14,7 @@ import { ColumnDef, PaginationState, SortingState, ColumnFiltersState } from "@t
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ChevronRight } from "lucide-react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useAtomValue } from "jotai";
 import { externalIdentTypesAtom } from "@/atoms/base-data";
 import { type ImportJobWithDetails as ImportJob } from "@/atoms/import";
@@ -157,7 +158,7 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
     { revalidateOnFocus: false, keepPreviousData: true }
   );
 
-  React.useEffect(() => {
+  useGuardedEffect(() => {
     if (!job?.id) return;
 
     const sseUrl = `/api/sse/import-jobs?ids=${job.id}&scope=updates_for_ids_only`;
@@ -209,7 +210,7 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
     return () => {
       eventSource.close();
     };
-  }, [job?.id, jobSlug, tableDataSWRKey, mutate]);
+  }, [job?.id, jobSlug, tableDataSWRKey, mutate], 'ImportJobDataPage:sseListener');
 
   const pageCount = React.useMemo(() => {
     return tableData?.count != null

@@ -1,6 +1,7 @@
 "use client"; // Make this a client component to use hooks
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import LogoutForm from "./LogoutForm";
 import { logger } from "@/lib/client-logger";
 import { useAuth } from "@/atoms/auth"; // Use Jotai hook for auth state
@@ -9,9 +10,9 @@ export default function ProfilePage() {
   const [isMounted, setIsMounted] = useState(false);
   const { isAuthenticated, user, loading: authLoading } = useAuth();
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     setIsMounted(true);
-  }, []);
+  }, [], 'ProfilePage:setMounted');
 
   // The redirect for unauthenticated users and associated logging is now handled
   // declaratively by the centralized NavigationManager. This component no longer

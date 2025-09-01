@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useAuth } from "@/atoms/auth";
 import { useRouter } from "next/navigation";
 
@@ -14,9 +15,9 @@ export default function LoginForm({ nextPath }: LoginFormProps) {
   const emailInputRef = useRef<HTMLInputElement>(null);
   const [displayError, setDisplayError] = useState<string | null>(null);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     emailInputRef.current?.focus();
-  }, []);
+  }, [], 'LoginForm:focusEmailInput');
 
   // Map error codes to user-friendly messages
   const loginErrorMessages: Record<string, string> = {
@@ -30,7 +31,7 @@ export default function LoginForm({ nextPath }: LoginFormProps) {
   };
 
   // Effect to translate the error from the atom into a displayable message.
-  useEffect(() => {
+  useGuardedEffect(() => {
     if (loginError) {
       const errorCode = loginError.code;
       const message = errorCode && loginErrorMessages[errorCode] 
@@ -41,7 +42,7 @@ export default function LoginForm({ nextPath }: LoginFormProps) {
     } else {
       setDisplayError(null);
     }
-  }, [loginError]);
+  }, [loginError], 'LoginForm:displayLoginError');
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { Button } from "@/components/ui/button";
 import { Pencil } from "lucide-react";
 import { Input } from "../ui/input";
@@ -32,29 +33,29 @@ export const EditableField = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     // Focus the input when entering edit mode
     if (isEditing && inputRef.current) {
       inputRef.current.focus();
       const length = inputRef.current.value.length;
       inputRef.current.setSelectionRange(length, length);
     }
-  }, [isEditing]);
+  }, [isEditing], 'EditableField:focusOnEdit');
 
   const hasUnsavedChanges = currentValue !== (value ?? "");
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     if (!isEditing) {
       setCurrentValue(value ?? "");
     }
-  }, [value, isEditing]);
+  }, [value, isEditing], 'EditableField:syncValue');
 
   // Handle successful save — exit edit mode
-  useEffect(() => {
+  useGuardedEffect(() => {
     if (response?.status === "success" && isEditing) {
       exitEditMode();
     }
-  }, [response, isEditing, exitEditMode]);
+  }, [response, isEditing, exitEditMode], 'EditableField:exitOnSuccess');
 
   const triggerFormSubmit = () => {
     formRef.current?.requestSubmit();

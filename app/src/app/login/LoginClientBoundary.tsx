@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useSearchParams, usePathname } from "next/navigation";
 import { useAtomValue, useSetAtom, useAtom } from "jotai";
 import { authMachineAtom, loginPageMachineAtom } from "@/atoms/auth";
@@ -22,9 +23,9 @@ import LoginForm from "./LoginForm";
  */
 export default function LoginClientBoundary() {
   const [isMounted, setIsMounted] = useState(false);
-  useEffect(() => {
+  useGuardedEffect(() => {
     setIsMounted(true);
-  }, []);
+  }, [], 'LoginClientBoundary:setMounted');
 
   const searchParams = useSearchParams();
   const nextPath = searchParams.get('next');
@@ -37,7 +38,7 @@ export default function LoginClientBoundary() {
   // This logic is now fully centralized within the navigationMachine to
   // prevent race conditions and infinite loops.
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     // On every render, send the latest context to the UI state machine.
     // This allows the machine to react to changes in auth status or path.
     const isOnLoginPage = pathname === '/login';
@@ -48,7 +49,7 @@ export default function LoginClientBoundary() {
       type: 'EVALUATE',
       context: { isOnLoginPage, isAuthenticated, isLoggingIn }
     });
-  }, [pathname, authState, sendLoginPage]);
+  }, [pathname, authState, sendLoginPage], 'LoginClientBoundary:sendContextToMachine');
 
   if (!isMounted) {
     // During SSR and initial client render, render nothing to prevent hydration mismatch.

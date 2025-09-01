@@ -17,7 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { Enums } from "@/lib/database.types";
@@ -33,7 +34,7 @@ export function ResetConfirmationDialog() {
   const setGettingStartedUIState = useSetAtom(gettingStartedUIStateAtom);
   const setSelectedTimeContext = useSetAtom(selectedTimeContextAtom);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     const showDialog = () => {
       setOpen(true);
     };
@@ -42,7 +43,7 @@ export function ResetConfirmationDialog() {
     return () => {
       document.removeEventListener('show-reset-dialog', showDialog);
     };
-  }, []);
+  }, [], 'ResetConfirmationDialog:showDialogListener');
   const [open, setOpen] = useState(false);
   const [scope, setScope] = useState<Enums<"reset_scope">>('data');
   const [isLoading, setIsLoading] = useState(false);

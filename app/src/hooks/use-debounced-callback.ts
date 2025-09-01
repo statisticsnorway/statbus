@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 
 import { useCallbackRef } from "@/hooks/use-callback-ref";
 
@@ -8,9 +9,10 @@ export function useDebouncedCallback<T extends (...args: never[]) => unknown>(
 ) {
   const handleCallback = useCallbackRef(callback);
   const debounceTimerRef = React.useRef(0);
-  React.useEffect(
+  useGuardedEffect(
     () => () => window.clearTimeout(debounceTimerRef.current),
     [],
+    'use-debounced-callback.ts:clearTimeoutOnUnmount'
   );
 
   const setValue = React.useCallback(

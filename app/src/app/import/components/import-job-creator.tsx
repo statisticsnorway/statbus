@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useRouter } from "next/navigation";
 import { useImportManager, ImportMode } from "@/atoms/import"; // Updated import
 import { Button } from "@/components/ui/button";
@@ -25,9 +26,9 @@ export function ImportJobCreator({ importMode, uploadPath, unitType, onJobCreate
   const router = useRouter();
 
   // Load the definition for this import mode when the component mounts
-  React.useEffect(() => {
+  useGuardedEffect(() => {
     loadDefinitions(importMode);
-  }, [loadDefinitions, importMode]);
+  }, [loadDefinitions, importMode], 'ImportJobCreator:loadDefinitions');
 
   const { useExplicitDates, explicitStartDate, explicitEndDate, selectedDefinition } = importState;
   const { selectedContext } = timeContext;

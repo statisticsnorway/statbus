@@ -6,7 +6,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { InfoBox } from "@/components/info-box";
 import { useImportManager, usePendingJobsByMode } from "@/atoms/import"; // Updated import
 import { TimeContextSelector } from "../components/time-context-selector";
@@ -26,18 +27,18 @@ export default function UploadEstablishmentsWithoutLegalUnitPage() {
   const [isClient, setIsClient] = useState(false);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     setIsClient(true);
-  }, []);
+  }, [], 'UploadInformalEstablishmentsPage:setClient');
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     if (!isLoading) {
       setHasLoadedOnce(true);
     }
-  }, [isLoading]);
+  }, [isLoading], 'UploadInformalEstablishmentsPage:setHasLoadedOnce');
 
   // Listen for any job updates and refresh the pending list
-  useEffect(() => {
+  useGuardedEffect(() => {
     // We connect after the initial load. If there are jobs, we listen for
     // updates to them. We always listen for new INSERTs.
     if (isLoading) return;
@@ -69,7 +70,7 @@ export default function UploadEstablishmentsWithoutLegalUnitPage() {
     return () => {
       eventSource.close();
     };
-  }, [refreshJobs, isLoading, pendingJobs]);
+  }, [refreshJobs, isLoading, pendingJobs], 'UploadInformalEstablishmentsPage:sseListener');
 
   // The useEffect in usePendingJobsByPattern handles initial fetch.
 

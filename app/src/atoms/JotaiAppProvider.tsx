@@ -7,7 +7,8 @@
  * and handles app initialization without complex useEffect chains.
  */
 
-import React, { Suspense, useEffect, ReactNode, useState } from 'react';
+import React, { Suspense, ReactNode, useState } from 'react';
+import { useGuardedEffect } from '@/hooks/use-guarded-effect';
 import { Provider, useAtom } from 'jotai';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
@@ -112,23 +113,23 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   // isRedirectingToSetup flag is removed as RedirectHandler manages actual navigation.
   
   // Effect to signal that the client has mounted. This helps prevent hydration issues.
-  useEffect(() => {
+  useGuardedEffect(() => {
     setClientMounted(true);
-  }, [setClientMounted]);
+  }, [setClientMounted], 'JotaiAppProvider.tsx:AppInitializer:setClientMounted');
 
   // Effect to perform one-time actions after the client has mounted.
-  useEffect(() => {
+  useGuardedEffect(() => {
     if (clientMounted) {
       // The unification is now handled declaratively by journalUnificationEffectAtom.
       // We only need to log the reload event here.
       logReload();
     }
-  }, [clientMounted, logReload]);
+  }, [clientMounted, logReload], 'JotaiAppProvider.tsx:AppInitializer:logReload');
 
   // Effect to establish when the first successful authentication check has completed.
   // This creates a stable "app is ready" signal for other components like RedirectGuard,
   // preventing them from acting on transient, intermediate auth states.
-  useEffect(() => {
+  useGuardedEffect(() => {
     // If we've already completed the check, we're done here.
     if (initialAuthCheckCompleted) {
       return;
@@ -138,12 +139,12 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
     if (!authStatusDetails.loading) {
       setInitialAuthCheckCompleted(true);
     }
-  }, [authStatusDetails.loading, initialAuthCheckCompleted, setInitialAuthCheckCompleted]);
+  }, [authStatusDetails.loading, initialAuthCheckCompleted, setInitialAuthCheckCompleted], 'JotaiAppProvider.tsx:AppInitializer:setInitialAuthCheckCompleted');
 
   // The state machine now handles proactive token refreshes. This useEffect is no longer needed.
 
   // Initialize REST client
-  useEffect(() => {
+  useGuardedEffect(() => {
     let mounted = true
     const initializeClient = async () => {
       try {
@@ -173,18 +174,18 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
     return () => {
       mounted = false
     }
-  }, [setRestClient])
+  }, [setRestClient], 'JotaiAppProvider.tsx:AppInitializer:initializeRestClient')
 
   const [, sendAuth] = useAtom(authMachineAtom);
   // Effect to inform the auth machine when the REST client is ready.
-  useEffect(() => {
+  useGuardedEffect(() => {
     if (restClient) {
       sendAuth({ type: 'CLIENT_READY', client: restClient });
     } else {
       // This could happen if the client fails to initialize.
       sendAuth({ type: 'CLIENT_UNREADY' });
     }
-  }, [restClient, sendAuth]);
+  }, [restClient, sendAuth], 'JotaiAppProvider.tsx:AppInitializer:sendClientReadyToAuthMachine');
   
   // The useEffect that previously set authStatusInitiallyCheckedAtom is removed.
   // Its logic is now handled by initialAuthCheckDoneEffect from jotai-effect.
@@ -192,14 +193,14 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   const [appDataInitialized, setAppDataInitialized] = useState(false);
 
   // Initialize app data when authenticated, not loading, and client is ready
-  useEffect(() => {
+  useGuardedEffect(() => {
     let mounted = true;
 
     const initializeApp = async () => {
-      // Core conditions: user must be authenticated and REST client ready.
-      // We use the new, stabilized `isAuthenticated` atom here to prevent the
-      // "auth flap" from disrupting the initial data load.
-      if (!isAuthenticated || !restClient) {
+      // Core conditions: user must be authenticated, REST client ready, and the
+      // initial authentication check must have completed. This prevents race
+      // conditions where data is fetched before the token is refreshed.
+      if (!isAuthenticated || !restClient || !initialAuthCheckCompleted) {
         return;
       }
 
@@ -238,8 +239,9 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
     isAuthenticated,
     restClient,
     appDataInitialized,
-    refreshUnitCounts
-  ]);
+    refreshUnitCounts,
+    initialAuthCheckCompleted
+  ], 'JotaiAppProvider.tsx:AppInitializer:initializeApp');
 
   // "Getting Started" redirect logic is removed.
   // The dashboard will now load if auth and base data are ready.
@@ -247,14 +249,14 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   // by the dashboard page or its components.
 
   // Effect to initialize/update table columns when statDefinitions change
-  useEffect(() => {
+  useGuardedEffect(() => {
     // Only run if statDefinitions have been loaded.
     if (statDefinitions.length > 0) {
       initializeTableColumnsAction();
     }
     // This effect will re-run if statDefinitions array reference changes,
     // or if initializeTableColumnsAction (the atom setter function reference) changes (which is unlikely).
-  }, [statDefinitions, initializeTableColumnsAction]);
+  }, [statDefinitions, initializeTableColumnsAction], 'JotaiAppProvider.tsx:AppInitializer:initializeTableColumns');
 
 
   // The guard that showed a loading fallback when navState was not 'idle' has
@@ -280,7 +282,7 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
   const refreshInitialWorkerStatus = useSetAtom(refreshWorkerStatusAtom)
   const setWorkerStatus = useSetAtom(setWorkerStatusAtom);
   
-  useEffect(() => {
+  useGuardedEffect(() => {
     // Connect SSE only when the user is in a strict, stable authenticated state.
     // Using the strict `isAuthenticatedAtom` (which is false during token refresh)
     // prevents the connection from being established with an expired token,
@@ -350,7 +352,7 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
         eventSource.close()
       }
     }
-  }, [isAuthenticated, refreshInitialWorkerStatus, setWorkerStatus])
+  }, [isAuthenticated, refreshInitialWorkerStatus, setWorkerStatus], 'JotaiAppProvider.tsx:SSEConnectionManager:connect')
   
   return <>{children}</>
 }
@@ -393,9 +395,9 @@ const PageContentGuardInner = ({ children, loadingFallback }: { children: ReactN
 const PageContentGuard = ({ children, loadingFallback }: { children: ReactNode, loadingFallback: ReactNode }) => {
   const [isMounted, setIsMounted] = useState(false);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     setIsMounted(true);
-  }, []);
+  }, [], 'JotaiAppProvider.tsx:PageContentGuard:setMounted');
 
   // On server, and on initial client render, isMounted is false, so we render
   // the fallback. This guarantees the server and client match.
@@ -424,7 +426,7 @@ const AppLoadingFallback = () => (
 const ErrorBoundary = ({ children }: { children: ReactNode }) => {
   const [hasError, setHasError] = React.useState(false)
   
-  useEffect(() => {
+  useGuardedEffect(() => {
     const handleError = (event: ErrorEvent) => {
       console.error('Global error caught by ErrorBoundary:', {
         message: event.message,
@@ -438,7 +440,7 @@ const ErrorBoundary = ({ children }: { children: ReactNode }) => {
     
     window.addEventListener('error', handleError)
     return () => window.removeEventListener('error', handleError)
-  }, [])
+  }, [], 'JotaiAppProvider.tsx:ErrorBoundary:handleError')
   
   if (hasError) {
     return (

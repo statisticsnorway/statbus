@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { Spinner } from "@/components/ui/spinner";
 import { useBaseData, refreshBaseDataAtom } from "@/atoms/base-data";
 import { useWorkerStatus } from "@/atoms/worker_status";
@@ -14,9 +15,9 @@ export function StatisticalUnitsRefresher({
   children: React.ReactNode;
 }) {
   const [mounted, setMounted] = useState(false);
-  useEffect(() => {
+  useGuardedEffect(() => {
     setMounted(true);
-  }, []);
+  }, [], 'StatisticalUnitsRefresher:setMounted');
 
   const actualVisualState = useAtomValue(analysisPageVisualStateAtom);
   
@@ -35,7 +36,7 @@ export function StatisticalUnitsRefresher({
   const doRefreshBaseData = useSetAtom(refreshBaseDataAtom);
   const refreshAttemptedRef = useRef(false);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     if (!mounted) { // Don't run the effect's logic until mounted
       return;
     }
@@ -60,7 +61,7 @@ export function StatisticalUnitsRefresher({
       doRefreshBaseData();
       refreshAttemptedRef.current = true;
     }
-  }, [mounted, workerStatus, hasStatisticalUnits, doRefreshBaseData]); // Added mounted to dependencies
+  }, [mounted, workerStatus, hasStatisticalUnits, doRefreshBaseData], 'StatisticalUnitsRefresher:triggerRefresh'); // Added mounted to dependencies
 
   if (state === "checking_status") {
     return (

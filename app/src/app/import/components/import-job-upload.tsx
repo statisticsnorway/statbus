@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -38,7 +39,7 @@ export function ImportJobUpload({
   // for ensuring the job is loaded into the context.
 
   // Effect to navigate when the job (passed as prop) finishes successfully
-  useEffect(() => {
+  useGuardedEffect(() => {
     const handleFinishedJob = async () => {
       if (job?.state === "finished") {
         if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
@@ -54,7 +55,7 @@ export function ImportJobUpload({
     handleFinishedJob();
     // Add refreshRelevantCounts to the dependency array.
     // Ensure it's memoized in the parent component to avoid unnecessary effect runs.
-  }, [job?.state, job?.slug, nextPage, router, refreshRelevantCounts]);
+  }, [job?.state, job?.slug, nextPage, router, refreshRelevantCounts], 'ImportJobUpload:handleFinishedJob');
 
   const handleUpload = useCallback(async (fileToUpload: File) => {
     if (!fileToUpload || !job) return;

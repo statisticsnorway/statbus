@@ -1,6 +1,7 @@
 "use client"; // Convert to client component
 
-import { useEffect, useState } from "react"; // Import useState
+import { useState } from "react"; // Import useState
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useAtomValue } from "jotai";
 import { appReadyAtom } from "@/atoms/app";
 import Dashboard from "@/app/dashboard/page";
@@ -22,7 +23,7 @@ export default function HomePage() {
   const appReadyState = useAtomValue(appReadyAtom);
   const [isMounted, setIsMounted] = useState(false);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     setIsMounted(true);
     // Optionally set document title if client-side updates are preferred for SPA feel
     // document.title = `${deploymentSlotName} Statbus | Home`;

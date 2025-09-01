@@ -1,5 +1,6 @@
 import { DrillDownPoint } from "@/app/reports/types/drill-down";
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import type { Chart } from "highcharts";
 import { chart } from "highcharts";
 
@@ -24,7 +25,7 @@ export const DrillDownChart = ({
   const _ref = useRef<HTMLDivElement>(null);
   const _chart = useRef<Chart | null>(null);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     if (_ref.current) {
       _chart.current?.destroy();
       _chart.current = chart({
@@ -105,7 +106,7 @@ export const DrillDownChart = ({
         ],
       });
     }
-  }, [points, onSelect, variable, title, maxTopLevelValue]);
+  }, [points, onSelect, variable, title, maxTopLevelValue], 'DrillDownChart:createChart');
 
   return <div ref={_ref} />;
 };

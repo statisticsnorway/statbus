@@ -27,38 +27,34 @@ export const LOOP_DETECTION_WINDOW_MS = 500 // ...within 500ms is considered a l
  * It works by creating an error and parsing the stack trace.
  * NOTE: Stack trace formats are not standardized and may vary by browser.
  */
-function getCallerInfo(): string {
+function getCallerInfo(): { info: string; stack?: string } {
   try {
-    const err = new Error()
-    const stackLines = (err.stack || '').split('\n')
-    const hookFileName = 'use-guarded-effect.ts'
+    const err = new Error();
+    const stack = err.stack || '';
+    const lines = stack.split('\n');
+    const hookFileName = 'use-guarded-effect.ts';
 
-    // Find the index of the last line in the stack trace from this file.
-    let lastHookLineIndex = -1
-    for (let i = 0; i < stackLines.length; i++) {
-      if (stackLines[i].includes(hookFileName)) {
-        lastHookLineIndex = i
+    // Find the first line in the stack trace that is NOT from our hook file.
+    for (const line of lines) {
+      if (line.includes(hookFileName) || line.trim().startsWith('Error')) {
+        continue;
       }
-    }
 
-    // The caller should be the next line in the stack.
-    if (lastHookLineIndex !== -1 && lastHookLineIndex + 1 < stackLines.length) {
-      const callerLine = stackLines[lastHookLineIndex + 1]
-      // Try to extract a clean file path, e.g., "at MyComponent (src/MyComponent.tsx:42:5)"
-      const match = callerLine.match(/\(([^)]+)\)/) // Content in parentheses
+      const callerLine = line.trim();
+      const match = callerLine.match(/\(([^)]+)\)/);
       if (match && match[1]) {
-        // Clean up webpack-internal prefix for readability.
-        return match[1].replace('webpack-internal:///.', '')
+        return { info: match[1].replace('webpack-internal:///.', ''), stack };
       }
-      const atMatch = callerLine.match(/at (.*)/) // Content after "at "
+      const atMatch = callerLine.match(/at (.*)/);
       if (atMatch && atMatch[1]) {
-        return atMatch[1]
+        return { info: atMatch[1], stack };
       }
-      return callerLine.trim() // Fallback to the full line.
+      return { info: callerLine, stack };
     }
-    return '(Could not automatically determine caller)'
+    
+    return { info: '(Could not automatically determine caller)', stack };
   } catch (e) {
-    return '(Error getting caller information)'
+    return { info: '(Error getting caller information)' };
   }
 }
 
@@ -83,7 +79,9 @@ function useGuardedEffectEnabled(
   }, [effect])
 
   if (!identifier && !idRef.current) {
-    idRef.current = `unidentified-effect-${unidentifiedEffectCounter++}`
+    const { info: callerInfo } = getCallerInfo();
+    // Append a counter to ensure uniqueness even if multiple effects are on the same line
+    idRef.current = `${callerInfo} #${unidentifiedEffectCounter++}`;
   }
   const finalIdentifier = identifier || idRef.current!
 
@@ -138,13 +136,19 @@ function useGuardedEffectEnabled(
       })
 
       if (recentTimestamps.length > LOOP_DETECTION_THRESHOLD) {
-        const callerInfo = getCallerInfo()
+        const { info: callerInfo, stack } = getCallerInfo()
         // eslint-disable-next-line no-console
         console.error(
           `HALTED: Infinite loop detected in effect identified as "${finalIdentifier}".\n` +
             `Probable source: ${callerInfo}\n` +
             `The effect was called ${recentTimestamps.length} times in the last ${LOOP_DETECTION_WINDOW_MS}ms.`,
         )
+        // In production builds, the caller info might be cryptic. Log the full stack
+        // to give the developer more context to trace the origin of the effect.
+        if (stack) {
+          // eslint-disable-next-line no-console
+          console.log("Full stack trace for debugging:", stack);
+        }
         setHaltedEffects((prev: ReadonlySet<string>) => {
           const newHalted = new Set(prev)
           newHalted.add(finalIdentifier)

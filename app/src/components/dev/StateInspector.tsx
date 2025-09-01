@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { usePathname } from 'next/navigation';
 
@@ -134,11 +134,11 @@ export const StateInspector = () => {
   const [navState] = useAtom(navigationMachineAtom);
   const journalContainerRef = React.useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     if (journalContainerRef.current) {
       journalContainerRef.current.scrollTop = journalContainerRef.current.scrollHeight;
     }
-  }, [journal]);
+  }, [journal], 'StateInspector.tsx:autoScrollJournal');
 
   // Atoms for general state
   const authStatusDetailsValue = useAtomValue(authStatusDetailsAtom);
@@ -208,11 +208,11 @@ export const StateInspector = () => {
     refreshToken();
   };
     
-  useEffect(() => {
+  useGuardedEffect(() => {
     setMounted(true);
-  }, []);
+  }, [], 'StateInspector.tsx:setMounted');
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.key === 'k' || e.key === 'K') && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
         e.preventDefault();
@@ -221,7 +221,7 @@ export const StateInspector = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [setIsVisible]);
+  }, [setIsVisible], 'StateInspector.tsx:keydownListener');
 
   const baseDataState = baseDataFromAtom.loading ? 'loading' : baseDataFromAtom.error ? 'hasError' : 'hasData';
   const authDerivedState = authStatusDetailsValue.loading ? 'loading' : authStatusDetailsValue.error_code ? 'hasError' : 'hasData';
@@ -474,7 +474,11 @@ export const StateInspector = () => {
                         </div>
                       </div>
                       {Array.from(triggeredEffects)
-                        .sort()
+                        .sort((a, b) => {
+                          const countA = callCounts.get(a) || 0;
+                          const countB = callCounts.get(b) || 0;
+                          return countB - countA;
+                        })
                         .map((effectId) => {
                           const count = callCounts.get(effectId) || 0;
                           const recentCount =

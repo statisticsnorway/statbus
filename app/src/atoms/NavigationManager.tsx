@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
+import { useGuardedEffect } from '@/hooks/use-guarded-effect';
 import { useAtomValue, useSetAtom, useAtom } from 'jotai';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 
@@ -46,7 +47,7 @@ export const NavigationManager = () => {
   const isInspectorVisible = useAtomValue(stateInspectorVisibleAtom);
 
   // Effect to send context updates to the machine on every render
-  useEffect(() => {
+  useGuardedEffect(() => {
     if (!clientMounted) return;
 
     const context: Partial<Omit<NavigationContext, 'sideEffect'>> = {
@@ -72,10 +73,10 @@ export const NavigationManager = () => {
     lastKnownPath,
     send,
     isInspectorVisible,
-  ]);
+  ], 'NavigationManager:sendContextUpdates');
 
   // Effect to perform side-effects based on the machine's state
-  useEffect(() => {
+  useGuardedEffect(() => {
     // This effect should only run when the machine's state value changes.
     // We use a ref to prevent re-subscribing on every render.
     if (stateRef.current !== state) {
@@ -100,7 +101,7 @@ export const NavigationManager = () => {
     } else if (action === 'clearLastKnownPath') {
       setLastKnownPath(null);
     }
-  }, [state, pathname, search, router, setLastKnownPath, sendAuth]);
+  }, [state, pathname, search, router, setLastKnownPath, sendAuth], 'NavigationManager:performSideEffects');
 
   return null;
 };
