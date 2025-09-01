@@ -7,6 +7,7 @@
  */
 
 import { atom } from 'jotai'
+import { selectAtom } from 'jotai/utils'
 
 import { workerStatusAtom } from './worker_status'
 import { hasStatisticalUnitsAtom } from './base-data'
@@ -24,7 +25,7 @@ export interface AnalysisPageVisualState {
   isDerivingReports: boolean | null;
 }
 
-export const analysisPageVisualStateAtom = atom<AnalysisPageVisualState>((get) => {
+const analysisPageVisualStateAtomUnstable = atom<AnalysisPageVisualState>((get) => {
   const workerStatus = get(workerStatusAtom); // Reads the WorkerStatus interface
   const hasStatisticalUnits = get(hasStatisticalUnitsAtom);
 
@@ -71,3 +72,9 @@ export const analysisPageVisualStateAtom = atom<AnalysisPageVisualState>((get) =
     };
   }
 });
+
+export const analysisPageVisualStateAtom = selectAtom(
+  analysisPageVisualStateAtomUnstable,
+  (state) => state,
+  (a, b) => JSON.stringify(a) === JSON.stringify(b)
+);

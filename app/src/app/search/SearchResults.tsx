@@ -84,6 +84,17 @@ export function SearchResults({
 }: SearchResultsProps) {
   const { selectedTimeContext } = useTimeContext();
   const initialUrlSearchParams = useMemo(() => toURLSearchParams(initialUrlSearchParamsDict), [initialUrlSearchParamsDict]);
+  // Create a stable string representation of the URL search params.
+  // This is used as a dependency in the main useEffect to prevent an infinite loop
+  // caused by the unstable `initialUrlSearchParams` object reference, which is
+  // derived from a prop that can change on every render.
+  const initialUrlSearchParamsString = useMemo(() => {
+    const params = toURLSearchParams(initialUrlSearchParamsDict);
+    params.sort(); // Sorting is crucial for a stable string representation.
+    return params.toString();
+    // The dependency array uses stringify to create a stable primitive from the prop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(initialUrlSearchParamsDict)]);
   const { externalIdentTypes, statDefinitions } = useBaseData();
   const setSearchPageData = useSetAtom(setSearchPageDataAtom);
   const [, setSearchState] = useAtom(searchStateAtom);
@@ -172,10 +183,13 @@ export function SearchResults({
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    initialUrlSearchParams, initialOrder.name, initialOrder.direction,
+    initialUrlSearchParamsString, // Use the stable string instead of the object reference
+    initialOrder.name, initialOrder.direction,
     initialPagination.pageNumber, initialPagination.pageSize,
-    externalIdentTypes, statDefinitions, allDataSources, // Added allDataSources
-    setSearchState, setSearchStateInitialized // Jotai setters
+    externalIdentTypes, statDefinitions, allDataSources,
+    setSearchState, setSearchStateInitialized,
+    // Note: `initialUrlSearchParams` is used inside but is intentionally omitted from
+    // the dependency array. Its stability is guaranteed by `initialUrlSearchParamsString`.
   ]);
 
   // Effect to set the initial allXxx data into Jotai state
@@ -221,7 +235,6 @@ export function SearchResults({
   }, [swrData, swrError, swrIsLoading, setGlobalSearchResult]);
 
   const currentGlobalSearchResult = useAtomValue(searchResultAtom);
-  const initialUrlSearchParamsString = useMemo(() => initialUrlSearchParams.toString(), [initialUrlSearchParams]);
   useDerivedUrlSearchParams(initialUrlSearchParamsString);
 
   return (

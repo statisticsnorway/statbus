@@ -160,10 +160,12 @@ export type StatisticalUnit = Omit<Tables<"statistical_unit">, 'external_idents'
 export const selectedUnitsAtom = atom<StatisticalUnit[]>([])
 
 // Derived atoms for selection operations
-// Returns a Set of composite IDs for efficient lookup (e.g., "enterprise:123")
-export const selectedUnitIdsAtom = atom((get) =>
+// Unstable: returns a new Set object on every read. Kept private.
+const selectedUnitIdsAtomUnstable = atom((get) =>
   new Set(get(selectedUnitsAtom).map(unit => `${unit.unit_type}:${unit.unit_id}`))
 )
+// Stable: uses selectAtom with a deep equality check.
+export const selectedUnitIdsAtom = selectAtom(selectedUnitIdsAtomUnstable, (ids) => ids, isEqual);
 
 export const selectionCountAtom = atom((get) => get(selectedUnitsAtom).length);
 
@@ -285,8 +287,8 @@ export const resetSearchStateAtom = atom(
 // COMPUTED/DERIVED ATOMS (Search)
 // ============================================================================
 
-// Atom to generate the list of all available table columns, including dynamic ones
-export const availableTableColumnsAtom = atom<TableColumn[]>((get) => {
+// Unstable: returns a new array on every read. Kept private.
+const availableTableColumnsAtomUnstable = atom<TableColumn[]>((get) => {
   const statDefinitions = get(statDefinitionsAtom);
 
   const statisticColumns: AdaptableTableColumn[] = statDefinitions.map(
@@ -432,6 +434,9 @@ export const availableTableColumnsAtom = atom<TableColumn[]>((get) => {
   ];
 });
 
+// Stable: uses selectAtom with a deep equality check.
+export const availableTableColumnsAtom = selectAtom(availableTableColumnsAtomUnstable, (cols) => cols, isEqual);
+
 // Atom to initialize table columns by merging available columns with stored preferences
 export const initializeTableColumnsAtom = atom(null, (get, set) => {
   const availableColumns = get(availableTableColumnsAtom);
@@ -467,11 +472,14 @@ export const initializeTableColumnsAtom = atom(null, (get, set) => {
   set(tableColumnsAtom, mergedColumns);
 });
 
-// Atom to get only the visible columns
-export const visibleTableColumnsAtom = atom<TableColumn[]>((get) => {
+// Unstable: .filter() returns a new array on every read. Kept private.
+const visibleTableColumnsAtomUnstable = atom<TableColumn[]>((get) => {
   const allColumns = get(tableColumnsAtom);
   return allColumns.filter(col => col.type === 'Always' || (col.type === 'Adaptable' && col.visible));
 });
+
+// Stable: uses selectAtom with a deep equality check.
+export const visibleTableColumnsAtom = selectAtom(visibleTableColumnsAtomUnstable, (cols) => cols, isEqual);
 
 // Action atom to toggle a column's visibility
 export const toggleTableColumnAtom = atom(null, (get, set, columnToToggle: TableColumn) => {
@@ -486,8 +494,8 @@ export const toggleTableColumnAtom = atom(null, (get, set, columnToToggle: Table
   set(tableColumnsAtom, newColumns);
 });
 
-// Atom representing the column profiles based on current columns
-export const columnProfilesAtom = atom((get) => {
+// Unstable: returns a new object on every read. Kept private.
+const columnProfilesAtomUnstable = atom((get) => {
   const currentColumns = get(tableColumnsAtom);
   const profiles: Record<ColumnProfile, TableColumn[]> = {
     Brief: [],
@@ -506,6 +514,9 @@ export const columnProfilesAtom = atom((get) => {
   return profiles;
 });
 
+// Stable: uses selectAtom with a deep equality check.
+export const columnProfilesAtom = selectAtom(columnProfilesAtomUnstable, (profiles) => profiles, isEqual);
+
 // Action atom to set column visibility based on a profile
 export const setTableColumnProfileAtom = atom(null, (get, set, profile: ColumnProfile) => {
   const availableColumns = get(availableTableColumnsAtom); // Use defaults to reset structure
@@ -518,8 +529,8 @@ export const setTableColumnProfileAtom = atom(null, (get, set, profile: ColumnPr
   set(tableColumnsAtom, newColumns);
 });
 
-// Atom to derive API search parameters
-export const derivedApiSearchParamsAtom = atom((get) => {
+// Unstable atom that derives API search parameters. Kept private.
+const derivedApiSearchParamsAtomUnstable = atom((get) => {
   const searchState = get(searchStateAtom);
   const selectedTimeContext = get(selectedTimeContextAtom);
   const externalIdentTypes = get(externalIdentTypesAtom); // from baseDataAtom
@@ -689,6 +700,16 @@ export const derivedApiSearchParamsAtom = atom((get) => {
   }
   return params;
 });
+
+// A stable, memoized version of the API search params atom.
+// It uses `selectAtom` to ensure it only returns a new reference when the
+// string representation of the params has actually changed. This prevents
+// infinite loops in components that depend on this atom.
+export const derivedApiSearchParamsAtom = selectAtom(
+  derivedApiSearchParamsAtomUnstable,
+  (params) => params,
+  (a, b) => a.toString() === b.toString()
+);
 
 // ============================================================================
 // HOOKS (Search, Selection, Table Columns)
