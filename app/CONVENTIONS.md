@@ -61,11 +61,25 @@ atom awaits the completion of the core atom's refresh if subsequent logic or com
 - Key SWR features like revalidation on focus/interval, local mutation, and request deduplication are beneficial for such use cases.
 - **Interaction with Jotai**:
     - SWR's fetch keys can be derived from Jotai atoms (e.g., `useAtomValue(derivedParamsAtom)`). Changes in these Jotai atoms will naturally trigger SWR to re-fetch with the new key. This pattern is used in `SearchResults.tsx`.
-    - SWR-fetched data can be synced back to global Jotai atoms using `useEffect` and `setAtom` if the data needs to be globally accessible or trigger other Jotai-dependent logic (as seen in `SearchResults.tsx` with `searchResultAtom`).
+    - SWR-fetched data can be synced back to global Jotai atoms using `useGuardedEffect` and `setAtom` if the data needs to be globally accessible or trigger other Jotai-dependent logic (as seen in `SearchResults.tsx` with `searchResultAtom`).
     - Jotai action atoms can also be used to trigger SWR revalidation explicitly (e.g., by calling `mutate` from `useSWRConfig`).
 - **When to choose Jotai vs. SWR for server state**:
     - Use **Jotai** for server state that forms the foundation of your global application state (e.g., user authentication status, core application settings, base data used by many features).
     - Use **SWR** for data that is more localized to specific views/components, benefits from automatic revalidation strategies, or represents paginated/filtered lists where SWR's caching per key is advantageous.
+
+## Debugging and Diagnostics
+
+### `useGuardedEffect` for Loop Detection
+To combat "Maximum update depth exceeded" errors, the entire application has been instrumented with a custom hook: `useGuardedEffect`.
+
+- **Convention**: All React effects **MUST** use `useGuardedEffect` instead of the standard `useEffect`.
+- **Implementation**: `useGuardedEffect` is a drop-in replacement for `useEffect`. It accepts the same callback and dependency array, plus a third, mandatory argument: a unique string identifier.
+- **Identifier Format**: The identifier **MUST** be a unique, descriptive string, typically in the format `'FileName.tsx:purposeOfEffect'`. This is crucial for providing clear, actionable information in the diagnostics panel.
+- **Activation**: The diagnostic features of the hook are disabled by default and have zero performance overhead. To activate them for a debugging session, add the following to your `.env.local` file and restart the development server:
+  ```
+  NEXT_PUBLIC_ENABLE_EFFECT_GUARD=true
+  ```
+- **The Effect Journal**: When activated, the "Effect Journal" in the `StateInspector` panel comes alive. It provides a real-time, sorted list of all active effects and their call frequency. The list is sorted by the total number of calls, automatically bubbling the "hottest" and most suspicious effects to the top. This is the primary tool for identifying the source of an infinite re-render loop.
 
 ## Database Type Definitions
 The file `app/src/lib/database.types.ts` contains TypeScript types automatically generated from the PostgreSQL schema (via `./devops/manage-statbus.sh generate-types`).
