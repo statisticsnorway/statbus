@@ -2,24 +2,41 @@
 import { FormField } from "@/components/form/form-field";
 import { useBaseData } from "@/atoms/base-data";
 import { EditableField } from "@/components/form/editable-field";
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { updateExternalIdent } from "@/app/legal-units/[id]/update-external-ident-server-action";
 import { SubmissionFeedbackDebugInfo } from "@/components/form/submission-feedback-debug-info";
+import { useStatisticalUnitDetails } from "@/components/statistical-unit-details/use-unit-details";
+import Loading from "@/components/statistical-unit-details/loading";
+import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
 
-export default function GeneralInfoForm({
-  id,
-  establishment,
-}: {
-  readonly id: string;
-  readonly establishment: Establishment;
-}) {
+export default function GeneralInfoForm({ id }: { readonly id: string }) {
   const [externalIdentState, externalIdentFormAction] = useActionState(
     updateExternalIdent.bind(null, id, "establishment"),
     null
   );
   const { externalIdentTypes } = useBaseData();
+  const { data, isLoading, revalidate, error } = useStatisticalUnitDetails(
+    id,
+    "establishment"
+  );
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
-  const physicalLocation = establishment.location.find(
+  useEffect(() => {
+    if (externalIdentState?.status === "success") {
+      revalidate();
+    }
+  }, [externalIdentState, revalidate]);
+  if (!isClient) {
+    return <Loading />;
+  }
+  if (error || (!isLoading && !data)) {
+    return <UnitNotFound />;
+  }
+  const establishment = data?.establishment?.[0];
+  const physicalLocation = establishment?.location.find(
     (loc) => loc.type === "physical"
   );
 
@@ -28,13 +45,13 @@ export default function GeneralInfoForm({
       <FormField
         label="Name"
         name="name"
-        value={establishment.name}
+        value={establishment?.name}
         response={null}
         readonly
       />
       <div className="grid lg:grid-cols-2 gap-4">
         {externalIdentTypes.map((type) => {
-          const value = establishment.external_idents[type.code];
+          const value = establishment?.external_idents[type.code];
           return (
             <EditableField
               key={type.code}

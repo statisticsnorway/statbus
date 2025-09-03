@@ -1,21 +1,26 @@
 "use client";
-import { useStatisticalUnitDetails } from "@/components/statistical-unit-details/use-unit-details";
+import { useStatisticalUnitHierarchy } from "@/components/statistical-unit-details/use-unit-details";
 import { FormField } from "@/components/form/form-field";
 import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
 
 export default function ContactInfoForm({ id }: { readonly id: string }) {
-  const { data, isLoading, error } = useStatisticalUnitDetails(
+  const { hierarchy, isLoading, error } = useStatisticalUnitHierarchy(
     id,
-    "establishment"
+    "enterprise"
   );
-  if (error || (!isLoading && !data)) {
+  if (error || (!isLoading && !hierarchy)) {
     return <UnitNotFound />;
   }
-  const establishment = data?.establishment?.[0];
-  const postalLocation = establishment?.location?.find(
+  const primaryLegalUnit = hierarchy?.enterprise?.legal_unit?.find(
+    (lu) => lu.primary_for_enterprise
+  );
+  const primaryEstablishment = hierarchy?.enterprise?.establishment?.find(
+    (es) => es.primary_for_enterprise
+  );
+  const primaryUnit = primaryLegalUnit || primaryEstablishment;
+  const postalLocation = primaryUnit?.location?.find(
     (loc) => loc.type === "postal"
   );
-
   return (
     <div className="space-y-8">
       <form className="flex flex-col gap-4">
@@ -25,42 +30,42 @@ export default function ContactInfoForm({ id }: { readonly id: string }) {
             readonly
             label="Email address"
             name="email_address"
-            value={establishment?.contact?.email_address}
+            value={primaryUnit?.contact?.email_address}
             response={null}
           />
           <FormField
             readonly
             label="Web Address"
             name="web_address"
-            value={establishment?.contact?.web_address}
+            value={primaryUnit?.contact?.web_address}
             response={null}
           />
           <FormField
             readonly
             label="Phone number"
             name="phone_number"
-            value={establishment?.contact?.phone_number}
+            value={primaryUnit?.contact?.phone_number}
             response={null}
           />
           <FormField
             readonly
             label="Landline"
             name="landline"
-            value={establishment?.contact?.landline}
+            value={primaryUnit?.contact?.landline}
             response={null}
           />
           <FormField
             readonly
             label="Mobile Number"
             name="mobile_number"
-            value={establishment?.contact?.mobile_number}
+            value={primaryUnit?.contact?.mobile_number}
             response={null}
           />
           <FormField
             readonly
             label="Fax Number"
             name="fax_number"
-            value={establishment?.contact?.fax_number}
+            value={primaryUnit?.contact?.fax_number}
             response={null}
           />
         </div>
