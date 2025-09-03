@@ -199,9 +199,20 @@ case "$action" in
 
         # Store original arguments
         ORIGINAL_ARGS=("$@")
+
+        # Check for --update-expected flag and filter it out
+        update_expected=false
+        TEST_ARGS=()
+        for arg in "${ORIGINAL_ARGS[@]}"; do
+            if [ "$arg" = "--update-expected" ]; then
+                update_expected=true
+            else
+                TEST_ARGS+=("$arg")
+            fi
+        done
         
         # Check if no arguments were provided
-        if [ ${#ORIGINAL_ARGS[@]} -eq 0 ]; then
+        if [ ${#TEST_ARGS[@]} -eq 0 ]; then
             echo "Available tests:"
             echo "all"
             echo "fast"
@@ -211,7 +222,7 @@ case "$action" in
         fi
         
         # Check for special keywords
-        if [ "${ORIGINAL_ARGS[0]}" = "all" ]; then
+        if [ "${TEST_ARGS[0]}" = "all" ]; then
             # Get all tests
             ALL_TESTS=$(basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql)
             
@@ -219,7 +230,7 @@ case "$action" in
             TEST_BASENAMES=""
             for test in $ALL_TESTS; do
                 exclude=false
-                for arg in "${ORIGINAL_ARGS[@]:1}"; do  # Skip the first arg which is "all"
+                for arg in "${TEST_ARGS[@]:1}"; do  # Skip the first arg which is "all"
                     if [ "$arg" = "-$test" ]; then
                         exclude=true
                         break
@@ -230,7 +241,7 @@ case "$action" in
                     TEST_BASENAMES="$TEST_BASENAMES $test"
                 fi
             done
-        elif [ "${ORIGINAL_ARGS[0]}" = "fast" ]; then
+        elif [ "${TEST_ARGS[0]}" = "fast" ]; then
             # Get all tests
             ALL_TESTS=$(basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql)
 
@@ -255,7 +266,7 @@ case "$action" in
 
                 # Check against additional user-provided exclusions, if any
                 if [ "$exclude" = "false" ]; then
-                    for arg in "${ORIGINAL_ARGS[@]:1}"; do  # Skip the first arg which is "fast"
+                    for arg in "${TEST_ARGS[@]:1}"; do  # Skip the first arg which is "fast"
                         if [ "$arg" = "-$test" ]; then
                             exclude=true
                             break
@@ -267,7 +278,7 @@ case "$action" in
                     TEST_BASENAMES="$TEST_BASENAMES $test"
                 fi
             done
-        elif [ "${ORIGINAL_ARGS[0]}" = "failed" ]; then
+        elif [ "${TEST_ARGS[0]}" = "failed" ]; then
             # Get failed tests
             FAILED_TESTS=$(grep -E '^not ok' $WORKSPACE/test/regression.out | sed -E 's/not ok[[:space:]]+[0-9]+[[:space:]]+- ([^[:space:]]+).*/\1/')
             
@@ -275,7 +286,7 @@ case "$action" in
             TEST_BASENAMES=""
             for test in $FAILED_TESTS; do
                 exclude=false
-                for arg in "${ORIGINAL_ARGS[@]:1}"; do  # Skip the first arg which is "failed"
+                for arg in "${TEST_ARGS[@]:1}"; do  # Skip the first arg which is "failed"
                     if [ "$arg" = "-$test" ]; then
                         exclude=true
                         break
@@ -289,7 +300,7 @@ case "$action" in
         else
             # Just use the provided test names, filtering out exclusions
             TEST_BASENAMES=""
-            for arg in "${ORIGINAL_ARGS[@]}"; do
+            for arg in "${TEST_ARGS[@]}"; do
                 if [[ "$arg" != -* ]]; then
                     TEST_BASENAMES="$TEST_BASENAMES $arg"
                 fi
@@ -317,6 +328,20 @@ case "$action" in
             --dbname=$PGDATABASE \
             --user=$PGUSER \
             $TEST_BASENAMES
+
+        if [ "$update_expected" = "true" ]; then
+            echo "Updating expected output for tests: $(echo $TEST_BASENAMES)"
+            for test_basename in $TEST_BASENAMES; do
+                result_file="$PG_REGRESS_DIR/results/$test_basename.out"
+                expected_file="$PG_REGRESS_DIR/expected/$test_basename.out"
+                if [ -f "$result_file" ]; then
+                    echo "  -> Copying results for $test_basename"
+                    cp "$result_file" "$expected_file"
+                else
+                    echo "Warning: Result file not found for test: '$test_basename'. Cannot update expected output."
+                fi
+            done
+        fi
     ;;
     'diff-fail-first' )
       if [ ! -f "$WORKSPACE/test/regression.out" ]; then
@@ -342,8 +367,14 @@ case "$action" in
                   vim -d $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
                   ;;
               'pipe')
+                  line_limit=${1:-}
                   echo "Running diff for test: $test"
-                  diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
+                  # Note the pipe from /dev/tty to avoid the diff alias running an interactive program.
+                  if [[ "$line_limit" =~ ^[0-9]+$ ]]; then
+                    diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty | head -n "$line_limit" || true
+                  else
+                    diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty || true
+                  fi
                   ;;
               *)
                   echo "Error: Unknown UI option '$ui'. Please use 'gui' or 'tui'."
