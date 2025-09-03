@@ -50,28 +50,52 @@ CREATE INDEX IF NOT EXISTS idx_timesegments_unit_type ON public.timesegments
     (unit_type);
 
 -- Create a function to refresh the timesegments table
-CREATE OR REPLACE PROCEDURE public.timesegments_refresh(p_unit_ids int[] DEFAULT NULL, p_unit_type public.statistical_unit_type DEFAULT NULL)
+CREATE OR REPLACE PROCEDURE public.timesegments_refresh(
+    p_establishment_id_ranges int4multirange DEFAULT NULL,
+    p_legal_unit_id_ranges int4multirange DEFAULT NULL,
+    p_enterprise_id_ranges int4multirange DEFAULT NULL
+)
 LANGUAGE plpgsql AS $procedure$
 DECLARE
-    v_batch_size INT := 50000; v_unit_type public.statistical_unit_type;
+    v_batch_size INT := 50000;
     v_min_id int; v_max_id int; v_start_id int; v_end_id int;
+    v_loop_unit_type public.statistical_unit_type;
+    v_unit_types public.statistical_unit_type[];
 BEGIN
-    IF p_unit_ids IS NULL AND p_unit_type IS NULL THEN TRUNCATE public.timesegments; END IF;
-    FOREACH v_unit_type IN ARRAY ARRAY['establishment', 'legal_unit', 'enterprise']::public.statistical_unit_type[] LOOP
-        IF p_unit_type IS NOT NULL AND v_unit_type IS DISTINCT FROM p_unit_type THEN CONTINUE; END IF;
+    RAISE DEBUG '[%] refreshing es_ranges: %, lu_ranges: %, en_ranges: %', 'timesegments_refresh', p_establishment_id_ranges, p_legal_unit_id_ranges, p_enterprise_id_ranges;
+    ANALYZE public.timepoints;
 
-        SELECT MIN(unit_id), MAX(unit_id) INTO v_min_id, v_max_id FROM public.timepoints WHERE unit_type = v_unit_type;
-        IF v_min_id IS NULL THEN CONTINUE; END IF;
+    IF p_establishment_id_ranges IS NULL AND p_legal_unit_id_ranges IS NULL AND p_enterprise_id_ranges IS NULL THEN
+        -- Full refresh
+        TRUNCATE public.timesegments;
+        v_unit_types := ARRAY['establishment', 'legal_unit', 'enterprise'];
 
-        FOR i IN v_min_id..v_max_id BY v_batch_size LOOP
-            v_start_id := i;
-            v_end_id := i + v_batch_size - 1;
+        FOREACH v_loop_unit_type IN ARRAY v_unit_types LOOP
+            SELECT MIN(unit_id), MAX(unit_id) INTO v_min_id, v_max_id FROM public.timepoints WHERE unit_type = v_loop_unit_type;
+            IF v_min_id IS NULL THEN CONTINUE; END IF;
 
-            DELETE FROM public.timesegments WHERE unit_type = v_unit_type AND unit_id BETWEEN v_start_id AND v_end_id;
-            INSERT INTO public.timesegments SELECT * FROM public.timesegments_def
-            WHERE unit_type = v_unit_type AND unit_id BETWEEN v_start_id AND v_end_id AND valid_to IS NOT NULL;
+            FOR i IN v_min_id..v_max_id BY v_batch_size LOOP
+                v_start_id := i; v_end_id := i + v_batch_size - 1;
+                INSERT INTO public.timesegments SELECT * FROM public.timesegments_def WHERE unit_type = v_loop_unit_type AND unit_id BETWEEN v_start_id AND v_end_id;
+            END LOOP;
         END LOOP;
-    END LOOP;
+    ELSE
+        -- Partial refresh
+        IF p_establishment_id_ranges IS NOT NULL THEN
+            DELETE FROM public.timesegments WHERE unit_type = 'establishment' AND unit_id <@ p_establishment_id_ranges;
+            INSERT INTO public.timesegments SELECT * FROM public.timesegments_def WHERE unit_type = 'establishment' AND unit_id <@ p_establishment_id_ranges;
+        END IF;
+        IF p_legal_unit_id_ranges IS NOT NULL THEN
+            DELETE FROM public.timesegments WHERE unit_type = 'legal_unit' AND unit_id <@ p_legal_unit_id_ranges;
+            INSERT INTO public.timesegments SELECT * FROM public.timesegments_def WHERE unit_type = 'legal_unit' AND unit_id <@ p_legal_unit_id_ranges;
+        END IF;
+        IF p_enterprise_id_ranges IS NOT NULL THEN
+            DELETE FROM public.timesegments WHERE unit_type = 'enterprise' AND unit_id <@ p_enterprise_id_ranges;
+            INSERT INTO public.timesegments SELECT * FROM public.timesegments_def WHERE unit_type = 'enterprise' AND unit_id <@ p_enterprise_id_ranges;
+        END IF;
+    END IF;
+
+    ANALYZE public.timesegments;
 END;
 $procedure$;
 

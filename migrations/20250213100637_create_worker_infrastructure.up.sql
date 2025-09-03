@@ -108,9 +108,9 @@ WHERE command = 'import_job_cleanup' AND state = 'pending'::worker.task_state;
 
 -- Create statistical unit refresh function (part 1: core units)
 CREATE OR REPLACE FUNCTION worker.derive_statistical_unit(
-  p_establishment_ids int[] DEFAULT NULL,
-  p_legal_unit_ids int[] DEFAULT NULL,
-  p_enterprise_ids int[] DEFAULT NULL,
+  p_establishment_id_ranges int4multirange DEFAULT NULL,
+  p_legal_unit_id_ranges int4multirange DEFAULT NULL,
+  p_enterprise_id_ranges int4multirange DEFAULT NULL,
   p_valid_after date DEFAULT NULL,
   p_valid_to date DEFAULT NULL
 )
@@ -122,12 +122,7 @@ DECLARE
     v_all_legal_unit_ids int[];
     v_all_enterprise_ids int[];
 BEGIN
-    -- This function orchestrates the "materialize and batch" derivation pipeline.
-    -- If any IDs are provided, it performs a partial refresh by finding all related
-    -- parent units and refreshing the entire affected hierarchy.
-    -- If no IDs are provided, it performs a full refresh of all data.
-
-    IF p_establishment_ids IS NULL AND p_legal_unit_ids IS NULL AND p_enterprise_ids IS NULL THEN
+    IF p_establishment_id_ranges IS NULL AND p_legal_unit_id_ranges IS NULL AND p_enterprise_id_ranges IS NULL THEN
         -- Full refresh
         CALL public.timepoints_refresh();
         CALL public.timesegments_refresh();
@@ -137,102 +132,86 @@ BEGIN
         CALL public.timeline_enterprise_refresh();
         CALL public.statistical_unit_refresh();
     ELSE
-        -- Partial Refresh Algorithm:
-        -- The goal of a partial refresh is to recalculate the history for only the
-        -- statistical units that have changed, including any parent units that
-        -- might be affected by those changes. The algorithm traverses the hierarchy
-        -- upwards from the initially changed units.
-        --
-        -- 1. Initialization: Start with three accumulator arrays containing the
-        --    initial set of changed establishment, legal unit, and enterprise IDs.
-        --
-        -- 2. Upward Traversal from Establishments: For all establishments in the
-        --    accumulator, find their parent legal units and enterprises and add
-        --    them to the appropriate accumulator arrays.
-        --
-        -- 3. Upward Traversal from Legal Units: For all legal units now in the
-        --    accumulator (both initial and newly found), find their parent
-        --    enterprises and add them to the enterprise accumulator.
-        --
-        -- 4. Deduplication: Remove any duplicate IDs from the accumulator arrays.
-        --
-        -- 5. Execution: The final, complete sets of IDs for each unit type are then
-        --    passed to the various refresh procedures to recalculate their history.
-        --
-        -- 6. Finding Obsolete Dependencies: A critical part of this process is
-        --    finding not just the *current* parents of a changed unit, but also its
-        --    *previous* parents. For example, if an establishment moves from legal
-        --    unit A to legal unit B, both A and B must be refreshed. To achieve this,
-        --    the algorithm queries the `public.statistical_unit` table using its
-        --    `related_*_ids` columns and the array overlap operator (&&). This
-        --    single, efficient query finds all historical records related to the
-        --    changed units, from which a complete set of all affected units (current,
-        --    historical, and their parents) can be derived.
-        v_all_establishment_ids := COALESCE(p_establishment_ids, '{}');
-        v_all_legal_unit_ids    := COALESCE(p_legal_unit_ids, '{}');
-        v_all_enterprise_ids    := COALESCE(p_enterprise_ids, '{}');
-
-        -- Use a CTE to find all affected units, including historical parents.
-        WITH affected_units AS (
+        -- Hybrid Dependency Gathering with Recursive CTE
+        DECLARE
+            initial_es_ids INT[] := ARRAY(SELECT generate_series(lower(r), upper(r)-1) FROM unnest(COALESCE(p_establishment_id_ranges, '{}'::int4multirange)) AS t(r));
+            initial_lu_ids INT[] := ARRAY(SELECT generate_series(lower(r), upper(r)-1) FROM unnest(COALESCE(p_legal_unit_id_ranges,    '{}'::int4multirange)) AS t(r));
+            initial_en_ids INT[] := ARRAY(SELECT generate_series(lower(r), upper(r)-1) FROM unnest(COALESCE(p_enterprise_id_ranges,    '{}'::int4multirange)) AS t(r));
+        BEGIN
+            WITH RECURSIVE all_affected_units(id, type) AS (
+                -- 1. Base case: Start with the initial set of changed units.
+                (
+                    SELECT id, 'establishment'::public.statistical_unit_type AS type FROM unnest(initial_es_ids) AS t(id)
+                    UNION ALL
+                    SELECT id, 'legal_unit' FROM unnest(initial_lu_ids) AS t(id)
+                    UNION ALL
+                    SELECT id, 'enterprise' FROM unnest(initial_en_ids) AS t(id)
+                )
+                UNION
+                -- 2. Recursive step: Find all parents AND children of the units found so far.
+                SELECT related.id, related.type
+                FROM all_affected_units a
+                JOIN LATERAL (
+                    -- PARENTS (traverse up)
+                    SELECT es.legal_unit_id AS id, 'legal_unit'::public.statistical_unit_type AS type FROM public.establishment es WHERE a.type = 'establishment' AND a.id = es.id AND es.legal_unit_id IS NOT NULL
+                    UNION ALL
+                    SELECT es.enterprise_id, 'enterprise' FROM public.establishment es WHERE a.type = 'establishment' AND a.id = es.id AND es.enterprise_id IS NOT NULL
+                    UNION ALL
+                    SELECT lu.enterprise_id, 'enterprise' FROM public.legal_unit lu WHERE a.type = 'legal_unit' AND a.id = lu.id AND lu.enterprise_id IS NOT NULL
+                    UNION ALL
+                    -- CHILDREN (traverse down)
+                    SELECT lu.id, 'legal_unit' FROM public.legal_unit lu WHERE a.type = 'enterprise' AND a.id = lu.enterprise_id
+                    UNION ALL
+                    SELECT es.id, 'establishment' FROM public.establishment es WHERE a.type = 'enterprise' AND a.id = es.enterprise_id
+                    UNION ALL
+                    SELECT es.id, 'establishment' FROM public.establishment es WHERE a.type = 'legal_unit' AND a.id = es.legal_unit_id
+                ) AS related ON true
+            )
+            -- 3. Aggregate all currently affected IDs from the recursion.
             SELECT
-                unit_id,
-                unit_type,
-                related_establishment_ids,
-                related_legal_unit_ids,
-                related_enterprise_ids
-            FROM public.statistical_unit
-            WHERE
-                (cardinality(v_all_establishment_ids) > 0 AND related_establishment_ids && v_all_establishment_ids)
-                OR (cardinality(v_all_legal_unit_ids) > 0 AND related_legal_unit_ids && v_all_legal_unit_ids)
-                OR (cardinality(v_all_enterprise_ids) > 0 AND related_enterprise_ids && v_all_enterprise_ids)
-        )
-        SELECT
-            array_agg(DISTINCT u.id) FILTER (WHERE u.type = 'establishment'),
-            array_agg(DISTINCT u.id) FILTER (WHERE u.type = 'legal_unit'),
-            array_agg(DISTINCT u.id) FILTER (WHERE u.type = 'enterprise')
-        INTO
-            v_all_establishment_ids,
-            v_all_legal_unit_ids,
-            v_all_enterprise_ids
-        FROM (
-            -- Initial set of changed units
-            SELECT e_id AS id, 'establishment'::public.statistical_unit_type AS type FROM unnest(v_all_establishment_ids) e_id
-            UNION ALL
-            SELECT l_id, 'legal_unit' FROM unnest(v_all_legal_unit_ids) l_id
-            UNION ALL
-            SELECT e_id, 'enterprise' FROM unnest(v_all_enterprise_ids) e_id
-            UNION ALL
-            -- Units from affected historical slices
-            SELECT unit_id, unit_type FROM affected_units
-            UNION ALL
-            -- Related units from affected historical slices
-            SELECT e_id, 'establishment' FROM (SELECT unnest(related_establishment_ids) AS e_id FROM affected_units) AS u
-            UNION ALL
-            SELECT l_id, 'legal_unit' FROM (SELECT unnest(related_legal_unit_ids) AS l_id FROM affected_units) AS u
-            UNION ALL
-            SELECT e_id, 'enterprise' FROM (SELECT unnest(related_enterprise_ids) AS e_id FROM affected_units) AS u
-        ) AS u(id, type)
-        WHERE u.id IS NOT NULL;
+                array_agg(id) FILTER (WHERE type = 'establishment'),
+                array_agg(id) FILTER (WHERE type = 'legal_unit'),
+                array_agg(id) FILTER (WHERE type = 'enterprise')
+            INTO
+                v_all_establishment_ids,
+                v_all_legal_unit_ids,
+                v_all_enterprise_ids
+            FROM all_affected_units;
 
-        -- Refresh each stage with the complete set of affected IDs
-        CALL public.timepoints_refresh(p_unit_ids => v_all_establishment_ids, p_unit_type => 'establishment');
-        CALL public.timepoints_refresh(p_unit_ids => v_all_legal_unit_ids, p_unit_type => 'legal_unit');
-        CALL public.timepoints_refresh(p_unit_ids => v_all_enterprise_ids, p_unit_type => 'enterprise');
+            -- 4. Additionally, find historical relationships from statistical_unit to handle re-parenting cases.
+            v_all_establishment_ids := array_cat(v_all_establishment_ids, COALESCE((SELECT array_agg(DISTINCT unnest) FROM (SELECT unnest(related_establishment_ids) FROM public.statistical_unit WHERE related_establishment_ids && v_all_establishment_ids) x), '{}'));
+            v_all_legal_unit_ids := array_cat(v_all_legal_unit_ids, COALESCE((SELECT array_agg(DISTINCT unnest) FROM (SELECT unnest(related_legal_unit_ids) FROM public.statistical_unit WHERE related_legal_unit_ids && v_all_legal_unit_ids) x), '{}'));
+            v_all_enterprise_ids := array_cat(v_all_enterprise_ids, COALESCE((SELECT array_agg(DISTINCT unnest) FROM (SELECT unnest(related_enterprise_ids) FROM public.statistical_unit WHERE related_enterprise_ids && v_all_enterprise_ids) x), '{}'));
 
-        CALL public.timesegments_refresh(p_unit_ids => v_all_establishment_ids, p_unit_type => 'establishment');
-        CALL public.timesegments_refresh(p_unit_ids => v_all_legal_unit_ids, p_unit_type => 'legal_unit');
-        CALL public.timesegments_refresh(p_unit_ids => v_all_enterprise_ids, p_unit_type => 'enterprise');
+            -- Final deduplication and NULL removal.
+            v_all_establishment_ids := ARRAY(SELECT DISTINCT e FROM unnest(v_all_establishment_ids) e WHERE e IS NOT NULL);
+            v_all_legal_unit_ids    := ARRAY(SELECT DISTINCT l FROM unnest(v_all_legal_unit_ids) l WHERE l IS NOT NULL);
+            v_all_enterprise_ids    := ARRAY(SELECT DISTINCT en FROM unnest(v_all_enterprise_ids) en WHERE en IS NOT NULL);
+        END;
+
+        -- Refresh timepoints with the complete set of affected IDs.
+        CALL public.timepoints_refresh(
+            p_establishment_id_ranges => public.array_to_int4multirange(v_all_establishment_ids),
+            p_legal_unit_id_ranges => public.array_to_int4multirange(v_all_legal_unit_ids),
+            p_enterprise_id_ranges => public.array_to_int4multirange(v_all_enterprise_ids)
+        );
+
+        CALL public.timesegments_refresh(
+            p_establishment_id_ranges => public.array_to_int4multirange(v_all_establishment_ids),
+            p_legal_unit_id_ranges => public.array_to_int4multirange(v_all_legal_unit_ids),
+            p_enterprise_id_ranges => public.array_to_int4multirange(v_all_enterprise_ids)
+        );
 
         PERFORM public.timesegments_years_refresh();
 
-        CALL public.timeline_establishment_refresh(p_unit_ids => v_all_establishment_ids);
-        CALL public.timeline_legal_unit_refresh(p_unit_ids => v_all_legal_unit_ids);
-        CALL public.timeline_enterprise_refresh(p_unit_ids => v_all_enterprise_ids);
+        CALL public.timeline_establishment_refresh(p_unit_id_ranges => public.array_to_int4multirange(v_all_establishment_ids));
+        CALL public.timeline_legal_unit_refresh(p_unit_id_ranges => public.array_to_int4multirange(v_all_legal_unit_ids));
+        CALL public.timeline_enterprise_refresh(p_unit_id_ranges => public.array_to_int4multirange(v_all_enterprise_ids));
 
         CALL public.statistical_unit_refresh(
-            p_establishment_ids => v_all_establishment_ids,
-            p_legal_unit_ids => v_all_legal_unit_ids,
-            p_enterprise_ids => v_all_enterprise_ids
+            p_establishment_id_ranges => public.array_to_int4multirange(v_all_establishment_ids),
+            p_legal_unit_id_ranges => public.array_to_int4multirange(v_all_legal_unit_ids),
+            p_enterprise_id_ranges => public.array_to_int4multirange(v_all_enterprise_ids)
         );
     END IF;
 
@@ -255,41 +234,17 @@ SECURITY DEFINER
 LANGUAGE plpgsql
 AS $derive_statistical_unit$
 DECLARE
-    v_establishment_ids int[] = CASE
-        WHEN jsonb_typeof(payload->'establishment_ids') = 'array' THEN
-            ARRAY(
-                SELECT DISTINCT elem::int
-                FROM jsonb_array_elements_text(payload->'establishment_ids') AS x(elem)
-                WHERE elem IS NOT NULL AND elem ~ '^[0-9]+$'
-            )
-        ELSE ARRAY[]::int[]
-    END;
-    v_legal_unit_ids int[] = CASE
-        WHEN jsonb_typeof(payload->'legal_unit_ids') = 'array' THEN
-            ARRAY(
-                SELECT DISTINCT elem::int
-                FROM jsonb_array_elements_text(payload->'legal_unit_ids') AS x(elem)
-                WHERE elem IS NOT NULL AND elem ~ '^[0-9]+$'
-            )
-        ELSE ARRAY[]::int[]
-    END;
-    v_enterprise_ids int[] = CASE
-        WHEN jsonb_typeof(payload->'enterprise_ids') = 'array' THEN
-            ARRAY(
-                SELECT DISTINCT elem::int
-                FROM jsonb_array_elements_text(payload->'enterprise_ids') AS x(elem)
-                WHERE elem IS NOT NULL AND elem ~ '^[0-9]+$'
-            )
-        ELSE ARRAY[]::int[]
-    END;
+    v_establishment_id_ranges int4multirange = (payload->>'establishment_id_ranges')::int4multirange;
+    v_legal_unit_id_ranges int4multirange = (payload->>'legal_unit_id_ranges')::int4multirange;
+    v_enterprise_id_ranges int4multirange = (payload->>'enterprise_id_ranges')::int4multirange;
     v_valid_after date = (payload->>'valid_after')::date;
     v_valid_to date = (payload->>'valid_to')::date;
 BEGIN
   -- Call the statistical unit refresh function with the extracted parameters
   PERFORM worker.derive_statistical_unit(
-    p_establishment_ids := v_establishment_ids,
-    p_legal_unit_ids := v_legal_unit_ids,
-    p_enterprise_ids := v_enterprise_ids,
+    p_establishment_id_ranges := v_establishment_id_ranges,
+    p_legal_unit_id_ranges := v_legal_unit_id_ranges,
+    p_enterprise_id_ranges := v_enterprise_id_ranges,
     p_valid_after := v_valid_after,
     p_valid_to := v_valid_to
   );
@@ -449,9 +404,9 @@ BEGIN
   THEN
     -- Schedule statistical unit refresh
     PERFORM worker.enqueue_derive_statistical_unit(
-      p_establishment_ids := v_establishment_ids,
-      p_legal_unit_ids := v_legal_unit_ids,
-      p_enterprise_ids := v_enterprise_ids,
+      p_establishment_id_ranges := public.array_to_int4multirange(v_establishment_ids),
+      p_legal_unit_id_ranges := public.array_to_int4multirange(v_legal_unit_ids),
+      p_enterprise_id_ranges := public.array_to_int4multirange(v_enterprise_ids),
       p_valid_after := v_valid_after,
       p_valid_to := v_valid_to
     );
@@ -513,9 +468,9 @@ DECLARE
 BEGIN
   -- Schedule statistical unit refresh
   PERFORM worker.enqueue_derive_statistical_unit(
-    p_establishment_ids := v_establishment_ids,
-    p_legal_unit_ids := v_legal_unit_ids,
-    p_enterprise_ids := v_enterprise_ids,
+    p_establishment_id_ranges := public.array_to_int4multirange(v_establishment_ids),
+    p_legal_unit_id_ranges := public.array_to_int4multirange(v_legal_unit_ids),
+    p_enterprise_id_ranges := public.array_to_int4multirange(v_enterprise_ids),
     p_valid_after := v_valid_after,
     p_valid_to := v_valid_to
   );
@@ -722,9 +677,9 @@ $function$;
 
 -- For derive_statistical_unit command
 CREATE FUNCTION worker.enqueue_derive_statistical_unit(
-  p_establishment_ids int[] DEFAULT NULL,
-  p_legal_unit_ids int[] DEFAULT NULL,
-  p_enterprise_ids int[] DEFAULT NULL,
+  p_establishment_id_ranges int4multirange DEFAULT NULL,
+  p_legal_unit_id_ranges int4multirange DEFAULT NULL,
+  p_enterprise_id_ranges int4multirange DEFAULT NULL,
   p_valid_after date DEFAULT NULL,
   p_valid_to date DEFAULT NULL
 ) RETURNS BIGINT
@@ -733,18 +688,18 @@ AS $function$
 DECLARE
   v_task_id BIGINT;
   v_payload JSONB;
-  v_establishment_ids INT[] := COALESCE(p_establishment_ids, ARRAY[]::INT[]);
-  v_legal_unit_ids INT[] := COALESCE(p_legal_unit_ids, ARRAY[]::INT[]);
-  v_enterprise_ids INT[] := COALESCE(p_enterprise_ids, ARRAY[]::INT[]);
+  v_establishment_id_ranges int4multirange := COALESCE(p_establishment_id_ranges, '{}'::int4multirange);
+  v_legal_unit_id_ranges int4multirange := COALESCE(p_legal_unit_id_ranges, '{}'::int4multirange);
+  v_enterprise_id_ranges int4multirange := COALESCE(p_enterprise_id_ranges, '{}'::int4multirange);
   v_valid_after DATE := COALESCE(p_valid_after, '-infinity'::DATE);
   v_valid_to DATE := COALESCE(p_valid_to, 'infinity'::DATE);
 BEGIN
-  -- Create payload with arrays
+  -- Create payload with multiranges
   v_payload := jsonb_build_object(
     'command', 'derive_statistical_unit',
-    'establishment_ids', to_jsonb(v_establishment_ids),
-    'legal_unit_ids', to_jsonb(v_legal_unit_ids),
-    'enterprise_ids', to_jsonb(v_enterprise_ids),
+    'establishment_id_ranges', v_establishment_id_ranges,
+    'legal_unit_id_ranges', v_legal_unit_id_ranges,
+    'enterprise_id_ranges', v_enterprise_id_ranges,
     'valid_after', v_valid_after,
     'valid_to', v_valid_to
   );
@@ -758,48 +713,10 @@ BEGIN
   DO UPDATE SET
     payload = jsonb_build_object(
       'command', 'derive_statistical_unit',
-      -- Merge and deduplicate establishment IDs
-      'establishment_ids', to_jsonb(
-        ARRAY(
-          SELECT DISTINCT unnest
-          FROM unnest(
-            array_cat(
-              ARRAY(SELECT jsonb_array_elements_text(t.payload->'establishment_ids')::int),
-              ARRAY(SELECT jsonb_array_elements_text(EXCLUDED.payload->'establishment_ids')::int)
-            )
-          )
-          WHERE unnest IS NOT NULL
-          ORDER BY 1
-        )
-      ),
-      -- Merge and deduplicate legal unit IDs
-      'legal_unit_ids', to_jsonb(
-        ARRAY(
-          SELECT DISTINCT unnest
-          FROM unnest(
-            array_cat(
-              ARRAY(SELECT jsonb_array_elements_text(t.payload->'legal_unit_ids')::int),
-              ARRAY(SELECT jsonb_array_elements_text(EXCLUDED.payload->'legal_unit_ids')::int)
-            )
-          )
-          WHERE unnest IS NOT NULL
-          ORDER BY 1
-        )
-      ),
-      -- Merge and deduplicate enterprise IDs
-      'enterprise_ids', to_jsonb(
-        ARRAY(
-          SELECT DISTINCT unnest
-          FROM unnest(
-            array_cat(
-              ARRAY(SELECT jsonb_array_elements_text(t.payload->'enterprise_ids')::int),
-              ARRAY(SELECT jsonb_array_elements_text(EXCLUDED.payload->'enterprise_ids')::int)
-            )
-          )
-          WHERE unnest IS NOT NULL
-          ORDER BY 1
-        )
-      ),
+      -- Merge multiranges using the union operator
+      'establishment_id_ranges', (t.payload->>'establishment_id_ranges')::int4multirange + (EXCLUDED.payload->>'establishment_id_ranges')::int4multirange,
+      'legal_unit_id_ranges', (t.payload->>'legal_unit_id_ranges')::int4multirange + (EXCLUDED.payload->>'legal_unit_id_ranges')::int4multirange,
+      'enterprise_id_ranges', (t.payload->>'enterprise_id_ranges')::int4multirange + (EXCLUDED.payload->>'enterprise_id_ranges')::int4multirange,
       -- Expand date ranges
       'valid_after', LEAST(
         (t.payload->>'valid_after')::date,

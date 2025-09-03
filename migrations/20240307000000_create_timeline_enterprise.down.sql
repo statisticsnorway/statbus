@@ -7,6 +7,6 @@ DROP TABLE IF EXISTS public.timeline_enterprise;
 DROP VIEW IF EXISTS public.timeline_enterprise_def;
 
 -- Drop the refresh function
-DROP FUNCTION IF EXISTS public.timeline_enterprise_refresh;
+DROP PROCEDURE IF EXISTS public.timeline_enterprise_refresh(int4multirange);
 
 END;
