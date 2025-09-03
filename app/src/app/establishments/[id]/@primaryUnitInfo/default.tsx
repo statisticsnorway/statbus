@@ -1,39 +1,39 @@
+"use client";
 import { InfoBox } from "@/components/info-box";
-import { getStatisticalUnitHierarchy } from "@/components/statistical-unit-details/requests";
 import Link from "next/link";
 import { setPrimaryEstablishment } from "../update-establishment-server-actions";
 import { Button } from "@/components/ui/button";
+import { useParams } from "next/navigation";
+import { useStatisticalUnitHierarchy } from "@/components/statistical-unit-details/use-unit-details";
+import UnitNotFound from '@/components/statistical-unit-details/unit-not-found';
 
-export default async function PrimaryUnitInfo(
-  props: {
-    readonly params: Promise<{ id: string }>;
-  }
-) {
-  const params = await props.params;
-
-  const {
-    id
-  } = params;
-
-  const { hierarchy, error } = await getStatisticalUnitHierarchy(
-    parseInt(id),
+export default function PrimaryUnitInfo() {
+  const params = useParams();
+  const id = params.id as string;
+  const { hierarchy, isLoading, error } = useStatisticalUnitHierarchy(
+    id,
     "establishment"
   );
 
   if (error) {
     throw new Error(error.message, { cause: error });
   }
-  if (!hierarchy) {
-    return;
+  if (error || (!isLoading && !hierarchy)) {
+    return (
+      <div className="p-2 mt-2">
+        <UnitNotFound />
+      </div>
+    );
   }
 
-  const legalUnit = hierarchy.enterprise?.legal_unit?.find((lu) =>
+  const legalUnit = hierarchy?.enterprise?.legal_unit?.find((lu) =>
     lu.establishment?.find((es) => es.id === parseInt(id))
   );
 
   const establishment =
-    hierarchy.enterprise?.establishment?.find((es) => es.id === parseInt(id)) ||
-    legalUnit?.establishment.find((es) => es.id === parseInt(id));
+    hierarchy?.enterprise?.establishment?.find(
+      (es) => es.id === parseInt(id)
+    ) || legalUnit?.establishment.find((es) => es.id === parseInt(id));
 
   if (!establishment) {
     return;

@@ -1,15 +1,39 @@
 "use client";
 import { useBaseData } from "@/atoms/base-data";
+import { useStatisticalUnitHierarchy } from "@/components/statistical-unit-details/use-unit-details";
 import { FormField } from "@/components/form/form-field";
+import Loading from "@/components/statistical-unit-details/loading";
+import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
+import { useEffect, useState } from "react";
 
-export default function GeneralInfoForm({
-  unit,
-}: {
-  readonly unit: LegalUnit | Establishment;
-}) {
+export default function GeneralInfoForm({ id }: { readonly id: string }) {
   const { externalIdentTypes } = useBaseData();
+  const { hierarchy, isLoading, error } = useStatisticalUnitHierarchy(
+    id,
+    "enterprise"
+  );
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
-  const physicalLocation = unit.location.find((loc) => loc.type === "physical");
+  if (!isClient) {
+    return <Loading />;
+  }
+  if (error || (!isLoading && !hierarchy)) {
+    return <UnitNotFound />;
+  }
+
+  const primaryLegalUnit = hierarchy?.enterprise?.legal_unit?.find(
+    (lu) => lu.primary_for_enterprise
+  );
+  const primaryEstablishment = hierarchy?.enterprise?.establishment?.find(
+    (es) => es.primary_for_enterprise
+  );
+  const unit = primaryLegalUnit || primaryEstablishment;
+  const physicalLocation = unit?.location.find(
+    (loc) => loc.type === "physical"
+  );
 
   return (
     <div className="space-y-8">
@@ -18,12 +42,12 @@ export default function GeneralInfoForm({
           readonly
           label="Name"
           name="name"
-          value={unit.name}
+          value={unit?.name}
           response={null}
         />
         <div className={"grid gap-4 grid-cols-2"}>
           {externalIdentTypes.map((type) => {
-            const value = unit.external_idents[type.code];
+            const value = unit?.external_idents[type.code];
             return (
               <FormField
                 readonly

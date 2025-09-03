@@ -1,15 +1,26 @@
 "use client";
+import { useStatisticalUnitDetails } from "@/components/statistical-unit-details/use-unit-details";
 import { FormField } from "@/components/form/form-field";
+import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
 
 export default function ClassificationsInfoForm({
-  legalUnit,
+  id,
 }: {
-  readonly legalUnit: LegalUnit;
+  readonly id: string;
 }) {
-  const primaryActivity = legalUnit.activity?.find(
+  const { data, isLoading, error } = useStatisticalUnitDetails(
+    id,
+    "legal_unit"
+  );
+  if (error || (!isLoading && !data)) {
+    return <UnitNotFound />;
+  }
+
+  const legalUnit = data?.legal_unit?.[0];
+  const primaryActivity = legalUnit?.activity?.find(
     (act) => act.type === "primary"
   )?.activity_category;
-  const secondaryActivity = legalUnit.activity?.find(
+  const secondaryActivity = legalUnit?.activity?.find(
     (act) => act.type === "secondary"
   )?.activity_category;
 
@@ -41,7 +52,7 @@ export default function ClassificationsInfoForm({
         label="Legal Form"
         name="legal_form_id"
         value={
-          legalUnit.legal_form
+          legalUnit?.legal_form
             ? `${legalUnit.legal_form.code} ${legalUnit.legal_form.name}`
             : null
         }
@@ -52,7 +63,7 @@ export default function ClassificationsInfoForm({
         label="Sector"
         name="sector_id"
         value={
-          legalUnit.sector
+          legalUnit?.sector
             ? `${legalUnit.sector.code} ${legalUnit.sector.name}`
             : null
         }

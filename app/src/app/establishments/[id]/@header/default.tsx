@@ -1,22 +1,19 @@
-import { getEstablishmentById } from "@/components/statistical-unit-details/requests";
+"use client";
 import HeaderSlot from "@/components/statistical-unit-details/header-slot";
+import { useParams } from "next/navigation";
+import { useEstablishment } from "@/components/statistical-unit-details/use-unit-details";
 
-export default async function Slot(
-  props: {
-    readonly params: Promise<{ id: string }>;
-  }
-) {
-  const params = await props.params;
-
-  const { id } = params;
-
-  const { establishment, error } = await getEstablishmentById(id);
+export default function Slot() {
+  const params = useParams();
+  const id = params.id as string;
+  const { establishment, isLoading, error } = useEstablishment(id);
   const informal = establishment?.legal_unit_id === null;
   return (
     <HeaderSlot
       id={id}
       unit={establishment}
       error={error}
+      loading={isLoading}
       className={
         informal
           ? "border-informal-200 bg-informal-50"

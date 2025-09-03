@@ -1,23 +1,18 @@
-import { getLegalUnitById } from "@/components/statistical-unit-details/requests";
+"use client";
 import HeaderSlot from "@/components/statistical-unit-details/header-slot";
+import { useParams } from "next/navigation";
+import { useLegalUnit } from "@/components/statistical-unit-details/use-unit-details";
 
-export default async function Slot(
-  props: {
-    readonly params: Promise<{ id: string }>;
-  }
-) {
-  const params = await props.params;
-
-  const {
-    id
-  } = params;
-
-  const { legalUnit, error } = await getLegalUnitById(id);
+export default function Slot() {
+  const params = useParams();
+  const id = params.id as string;
+  const { legalUnit, isLoading, error } = useLegalUnit(id);
   return (
     <HeaderSlot
       id={id}
       unit={legalUnit}
       error={error}
+      loading={isLoading}
       className="border-legal_unit-200 bg-legal_unit-100"
     />
   );
