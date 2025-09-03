@@ -7,6 +7,6 @@ DROP TABLE IF EXISTS public.timeline_legal_unit;
 DROP VIEW IF EXISTS public.timeline_legal_unit_def;
 
 -- Drop the refresh function
-DROP FUNCTION IF EXISTS public.timeline_legal_unit_refresh;
+DROP PROCEDURE IF EXISTS public.timeline_legal_unit_refresh(int4multirange);
 
 END;

@@ -15,7 +15,7 @@ DROP FUNCTION IF EXISTS worker.notify_worker_queue_change() CASCADE;
 -- Drop task enqueue functions
 DROP FUNCTION IF EXISTS worker.enqueue_check_table(TEXT, INTEGER);
 DROP FUNCTION IF EXISTS worker.enqueue_deleted_row(TEXT, INT, INT, INT, DATE, DATE);
-DROP FUNCTION IF EXISTS worker.enqueue_derive_statistical_unit(INT[], INT[], INT[], DATE, DATE);
+DROP FUNCTION IF EXISTS worker.enqueue_derive_statistical_unit(int4multirange, int4multirange, int4multirange, date, date);
 DROP FUNCTION IF EXISTS worker.enqueue_derive_reports(DATE, DATE);
 DROP FUNCTION IF EXISTS worker.enqueue_task_cleanup(INT, INT);
 
@@ -27,7 +27,7 @@ DROP PROCEDURE IF EXISTS worker.derive_reports(JSONB);
 DROP PROCEDURE IF EXISTS worker.command_task_cleanup(JSONB);
 
 -- Drop core logic functions (non-payload versions)
-DROP FUNCTION IF EXISTS worker.derive_statistical_unit(INT[], INT[], INT[], DATE, DATE);
+DROP FUNCTION IF EXISTS worker.derive_statistical_unit(int4multirange, int4multirange, int4multirange, date, date);
 DROP FUNCTION IF EXISTS worker.derive_reports(DATE, DATE);
 DROP PROCEDURE IF EXISTS worker.notify_check_is_deriving_statistical_units();
 DROP PROCEDURE IF EXISTS worker.notify_check_is_deriving_reports();
