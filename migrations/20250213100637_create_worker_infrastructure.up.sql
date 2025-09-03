@@ -125,20 +125,39 @@ BEGIN
         -- Full refresh
         CALL public.timepoints_refresh();
         CALL public.timesegments_refresh();
-        PERFORM public.timesegments_years_refresh();
+        CALL public.timesegments_years_refresh();
         CALL public.timeline_establishment_refresh();
         CALL public.timeline_legal_unit_refresh();
         CALL public.timeline_enterprise_refresh();
         CALL public.statistical_unit_refresh();
     ELSE
-        -- Hybrid Dependency Gathering with Recursive CTE
+        -- Partial Refresh Logic:
+        -- This block gathers the complete set of all units affected by an initial change.
+        -- It starts with a small set of IDs, finds all related units (parents, children, historical),
+        -- and passes the final, complete set to the refresh procedures.
         DECLARE
+            -- Step 1: Convert input multiranges to initial arrays.
+            -- The recursive CTE requires arrays of individual IDs to start its traversal. This conversion
+            -- is necessary because recursive queries in SQL are designed to work with sets of rows, not by
+            -- manipulating aggregate types like multiranges. Each step of the recursion joins the *rows*
+            -- from the previous step to find new related rows.
+            --
+            -- For example, a simplified recursive term looks like:
+            --   SELECT child.id FROM current_set c JOIN child_table child ON c.id = child.parent_id
+            -- This is a natural row-based operation.
+            --
+            -- Attempting this with multiranges would require complex and unidiomatic logic inside the
+            -- recursive term, such as unnesting the range, finding related IDs, and then re-aggregating
+            -- them back into a new multirange to be unioned with the previous one, which is not how
+            -- recursive CTEs are designed to function.
             initial_es_ids INT[] := ARRAY(SELECT generate_series(lower(r), upper(r)-1) FROM unnest(COALESCE(p_establishment_id_ranges, '{}'::int4multirange)) AS t(r));
             initial_lu_ids INT[] := ARRAY(SELECT generate_series(lower(r), upper(r)-1) FROM unnest(COALESCE(p_legal_unit_id_ranges,    '{}'::int4multirange)) AS t(r));
             initial_en_ids INT[] := ARRAY(SELECT generate_series(lower(r), upper(r)-1) FROM unnest(COALESCE(p_enterprise_id_ranges,    '{}'::int4multirange)) AS t(r));
         BEGIN
+            -- Step 2: Use a recursive CTE to traverse the unit hierarchy.
+            -- This finds all *currently* related parents and children.
             WITH RECURSIVE all_affected_units(id, type) AS (
-                -- 1. Base case: Start with the initial set of changed units.
+                -- Base case: Start with the initial set of changed units.
                 (
                     SELECT id, 'establishment'::public.statistical_unit_type AS type FROM unnest(initial_es_ids) AS t(id)
                     UNION ALL
@@ -147,18 +166,18 @@ BEGIN
                     SELECT id, 'enterprise' FROM unnest(initial_en_ids) AS t(id)
                 )
                 UNION
-                -- 2. Recursive step: Find all parents AND children of the units found so far.
+                -- Recursive step: Find all parents (up) AND children (down) of the units found so far.
                 SELECT related.id, related.type
                 FROM all_affected_units a
                 JOIN LATERAL (
-                    -- PARENTS (traverse up)
+                    -- Find parents by traversing up the hierarchy.
                     SELECT es.legal_unit_id AS id, 'legal_unit'::public.statistical_unit_type AS type FROM public.establishment es WHERE a.type = 'establishment' AND a.id = es.id AND es.legal_unit_id IS NOT NULL
                     UNION ALL
                     SELECT es.enterprise_id, 'enterprise' FROM public.establishment es WHERE a.type = 'establishment' AND a.id = es.id AND es.enterprise_id IS NOT NULL
                     UNION ALL
                     SELECT lu.enterprise_id, 'enterprise' FROM public.legal_unit lu WHERE a.type = 'legal_unit' AND a.id = lu.id AND lu.enterprise_id IS NOT NULL
                     UNION ALL
-                    -- CHILDREN (traverse down)
+                    -- Find children by traversing down the hierarchy.
                     SELECT lu.id, 'legal_unit' FROM public.legal_unit lu WHERE a.type = 'enterprise' AND a.id = lu.enterprise_id
                     UNION ALL
                     SELECT es.id, 'establishment' FROM public.establishment es WHERE a.type = 'enterprise' AND a.id = es.enterprise_id
@@ -166,7 +185,7 @@ BEGIN
                     SELECT es.id, 'establishment' FROM public.establishment es WHERE a.type = 'legal_unit' AND a.id = es.legal_unit_id
                 ) AS related ON true
             )
-            -- 3. Aggregate all currently affected IDs from the recursion.
+            -- Step 3: Aggregate the results of the traversal into arrays.
             SELECT
                 array_agg(id) FILTER (WHERE type = 'establishment'),
                 array_agg(id) FILTER (WHERE type = 'legal_unit'),
@@ -177,18 +196,21 @@ BEGIN
                 v_all_enterprise_ids
             FROM all_affected_units;
 
-            -- 4. Additionally, find historical relationships from statistical_unit to handle re-parenting cases.
+            -- Step 4: Expand the set to include *historically* related units from the denormalized table.
+            -- This is crucial for handling re-parenting cases (e.g., an establishment moved to a new legal unit).
             v_all_establishment_ids := array_cat(v_all_establishment_ids, COALESCE((SELECT array_agg(DISTINCT unnest) FROM (SELECT unnest(related_establishment_ids) FROM public.statistical_unit WHERE related_establishment_ids && v_all_establishment_ids) x), '{}'));
             v_all_legal_unit_ids := array_cat(v_all_legal_unit_ids, COALESCE((SELECT array_agg(DISTINCT unnest) FROM (SELECT unnest(related_legal_unit_ids) FROM public.statistical_unit WHERE related_legal_unit_ids && v_all_legal_unit_ids) x), '{}'));
             v_all_enterprise_ids := array_cat(v_all_enterprise_ids, COALESCE((SELECT array_agg(DISTINCT unnest) FROM (SELECT unnest(related_enterprise_ids) FROM public.statistical_unit WHERE related_enterprise_ids && v_all_enterprise_ids) x), '{}'));
 
-            -- Final deduplication and NULL removal.
+            -- Step 5: Final deduplication and NULL removal.
+            -- The v_all_*_ids arrays now contain the complete set of all affected units.
             v_all_establishment_ids := ARRAY(SELECT DISTINCT e FROM unnest(v_all_establishment_ids) e WHERE e IS NOT NULL);
             v_all_legal_unit_ids    := ARRAY(SELECT DISTINCT l FROM unnest(v_all_legal_unit_ids) l WHERE l IS NOT NULL);
             v_all_enterprise_ids    := ARRAY(SELECT DISTINCT en FROM unnest(v_all_enterprise_ids) en WHERE en IS NOT NULL);
         END;
 
-        -- Refresh timepoints with the complete set of affected IDs.
+        -- Step 6: Call the refresh procedures.
+        -- The complete arrays are converted back to multiranges for efficient processing by the downstream procedures.
         CALL public.timepoints_refresh(
             p_establishment_id_ranges => public.array_to_int4multirange(v_all_establishment_ids),
             p_legal_unit_id_ranges => public.array_to_int4multirange(v_all_legal_unit_ids),
@@ -201,7 +223,7 @@ BEGIN
             p_enterprise_id_ranges => public.array_to_int4multirange(v_all_enterprise_ids)
         );
 
-        PERFORM public.timesegments_years_refresh();
+        CALL public.timesegments_years_refresh();
 
         CALL public.timeline_establishment_refresh(p_unit_id_ranges => public.array_to_int4multirange(v_all_establishment_ids));
         CALL public.timeline_legal_unit_refresh(p_unit_id_ranges => public.array_to_int4multirange(v_all_legal_unit_ids));

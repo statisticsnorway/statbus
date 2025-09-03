@@ -56,29 +56,13 @@ CREATE OR REPLACE PROCEDURE public.timesegments_refresh(
     p_enterprise_id_ranges int4multirange DEFAULT NULL
 )
 LANGUAGE plpgsql AS $procedure$
-DECLARE
-    v_batch_size INT := 50000;
-    v_min_id int; v_max_id int; v_start_id int; v_end_id int;
-    v_loop_unit_type public.statistical_unit_type;
-    v_unit_types public.statistical_unit_type[];
 BEGIN
-    RAISE DEBUG '[%] refreshing es_ranges: %, lu_ranges: %, en_ranges: %', 'timesegments_refresh', p_establishment_id_ranges, p_legal_unit_id_ranges, p_enterprise_id_ranges;
     ANALYZE public.timepoints;
 
     IF p_establishment_id_ranges IS NULL AND p_legal_unit_id_ranges IS NULL AND p_enterprise_id_ranges IS NULL THEN
         -- Full refresh
         TRUNCATE public.timesegments;
-        v_unit_types := ARRAY['establishment', 'legal_unit', 'enterprise'];
-
-        FOREACH v_loop_unit_type IN ARRAY v_unit_types LOOP
-            SELECT MIN(unit_id), MAX(unit_id) INTO v_min_id, v_max_id FROM public.timepoints WHERE unit_type = v_loop_unit_type;
-            IF v_min_id IS NULL THEN CONTINUE; END IF;
-
-            FOR i IN v_min_id..v_max_id BY v_batch_size LOOP
-                v_start_id := i; v_end_id := i + v_batch_size - 1;
-                INSERT INTO public.timesegments SELECT * FROM public.timesegments_def WHERE unit_type = v_loop_unit_type AND unit_id BETWEEN v_start_id AND v_end_id;
-            END LOOP;
-        END LOOP;
+        INSERT INTO public.timesegments SELECT * FROM public.timesegments_def;
     ELSE
         -- Partial refresh
         IF p_establishment_id_ranges IS NOT NULL THEN
@@ -123,8 +107,8 @@ ORDER BY year;
 
 CREATE TABLE public.timesegments_years (year INTEGER PRIMARY KEY);
 
-CREATE OR REPLACE FUNCTION public.timesegments_years_refresh()
-RETURNS void LANGUAGE plpgsql AS $function$
+CREATE OR REPLACE PROCEDURE public.timesegments_years_refresh()
+LANGUAGE plpgsql AS $procedure$
 BEGIN
     -- Create a temporary table with the new data from the definition view
     CREATE TEMPORARY TABLE temp_timesegments_years ON COMMIT DROP AS
@@ -150,8 +134,8 @@ BEGIN
     -- explicitly to be safe in transactional testing environments.
     DROP TABLE temp_timesegments_years;
 END;
-$function$;
+$procedure$;
 
-SELECT public.timesegments_years_refresh();
+CALL public.timesegments_years_refresh();
 
 END;

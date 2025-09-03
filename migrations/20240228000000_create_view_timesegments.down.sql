@@ -10,7 +10,7 @@ DROP TABLE IF EXISTS public.timesegments;
 DROP VIEW IF EXISTS public.timesegments_def;
 
 DROP TABLE IF EXISTS public.timesegments_years;
-DROP FUNCTION IF EXISTS public.timesegments_years_refresh();
+DROP PROCEDURE IF EXISTS public.timesegments_years_refresh();
 DROP VIEW IF EXISTS public.timesegments_years_def;
 
 END;
