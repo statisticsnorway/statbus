@@ -13,18 +13,17 @@ CREATE TABLE worker.last_processed (
 );
 
 
--- Create worker.queue_registry with a concurrent (true|false)
 -- Notice that presence of queues is required for logically dependent tasks,
 -- where a task can produce multiple new tasks, but they must all be processed in order.
 CREATE TABLE worker.queue_registry (
   queue TEXT PRIMARY KEY,
-  concurrent BOOLEAN NOT NULL DEFAULT false,
   description TEXT
 );
+COMMENT ON TABLE worker.queue_registry IS 'Defines available task queues. The system runs as a single worker process, which processes each queue serially to ensure task order. However, it uses concurrent fibers to process different queues (e.g., ''analytics'' and ''import'') at the same time.';
 
-INSERT INTO worker.queue_registry (queue, concurrent, description)
-VALUES ('analytics', false, 'Serial qeueue for analysing and deriving data')
-,('maintenance', false, 'Serial queue for maintenance tasks');
+INSERT INTO worker.queue_registry (queue, description)
+VALUES ('analytics', 'Serial qeueue for analysing and deriving data')
+,('maintenance', 'Serial queue for maintenance tasks');
 
 -- Create command registry table for dynamic command handling
 CREATE TABLE worker.command_registry (

@@ -1075,7 +1075,6 @@ erDiagram
 	}
 	worker_queue_registry["worker.queue_registry"] {
 		text queue
-		boolean concurrent
 		text description
 	}
 	worker_tasks["worker.tasks"] {

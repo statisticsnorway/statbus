@@ -192,8 +192,8 @@ END;
 $procedure$;
 
 -- Register import_job_process command in the worker system
-INSERT INTO worker.queue_registry (queue, concurrent, description)
-VALUES ('import', true, 'Concurrent queue for processing import jobs');
+INSERT INTO worker.queue_registry (queue, description)
+VALUES ('import', 'Serial queue for processing import jobs');
 
 INSERT INTO worker.command_registry (queue, command, handler_procedure, before_procedure, after_procedure, description)
 VALUES
