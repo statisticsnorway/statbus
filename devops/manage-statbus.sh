@@ -355,9 +355,9 @@ case "$action" in
           # Extract the full test name (e.g., "01_load_web_examples")
           test=$(echo "$test_line" | sed -E 's/not ok[[:space:]]+[0-9]+[[:space:]]+- ([^[:space:]]+).*/\1/')
           
-          ui=${1:-tui}
-          shift || true
-          case $ui in
+          ui_choice=${1:-tui}
+          line_limit=${2:-}
+          case $ui_choice in
               'gui')
                   echo "Running opendiff for test: $test"
                   opendiff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out -merge $WORKSPACE/test/expected/$test.out
@@ -377,7 +377,7 @@ case "$action" in
                   fi
                   ;;
               *)
-                  echo "Error: Unknown UI option '$ui'. Please use 'gui' or 'tui'."
+                  echo "Error: Unknown UI option '$ui_choice'. Please use 'gui', 'tui', or 'pipe'."
                   exit 1
               ;;
           esac
@@ -394,7 +394,9 @@ case "$action" in
       ui_choice=${1:-tui} # Get UI choice from the first argument to diff-fail-all, default to tui
       line_limit=${2:-}
 
-      grep -E '^not ok' "$WORKSPACE/test/regression.out" | while read test_line; do
+      # Use process substitution to avoid running the loop in a subshell,
+      # which can have subtle side effects on variable scope and signal handling.
+      while read test_line; do
           # Extract the full test name (e.g., "01_load_web_examples")
           test=$(echo "$test_line" | sed -E 's/not ok[[:space:]]+[0-9]+[[:space:]]+- ([^[:space:]]+).*/\1/')
           
@@ -432,7 +434,7 @@ case "$action" in
                   exit 1
               ;;
           esac
-      done
+      done < <(grep -E '^not ok' "$WORKSPACE/test/regression.out")
     ;;
     'make-all-failed-test-results-expected' )
         if [ ! -f "$WORKSPACE/test/regression.out" ]; then
