@@ -87,7 +87,19 @@ For file system operations and large-scale edits, prefer suggesting shell comman
     - Use `%I` for identifiers, `%L` for SQL literals, and `%s` for raw string insertion.
     - Keep the SQL readable by aligning numbered placeholders with inline comments that show which parameter they refer to.
 - **Table Aliases**: Prefer explicit `AS` for table aliases, e.g., `FROM my_table AS mt`. For common data table aliases in import procedures, `AS dt` is preferred.
+- **Temporal Logic**: When writing conditions involving time, always order the components chronologically for readability (e.g., `start <= point AND point < end`). Avoid non-chronological forms like `point >= start`.
 - **Batch Operations**: Utilize PostgreSQL 17+ `MERGE` syntax for efficient batch handling where appropriate.
+- **Temporary Table Management**:
+    - To ensure procedures are idempotent and to avoid noisy `NOTICE` messages in logs, use the following pattern to clean up temporary tables at the beginning of a procedure:
+      ```sql
+      -- The explicit 'pg_temp.' schema ensures we only check for session-local tables.
+      IF to_regclass('pg_temp.my_temp_table') IS NOT NULL THEN DROP TABLE my_temp_table; END IF;
+      CREATE TEMP TABLE my_temp_table (...) ON COMMIT DROP;
+      ```
+    - This pattern has several advantages:
+        1.  **Silent Operation**: It avoids the `NOTICE: table "..." does not exist, skipping` message that `DROP TABLE IF EXISTS` would generate on the first run.
+        2.  **Co-location**: It keeps the cleanup logic directly beside the creation logic, improving readability.
+        3.  **Debuggability**: If the code does not behave as expected, then a test running in the same transaction can inspect those temporary tables to determine where the faulty logic lies.
 - **Database Inspection**: Use `psql` for direct database inspection and querying during development. For example, to list available import definitions: `echo 'SELECT slug, name FROM public.import_definition;' | ./devops/manage-statbus.sh psql`
 
 For a super compact data model for you reference, ask for doc/data-model.md.
