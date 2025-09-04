@@ -27,7 +27,7 @@ export function FormField({
           type="text"
           disabled={readonly}
           name={name}
-          defaultValue={value ?? ""}
+          value={value ?? ""}
           autoComplete="off"
           className="disabled:opacity-80"
         />
