@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { zfd } from "zod-form-data";
 import { baseDataStore } from "@/context/BaseDataStore";
-import { _parseAuthStatusRpcResponseToAuthStatus } from "@/atoms/auth";
+import { _parseAuthStatusRpcResponseToAuthStatus } from "@/lib/auth.types";
 
 const externalIdentsSchema = zfd.formData(
   z.record(
