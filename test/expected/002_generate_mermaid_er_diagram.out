@@ -1019,37 +1019,63 @@ erDiagram
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
 	}
-	sql_saga_api_view["sql_saga.api_view"] {
-		name table_schema
-		name table_name
-		name era_name
-		regclass view_oid
-		name trigger_name
-	}
 	sql_saga_era["sql_saga.era"] {
 		name table_schema
 		name table_name
 		name era_name
-		name start_after_column_name
-		name stop_on_column_name
+		name valid_from_column_name
+		name valid_until_column_name
 		regtype range_type
+		regtype range_subtype
+		character(1) range_subtype_category
 		name bounds_check_constraint
-		regclass audit_table_oid
+		name synchronize_valid_to_column
+		name synchronize_range_column
+		boolean trigger_applies_defaults
+		name audit_schema_name
+		name audit_table_name
 	}
 	sql_saga_foreign_keys["sql_saga.foreign_keys"] {
 		name foreign_key_name
+		sql_saga_fg_type type
 		name table_schema
 		name table_name
 		name[] column_names
-		name era_name
+		name fk_era_name
+		name[] fk_table_columns_snapshot
 		name unique_key_name
 		sql_saga_fk_match_types match_type
 		sql_saga_fk_actions update_action
 		sql_saga_fk_actions delete_action
 		name fk_insert_trigger
 		name fk_update_trigger
+		name fk_check_constraint
+		text fk_helper_function
 		name uk_update_trigger
 		name uk_delete_trigger
+	}
+	sql_saga_system_time_era["sql_saga.system_time_era"] {
+		name table_schema
+		name table_name
+		name era_name
+		name infinity_check_constraint
+		name generated_always_trigger
+		name write_history_trigger
+		name truncate_trigger
+		name[] excluded_column_names
+	}
+	sql_saga_system_versioning["sql_saga.system_versioning"] {
+		name table_schema
+		name table_name
+		name era_name
+		name history_schema_name
+		name history_table_name
+		name view_schema_name
+		name view_table_name
+		text func_as_of
+		text func_between
+		text func_between_symmetric
+		text func_from_to
 	}
 	sql_saga_unique_keys["sql_saga.unique_keys"] {
 		name unique_key_name
@@ -1059,6 +1085,17 @@ erDiagram
 		name era_name
 		name unique_constraint
 		name exclude_constraint
+		text predicate
+	}
+	sql_saga_updatable_view["sql_saga.updatable_view"] {
+		name view_schema
+		name view_name
+		sql_saga_updatable_view_type view_type
+		name table_schema
+		name table_name
+		name era_name
+		name trigger_name
+		text current_func
 	}
 	worker_command_registry["worker.command_registry"] {
 		text command
@@ -1162,16 +1199,19 @@ erDiagram
 	tag_for_unit }|--|| tag : tag_for_unit_tag_id_fkey
 	unit_notes }o--|| auth_user : unit_notes_edit_by_user_id_fkey
 	unit_notes }o--o| enterprise : unit_notes_enterprise_id_fkey
-	sql_saga_api_view }|--|| sql_saga_era : api_view_table_schema_table_name_era_name_fkey
-	sql_saga_api_view }|--|| sql_saga_era : api_view_table_schema_table_name_era_name_fkey
-	sql_saga_api_view }|--|| sql_saga_era : api_view_table_schema_table_name_era_name_fkey
-	sql_saga_foreign_keys }o--|| sql_saga_era : foreign_keys_table_schema_table_name_era_name_fkey
-	sql_saga_foreign_keys }o--|| sql_saga_era : foreign_keys_table_schema_table_name_era_name_fkey
-	sql_saga_foreign_keys }o--|| sql_saga_era : foreign_keys_table_schema_table_name_era_name_fkey
 	sql_saga_foreign_keys }o--|| sql_saga_unique_keys : foreign_keys_unique_key_name_fkey
+	sql_saga_system_time_era }|--|| sql_saga_era : system_time_era_table_schema_table_name_era_name_fkey
+	sql_saga_system_time_era }|--|| sql_saga_era : system_time_era_table_schema_table_name_era_name_fkey
+	sql_saga_system_time_era }|--|| sql_saga_era : system_time_era_table_schema_table_name_era_name_fkey
+	sql_saga_system_versioning }|--|| sql_saga_era : system_versioning_table_schema_table_name_era_name_fkey
+	sql_saga_system_versioning }|--|| sql_saga_era : system_versioning_table_schema_table_name_era_name_fkey
+	sql_saga_system_versioning }|--|| sql_saga_era : system_versioning_table_schema_table_name_era_name_fkey
 	sql_saga_unique_keys }o--|| sql_saga_era : unique_keys_table_schema_table_name_era_name_fkey
 	sql_saga_unique_keys }o--|| sql_saga_era : unique_keys_table_schema_table_name_era_name_fkey
 	sql_saga_unique_keys }o--|| sql_saga_era : unique_keys_table_schema_table_name_era_name_fkey
+	sql_saga_updatable_view }o--|| sql_saga_era : updatable_view_table_schema_table_name_era_name_fkey
+	sql_saga_updatable_view }o--|| sql_saga_era : updatable_view_table_schema_table_name_era_name_fkey
+	sql_saga_updatable_view }o--|| sql_saga_era : updatable_view_table_schema_table_name_era_name_fkey
 	worker_command_registry }o--|| worker_queue_registry : command_registry_queue_fkey
 	worker_tasks }o--|| worker_command_registry : fk_tasks_command
 	worker_tasks }o--|| worker_command_registry : tasks_command_fkey
