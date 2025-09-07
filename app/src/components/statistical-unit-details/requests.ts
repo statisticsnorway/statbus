@@ -162,3 +162,50 @@ export async function getStatisticalUnitStats(
   const errorWithName = error ? { ...error, name: "supabase-error" } : null;
   return { stats, error: errorWithName };
 }
+
+export async function getStatisticalUnitHistory(
+  unitId: number,
+  unitType: "enterprise" | "enterprise_group" | "legal_unit" | "establishment"
+) {
+  const client = await getServerRestClient();
+  try {
+    const { data, error } = await client
+      .rpc("statistical_unit_history_highcharts", {
+        p_unit_id: unitId,
+        p_unit_type: unitType,
+      })
+      .returns<StatisticalUnitHistoryHighcharts>();
+
+    if (error) {
+      return {
+        unit: null,
+        error: { ...error, name: "supabase-error" },
+      };
+    }
+
+    // Validate that data has the expected structure
+    if (data) {
+      return {
+        data: data as StatisticalUnitHistoryHighcharts,
+        error: null,
+      };
+    } else {
+      return {
+        unit: null,
+        error: {
+          message: "Invalid unit history highcharts data structure",
+          name: "supabase-error",
+          code: "PGRST116",
+          details: "Missing expected properties in unit details data",
+          hint: "",
+        } as { name: string } & PostgrestError,
+      };
+    }
+  } catch (error) {
+    const postgrestError = error as PostgrestError;
+    return {
+      unit: null,
+      error: { ...postgrestError, name: "supabase-error" },
+    };
+  }
+}

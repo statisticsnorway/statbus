@@ -249,3 +249,12 @@ declare interface StatisticalUnitStats {
   stats: { [key: string]: number | string };
   stats_summary: StatsSummary;
 };
+
+declare interface StatisticalUnitHistoryHighcharts {
+  series: Array<{
+    data: [number, number][];
+    name: string;
+  }>;
+  unit_id: number;
+  unit_name: string;
+}
