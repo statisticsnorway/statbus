@@ -111,7 +111,7 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | pending   |     6
+ analytics | pending   |     2
  import    | completed |    44
 (2 rows)
 
@@ -128,17 +128,17 @@ SELECT
 
 \echo "Inspecting import job data for import_32_lu_tc_ds"
 "Inspecting import job data for import_32_lu_tc_ds"
-SELECT row_id, state, error, tax_ident, name, data_source_code
+SELECT row_id, state, errors, tax_ident, name, data_source_code, merge_statuses
 FROM public.import_32_lu_tc_ds_data
 ORDER BY row_id
 LIMIT 5;
- row_id |   state   | error | tax_ident  |            name             | data_source_code 
---------+-----------+-------+------------+-----------------------------+------------------
-      1 | processed |       | 2212760144 | NILE PEARL WATER            | nlr
-      2 | processed |       | 2812760140 | EQUATOR GLOBE SOLUTIONS     | nlr
-      3 | processed |       | 2212760084 | EQUATOR CIRCLE CONSTRUCTION | nlr
-      4 | processed |       | 2612760138 | LIRA FRESH FRUIT EXPORTERS  | nlr
-      5 | processed |       | 2812760130 | ENTEBBE FUEL ENTERPRISES    | nlr
+ row_id |   state   | errors | tax_ident  |            name             | data_source_code |      merge_statuses       
+--------+-----------+--------+------------+-----------------------------+------------------+---------------------------
+      1 | processed | {}     | 2212760144 | NILE PEARL WATER            | nlr              | {"legal_unit": "APPLIED"}
+      2 | processed | {}     | 2812760140 | EQUATOR GLOBE SOLUTIONS     | nlr              | {"legal_unit": "APPLIED"}
+      3 | processed | {}     | 2212760084 | EQUATOR CIRCLE CONSTRUCTION | nlr              | {"legal_unit": "APPLIED"}
+      4 | processed | {}     | 2612760138 | LIRA FRESH FRUIT EXPORTERS  | nlr              | {"legal_unit": "APPLIED"}
+      5 | processed | {}     | 2812760130 | ENTEBBE FUEL ENTERPRISES    | nlr              | {"legal_unit": "APPLIED"}
 (5 rows)
 
 \echo "Checking import job status for import_32_lu_tc_ds"
@@ -159,15 +159,15 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |     8
+ analytics | completed |     4
  import    | completed |    44
 (2 rows)
 
 \echo "Checking statistics"
 "Checking statistics"
-SELECT name, external_idents, unit_type, data_source_codes, invalid_codes
+SELECT name, external_idents, unit_type, data_source_codes, invalid_codes, primary_activity_category_path, web_address, stats_summary->'employees'->>'value_int' AS employees, stats_summary->'turnover'->>'value_int' AS turnover
  FROM statistical_unit
- WHERE valid_after < CURRENT_DATE AND CURRENT_DATE <= valid_to
+ WHERE valid_from <= CURRENT_DATE AND CURRENT_DATE < valid_until
  ORDER BY name, external_idents->>'tax_ident', unit_type, valid_from, unit_id;
             name             |                 external_idents                 | unit_type  | data_source_codes | invalid_codes 
 -----------------------------+-------------------------------------------------+------------+-------------------+---------------

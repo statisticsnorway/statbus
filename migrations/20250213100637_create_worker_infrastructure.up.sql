@@ -111,8 +111,8 @@ CREATE OR REPLACE FUNCTION worker.derive_statistical_unit(
   p_establishment_ids int[] DEFAULT NULL,
   p_legal_unit_ids int[] DEFAULT NULL,
   p_enterprise_ids int[] DEFAULT NULL,
-  p_valid_after date DEFAULT NULL,
-  p_valid_to date DEFAULT NULL
+  p_valid_from date DEFAULT NULL,
+  p_valid_until date DEFAULT NULL
 )
 RETURNS void
 LANGUAGE plpgsql
@@ -282,16 +282,16 @@ DECLARE
             )
         ELSE ARRAY[]::int[]
     END;
-    v_valid_after date = (payload->>'valid_after')::date;
-    v_valid_to date = (payload->>'valid_to')::date;
+    v_valid_from date = (payload->>'valid_from')::date;
+    v_valid_until date = (payload->>'valid_until')::date;
 BEGIN
   -- Call the statistical unit refresh function with the extracted parameters
   PERFORM worker.derive_statistical_unit(
     p_establishment_ids := v_establishment_ids,
     p_legal_unit_ids := v_legal_unit_ids,
     p_enterprise_ids := v_enterprise_ids,
-    p_valid_after := v_valid_after,
-    p_valid_to := v_valid_to
+    p_valid_from := v_valid_from,
+    p_valid_until := v_valid_until
   );
 END;
 $derive_statistical_unit$;
@@ -315,17 +315,17 @@ $procedure$;
 
 -- Create statistical unit refresh function (part 2: reports and facets)
 CREATE FUNCTION worker.derive_reports(
-  p_valid_after date DEFAULT NULL,
-  p_valid_to date DEFAULT NULL
+  p_valid_from date DEFAULT NULL,
+  p_valid_until date DEFAULT NULL
 )
 RETURNS void
 LANGUAGE plpgsql
 AS $derive_reports$
 BEGIN
   -- Refresh derived data (facets and history)
-  PERFORM public.statistical_history_derive(valid_after => p_valid_after,valid_to => p_valid_to);
-  PERFORM public.statistical_unit_facet_derive(valid_after => p_valid_after,valid_to => p_valid_to);
-  PERFORM public.statistical_history_facet_derive(valid_after => p_valid_after,valid_to => p_valid_to);
+  PERFORM public.statistical_history_derive(valid_from => p_valid_from,valid_until => p_valid_until);
+  PERFORM public.statistical_unit_facet_derive(valid_from => p_valid_from,valid_until => p_valid_until);
+  PERFORM public.statistical_history_facet_derive(valid_from => p_valid_from,valid_until => p_valid_until);
 END;
 $derive_reports$;
 
@@ -339,13 +339,13 @@ SECURITY DEFINER
 LANGUAGE plpgsql
 AS $procedure$
 DECLARE
-    v_valid_after date = (payload->>'valid_after')::date;
-    v_valid_to date = (payload->>'valid_to')::date;
+    v_valid_from date = (payload->>'valid_from')::date;
+    v_valid_until date = (payload->>'valid_until')::date;
 BEGIN
   -- Call the reports refresh function with the extracted parameters
   PERFORM worker.derive_reports(
-    p_valid_after := v_valid_after,
-    p_valid_to := v_valid_to
+    p_valid_from := v_valid_from,
+    p_valid_until := v_valid_until
   );
 END;
 $procedure$;
@@ -387,8 +387,8 @@ DECLARE
   v_establishment_ids int[] := ARRAY[]::int[];
   v_legal_unit_ids int[] := ARRAY[]::int[];
   v_enterprise_ids int[] := ARRAY[]::int[];
-  v_valid_after date := NULL::date;
-  v_valid_to date := NULL::date;
+  v_valid_from date := NULL::date;
+  v_valid_until date := NULL::date;
 BEGIN
   -- Get current transaction ID
   SELECT txid_current() INTO v_current_txid;
@@ -410,9 +410,9 @@ BEGIN
   -- Set up validity columns
   CASE v_table_name
     WHEN 'enterprise' THEN
-      v_valid_columns := 'NULL::DATE AS valid_after, NULL::DATE AS valid_from, NULL::DATE AS valid_to';
+      v_valid_columns := 'NULL::DATE AS valid_from, NULL::DATE AS valid_to, NULL::DATE AS valid_until';
     WHEN 'establishment', 'legal_unit', 'activity', 'location', 'contact', 'stat_for_unit' THEN
-      v_valid_columns := 'valid_after, valid_from, valid_to';
+      v_valid_columns := 'valid_from, valid_to, valid_until';
     ELSE
       RAISE EXCEPTION 'Unknown table: %', v_table_name;
   END CASE;
@@ -438,8 +438,8 @@ BEGIN
     END IF;
 
     -- Update validity range
-    v_valid_after := LEAST(v_valid_after, v_changed_rows.valid_after);
-    v_valid_to := GREATEST(v_valid_to, v_changed_rows.valid_to);
+    v_valid_from := LEAST(v_valid_from, v_changed_rows.valid_from);
+    v_valid_until := GREATEST(v_valid_until, v_changed_rows.valid_until);
   END LOOP;
 
   -- Process collected IDs if any exist
@@ -452,13 +452,13 @@ BEGIN
       p_establishment_ids := v_establishment_ids,
       p_legal_unit_ids := v_legal_unit_ids,
       p_enterprise_ids := v_enterprise_ids,
-      p_valid_after := v_valid_after,
-      p_valid_to := v_valid_to
+      p_valid_from := v_valid_from,
+      p_valid_until := v_valid_until
     );
     -- Schedule report refresh
     PERFORM worker.enqueue_derive_reports(
-      p_valid_after := v_valid_after,
-      p_valid_to := v_valid_to
+      p_valid_from := v_valid_from,
+      p_valid_until := v_valid_until
     );
   END IF;
 
@@ -508,22 +508,22 @@ DECLARE
             )
         ELSE ARRAY[]::int[]
     END;
-    v_valid_after date = (payload->>'valid_after')::date;
-    v_valid_to date = (payload->>'valid_to')::date;
+    v_valid_from date = (payload->>'valid_from')::date;
+    v_valid_until date = (payload->>'valid_until')::date;
 BEGIN
   -- Schedule statistical unit refresh
   PERFORM worker.enqueue_derive_statistical_unit(
     p_establishment_ids := v_establishment_ids,
     p_legal_unit_ids := v_legal_unit_ids,
     p_enterprise_ids := v_enterprise_ids,
-    p_valid_after := v_valid_after,
-    p_valid_to := v_valid_to
+    p_valid_from := v_valid_from,
+    p_valid_until := v_valid_until
   );
 
   -- Schedule report refresh
   PERFORM worker.enqueue_derive_reports(
-    p_valid_after := v_valid_after,
-    p_valid_to := v_valid_to
+    p_valid_from := v_valid_from,
+    p_valid_until := v_valid_until
   );
 END;
 $procedure$;
@@ -607,8 +607,8 @@ CREATE FUNCTION worker.enqueue_deleted_row(
   p_establishment_id INT DEFAULT NULL,
   p_legal_unit_id INT DEFAULT NULL,
   p_enterprise_id INT DEFAULT NULL,
-  p_valid_after DATE DEFAULT NULL,
-  p_valid_to DATE DEFAULT NULL
+  p_valid_from DATE DEFAULT NULL,
+  p_valid_until DATE DEFAULT NULL
 ) RETURNS BIGINT
 LANGUAGE plpgsql
 AS $function$
@@ -641,8 +641,8 @@ BEGIN
     'establishment_ids', to_jsonb(v_establishment_ids),
     'legal_unit_ids', to_jsonb(v_legal_unit_ids),
     'enterprise_ids', to_jsonb(v_enterprise_ids),
-    'valid_after', p_valid_after,
-    'valid_to', p_valid_to
+    'valid_from', p_valid_from,
+    'valid_until', p_valid_until
   );
 
   -- Insert or update the task with array merging in the conflict clause
@@ -698,13 +698,13 @@ BEGIN
         )
       ),
       -- Expand date ranges
-      'valid_after', LEAST(
-        (t.payload->>'valid_after')::date,
-        (EXCLUDED.payload->>'valid_after')::date
+      'valid_from', LEAST(
+        (t.payload->>'valid_from')::date,
+        (EXCLUDED.payload->>'valid_from')::date
       ),
-      'valid_to', GREATEST(
-        (t.payload->>'valid_to')::date,
-        (EXCLUDED.payload->>'valid_to')::date
+      'valid_until', GREATEST(
+        (t.payload->>'valid_until')::date,
+        (EXCLUDED.payload->>'valid_until')::date
       )
     ),
     state = 'pending'::worker.task_state,
@@ -725,8 +725,8 @@ CREATE FUNCTION worker.enqueue_derive_statistical_unit(
   p_establishment_ids int[] DEFAULT NULL,
   p_legal_unit_ids int[] DEFAULT NULL,
   p_enterprise_ids int[] DEFAULT NULL,
-  p_valid_after date DEFAULT NULL,
-  p_valid_to date DEFAULT NULL
+  p_valid_from date DEFAULT NULL,
+  p_valid_until date DEFAULT NULL
 ) RETURNS BIGINT
 LANGUAGE plpgsql
 AS $function$
@@ -736,8 +736,8 @@ DECLARE
   v_establishment_ids INT[] := COALESCE(p_establishment_ids, ARRAY[]::INT[]);
   v_legal_unit_ids INT[] := COALESCE(p_legal_unit_ids, ARRAY[]::INT[]);
   v_enterprise_ids INT[] := COALESCE(p_enterprise_ids, ARRAY[]::INT[]);
-  v_valid_after DATE := COALESCE(p_valid_after, '-infinity'::DATE);
-  v_valid_to DATE := COALESCE(p_valid_to, 'infinity'::DATE);
+  v_valid_from DATE := COALESCE(p_valid_from, '-infinity'::DATE);
+  v_valid_until DATE := COALESCE(p_valid_until, 'infinity'::DATE);
 BEGIN
   -- Create payload with arrays
   v_payload := jsonb_build_object(
@@ -745,8 +745,8 @@ BEGIN
     'establishment_ids', to_jsonb(v_establishment_ids),
     'legal_unit_ids', to_jsonb(v_legal_unit_ids),
     'enterprise_ids', to_jsonb(v_enterprise_ids),
-    'valid_after', v_valid_after,
-    'valid_to', v_valid_to
+    'valid_from', v_valid_from,
+    'valid_until', v_valid_until
   );
 
   -- Use the unique index on command for deduplication
@@ -801,13 +801,13 @@ BEGIN
         )
       ),
       -- Expand date ranges
-      'valid_after', LEAST(
-        (t.payload->>'valid_after')::date,
-        (EXCLUDED.payload->>'valid_after')::date
+      'valid_from', LEAST(
+        (t.payload->>'valid_from')::date,
+        (EXCLUDED.payload->>'valid_from')::date
       ),
-      'valid_to', GREATEST(
-        (t.payload->>'valid_to')::date,
-        (EXCLUDED.payload->>'valid_to')::date
+      'valid_until', GREATEST(
+        (t.payload->>'valid_until')::date,
+        (EXCLUDED.payload->>'valid_until')::date
       )
     ),
     state = 'pending'::worker.task_state,
@@ -825,22 +825,22 @@ $function$;
 
 -- For derive_reports command
 CREATE FUNCTION worker.enqueue_derive_reports(
-  p_valid_after date DEFAULT NULL,
-  p_valid_to date DEFAULT NULL
+  p_valid_from date DEFAULT NULL,
+  p_valid_until date DEFAULT NULL
 ) RETURNS BIGINT
 LANGUAGE plpgsql
 AS $function$
 DECLARE
   v_task_id BIGINT;
   v_payload JSONB;
-  v_valid_after DATE := COALESCE(p_valid_after, '-infinity'::DATE);
-  v_valid_to DATE := COALESCE(p_valid_to, 'infinity'::DATE);
+  v_valid_from DATE := COALESCE(p_valid_from, '-infinity'::DATE);
+  v_valid_until DATE := COALESCE(p_valid_until, 'infinity'::DATE);
 BEGIN
   -- Create payload
   v_payload := jsonb_build_object(
     'command', 'derive_reports',
-    'valid_after', v_valid_after,
-    'valid_to', v_valid_to
+    'valid_from', v_valid_from,
+    'valid_until', v_valid_until
   );
 
   -- Use the unique index on command for deduplication
@@ -853,13 +853,13 @@ BEGIN
     payload = jsonb_build_object(
       'command', 'derive_reports',
       -- Expand date ranges
-      'valid_after', LEAST(
-        (t.payload->>'valid_after')::date,
-        (EXCLUDED.payload->>'valid_after')::date
+      'valid_from', LEAST(
+        (t.payload->>'valid_from')::date,
+        (EXCLUDED.payload->>'valid_from')::date
       ),
-      'valid_to', GREATEST(
-        (t.payload->>'valid_to')::date,
-        (EXCLUDED.payload->>'valid_to')::date
+      'valid_until', GREATEST(
+        (t.payload->>'valid_until')::date,
+        (EXCLUDED.payload->>'valid_until')::date
       )
     ),
     state = 'pending'::worker.task_state,
@@ -1317,8 +1317,8 @@ DECLARE
   establishment_id_value int;
   legal_unit_id_value int;
   enterprise_id_value int;
-  valid_after_value date;
-  valid_to_value date;
+  valid_from_value date;
+  valid_until_value date;
 BEGIN
   -- Set values based on table name
   CASE TG_TABLE_NAME
@@ -1326,26 +1326,26 @@ BEGIN
       establishment_id_value := OLD.id;
       legal_unit_id_value := OLD.legal_unit_id;
       enterprise_id_value := OLD.enterprise_id;
-      valid_after_value := OLD.valid_after;
-      valid_to_value := OLD.valid_to;
+      valid_from_value := OLD.valid_from;
+      valid_until_value := OLD.valid_until;
     WHEN 'legal_unit' THEN
       establishment_id_value := NULL;
       legal_unit_id_value := OLD.id;
       enterprise_id_value := OLD.enterprise_id;
-      valid_after_value := OLD.valid_after;
-      valid_to_value := OLD.valid_to;
+      valid_from_value := OLD.valid_from;
+      valid_until_value := OLD.valid_until;
     WHEN 'enterprise' THEN
       establishment_id_value := NULL;
       legal_unit_id_value := NULL;
       enterprise_id_value := OLD.id;
-      valid_after_value := NULL;
-      valid_to_value := NULL;
+      valid_from_value := NULL;
+      valid_until_value := NULL;
     WHEN 'activity','location','contact','stat_for_unit' THEN
       establishment_id_value := OLD.establishment_id;
       legal_unit_id_value := OLD.legal_unit_id;
       enterprise_id_value := NULL;
-      valid_after_value := OLD.valid_after;
-      valid_to_value := OLD.valid_to;
+      valid_from_value := OLD.valid_from;
+      valid_until_value := OLD.valid_until;
     ELSE
       RAISE EXCEPTION 'Unexpected table name in delete trigger: %', TG_TABLE_NAME;
   END CASE;
@@ -1356,8 +1356,8 @@ BEGIN
     p_establishment_id := establishment_id_value,
     p_legal_unit_id := legal_unit_id_value,
     p_enterprise_id := enterprise_id_value,
-    p_valid_after := valid_after_value,
-    p_valid_to := valid_to_value
+    p_valid_from := valid_from_value,
+    p_valid_until := valid_until_value
   );
 
   RETURN OLD;

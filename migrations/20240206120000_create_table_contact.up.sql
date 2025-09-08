@@ -4,8 +4,8 @@ BEGIN;
 CREATE TABLE public.contact (
     id SERIAL NOT NULL,
     valid_from date NOT NULL,
-    valid_after date NOT NULL,
-    valid_to date NOT NULL DEFAULT 'infinity',
+    valid_to date NOT NULL,
+    valid_until date NOT NULL,
     web_address character varying(256),
     email_address character varying(50),
     phone_number character varying(50),
@@ -36,10 +36,26 @@ CREATE INDEX ix_contact_establishment_id ON public.contact USING btree (establis
 CREATE INDEX ix_contact_legal_unit_id ON public.contact USING btree (legal_unit_id);
 CREATE INDEX ix_contact_data_source_id ON public.contact USING btree (data_source_id);
 CREATE INDEX ix_contact_edit_by_user_id ON public.contact USING btree (edit_by_user_id);
-CREATE INDEX ix_contact_legal_unit_id_valid_range ON public.contact USING gist (legal_unit_id, daterange(valid_after, valid_to, '(]'));
+CREATE INDEX ix_contact_legal_unit_id_valid_range ON public.contact USING gist (legal_unit_id, daterange(valid_from, valid_until, '[)'));
 
-CREATE TRIGGER trg_contact_synchronize_valid_from_after
-    BEFORE INSERT OR UPDATE ON public.contact
-    FOR EACH ROW EXECUTE FUNCTION public.synchronize_valid_from_after();
+-- Activate era handling
+SELECT sql_saga.add_era('public.contact', p_synchronize_valid_to_column := 'valid_to');
+SELECT sql_saga.add_unique_key(
+    table_oid => 'public.contact',
+    column_names => ARRAY['id'],
+    unique_key_name => 'contact_id_valid'
+);
+SELECT sql_saga.add_foreign_key(
+    fk_table_oid => 'public.contact',
+    fk_column_names => ARRAY['establishment_id'],
+    fk_era_name => 'valid',
+    unique_key_name => 'establishment_id_valid'
+);
+SELECT sql_saga.add_foreign_key(
+    fk_table_oid => 'public.contact',
+    fk_column_names => ARRAY['legal_unit_id'],
+    fk_era_name => 'valid',
+    unique_key_name => 'legal_unit_id_valid'
+);
 
 END;

@@ -213,9 +213,9 @@ Describing table for definition: legal_unit_job_provided (Job: t54_lu_tc, Data T
  row_id                           | integer                   |           | not null | generated always as identity
  valid_from                       | text                      |           |          | 
  valid_to                         | text                      |           |          | 
- derived_valid_after              | date                      |           |          | 
  derived_valid_from               | date                      |           |          | 
  derived_valid_to                 | date                      |           |          | 
+ derived_valid_until              | date                      |           |          | 
  operation                        | import_row_operation_type |           |          | 
  action                           | import_row_action_type    |           |          | 
  tax_ident                        | text                      |           |          | 
@@ -297,11 +297,12 @@ Describing table for definition: legal_unit_job_provided (Job: t54_lu_tc, Data T
  founding_row_id                  | integer                   |           |          | 
  state                            | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority          | integer                   |           | not null | 0
- error                            | jsonb                     |           |          | 
+ errors                           | jsonb                     |           |          | 
+ merge_statuses                   | jsonb                     |           |          | 
  invalid_codes                    | jsonb                     |           |          | 
 Indexes:
     "t54_lu_tc_data_pkey" PRIMARY KEY, btree (row_id)
-    "t54_lu_tc_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND error IS NULL
+    "t54_lu_tc_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND errors IS NULL
     "t54_lu_tc_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "t54_lu_tc_data_stat_ident_idx" btree (stat_ident)
     "t54_lu_tc_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
@@ -331,9 +332,9 @@ Describing table for definition: legal_unit_source_dates (Job: t54_lu_sd, Data T
  row_id                           | integer                   |           | not null | generated always as identity
  valid_from                       | text                      |           |          | 
  valid_to                         | text                      |           |          | 
- derived_valid_after              | date                      |           |          | 
  derived_valid_from               | date                      |           |          | 
  derived_valid_to                 | date                      |           |          | 
+ derived_valid_until              | date                      |           |          | 
  operation                        | import_row_operation_type |           |          | 
  action                           | import_row_action_type    |           |          | 
  tax_ident                        | text                      |           |          | 
@@ -415,11 +416,12 @@ Describing table for definition: legal_unit_source_dates (Job: t54_lu_sd, Data T
  founding_row_id                  | integer                   |           |          | 
  state                            | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority          | integer                   |           | not null | 0
- error                            | jsonb                     |           |          | 
+ errors                           | jsonb                     |           |          | 
+ merge_statuses                   | jsonb                     |           |          | 
  invalid_codes                    | jsonb                     |           |          | 
 Indexes:
     "t54_lu_sd_data_pkey" PRIMARY KEY, btree (row_id)
-    "t54_lu_sd_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND error IS NULL
+    "t54_lu_sd_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND errors IS NULL
     "t54_lu_sd_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "t54_lu_sd_data_stat_ident_idx" btree (stat_ident)
     "t54_lu_sd_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
@@ -449,9 +451,9 @@ Describing table for definition: establishment_for_lu_job_provided (Job: t54_est
  row_id                           | integer                   |           | not null | generated always as identity
  valid_from                       | text                      |           |          | 
  valid_to                         | text                      |           |          | 
- derived_valid_after              | date                      |           |          | 
  derived_valid_from               | date                      |           |          | 
  derived_valid_to                 | date                      |           |          | 
+ derived_valid_until              | date                      |           |          | 
  operation                        | import_row_operation_type |           |          | 
  action                           | import_row_action_type    |           |          | 
  tax_ident                        | text                      |           |          | 
@@ -533,11 +535,12 @@ Describing table for definition: establishment_for_lu_job_provided (Job: t54_est
  founding_row_id                  | integer                   |           |          | 
  state                            | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority          | integer                   |           | not null | 0
- error                            | jsonb                     |           |          | 
+ errors                           | jsonb                     |           |          | 
+ merge_statuses                   | jsonb                     |           |          | 
  invalid_codes                    | jsonb                     |           |          | 
 Indexes:
     "t54_est_lu_tc_data_pkey" PRIMARY KEY, btree (row_id)
-    "t54_est_lu_tc_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND error IS NULL
+    "t54_est_lu_tc_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND errors IS NULL
     "t54_est_lu_tc_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "t54_est_lu_tc_data_stat_ident_idx" btree (stat_ident)
     "t54_est_lu_tc_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
@@ -567,9 +570,9 @@ Describing table for definition: establishment_for_lu_source_dates (Job: t54_est
  row_id                           | integer                   |           | not null | generated always as identity
  valid_from                       | text                      |           |          | 
  valid_to                         | text                      |           |          | 
- derived_valid_after              | date                      |           |          | 
  derived_valid_from               | date                      |           |          | 
  derived_valid_to                 | date                      |           |          | 
+ derived_valid_until              | date                      |           |          | 
  operation                        | import_row_operation_type |           |          | 
  action                           | import_row_action_type    |           |          | 
  tax_ident                        | text                      |           |          | 
@@ -651,11 +654,12 @@ Describing table for definition: establishment_for_lu_source_dates (Job: t54_est
  founding_row_id                  | integer                   |           |          | 
  state                            | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority          | integer                   |           | not null | 0
- error                            | jsonb                     |           |          | 
+ errors                           | jsonb                     |           |          | 
+ merge_statuses                   | jsonb                     |           |          | 
  invalid_codes                    | jsonb                     |           |          | 
 Indexes:
     "t54_est_lu_sd_data_pkey" PRIMARY KEY, btree (row_id)
-    "t54_est_lu_sd_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND error IS NULL
+    "t54_est_lu_sd_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND errors IS NULL
     "t54_est_lu_sd_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "t54_est_lu_sd_data_stat_ident_idx" btree (stat_ident)
     "t54_est_lu_sd_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
@@ -685,9 +689,9 @@ Describing table for definition: establishment_without_lu_job_provided (Job: t54
  row_id                           | integer                   |           | not null | generated always as identity
  valid_from                       | text                      |           |          | 
  valid_to                         | text                      |           |          | 
- derived_valid_after              | date                      |           |          | 
  derived_valid_from               | date                      |           |          | 
  derived_valid_to                 | date                      |           |          | 
+ derived_valid_until              | date                      |           |          | 
  operation                        | import_row_operation_type |           |          | 
  action                           | import_row_action_type    |           |          | 
  tax_ident                        | text                      |           |          | 
@@ -767,11 +771,12 @@ Describing table for definition: establishment_without_lu_job_provided (Job: t54
  founding_row_id                  | integer                   |           |          | 
  state                            | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority          | integer                   |           | not null | 0
- error                            | jsonb                     |           |          | 
+ errors                           | jsonb                     |           |          | 
+ merge_statuses                   | jsonb                     |           |          | 
  invalid_codes                    | jsonb                     |           |          | 
 Indexes:
     "t54_est_wolu_tc_data_pkey" PRIMARY KEY, btree (row_id)
-    "t54_est_wolu_tc_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND error IS NULL
+    "t54_est_wolu_tc_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND errors IS NULL
     "t54_est_wolu_tc_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "t54_est_wolu_tc_data_stat_ident_idx" btree (stat_ident)
     "t54_est_wolu_tc_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
@@ -801,9 +806,9 @@ Describing table for definition: establishment_without_lu_source_dates (Job: t54
  row_id                           | integer                   |           | not null | generated always as identity
  valid_from                       | text                      |           |          | 
  valid_to                         | text                      |           |          | 
- derived_valid_after              | date                      |           |          | 
  derived_valid_from               | date                      |           |          | 
  derived_valid_to                 | date                      |           |          | 
+ derived_valid_until              | date                      |           |          | 
  operation                        | import_row_operation_type |           |          | 
  action                           | import_row_action_type    |           |          | 
  tax_ident                        | text                      |           |          | 
@@ -883,11 +888,12 @@ Describing table for definition: establishment_without_lu_source_dates (Job: t54
  founding_row_id                  | integer                   |           |          | 
  state                            | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority          | integer                   |           | not null | 0
- error                            | jsonb                     |           |          | 
+ errors                           | jsonb                     |           |          | 
+ merge_statuses                   | jsonb                     |           |          | 
  invalid_codes                    | jsonb                     |           |          | 
 Indexes:
     "t54_est_wolu_sd_data_pkey" PRIMARY KEY, btree (row_id)
-    "t54_est_wolu_sd_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND error IS NULL
+    "t54_est_wolu_sd_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND errors IS NULL
     "t54_est_wolu_sd_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "t54_est_wolu_sd_data_stat_ident_idx" btree (stat_ident)
     "t54_est_wolu_sd_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
@@ -917,9 +923,9 @@ Describing table for definition: generic_unit_stats_update_job_provided (Job: t5
  row_id                     | integer                   |           | not null | generated always as identity
  valid_from                 | text                      |           |          | 
  valid_to                   | text                      |           |          | 
- derived_valid_after        | date                      |           |          | 
  derived_valid_from         | date                      |           |          | 
  derived_valid_to           | date                      |           |          | 
+ derived_valid_until        | date                      |           |          | 
  operation                  | import_row_operation_type |           |          | 
  action                     | import_row_action_type    |           |          | 
  tax_ident                  | text                      |           |          | 
@@ -934,11 +940,12 @@ Describing table for definition: generic_unit_stats_update_job_provided (Job: t5
  founding_row_id            | integer                   |           |          | 
  state                      | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority    | integer                   |           | not null | 0
- error                      | jsonb                     |           |          | 
+ errors                     | jsonb                     |           |          | 
+ merge_statuses             | jsonb                     |           |          | 
  invalid_codes              | jsonb                     |           |          | 
 Indexes:
     "t54_gus_jp_data_pkey" PRIMARY KEY, btree (row_id)
-    "t54_gus_jp_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND error IS NULL
+    "t54_gus_jp_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND errors IS NULL
     "t54_gus_jp_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "t54_gus_jp_data_stat_ident_idx" btree (stat_ident)
     "t54_gus_jp_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
@@ -968,9 +975,9 @@ Describing table for definition: generic_unit_stats_update_source_dates (Job: t5
  row_id                     | integer                   |           | not null | generated always as identity
  valid_from                 | text                      |           |          | 
  valid_to                   | text                      |           |          | 
- derived_valid_after        | date                      |           |          | 
  derived_valid_from         | date                      |           |          | 
  derived_valid_to           | date                      |           |          | 
+ derived_valid_until        | date                      |           |          | 
  operation                  | import_row_operation_type |           |          | 
  action                     | import_row_action_type    |           |          | 
  tax_ident                  | text                      |           |          | 
@@ -985,11 +992,12 @@ Describing table for definition: generic_unit_stats_update_source_dates (Job: t5
  founding_row_id            | integer                   |           |          | 
  state                      | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority    | integer                   |           | not null | 0
- error                      | jsonb                     |           |          | 
+ errors                     | jsonb                     |           |          | 
+ merge_statuses             | jsonb                     |           |          | 
  invalid_codes              | jsonb                     |           |          | 
 Indexes:
     "t54_gus_sd_data_pkey" PRIMARY KEY, btree (row_id)
-    "t54_gus_sd_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND error IS NULL
+    "t54_gus_sd_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND errors IS NULL
     "t54_gus_sd_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "t54_gus_sd_data_stat_ident_idx" btree (stat_ident)
     "t54_gus_sd_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)

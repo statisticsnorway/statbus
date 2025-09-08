@@ -21,16 +21,18 @@ CREATE VIEW public.enterprise_external_idents AS
   SELECT 'enterprise'::public.statistical_unit_type AS unit_type
         , plu.enterprise_id AS unit_id
         , public.get_external_idents('legal_unit', plu.id) AS external_idents
-        , plu.valid_after
+        , plu.valid_from
         , plu.valid_to
+        , plu.valid_until
   FROM public.legal_unit plu
   WHERE  plu.primary_for_enterprise = true
   UNION ALL
   SELECT 'enterprise'::public.statistical_unit_type AS unit_type
        , pes.enterprise_id AS unit_id
        , public.get_external_idents('establishment', pes.id) AS external_idents
-       , pes.valid_after
+       , pes.valid_from
        , pes.valid_to
+       , pes.valid_until
   FROM public.establishment pes
   WHERE pes.enterprise_id IS NOT NULL
 ; -- END public.enterprise_external_idents

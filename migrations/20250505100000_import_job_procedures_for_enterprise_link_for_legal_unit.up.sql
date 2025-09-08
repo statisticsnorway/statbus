@@ -62,7 +62,7 @@ BEGIN
     END IF;
 
     -- Create a temporary table to hold analysis results for 'replace' actions
-    -- Per user guidance, explicit DROP is at the end / exception, not at the beginning for multi-call-in-one-tx test scenario.
+    IF to_regclass('pg_temp.temp_enterprise_analysis_results') IS NOT NULL THEN DROP TABLE temp_enterprise_analysis_results; END IF;
     CREATE TEMP TABLE temp_enterprise_analysis_results (
         row_id INTEGER PRIMARY KEY,
         resolved_enterprise_id INT,
@@ -101,11 +101,12 @@ BEGIN
                 COALESCE(ref_lu.primary_for_enterprise, FALSE) AS primary_for_enterprise_resolved
             FROM public.legal_unit ref_lu
             WHERE ref_lu.id = dt.legal_unit_id -- Match conceptual LU ID stored in dt.legal_unit_id
-            ORDER BY ref_lu.valid_after DESC, ref_lu.valid_to DESC -- Get the latest slice
+            ORDER BY ref_lu.valid_from DESC, ref_lu.valid_until DESC -- Get the latest slice
             LIMIT 1
         ) olu ON TRUE -- olu will have 0 or 1 row
         WHERE dt.row_id = ANY($1) -- Process only rows in the current batch
-          AND dt.action = 'replace'
+          AND dt.action = 'use'
+          AND dt.operation = 'replace'
           AND dt.legal_unit_id IS NOT NULL; -- Only attempt this for rows that have a legal_unit_id (identified by external_idents)
     $$, v_data_table_name /* %1$I */);
 
@@ -121,9 +122,9 @@ BEGIN
                 enterprise_id = tear.resolved_enterprise_id,
                 primary_for_enterprise = tear.resolved_primary_for_enterprise,
                 state = CASE WHEN tear.is_error THEN 'error'::public.import_data_state ELSE 'analysing'::public.import_data_state END,
-                error = CASE
-                            WHEN tear.is_error THEN COALESCE(dt.error, '{}'::jsonb) || tear.error_details
-                            ELSE CASE WHEN (dt.error - %2$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %2$L::TEXT[]) END
+                errors = CASE
+                            WHEN tear.is_error THEN COALESCE(dt.errors, '{}'::jsonb) || tear.error_details
+                            ELSE CASE WHEN (dt.errors - %2$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.errors - %2$L::TEXT[]) END
                         END,
                 last_completed_priority = %3$L
             FROM temp_enterprise_analysis_results tear
@@ -142,7 +143,7 @@ BEGIN
             UPDATE public.%1$I dt SET
                 last_completed_priority = %2$L,
                 state = 'analysing'::public.import_data_state,
-                error = CASE WHEN (dt.error - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %3$L::TEXT[]) END -- Clear this step's error if not an error from this step
+                errors = CASE WHEN (dt.errors - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.errors - %3$L::TEXT[]) END -- Clear this step's error if not an error from this step
             WHERE dt.row_id = ANY($1)
               AND dt.action IS DISTINCT FROM 'skip'
               AND NOT EXISTS (SELECT 1 FROM temp_enterprise_analysis_results tear WHERE tear.row_id = dt.row_id);
@@ -166,16 +167,11 @@ BEGIN
         WHERE id = p_job_id;
         RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Marked job as failed due to error: %', p_job_id, replace(error_message, '%', '%%');
         
-        -- Ensure cleanup on error
-        IF to_regclass('pg_temp.temp_enterprise_analysis_results') IS NOT NULL THEN DROP TABLE temp_enterprise_analysis_results; END IF;
         RAISE;
     END;
 
     -- Propagate errors to all rows of a new entity if one fails
     CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_row_ids, v_error_keys_to_clear_arr, 'analyse_enterprise_link_for_legal_unit');
-
-    -- Ensure cleanup on successful completion of this block
-    IF to_regclass('pg_temp.temp_enterprise_analysis_results') IS NOT NULL THEN DROP TABLE temp_enterprise_analysis_results; END IF;
 
     RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit (Batch): Finished analysis successfully.', p_job_id;
 END;
@@ -214,6 +210,7 @@ BEGIN
     END IF;
 
     -- Step 1: Identify rows needing enterprise creation (new LUs, action = 'insert')
+    IF to_regclass('pg_temp.temp_new_lu_for_enterprise_creation') IS NOT NULL THEN DROP TABLE temp_new_lu_for_enterprise_creation; END IF;
     CREATE TEMP TABLE temp_new_lu_for_enterprise_creation (
         data_row_id INTEGER PRIMARY KEY, -- This will be the founding_row_id for the new LU entity
         lu_name TEXT,
@@ -226,12 +223,13 @@ BEGIN
         INSERT INTO temp_new_lu_for_enterprise_creation (data_row_id, lu_name, edit_by_user_id, edit_at, edit_comment)
         SELECT dt.row_id, dt.name, dt.edit_by_user_id, dt.edit_at, dt.edit_comment
         FROM public.%1$I dt
-        WHERE dt.row_id = ANY($1) AND dt.action = 'insert' AND dt.founding_row_id = dt.row_id; -- Only process founding rows for new LUs
+        WHERE dt.row_id = ANY($1) AND dt.action = 'use' AND dt.operation = 'insert' AND dt.founding_row_id = dt.row_id; -- Only process founding rows for new LUs
     $$, v_data_table_name /* %1$I */);
     EXECUTE v_sql USING p_batch_row_ids;
 
     -- Step 2: Create new enterprises for LUs in temp_new_lu_for_enterprise_creation and map them
     -- temp_created_enterprises.data_row_id will store the founding_row_id of the LU
+    IF to_regclass('pg_temp.temp_created_enterprises') IS NOT NULL THEN DROP TABLE temp_created_enterprises; END IF;
     CREATE TEMP TABLE temp_created_enterprises (
         data_row_id INTEGER PRIMARY KEY, -- Stores the founding_row_id of the LU
         enterprise_id INT NOT NULL
@@ -264,7 +262,6 @@ BEGIN
         UPDATE public.%1$I dt SET
             enterprise_id = tce.enterprise_id,
             primary_for_enterprise = TRUE, -- All slices of a new LU linked to a new Enterprise are initially primary
-            error = NULL, -- Clear previous errors if this step succeeds for the row
             state = %2$L
         FROM temp_created_enterprises tce -- tce.data_row_id is the founding_row_id
         WHERE dt.founding_row_id = tce.data_row_id -- Link all rows of the entity via founding_row_id
@@ -280,7 +277,7 @@ BEGIN
         UPDATE public.%1$I dt SET
             state = %2$L
         WHERE dt.row_id = ANY($1)
-          AND dt.action = 'replace' -- Only update rows for existing LUs
+          AND dt.action = 'use' AND dt.operation = 'replace' -- Only update rows for existing LUs
           AND dt.state != %3$L; -- Avoid rows already in error
     $$, v_data_table_name /* %1$I */, 'processing' /* %2$L */, 'error' /* %3$L */);
      RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit: Updating existing LUs (action=replace, priority only): %', p_job_id, v_sql;
@@ -292,15 +289,9 @@ BEGIN
 
     RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit (Batch): Finished operation. Linked % LUs to enterprises (includes new and existing).', p_job_id, v_update_count; -- v_update_count here is from the last UPDATE (skipped rows)
 
-    IF to_regclass('pg_temp.temp_new_lu_for_enterprise_creation') IS NOT NULL THEN DROP TABLE temp_new_lu_for_enterprise_creation; END IF;
-    IF to_regclass('pg_temp.temp_created_enterprises') IS NOT NULL THEN DROP TABLE temp_created_enterprises; END IF;
-
 EXCEPTION WHEN OTHERS THEN
     GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
     RAISE WARNING '[Job %] process_enterprise_link_for_legal_unit: Unhandled error during operation: %', p_job_id, replace(error_message, '%', '%%');
-    -- Ensure cleanup even on unexpected error
-    IF to_regclass('pg_temp.temp_new_lu_for_enterprise_creation') IS NOT NULL THEN DROP TABLE temp_new_lu_for_enterprise_creation; END IF;
-    IF to_regclass('pg_temp.temp_created_enterprises') IS NOT NULL THEN DROP TABLE temp_created_enterprises; END IF;
     -- Update job error
     UPDATE public.import_job
     SET error = jsonb_build_object('process_enterprise_link_for_legal_unit_error', error_message),

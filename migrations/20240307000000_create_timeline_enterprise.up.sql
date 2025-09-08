@@ -3,9 +3,9 @@ BEGIN;
 CREATE OR REPLACE VIEW public.timeline_enterprise_def
     ( unit_type
     , unit_id
-    , valid_after
     , valid_from
     , valid_to
+    , valid_until
     , name
     , birth_date
     , death_date
@@ -102,8 +102,8 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
       ), enterprise_with_primary_legal_unit AS (
       SELECT ten.unit_type
            , ten.unit_id
-           , ten.valid_after
-           , ten.valid_to
+           , ten.valid_from
+           , ten.valid_until
            , tlu.name AS name
            , tlu.birth_date AS birth_date
            , tlu.death_date AS death_date
@@ -172,7 +172,7 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
         INNER JOIN public.timeline_legal_unit AS tlu
             ON tlu.enterprise_id = ten.enterprise_id
             AND tlu.primary_for_enterprise = true
-            AND after_to_overlaps(ten.valid_after, ten.valid_to, tlu.valid_after, tlu.valid_to)
+            AND from_until_overlaps(ten.valid_from, ten.valid_until, tlu.valid_from, tlu.valid_until)
         LEFT JOIN LATERAL (
           SELECT edit_comment, edit_by_user_id, edit_at
           FROM (
@@ -187,8 +187,8 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
       ), enterprise_with_primary_establishment AS (
       SELECT ten.unit_type
            , ten.unit_id
-           , ten.valid_after
-           , ten.valid_to
+           , ten.valid_from
+           , ten.valid_until
            , tes.name AS name
            , tes.birth_date AS birth_date
            , tes.death_date AS death_date
@@ -257,7 +257,7 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
         INNER JOIN public.timeline_establishment AS tes
             ON tes.enterprise_id = ten.enterprise_id
             AND tes.primary_for_enterprise = true
-            AND after_to_overlaps(ten.valid_after, ten.valid_to, tes.valid_after, tes.valid_to)
+            AND from_until_overlaps(ten.valid_from, ten.valid_until, tes.valid_from, tes.valid_until)
         LEFT JOIN LATERAL (
           SELECT edit_comment, edit_by_user_id, edit_at
           FROM (
@@ -272,8 +272,8 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
       ), enterprise_with_primary AS (
       SELECT ten.unit_type
            , ten.unit_id
-           , ten.valid_after
-           , ten.valid_to
+           , ten.valid_from
+           , ten.valid_until
            , COALESCE(enplu.name,enpes.name) AS name
            , COALESCE(enplu.birth_date,enpes.birth_date) AS birth_date
            , COALESCE(enplu.death_date,enpes.death_date) AS death_date
@@ -373,14 +373,14 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
       LEFT JOIN LATERAL (
           SELECT * FROM enterprise_with_primary_legal_unit enplu_1
           WHERE enplu_1.enterprise_id = ten.enterprise_id
-            AND after_to_overlaps(ten.valid_after, ten.valid_to, enplu_1.valid_after, enplu_1.valid_to)
-          ORDER BY enplu_1.valid_after DESC, enplu_1.primary_legal_unit_id DESC LIMIT 1
+            AND from_until_overlaps(ten.valid_from, ten.valid_until, enplu_1.valid_from, enplu_1.valid_until)
+          ORDER BY enplu_1.valid_from DESC, enplu_1.primary_legal_unit_id DESC LIMIT 1
       ) enplu ON true
       LEFT JOIN LATERAL (
           SELECT * FROM enterprise_with_primary_establishment enpes_1
           WHERE enpes_1.enterprise_id = ten.enterprise_id
-            AND after_to_overlaps(ten.valid_after, ten.valid_to, enpes_1.valid_after, enpes_1.valid_to)
-          ORDER BY enpes_1.valid_after DESC, enpes_1.primary_establishment_id DESC LIMIT 1
+            AND from_until_overlaps(ten.valid_from, ten.valid_until, enpes_1.valid_from, enpes_1.valid_until)
+          ORDER BY enpes_1.valid_from DESC, enpes_1.primary_establishment_id DESC LIMIT 1
       ) enpes ON true
       LEFT JOIN LATERAL (
         SELECT edit_comment, edit_by_user_id, edit_at
@@ -396,8 +396,8 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
       ) AS last_edit ON TRUE
       ), aggregation AS (
         SELECT ten.enterprise_id
-             , ten.valid_after
-             , ten.valid_to
+             , ten.valid_from
+             , ten.valid_until
              --
              , public.array_distinct_concat(
                 COALESCE(
@@ -457,8 +457,8 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
           FROM timesegments_enterprise AS ten
           LEFT JOIN LATERAL (
               SELECT enterprise_id
-                   , ten.valid_after
-                   , ten.valid_to
+                   , ten.valid_from
+                   , ten.valid_until
                    , public.array_distinct_concat(data_source_ids) AS data_source_ids
                    , public.array_distinct_concat(data_source_codes) AS data_source_codes
                    , public.array_distinct_concat(related_establishment_ids) AS related_establishment_ids
@@ -470,13 +470,13 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
                    , public.jsonb_stats_summary_merge_agg(stats_summary) FILTER (WHERE include_unit_in_reports) AS stats_summary
               FROM public.timeline_legal_unit
               WHERE enterprise_id = ten.enterprise_id
-              AND after_to_overlaps(ten.valid_after, ten.valid_to, valid_after, valid_to)
-              GROUP BY enterprise_id, ten.valid_after, ten.valid_to
+              AND from_until_overlaps(ten.valid_from, ten.valid_until, valid_from, valid_until)
+              GROUP BY enterprise_id, ten.valid_from, ten.valid_until
           ) AS tlu ON true
           LEFT JOIN LATERAL (
               SELECT enterprise_id
-                   , ten.valid_after
-                   , ten.valid_to
+                   , ten.valid_from
+                   , ten.valid_until
                    , public.array_distinct_concat(data_source_ids) AS data_source_ids
                    , public.array_distinct_concat(data_source_codes) AS data_source_codes
                    , array_agg(DISTINCT establishment_id) AS related_establishment_ids
@@ -485,15 +485,15 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
                    , public.jsonb_stats_to_summary_agg(stats) FILTER (WHERE include_unit_in_reports) AS stats_summary
               FROM public.timeline_establishment
               WHERE enterprise_id = ten.enterprise_id
-              AND after_to_overlaps(ten.valid_after, ten.valid_to, valid_after, valid_to)
-              GROUP BY enterprise_id, ten.valid_after, ten.valid_to
+              AND from_until_overlaps(ten.valid_from, ten.valid_until, valid_from, valid_until)
+              GROUP BY enterprise_id, ten.valid_from, ten.valid_until
           ) AS tes ON true
-          GROUP BY ten.enterprise_id, ten.valid_after, ten.valid_to
+          GROUP BY ten.enterprise_id, ten.valid_from, ten.valid_until
       ), enterprise_with_primary_and_aggregation AS (
           SELECT basis.unit_type
                , basis.unit_id
-               , basis.valid_after
-               , basis.valid_to
+               , basis.valid_from
+               , basis.valid_until
                , basis.name
                , basis.birth_date
                , basis.death_date
@@ -587,14 +587,14 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
           FROM enterprise_with_primary AS basis
           LEFT OUTER JOIN aggregation
                      ON basis.enterprise_id = aggregation.enterprise_id
-                     AND basis.valid_after = aggregation.valid_after
-                     AND basis.valid_to = aggregation.valid_to
+                     AND basis.valid_from = aggregation.valid_from
+                     AND basis.valid_until = aggregation.valid_until
         ), enterprise_with_primary_and_aggregation_and_derived AS (
         SELECT unit_type
              , unit_id
-             , valid_after
-             , (valid_after + '1 day'::INTERVAL)::DATE AS valid_from
-             , valid_to
+             , valid_from
+             , (valid_until - '1 day'::INTERVAL)::DATE AS valid_to
+             , valid_until
              , name
              , birth_date
              , death_date
@@ -690,7 +690,7 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
           FROM enterprise_with_primary_and_aggregation
         )
         SELECT * FROM enterprise_with_primary_and_aggregation_and_derived
-         ORDER BY unit_type, unit_id, valid_after
+         ORDER BY unit_type, unit_id, valid_from
 ;
 
 
@@ -703,17 +703,18 @@ WHERE FALSE;
 
 -- Add constraints to the physical table
 ALTER TABLE public.timeline_enterprise
-    ADD PRIMARY KEY (unit_type, unit_id, valid_after),
+    ADD PRIMARY KEY (unit_type, unit_id, valid_from),
     ALTER COLUMN unit_type SET NOT NULL,
     ALTER COLUMN unit_id SET NOT NULL,
-    ALTER COLUMN valid_after SET NOT NULL,
-    ALTER COLUMN valid_from SET NOT NULL;
+    ALTER COLUMN valid_from SET NOT NULL,
+    ALTER COLUMN valid_to SET NOT NULL,
+    ALTER COLUMN valid_until SET NOT NULL;
 
 -- Create indices to optimize queries
 CREATE INDEX IF NOT EXISTS idx_timeline_enterprise_daterange ON public.timeline_enterprise
-    USING gist (daterange(valid_after, valid_to, '(]'));
+    USING gist (daterange(valid_from, valid_until, '[)'));
 CREATE INDEX IF NOT EXISTS idx_timeline_enterprise_valid_period ON public.timeline_enterprise
-    (valid_after, valid_to);
+    (valid_from, valid_until);
 CREATE INDEX IF NOT EXISTS idx_timeline_enterprise_related_establishment_ids ON public.timeline_enterprise
     USING gin (related_establishment_ids);
 CREATE INDEX IF NOT EXISTS idx_timeline_enterprise_related_legal_unit_ids ON public.timeline_enterprise

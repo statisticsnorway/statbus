@@ -196,7 +196,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 
 \echo "Inspecting import job data for import_05_lu_era"
 "Inspecting import job data for import_05_lu_era"
-SELECT row_id, state, error, tax_ident, name, valid_from, valid_to
+SELECT row_id, state, errors, tax_ident, name, valid_from, valid_to, merge_statuses
 FROM public.import_05_lu_era_data
 ORDER BY row_id
 LIMIT 5;
@@ -220,7 +220,7 @@ ORDER BY slug;
 
 \echo "Inspecting import job data for import_05_esflu_era"
 "Inspecting import job data for import_05_esflu_era"
-SELECT row_id, state, error, tax_ident, legal_unit_tax_ident, name, valid_from, valid_to
+SELECT row_id, state, errors, tax_ident, legal_unit_tax_ident, name, valid_from, valid_to, merge_statuses
 FROM public.import_05_esflu_era_data
 ORDER BY row_id
 LIMIT 5;

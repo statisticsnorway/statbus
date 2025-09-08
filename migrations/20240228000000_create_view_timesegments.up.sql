@@ -6,21 +6,21 @@ CREATE OR REPLACE VIEW public.timesegments_def AS
       SELECT
           unit_type,
           unit_id,
-          timepoint AS valid_after,
+          timepoint AS valid_from,
           -- The LEAD window function looks ahead to the next row in the ordered partition
           -- and returns the value of timepoint from that row.
           -- PARTITION BY unit_type, unit_id: Groups rows by unit_type and unit_id
           -- ORDER BY timepoint: Orders rows within each partition by timepoint
-          -- This creates time segments where valid_to is the start time of the next segment,
-          -- effectively making each segment valid from valid_after until valid_to
-          LEAD(timepoint) OVER (PARTITION BY unit_type, unit_id ORDER BY timepoint) AS valid_to
+          -- This creates time segments where valid_until is the start time of the next segment,
+          -- effectively making each segment valid from valid_from until valid_until
+          LEAD(timepoint) OVER (PARTITION BY unit_type, unit_id ORDER BY timepoint) AS valid_until
       FROM public.timepoints
   )
   -- Remove the last lonely started but unfinished segment.
   SELECT *
   FROM timesegments_with_trailing_point
-  WHERE valid_to IS NOT NULL
-  ORDER BY unit_type, unit_id, valid_after;
+  WHERE valid_until IS NOT NULL
+  ORDER BY unit_type, unit_id, valid_from;
 
 
 DROP TABLE IF EXISTS public.timesegments;
@@ -33,17 +33,17 @@ WHERE FALSE;
 ALTER TABLE public.timesegments
     ALTER COLUMN unit_type SET NOT NULL,
     ALTER COLUMN unit_id SET NOT NULL,
-    ALTER COLUMN valid_after SET NOT NULL,
-    ALTER COLUMN valid_to SET NOT NULL,
-    ADD PRIMARY KEY (unit_type, unit_id, valid_after);
+    ALTER COLUMN valid_from SET NOT NULL,
+    ALTER COLUMN valid_until SET NOT NULL,
+    ADD PRIMARY KEY (unit_type, unit_id, valid_from);
 
 -- Create indices to optimize queries
 CREATE INDEX IF NOT EXISTS idx_timesegments_daterange ON public.timesegments
-    USING gist (daterange(valid_after, valid_to, '(]'));
-CREATE INDEX IF NOT EXISTS idx_timesegments_unit_type_id_valid_after ON public.timesegments
-    (unit_type, unit_id, valid_after);
+    USING gist (daterange(valid_from, valid_until, '[)'));
+CREATE INDEX IF NOT EXISTS idx_timesegments_unit_type_id_valid_from ON public.timesegments
+    (unit_type, unit_id, valid_from);
 CREATE INDEX IF NOT EXISTS idx_timesegments_unit_type_id_period ON public.timesegments
-    (unit_type, unit_id, valid_after, valid_to);
+    (unit_type, unit_id, valid_from, valid_until);
 CREATE INDEX IF NOT EXISTS idx_timesegments_unit_type_unit_id ON public.timesegments
     (unit_type, unit_id);
 CREATE INDEX IF NOT EXISTS idx_timesegments_unit_type ON public.timesegments
@@ -69,7 +69,7 @@ BEGIN
 
             DELETE FROM public.timesegments WHERE unit_type = v_unit_type AND unit_id BETWEEN v_start_id AND v_end_id;
             INSERT INTO public.timesegments SELECT * FROM public.timesegments_def
-            WHERE unit_type = v_unit_type AND unit_id BETWEEN v_start_id AND v_end_id AND valid_to IS NOT NULL;
+            WHERE unit_type = v_unit_type AND unit_id BETWEEN v_start_id AND v_end_id AND valid_until IS NOT NULL;
         END LOOP;
     END LOOP;
 END;
@@ -85,12 +85,12 @@ CREATE OR REPLACE VIEW public.timesegments_years_def AS
 SELECT DISTINCT year
 FROM (
     SELECT generate_series(
-        EXTRACT(YEAR FROM valid_after + interval '1 day'), -- Segment starts the day after valid_after
-        EXTRACT(YEAR FROM LEAST(valid_to, now()::date)),   -- Up to current year for open segments
+        EXTRACT(YEAR FROM valid_from), -- Segment starts on valid_from (inclusive)
+        EXTRACT(YEAR FROM LEAST(valid_until - interval '1 day', now()::date)),   -- Up to current year for open segments
         1
     )::integer AS year
     FROM public.timesegments
-    WHERE valid_after IS NOT NULL AND valid_to IS NOT NULL
+    WHERE valid_from IS NOT NULL AND valid_until IS NOT NULL
     UNION
     -- Ensure the current year is always included in the list
     SELECT EXTRACT(YEAR FROM now())::integer

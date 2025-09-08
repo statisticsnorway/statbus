@@ -1,0 +1,283 @@
+BEGIN;
+\i test/setup.sql
+-- While the datestyle is set for the database, the pg_regress tool sets the MDY format
+-- to ensure consistent date formatting, so we must manually override this
+SET datestyle TO 'ISO, DMY';
+\if :{?DEBUG}
+SET client_min_messages TO debug1;
+\else
+SET client_min_messages TO NOTICE;
+\endif
+-- Create temporary function to execute queries as system user
+CREATE OR REPLACE FUNCTION test.sudo_exec(
+    sql text,
+    OUT results jsonb
+) RETURNS jsonb
+SECURITY DEFINER LANGUAGE plpgsql AS $sudo_exec$
+DECLARE
+    result_rows jsonb;
+BEGIN
+    -- Check if the SQL starts with common DDL keywords
+    IF sql ~* '^\s*(CREATE|DROP|ALTER|TRUNCATE|GRANT|REVOKE|ANALYZE)' THEN
+        -- For DDL statements, execute directly
+        EXECUTE sql;
+        results := '[]'::jsonb;
+    ELSE
+        -- For DML/queries, wrap in a SELECT to capture results
+        EXECUTE format('
+            SELECT COALESCE(
+                jsonb_agg(row_to_json(t)),
+                ''[]''::jsonb
+            )
+            FROM (%s) t',
+            sql
+        ) INTO result_rows;
+        results := result_rows;
+    END IF;
+END;
+$sudo_exec$;
+-- Grant execute to public since this is for testing
+GRANT EXECUTE ON FUNCTION test.sudo_exec(text) TO PUBLIC;
+\echo Add users for testing purposes
+Add users for testing purposes
+SELECT * FROM public.user_create('test.admin@statbus.org', 'admin_user'::statbus_role, 'Admin#123!');
+         email          |  password  
+------------------------+------------
+ test.admin@statbus.org | Admin#123!
+(1 row)
+
+SELECT * FROM public.user_create('test.regular@statbus.org', 'regular_user'::statbus_role, 'Regular#123!');
+          email           |   password   
+--------------------------+--------------
+ test.regular@statbus.org | Regular#123!
+(1 row)
+
+SELECT * FROM public.user_create('test.restricted@statbus.org', 'restricted_user'::statbus_role, 'Restricted#123!');
+            email            |    password     
+-----------------------------+-----------------
+ test.restricted@statbus.org | Restricted#123!
+(1 row)
+
+\echo '----------------------------------------------------------------------------'
+----------------------------------------------------------------------------
+\echo 'Test: sql_saga trigger behavior for synchronized valid_to/valid_until'
+Test: sql_saga trigger behavior for synchronized valid_to/valid_until
+\echo '----------------------------------------------------------------------------'
+----------------------------------------------------------------------------
+SET client_min_messages TO NOTICE;
+-- Setup: Create a test table with valid_from, valid_until, and valid_to
+CREATE SCHEMA IF NOT EXISTS trigger_test;
+CREATE TABLE trigger_test.temporal_table (
+    id SERIAL PRIMARY KEY,
+    description TEXT,
+    valid_from DATE NOT NULL,
+    valid_until DATE, -- sql_saga will make it NOT NULL
+    valid_to DATE -- sql_saga will make it NOT NULL
+);
+-- Register with sql_saga and enable synchronization
+-- This creates the trigger automatically.
+SELECT sql_saga.add_era(
+    'trigger_test.temporal_table'::regclass,
+    p_synchronize_valid_to_column := 'valid_to'
+);
+NOTICE:  sql_saga: Created trigger "temporal_table_synchronize_temporal_columns_trigger" on table trigger_test.temporal_table to synchronize columns: valid_to
+ add_era 
+---------
+ t
+(1 row)
+
+-- Function to display table contents
+CREATE OR REPLACE FUNCTION trigger_test.show_table()
+RETURNS TABLE (id INT, description TEXT, valid_from DATE, valid_until DATE, valid_to DATE) AS $$
+BEGIN
+    RETURN QUERY SELECT tt.id, tt.description, tt.valid_from, tt.valid_until, tt.valid_to
+                 FROM trigger_test.temporal_table tt ORDER BY tt.id, tt.valid_from;
+END;
+$$ LANGUAGE plpgsql;
+-- Test INSERT scenarios
+\echo '--- INSERT Scenarios ---'
+--- INSERT Scenarios ---
+-- 1. INSERT with only valid_until
+\echo 'Test 1: INSERT with only valid_until'
+Test 1: INSERT with only valid_until
+INSERT INTO trigger_test.temporal_table (description, valid_from, valid_until) VALUES ('Test 1', '2024-01-01', '2025-01-01');
+SELECT * FROM trigger_test.show_table(); -- Expected: valid_to = 2024-12-31
+ id | description | valid_from | valid_until |  valid_to  
+----+-------------+------------+-------------+------------
+  1 | Test 1      | 2024-01-01 | 2025-01-01  | 2024-12-31
+(1 row)
+
+-- 2. INSERT with only valid_to
+\echo 'Test 2: INSERT with only valid_to'
+Test 2: INSERT with only valid_to
+INSERT INTO trigger_test.temporal_table (description, valid_from, valid_to) VALUES ('Test 2', '2024-01-16', '2024-11-30');
+SELECT * FROM trigger_test.show_table(); -- Expected: valid_until = 2024-12-01
+ id | description | valid_from | valid_until |  valid_to  
+----+-------------+------------+-------------+------------
+  1 | Test 1      | 2024-01-01 | 2025-01-01  | 2024-12-31
+  2 | Test 2      | 2024-01-16 | 2024-12-01  | 2024-11-30
+(2 rows)
+
+-- 3. INSERT with both valid_until and valid_to (consistent)
+\echo 'Test 3: INSERT with both (consistent)'
+Test 3: INSERT with both (consistent)
+INSERT INTO trigger_test.temporal_table (description, valid_from, valid_until, valid_to) VALUES ('Test 3', '2024-02-01', '2024-11-01', '2024-10-31');
+SELECT * FROM trigger_test.show_table(); -- Expected: No error, values as inserted
+ id | description | valid_from | valid_until |  valid_to  
+----+-------------+------------+-------------+------------
+  1 | Test 1      | 2024-01-01 | 2025-01-01  | 2024-12-31
+  2 | Test 2      | 2024-01-16 | 2024-12-01  | 2024-11-30
+  3 | Test 3      | 2024-02-01 | 2024-11-01  | 2024-10-31
+(3 rows)
+
+-- 4. INSERT with both (inconsistent) - Expect error
+\echo 'Test 4: INSERT with both (inconsistent) - Expect error'
+Test 4: INSERT with both (inconsistent) - Expect error
+DO $$
+BEGIN
+    INSERT INTO trigger_test.temporal_table (description, valid_from, valid_until, valid_to) VALUES ('Test 4 Fail', '2024-03-01', '2024-10-01', '2024-10-01');
+EXCEPTION WHEN others THEN
+    RAISE NOTICE 'Test 4 Caught expected error: %', SQLERRM;
+END $$;
+NOTICE:  Test 4 Caught expected error: Inconsistent values: "valid_until" is 2024-10-01, but is derived as 2024-10-02 from other inputs.
+SELECT * FROM trigger_test.show_table(); -- Should not contain 'Test 4 Fail'
+ id | description | valid_from | valid_until |  valid_to  
+----+-------------+------------+-------------+------------
+  1 | Test 1      | 2024-01-01 | 2025-01-01  | 2024-12-31
+  2 | Test 2      | 2024-01-16 | 2024-12-01  | 2024-11-30
+  3 | Test 3      | 2024-02-01 | 2024-11-01  | 2024-10-31
+(3 rows)
+
+-- 5. INSERT with neither valid_until nor valid_to - Expect error (NOT NULL constraint)
+\echo 'Test 5: INSERT with neither valid_until nor valid_to - Expect error'
+Test 5: INSERT with neither valid_until nor valid_to - Expect error
+DO $$
+BEGIN
+    INSERT INTO trigger_test.temporal_table (description, valid_from) VALUES ('Test 5 Fail', '2024-07-01');
+EXCEPTION WHEN others THEN
+    RAISE NOTICE 'Test 5 Caught expected error: %', SQLERRM;
+END $$;
+SELECT * FROM trigger_test.show_table(); -- Should not contain 'Test 5 Fail'
+ id | description | valid_from | valid_until |  valid_to  
+----+-------------+------------+-------------+------------
+  1 | Test 1      | 2024-01-01 | 2025-01-01  | 2024-12-31
+  2 | Test 2      | 2024-01-16 | 2024-12-01  | 2024-11-30
+  3 | Test 3      | 2024-02-01 | 2024-11-01  | 2024-10-31
+  5 | Test 5 Fail | 2024-07-01 | infinity    | infinity
+(4 rows)
+
+-- Test UPDATE scenarios
+\echo '--- UPDATE Scenarios ---'
+--- UPDATE Scenarios ---
+-- Setup a base row for UPDATE tests
+INSERT INTO trigger_test.temporal_table (description, valid_from, valid_to) VALUES ('Base Update Row', '2025-01-01', '2025-12-31') RETURNING id \gset base_update_id_
+-- 6. UPDATE changing valid_until
+\echo 'Test 6: UPDATE changing valid_until'
+Test 6: UPDATE changing valid_until
+UPDATE trigger_test.temporal_table SET valid_until = '2025-02-01' WHERE id = :base_update_id_id;
+SELECT * FROM trigger_test.show_table() WHERE id = :base_update_id_id; -- Expected: valid_to = 2025-01-31
+ id |   description   | valid_from | valid_until |  valid_to  
+----+-----------------+------------+-------------+------------
+  6 | Base Update Row | 2025-01-01 | 2025-02-01  | 2025-01-31
+(1 row)
+
+-- 7. UPDATE changing valid_to
+\echo 'Test 7: UPDATE changing valid_to'
+Test 7: UPDATE changing valid_to
+UPDATE trigger_test.temporal_table SET valid_to = '2025-03-01' WHERE id = :base_update_id_id;
+SELECT * FROM trigger_test.show_table() WHERE id = :base_update_id_id; -- Expected: valid_until = 2025-03-02
+ id |   description   | valid_from | valid_until |  valid_to  
+----+-----------------+------------+-------------+------------
+  6 | Base Update Row | 2025-01-01 | 2025-03-02  | 2025-03-01
+(1 row)
+
+-- 8. UPDATE changing both consistently
+\echo 'Test 8: UPDATE changing both consistently'
+Test 8: UPDATE changing both consistently
+UPDATE trigger_test.temporal_table SET valid_until = '2025-04-01', valid_to = '2025-03-31' WHERE id = :base_update_id_id;
+SELECT * FROM trigger_test.show_table() WHERE id = :base_update_id_id; -- Expected: No error, values as updated
+ id |   description   | valid_from | valid_until |  valid_to  
+----+-----------------+------------+-------------+------------
+  6 | Base Update Row | 2025-01-01 | 2025-04-01  | 2025-03-31
+(1 row)
+
+-- 9. UPDATE changing both inconsistently - Expect error
+\echo 'Test 9: UPDATE changing both inconsistently - Expect error'
+Test 9: UPDATE changing both inconsistently - Expect error
+SET app.current_base_id = :base_update_id_id;
+DO $$
+DECLARE
+  target_id INT := current_setting('app.current_base_id')::INT;
+BEGIN
+    EXECUTE format('UPDATE trigger_test.temporal_table SET valid_until = %L, valid_to = %L WHERE id = %L',
+                   '2025-05-02'::DATE, '2025-05-02'::DATE, target_id);
+EXCEPTION WHEN others THEN
+    RAISE NOTICE 'Test 9 Caught expected error: %', SQLERRM;
+END $$;
+NOTICE:  Test 9 Caught expected error: Inconsistent values: "valid_until" is 2025-05-02, but is derived as 2025-05-03 from other inputs.
+SELECT * FROM trigger_test.show_table() WHERE id = :base_update_id_id; -- Should reflect state from Test 8
+ id |   description   | valid_from | valid_until |  valid_to  
+----+-----------------+------------+-------------+------------
+  6 | Base Update Row | 2025-01-01 | 2025-04-01  | 2025-03-31
+(1 row)
+
+-- 10. UPDATE setting valid_until to NULL - Expect error
+\echo 'Test 10: UPDATE setting valid_until to NULL - Expect error'
+Test 10: UPDATE setting valid_until to NULL - Expect error
+SET app.current_base_id = :base_update_id_id;
+DO $$
+DECLARE
+  target_id INT := current_setting('app.current_base_id')::INT;
+BEGIN
+    EXECUTE format('UPDATE trigger_test.temporal_table SET valid_until = NULL WHERE id = %L', target_id);
+EXCEPTION WHEN others THEN
+    RAISE NOTICE 'Test 10 Caught expected error: %', SQLERRM;
+END $$;
+NOTICE:  Test 10 Caught expected error: null value in column "valid_until" of relation "temporal_table" violates not-null constraint
+SELECT * FROM trigger_test.show_table() WHERE id = :base_update_id_id; -- Should reflect state from Test 8
+ id |   description   | valid_from | valid_until |  valid_to  
+----+-----------------+------------+-------------+------------
+  6 | Base Update Row | 2025-01-01 | 2025-04-01  | 2025-03-31
+(1 row)
+
+-- 11. UPDATE setting valid_to to NULL - Expect error
+\echo 'Test 11: UPDATE setting valid_to to NULL - Expect error'
+Test 11: UPDATE setting valid_to to NULL - Expect error
+SET app.current_base_id = :base_update_id_id;
+DO $$
+DECLARE
+  target_id INT := current_setting('app.current_base_id')::INT;
+BEGIN
+    EXECUTE format('UPDATE trigger_test.temporal_table SET valid_to = NULL WHERE id = %L', target_id);
+EXCEPTION WHEN others THEN
+    RAISE NOTICE 'Test 11 Caught expected error: %', SQLERRM;
+END $$;
+NOTICE:  Test 11 Caught expected error: null value in column "valid_to" of relation "temporal_table" violates not-null constraint
+SELECT * FROM trigger_test.show_table() WHERE id = :base_update_id_id; -- Should reflect state from Test 8
+ id |   description   | valid_from | valid_until |  valid_to  
+----+-----------------+------------+-------------+------------
+  6 | Base Update Row | 2025-01-01 | 2025-04-01  | 2025-03-31
+(1 row)
+
+-- 12. UPDATE changing only valid_from (should not affect valid_to/valid_until)
+\echo 'Test 12: UPDATE changing only valid_from'
+Test 12: UPDATE changing only valid_from
+UPDATE trigger_test.temporal_table SET valid_from = '2025-01-15' WHERE id = :base_update_id_id;
+SELECT * FROM trigger_test.show_table() WHERE id = :base_update_id_id; -- Expected: valid_to/valid_until as per Test 8, valid_from updated
+ id |   description   | valid_from | valid_until |  valid_to  
+----+-----------------+------------+-------------+------------
+  6 | Base Update Row | 2025-01-15 | 2025-04-01  | 2025-03-31
+(1 row)
+
+-- Cleanup
+-- No need to drop trigger, sql_saga does it with drop_era
+SELECT sql_saga.drop_era('trigger_test.temporal_table'::regclass);
+ drop_era 
+----------
+ t
+(1 row)
+
+DROP TABLE trigger_test.temporal_table;
+DROP FUNCTION trigger_test.show_table();
+DROP SCHEMA trigger_test CASCADE;
+ROLLBACK;

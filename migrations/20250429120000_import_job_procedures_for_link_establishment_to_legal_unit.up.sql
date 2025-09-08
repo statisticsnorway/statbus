@@ -95,7 +95,7 @@ BEGIN
         data_row_id INTEGER PRIMARY KEY,
         resolved_lu_id INTEGER,
         primary_for_legal_unit BOOLEAN,
-        error_jsonb JSONB
+        errors_jsonb JSONB
     ) ON COMMIT DROP;
 
     -- This large CTE performs all lookups and logic holistically.
@@ -129,13 +129,13 @@ BEGIN
                     WHEN (rc.checks->>'num_idents_provided')::int > 0 AND (rc.checks->>'found_lu')::int = 0 THEN (SELECT jsonb_object_agg(key, 'Legal unit not found with provided identifiers.') FROM jsonb_array_elements_text(COALESCE(rc.checks->'provided_input_ident_codes', '["%2$s"]'::jsonb)) AS key)
                     WHEN (rc.checks->>'distinct_lu_ids')::int > 1 THEN (SELECT jsonb_object_agg(key, 'Provided identifiers resolve to different Legal Units.') FROM jsonb_array_elements_text(COALESCE(rc.checks->'provided_input_ident_codes', '["%2$s"]'::jsonb)) AS key)
                     ELSE NULL
-                END as error_jsonb
+                END as errors_jsonb
             FROM RowChecks rc
         ),
         ResolvedLinks AS (
             SELECT DISTINCT ON (rc.data_row_id)
                    rc.data_row_id, rc.resolved_lu_id, dt.establishment_id AS current_establishment_id,
-                   dt.row_id AS original_data_table_row_id, dt.derived_valid_after AS est_derived_valid_after, dt.derived_valid_to AS est_derived_valid_to
+                   dt.row_id AS original_data_table_row_id, dt.derived_valid_from AS est_derived_valid_from, dt.derived_valid_until AS est_derived_valid_until
             FROM RowChecks rc JOIN public.%4$I dt ON rc.data_row_id = dt.row_id
             WHERE rc.resolved_lu_id IS NOT NULL
         ),
@@ -150,7 +150,7 @@ BEGIN
                     SELECT 1 FROM public.establishment est
                     WHERE est.legal_unit_id = rl.resolved_lu_id AND est.primary_for_legal_unit = TRUE
                       AND est.id IS DISTINCT FROM rl.current_establishment_id
-                      AND public.after_to_overlaps(est.valid_after, est.valid_to, rl.est_derived_valid_after, rl.est_derived_valid_to)
+                      AND public.from_until_overlaps(est.valid_from, est.valid_until, rl.est_derived_valid_from, rl.est_derived_valid_until)
                 )) AS is_primary_candidate
             FROM ResolvedLinks rl
         ),
@@ -159,11 +159,11 @@ BEGIN
         TimeIslands AS (
             SELECT
                 *,
-                MAX(est_derived_valid_to) OVER (
+                MAX(est_derived_valid_until) OVER (
                     PARTITION BY resolved_lu_id
-                    ORDER BY est_derived_valid_after, est_derived_valid_to, original_data_table_row_id
+                    ORDER BY est_derived_valid_from, est_derived_valid_until, original_data_table_row_id
                     ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
-                ) as max_prev_to
+                ) as max_prev_until
             FROM PrimaryCandidates
             WHERE is_primary_candidate
         ),
@@ -171,9 +171,9 @@ BEGIN
             SELECT
                 data_row_id,
                 -- A cumulative sum of the "is_island_start" flag creates a unique ID for each group.
-                SUM(CASE WHEN est_derived_valid_after >= COALESCE(max_prev_to, '-infinity'::date) THEN 1 ELSE 0 END) OVER (
+                SUM(CASE WHEN est_derived_valid_from >= COALESCE(max_prev_until, '-infinity'::date) THEN 1 ELSE 0 END) OVER (
                     PARTITION BY resolved_lu_id
-                    ORDER BY est_derived_valid_after, est_derived_valid_to, original_data_table_row_id
+                    ORDER BY est_derived_valid_from, est_derived_valid_until, original_data_table_row_id
                 ) AS island_id
             FROM TimeIslands
         ),
@@ -189,13 +189,13 @@ BEGIN
             FROM PrimaryCandidates pc
             LEFT JOIN IslandGroups ig ON pc.data_row_id = ig.data_row_id
         )
-        INSERT INTO temp_precalc (data_row_id, resolved_lu_id, primary_for_legal_unit, error_jsonb)
+        INSERT INTO temp_precalc (data_row_id, resolved_lu_id, primary_for_legal_unit, errors_jsonb)
         SELECT
             tr.data_row_id,
             rl.resolved_lu_id,
             -- A row is primary if it is a candidate AND it's the first one for its LU and time-island.
             (rfp.is_primary_candidate AND rfp.row_num = 1) AS primary_for_legal_unit,
-            err.error_jsonb
+            err.errors_jsonb
         FROM temp_relevant_rows tr
         LEFT JOIN Errors err ON tr.data_row_id = err.data_row_id
         LEFT JOIN ResolvedLinks rl ON tr.data_row_id = rl.data_row_id
@@ -209,11 +209,11 @@ BEGIN
     RAISE DEBUG '[Job %] Starting single holistic update phase.', p_job_id;
     v_sql := format($$
         UPDATE public.%1$I dt SET
-            legal_unit_id = CASE WHEN pre.error_jsonb IS NULL THEN pre.resolved_lu_id ELSE dt.legal_unit_id END,
-            primary_for_legal_unit = CASE WHEN pre.error_jsonb IS NULL THEN pre.primary_for_legal_unit ELSE dt.primary_for_legal_unit END,
-            state = CASE WHEN pre.error_jsonb IS NOT NULL THEN 'error'::public.import_data_state ELSE dt.state END,
-            action = CASE WHEN pre.error_jsonb IS NOT NULL THEN 'skip'::public.import_row_action_type ELSE dt.action END,
-            error = CASE WHEN pre.error_jsonb IS NOT NULL THEN COALESCE(dt.error, '{}'::jsonb) || pre.error_jsonb ELSE (CASE WHEN (dt.error - %2$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %2$L::TEXT[]) END) END,
+            legal_unit_id = CASE WHEN pre.errors_jsonb IS NULL THEN pre.resolved_lu_id ELSE dt.legal_unit_id END,
+            primary_for_legal_unit = CASE WHEN pre.errors_jsonb IS NULL THEN pre.primary_for_legal_unit ELSE dt.primary_for_legal_unit END,
+            state = CASE WHEN pre.errors_jsonb IS NOT NULL THEN 'error'::public.import_data_state ELSE dt.state END,
+            action = CASE WHEN pre.errors_jsonb IS NOT NULL THEN 'skip'::public.import_row_action_type ELSE dt.action END,
+            errors = CASE WHEN pre.errors_jsonb IS NOT NULL THEN COALESCE(dt.errors, '{}'::jsonb) || pre.errors_jsonb ELSE (CASE WHEN (dt.errors - %2$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.errors - %2$L::TEXT[]) END) END,
             last_completed_priority = %3$L
         FROM temp_precalc pre
         WHERE dt.row_id = pre.data_row_id
@@ -223,7 +223,7 @@ BEGIN
 
     -- Propagate errors to related new entity rows (uses a temp table of errored rows)
     CREATE TEMP TABLE temp_batch_errors (data_row_id INTEGER PRIMARY KEY) ON COMMIT DROP;
-    INSERT INTO temp_batch_errors (data_row_id) SELECT data_row_id FROM temp_precalc WHERE error_jsonb IS NOT NULL;
+    INSERT INTO temp_batch_errors (data_row_id) SELECT data_row_id FROM temp_precalc WHERE errors_jsonb IS NOT NULL;
     CALL import.propagate_fatal_error_to_entity_holistic(p_job_id, v_data_table_name, 'temp_batch_errors', v_error_keys_to_clear_arr, p_step_code);
     
     v_duration_ms := (EXTRACT(EPOCH FROM (clock_timestamp() - v_start_time)) * 1000);

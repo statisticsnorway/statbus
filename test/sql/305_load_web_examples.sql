@@ -100,7 +100,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 -- SET client_min_messages TO NOTICE;
 
 \echo "Inspecting first 5 rows of legal unit import job data (import_lu_web_example_current_data)"
-SELECT row_id, state, error, tax_ident, name, birth_date, physical_address_part1, primary_activity_category_code
+SELECT row_id, state, errors, tax_ident, name, birth_date, physical_address_part1, primary_activity_category_code, merge_statuses
 FROM public.import_lu_web_example_current_data
 ORDER BY row_id
 LIMIT 5;
@@ -123,7 +123,7 @@ FROM public.import_job AS ij
 WHERE ij.slug IN ('import_lu_web_example_current', 'import_es_web_example_current') ORDER BY ij.slug;
 
 \echo "Error rows in import_lu_web_example_current_data (if any):"
-SELECT row_id, state, error, tax_ident, name
+SELECT row_id, state, errors, tax_ident, name, merge_statuses
 FROM public.import_lu_web_example_current_data
 WHERE error IS NOT NULL OR state = 'error'
 ORDER BY row_id;
@@ -135,7 +135,7 @@ WHERE invalid_codes IS NOT NULL
 ORDER BY row_id;
 
 \echo "Error rows in import_es_web_example_current_data (if any):"
-SELECT row_id, state, error, tax_ident, legal_unit_tax_ident, name
+SELECT row_id, state, errors, tax_ident, legal_unit_tax_ident, name, merge_statuses
 FROM public.import_es_web_example_current_data
 WHERE error IS NOT NULL OR state = 'error'
 ORDER BY row_id;

@@ -4,7 +4,7 @@ CREATE TABLE public.statistical_unit (LIKE public.statistical_unit_def INCLUDING
 
 CREATE UNIQUE INDEX "statistical_unit_upsert_pkey"
     ON public.statistical_unit
-    (unit_type, unit_id, valid_after);
+    (unit_type, unit_id, valid_from);
 
 CREATE UNIQUE INDEX "statistical_unit_from_key"
     ON public.statistical_unit
@@ -14,10 +14,10 @@ CREATE UNIQUE INDEX "statistical_unit_from_key"
     ,unit_id
     );
 
-CREATE UNIQUE INDEX "statistical_unit_after_key"
+CREATE UNIQUE INDEX "statistical_unit_until_key"
     ON public.statistical_unit
-    (valid_after
-    ,valid_to
+    (valid_from
+    ,valid_until
     ,unit_type
     ,unit_id
     );
@@ -28,7 +28,7 @@ ALTER TABLE public.statistical_unit ADD
     EXCLUDE USING gist (
         unit_type WITH =,
         unit_id WITH =,
-        daterange(valid_after, valid_to, '(]'::text) WITH &&
+        daterange(valid_from, valid_until, '[)'::text) WITH &&
     ) DEFERRABLE;
 
 

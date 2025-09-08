@@ -13,18 +13,18 @@ CREATE TABLE public.tag (
     description text,
     active boolean NOT NULL DEFAULT true,
     type public.tag_type NOT NULL,
-    context_valid_after date GENERATED ALWAYS AS (context_valid_from - INTERVAL '1 day') STORED,
     context_valid_from date,
     context_valid_to date,
+    context_valid_until date GENERATED ALWAYS AS (context_valid_to + INTERVAL '1 day') STORED,
     context_valid_on date,
     is_scoped_tag bool NOT NULL DEFAULT false,
     created_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
     updated_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
-    CONSTRAINT "context_valid_from leq context_valid_to"
-    CHECK(context_valid_from <= context_valid_to),
+    CONSTRAINT "context_valid_from_lt_context_valid_until"
+    CHECK(context_valid_from < context_valid_until),
     CONSTRAINT "context_valid_dates_same_nullability"
-    CHECK(  context_valid_from IS NULL AND context_valid_to IS NULL
-         OR context_valid_from IS NOT NULL AND context_valid_to IS NOT NULL
+    CHECK(  (context_valid_from IS NULL AND context_valid_to IS NULL AND context_valid_until IS NULL)
+         OR (context_valid_from IS NOT NULL AND context_valid_to IS NOT NULL AND context_valid_until IS NOT NULL)
          )
 );
 

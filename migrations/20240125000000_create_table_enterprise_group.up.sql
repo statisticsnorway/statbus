@@ -3,8 +3,8 @@ BEGIN;
 CREATE TABLE public.enterprise_group (
     id SERIAL NOT NULL,
     valid_from date NOT NULL,
-    valid_after date NOT NULL,
-    valid_to date NOT NULL DEFAULT 'infinity',
+    valid_to date NOT NULL,
+    valid_until date NOT NULL,
     active boolean NOT NULL DEFAULT true,
     short_name varchar(16),
     name varchar(256),
@@ -33,8 +33,12 @@ CREATE FUNCTION admin.enterprise_group_id_exists(fk_id integer) RETURNS boolean 
     SELECT fk_id IS NULL OR EXISTS (SELECT 1 FROM public.enterprise_group WHERE id = fk_id);
 $$;
 
-CREATE TRIGGER trg_enterprise_group_synchronize_valid_from_after
-    BEFORE INSERT OR UPDATE ON public.enterprise_group
-    FOR EACH ROW EXECUTE FUNCTION public.synchronize_valid_from_after();
+-- Activate era handling
+SELECT sql_saga.add_era('public.enterprise_group', p_synchronize_valid_to_column := 'valid_to');
+SELECT sql_saga.add_unique_key(
+    table_oid => 'public.enterprise_group',
+    column_names => ARRAY['id'],
+    unique_key_name => 'enterprise_group_id_valid'
+);
 
 END;

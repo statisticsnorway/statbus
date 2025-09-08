@@ -3,9 +3,9 @@ BEGIN;
 CREATE OR REPLACE VIEW public.timeline_establishment_def
     ( unit_type
     , unit_id
-    , valid_after
     , valid_from
     , valid_to
+    , valid_until
     , name
     , birth_date
     , death_date
@@ -88,7 +88,7 @@ CREATE OR REPLACE VIEW public.timeline_establishment_def
       WITH establishment_stats AS (
         SELECT
             t.unit_id,
-            t.valid_after,
+            t.valid_from,
             jsonb_object_agg(
                 sd.code,
                 CASE
@@ -101,17 +101,17 @@ CREATE OR REPLACE VIEW public.timeline_establishment_def
         FROM public.timesegments AS t
         JOIN public.stat_for_unit AS sfu
             ON sfu.establishment_id = t.unit_id
-            AND after_to_overlaps(t.valid_after, t.valid_to, sfu.valid_after, sfu.valid_to)
+            AND from_until_overlaps(t.valid_from, t.valid_until, sfu.valid_from, sfu.valid_until)
         JOIN public.stat_definition AS sd
             ON sfu.stat_definition_id = sd.id
         WHERE t.unit_type = 'establishment'
-        GROUP BY t.unit_id, t.valid_after
+        GROUP BY t.unit_id, t.valid_from
       )
       SELECT t.unit_type
            , t.unit_id
-           , t.valid_after
-           , (t.valid_after + '1 day'::INTERVAL)::DATE AS valid_from
-           , t.valid_to
+           , t.valid_from
+           , (t.valid_until - '1 day'::INTERVAL)::DATE AS valid_to
+           , t.valid_until
            , es.name AS name
            , es.birth_date AS birth_date
            , es.death_date AS death_date
@@ -202,35 +202,35 @@ CREATE OR REPLACE VIEW public.timeline_establishment_def
       FROM public.timesegments AS t
       JOIN LATERAL (
           SELECT * FROM public.establishment es_1
-          WHERE es_1.id = t.unit_id AND after_to_overlaps(t.valid_after, t.valid_to, es_1.valid_after, es_1.valid_to)
-          ORDER BY es_1.id DESC, es_1.valid_after DESC LIMIT 1
+          WHERE es_1.id = t.unit_id AND from_until_overlaps(t.valid_from, t.valid_until, es_1.valid_from, es_1.valid_until)
+          ORDER BY es_1.id DESC, es_1.valid_from DESC LIMIT 1
       ) es ON true
       LEFT JOIN establishment_stats AS es_stats
-          ON es_stats.unit_id = t.unit_id AND es_stats.valid_after = t.valid_after
+          ON es_stats.unit_id = t.unit_id AND es_stats.valid_from = t.valid_from
       --
-      LEFT JOIN LATERAL (SELECT a.* FROM public.activity a WHERE a.establishment_id = es.id AND a.type = 'primary' AND after_to_overlaps(t.valid_after, t.valid_to, a.valid_after, a.valid_to) ORDER BY a.id DESC LIMIT 1) pa ON true
+      LEFT JOIN LATERAL (SELECT a.* FROM public.activity a WHERE a.establishment_id = es.id AND a.type = 'primary' AND from_until_overlaps(t.valid_from, t.valid_until, a.valid_from, a.valid_until) ORDER BY a.id DESC LIMIT 1) pa ON true
       LEFT JOIN public.activity_category AS pac
               ON pa.category_id = pac.id
       --
-      LEFT JOIN LATERAL (SELECT a.* FROM public.activity a WHERE a.establishment_id = es.id AND a.type = 'secondary' AND after_to_overlaps(t.valid_after, t.valid_to, a.valid_after, a.valid_to) ORDER BY a.id DESC LIMIT 1) sa ON true
+      LEFT JOIN LATERAL (SELECT a.* FROM public.activity a WHERE a.establishment_id = es.id AND a.type = 'secondary' AND from_until_overlaps(t.valid_from, t.valid_until, a.valid_from, a.valid_until) ORDER BY a.id DESC LIMIT 1) sa ON true
       LEFT JOIN public.activity_category AS sac
               ON sa.category_id = sac.id
       --
       LEFT OUTER JOIN public.sector AS s
               ON es.sector_id = s.id
       --
-      LEFT JOIN LATERAL (SELECT l.* FROM public.location l WHERE l.establishment_id = es.id AND l.type = 'physical' AND after_to_overlaps(t.valid_after, t.valid_to, l.valid_after, l.valid_to) ORDER BY l.id DESC LIMIT 1) phl ON true
+      LEFT JOIN LATERAL (SELECT l.* FROM public.location l WHERE l.establishment_id = es.id AND l.type = 'physical' AND from_until_overlaps(t.valid_from, t.valid_until, l.valid_from, l.valid_until) ORDER BY l.id DESC LIMIT 1) phl ON true
       LEFT JOIN public.region AS phr
               ON phl.region_id = phr.id
       LEFT JOIN public.country AS phc
               ON phl.country_id = phc.id
       --
-      LEFT JOIN LATERAL (SELECT l.* FROM public.location l WHERE l.establishment_id = es.id AND l.type = 'postal' AND after_to_overlaps(t.valid_after, t.valid_to, l.valid_after, l.valid_to) ORDER BY l.id DESC LIMIT 1) pol ON true
+      LEFT JOIN LATERAL (SELECT l.* FROM public.location l WHERE l.establishment_id = es.id AND l.type = 'postal' AND from_until_overlaps(t.valid_from, t.valid_until, l.valid_from, l.valid_until) ORDER BY l.id DESC LIMIT 1) pol ON true
       LEFT JOIN public.region AS por
               ON pol.region_id = por.id
       LEFT JOIN public.country AS poc
               ON pol.country_id = poc.id
-      LEFT JOIN LATERAL (SELECT c_1.* FROM public.contact c_1 WHERE c_1.establishment_id = es.id AND after_to_overlaps(t.valid_after, t.valid_to, c_1.valid_after, c_1.valid_to) ORDER BY c_1.id DESC LIMIT 1) c ON true
+      LEFT JOIN LATERAL (SELECT c_1.* FROM public.contact c_1 WHERE c_1.establishment_id = es.id AND from_until_overlaps(t.valid_from, t.valid_until, c_1.valid_from, c_1.valid_until) ORDER BY c_1.id DESC LIMIT 1) c ON true
       LEFT JOIN public.unit_size AS us
               ON es.unit_size_id = us.id
       LEFT JOIN public.status AS st
@@ -239,7 +239,7 @@ CREATE OR REPLACE VIEW public.timeline_establishment_def
             SELECT array_agg(DISTINCT sfu.data_source_id) FILTER (WHERE sfu.data_source_id IS NOT NULL) AS data_source_ids
             FROM public.stat_for_unit AS sfu
             WHERE sfu.establishment_id = es.id
-              AND after_to_overlaps(t.valid_after, t.valid_to, sfu.valid_after, sfu.valid_to)
+              AND from_until_overlaps(t.valid_from, t.valid_until, sfu.valid_from, sfu.valid_until)
         ) AS sfu ON TRUE
       LEFT JOIN LATERAL (
         SELECT array_agg(ds.id) AS ids
@@ -268,7 +268,7 @@ CREATE OR REPLACE VIEW public.timeline_establishment_def
         LIMIT 1
       ) AS last_edit ON TRUE
       --
-      ORDER BY t.unit_type, t.unit_id, t.valid_after
+      ORDER BY t.unit_type, t.unit_id, t.valid_from
 ;
 
 DROP TABLE IF EXISTS public.timeline_establishment;
@@ -280,17 +280,18 @@ WHERE FALSE;
 
 -- Add constraints to the physical table
 ALTER TABLE public.timeline_establishment
-    ADD PRIMARY KEY (unit_type, unit_id, valid_after),
+    ADD PRIMARY KEY (unit_type, unit_id, valid_from),
     ALTER COLUMN unit_type SET NOT NULL,
     ALTER COLUMN unit_id SET NOT NULL,
-    ALTER COLUMN valid_after SET NOT NULL,
-    ALTER COLUMN valid_from SET NOT NULL;
+    ALTER COLUMN valid_from SET NOT NULL,
+    ALTER COLUMN valid_to SET NOT NULL,
+    ALTER COLUMN valid_until SET NOT NULL;
 
 -- Create indices to optimize queries
 CREATE INDEX IF NOT EXISTS idx_timeline_establishment_daterange ON public.timeline_establishment
-    USING gist (daterange(valid_after, valid_to, '(]'));
+    USING gist (daterange(valid_from, valid_until, '[)'));
 CREATE INDEX IF NOT EXISTS idx_timeline_establishment_valid_period ON public.timeline_establishment
-    (valid_after, valid_to);
+    (valid_from, valid_until);
 CREATE INDEX IF NOT EXISTS idx_timeline_establishment_primary_for_enterprise ON public.timeline_establishment
     (primary_for_enterprise) WHERE primary_for_enterprise = true;
 CREATE INDEX IF NOT EXISTS idx_timeline_establishment_primary_for_legal_unit ON public.timeline_establishment

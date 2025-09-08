@@ -7,7 +7,7 @@ CREATE FUNCTION public.relevant_statistical_units(
 ) RETURNS SETOF public.statistical_unit LANGUAGE sql STABLE AS $$
     WITH valid_units AS (
         SELECT * FROM public.statistical_unit
-        WHERE valid_after < $3 AND $3 <= valid_to
+        WHERE valid_from <= $3 AND $3 < valid_until
     ), root_unit AS (
         SELECT * FROM valid_units
         WHERE unit_type = 'enterprise'
@@ -38,9 +38,9 @@ CREATE FUNCTION public.relevant_statistical_units(
     )
     SELECT unit_type
          , unit_id
-         , valid_after
          , valid_from
          , valid_to
+         , valid_until
          , external_idents
          , name
          , birth_date

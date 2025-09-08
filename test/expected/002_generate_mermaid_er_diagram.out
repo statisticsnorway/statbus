@@ -66,8 +66,8 @@ erDiagram
 	activity["activity"] {
 		integer id
 		date valid_from
-		date valid_after
 		date valid_to
+		date valid_until
 		activity_type type
 		integer category_id
 		integer data_source_id
@@ -118,8 +118,8 @@ erDiagram
 	contact["contact"] {
 		integer id
 		date valid_from
-		date valid_after
 		date valid_to
+		date valid_until
 		character_varying(256) web_address
 		character_varying(50) email_address
 		character_varying(50) phone_number
@@ -174,8 +174,8 @@ erDiagram
 	enterprise_group["enterprise_group"] {
 		integer id
 		date valid_from
-		date valid_after
 		date valid_to
+		date valid_until
 		boolean active
 		character_varying(16) short_name
 		character_varying(256) name
@@ -212,8 +212,8 @@ erDiagram
 	establishment["establishment"] {
 		integer id
 		date valid_from
-		date valid_after
 		date valid_to
+		date valid_until
 		boolean active
 		character_varying(16) short_name
 		character_varying(256) name
@@ -390,8 +390,8 @@ erDiagram
 	legal_unit["legal_unit"] {
 		integer id
 		date valid_from
-		date valid_after
 		date valid_to
+		date valid_until
 		boolean active
 		character_varying(16) short_name
 		character_varying(256) name
@@ -414,8 +414,8 @@ erDiagram
 	location["location"] {
 		integer id
 		date valid_from
-		date valid_after
 		date valid_to
+		date valid_until
 		location_type type
 		character_varying(200) address_part1
 		character_varying(200) address_part2
@@ -453,8 +453,8 @@ erDiagram
 	person_for_unit["person_for_unit"] {
 		integer id
 		date valid_from
-		date valid_after
 		date valid_to
+		date valid_until
 		integer person_id
 		integer person_role_id
 		integer data_source_id
@@ -552,8 +552,8 @@ erDiagram
 		integer id
 		integer stat_definition_id
 		date valid_from
-		date valid_after
 		date valid_to
+		date valid_until
 		integer data_source_id
 		integer establishment_id
 		integer legal_unit_id
@@ -615,9 +615,9 @@ erDiagram
 	statistical_unit["statistical_unit"] {
 		statistical_unit_type unit_type
 		integer unit_id
-		date valid_after
 		date valid_from
 		date valid_to
+		date valid_until
 		jsonb external_idents
 		character_varying(256) name
 		date birth_date
@@ -699,7 +699,7 @@ erDiagram
 	}
 	statistical_unit_facet["statistical_unit_facet"] {
 		date valid_from
-		date valid_to
+		date valid_until
 		statistical_unit_type unit_type
 		ltree physical_region_path
 		ltree primary_activity_category_path
@@ -733,9 +733,9 @@ erDiagram
 		text description
 		boolean active
 		tag_type type
-		date context_valid_after
 		date context_valid_from
 		date context_valid_to
+		date context_valid_until
 		date context_valid_on
 		boolean is_scoped_tag
 		timestamp_with_time_zone created_at
@@ -756,9 +756,9 @@ erDiagram
 	timeline_enterprise["timeline_enterprise"] {
 		statistical_unit_type unit_type
 		integer unit_id
-		date valid_after
 		date valid_from
 		date valid_to
+		date valid_until
 		character_varying(256) name
 		date birth_date
 		date death_date
@@ -835,9 +835,9 @@ erDiagram
 	timeline_establishment["timeline_establishment"] {
 		statistical_unit_type unit_type
 		integer unit_id
-		date valid_after
 		date valid_from
 		date valid_to
+		date valid_until
 		character_varying(256) name
 		date birth_date
 		date death_date
@@ -910,9 +910,9 @@ erDiagram
 	timeline_legal_unit["timeline_legal_unit"] {
 		statistical_unit_type unit_type
 		integer unit_id
-		date valid_after
 		date valid_from
 		date valid_to
+		date valid_until
 		character_varying(256) name
 		date birth_date
 		date death_date
@@ -992,8 +992,8 @@ erDiagram
 	timesegments["timesegments"] {
 		statistical_unit_type unit_type
 		integer unit_id
-		date valid_after
-		date valid_to
+		date valid_from
+		date valid_until
 	}
 	timesegments_years["timesegments_years"] {
 		integer year

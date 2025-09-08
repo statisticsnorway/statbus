@@ -3,9 +3,9 @@ BEGIN;
 CREATE OR REPLACE VIEW public.statistical_unit_def
     ( unit_type
     , unit_id
-    , valid_after
     , valid_from
     , valid_to
+    , valid_until
     , external_idents
     , name
     , birth_date
@@ -159,9 +159,9 @@ CREATE OR REPLACE VIEW public.statistical_unit_def
     data AS (
       SELECT unit_type
            , unit_id
-           , valid_after
            , valid_from
            , valid_to
+           , valid_until
            , name
            , birth_date
            , death_date
@@ -248,9 +248,9 @@ CREATE OR REPLACE VIEW public.statistical_unit_def
       UNION ALL
       SELECT unit_type
            , unit_id
-           , valid_after
            , valid_from
            , valid_to
+           , valid_until
            , name
            , birth_date
            , death_date
@@ -337,9 +337,9 @@ CREATE OR REPLACE VIEW public.statistical_unit_def
       UNION ALL
       SELECT unit_type
            , unit_id
-           , valid_after
            , valid_from
            , valid_to
+           , valid_until
            , name
            , birth_date
            , death_date
@@ -428,9 +428,9 @@ CREATE OR REPLACE VIEW public.statistical_unit_def
     )
     SELECT data.unit_type
          , data.unit_id
-         , data.valid_after
          , data.valid_from
          , data.valid_to
+         , data.valid_until
          , COALESCE(
              eia1.external_idents, -- Direct idents for unit
              eia2.external_idents, -- Fallback to primary establishment

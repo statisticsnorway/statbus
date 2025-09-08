@@ -164,7 +164,7 @@ BEGIN
         v_sql := format($$
             UPDATE public.%1$I dt SET
                 state = %2$L,
-                error = jsonb_build_object('external_idents', 'No identifier provided or mapped correctly for external_idents step'),
+                errors = jsonb_build_object('external_idents', 'No identifier provided or mapped correctly for external_idents step'),
                 operation = 'insert'::public.import_row_operation_type,
                 action = %3$L,
                 last_completed_priority = %4$L
@@ -439,7 +439,7 @@ BEGIN
                 WHEN %3$L::public.import_strategy = 'insert_only' AND pe.operation != 'insert'::public.import_row_operation_type THEN 'skip'::public.import_row_action_type -- %3$L is v_strategy
                 WHEN %3$L::public.import_strategy = 'replace_only' AND pe.operation != 'replace'::public.import_row_operation_type THEN 'skip'::public.import_row_action_type -- %3$L is v_strategy
                 WHEN %3$L::public.import_strategy = 'update_only' AND pe.operation != 'update'::public.import_row_operation_type THEN 'skip'::public.import_row_action_type -- %3$L is v_strategy
-                ELSE (pe.operation::text)::public.import_row_action_type
+                ELSE 'use'::public.import_row_action_type
             END as action,
             pe.actual_founding_row_id
         FROM PropagatedErrors pe;
@@ -498,7 +498,7 @@ BEGIN
     -- Step 3: Single-pass Batch Update for All Rows with dynamically constructed SET clause
     v_set_clause := format($$
         state = CASE WHEN ru.error_jsonb IS NOT NULL AND ru.error_jsonb != '{}'::jsonb THEN 'error'::public.import_data_state ELSE 'analysing'::public.import_data_state END,
-        error = CASE WHEN ru.error_jsonb IS NOT NULL AND ru.error_jsonb != '{}'::jsonb THEN COALESCE(dt.error, '{}'::jsonb) || ru.error_jsonb ELSE (CASE WHEN (dt.error - %1$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %1$L::TEXT[]) END) END,
+        errors = CASE WHEN ru.error_jsonb IS NOT NULL AND ru.error_jsonb != '{}'::jsonb THEN COALESCE(dt.errors, '{}'::jsonb) || ru.error_jsonb ELSE (CASE WHEN (dt.errors - %1$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.errors - %1$L::TEXT[]) END) END,
         action = ru.action,
         operation = ru.operation,
         founding_row_id = ru.derived_founding_row_id,
@@ -525,7 +525,7 @@ BEGIN
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
 
     -- Recalculate v_error_count for final logging
-    EXECUTE format($$SELECT COUNT(*) FROM public.%1$I WHERE (error ?| %2$L::text[]) AND EXISTS (SELECT 1 FROM temp_relevant_rows tr WHERE tr.data_row_id = row_id)$$,
+    EXECUTE format($$SELECT COUNT(*) FROM public.%1$I WHERE (errors ?| %2$L::text[]) AND EXISTS (SELECT 1 FROM temp_relevant_rows tr WHERE tr.data_row_id = row_id)$$,
                    v_data_table_name, v_error_keys_to_clear_arr)
     INTO v_error_count;
     RAISE DEBUG '[Job %] analyse_external_idents: Updated % total rows. Current estimated errors for this step: %', p_job_id, v_update_count, v_error_count;
@@ -561,62 +561,149 @@ END;
 $analyse_external_idents$;
 
 
--- Shared procedure to upsert external identifiers for a given unit
-CREATE OR REPLACE PROCEDURE import.shared_upsert_external_idents_for_unit(
+-- Set-based procedure to upsert external identifiers for a batch of units.
+-- This procedure replaces the row-by-row `shared_upsert_external_idents_for_unit`.
+CREATE OR REPLACE PROCEDURE import.process_external_idents(
     p_job_id INT,
-    p_data_table_name TEXT,
-    p_data_row_id INTEGER,
-    p_unit_id INT,
-    p_unit_type TEXT, -- 'legal_unit' or 'establishment'
-    p_edit_by_user_id INT,
-    p_edit_at TIMESTAMPTZ,
-    p_edit_comment TEXT
+    p_batch_row_ids INTEGER[],
+    p_step_code TEXT
 )
-LANGUAGE plpgsql AS $shared_upsert_external_idents_for_unit$
+LANGUAGE plpgsql AS $process_external_idents$
 DECLARE
-    rec_ident_type public.external_ident_type_active;
-    v_data_table_col_name TEXT;
-    v_ident_value TEXT;
-    v_sql_insert TEXT;
-    v_sql_conflict_set TEXT;
+    v_job public.import_job;
+    v_data_table_name TEXT;
+    v_job_mode public.import_mode;
+    v_ident_data_cols JSONB;
+    v_step public.import_step;
+    v_unpivot_selects TEXT[];
+    v_col_rec RECORD;
+    v_sql TEXT;
+    v_unit_id_col_name TEXT;
+    v_unit_type TEXT;
+    v_rows_affected INT;
 BEGIN
-    IF p_unit_type NOT IN ('legal_unit', 'establishment') THEN
-        RAISE EXCEPTION '[Job %] Invalid p_unit_type % passed to shared_upsert_external_idents_for_unit. Must be ''legal_unit'' or ''establishment''.', p_job_id, p_unit_type;
+    RAISE DEBUG '[Job %] process_external_idents (Batch): Starting for % rows', p_job_id, array_length(p_batch_row_ids, 1);
+
+    -- Get job details
+    SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
+    v_data_table_name := v_job.data_table_name;
+    v_job_mode := (v_job.definition_snapshot->'import_definition'->>'mode')::public.import_mode;
+
+    -- Determine unit type and ID column from job mode
+    IF v_job_mode = 'legal_unit' THEN
+        v_unit_type := 'legal_unit';
+        v_unit_id_col_name := 'legal_unit_id';
+    ELSIF v_job_mode IN ('establishment_formal', 'establishment_informal') THEN
+        v_unit_type := 'establishment';
+        v_unit_id_col_name := 'establishment_id';
+    ELSE
+        RAISE DEBUG '[Job %] process_external_idents: Job mode is ''%'', which does not have external identifiers processed by this step. Skipping.', p_job_id, v_job_mode;
+        RETURN;
     END IF;
 
-    FOR rec_ident_type IN SELECT * FROM public.external_ident_type_active ORDER BY priority LOOP
-        v_data_table_col_name := rec_ident_type.code;
-        BEGIN
-            EXECUTE format($$SELECT %1$I FROM public.%2$I WHERE row_id = $1$$,
-                           v_data_table_col_name, p_data_table_name)
-            INTO v_ident_value
-            USING p_data_row_id;
+    -- Get relevant source_input columns for the external_idents step from snapshot
+    SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = 'external_idents';
+    SELECT jsonb_agg(value) INTO v_ident_data_cols
+    FROM jsonb_array_elements(v_job.definition_snapshot->'import_data_column_list') value
+    WHERE (value->>'step_id')::int = v_step.id AND value->>'purpose' = 'source_input';
 
-            IF v_ident_value IS NOT NULL AND v_ident_value <> '' THEN
-                RAISE DEBUG '[Job %] shared_upsert_external_idents: For % ID %, data_row_id: %, ident_type: % (code: %), value: %',
-                            p_job_id, p_unit_type, p_unit_id, p_data_row_id, rec_ident_type.id, rec_ident_type.code, v_ident_value;
+    IF v_ident_data_cols IS NULL OR jsonb_array_length(v_ident_data_cols) = 0 THEN
+        RAISE DEBUG '[Job %] process_external_idents: No external ident source_input columns found for step. Skipping.', p_job_id;
+        RETURN;
+    END IF;
 
-                IF p_unit_type = 'legal_unit' THEN
-                    v_sql_insert = format('INSERT INTO public.external_ident (legal_unit_id, type_id, ident, edit_by_user_id, edit_at, edit_comment) VALUES (%1$L, %2$L, %3$L, %4$L, %5$L, %6$L)',
-                                          p_unit_id, rec_ident_type.id, v_ident_value, p_edit_by_user_id, p_edit_at, p_edit_comment);
-                    v_sql_conflict_set = 'legal_unit_id = EXCLUDED.legal_unit_id, establishment_id = NULL, enterprise_id = NULL, enterprise_group_id = NULL';
-                ELSIF p_unit_type = 'establishment' THEN
-                    v_sql_insert = format('INSERT INTO public.external_ident (establishment_id, type_id, ident, edit_by_user_id, edit_at, edit_comment) VALUES (%1$L, %2$L, %3$L, %4$L, %5$L, %6$L)',
-                                          p_unit_id, rec_ident_type.id, v_ident_value, p_edit_by_user_id, p_edit_at, p_edit_comment);
-                    v_sql_conflict_set = 'establishment_id = EXCLUDED.establishment_id, legal_unit_id = NULL, enterprise_id = NULL, enterprise_group_id = NULL';
-                END IF;
-
-                EXECUTE v_sql_insert ||
-                        format(' ON CONFLICT (type_id, ident) DO UPDATE SET %1$s, edit_by_user_id = EXCLUDED.edit_by_user_id, edit_at = EXCLUDED.edit_at, edit_comment = EXCLUDED.edit_comment', v_sql_conflict_set);
-
-            END IF;
-        EXCEPTION
-            WHEN undefined_column THEN
-                RAISE DEBUG '[Job %] shared_upsert_external_idents: Column % for ident type % not found in % for data_row_id %, skipping this ident type for this row.',
-                            p_job_id, v_data_table_col_name, rec_ident_type.code, p_data_table_name, p_data_row_id;
-        END;
+    -- Build unpivot selects
+    v_unpivot_selects := ARRAY[]::TEXT[];
+    FOR v_col_rec IN SELECT value->>'column_name' as idc_column_name FROM jsonb_array_elements(v_ident_data_cols) value
+    LOOP
+        v_unpivot_selects := array_append(v_unpivot_selects, format(
+            $subselect$
+            SELECT
+                dt.%1$I AS unit_id,
+                dt.edit_by_user_id,
+                dt.edit_at,
+                dt.edit_comment,
+                xit.id AS type_id,
+                NULLIF(dt.%2$I, '') AS ident
+            FROM public.%3$I dt
+            JOIN public.external_ident_type_active xit ON xit.code = %4$L
+            WHERE dt.row_id = ANY($1)
+              AND dt.action = 'use'
+              AND dt.%1$I IS NOT NULL
+              AND NULLIF(dt.%2$I, '') IS NOT NULL
+            $subselect$,
+            v_unit_id_col_name, -- %1$I
+            v_col_rec.idc_column_name, -- %2$I
+            v_data_table_name, -- %3$I
+            v_col_rec.idc_column_name -- %4$L
+        ));
     END LOOP;
+
+    IF array_length(v_unpivot_selects, 1) = 0 THEN
+        RAISE DEBUG '[Job %] process_external_idents: No identifier values to process in this batch.', p_job_id;
+        RETURN;
+    END IF;
+
+    -- Create temp table with unpivoted source data
+    IF to_regclass('pg_temp.temp_idents_to_upsert') IS NOT NULL THEN DROP TABLE temp_idents_to_upsert; END IF;
+    CREATE TEMP TABLE temp_idents_to_upsert (
+        unit_id INT,
+        type_id INT,
+        ident TEXT,
+        edit_by_user_id INT,
+        edit_at TIMESTAMPTZ,
+        edit_comment TEXT
+    ) ON COMMIT DROP;
+
+    v_sql := 'INSERT INTO temp_idents_to_upsert (unit_id, type_id, ident, edit_by_user_id, edit_at, edit_comment) ' ||
+             array_to_string(v_unpivot_selects, ' UNION ALL ');
+
+    RAISE DEBUG '[Job %] process_external_idents: Populating temp source table: %', p_job_id, v_sql;
+    EXECUTE v_sql USING p_batch_row_ids;
+
+    -- Perform set-based MERGE
+    v_sql := format($$
+        MERGE INTO public.external_ident AS t
+        USING (SELECT DISTINCT * FROM temp_idents_to_upsert) AS s
+        ON (t.type_id = s.type_id AND t.ident = s.ident)
+        WHEN MATCHED AND (
+            t.legal_unit_id IS DISTINCT FROM (CASE WHEN %1$L = 'legal_unit' THEN s.unit_id ELSE NULL END) OR
+            t.establishment_id IS DISTINCT FROM (CASE WHEN %1$L = 'establishment' THEN s.unit_id ELSE NULL END)
+        ) THEN
+            UPDATE SET
+                legal_unit_id = CASE WHEN %1$L = 'legal_unit' THEN s.unit_id ELSE NULL END,
+                establishment_id = CASE WHEN %1$L = 'establishment' THEN s.unit_id ELSE NULL END,
+                enterprise_id = NULL,
+                enterprise_group_id = NULL,
+                edit_by_user_id = s.edit_by_user_id,
+                edit_at = s.edit_at,
+                edit_comment = s.edit_comment
+        WHEN NOT MATCHED THEN
+            INSERT (legal_unit_id, establishment_id, type_id, ident, edit_by_user_id, edit_at, edit_comment)
+            VALUES (
+                CASE WHEN %1$L = 'legal_unit' THEN s.unit_id ELSE NULL END,
+                CASE WHEN %1$L = 'establishment' THEN s.unit_id ELSE NULL END,
+                s.type_id,
+                s.ident,
+                s.edit_by_user_id,
+                s.edit_at,
+                s.edit_comment
+            );
+    $$, v_unit_type);
+
+    RAISE DEBUG '[Job %] process_external_idents: Performing final MERGE: %', p_job_id, v_sql;
+    EXECUTE v_sql;
+
+    GET DIAGNOSTICS v_rows_affected = ROW_COUNT;
+    RAISE DEBUG '[Job %] process_external_idents (Batch): Finished. Upserted % external identifiers.', p_job_id, v_rows_affected;
+
+    IF to_regclass('pg_temp.temp_idents_to_upsert') IS NOT NULL THEN DROP TABLE temp_idents_to_upsert; END IF;
+
+EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING '[Job %] process_external_idents: Error during batch operation: %', p_job_id, SQLERRM;
+    IF to_regclass('pg_temp.temp_idents_to_upsert') IS NOT NULL THEN DROP TABLE temp_idents_to_upsert; END IF;
+    RAISE;
 END;
-$shared_upsert_external_idents_for_unit$;
+$process_external_idents$;
 
 COMMIT;

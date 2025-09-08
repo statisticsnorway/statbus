@@ -59,13 +59,13 @@ BEGIN
                         THEN 'error'::public.import_data_state
                         ELSE 'analysing'::public.import_data_state
                     END,
-            error = CASE
+            errors = CASE
                         WHEN NULLIF(dt.status_code, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL AND %2$L::INTEGER IS NULL THEN
-                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('status_code', 'Provided status_code ''' || dt.status_code || ''' not found/active and no default available')
+                            COALESCE(dt.errors, '{}'::jsonb) || jsonb_build_object('status_code', 'Provided status_code ''' || dt.status_code || ''' not found/active and no default available')
                         WHEN NULLIF(dt.status_code, '') IS NULL AND %2$L::INTEGER IS NULL THEN
-                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('status_code', 'Status code not provided and no active default status found')
+                            COALESCE(dt.errors, '{}'::jsonb) || jsonb_build_object('status_code', 'Status code not provided and no active default status found')
                         ELSE
-                            CASE WHEN (dt.error - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %3$L::TEXT[]) END
+                            CASE WHEN (dt.errors - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.errors - %3$L::TEXT[]) END
                     END,
             invalid_codes =
                 CASE
@@ -103,7 +103,7 @@ BEGIN
 
         v_update_count := v_update_count + v_skipped_update_count;
 
-        EXECUTE format($$SELECT COUNT(*) FROM public.%1$I WHERE row_id = ANY($1) AND state = 'error' AND (error ?| %2$L::text[])$$,
+        EXECUTE format($$SELECT COUNT(*) FROM public.%1$I WHERE row_id = ANY($1) AND state = 'error' AND (errors ?| %2$L::text[])$$,
                        v_data_table_name /* %1$I */, v_error_keys_to_clear_arr /* %2$L */)
         INTO v_error_count
         USING p_batch_row_ids;

@@ -7,7 +7,7 @@ BEGIN;
 -- Timepoints: Temporal Analysis Strategy
 --
 -- This system identifies every significant date that marks a change in state for any
--- statistical unit. These dates are the endpoints of validity intervals (valid_after, valid_to)
+-- statistical unit. These dates are the endpoints of validity intervals [valid_from, valid_until)
 -- from the units themselves and all their related temporal tables.
 --
 -- Strategy:
@@ -21,7 +21,7 @@ BEGIN;
 --    the child's period and the parent link's validity period. This is crucial for
 --    correctness when links are temporal (e.g., an establishment moving between legal units).
 --
--- 3. Unpivot & Deduplicate: The `valid_after` and `valid_to` columns from all these
+-- 3. Unpivot & Deduplicate: The `valid_from` and `valid_until` columns from all these
 --    final, trimmed periods are unpivoted into a single `timepoint` column, and a final
 --    `DISTINCT` produces the unique set of change dates for each unit.
 --
@@ -44,58 +44,58 @@ RETURNS TABLE(unit_type public.statistical_unit_type, unit_id int, timepoint dat
 -- It is the core of the "gather and propagate" strategy.
 WITH es_periods AS (
     -- 1. Gather all raw temporal periods related to the given establishments.
-    SELECT id AS unit_id, valid_after, valid_to FROM public.establishment WHERE id = ANY(p_establishment_ids)
-    UNION ALL SELECT establishment_id, valid_after, valid_to FROM public.activity WHERE establishment_id = ANY(p_establishment_ids)
-    UNION ALL SELECT establishment_id, valid_after, valid_to FROM public.location WHERE establishment_id = ANY(p_establishment_ids)
-    UNION ALL SELECT establishment_id, valid_after, valid_to FROM public.contact WHERE establishment_id = ANY(p_establishment_ids)
-    UNION ALL SELECT establishment_id, valid_after, valid_to FROM public.stat_for_unit WHERE establishment_id = ANY(p_establishment_ids)
-    UNION ALL SELECT establishment_id, valid_after, valid_to FROM public.person_for_unit WHERE establishment_id = ANY(p_establishment_ids)
+    SELECT id AS unit_id, valid_from, valid_until FROM public.establishment WHERE id = ANY(p_establishment_ids)
+    UNION ALL SELECT establishment_id, valid_from, valid_until FROM public.activity WHERE establishment_id = ANY(p_establishment_ids)
+    UNION ALL SELECT establishment_id, valid_from, valid_until FROM public.location WHERE establishment_id = ANY(p_establishment_ids)
+    UNION ALL SELECT establishment_id, valid_from, valid_until FROM public.contact WHERE establishment_id = ANY(p_establishment_ids)
+    UNION ALL SELECT establishment_id, valid_from, valid_until FROM public.stat_for_unit WHERE establishment_id = ANY(p_establishment_ids)
+    UNION ALL SELECT establishment_id, valid_from, valid_until FROM public.person_for_unit WHERE establishment_id = ANY(p_establishment_ids)
 ),
 lu_periods_base AS (
     -- 2. Gather periods directly related to the given legal units (NOT from their children yet).
-    SELECT id AS unit_id, valid_after, valid_to FROM public.legal_unit WHERE id = ANY(p_legal_unit_ids)
-    UNION ALL SELECT legal_unit_id, valid_after, valid_to FROM public.activity WHERE legal_unit_id = ANY(p_legal_unit_ids)
-    UNION ALL SELECT legal_unit_id, valid_after, valid_to FROM public.location WHERE legal_unit_id = ANY(p_legal_unit_ids)
-    UNION ALL SELECT legal_unit_id, valid_after, valid_to FROM public.contact WHERE legal_unit_id = ANY(p_legal_unit_ids)
-    UNION ALL SELECT legal_unit_id, valid_after, valid_to FROM public.stat_for_unit WHERE legal_unit_id = ANY(p_legal_unit_ids)
-    UNION ALL SELECT legal_unit_id, valid_after, valid_to FROM public.person_for_unit WHERE legal_unit_id = ANY(p_legal_unit_ids)
+    SELECT id AS unit_id, valid_from, valid_until FROM public.legal_unit WHERE id = ANY(p_legal_unit_ids)
+    UNION ALL SELECT legal_unit_id, valid_from, valid_until FROM public.activity WHERE legal_unit_id = ANY(p_legal_unit_ids)
+    UNION ALL SELECT legal_unit_id, valid_from, valid_until FROM public.location WHERE legal_unit_id = ANY(p_legal_unit_ids)
+    UNION ALL SELECT legal_unit_id, valid_from, valid_until FROM public.contact WHERE legal_unit_id = ANY(p_legal_unit_ids)
+    UNION ALL SELECT legal_unit_id, valid_from, valid_until FROM public.stat_for_unit WHERE legal_unit_id = ANY(p_legal_unit_ids)
+    UNION ALL SELECT legal_unit_id, valid_from, valid_until FROM public.person_for_unit WHERE legal_unit_id = ANY(p_legal_unit_ids)
 ),
 -- This CTE represents all periods relevant to a legal unit, including those propagated up from its child establishments.
 lu_periods_with_children AS (
-    SELECT unit_id, valid_after, valid_to FROM lu_periods_base
+    SELECT unit_id, valid_from, valid_until FROM lu_periods_base
     UNION ALL
     -- Propagate from establishments to legal units, WITH TRIMMING to the lifespan of the link.
-    SELECT es.legal_unit_id, GREATEST(p.valid_after, es.valid_after) AS valid_after, LEAST(p.valid_to, es.valid_to) AS valid_to
+    SELECT es.legal_unit_id, GREATEST(p.valid_from, es.valid_from) AS valid_from, LEAST(p.valid_until, es.valid_until) AS valid_until
     FROM es_periods AS p JOIN public.establishment AS es ON p.unit_id = es.id
-    WHERE es.legal_unit_id = ANY(p_legal_unit_ids) AND after_to_overlaps(p.valid_after, p.valid_to, es.valid_after, es.valid_to)
+    WHERE es.legal_unit_id = ANY(p_legal_unit_ids) AND from_until_overlaps(p.valid_from, p.valid_until, es.valid_from, es.valid_until)
 ),
-all_periods (unit_type, unit_id, valid_after, valid_to) AS (
+all_periods (unit_type, unit_id, valid_from, valid_until) AS (
     -- 3. Combine and trim all periods for all unit types.
     -- Establishment periods are trimmed to their own lifespan slices.
-    SELECT 'establishment'::public.statistical_unit_type, e.id, GREATEST(p.valid_after, e.valid_after), LEAST(p.valid_to, e.valid_to)
+    SELECT 'establishment'::public.statistical_unit_type, e.id, GREATEST(p.valid_from, e.valid_from), LEAST(p.valid_until, e.valid_until)
     FROM es_periods p JOIN public.establishment e ON p.unit_id = e.id
-    WHERE e.id = ANY(p_establishment_ids) AND after_to_overlaps(p.valid_after, p.valid_to, e.valid_after, e.valid_to)
+    WHERE e.id = ANY(p_establishment_ids) AND from_until_overlaps(p.valid_from, p.valid_until, e.valid_from, e.valid_until)
     UNION ALL
     -- Legal Unit periods are from the comprehensive CTE, trimmed to their own lifespan slices.
-    SELECT 'legal_unit', l.id, GREATEST(p.valid_after, l.valid_after), LEAST(p.valid_to, l.valid_to)
+    SELECT 'legal_unit', l.id, GREATEST(p.valid_from, l.valid_from), LEAST(p.valid_until, l.valid_until)
     FROM lu_periods_with_children p JOIN public.legal_unit l ON p.unit_id = l.id
-    WHERE l.id = ANY(p_legal_unit_ids) AND after_to_overlaps(p.valid_after, p.valid_to, l.valid_after, l.valid_to)
+    WHERE l.id = ANY(p_legal_unit_ids) AND from_until_overlaps(p.valid_from, p.valid_until, l.valid_from, l.valid_until)
     UNION ALL
     -- Enterprise periods are propagated from Legal Units (and their children), trimmed to the LU-EN link lifespan.
-    SELECT 'enterprise', lu.enterprise_id, GREATEST(p.valid_after, lu.valid_after), LEAST(p.valid_to, lu.valid_to)
+    SELECT 'enterprise', lu.enterprise_id, GREATEST(p.valid_from, lu.valid_from), LEAST(p.valid_until, lu.valid_until)
     FROM lu_periods_with_children p JOIN public.legal_unit lu ON p.unit_id = lu.id
-    WHERE lu.enterprise_id = ANY(p_enterprise_ids) AND after_to_overlaps(p.valid_after, p.valid_to, lu.valid_after, lu.valid_to)
+    WHERE lu.enterprise_id = ANY(p_enterprise_ids) AND from_until_overlaps(p.valid_from, p.valid_until, lu.valid_from, lu.valid_until)
     UNION ALL
     -- Enterprise periods are also propagated from directly-linked Establishments, trimmed to the EST-EN link lifespan.
-    SELECT 'enterprise', es.enterprise_id, GREATEST(p.valid_after, es.valid_after), LEAST(p.valid_to, es.valid_to)
+    SELECT 'enterprise', es.enterprise_id, GREATEST(p.valid_from, es.valid_from), LEAST(p.valid_until, es.valid_until)
     FROM es_periods p JOIN public.establishment es ON p.unit_id = es.id
-    WHERE es.enterprise_id = ANY(p_enterprise_ids) AND after_to_overlaps(p.valid_after, p.valid_to, es.valid_after, es.valid_to)
+    WHERE es.enterprise_id = ANY(p_enterprise_ids) AND from_until_overlaps(p.valid_from, p.valid_until, es.valid_from, es.valid_until)
 ),
 unpivoted AS (
     -- 4. Unpivot valid periods into a single `timepoint` column, ensuring we don't create zero-duration segments.
-    SELECT p.unit_type, p.unit_id, p.valid_after AS timepoint FROM all_periods p WHERE p.valid_after < p.valid_to
+    SELECT p.unit_type, p.unit_id, p.valid_from AS timepoint FROM all_periods p WHERE p.valid_from < p.valid_until
     UNION
-    SELECT p.unit_type, p.unit_id, p.valid_to AS timepoint FROM all_periods p WHERE p.valid_after < p.valid_to
+    SELECT p.unit_type, p.unit_id, p.valid_until AS timepoint FROM all_periods p WHERE p.valid_from < p.valid_until
 )
 -- 5. Deduplicate to get the final, unique set of change dates for each unit.
 SELECT DISTINCT up.unit_type, up.unit_id, up.timepoint

@@ -3,8 +3,8 @@ BEGIN;
 CREATE TABLE public.legal_unit (
     id SERIAL NOT NULL,
     valid_from date NOT NULL,
-    valid_after date NOT NULL,
-    valid_to date NOT NULL DEFAULT 'infinity',
+    valid_to date NOT NULL,
+    valid_until date NOT NULL,
     active boolean NOT NULL DEFAULT true,
     short_name character varying(16),
     name character varying(256) NOT NULL,
@@ -41,8 +41,19 @@ CREATE FUNCTION admin.legal_unit_id_exists(fk_id integer) RETURNS boolean LANGUA
     SELECT fk_id IS NULL OR EXISTS (SELECT 1 FROM public.legal_unit WHERE id = fk_id);
 $$;
 
-CREATE TRIGGER trg_legal_unit_synchronize_valid_from_after
-    BEFORE INSERT OR UPDATE ON public.legal_unit
-    FOR EACH ROW EXECUTE FUNCTION public.synchronize_valid_from_after();
+-- Activate era handling
+SELECT sql_saga.add_era('public.legal_unit', p_synchronize_valid_to_column := 'valid_to');
+SELECT sql_saga.add_unique_key(
+    table_oid => 'public.legal_unit',
+    column_names => ARRAY['id'],
+    unique_key_name => 'legal_unit_id_valid'
+);
+-- Enforce that an enterprise can only have one primary legal unit at any given time.
+SELECT sql_saga.add_unique_key(
+    table_oid => 'public.legal_unit',
+    column_names => ARRAY['enterprise_id'],
+    predicate => 'primary_for_enterprise IS TRUE',
+    unique_key_name => 'legal_unit_enterprise_id_primary_valid'
+);
 
 END;

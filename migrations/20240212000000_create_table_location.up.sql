@@ -5,8 +5,8 @@ CREATE TYPE public.location_type AS ENUM ('physical', 'postal');
 CREATE TABLE public.location (
     id SERIAL NOT NULL,
     valid_from date NOT NULL,
-    valid_after date NOT NULL,
-    valid_to date NOT NULL DEFAULT 'infinity',
+    valid_to date NOT NULL,
+    valid_until date NOT NULL,
     type public.location_type NOT NULL,
     address_part1 character varying(200),
     address_part2 character varying(200),
@@ -49,9 +49,9 @@ CREATE TABLE public.location (
 );
 COMMENT ON TABLE public.location IS 'Stores physical or postal addresses associated with statistical units (Legal Units or Establishments). Uses temporal validity.';
 COMMENT ON COLUMN public.location.id IS 'Primary key for the location record (not the temporal era).';
-COMMENT ON COLUMN public.location.valid_after IS 'Generated column: The day before valid_from.';
-COMMENT ON COLUMN public.location.valid_from IS 'Start date of the validity period for this location era.';
-COMMENT ON COLUMN public.location.valid_to IS 'End date (exclusive) of the validity period for this location era.';
+COMMENT ON COLUMN public.location.valid_from IS 'Start date (inclusive) of the validity period for this location era.';
+COMMENT ON COLUMN public.location.valid_to IS 'End date (inclusive) of the validity period for this location era. UI-facing.';
+COMMENT ON COLUMN public.location.valid_until IS 'End date (exclusive) of the validity period for this location era. Used for temporal logic.';
 COMMENT ON COLUMN public.location.type IS 'Type of location: ''physical'' or ''postal''.';
 COMMENT ON COLUMN public.location.address_part1 IS 'First line of the address.';
 COMMENT ON COLUMN public.location.address_part2 IS 'Second line of the address.';
@@ -77,11 +77,37 @@ CREATE INDEX ix_location_legal_unit_id ON public.location USING btree (legal_uni
 CREATE INDEX ix_location_edit_by_user_id ON public.location USING btree (edit_by_user_id);
 CREATE INDEX ix_location_country_id ON public.location USING btree (country_id);
 CREATE INDEX ix_location_data_source_id ON public.location USING btree (data_source_id);
-CREATE INDEX ix_location_legal_unit_id_valid_range ON public.location USING gist (legal_unit_id, daterange(valid_after, valid_to, '(]'));
-CREATE INDEX ix_location_establishment_id_valid_range ON public.location USING gist (establishment_id, daterange(valid_after, valid_to, '(]'));
+CREATE INDEX ix_location_legal_unit_id_valid_range ON public.location USING gist (legal_unit_id, daterange(valid_from, valid_until, '[)'));
+CREATE INDEX ix_location_establishment_id_valid_range ON public.location USING gist (establishment_id, daterange(valid_from, valid_until, '[)'));
 
-CREATE TRIGGER trg_location_synchronize_valid_from_after
-    BEFORE INSERT OR UPDATE ON public.location
-    FOR EACH ROW EXECUTE FUNCTION public.synchronize_valid_from_after();
+-- Activate era handling
+SELECT sql_saga.add_era('public.location', p_synchronize_valid_to_column := 'valid_to');
+SELECT sql_saga.add_unique_key(
+    table_oid => 'public.location',
+    column_names => ARRAY['id'],
+    unique_key_name => 'location_id_valid'
+);
+SELECT sql_saga.add_unique_key(
+    table_oid => 'public.location',
+    column_names => ARRAY['type', 'establishment_id'],
+    unique_key_name => 'location_type_establishment_id_valid'
+);
+SELECT sql_saga.add_unique_key(
+    table_oid => 'public.location',
+    column_names => ARRAY['type', 'legal_unit_id'],
+    unique_key_name => 'location_type_legal_unit_id_valid'
+);
+SELECT sql_saga.add_foreign_key(
+    fk_table_oid => 'public.location',
+    fk_column_names => ARRAY['establishment_id'],
+    fk_era_name => 'valid',
+    unique_key_name => 'establishment_id_valid'
+);
+SELECT sql_saga.add_foreign_key(
+    fk_table_oid => 'public.location',
+    fk_column_names => ARRAY['legal_unit_id'],
+    fk_era_name => 'valid',
+    unique_key_name => 'legal_unit_id_valid'
+);
 
 END;

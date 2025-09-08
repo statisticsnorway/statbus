@@ -76,7 +76,7 @@ FROM public.import_job
 WHERE slug IN ('import_31_lu_era_b1', 'import_31_esflu_era_b1') ORDER BY slug;
 
 \echo "Error rows in import_31_esflu_era_b1_data (if any):"
-SELECT row_id, state, error, tax_ident, stat_ident, name
+SELECT row_id, state, errors, tax_ident, stat_ident, name, merge_statuses
 FROM public.import_31_esflu_era_b1_data
 WHERE error IS NOT NULL OR state = 'error'
 ORDER BY row_id;
@@ -151,7 +151,7 @@ FROM public.import_job
 WHERE slug IN ('import_31_lu_era_b2', 'import_31_esflu_era_b2', 'import_31_eswlu_era_b2_errors') ORDER BY slug;
 
 \echo "Error rows in import_31_eswlu_era_b2_errors_data (if any):"
-SELECT row_id, state, error, tax_ident, stat_ident, name
+SELECT row_id, state, errors, tax_ident, stat_ident, name, merge_statuses
 FROM public.import_31_eswlu_era_b2_errors_data
 WHERE error IS NOT NULL OR state = 'error'
 ORDER BY row_id;
@@ -205,7 +205,7 @@ WHERE slug = 'import_31_lu_era_b3_coord_errors'
 ORDER BY slug;
 
 \echo "Error rows in import_31_lu_era_b3_coord_errors_data (if any):"
-SELECT row_id, state, error, tax_ident, name, physical_latitude
+SELECT row_id, state, errors, tax_ident, name, physical_latitude, merge_statuses
 FROM public.import_31_lu_era_b3_coord_errors_data
 WHERE error IS NOT NULL OR state = 'error'
 ORDER BY row_id;

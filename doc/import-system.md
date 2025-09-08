@@ -70,10 +70,50 @@ The import system is built around several key database tables and concepts:
                     *   `invalid_codes` should be treated as additive. A step appends its new soft errors by merging its `invalid_codes` JSONB object with the existing `dt.invalid_codes` (e.g., `COALESCE(dt.invalid_codes, '{}'::jsonb) || new_invalid_codes_jsonb`).
                     *   If a step resolves a soft error it previously reported (e.g., an invalid code becomes valid upon re-evaluation or data correction), it should clear *only its specific key(s)* from the `invalid_codes` column (e.g., `dt.invalid_codes - 'my_invalid_code_key'`).
                     *   If a `process_` step relies on a resolved ID that couldn't be derived due to an invalid code, that specific attribute might not be set, or the `process_` step might skip that part of the operation for the row.
-            *   The `external_idents` step specifically determines the potential `operation` (`insert`, `replace`, `update`) based on identifier lookups, and the final `action` (`insert`, `replace`, `update`, or `skip`) based on the `operation`, job's `strategy`, and any hard errors.
+            *   The `external_idents` step specifically determines the potential `operation` (`insert`, `replace`, `update`) based on identifier lookups. It then determines the final `action` based on this `operation`, the job's `strategy`, and any hard errors. A row that passes all analysis steps will have its `action` set to `'use'`, while a row with a hard error will have its `action` set to `'skip'`.
             *   Updates the row's `state` (to `analysing`, or `error` for hard errors), `error` (for hard errors), `invalid_codes` (for soft errors), and `last_completed_priority`.
-        *   **Operation (`process_procedure`):** Reads `source_input` and `internal` columns, including the `action` column. Performs the final `INSERT` (for `action='insert'`), `REPLACE` (for `action='replace'`), or `UPDATE` (for `action='update'`) into the target Statbus tables, respecting the job's `strategy`. Skips rows where `action='skip'`. Stores the resulting primary key(s) in the corresponding `pk_id` column. Updates the row's `state` (to `processing` or `error` if the DML fails), `error`, and `last_completed_priority`. *Note: Some steps like `external_idents` only perform analysis and do not have a process procedure.*
-    *   **Temporal Slicing Principle**: A new temporal slice (i.e., a new row with adjusted `valid_after`/`valid_to`) is created in a specific target table (e.g., `public.legal_unit`, `public.location`) *only* when "core" data fields *within that specific table* change. The system uses an **exclusive start date (`valid_after`)** and an **inclusive end date (`valid_to`)** for all temporal tables, representing the period `(valid_after, valid_to]`. Source data, however, is expected to provide an **inclusive start date (`valid_from`)**. The `analyse_valid_time` step automatically converts the source `valid_from` to the internal `derived_valid_after` by subtracting one day. This convention ensures consistency across all temporal tables. Changes in related tables (e.g., a `location` change for a `legal_unit`) create new slices in the related table (`public.location`) but not necessarily in the parent table (`public.legal_unit`) unless the parent table's own core data also changes. The `public.statistical_unit` view then joins these tables to present a consolidated timeline.
+        *   **Operation (`process_procedure`):** Filters the batch for rows where `action = 'use'`. It then performs the final data synchronization using the `sql_saga.temporal_merge` engine. It does not need to know whether to insert or update; this is determined automatically by `temporal_merge` based on `founding_row_id`. It stores the resulting primary key(s) in the corresponding `pk_id` column and updates the row's `state` (to `processing` or `error` if the DML fails). Rows where `action = 'skip'` are ignored. *Note: Some steps like `external_idents` only perform analysis and do not have a process procedure.*
+
+    *   **Sub-Entity Processing and the Role of `founding_row_id`**:
+        The `operation` column (`insert`, `replace`, `update`) correctly describes the intended operation for the *core entity* (e.g., the `legal_unit`), but it is a monolithic flag for the entire `founding_row_id` group. It is too coarse for related sub-entities like `contact` or `location`, which have their own independent timelines and may need to be inserted even when the main unit is being replaced.
+
+        Therefore, the `operation` column's only purpose is to be used by the `analyse_external_idents` step to determine the final `action` (`use` or `skip`) based on the job's `strategy`. **All sub-entity processing procedures MUST ignore the `operation` column.** Instead, they follow a more nuanced, two-step logic:
+
+        1.  **Filter for Relevance**: The procedure must first filter the batch for rows where `action = 'use'` AND at least one of its domain-specific columns has data (e.g., at least one non-NULL `email` or `phone` field for `process_contact`). Rows with no relevant data or where `action = 'skip'` are ignored by this step.
+        2.  **Delegate to `temporal_merge`**: The filtered, relevant rows are passed to `sql_saga.temporal_merge`. The procedure does **not** need to tell `temporal_merge` whether to `INSERT` or `UPDATE`. This is determined automatically by `temporal_merge`'s internal planner, which uses `p_founding_id_column`.
+
+        The `founding_row_id` is the critical signal. When `temporal_merge` sees a `founding_row_id` for the first time in a batch, it knows to perform an `INSERT`. For any subsequent rows in the batch with the same `founding_row_id`, it knows to perform a temporal `PATCH` or `REPLACE`. This works correctly even if intermediate rows (that had no data for this sub-entity) were filtered out.
+
+        **Concrete Example: A New Legal Unit with Delayed Contact Info**
+        Consider a new legal unit imported with two rows. The first establishes the unit, and the second adds contact information while also changing the unit's name.
+
+        **1. Input Data:**
+        | row_id | tax_ident | name | valid_from | email |
+        | :--- | :--- | :--- | :--- | :--- |
+        | 101 | 999888777 | StatBus AS | 2023-01-01 | NULL |
+        | 102 | 999888777 | StatBus ASA | 2024-01-01 | 'contact@statbus.no' |
+
+        **2. `analyse_external_idents` -> `_data` table:**
+        This step correctly sets the monolithic action for the core legal unit and links the rows.
+        | row_id | action | founding_row_id | ... | email |
+        | :--- | :--- | :--- | :--- | :--- |
+        | 101 | `use` | 101 | ... | NULL |
+        | 102 | `use` | 101 | ... | 'contact@statbus.no' |
+
+        **3. `process_legal_unit`:**
+        This procedure uses both rows. `temporal_merge` (with `MERGE_ENTITY_REPLACE`) sees the `founding_row_id` and correctly creates a single new legal unit with a two-part history for its `name`. `sql_saga`'s `p_update_source_with_assigned_entity_ids` feature automatically back-fills the new `legal_unit.id` into the `id` column of the procedure's source table.
+
+        **4. `process_contact` (The Nuanced Logic):**
+        *   **Filter**: It filters the batch for rows where `action = 'use'` and at least one contact field is not NULL. Row 101 is discarded. Only Row 102 remains.
+        *   **Delegate**: It prepares a source table for `temporal_merge` containing only the data from Row 102.
+            | legal_unit_id | email | valid_from | valid_until | founding_row_id |
+            | :--- | :--- | :--- | :--- | :--- |
+            | (new ID) | 'contact@statbus.no'| 2024-01-01 | infinity | 101 |
+        *   **`temporal_merge` Executes**: `temporal_merge` receives this single row. It sees `founding_row_id = 101` for the first time *for a contact*. It therefore performs an `INSERT`, creating a new `contact` record that correctly begins its existence on `2024-01-01`.
+
+        This pattern ensures that sub-entities are created only when they have data, and their timelines are managed correctly and independently of the core entity's timeline, all driven by the powerful combination of batch filtering and `temporal_merge`'s `founding_row_id` logic.
+
+    *   **Temporal Slicing Principle**: The system uses a `[valid_from, valid_until)` temporal model, which is inclusive of the start date and exclusive of the end date. This aligns with PostgreSQL's native range types and is managed by the `sql_saga` extension. For human readability and easier interaction with external tools, a synchronized `valid_to` column (representing the inclusive end date) is maintained on all temporal tables by `sql_saga`'s triggers. The `analyse_valid_time` step is responsible for parsing source date columns (`valid_from`, `valid_to`) and populating the internal `derived_valid_from` and `derived_valid_until` columns, which are then used by the `process_*` procedures. A new temporal slice is created in a target table only when core data fields within that specific table change.
     *   These procedures operate on batches of rows identified by an array of their `row_id` values (e.g., `INTEGER[]`). The `row_id` is a stable, dedicated identifier within the job-specific `_data` table, used instead of PostgreSQL's system column `ctid` because `ctid` can change during row updates or table maintenance, making it unreliable for this multi-stage process. When these `row_id`s are temporarily stored (e.g., in a `TEMP TABLE` for batch processing), the column holding them in the temporary table is typically named `data_row_id` for clarity. They use `FOR UPDATE SKIP LOCKED` when selecting batches to handle concurrency.
 
 8.  **Import Job (`import_job`)**:

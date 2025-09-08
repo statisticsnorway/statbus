@@ -75,17 +75,13 @@ COMMENT ON TYPE public.import_row_operation_type IS
 - update: An existing unit was found, and the strategy implies an update-style modification.';
 
 CREATE TYPE public.import_row_action_type AS ENUM (
-    'insert',  -- Row represents a new unit/record to be inserted.
-    'replace', -- Row represents an existing unit/record to be updated/replaced (using batch upsert logic, effectively replacing the temporal slice).
-    'update',  -- Row represents an existing unit/record to be updated (merging non-null values into the existing temporal slice).
+    'use',     -- Row is valid and should be used by processing steps.
     'skip'     -- Row should be skipped due to strategy mismatch or other reasons identified during analysis.
 );
 
 COMMENT ON TYPE public.import_row_action_type IS
 'Specifies the intended action for an import data row after analysis:
-- insert: Create a new record.
-- replace: Replace an existing record (temporal data is handled by replacing overlapping periods).
-- update: Update an existing record (temporal data is handled by merging data into overlapping periods, potentially splitting/adjusting eras).
+- use: The row has passed analysis and is ready for processing. The specific DML operation (INSERT/UPDATE/REPLACE) will be determined by sql_saga.temporal_merge based on the founding_row_id.
 - skip: Do not process this row further due to strategy mismatch or errors.';
 
 
@@ -127,7 +123,7 @@ CREATE TYPE public.import_data_column_purpose AS ENUM (
     'source_input',      -- Raw data mapped directly from the source file
     'internal',          -- Result of lookups/calculations during analysis phase
     'pk_id',             -- ID of the record inserted into a final table by this target
-    'metadata'           -- Internal status/error tracking columns (state, error, last_completed_priority)
+    'metadata'           -- Internal status/error tracking columns (state, errors, last_completed_priority)
 );
 COMMENT ON TYPE public.import_data_column_purpose IS
 'Defines the role of a column within the job-specific _data table:
@@ -1470,7 +1466,7 @@ BEGIN
           ) INTO v_has_founding_row_id_col;
 
           -- Add processing phase index
-          EXECUTE format($$ CREATE INDEX ON public.%1$I (action, row_id) WHERE state = 'processing' AND error IS NULL $$, job.data_table_name);
+          EXECUTE format($$ CREATE INDEX ON public.%1$I (action, row_id) WHERE state = 'processing' AND errors IS NULL $$, job.data_table_name);
           RAISE DEBUG '[Job %] Added processing phase index to data table %.', job.id, job.data_table_name;
 
           -- Add founding_row_id index if the column exists
@@ -1743,7 +1739,7 @@ BEGIN
         WHERE dt.row_id = ANY($1) -- from the current batch
           AND dt.state = 'error'
           AND dt.founding_row_id IS NOT NULL
-          AND (dt.error ?| %2$L::text[]); -- and the error is from this step
+          AND (dt.errors ?| %2$L::text[]); -- and the error is from this step
     $$, p_data_table_name, p_error_keys)
     INTO v_failed_entity_founding_rows
     USING p_batch_row_ids;
@@ -1754,20 +1750,20 @@ BEGIN
             WITH failed_rows AS (
                 SELECT founding_row_id, array_agg(row_id) as error_source_row_ids
                 FROM public.%1$I
-                WHERE founding_row_id = ANY($1) AND state = 'error' AND (error ?| %2$L::text[])
+                WHERE founding_row_id = ANY($1) AND state = 'error' AND (errors ?| %2$L::text[])
                 GROUP BY founding_row_id
             )
             UPDATE public.%1$I dt SET
                 state = 'error',
                 action = 'skip',
-                error = COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object(
+                errors = COALESCE(dt.errors, '{}'::jsonb) || jsonb_build_object(
                     %4$L,
                     'An error on a related new entity row caused this row to be skipped. Source error row(s): ' || fr.error_source_row_ids::TEXT
                 )
             FROM failed_rows fr
             WHERE dt.founding_row_id = fr.founding_row_id
               AND dt.state != 'error' -- Don't re-process rows already in error
-              AND NOT (dt.error ?| %2$L::text[]); -- Don't update the row that was the source of the error
+              AND NOT (dt.errors ?| %2$L::text[]); -- Don't update the row that was the source of the error
         $$, p_data_table_name, p_error_keys, v_failed_entity_founding_rows, v_error_key_for_json)
         USING v_failed_entity_founding_rows;
     END IF;
@@ -1810,7 +1806,7 @@ BEGIN
             UPDATE public.%1$I dt SET
                 state = 'error',
                 action = 'skip',
-                error = COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object(
+                errors = COALESCE(dt.errors, '{}'::jsonb) || jsonb_build_object(
                     %3$L,
                     'An error on a related new entity row caused this row to be skipped. Source error row(s): ' || fr.error_source_row_ids::TEXT
                 )
@@ -1927,13 +1923,13 @@ BEGIN
                     IF job.review THEN
                         -- Transition rows from 'analysing' to 'analysed' if review is required
                         RAISE DEBUG '[Job %] Updating data rows from analysing to analysed in table % for review', job_id, job.data_table_name;
-                        EXECUTE format($$UPDATE public.%I SET state = %L WHERE state = %L AND error IS NULL$$, job.data_table_name, 'analysed'::public.import_data_state, 'analysing'::public.import_data_state);
+                        EXECUTE format($$UPDATE public.%I SET state = %L WHERE state = %L AND errors IS NULL$$, job.data_table_name, 'analysed'::public.import_data_state, 'analysing'::public.import_data_state);
                         job := admin.import_job_set_state(job, 'waiting_for_review');
                         RAISE DEBUG '[Job %] Analysis complete, waiting for review.', job_id;
                     ELSE
                         -- Transition rows from 'analysing' to 'processing' if no review
                         RAISE DEBUG '[Job %] Updating data rows from analysing to processing and resetting LCP in table %', job_id, job.data_table_name;
-                        EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L AND error IS NULL$$, job.data_table_name, 'processing'::public.import_data_state, 'analysing'::public.import_data_state);
+                        EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L AND errors IS NULL$$, job.data_table_name, 'processing'::public.import_data_state, 'analysing'::public.import_data_state);
                         job := admin.import_job_set_state(job, 'processing_data');
                         RAISE DEBUG '[Job %] Analysis complete, proceeding to processing.', job_id;
                         should_reschedule := TRUE; -- Reschedule to start processing
@@ -1951,7 +1947,7 @@ BEGIN
                 RAISE DEBUG '[Job %] Approved, transitioning to processing_data.', job_id;
                 -- Transition rows in _data table from 'analysed' to 'processing' and reset LCP
                 RAISE DEBUG '[Job %] Updating data rows from analysed to processing and resetting LCP in table % after approval', job_id, job.data_table_name;
-                EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L AND error IS NULL$$, job.data_table_name, 'processing'::public.import_data_state, 'analysed'::public.import_data_state);
+                EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L AND errors IS NULL$$, job.data_table_name, 'processing'::public.import_data_state, 'analysed'::public.import_data_state);
                 job := admin.import_job_set_state(job, 'processing_data');
                 should_reschedule := TRUE; -- Reschedule immediately to start import
             END;
@@ -2126,12 +2122,30 @@ BEGIN
                     END IF;
                 ELSE
                     -- BATCHED: find and process one batch.
+                    -- This logic ensures that all rows belonging to the same new entity (sharing a founding_row_id) are always processed in the same batch.
                     EXECUTE format(
-                        $$SELECT array_agg(row_id) FROM (
-                            SELECT row_id FROM public.%I WHERE state = %L AND last_completed_priority < %L
-                            ORDER BY row_id LIMIT %L FOR UPDATE SKIP LOCKED
-                        ) AS batch$$,
-                        job.data_table_name, v_current_phase_data_state, v_step_rec.priority, job.analysis_batch_size
+                        $$
+                        WITH entity_batch AS (
+                            SELECT DISTINCT COALESCE(founding_row_id, row_id) AS entity_root_id
+                            FROM public.%1$I
+                            WHERE state = %2$L AND last_completed_priority < %3$L
+                            ORDER BY entity_root_id
+                            LIMIT %4$L
+                        )
+                        SELECT array_agg(t.row_id)
+                        FROM (
+                            SELECT dt.row_id
+                            FROM public.%1$I dt
+                            JOIN entity_batch eb ON COALESCE(dt.founding_row_id, dt.row_id) = eb.entity_root_id
+                            WHERE dt.state = %2$L AND dt.last_completed_priority < %3$L
+                            ORDER BY dt.row_id
+                            FOR UPDATE SKIP LOCKED
+                        ) t
+                        $$,
+                        job.data_table_name,        /* %1$I */
+                        v_current_phase_data_state, /* %2$L */
+                        v_step_rec.priority,        /* %3$L */
+                        job.analysis_batch_size     /* %4$L */
                     ) INTO v_batch_row_ids;
 
                     IF v_batch_row_ids IS NOT NULL AND array_length(v_batch_row_ids, 1) > 0 THEN
@@ -2197,13 +2211,28 @@ DECLARE
 BEGIN
     RAISE DEBUG '[Job %] Processing phase: checking for a batch.', job.id;
 
+    -- This logic ensures that all rows belonging to the same new entity (sharing a founding_row_id) are always processed in the same batch.
     EXECUTE format(
-        $$SELECT array_agg(row_id) FROM (
-            SELECT row_id FROM public.%I
-            WHERE state = 'processing' AND error IS NULL AND action != 'skip'
-            ORDER BY row_id LIMIT %L FOR UPDATE SKIP LOCKED
-         ) AS batch$$,
-        job.data_table_name, job.processing_batch_size
+        $$
+        WITH entity_batch AS (
+            SELECT DISTINCT COALESCE(founding_row_id, row_id) AS entity_root_id
+            FROM public.%1$I
+            WHERE state = 'processing' AND errors IS NULL AND action != 'skip'
+            ORDER BY entity_root_id
+            LIMIT %2$L
+        )
+        SELECT array_agg(t.row_id)
+        FROM (
+            SELECT dt.row_id
+            FROM public.%1$I dt
+            JOIN entity_batch eb ON COALESCE(dt.founding_row_id, dt.row_id) = eb.entity_root_id
+            WHERE dt.state = 'processing' AND dt.errors IS NULL AND dt.action != 'skip'
+            ORDER BY dt.row_id
+            FOR UPDATE SKIP LOCKED
+        ) t
+        $$,
+        job.data_table_name,        /* %1$I */
+        job.processing_batch_size   /* %2$L */
     ) INTO v_batch_row_ids;
 
     IF v_batch_row_ids IS NOT NULL AND array_length(v_batch_row_ids, 1) > 0 THEN
@@ -2222,7 +2251,7 @@ BEGIN
                 GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT,
                                       error_context = PG_EXCEPTION_CONTEXT;
                 RAISE WARNING '[Job %] Error processing batch: %. Context: %. Marking batch rows as error and failing job.', job.id, error_message, error_context;
-                EXECUTE format($$UPDATE public.%1$I SET state = 'error', error = COALESCE(error, '{}'::jsonb) || %2$L WHERE row_id = ANY($1)$$,
+                EXECUTE format($$UPDATE public.%1$I SET state = 'error', errors = COALESCE(errors, '{}'::jsonb) || %2$L WHERE row_id = ANY($1)$$,
                                job.data_table_name /* %1$I */, jsonb_build_object('process_batch_error', error_message, 'context', error_context) /* %2$L */) USING v_batch_row_ids;
                 UPDATE public.import_job SET error = jsonb_build_object('error_in_processing_batch', error_message, 'context', error_context), state = 'finished' WHERE id = job.id;
                 -- On error, do not reschedule.
