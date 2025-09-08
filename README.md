@@ -63,6 +63,25 @@ git clone https://github.com/statisticsnorway/statbus.git
 cd statbus
 ```
 
+#### Temporary & Scratch Directories
+
+The project uses two temporary directories, `tmp/` and `app/tmp/`, as scratch pads, particularly for interaction with AI development tools.
+
+-   These directories are tracked by Git (via a `.gitkeep` file) so they are present for all developers.
+-   However, a `pre-commit` hook **prevents any files within them from ever being committed**.
+-   This allows you to use them freely for local experiments and see AI-generated changes with `git diff`, without cluttering the project's history.
+
+#### Git Hooks Setup (One-Time)
+
+This project uses Git hooks to enforce conventions, like preventing commits from temporary directories. To enable these shared hooks, run the following command once after cloning the repository:
+
+```bash
+git config core.hooksPath devops/githooks
+```
+
+You only need to do this once. After setting the `hooksPath`, Git will automatically use the hooks located in `devops/githooks`, including any future updates to them. This ensures your commits are always checked against the latest project conventions.
+
+
 Create initial users by copying `.users.example` to `.users.yml` and adding your admin access users.
 
 Generate Configuration Files
