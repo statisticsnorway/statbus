@@ -1,29 +1,29 @@
 "use client";
 import { Input } from "@/components/ui/input";
-import { useSearch } from "@/atoms/search"; // Changed to Jotai hook
-import { useBaseData } from "@/atoms/base-data";
+import { useSearchFilters } from "@/atoms/search";
+import { externalIdentTypesAtom } from "@/atoms/base-data";
+import { useAtomValue } from "jotai";
 import { useCallback } from "react";
 
 export default function ExternalIdentFilter() {
-  const { externalIdentTypes } = useBaseData();
+  const externalIdentTypes = useAtomValue(externalIdentTypesAtom);
   const maybeDefaultExternalIdentType = externalIdentTypes?.[0];
-  const { searchState, updateFilters, executeSearch } = useSearch();
-  const currentValue = maybeDefaultExternalIdentType ? (searchState.filters[maybeDefaultExternalIdentType.code!] as string | undefined) ?? "" : "";
+  const { filters, updateFilters } = useSearchFilters();
+  const currentValue = maybeDefaultExternalIdentType ? (filters[maybeDefaultExternalIdentType.code!] as string | undefined) ?? "" : "";
 
   const update = useCallback(
     async (app_param_value: string) => {
       if (maybeDefaultExternalIdentType) {
-        const newFilters = { ...searchState.filters };
+        const newFilters = { ...filters };
         if (app_param_value && app_param_value.trim() !== '') {
           newFilters[maybeDefaultExternalIdentType.code!] = app_param_value;
         } else {
           delete newFilters[maybeDefaultExternalIdentType.code!];
         }
         updateFilters(newFilters);
-        await executeSearch();
       }
     },
-    [searchState.filters, updateFilters, executeSearch, maybeDefaultExternalIdentType]
+    [filters, updateFilters, maybeDefaultExternalIdentType]
   );
 
   return maybeDefaultExternalIdentType ? (

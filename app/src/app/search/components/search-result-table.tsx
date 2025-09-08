@@ -3,7 +3,7 @@ import { Table, TableBody } from "@/components/ui/table";
 import { StatisticalUnitTableRow } from "@/app/search/components/statistical-unit-table-row";
 import { StatisticalUnitTableHeader } from "@/app/search/components/statistical-unit-table-header";
 import { useBaseData } from "@/atoms/base-data";
-import { useSearch, StatisticalUnit } from "@/atoms/search";
+import { useSearchPageData, useSearchResult, StatisticalUnit } from "@/atoms/search";
 import { cn } from "@/lib/utils";
 import { SearchResultTableBodySkeleton } from "@/app/search/components/search-result-table-body-skeleton";
 import { useRegionLevel } from "@/app/search/hooks/useRegionLevel";
@@ -11,12 +11,28 @@ import type { Tables } from "@/lib/database.types";
 import { useTableColumnsManager as useTableColumns } from '@/atoms/search';
 
 export default function SearchResultTable() {
-  const { searchResult, executeSearch, allRegions } = useSearch();
+  const { allRegions } = useSearchPageData();
+  const searchResult = useSearchResult();
+  const { loading: baseDataLoading } = useBaseData();
+
   const { regionLevel, setRegionLevel } = useRegionLevel();
   const { bodyRowSuffix } = useTableColumns();
   const maxRegionLevel = Math.max(
     ...(allRegions?.map((region: Tables<"region_used">) => region.level ?? 0) ?? [])
   );
+
+  // This is the definitive fix. The entire table's structure depends on `baseData`.
+  // By preventing the component from rendering its logic until baseData is loaded,
+  // we ensure it only mounts once with a stable configuration, which breaks the loop.
+  if (baseDataLoading) {
+    return (
+      <div className="relative">
+        <Table className={cn("bg-white")}>
+          <SearchResultTableBodySkeleton />
+        </Table>
+      </div>
+    );
+  }
 
   if (searchResult.error) {
     return (
@@ -43,6 +59,7 @@ export default function SearchResultTable() {
   return (
     <div className="relative">
       <Table className={cn("bg-white", searchResult.loading && "")}>
+        {/* With the top-level guard, `baseDataLoading` is now guaranteed to be false here. */}
         {!searchResult.loading && (
           <StatisticalUnitTableHeader
             regionLevel={regionLevel}

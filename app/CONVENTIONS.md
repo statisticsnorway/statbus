@@ -30,7 +30,10 @@ Core conventions for the Next.js (v15) application. For project-wide, SQL, or in
 - **Imports**: Components must import atoms and hooks directly from their feature-specific source file. A barrel file is not used.
 - **Initialization**: Global state is initialized within the `<JotaiAppProvider>` component (`app/src/atoms/JotaiAppProvider.tsx`). This provider contains initializer components and hooks (like `useAppInitialization`) that manage application startup logic.
 - **Patterns**:
-    - **Atomic State**: Prefer small, independent atoms.
+    - **Atomic State**: Prefer small, independent atoms. **This is the most critical convention for preventing re-render loops.**
+        - **Avoid Monolithic State Objects**: Do not consolidate multiple, independently-updated pieces of state into a single large object within one atom. Doing so creates unstable object references, where an update to one piece of state forces components that subscribe to *other, unchanged* pieces of state to re-render. This was the root cause of the `/search` page infinite loop.
+        - **Principle of Isolation**: If a piece of state can change on its own, it **MUST** live in its own atom.
+        - **Reference Implementation**: The refactoring of the original `searchStateAtom` into four independent atoms (`queryAtom`, `filtersAtom`, `sortingAtom`, `paginationAtom`) is the canonical example of this pattern.
     - **Derived Atoms**: Compute state from other atoms for efficient re-renders.
     - **Action Atoms**: Use write-only or read/write atoms to encapsulate state update logic and side effects (e.g., API calls that modify global state).
 - **Data Fetching for Global State**:

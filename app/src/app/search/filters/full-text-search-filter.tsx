@@ -1,35 +1,29 @@
 "use client";
 import { Input } from "@/components/ui/input";
-import { useSearch } from "@/atoms/search";
-import { useCallback, useState } from "react";
+import { useSearchQuery } from "@/atoms/search";
+import { useDebouncedCallback } from "@/hooks/use-debounced-callback";
+import { useState } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 
 export default function FullTextSearchFilter() {
-  const { searchState, updateSearchQuery, executeSearch } = useSearch();
-  const [debouncedValue, setDebouncedValue] = useState<string>(searchState.query);
+  const { query, updateSearchQuery } = useSearchQuery();
+  const [localQuery, setLocalQuery] = useState(query);
 
-  // Synchronize local debouncedValue with global searchState.query if it changes externally
+  // Sync global state to local state when it changes externally
   useGuardedEffect(() => {
-    setDebouncedValue(searchState.query);
-  }, [searchState.query], 'FullTextSearchFilter:syncDebouncedValue');
+    setLocalQuery(query);
+  }, [query], 'FullTextSearchFilter:syncToLocal');
 
-  const update = useCallback(
-    async (value: string) => {
-      updateSearchQuery(value);
-      await executeSearch();
-    },
-    [updateSearchQuery, executeSearch]
-  );
+  // Debounced update to global state
+  const debouncedUpdate = useDebouncedCallback((newValue: string) => {
+    updateSearchQuery(newValue);
+  }, 300);
 
-  useGuardedEffect(() => {
-    const handler = setTimeout(() => {
-      update(debouncedValue);
-    }, 300); // 300ms delay
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [debouncedValue, update], 'FullTextSearchFilter:debounceEffect');
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setLocalQuery(newValue); // Update local state immediately for responsiveness
+    debouncedUpdate(newValue); // Debounce the update to the global state
+  };
 
   return (
     <Input
@@ -38,8 +32,8 @@ export default function FullTextSearchFilter() {
       className="h-9 w-full md:max-w-[200px]"
       id="full-text-search"
       name="full-text-search"
-      value={debouncedValue}
-      onChange={(e) => setDebouncedValue(e.target.value)}
+      value={localQuery}
+      onChange={handleChange}
     />
   );
 }

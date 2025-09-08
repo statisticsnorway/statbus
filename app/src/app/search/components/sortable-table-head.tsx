@@ -2,7 +2,7 @@
 import { TableHead } from "@/components/ui/table";
 import { ReactNode, ThHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
-import { useSearch } from "@/atoms/search";
+import { useSearchSorting } from "@/atoms/search";
 
 interface SortableTableHeadProps
   extends ThHTMLAttributes<HTMLTableCellElement> {
@@ -17,16 +17,15 @@ export default function SortableTableHead({
   label,
   ...props
 }: SortableTableHeadProps) {
-  const { searchState, updateSorting, executeSearch } = useSearch();
-  const { sorting } = searchState;
+  const { sorting, updateSorting } = useSearchSorting();
 
-  const handleSort = async () => {
-    let newDirection: 'asc' | 'desc' = 'asc';
+  const handleSort = () => {
+    let newDirection: 'asc' | 'desc' | 'desc.nullslast' = 'asc';
     if (sorting.field === name) {
-      newDirection = sorting.direction === 'asc' ? 'desc' : 'asc';
+      newDirection = sorting.direction === 'asc' ? 'desc.nullslast' : 'asc';
     }
     updateSorting(name, newDirection);
-    await executeSearch();
+    // executeSearch is no longer needed here; the URL sync hook will trigger it.
   };
 
   return (

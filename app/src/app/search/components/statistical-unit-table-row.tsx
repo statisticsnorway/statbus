@@ -12,10 +12,11 @@ import { PopoverTrigger } from "@radix-ui/react-popover";
 import {
   useSelection,
   useTableColumnsManager,
-  useSearch,
+  useSearchPageData,
   StatisticalUnit,
 } from "@/atoms/search";
-import { useBaseData } from "@/atoms/base-data";
+import { statbusUsersAtom, externalIdentTypesAtom } from "@/atoms/base-data";
+import { useAtomValue } from "jotai";
 import { Tables } from "@/lib/database.types";
 
 interface SearchResultTableRowProps {
@@ -34,11 +35,11 @@ export const StatisticalUnitTableRow = ({
     allStatuses,
     allUnitSizes,
     allDataSources,
-  } = useSearch(); // useSearch now provides these from Jotai state
-
-  const { externalIdentTypes, statbusUsers } = useBaseData();
+  } = useSearchPageData();
+  const externalIdentTypes = useAtomValue(externalIdentTypesAtom);
+  const statbusUsers = useAtomValue(statbusUsersAtom);
   const { selected } = useSelection();
-  const { columns, bodyRowSuffix, bodyCellSuffix } = useTableColumnsManager(); // Updated hook call
+  const { columns, bodyRowSuffix, bodyCellSuffix } = useTableColumnsManager();
 
   const isInBasket = selected.some(
     (s: StatisticalUnit) => s.unit_id === unit.unit_id && s.unit_type === unit.unit_type
@@ -76,8 +77,9 @@ export const StatisticalUnitTableRow = ({
 
   const getDataSourcesByIds = (data_source_ids: number[] | null) => {
     if (!data_source_ids) return [];
+    // Let TypeScript infer the type of `ds` to avoid mismatches.
     return data_source_ids.map((id) =>
-      allDataSources.find((ds: Tables<'data_source'>) => ds.id === id)
+      allDataSources.find(ds => ds.id === id)
     );
   };
 
@@ -457,7 +459,7 @@ export const StatisticalUnitTableRow = ({
                   {dataSources.map((ds) => (
                     <Popover key={`dataSource-${ds?.id}`}>
                       <PopoverTrigger asChild>
-                        <span className="cursor-pointer" title={ds?.name}>
+                        <span className="cursor-pointer" title={ds?.name ?? ''}>
                           {ds?.code}
                         </span>
                       </PopoverTrigger>

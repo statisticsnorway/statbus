@@ -1,3 +1,4 @@
+"use client";
 import { Button } from "@/components/ui/button";
 import { PlusCircle } from "lucide-react";
 import {
@@ -5,15 +6,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { getServerRestClient } from "@/context/RestClientStore";
 import { ExternalIdentInputs } from "./external-ident-inputs";
 import { ActiveExternalIdentBadges } from "./active-external-ident-badges";
+import { useSearchPageData } from "@/atoms/search";
 
-export default async function ExternalIdentFilter() {
-  const client = await getServerRestClient();
-  const externalIdentTypes = await client
-    .from("external_ident_type_active")
-    .select();
+export default function ExternalIdentFilter() {
+  const { allExternalIdentTypes } = useSearchPageData();
 
   return (
     <Popover>
@@ -24,12 +22,12 @@ export default async function ExternalIdentFilter() {
         >
           <PlusCircle className="mr-2 h-4 w-4" />
           Identifiers
-          <ActiveExternalIdentBadges externalIdentTypes={externalIdentTypes.data ?? []} />
+          <ActiveExternalIdentBadges externalIdentTypes={allExternalIdentTypes ?? []} />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-4" align="start">
         <div className="space-y-4">
-          <ExternalIdentInputs externalIdentTypes={externalIdentTypes.data ?? []} />
+          <ExternalIdentInputs externalIdentTypes={allExternalIdentTypes ?? []} />
         </div>
       </PopoverContent>
     </Popover>

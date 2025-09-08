@@ -1,6 +1,6 @@
 "use client";
 import { OptionsFilter } from "@/app/search/components/options-filter";
-import { useSearch } from "@/atoms/search";
+import { useSearchFilters } from "@/atoms/search";
 import { useCallback, useMemo } from "react"; // Added useMemo
 import { ACTIVITY_CATEGORY_PATH } from "@/app/search/filters/url-search-params";
 import { SearchFilterOption } from "../../search.d";
@@ -8,8 +8,8 @@ import { SearchFilterOption } from "../../search.d";
 export default function ActivityCategoryOptions({options}: {
   readonly options: SearchFilterOption[];
 }) {
-  const { searchState, updateFilters, executeSearch } = useSearch();
-  const filterValue = searchState.filters[ACTIVITY_CATEGORY_PATH];
+  const { filters, updateFilters } = useSearchFilters();
+  const filterValue = filters[ACTIVITY_CATEGORY_PATH];
   const selected = useMemo(() => {
     if (Array.isArray(filterValue)) {
       return filterValue as (string | null)[];
@@ -24,23 +24,21 @@ export default function ActivityCategoryOptions({options}: {
     async ({ value }: SearchFilterOption) => {
       const toggledValues = selected.includes(value) ? [] : [value];
       const newFilters = {
-        ...searchState.filters,
+        ...filters,
         [ACTIVITY_CATEGORY_PATH]: toggledValues,
       };
       updateFilters(newFilters);
-      await executeSearch();
     },
-    [searchState.filters, updateFilters, executeSearch, selected]
+    [filters, updateFilters, selected]
   );
 
   const reset = useCallback(async () => {
     const newFilters = {
-      ...searchState.filters,
+      ...filters,
       [ACTIVITY_CATEGORY_PATH]: [],
     };
     updateFilters(newFilters);
-    await executeSearch();
-  }, [searchState.filters, updateFilters, executeSearch]);
+  }, [filters, updateFilters]);
 
   return (
     <OptionsFilter

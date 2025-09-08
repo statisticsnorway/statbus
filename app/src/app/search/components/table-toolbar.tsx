@@ -11,15 +11,12 @@ import StatisticalVariablesFilter from "@/app/search/filters/statistical-variabl
 import InvalidCodesFilter from "@/app/search/filters/invalid-codes-filter";
 import { ResetFilterButton } from "@/app/search/components/reset-filter-button";
 import { FilterWrapper } from "./filter-wrapper";
-import { IURLSearchParamsDict } from "@/lib/url-search-params-dict";
 import DataSourceFilter from "../filters/data-source/data-source-filter";
 import { ColumnSelectorButton } from "./column-selector-button";
 import StatusFilter from "../filters/status/status-filter";
 import UnitSizeFilter from "../filters/unit-size/unit-size-filter";
 
-export default function TableToolbar({
-  initialUrlSearchParamsDict,
-}: IURLSearchParamsDict) {
+export default function TableToolbar() {
   return (
     <div className="flex flex-wrap items-center gap-2 mb-4 p-1 lg:p-0 w-full">
       <FilterWrapper columnCode="name">
@@ -28,39 +25,25 @@ export default function TableToolbar({
       </FilterWrapper>
       <UnitTypeFilter />
       <FilterWrapper columnCode="sector">
-        <Suspense fallback={<FilterSkeleton title="Sector" />}>
-          <SectorFilter />
-        </Suspense>
+        <SectorFilter />
       </FilterWrapper>
       <FilterWrapper columnCode="region">
-        <Suspense fallback={<FilterSkeleton title="Region" />}>
-          <RegionFilter />
-        </Suspense>
+        <RegionFilter />
       </FilterWrapper>
       <FilterWrapper columnCode="legal_form">
-        <Suspense fallback={<FilterSkeleton title="Legal Form" />}>
-          <LegalFormFilter />
-        </Suspense>
+        <LegalFormFilter />
       </FilterWrapper>
       <FilterWrapper columnCode="activity">
-        <Suspense fallback={<FilterSkeleton title="Activity Category" />}>
-          <ActivityCategoryFilter />
-        </Suspense>
+        <ActivityCategoryFilter />
       </FilterWrapper>
       <FilterWrapper columnCode="status">
-        <Suspense fallback={<FilterSkeleton title="Status" />}>
-          <StatusFilter />
-        </Suspense>
+        <StatusFilter />
       </FilterWrapper>
       <FilterWrapper columnCode="unit_size">
-        <Suspense fallback={<FilterSkeleton title="Unit Size" />}>
-          <UnitSizeFilter />
-        </Suspense>
+        <UnitSizeFilter />
       </FilterWrapper>
       <FilterWrapper columnCode="data_sources">
-        <Suspense fallback={<FilterSkeleton title="Data Source" />}>
-          <DataSourceFilter />
-        </Suspense>
+        <DataSourceFilter />
       </FilterWrapper>
       <StatisticalVariablesFilter />
       <InvalidCodesFilter />

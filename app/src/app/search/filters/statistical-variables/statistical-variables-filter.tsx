@@ -1,14 +1,15 @@
-import { getServerRestClient } from "@/context/RestClientStore";
+"use client";
 import StatisticalVariablesOptions from "@/app/search/filters/statistical-variables/statistical-variables-options";
 import { FilterWrapper } from "../../components/filter-wrapper";
+import { statDefinitionsAtom } from "@/atoms/base-data";
+import { useAtomValue } from "jotai";
 
-export default async function StatisticalVariablesFilter() {
-  const client = await getServerRestClient();
-  const statDefinitions = await client.from("stat_definition_active").select();
+export default function StatisticalVariablesFilter() {
+  const statDefinitions = useAtomValue(statDefinitionsAtom);
 
   return (
     <>
-      {await Promise.all(statDefinitions.data?.map(async (statDefinition) => (
+      {statDefinitions?.map((statDefinition) => (
         <FilterWrapper 
           key={"stat_var"+statDefinition.code!}
           columnCode="statistic"
@@ -18,7 +19,7 @@ export default async function StatisticalVariablesFilter() {
             statDefinition={statDefinition}
           />
         </FilterWrapper>
-      )) ?? [])}
+      )) ?? []}
     </>
   );
 }

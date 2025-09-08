@@ -10,23 +10,15 @@ export type SearchFilterOption = {
   readonly icon?: React.ReactNode;
 };
 
-export type SearchOrder = {
-  readonly name: string;
-  readonly direction: "asc" | "desc.nullslast";
+export interface SearchOrder {
+  field: string;
+  direction: "asc" | "desc.nullslast";
 };
 
-export type SearchPagination = {
+export interface SearchPagination {
   readonly pageSize: number;
   readonly pageNumber: number;
 };
-
-export interface SearchState {
-  readonly apiSearchParams: Record<string, string | null>;
-  readonly appSearchParams: Record<string, (string | null)[] | undefined>;
-  readonly order: SearchOrder;
-  readonly pagination: SearchPagination;
-  readonly valid_on: string; // Should be date, but is string from database, so we do the same.
-}
 
 export type SearchResult = {
   statisticalUnits: StatisticalUnit[];

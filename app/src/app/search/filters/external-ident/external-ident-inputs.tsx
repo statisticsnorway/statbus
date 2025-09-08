@@ -1,7 +1,7 @@
 "use client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useSearch } from "@/atoms/search"; // Changed to Jotai hook
+import { useSearchFilters } from "@/atoms/search";
 import { useCallback, useState } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { Tables } from "@/lib/database.types";
@@ -12,8 +12,7 @@ export function ExternalIdentInputs({
 }: {
   readonly externalIdentTypes: Tables<"external_ident_type_ordered">[];
 }) {
-  const { searchState, updateFilters, executeSearch } = useSearch();
-  const { filters } = searchState;
+  const { filters, updateFilters } = useSearchFilters();
 
   // Create a state object to track debounced values for each input
   const [debouncedValues, setDebouncedValues] = useState<Record<string, string>>(() =>
@@ -65,9 +64,8 @@ export function ExternalIdentInputs({
         delete newFilters[code];
       }
       updateFilters(newFilters);
-      await executeSearch();
     }
-  }, [filters, updateFilters, executeSearch]);
+  }, [filters, updateFilters]);
 
   // Add reset function to clear all external identifier inputs
   const reset = useCallback(async () => {
@@ -77,8 +75,7 @@ export function ExternalIdentInputs({
     });
     updateFilters(newFilters);
     // Debounced values will be cleared by the useEffect listening to filters
-    await executeSearch();
-  }, [filters, externalIdentTypes, updateFilters, executeSearch]);
+  }, [filters, externalIdentTypes, updateFilters]);
 
   // Add debounce effect for each input
   useGuardedEffect(() => {

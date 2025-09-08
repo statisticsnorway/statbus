@@ -1,6 +1,6 @@
 "use client";
 import { cn } from "@/lib/utils";
-import { useSearchResult, useSearchPagination } from '@/atoms/search';
+import { useSearchResult, useSearchPaginationValue } from '@/atoms/search';
 
 export const SearchResultCount = ({
   className,
@@ -8,7 +8,7 @@ export const SearchResultCount = ({
   readonly className?: string;
 }) => {
   const searchResult = useSearchResult();
-  const { pagination } = useSearchPagination();
+  const pagination = useSearchPaginationValue();
 
   const hasResults = searchResult?.total;
   const startIndex = hasResults

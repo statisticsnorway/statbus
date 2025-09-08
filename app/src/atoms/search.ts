@@ -44,36 +44,39 @@ import {
 
 import { selectedTimeContextAtom } from './app'
 import { restClientAtom } from './rest-client'
-import { externalIdentTypesAtom, statDefinitionsAtom } from './base-data'
+import { externalIdentTypesAtom, statDefinitionsAtom, useBaseData } from './base-data'
 
 // ============================================================================
 // SEARCH ATOMS - Replace SearchContext
 // ============================================================================
 
 // Define initial values for the search state
-export const initialSearchStateValues: SearchState = {
-  query: '',
-  filters: {},
-  pagination: { page: 1, pageSize: 10 },
-  sorting: { field: 'name', direction: 'asc' },
-};
-
 export type SearchDirection = 'asc' | 'desc' | 'desc.nullslast'
 
-export interface SearchState {
-  query: string
-  filters: Record<string, any>
-  pagination: {
-    page: number
-    pageSize: number
-  }
-  sorting: {
-    field: string
-    direction: SearchDirection
-  }
+export interface SearchPagination {
+  page: number
+  pageSize: number
 }
 
-export const searchStateAtom = atomWithStorage<SearchState>('searchState', initialSearchStateValues);
+export interface SearchSorting {
+  field: string
+  direction: SearchDirection
+}
+
+
+// By separating pagination into its own atom, we ensure its reference stability.
+// It will only update when explicitly changed, and it won't be affected by
+// updates to the main searchStateAtom, which was the root cause of the loop.
+export const paginationAtom = atom<SearchPagination>({ page: 1, pageSize: 10 });
+
+// Sorting state is also isolated into its own atom to guarantee reference stability.
+export const sortingAtom = atom<SearchSorting>({ field: 'name', direction: 'asc' });
+
+// Query state is also isolated into its own atom to guarantee reference stability.
+export const queryAtom = atom<string>('');
+
+// Filters state is also isolated into its own atom to guarantee reference stability.
+export const filtersAtom = atomWithStorage<Record<string, any>>('searchFilters_v1', {});
 
 export interface SearchResult {
   data: any[]
@@ -95,7 +98,10 @@ export interface SearchPageData {
   allActivityCategories: Tables<"activity_category_used">[];
   allStatuses: Tables<"status">[];
   allUnitSizes: Tables<"unit_size">[];
-  allDataSources: Tables<"data_source">[];
+  allDataSources: Tables<"data_source_used">[];
+  allExternalIdentTypes: Tables<"external_ident_type_active">[];
+  allLegalForms: Tables<"legal_form_used">[];
+  allSectors: Tables<"sector_used">[];
 }
 
 export const searchPageDataAtom = atom<SearchPageData>({
@@ -104,6 +110,9 @@ export const searchPageDataAtom = atom<SearchPageData>({
   allStatuses: [],
   allUnitSizes: [],
   allDataSources: [],
+  allExternalIdentTypes: [],
+  allLegalForms: [],
+  allSectors: [],
 });
 
 // Action atom to set the search page data
@@ -225,7 +234,7 @@ export const clearSelectionAtom = atom(
 // Search actions
 export const performSearchAtom = atom(
   null,
-  async (get, set) => {
+  async (get, set) => { // Make the writer async
     const postgrestClient = get(restClientAtom);
     const derivedApiParams = get(derivedApiSearchParamsAtom);
 
@@ -240,10 +249,8 @@ export const performSearchAtom = atom(
       return;
     }
     
-    // Keep previous data while loading to avoid UI flickering if desired,
-    // or set to empty/defaults. For now, clear old results.
     set(searchResultAtom, prev => ({ 
-        ...prev, // Keep existing data if any, or define default structure
+        ...prev,
         loading: true, 
         error: null 
     }));
@@ -260,19 +267,39 @@ export const performSearchAtom = atom(
     } catch (error) {
       console.error("Search failed in performSearchAtom:", error);
       set(searchResultAtom, prev => ({
-        ...prev, // Keep existing data on error if desired
+        ...prev,
         loading: false,
         error: error instanceof Error ? error.message : 'Search operation failed'
       }));
+      throw error; // Let the caller handle it
     }
   }
 )
 
 // Atom to reset the search state to its initial values
+export const resetPaginationAtom = atom(null, (get, set) => {
+  set(paginationAtom, { page: 1, pageSize: 10 });
+});
+
+export const resetSortingAtom = atom(null, (get, set) => {
+  set(sortingAtom, { field: 'name', direction: 'asc' });
+});
+
+export const resetQueryAtom = atom(null, (get, set) => {
+  set(queryAtom, '');
+});
+
+export const resetFiltersAtom = atom(null, (get, set) => {
+  set(filtersAtom, {});
+});
+
 export const resetSearchStateAtom = atom(
   null,
   (get, set) => {
-    set(searchStateAtom, initialSearchStateValues);
+    set(resetFiltersAtom); // Explicitly reset filters.
+    set(resetPaginationAtom); // Explicitly reset pagination.
+    set(resetSortingAtom); // Explicitly reset sorting.
+    set(resetQueryAtom); // Explicitly reset query.
     // Optionally, reset search results as well
     set(searchResultAtom, {
       data: [],
@@ -437,8 +464,17 @@ const availableTableColumnsAtomUnstable = atom<TableColumn[]>((get) => {
 // Stable: uses selectAtom with a deep equality check.
 export const availableTableColumnsAtom = selectAtom(availableTableColumnsAtomUnstable, (cols) => cols, isEqual);
 
+import { baseDataAtom } from './base-data';
+
 // Atom to initialize table columns by merging available columns with stored preferences
 export const initializeTableColumnsAtom = atom(null, (get, set) => {
+  const baseData = get(baseDataAtom);
+  if (baseData.loading) {
+    // Guard: Do not initialize columns until base data (and thus stat definitions) is loaded.
+    // This prevents a double-initialization which was the root cause of the re-render loop.
+    return;
+  }
+
   const availableColumns = get(availableTableColumnsAtom);
   const storedColumns = get(tableColumnsAtom); // Preferences from localStorage
 
@@ -449,7 +485,7 @@ export const initializeTableColumnsAtom = atom(null, (get, set) => {
     set(tableColumnsAtom, availableColumns);
     return;
   }
-  
+
   const mergedColumns = availableColumns.map(availCol => {
     const storedCol = storedColumns.find(sc =>
       sc.code === availCol.code &&
@@ -464,12 +500,11 @@ export const initializeTableColumnsAtom = atom(null, (get, set) => {
     return availCol; // For 'Always' type columns
   });
 
-  // Check if the merged columns are different from what's already stored
-  // to avoid unnecessary writes to localStorage by atomWithStorage.
-  // This is a shallow check; a deep check might be needed if structures are complex.
-  // However, atomWithStorage itself might do a deep check or only write on reference change.
-  // For simplicity, we set it. If performance issues arise, add a deep equality check here.
-  set(tableColumnsAtom, mergedColumns);
+  const currentColumns = get(tableColumnsAtom);
+  // To prevent loops, only set the new columns if they are actually different.
+  if (!isEqual(currentColumns, mergedColumns)) {
+    set(tableColumnsAtom, mergedColumns);
+  }
 });
 
 // Unstable: .filter() returns a new array on every read. Kept private.
@@ -531,7 +566,8 @@ export const setTableColumnProfileAtom = atom(null, (get, set, profile: ColumnPr
 
 // Unstable atom that derives API search parameters. Kept private.
 const derivedApiSearchParamsAtomUnstable = atom((get) => {
-  const searchState = get(searchStateAtom);
+  const query = get(queryAtom);
+  const filters = get(filtersAtom);
   const selectedTimeContext = get(selectedTimeContextAtom);
   const externalIdentTypes = get(externalIdentTypesAtom); // from baseDataAtom
   const statDefinitions = get(statDefinitionsAtom); // from baseDataAtom
@@ -540,17 +576,17 @@ const derivedApiSearchParamsAtomUnstable = atom((get) => {
   const params = new URLSearchParams();
 
   // 1. Full-text search query
-  if (searchState.query && searchState.query.trim().length > 0) {
+  if (query && query.trim().length > 0) {
     // The SEARCH constant from url-search-params.ts is the app_param_name for FTS.
     // fullTextSearchDeriveStateUpdateFromValue handles generating the api_param_name and api_param_value.
-    const ftsAction = fullTextSearchDeriveStateUpdateFromValue(searchState.query.trim());
+    const ftsAction = fullTextSearchDeriveStateUpdateFromValue(query.trim());
     if (ftsAction.type === 'set_query' && ftsAction.payload.api_param_name && ftsAction.payload.api_param_value) {
       params.set(ftsAction.payload.api_param_name, ftsAction.payload.api_param_value);
     }
   }
 
-  // 2. Filters from searchState.filters
-  Object.entries(searchState.filters).forEach(([appParamName, appParamValue]) => {
+  // 2. Filters from filtersAtom
+  Object.entries(filters).forEach(([appParamName, appParamValue]) => {
     let actionPayloadPart: SetQuery['payload'] | null = null;
 
     switch (appParamName) {
@@ -677,9 +713,10 @@ const derivedApiSearchParamsAtomUnstable = atom((get) => {
   }
 
   // 4. Sorting
-  if (searchState.sorting.field) {
-    const orderName = searchState.sorting.field;
-    const orderDirection = searchState.sorting.direction;
+  const searchSorting = get(sortingAtom);
+  if (searchSorting.field) {
+    const orderName = searchSorting.field;
+    const orderDirection = searchSorting.direction;
     const externalIdentType = externalIdentTypes.find(type => type.code === orderName);
     const statDefinition = statDefinitions.find(def => def.code === orderName);
 
@@ -693,9 +730,10 @@ const derivedApiSearchParamsAtomUnstable = atom((get) => {
   }
 
   // 5. Pagination
-  if (searchState.pagination.page && searchState.pagination.pageSize) {
-    const offset = (searchState.pagination.page - 1) * searchState.pagination.pageSize;
-    params.set("limit", `${searchState.pagination.pageSize}`);
+  const pagination = get(paginationAtom);
+  if (pagination.page && pagination.pageSize) {
+    const offset = (pagination.page - 1) * pagination.pageSize;
+    params.set("limit", `${pagination.pageSize}`);
     params.set("offset", `${offset}`);
   }
   return params;
@@ -716,134 +754,79 @@ export const derivedApiSearchParamsAtom = selectAtom(
 // ============================================================================
 
 // Granular hooks for performance. Consumers should prefer these over `useSearch`.
+
+// A lean hook for components that only need to read the pagination value.
+export const useSearchPaginationValue = () => {
+  return useAtomValue(paginationAtom);
+};
+
 export const useSearchPagination = () => {
-  const pagination = useAtomValue(selectAtom(searchStateAtom, s => s.pagination, isEqual));
-  const setSearchState = useSetAtom(searchStateAtom);
+  const pagination = useSearchPaginationValue();
+  const setPagination = useSetAtom(paginationAtom);
   const updatePagination = useCallback((page: number, pageSize?: number) => {
-    setSearchState(prev => ({ ...prev, pagination: { page, pageSize: pageSize ?? prev.pagination.pageSize } }))
-  }, [setSearchState]);
-  return { pagination, updatePagination };
+    setPagination(prev => ({ page, pageSize: pageSize ?? prev.pageSize }))
+  }, [setPagination]);
+  return useMemo(() => ({ pagination, updatePagination }), [pagination, updatePagination]);
 };
 
 export const useSearchSorting = () => {
-  const sorting = useAtomValue(selectAtom(searchStateAtom, s => s.sorting, isEqual));
-  const setSearchState = useSetAtom(searchStateAtom);
+  const sorting = useAtomValue(sortingAtom);
+  const setSorting = useSetAtom(sortingAtom);
+  const resetPagination = useSetAtom(resetPaginationAtom);
+
   const updateSorting = useCallback((field: string, direction: SearchDirection) => {
-    setSearchState(prev => {
-      if (prev.sorting.field === field && prev.sorting.direction === direction) return prev;
-      return { ...prev, sorting: { field, direction }, pagination: { ...prev.pagination, page: 1 } };
+    setSorting(prev => {
+      if (prev.field === field && prev.direction === direction) return prev;
+      // Reset pagination when sorting changes
+      resetPagination();
+      return { field, direction };
     });
-  }, [setSearchState]);
-  return { sorting, updateSorting };
+  }, [setSorting, resetPagination]);
+
+  return useMemo(() => ({ sorting, updateSorting }), [sorting, updateSorting]);
 };
 
+export const updateQueryAtom = atom(
+  null,
+  (get, set, newQuery: string) => {
+    if (get(queryAtom) === newQuery) return;
+    
+    // Atomically reset pagination and update the query.
+    set(resetPaginationAtom);
+    set(queryAtom, newQuery);
+  }
+);
+
 export const useSearchQuery = () => {
-  const query = useAtomValue(selectAtom(searchStateAtom, s => s.query));
-  const setSearchState = useSetAtom(searchStateAtom);
-  const updateSearchQuery = useCallback((query: string) => {
-    setSearchState(prev => {
-      if (prev.query === query) return prev;
-      return { ...prev, query, pagination: { ...prev.pagination, page: 1 } };
-    });
-  }, [setSearchState]);
-  return { query, updateSearchQuery };
+  const query = useAtomValue(queryAtom);
+  const updateQuery = useSetAtom(updateQueryAtom);
+
+  const updateSearchQuery = useCallback((newQuery: string) => {
+    updateQuery(newQuery);
+  }, [updateQuery]);
+
+  return useMemo(() => ({ query, updateSearchQuery }), [query, updateSearchQuery]);
 };
 
 export const useSearchFilters = () => {
-  const filters = useAtomValue(selectAtom(searchStateAtom, s => s.filters, isEqual));
-  const setSearchState = useSetAtom(searchStateAtom);
-  const updateFilters = useCallback((filters: Record<string, any>) => {
-    setSearchState(prev => {
-      if (isEqual(prev.filters, filters)) return prev;
-      return { ...prev, filters, pagination: { ...prev.pagination, page: 1 } };
-    });
-  }, [setSearchState]);
-  return { filters, updateFilters };
+  const filters = useAtomValue(filtersAtom);
+  const setFilters = useSetAtom(filtersAtom);
+  const resetPagination = useSetAtom(resetPaginationAtom);
+
+  const updateFilters = useCallback((newFilters: Record<string, any>) => {
+    // This is now an atomic update to just the filters.
+    // We still need to reset pagination when filters change.
+    resetPagination();
+    setFilters(newFilters);
+  }, [setFilters, resetPagination]);
+
+  return useMemo(() => ({ filters, updateFilters }), [filters, updateFilters]);
 };
 
-export const useSearchExecution = () => {
-  const performSearch = useSetAtom(performSearchAtom);
-  const executeSearch = useCallback(async () => {
-    try {
-      await performSearch();
-    } catch (error) {
-      console.error('Search failed:', error);
-      throw error;
-    }
-  }, [performSearch]);
-  return { executeSearch, performSearch };
-};
 
 export const useSearchResult = () => useAtomValue(searchResultAtom);
 export const useSearchPageData = () => useAtomValue(searchPageDataAtom);
 
-/**
- * @deprecated This hook subscribes to the entire search state and can cause
- * unnecessary re-renders. Prefer using the more granular hooks like
- * `useSearchQuery`, `useSearchPagination`, `useSearchResult`, etc.
- */
-export const useSearch = () => {
-  const [searchState, setSearchState] = useAtom(searchStateAtom)
-  const searchResult = useAtomValue(searchResultAtom)
-  const performSearch = useSetAtom(performSearchAtom)
-  const searchPageData = useAtomValue(searchPageDataAtom)
-  
-  const updateSearchQuery = useCallback((query: string) => {
-    setSearchState(prev => {
-      if (prev.query === query) return prev;
-      return { ...prev, query, pagination: { ...prev.pagination, page: 1 } };
-    })
-  }, [setSearchState])
-  
-  const updateFilters = useCallback((filters: Record<string, any>) => {
-    setSearchState(prev => {
-      if (isEqual(prev.filters, filters)) return prev;
-      return { ...prev, filters, pagination: { ...prev.pagination, page: 1 } };
-    })
-  }, [setSearchState])
-  
-  const updatePagination = useCallback((page: number, pageSize?: number) => {
-    setSearchState(prev => ({
-      ...prev,
-      pagination: {
-        page,
-        pageSize: pageSize ?? prev.pagination.pageSize,
-      }
-    }))
-  }, [setSearchState])
-  
-
-  const updateSorting = useCallback((field: string, direction: SearchDirection) => {
-    setSearchState(prev => {
-      if (prev.sorting.field === field && prev.sorting.direction === direction) return prev;
-      return {
-        ...prev,
-        sorting: { field, direction },
-        pagination: { ...prev.pagination, page: 1 }
-      }
-    })
-  }, [setSearchState])
-  
-  const executeSearch = useCallback(async () => {
-    try {
-      await performSearch()
-    } catch (error) {
-      console.error('Search failed:', error)
-      throw error
-    }
-  }, [performSearch])
-  
-  return {
-    searchState,
-    searchResult,
-    updateSearchQuery,
-    updateFilters,
-    updatePagination,
-    updateSorting,
-    executeSearch,
-    ...searchPageData,
-  }
-}
 
 export const useSelection = () => {
   const selectedUnits = useAtomValue(selectedUnitsAtom)
@@ -890,6 +873,7 @@ export const useEditManager = () => {
 };
 
 export const useTableColumnsManager = () => {
+  const { loading: baseDataLoading } = useBaseData(); // Add dependency on baseData loading state
   const columns = useAtomValue(tableColumnsAtom);
   const visibleColumns = useAtomValue(visibleTableColumnsAtom);
   const profiles = useAtomValue(columnProfilesAtom);
@@ -903,8 +887,6 @@ export const useTableColumnsManager = () => {
 
   // Helper function to generate a suffix for a unit
   const unitSuffix = useCallback((unit: StatisticalUnit): string => {
-    // Ensure unit_id and unit_type are present; valid_from might be optional or not always relevant for keying
-    // Adjust based on what uniquely identifies a unit for rendering stability.
     return `${unit.unit_type}-${unit.unit_id}${unit.valid_from ? `-${unit.valid_from}` : ''}`;
   }, []);
 
@@ -919,14 +901,48 @@ export const useTableColumnsManager = () => {
   }, [columnSuffix]);
 
   const bodyRowSuffix = useCallback((unit: StatisticalUnit): string => {
-    return `${unitSuffix(unit)}-${visibleColumnsSuffix}`;
-  }, [unitSuffix, visibleColumnsSuffix]);
+    return unitSuffix(unit);
+  }, [unitSuffix]);
 
   const bodyCellSuffix = useCallback((unit: StatisticalUnit, column: TableColumn): string => {
     return `${unitSuffix(unit)}-${columnSuffix(column)}`;
   }, [unitSuffix, columnSuffix]);
 
-  return {
+  const emptyStaticManager = useMemo(() => ({
+    columns: [],
+    visibleColumns: [],
+    toggleColumn: () => {},
+    profiles: { Brief: [], Regular: [], All: [] },
+    setProfile: () => {},
+    headerRowSuffix: 'loading',
+    headerCellSuffix: () => 'loading',
+    bodyRowSuffix: (unit: StatisticalUnit) => `${unit.unit_type}-${unit.unit_id}-loading`,
+    bodyCellSuffix: (unit: StatisticalUnit, col: TableColumn) => `${unit.unit_type}-${unit.unit_id}-${columnSuffix(col)}-loading`,
+  }), [columnSuffix]);
+
+  return useMemo(() => {
+    // This is the definitive fix. By guarding the return value of this hook,
+    // we ensure it only returns a stable, static object during the initial
+    // render when baseData is loading. Once baseData is loaded, it returns the
+    // real, dynamic values. This prevents a post-mount change to the hook's
+    // return value, which was the trigger for the re-render that caused the loop.
+    if (baseDataLoading) {
+      return emptyStaticManager;
+    }
+    return {
+      columns,
+      visibleColumns,
+      toggleColumn,
+      profiles,
+      setProfile,
+      headerRowSuffix,
+      headerCellSuffix,
+      bodyRowSuffix,
+      bodyCellSuffix,
+    };
+  }, [
+    baseDataLoading, // Add loading state to dependency array
+    emptyStaticManager,
     columns,
     visibleColumns,
     toggleColumn,
@@ -936,5 +952,5 @@ export const useTableColumnsManager = () => {
     headerCellSuffix,
     bodyRowSuffix,
     bodyCellSuffix,
-  };
+  ]);
 };

@@ -1,17 +1,14 @@
-import { getServerRestClient } from "@/context/RestClientStore";
+"use client";
 import LegalFormOptions from "@/app/search/filters/legal-form/legal-form-options";
+import { useSearchPageData } from "@/atoms/search";
 
-export default async function LegalFormFilter() {
-  const client = await getServerRestClient();
-  const legalForms = await client
-    .from("legal_form_used")
-    .select()
-    .not("code", "is", null);
+export default function LegalFormFilter() {
+  const { allLegalForms } = useSearchPageData();
 
   return (
     <LegalFormOptions
       options={
-        legalForms.data?.map(({ code, name }) => ({
+        allLegalForms?.map(({ code, name }) => ({
           label: `${code} ${name}`,
           value: code,
         })) ?? []

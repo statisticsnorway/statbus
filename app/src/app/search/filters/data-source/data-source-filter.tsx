@@ -1,15 +1,15 @@
-import { getServerRestClient } from "@/context/RestClientStore";
+"use client";
 import DataSourceOptions from "@/app/search/filters/data-source/data-source-options";
+import { useSearchPageData } from "@/atoms/search";
 
-export default async function DataSourceFilter() {
-  const client = await getServerRestClient();
-  const {data: dataSources} = await client.from("data_source_used").select();
+export default function DataSourceFilter() {
+  const { allDataSources } = useSearchPageData();
 
   return (
     <DataSourceOptions
-      dataSources={dataSources ?? []}
+      dataSources={allDataSources ?? []}
       options={
-        dataSources?.map(({ code, name }) => ({
+        allDataSources?.map(({ code, name }) => ({
           label: name!,
           value: code!,
           humanReadableValue: name!,

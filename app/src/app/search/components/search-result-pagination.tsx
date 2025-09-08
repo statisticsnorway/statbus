@@ -9,22 +9,16 @@ import {
   PaginationLast,
 } from "@/components/ui/pagination";
 
-import { useSearch } from "@/atoms/search";
+import { useSearchResult, useSearchPagination } from "@/atoms/search";
 
 export default function SearchResultPagination() {
-  const {
-    searchState,
-    searchResult,
-    updatePagination,
-    executeSearch,
-  } = useSearch();
-  const { pagination } = searchState;
+  const searchResult = useSearchResult();
+  const { pagination, updatePagination } = useSearchPagination();
   const totalResults = searchResult?.total || 0;
   const totalPages = Math.ceil(totalResults / pagination.pageSize);
 
-  const handlePageChange = async (newPage: number) => {
+  const handlePageChange = (newPage: number) => {
     updatePagination(newPage);
-    await executeSearch();
   };
 
   if (!totalResults) return null;

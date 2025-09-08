@@ -26,11 +26,10 @@ import {
 import { refreshBaseDataAtom } from './base-data'
 import { gettingStartedUIStateAtom } from './getting-started'
 import {
-  searchStateAtom,
-  initialSearchStateValues,
   searchResultAtom,
   selectedUnitsAtom,
   tableColumnsAtom,
+  resetSearchStateAtom,
 } from './search'
 import { refreshWorkerStatusAtom } from './worker_status'
 import { restClientAtom } from './rest-client'
@@ -723,8 +722,7 @@ export const logoutEffectAtom = atomEffect((get, set) => {
     // The previous bug where the journal was cleared was caused by a faulty
     // side-effect in the definition of one of these reset atoms.
     set(refreshWorkerStatusAtom);
-    set(searchStateAtom, initialSearchStateValues);
-    set(searchResultAtom, { data: [], total: 0, loading: false, error: null });
+    set(resetSearchStateAtom);
     set(selectedUnitsAtom, []);
     set(tableColumnsAtom, []);
     set(gettingStartedUIStateAtom, { currentStep: 0, completedSteps: [], isVisible: true });

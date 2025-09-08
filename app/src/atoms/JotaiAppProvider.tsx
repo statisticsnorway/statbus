@@ -58,7 +58,6 @@ import { refreshAllUnitCountsAtom } from './import';
 import {
   initializeTableColumnsAtom,
   searchResultAtom,
-  searchStateAtom,
   selectedUnitsAtom,
 } from './search';
 import {
@@ -86,7 +85,7 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   useAtomValue(journalUnificationEffectAtom);
 
   const authStatusDetails = useAtomValue(authStatusDetailsAtom);
-  const isAuthenticated = useAtomValue(isAuthenticatedStrictAtom);
+  const isAuthenticated = useAtomValue(isUserConsideredAuthenticatedForUIAtom);
   const authStatus = useAtomValue(authStatusAtom);
   const clientSideRefresh = useSetAtom(clientSideRefreshAtom);
   const fetchAuthStatus = useSetAtom(fetchAuthStatusAtom);

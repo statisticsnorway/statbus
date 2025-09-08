@@ -1,6 +1,6 @@
 "use client";
 import { OptionsFilter } from "@/app/search/components/options-filter";
-import { useSearch } from "@/atoms/search"; // Changed to Jotai hook
+import { useSearchFilters } from "@/atoms/search";
 import { useCallback, useMemo } from "react"; // Added useMemo
 import { SECTOR } from "@/app/search/filters/url-search-params";
 import { SearchFilterOption } from "../../search.d";
@@ -10,8 +10,8 @@ export default function SectorOptions({
 }: {
   readonly options: SearchFilterOption[];
 }) {
-  const { searchState, updateFilters, executeSearch } = useSearch();
-  const filterValue = searchState.filters[SECTOR];
+  const { filters, updateFilters } = useSearchFilters();
+  const filterValue = filters[SECTOR];
   const selected = useMemo(() => {
     if (Array.isArray(filterValue)) {
       return filterValue as (string | null)[];
@@ -27,23 +27,21 @@ export default function SectorOptions({
       // Assuming this filter behaves like a single-choice toggle (or clear)
       const newSelectedValues = selected.includes(value) ? [] : [value];
       const newFilters = {
-        ...searchState.filters,
+        ...filters,
         [SECTOR]: newSelectedValues,
       };
       updateFilters(newFilters);
-      await executeSearch();
     },
-    [searchState.filters, updateFilters, executeSearch, selected]
+    [filters, updateFilters, selected]
   );
 
   const reset = useCallback(async () => {
     const newFilters = {
-      ...searchState.filters,
+      ...filters,
       [SECTOR]: [],
     };
     updateFilters(newFilters);
-    await executeSearch();
-  }, [searchState.filters, updateFilters, executeSearch]);
+  }, [filters, updateFilters]);
 
   return (
     <OptionsFilter

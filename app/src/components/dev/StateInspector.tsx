@@ -40,7 +40,7 @@ import {
 // Feature state atoms
 import { baseDataAtom } from '@/atoms/base-data';
 import { workerStatusAtom } from '@/atoms/worker_status';
-import { searchStateAtom, searchResultAtom, selectedUnitsAtom } from '@/atoms/search';
+import { queryAtom, filtersAtom, searchResultAtom, selectedUnitsAtom, paginationAtom, sortingAtom } from '@/atoms/search';
 import { navigationMachineAtom } from '@/atoms/navigation-machine';
 import {
   isGuardingEnabled,
@@ -152,7 +152,10 @@ export const StateInspector = () => {
 
   const baseDataFromAtom = useAtomValue(baseDataAtom);
   const workerStatusValue = useAtomValue(workerStatusAtom);
-  const searchStateValue = useAtomValue(searchStateAtom);
+  const queryValue = useAtomValue(queryAtom);
+  const filtersValue = useAtomValue(filtersAtom);
+  const paginationValue = useAtomValue(paginationAtom);
+  const sortingValue = useAtomValue(sortingAtom);
   const searchResultValue = useAtomValue(searchResultAtom);
   const selectedUnitsValue = useAtomValue(selectedUnitsAtom);
 
@@ -251,10 +254,10 @@ export const StateInspector = () => {
     baseData: { state: baseDataState, statDefinitionsCount: baseDataState === 'hasData' ? baseDataFromAtom.statDefinitions.length : undefined, externalIdentTypesCount: baseDataState === 'hasData' ? baseDataFromAtom.externalIdentTypes.length : undefined, statbusUsersCount: baseDataState === 'hasData' ? baseDataFromAtom.statbusUsers.length : undefined, timeContextsCount: baseDataState === 'hasData' ? baseDataFromAtom.timeContexts.length : undefined, defaultTimeContextIdent: baseDataState === 'hasData' ? baseDataFromAtom.defaultTimeContext?.ident : undefined, hasStatisticalUnits: baseDataState === 'hasData' ? baseDataFromAtom.hasStatisticalUnits : undefined, error: baseDataState === 'hasError' ? String(baseDataFromAtom.error) : undefined },
     workerStatus: { state: workerStatusValue.loading ? 'loading' : workerStatusValue.error ? 'hasError' : 'hasData', isImporting: workerStatusValue.isImporting, isDerivingUnits: workerStatusValue.isDerivingUnits, isDerivingReports: workerStatusValue.isDerivingReports, loading: workerStatusValue.loading, error: workerStatusValue.error },
     searchAndSelection: {
-      searchText: searchStateValue.query,
-      activeFilterCodes: Object.keys(searchStateValue.filters).sort(),
-      pagination: searchStateValue.pagination,
-      order: searchStateValue.sorting,
+      searchText: queryValue,
+      activeFilterCodes: Object.keys(filtersValue).sort(),
+      pagination: paginationValue,
+      order: sortingValue,
       selectedUnitsCount: selectedUnitsValue.length,
       searchResult: {
         total: searchResultValue.total,

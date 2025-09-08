@@ -3,7 +3,7 @@
 import { SearchFilterOption } from "../../search.d";
 import { OptionsFilter } from "../../components/options-filter";
 import { useCallback, useMemo } from "react"; // Added useMemo
-import { useSearch } from "@/atoms/search";
+import { useSearchFilters } from "@/atoms/search";
 import {
   STATUS,
 } from "../url-search-params";
@@ -13,8 +13,8 @@ export default function StatusOptions({
 }: {
   readonly options: SearchFilterOption[];
 }) {
-  const { searchState, updateFilters, executeSearch } = useSearch();
-  const filterValue = searchState.filters[STATUS];
+  const { filters, updateFilters } = useSearchFilters();
+  const filterValue = filters[STATUS];
   const selected = useMemo(() => {
     if (Array.isArray(filterValue)) {
       return filterValue as (string | null)[];
@@ -32,23 +32,21 @@ export default function StatusOptions({
         : [...selected, value];
 
       const newFilters = {
-        ...searchState.filters,
+        ...filters,
         [STATUS]: newSelectedValues,
       };
       updateFilters(newFilters);
-      await executeSearch();
     },
-    [selected, searchState.filters, updateFilters, executeSearch]
+    [selected, filters, updateFilters]
   );
 
   const reset = useCallback(async () => {
     const newFilters = {
-      ...searchState.filters,
+      ...filters,
       [STATUS]: [],
     };
     updateFilters(newFilters);
-    await executeSearch();
-  }, [searchState.filters, updateFilters, executeSearch]);
+  }, [filters, updateFilters]);
 
   return (
     <OptionsFilter

@@ -20,7 +20,7 @@ import { baseDataAtom, defaultTimeContextAtom, timeContextsAtom, refreshBaseData
 import { activityCategoryStandardSettingAtomAsync, numberOfRegionsAtomAsync } from './getting-started'
 import { refreshWorkerStatusAtom, useWorkerStatus, type WorkerStatusType } from './worker_status'
 import { restClientAtom } from './rest-client'
-import { selectedUnitsAtom, searchStateAtom } from './search'
+import { selectedUnitsAtom, queryAtom, filtersAtom } from './search'
 import { selectAtom } from 'jotai/utils'
 
 // ============================================================================
@@ -416,7 +416,8 @@ export const useDebugInfo = () => {
   const baseData = useBaseData()
   const workerStatus = useWorkerStatus()
   const selectedUnits = useAtomValue(selectedUnitsAtom)
-  const searchState = useAtomValue(searchStateAtom)
+  const query = useAtomValue(queryAtom)
+  const filters = useAtomValue(filtersAtom)
   
   return {
     auth: authStatus,
@@ -433,6 +434,6 @@ export const useDebugInfo = () => {
       count: selectedUnits.length,
       units: selectedUnits,
     },
-    search: searchState,
+    search: { query, filters },
   }
 }

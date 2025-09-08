@@ -10,6 +10,7 @@
 
 import { atom } from 'jotai'
 import { loadable, selectAtom } from 'jotai/utils'
+import { isEqual } from 'moderndash'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { atomWithRefresh } from 'jotai/utils'
 import { useCallback } from 'react'
@@ -185,9 +186,9 @@ const baseDataUnstableDetailsAtom = atom<BaseData & { loading: boolean; error: s
 export const baseDataAtom = selectAtom(baseDataUnstableDetailsAtom, (v) => v, areBaseDataResultsEqual);
 
 // Derived atoms for individual data pieces
-export const statDefinitionsAtom = atom((get) => get(baseDataAtom).statDefinitions)
-export const externalIdentTypesAtom = atom((get) => get(baseDataAtom).externalIdentTypes)
-export const statbusUsersAtom = atom((get) => get(baseDataAtom).statbusUsers)
+export const statDefinitionsAtom = selectAtom(baseDataAtom, (data) => data.statDefinitions, isEqual)
+export const externalIdentTypesAtom = selectAtom(baseDataAtom, (data) => data.externalIdentTypes, isEqual)
+export const statbusUsersAtom = selectAtom(baseDataAtom, (data) => data.statbusUsers, isEqual)
 export const timeContextsAtom = atom((get) => get(baseDataAtom).timeContexts)
 export const defaultTimeContextAtom = atom((get) => get(baseDataAtom).defaultTimeContext)
 export const hasStatisticalUnitsAtom = atom((get) => get(baseDataAtom).hasStatisticalUnits)
