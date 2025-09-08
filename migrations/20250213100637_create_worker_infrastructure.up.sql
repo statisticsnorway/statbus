@@ -243,6 +243,12 @@ BEGIN
   PERFORM public.data_source_used_derive();
   PERFORM public.legal_form_used_derive();
   PERFORM public.country_used_derive();
+
+  -- After the core units are refreshed, enqueue the follow-up task to derive reports.
+  PERFORM worker.enqueue_derive_reports(
+    p_valid_after => derive_statistical_unit.p_valid_after,
+    p_valid_to => derive_statistical_unit.p_valid_to
+  );
 END;
 $derive_statistical_unit$;
 
