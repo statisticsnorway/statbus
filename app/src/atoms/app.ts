@@ -144,7 +144,11 @@ export const appReadyAtom = atom((get) => {
   const authStatus = get(authStatusUnstableDetailsAtom);
   const baseData = get(baseDataAtom);
 
-  const isAuthLoading = authStatus.loading;
+  // BATTLE WISDOM: The UI-level "auth is loading" signal should only be true
+  // during the very initial application load. Background activities like token
+  // refreshes or re-validations should not cause the entire UI to flash a
+  // loading screen. `initialAuthCheckCompletedAtom` provides this stable signal.
+  const isAuthLoading = !get(initialAuthCheckCompletedAtom);
   const isLoadingBaseData = baseData.loading;
 
   const isAuthProcessComplete = !isAuthLoading;
