@@ -214,7 +214,7 @@ export const redirectRelevantStateAtom = selectAtom(
 export interface EventJournalEntry {
   timestamp_epoch: number; // For machine sorting and calculations
   timestamp_iso: string;   // For human readability in logs and debugging
-  machine: 'auth' | 'nav' | 'login' | 'system' | 'inspector';
+  machine: 'auth' | 'nav' | 'loginUi' | 'system' | 'inspector';
   from: any; // JSON-serializable state value
   to: any;   // JSON-serializable state value
   event: any; // JSON-serializable event

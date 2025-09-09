@@ -4,9 +4,25 @@ import { createMachine, assign, setup, type SnapshotFrom } from 'xstate';
 import { atomEffect } from 'jotai-effect';
 import { addEventJournalEntryAtom, stateInspectorVisibleAtom } from './app';
 
-// This file defines the state machine that governs all programmatic navigation.
-// It centralizes the complex logic previously spread across RedirectGuard and RedirectHandler.
-
+/**
+ * Navigation State Machine (navigationMachine)
+ *
+ * This file defines the state machine that governs all programmatic navigation,
+ * acting as the central authority for application-level redirects. It prevents
+ * race conditions and complex, scattered routing logic by centralizing decisions.
+ *
+ * Responsibilities:
+ * - Redirecting unauthenticated users from protected pages to the login page.
+ * - Redirecting authenticated users away from the login page.
+ * - Handling redirects for required setup flows (e.g., to /getting-started).
+ * - Commanding navigation side-effects, which are then executed by the `NavigationManager`.
+ *
+ * Interactions:
+ * - It consumes context about the user's authentication state (from `authMachine`),
+ *   setup status (`setupPath`), and the current URL path (`pathname`).
+ * - It produces `sideEffect` commands in its context, but does not execute them directly.
+ * - It does NOT manage authentication state or UI state for individual pages.
+ */
 export interface NavigationContext {
   pathname: string;
   isAuthenticated: boolean;
@@ -88,7 +104,7 @@ export const navigationMachine = setup({
             !isPublicPath(context.pathname),
         },
         {
-          target: 'revalidatingOnLoginPage',
+          target: 'redirectingFromLogin',
           guard: ({ context }) => context.isAuthenticated && !context.isAuthLoading && context.pathname === '/login',
         },
         {
@@ -110,24 +126,6 @@ export const navigationMachine = setup({
       tags: 'stable',
       // This state is now stable. The cleanup logic has been moved to be part
       // of the `redirectingFromLogin` flow, making it more robust.
-    },
-    /**
-     * An intermediate state that commands an auth re-validation when an authenticated
-     * user lands on the login page. This is a crucial step to break redirect loops
-     * caused by server-side redirects with stale tokens.
-     */
-    revalidatingOnLoginPage: {
-      entry: assign({ sideEffect: { action: 'revalidateAuth' } }),
-      on: {
-        CONTEXT_UPDATED: {
-          target: 'redirectingFromLogin',
-          // Guard: Wait for both auth and setup checks to complete before proceeding.
-          // This prevents a race condition where the redirect happens before the
-          // required setup path has been calculated.
-          guard: ({ context }) => !context.isAuthLoading && !context.isSetupLoading,
-          actions: assign(({ context, event }) => ({ ...context, ...event.value })),
-        }
-      }
     },
     /**
      * An intermediate state that triggers the 'savePath' side-effect to store the

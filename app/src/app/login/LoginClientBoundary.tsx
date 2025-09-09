@@ -3,23 +3,26 @@
 import React, { useState } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useSearchParams, usePathname } from "next/navigation";
-import { useAtomValue, useSetAtom, useAtom } from "jotai";
-import { authMachineAtom, loginPageMachineAtom } from "@/atoms/auth";
+import { useAtom } from "jotai";
+import { authMachineAtom } from "@/atoms/auth-machine";
+import { loginUiMachineAtom } from "@/atoms/login-ui-machine";
 import { navigationMachineAtom } from "@/atoms/navigation-machine";
 import LoginForm from "./LoginForm";
 
 /**
  * LoginClientBoundary
- * 
- * This component orchestrates the behavior of the /login page. It handles one primary case:
- * 
- * 1. Redirecting an authenticated user AWAY from the /login page.
- *    This can happen if:
- *    - A logged-in user directly navigates to /login.
- *    - A user on the /login page becomes authenticated via another tab (cross-tab sync).
- * 
- * It does NOT handle redirecting unauthenticated users TO the login page. That logic
- * is handled globally by an effect in `JotaiAppProvider`.
+ *
+ * This component orchestrates the UI of the `/login` page. It acts as a bridge,
+ * feeding context from the global `authMachine` and current URL path into the
+ * page-specific `loginMachine`. The `loginMachine` then determines whether to
+ * show the login form, a loading message, or nothing at all.
+ *
+ * Crucially, this component does **not** handle navigation or redirects itself.
+ * - Redirecting an authenticated user **away** from `/login` is handled by `navigationMachine`.
+ * - Redirecting an unauthenticated user **to** `/login` is also handled by `navigationMachine`.
+ *
+ * This separation of concerns keeps the UI logic for this specific page decoupled
+ * from the application's global routing rules.
  */
 export default function LoginClientBoundary() {
   const [isMounted, setIsMounted] = useState(false);
@@ -31,7 +34,7 @@ export default function LoginClientBoundary() {
   const nextPath = searchParams.get('next');
   const pathname = usePathname();
   const [authState, sendAuth] = useAtom(authMachineAtom);
-  const [loginPageState, sendLoginPage] = useAtom(loginPageMachineAtom);
+  const [loginPageState, sendLoginPage] = useAtom(loginUiMachineAtom);
   const [navState] = useAtom(navigationMachineAtom);
 
   // The useEffect that previously sent a CHECK event has been removed.

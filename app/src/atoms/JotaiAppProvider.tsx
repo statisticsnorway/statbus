@@ -43,7 +43,7 @@ import {
   authMachineAtom,
   isAuthActionInProgressAtom,
   authMachineScribeEffectAtom,
-  loginPageMachineScribeEffectAtom,
+  loginUiMachineScribeEffectAtom,
 } from './auth';
 import {
   baseDataAtom,
@@ -79,7 +79,7 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   // that will run whenever their dependencies change, but only log when the
   // inspector is visible.
   useAtomValue(authMachineScribeEffectAtom);
-  useAtomValue(loginPageMachineScribeEffectAtom);
+  useAtomValue(loginUiMachineScribeEffectAtom);
   useAtomValue(navMachineScribeEffectAtom);
   useAtomValue(pageUnloadDetectorEffectAtom);
   useAtomValue(journalUnificationEffectAtom);
