@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useRouter } from "next/navigation";
 import { ResetConfirmationDialog } from "./reset-confirmation-dialog";
-import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/atoms/auth";
 import { useSetAtom } from "jotai";
 import { debugInspectorVisibleAtom } from "@/atoms/app";
@@ -40,7 +39,6 @@ import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
-  const { toast } = useToast();
   const router = useRouter();
   const { logout } = useAuth();
   const setStateInspectorVisible = useSetAtom(debugInspectorVisibleAtom);
