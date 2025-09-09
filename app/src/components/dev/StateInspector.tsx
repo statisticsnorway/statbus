@@ -128,6 +128,10 @@ export const StateInspector = () => {
   const highestMountCount = Math.max(0, ...Array.from(mountCounts.values()));
   const [mounted, setMounted] = React.useState(false);
   const [copyStatus, setCopyStatus] = React.useState(''); // For "Copied!" message
+  const [effectCopyStatus, setEffectCopyStatus] = React.useState('');
+  const [mountCopyStatus, setMountCopyStatus] = React.useState('');
+  const [stateCopyStatus, setStateCopyStatus] = React.useState('');
+  const [eventJournalCopyStatus, setEventJournalCopyStatus] = React.useState('');
   const [isTokenManuallyExpired, setIsTokenManuallyExpired] = useAtom(isTokenManuallyExpiredAtom);
   const journal = useAtomValue(combinedJournalViewAtom);
   const addJournalEntry = useSetAtom(addEventJournalEntryAtom);
@@ -279,21 +283,98 @@ export const StateInspector = () => {
     lastRefreshResponse: authState.context.lastRefreshResponse,
   };
 
+  const handleCopyState = () => {
+    const reportString = JSON.stringify(fullState, null, 2);
+    navigator.clipboard.writeText(reportString).then(() => {
+      setStateCopyStatus('Copied!');
+      setTimeout(() => setStateCopyStatus(''), 2000);
+    }).catch(err => {
+      console.error('Failed to copy state:', err);
+      setStateCopyStatus('Failed');
+    });
+  };
+
+  const handleCopyEventJournal = () => {
+    const reportString = JSON.stringify(journal, null, 2);
+    navigator.clipboard.writeText(reportString).then(() => {
+      setEventJournalCopyStatus('Copied!');
+      setTimeout(() => setEventJournalCopyStatus(''), 2000);
+    }).catch(err => {
+      console.error('Failed to copy event journal:', err);
+      setEventJournalCopyStatus('Failed');
+    });
+  };
+
   const handleCopy = () => {
+    // This now copies EVERYTHING for a complete debug report.
     const report = {
       currentState: fullState,
-      journal: journal,
+      eventJournal: journal,
+      effectJournal: {
+        halted: Array.from(haltedEffects),
+        active: Object.fromEntries(callCounts),
+      },
+      mountJournal: Object.fromEntries(mountCounts),
     };
     const reportString = JSON.stringify(report, null, 2);
 
     navigator.clipboard.writeText(reportString).then(() => {
-      // Also log the object to the console for interactive exploration
-      console.log("[StateInspector] Debug Report:", report);
+      console.log("[StateInspector] Full Debug Report:", report);
       setCopyStatus('Copied!');
       setTimeout(() => setCopyStatus(''), 2000);
     }).catch(err => {
-      console.error('Failed to copy debug info:', err);
+      console.error('Failed to copy full debug info:', err);
       setCopyStatus('Failed to copy');
+    });
+  };
+
+  const handleCopyEffectJournal = () => {
+    const sortedEffects = Array.from(triggeredEffects).sort((a, b) => {
+      const countA = callCounts.get(a) || 0;
+      const countB = callCounts.get(b) || 0;
+      return countB - countA;
+    });
+
+    let reportString = `Effect Journal Report (${new Date().toISOString()})\n`;
+    reportString += `Halted Effects: ${haltedEffects.size}\n`;
+    reportString += '----------------------------------------\n';
+    Array.from(haltedEffects).sort().forEach(effectId => {
+      reportString += `- HALTED: ${effectId}\n`;
+    });
+    reportString += '\nActive Guarded Effects:\n';
+    reportString += '----------------------------------------\n';
+    reportString += 'Total\tRecent\tEffect ID\n';
+    sortedEffects.forEach(effectId => {
+      const total = callCounts.get(effectId) || 0;
+      const recent = recentCallCounts.get(effectId) || 0;
+      reportString += `${total}\t${recent}\t${effectId}\n`;
+    });
+
+    navigator.clipboard.writeText(reportString).then(() => {
+      setEffectCopyStatus('Copied!');
+      setTimeout(() => setEffectCopyStatus(''), 2000);
+    }).catch(err => {
+      console.error('Failed to copy effect journal:', err);
+      setEffectCopyStatus('Failed');
+    });
+  };
+
+  const handleCopyMountJournal = () => {
+    const sortedMounts = Array.from(mountCounts.entries()).sort(([, countA], [, countB]) => countB - countA);
+    
+    let reportString = `Component Mount Journal Report (${new Date().toISOString()})\n`;
+    reportString += '----------------------------------------\n';
+    reportString += 'Mounts\tComponent Effect ID\n';
+    sortedMounts.forEach(([effectId, count]) => {
+      reportString += `${count}\t${effectId}\n`;
+    });
+
+    navigator.clipboard.writeText(reportString).then(() => {
+      setMountCopyStatus('Copied!');
+      setTimeout(() => setMountCopyStatus(''), 2000);
+    }).catch(err => {
+      console.error('Failed to copy mount journal:', err);
+      setMountCopyStatus('Failed');
     });
   };
 
@@ -379,6 +460,9 @@ export const StateInspector = () => {
               <strong onClick={() => setIsJournalVisible((v: boolean) => !v)} className="cursor-pointer">
                 Event Journal {isJournalVisible ? '▼' : '▶'}
               </strong>
+              <button onClick={handleCopyEventJournal} className="px-2 py-0.5 bg-gray-700 hover:bg-gray-600 rounded text-xs">
+                {eventJournalCopyStatus || 'Copy'}
+              </button>
               
               {isGuardingEnabled ? (
                 <>
@@ -477,12 +561,18 @@ export const StateInspector = () => {
 
             {isEffectJournalVisible && isGuardingEnabled && (
               <div className="pl-4 mt-1 space-y-2 font-mono text-xs max-h-48 overflow-y-auto border border-gray-600 rounded p-1 bg-black/20">
+                <div className="sticky top-0 z-10 flex items-center justify-between bg-black/80 py-1 backdrop-blur-sm">
+                  <strong>Effect Log</strong>
+                  <button onClick={handleCopyEffectJournal} className="px-2 py-0.5 bg-gray-700 hover:bg-gray-600 rounded text-xs">
+                    {effectCopyStatus || 'Copy'}
+                  </button>
+                </div>
                 <div>
-                  <strong>Halted Re-render Effects ({haltedEffects.size}):</strong>
+                  <strong>Halted ({haltedEffects.size}):</strong>
                   {haltedEffects.size > 0 ? (
                     Array.from(haltedEffects).sort().map((effectId) => (
                       <div key={effectId} className="text-red-400 ml-2">
-                        HALTED: {effectId}
+                        {effectId}
                       </div>
                     ))
                   ) : (
@@ -490,7 +580,7 @@ export const StateInspector = () => {
                   )}
                 </div>
                 <div>
-                  <strong>Active Guarded Effects ({triggeredEffects.size}):</strong>
+                  <strong>Active ({triggeredEffects.size}):</strong>
                   {triggeredEffects.size > 0 ? (
                     <div className="ml-2 mt-1 space-y-1">
                       <div className="flex font-bold text-gray-400 border-b border-gray-600 pb-1">
@@ -540,8 +630,13 @@ export const StateInspector = () => {
             
             {isMountJournalVisible && isGuardingEnabled && (
               <div className="pl-4 mt-1 space-y-2 font-mono text-xs max-h-48 overflow-y-auto border border-gray-600 rounded p-1 bg-black/20">
+                <div className="sticky top-0 z-10 flex items-center justify-between bg-black/80 py-1 backdrop-blur-sm">
+                  <strong>Component Mount Log</strong>
+                  <button onClick={handleCopyMountJournal} className="px-2 py-0.5 bg-gray-700 hover:bg-gray-600 rounded text-xs">
+                    {mountCopyStatus || 'Copy'}
+                  </button>
+                </div>
                 <div>
-                  <strong>Total Mounts by Component:</strong>
                   {mountCounts.size > 0 ? (
                     <div className="ml-2 mt-1 space-y-1">
                       <div className="flex font-bold text-gray-400 border-b border-gray-600 pb-1">
@@ -578,7 +673,12 @@ export const StateInspector = () => {
           </div>
 
           <div>
-            <strong onClick={() => setIsStateVisible(v => !v)} className="cursor-pointer">Current State: {isStateVisible ? '▼' : '▶'}</strong>
+            <div className="flex items-center space-x-2">
+              <strong onClick={() => setIsStateVisible(v => !v)} className="cursor-pointer">Current State: {isStateVisible ? '▼' : '▶'}</strong>
+              <button onClick={handleCopyState} className="px-2 py-0.5 bg-gray-700 hover:bg-gray-600 rounded text-xs">
+                {stateCopyStatus || 'Copy'}
+              </button>
+            </div>
             {isStateVisible && (
               <div className="pl-4 mt-1 space-y-2 max-h-96 overflow-y-auto border border-gray-600 rounded p-1 bg-black/20">
               <div>
