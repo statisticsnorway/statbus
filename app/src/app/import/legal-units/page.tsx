@@ -71,7 +71,7 @@ export default function LegalUnitsPage() {
     return () => {
       eventSource.close();
     };
-  }, [refreshJobs, isLoading, pendingJobs]);
+  }, [refreshJobs, isLoading, pendingJobs], 'UploadLegalUnitsPage:sseConnector');
 
   // The useGuardedEffect in usePendingJobsByPattern handles initial fetch.
   // If a manual refresh on mount is still desired for some reason, it can be added here,

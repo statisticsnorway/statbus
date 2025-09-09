@@ -20,7 +20,7 @@ export default function ActivityCategoryPage() {
       newParams.delete("custom");
       router.replace(`/activity-categories?${newParams.toString()}`);
     }
-  }, [searchParams, setQueries, router]);
+  }, [searchParams, setQueries, router], 'ActivityCategoryPage:syncCustomParam');
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col py-8 md:py-12">

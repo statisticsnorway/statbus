@@ -14,6 +14,7 @@ import {
   stateInspectorAuthStatusExpandedAtom,
   stateInspectorRefreshExpandedAtom,
   stateInspectorEffectJournalVisibleAtom,
+  stateInspectorMountJournalVisibleAtom,
   isTokenManuallyExpiredAtom,
   combinedJournalViewAtom,
   clearAndMarkJournalAtom,
@@ -48,6 +49,7 @@ import {
   triggeredEffectsAtom,
   effectCallCountsAtom,
   effectRecentCallCountsAtom,
+  mountCountsAtom,
   LOOP_DETECTION_WINDOW_MS,
   useGuardedEffect,
 } from '@/hooks/use-guarded-effect';
@@ -114,12 +116,14 @@ export const StateInspector = () => {
   const [isAuthStatusExpanded, setIsAuthStatusExpanded] = useAtom(stateInspectorAuthStatusExpandedAtom);
   const [isRefreshExpanded, setIsRefreshExpanded] = useAtom(stateInspectorRefreshExpandedAtom);
   const [isEffectJournalVisible, setIsEffectJournalVisible] = useAtom(stateInspectorEffectJournalVisibleAtom);
+  const [isMountJournalVisible, setIsMountJournalVisible] = useAtom(stateInspectorMountJournalVisibleAtom);
   const [isEffectJournalHelpVisible, setIsEffectJournalHelpVisible] =
     React.useState(false);
   const haltedEffects = useAtomValue(haltedEffectsAtom);
   const triggeredEffects = useAtomValue(triggeredEffectsAtom);
   const callCounts = useAtomValue(effectCallCountsAtom);
   const recentCallCounts = useAtomValue(effectRecentCallCountsAtom);
+  const mountCounts = useAtomValue(mountCountsAtom);
   const [mounted, setMounted] = React.useState(false);
   const [copyStatus, setCopyStatus] = React.useState(''); // For "Copied!" message
   const [isTokenManuallyExpired, setIsTokenManuallyExpired] = useAtom(isTokenManuallyExpiredAtom);
@@ -454,7 +458,7 @@ export const StateInspector = () => {
             {isEffectJournalVisible && isGuardingEnabled && (
               <div className="pl-4 mt-1 space-y-2 font-mono text-xs max-h-48 overflow-y-auto border border-gray-600 rounded p-1 bg-black/20">
                 <div>
-                  <strong>Halted Effects ({haltedEffects.size}):</strong>
+                  <strong>Halted Re-render Effects ({haltedEffects.size}):</strong>
                   {haltedEffects.size > 0 ? (
                     Array.from(haltedEffects).sort().map((effectId) => (
                       <div key={effectId} className="text-red-400 ml-2">
@@ -509,6 +513,58 @@ export const StateInspector = () => {
                     </div>
                   ) : (
                     <div className="text-gray-500 italic ml-2">None</div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <div>
+            <strong
+              onClick={() => setIsMountJournalVisible((v: boolean) => !v)}
+              className="cursor-pointer"
+            >
+              Component Mount Journal:{' '}
+              {isGuardingEnabled ? (
+                <span className="text-green-500">(Active)</span>
+              ) : (
+                <span className="text-gray-500">(Disabled)</span>
+              )}{' '}
+              {isMountJournalVisible ? '▼' : '▶'}
+            </strong>
+            {isMountJournalVisible && isGuardingEnabled && (
+              <div className="pl-4 mt-1 space-y-2 font-mono text-xs max-h-48 overflow-y-auto border border-gray-600 rounded p-1 bg-black/20">
+                <div>
+                  <strong>Total Mounts by Component:</strong>
+                  {mountCounts.size > 0 ? (
+                    <div className="ml-2 mt-1 space-y-1">
+                      <div className="flex font-bold text-gray-400 border-b border-gray-600 pb-1">
+                        <div className="flex-grow pr-2">Component Effect ID</div>
+                        <div className="w-16 text-right">Mounts</div>
+                      </div>
+                      {Array.from(mountCounts.entries())
+                        .sort(([, countA], [, countB]) => countB - countA)
+                        .map(([effectId, count]) => (
+                          <div
+                            key={effectId}
+                            className={`flex items-center ${
+                              count > 5 ? 'text-yellow-400' : 'text-cyan-400'
+                            }`}
+                          >
+                            <div
+                              className="flex-grow truncate pr-2"
+                              title={effectId}
+                            >
+                              {effectId}
+                            </div>
+                            <div className="w-16 text-right font-bold">
+                              {count}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  ) : (
+                    <div className="text-gray-500 italic ml-2">No components have mounted yet.</div>
                   )}
                 </div>
               </div>

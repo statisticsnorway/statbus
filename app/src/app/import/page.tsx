@@ -101,7 +101,7 @@ export default function ImportPage() {
         clearTimeout(reconnectTimer);
       }
     };
-  }, [router]);
+  }, [router], 'ImportPage:sseConnector');
   
   return (
     <div className="space-y-6 text-center">

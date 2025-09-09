@@ -56,7 +56,7 @@ ${diagramText}`;
     };
 
     fetchAndRenderDiagram();
-  }, []);
+  }, [], 'ErDiagramClient:fetchAndRender');
 
   useGuardedEffect(() => {
     const container = containerRef.current;
@@ -89,7 +89,7 @@ ${diagramText}`;
         panZoomInstanceRef.current = null;
       }
     };
-  }, [svg]);
+  }, [svg], 'ErDiagramClient:initPanZoom');
 
   return (
     <div className="mt-4">

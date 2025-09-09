@@ -27,7 +27,7 @@ export default function HomePage() {
     setIsMounted(true);
     // Optionally set document title if client-side updates are preferred for SPA feel
     // document.title = `${deploymentSlotName} Statbus | Home`;
-  }, []);
+  }, [], 'HomePage:setMounted');
 
   if (!isMounted || !appReadyState.isReadyToRenderDashboard) {
     // If not mounted yet, render a consistent fallback (or nothing specific for the loading messages part)

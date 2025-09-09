@@ -53,7 +53,7 @@ export const AuthCrossTabSyncer = () => {
       fetchAuthStatus();
       setLastSyncTs(authChangeTimestamp);
     }
-  }, [clientMounted, restClient, authChangeTimestamp, lastSyncTs, setLastSyncTs, fetchAuthStatus]);
+  }, [clientMounted, restClient, authChangeTimestamp, lastSyncTs, setLastSyncTs, fetchAuthStatus], 'AuthCrossTabSyncer:sync');
 
   return null;
 };

@@ -98,7 +98,7 @@ export default function LegalUnitsUploadPage({
     return () => {
       isMounted = false;
     };
-  }, [jobSlug]);
+  }, [jobSlug], 'LegalUnitsUploadPage:loadJob');
 
   // --- SSE Connection Effect ---
   useGuardedEffect(() => {
@@ -217,7 +217,7 @@ export default function LegalUnitsUploadPage({
         reconnectTimeoutRef.current = null;
       }
     };
-  }, [job?.id]); // Re-run effect if job.id changes
+  }, [job?.id], 'LegalUnitsUploadPage:sseConnector'); // Re-run effect if job.id changes
 
   // --- Render Logic ---
   if (isLoading) {
