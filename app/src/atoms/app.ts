@@ -16,12 +16,13 @@ import { atomEffect } from 'jotai-effect'
 import type { Tables } from '@/lib/database.types'
 
 import { isAuthenticatedStrictAtom, authStatusAtom, authStatusUnstableDetailsAtom, isUserConsideredAuthenticatedForUIAtom } from './auth'
-import { baseDataAtom, defaultTimeContextAtom, timeContextsAtom, refreshBaseDataAtom, useBaseData } from './base-data'
+import { baseDataAtom, timeContextsAtom, refreshBaseDataAtom, useBaseData } from './base-data'
 import { activityCategoryStandardSettingAtomAsync, numberOfRegionsAtomAsync } from './getting-started'
 import { refreshWorkerStatusAtom, useWorkerStatus, type WorkerStatusType } from './worker_status'
 import { restClientAtom } from './rest-client'
 import { selectedUnitsAtom, queryAtom, filtersAtom } from './search'
 import { selectAtom } from 'jotai/utils'
+import { isEqual } from 'moderndash'
 
 // ============================================================================
 // TIME CONTEXT ATOMS & HOOKS - Replace TimeContext
@@ -33,17 +34,25 @@ export const selectedTimeContextAtom = atomWithStorage<Tables<"time_context"> | 
   null
 )
 
+export const defaultTimeContextAtom = selectAtom(baseDataAtom, (data) => data.defaultTimeContext, isEqual)
+
+/**
+ * An effect atom that ensures a default time context is selected if none is
+ * already set. This is architecturally superior to placing this logic in a
+ * hook, as it decouples the side effect from component render cycles.
+ */
+export const timeContextAutoSelectEffectAtom = atomEffect((get, set) => {
+  const selected = get(selectedTimeContextAtom);
+  const defaultTC = get(defaultTimeContextAtom);
+  if (!selected && defaultTC) {
+    set(selectedTimeContextAtom, defaultTC);
+  }
+});
+
 export const useTimeContext = () => {
   const [selectedTimeContext, setSelectedTimeContext] = useAtom(selectedTimeContextAtom)
   const timeContexts = useAtomValue(timeContextsAtom)
   const defaultTimeContext = useAtomValue(defaultTimeContextAtom)
-  
-  // Auto-select default if none selected and default exists
-  useGuardedEffect(() => {
-    if (!selectedTimeContext && defaultTimeContext) {
-      setSelectedTimeContext(defaultTimeContext)
-    }
-  }, [selectedTimeContext, defaultTimeContext, setSelectedTimeContext], 'app.ts:useTimeContext:autoSelectDefault')
   
   return {
     selectedTimeContext,
