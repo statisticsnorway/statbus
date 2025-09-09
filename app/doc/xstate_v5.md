@@ -264,7 +264,27 @@ export const authMachine = setup({
 type AuthMachineSnapshot = SnapshotFrom<typeof authMachine>;
 ```
 
-## 6. Project-Specific Patterns
+## 6. Debugging and Inspection
+
+### 6.1. Using the XState Inspection API
+
+XState v5 provides a powerful [Inspection API](https://stately.ai/docs/inspection) that allows us to observe every event, state transition, and context change within our state machines. This is the most reliable way to debug stateful logic, as it hooks directly into the machine's core and is not subject to the timing vagaries of React's render cycle.
+
+Instead of using the official `@statelyai/inspect` visualizer package, we have implemented our own custom inspector that leverages this API to power both our browser console logs and the in-app `StateInspector`'s event journal.
+
+**Key Components**:
+
+1.  **`app/src/atoms/inspector.ts`**: This central file defines a custom `inspect` function that is passed to every state machine via `atomWithMachine`.
+    -   It runs **only in development**.
+    -   It listens for `@xstate.snapshot` inspection events.
+    -   It logs every meaningful state transition directly to the browser console. This is the most reliable, real-time log.
+    -   It also connects to Jotai state to feed these events into our UI-based `DebugInspector` component, populating its event journal.
+
+2.  **`JotaiInspectorInitializer`**: A small component, rendered in `JotaiAppProvider`, that creates the bridge between the inspector's global functions and Jotai's state management hooks.
+
+This pattern gives us the best of both worlds: high-fidelity, real-time console logging for developers and a user-friendly event journal in our debug UI, all powered by a single, reliable source of truth.
+
+## 7. Project-Specific Patterns
 
 ### The `Manager` Component Pattern
 
@@ -276,6 +296,12 @@ Our `NavigationManager` is a critical pattern. It's a client-side component that
 
 This decouples the state machine from the rest of the application. The machine is a pure function, and the `Manager` is its interface to the outside world.
 
-### The "Scribe" Effect Pattern
+### BATTLE WISDOM: Understanding Diagnostic Race Conditions
 
-The `authMachineScribeEffectAtom` and `navMachineScribeEffectAtom` are `useEffect`-like atoms that listen for changes in their respective machine's state. When a change occurs, they record a detailed entry in the `eventJournalAtom`. This provides an invaluable, chronological log of all state transitions for debugging in the `StateInspector`.
+During the development of the navigation system, we encountered a scenario where the application was functionally correct, but the diagnostic `eventJournal` and `currentState` logs appeared to show the machine "stuck" in an intermediate state (like `cleanupAfterRedirect`) instead of its final `idle` state.
+
+This was not a deadlock. It was a **diagnostic race condition**.
+
+The application logic was so fast that a redirect and subsequent state transitions occurred more quickly than our Jotai-powered `DebugInspector` component could re-render to reflect the final state. The log was an accurate snapshot, but it was captured milliseconds before the machine had fully settled.
+
+**The lesson**: The ultimate source of truth is the application's behavior and the real-time `console.log` from our `inspector`, not necessarily the debug inspector's UI. If the application works correctly but the journal seems incomplete, it is likely a diagnostic race condition, not a logic bug in the machine itself.

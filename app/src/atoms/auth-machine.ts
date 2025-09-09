@@ -26,12 +26,28 @@ import { createMachine, assign, setup, fromPromise, type SnapshotFrom } from 'xs
 import { atomWithMachine } from 'jotai-xstate'
 
 import { type User, type AuthStatus as CoreAuthStatus, _parseAuthStatusRpcResponseToAuthStatus } from '@/lib/auth.types';
-import { addEventJournalEntryAtom, stateInspectorVisibleAtom } from './app';
-import { createJournalEntry } from './journal-utils';
+import { inspector } from './inspector';
+
+const addAndPurgeLog = (log: Record<number, any> | undefined, type: string, response: any, timestamp: number): Record<number, any> => {
+  if (!response) {
+    return log || {};
+  }
+  const newLog = log ? { ...log } : {};
+  const sixtySecondsAgo = timestamp - 60000;
+  // Purge old entries
+  for (const key in newLog) {
+    if (parseInt(key, 10) < sixtySecondsAgo) {
+      delete newLog[key];
+    }
+  }
+  // Add new entry
+  newLog[timestamp] = { type, response };
+  return newLog;
+};
 
 const authMachine = setup({
   types: {
-    context: {} as CoreAuthStatus & { client: any | null; justLoggedOut?: boolean; lastCanaryResponse?: any; lastAuthStatusResponse?: any; lastRefreshResponse?: any },
+    context: {} as CoreAuthStatus & { client: any | null; justLoggedOut?: boolean; authApiResponseLog?: Record<number, { type: string; response: any; }>; },
     events: {} as
       | { type: 'CLIENT_READY'; client: any }
       | { type: 'CLIENT_UNREADY' }
@@ -43,14 +59,23 @@ const authMachine = setup({
   },
   actors: {
     checkAuthStatus: fromPromise(async ({ input }: { input: { client: any }}) => {
+      console.log("[auth-machine:checkAuthStatus] Actor invoked.");
       const { data, error } = await input.client.rpc("auth_status");
-      if (error) throw error;
+      if (error) {
+        console.error("[auth-machine:checkAuthStatus] Error from auth_status RPC:", error);
+        throw error;
+      }
+      console.log("[auth-machine:checkAuthStatus] Raw response from auth_status:", data);
+
       const status = _parseAuthStatusRpcResponseToAuthStatus(data);
       const outcome = status.expired_access_token_call_refresh ? 'refresh_needed' : 'ok';
+      console.log(`[auth-machine:checkAuthStatus] Final outcome determined: '${outcome}'.`);
+
       const rawResponseWithTimestamp = { ...data, timestamp: new Date().toISOString() };
       return { outcome, status, rawResponse: rawResponseWithTimestamp };
     }),
     refreshToken: fromPromise(async ({ input }: { input: { client: any }}) => {
+      console.log("[auth-machine:refreshToken] Actor invoked.");
       // Re-implement the core logic of _performClientSideRefresh here for the actor.
       const apiUrl = process.env.NEXT_PUBLIC_BROWSER_REST_URL || '';
       const refreshUrl = `${apiUrl}/rest/rpc/refresh`;
@@ -60,6 +85,7 @@ const authMachine = setup({
         credentials: 'include'
       });
       const responseData = await response.json();
+      console.log("[auth-machine:refreshToken] Raw response from refresh:", responseData);
       if (!response.ok) {
         console.error('refreshToken actor: Refresh API call failed.', responseData);
         // We must throw here to trigger the onError handler of the invoke.
@@ -83,6 +109,7 @@ const authMachine = setup({
           throw new Error('Canary request failed after refresh.');
         }
         canaryData = data;
+        console.log("[auth-machine:refreshToken] Raw response from auth_test canary:", canaryData);
       } catch (e) {
         console.error('refreshToken actor: Exception during canary request.', e);
         throw new Error('Exception during canary request.');
@@ -90,7 +117,10 @@ const authMachine = setup({
 
       const parsedStatus = _parseAuthStatusRpcResponseToAuthStatus(responseData);
       const rawResponseWithTimestamp = { ...responseData, timestamp: new Date().toISOString() };
-      return { parsedStatus, canaryData, rawResponse: rawResponseWithTimestamp };
+      const canaryResponseWithTimestamp = canaryData ? { ...canaryData, timestamp: new Date().toISOString() } : null;
+      
+      console.log("[auth-machine:refreshToken] Refresh and canary successful. Returning data.");
+      return { parsedStatus, rawResponse: rawResponseWithTimestamp, canaryResponse: canaryResponseWithTimestamp };
     }),
     login: fromPromise(async ({ input }: { input: { client: any, credentials: { email: string; password: string } } }) => {
       const apiUrl = process.env.NEXT_PUBLIC_BROWSER_REST_URL || '';
@@ -130,12 +160,11 @@ const authMachine = setup({
     expired_access_token_call_refresh: false,
     error_code: null,
     justLoggedOut: false,
-    lastCanaryResponse: null,
-    lastAuthStatusResponse: null,
-    lastRefreshResponse: null,
+    authApiResponseLog: {},
   },
   states: {
     re_initializing: {
+      tags: 'ui-authenticated',
       on: {
         CLIENT_READY: {
           target: 'checking',
@@ -156,16 +185,20 @@ const authMachine = setup({
       }
     },
     checking: {
+      tags: 'ui-authenticated',
       invoke: {
         id: 'checkAuthStatus',
         src: 'checkAuthStatus',
         input: ({ context }) => ({ client: context.client }),
         onDone: {
-          actions: assign(({ event, context }) => ({
-            ...event.output.status,
-            client: context.client,
-            lastAuthStatusResponse: event.output.rawResponse,
-          })),
+          actions: assign(({ event, context }) => {
+            const now = Date.now();
+            return {
+              ...event.output.status,
+              client: context.client,
+              authApiResponseLog: addAndPurgeLog(context.authApiResponseLog, 'auth_status', event.output.rawResponse, now),
+            }
+          }),
           target: 'evaluating_initial_session'
         },
         onError: {
@@ -175,24 +208,33 @@ const authMachine = setup({
       }
     },
     evaluating_initial_session: {
+      tags: 'ui-authenticated',
       always: [
-        { target: 'initial_refreshing', guard: ({ context }) => context.expired_access_token_call_refresh },
+        {
+          target: 'initial_refreshing',
+          guard: ({ context }) => context.expired_access_token_call_refresh
+        },
         { target: 'idle_authenticated', guard: ({ context }) => context.isAuthenticated },
         { target: 'idle_unauthenticated' }
       ]
     },
     initial_refreshing: {
+      tags: 'ui-authenticated',
       invoke: {
         id: 'refreshToken',
         src: 'refreshToken',
         input: ({ context }) => ({ client: context.client }),
         onDone: {
-          actions: assign(({ event, context }) => ({
-            ...event.output.parsedStatus,
-            client: context.client,
-            lastCanaryResponse: event.output.canaryData,
-            lastRefreshResponse: event.output.rawResponse,
-          })),
+          actions: assign(({ event, context }) => {
+            const now = Date.now();
+            let log = addAndPurgeLog(context.authApiResponseLog, 'refresh', event.output.rawResponse, now);
+            log = addAndPurgeLog(log, 'post_refresh_canary', event.output.canaryResponse, now + 1);
+            return {
+              ...event.output.parsedStatus,
+              client: context.client,
+              authApiResponseLog: log,
+            }
+          }),
           // After a successful initial refresh, we are authenticated.
           target: 'idle_authenticated'
         },
@@ -203,6 +245,7 @@ const authMachine = setup({
       }
     },
     idle_authenticated: {
+      tags: 'ui-authenticated',
       id: 'idle_authenticated',
       on: {
         CHECK: '.revalidating',
@@ -214,7 +257,9 @@ const authMachine = setup({
       },
       initial: 'stable',
       states: {
-        stable: {},
+        stable: {
+          tags: 'auth-stable',
+        },
         revalidating: {
           invoke: {
             id: 'checkAuthStatus',
@@ -232,20 +277,26 @@ const authMachine = setup({
               {
                 target: 'stable',
                 guard: ({ event }) => event.output.outcome === 'ok' && event.output.status.isAuthenticated,
-                actions: assign(({ event, context }) => ({
-                  ...event.output.status,
-                  client: context.client,
-                  lastAuthStatusResponse: event.output.rawResponse,
-                })),
+                actions: assign(({ event, context }) => {
+                  const now = Date.now();
+                  return {
+                    ...event.output.status,
+                    client: context.client,
+                    authApiResponseLog: addAndPurgeLog(context.authApiResponseLog, 'auth_status', event.output.rawResponse, now),
+                  }
+                }),
               },
               {
                 target: '#auth.idle_unauthenticated',
                 guard: ({ event }) => event.output.outcome === 'ok' && !event.output.status.isAuthenticated,
-                actions: assign(({ event, context }) => ({
-                  ...event.output.status,
-                  client: context.client,
-                  lastAuthStatusResponse: event.output.rawResponse,
-                })),
+                actions: assign(({ event, context }) => {
+                  const now = Date.now();
+                  return {
+                    ...event.output.status,
+                    client: context.client,
+                    authApiResponseLog: addAndPurgeLog(context.authApiResponseLog, 'auth_status', event.output.rawResponse, now),
+                  }
+                }),
               }
             ],
             onError: {
@@ -263,22 +314,30 @@ const authMachine = setup({
               {
                 target: 'stable',
                 guard: ({ event }) => event.output.parsedStatus.isAuthenticated,
-                actions: assign(({ event, context }) => ({
-                  ...event.output.parsedStatus,
-                  client: context.client,
-                  lastCanaryResponse: event.output.canaryData,
-                  lastRefreshResponse: event.output.rawResponse,
-                })),
+                actions: assign(({ event, context }) => {
+                  const now = Date.now();
+                  let log = addAndPurgeLog(context.authApiResponseLog, 'refresh', event.output.rawResponse, now);
+                  log = addAndPurgeLog(log, 'post_refresh_canary', event.output.canaryResponse, now + 1);
+                  return {
+                    ...event.output.parsedStatus,
+                    client: context.client,
+                    authApiResponseLog: log,
+                  }
+                }),
               },
               {
                 target: '#auth.idle_unauthenticated',
                 guard: ({ event }) => !event.output.parsedStatus.isAuthenticated,
-                actions: assign(({ event, context }) => ({
-                  ...event.output.parsedStatus,
-                  client: context.client,
-                  lastCanaryResponse: event.output.canaryData,
-                  lastRefreshResponse: event.output.rawResponse,
-                })),
+                actions: assign(({ event, context }) => {
+                  const now = Date.now();
+                  let log = addAndPurgeLog(context.authApiResponseLog, 'refresh', event.output.rawResponse, now);
+                  log = addAndPurgeLog(log, 'post_refresh_canary', event.output.canaryResponse, now + 1);
+                  return {
+                    ...event.output.parsedStatus,
+                    client: context.client,
+                    authApiResponseLog: log,
+                  }
+                }),
               },
             ],
             onError: {
@@ -290,6 +349,7 @@ const authMachine = setup({
       }
     },
     idle_unauthenticated: {
+      tags: 'auth-stable',
       on: {
         CHECK: 'checking',
         LOGIN: {
@@ -351,53 +411,6 @@ const authMachine = setup({
   }
 });
 
-export const authMachineAtom = atomWithMachine(authMachine);
-
-const prevAuthMachineSnapshotAtom = atom<SnapshotFrom<typeof authMachine> | null>(null);
-
-/**
- * Journal Effect for the Authentication State Machine.
- *
- * When the StateInspector is visible, this effect will log every state
- * transition to the Event Journal and the browser console, providing a detailed
- * trace of the authentication flow for debugging purposes. It remains dormant
- * otherwise to avoid any performance overhead.
- */
-export const authMachineJournalEffectAtom = atomEffect((get, set) => {
-  const isInspectorVisible = get(stateInspectorVisibleAtom);
-  if (!isInspectorVisible) {
-    if (get(prevAuthMachineSnapshotAtom) !== null) {
-      set(prevAuthMachineSnapshotAtom, null); // Reset when not visible to avoid stale "from" state on re-open.
-    }
-    return;
-  }
-
-  const currentSnapshot = get(authMachineAtom);
-  const prevSnapshot = get(prevAuthMachineSnapshotAtom);
-  set(prevAuthMachineSnapshotAtom, currentSnapshot); // Update for next run
-
-  if (!prevSnapshot) {
-    return; // Don't log on the first run.
-  }
-
-  const entry = createJournalEntry(prevSnapshot, currentSnapshot, 'auth');
-  if (entry) {
-    set(addEventJournalEntryAtom, entry);
-    console.log(`[Journal:Auth]`, entry.reason, { from: entry.from, to: entry.to, event: entry.event });
-
-    // After logging the main transition, also check if a canary request just completed.
-    // This is safer than a separate effect atom.
-    const currentCanary = currentSnapshot.context.lastCanaryResponse;
-    const prevCanary = prevSnapshot?.context.lastCanaryResponse;
-    if (currentCanary && JSON.stringify(currentCanary) !== JSON.stringify(prevCanary)) {
-      const canaryEntry = {
-        machine: 'system' as const,
-        from: 'canary_request',
-        to: 'canary_response',
-        event: { type: 'AUTH_TEST' },
-        reason: `Canary check completed successfully, confirming browser cookie synchronization.`
-      };
-      set(addEventJournalEntryAtom, canaryEntry);
-    }
-  }
+export const authMachineAtom = atomWithMachine(authMachine, {
+  inspect: inspector,
 });

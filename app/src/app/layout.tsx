@@ -11,7 +11,7 @@ import GlobalErrorReporter from "@/app/global-error-reporter";
 import PopStateHandler from "@/components/PopStateHandler";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { JotaiAppProvider } from '@/atoms/JotaiAppProvider';
-import { StateInspector } from '@/components/dev/StateInspector';
+import { DebugInspector } from '@/components/dev/DebugInspector';
 import { deploymentSlotName } from "@/lib/deployment-variables";
 import { headers } from "next/headers";
 
@@ -75,9 +75,9 @@ export default async function RootLayout({
               </Suspense>
             {/* End of content previously in RootLayoutClient */}
             <GlobalErrorReporter />
-            {/* StateInspector is always rendered, and decides its own visibility */}
+            {/* DebugInspector is always rendered, and decides its own visibility */}
             <Suspense fallback={null}>
-              <StateInspector />
+              <DebugInspector />
             </Suspense>
             </NuqsAdapter>
           </JotaiAppProvider>

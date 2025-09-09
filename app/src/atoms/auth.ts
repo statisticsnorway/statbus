@@ -14,8 +14,8 @@ import { atomEffect } from 'jotai-effect'
 
 import { type User, type AuthStatus as CoreAuthStatus, _parseAuthStatusRpcResponseToAuthStatus } from '@/lib/auth.types';
 import { isTokenManuallyExpiredAtom } from './app';
-import { authMachineAtom, authMachineJournalEffectAtom } from './auth-machine';
-import { loginUiMachineAtom, loginUiMachineJournalEffectAtom } from './login-ui-machine';
+import { authMachineAtom } from './auth-machine';
+import { loginUiMachineAtom } from './login-ui-machine';
 import {
   importStateAtom,
   initialImportState,
@@ -35,8 +35,8 @@ import { restClientAtom } from './rest-client'
 // ============================================================================
 // EXPORTS FROM MACHINE FILES
 // ============================================================================
-export { authMachineAtom, authMachineJournalEffectAtom };
-export { loginUiMachineAtom, loginUiMachineJournalEffectAtom };
+export { authMachineAtom };
+export { loginUiMachineAtom };
 export { _parseAuthStatusRpcResponseToAuthStatus };
 export type { User };
 
@@ -123,12 +123,11 @@ export const authStatusDetailsAtom = selectAtom(authStatusUnstableDetailsAtom, (
  */
 export const isUserConsideredAuthenticatedForUIAtom = atom(get => {
   const state = get(authMachineAtom);
-  // User is considered authenticated for UI purposes if they are in a stable authenticated state,
-  // or if the machine is in a transient state that will likely lead back to an
-  // authenticated state. This prevents data cascades (the "nemesis" bug).
-  const result = state.matches('idle_authenticated') || state.matches('checking') || state.matches('evaluating_initial_session') || state.matches('initial_refreshing') || state.matches('re_initializing');
-  
-  return result;
+  // User is considered authenticated for UI purposes if the current state is tagged
+  // with 'ui-authenticated'. This is a declarative way to define UI stability and
+  // prevents UI flicker during transient auth states. This logic is now defined
+  // directly within the state machine.
+  return state.hasTag('ui-authenticated');
 });
 
 /**
@@ -184,6 +183,14 @@ export const isAuthenticatedStrictAtom = atom(get => {
   const state = get(authStateForDataFetchingAtom);
   return state === 'authenticated' || state === 'refreshing';
 });
+
+/**
+ * A derived atom that is true only when the auth machine is in a final,
+ * settled state (either authenticated or unauthenticated). This provides a clear
+ * signal for other systems, like the navigation machine, to know when it is
+ * safe to make decisions based on the authentication status.
+ */
+export const isAuthStableAtom = atom(get => get(authMachineAtom).hasTag('auth-stable'));
 
 /**
  * The primary, recommended atom for auth state.

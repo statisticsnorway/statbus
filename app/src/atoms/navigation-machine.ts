@@ -2,8 +2,7 @@ import { atom } from 'jotai';
 import { atomWithMachine } from 'jotai-xstate';
 import { createMachine, assign, setup, type SnapshotFrom } from 'xstate';
 import { atomEffect } from 'jotai-effect';
-import { addEventJournalEntryAtom, stateInspectorVisibleAtom } from './app';
-import { createJournalEntry } from './journal-utils';
+import { inspector } from './inspector';
 
 /**
  * Navigation State Machine (navigationMachine)
@@ -28,11 +27,12 @@ export interface NavigationContext {
   pathname: string;
   isAuthenticated: boolean;
   isAuthLoading: boolean;
+  isAuthStable: boolean;
   isSetupLoading: boolean;
   setupPath: string | null;
   lastKnownPath: string | null;
   sideEffect?: {
-    action: 'navigate' | 'savePath' | 'clearLastKnownPath' | 'revalidateAuth';
+    action: 'savePath' | 'clearLastKnownPath' | 'revalidateAuth' | 'navigateAndSaveJournal';
     targetPath?: string;
   };
 }
@@ -48,7 +48,7 @@ export const navigationMachine = setup({
     events: {} as NavigationEvent,
   },
 }).createMachine({
-  id: 'navigationV2',
+  id: 'navigation',
   initial: 'booting',
   on: {
     CONTEXT_UPDATED: [
@@ -74,6 +74,7 @@ export const navigationMachine = setup({
     pathname: '',
     isAuthenticated: false,
     isAuthLoading: true,
+    isAuthStable: false,
     isSetupLoading: true,
     setupPath: null,
     lastKnownPath: null,
@@ -105,13 +106,14 @@ export const navigationMachine = setup({
             !isPublicPath(context.pathname),
         },
         {
-          target: 'redirectingFromLogin',
+          target: 'revalidatingOnLoginPage',
           guard: ({ context }) => context.isAuthenticated && !context.isAuthLoading && context.pathname === '/login',
         },
         {
           target: 'redirectingToSetup',
           guard: ({ context }) =>
             context.isAuthenticated &&
+            !context.isAuthLoading && // Wait for auth check to complete.
             context.pathname === '/' && // Only check for setup redirect when user is on the dashboard.
             !!context.setupPath,
         },
@@ -125,8 +127,36 @@ export const navigationMachine = setup({
      */
     idle: {
       tags: 'stable',
+      // BATTLE WISDOM: Always clear side-effects upon entering a stable state.
+      // This prevents a stale side-effect from a previous navigation flow (like
+      // redirecting TO login) from blocking the machine from re-evaluating its
+      // state when a new context update arrives (like a successful login).
+      entry: assign({ sideEffect: undefined }),
       // This state is now stable. The cleanup logic has been moved to be part
       // of the `redirectingFromLogin` flow, making it more robust.
+    },
+    /**
+     * An intermediate state that commands an auth re-validation when an authenticated
+     * user lands on the login page. This is a crucial step to break redirect loops
+     * caused by server-side redirects with stale tokens.
+     */
+    revalidatingOnLoginPage: {
+      entry: assign({ sideEffect: { action: 'revalidateAuth' } }),
+      on: {
+        CONTEXT_UPDATED: {
+          target: 'redirectingFromLogin',
+          target: 'redirectingFromLogin',
+          // Guard: Wait only for the auth re-validation to complete. The `redirectingFromLogin`
+          // state will then use the latest `setupPath` from the context to make its final
+          // navigation decision. Waiting for `isSetupLoading` here can cause a deadlock.
+          // BATTLE WISDOM: The guard must inspect the incoming event's value, not the
+          // machine's current context. The context is not updated until after the guard
+          // passes, creating a race condition. This explicitly checks for the `false`
+          // signal from the event payload.
+          guard: ({ event }) => event.value.isAuthLoading === false,
+          actions: assign(({ context, event }) => ({ ...context, ...event.value })),
+        }
+      }
     },
     /**
      * An intermediate state that triggers the 'savePath' side-effect to store the
@@ -141,27 +171,25 @@ export const navigationMachine = setup({
      */
     redirectingToLogin: {
       entry: assign({
-        sideEffect: { action: 'navigate', targetPath: '/login' },
+        sideEffect: { action: 'navigateAndSaveJournal', targetPath: '/login' },
       }),
-      always: 'waitingForRedirectToLogin'
-    },
-    waitingForRedirectToLogin: {
       on: {
-        CONTEXT_UPDATED: [
-          {
-            // Escape hatch: If we become authenticated while redirecting to login
-            // (e.g., via another tab), stop waiting and re-evaluate immediately.
-            target: 'evaluating',
-            guard: ({ event }) => event.value.isAuthenticated === true,
-            actions: assign(( { context, event } ) => ({ ...context, ...event.value })),
-          },
-          {
-            target: 'idle',
-            guard: ({ event }) => event.value.pathname === '/login',
-            actions: assign(( { context, event } ) => ({ ...context, ...event.value })),
-          },
-        ],
-      }
+        CONTEXT_UPDATED: {
+          actions: assign(( { context, event } ) => ({ ...context, ...event.value })),
+        }
+      },
+      always: [
+        {
+          // Escape hatch: If we become authenticated while redirecting to login
+          // (e.g., via another tab), stop waiting and re-evaluate immediately.
+          target: 'evaluating',
+          guard: ({ context }) => context.isAuthenticated === true,
+        },
+        {
+          target: 'idle',
+          guard: ({ context }) => context.pathname === '/login',
+        },
+      ]
     },
     /**
      * A state that triggers a 'navigate' side-effect to send the user to the
@@ -171,31 +199,28 @@ export const navigationMachine = setup({
     redirectingToSetup: {
       entry: assign({
         sideEffect: ({ context }) => ({
-          action: 'navigate',
+          action: 'navigateAndSaveJournal',
           targetPath: context.setupPath!,
         }),
       }),
-      always: 'waitingForRedirectToSetup'
-    },
-    waitingForRedirectToSetup: {
-      // After commanding the navigation, wait for the context to update with a new path.
       on: {
-        CONTEXT_UPDATED: [
-          {
-            // Escape hatch: If we become unauthenticated while redirecting to setup,
-            // stop waiting and re-evaluate immediately.
-            target: 'evaluating',
-            guard: ({ event }) => event.value.isAuthenticated === false,
-            actions: assign(( { context, event } ) => ({ ...context, ...event.value })),
-          },
-          {
-            target: '#navigationV2.evaluating',
-            // Guard: Only transition once we are no longer on the root path.
-            guard: ({ event }) => event.value.pathname !== '/',
-            actions: assign(( { context, event } ) => ({ ...context, ...event.value })),
-          },
-        ],
-      }
+        CONTEXT_UPDATED: {
+          actions: assign(( { context, event } ) => ({ ...context, ...event.value })),
+        }
+      },
+      always: [
+        {
+          // Escape hatch: If we become unauthenticated while redirecting to setup,
+          // stop waiting and re-evaluate immediately.
+          target: 'evaluating',
+          guard: ({ context }) => context.isAuthenticated === false,
+        },
+        {
+          target: 'evaluating',
+          // Guard: Only transition once we are no longer on the root path.
+          guard: ({ context }) => context.pathname !== '/',
+        },
+      ]
     },
     /**
      * A state that triggers a 'navigate' side-effect to redirect the user away
@@ -207,86 +232,62 @@ export const navigationMachine = setup({
         sideEffect: ({ context }) => {
           const targetPath = context.setupPath || context.lastKnownPath || '/';
           return {
-            action: 'navigate',
+            action: 'navigateAndSaveJournal',
             targetPath: targetPath === '/login' ? '/' : targetPath,
           };
         }
       }),
-      always: 'waitingForRedirectFromLogin'
-    },
-    waitingForRedirectFromLogin: {
-      // After commanding navigation, wait for the context to update with a new path.
       on: {
-        CONTEXT_UPDATED: [
-          {
-            // Escape hatch: If we become unauthenticated while redirecting away from login,
-            // stop waiting and re-evaluate immediately. This prevents a deadlock.
-            target: 'evaluating',
-            guard: ({ event }) => event.value.isAuthenticated === false,
-            actions: assign(( { context, event } ) => ({ ...context, ...event.value })),
-          },
-          {
-            target: '#navigationV2.cleanupAfterRedirect',
-            // Guard: Only transition once we are no longer on the login page.
-            guard: ({ event }) => event.value.pathname !== '/login',
-            actions: assign(( { context, event } ) => ({ ...context, ...event.value })),
-          },
-        ],
-      }
+        // When a context update happens, just apply it. The `always` transition
+        // will then re-evaluate the state based on the new context.
+        CONTEXT_UPDATED: {
+          actions: assign(( { context, event } ) => ({ ...context, ...event.value })),
+        }
+      },
+      always: [
+        {
+          // Escape hatch: If we become unauthenticated while redirecting away from login,
+          // stop waiting and re-evaluate immediately. This prevents a deadlock.
+          target: 'evaluating',
+          guard: ({ context }) => context.isAuthenticated === false,
+        },
+        {
+          target: 'cleanupAfterRedirect',
+          // Guard: Only transition once we are no longer on the login page.
+          guard: ({ context }) => context.pathname !== '/login',
+        },
+      ]
     },
     /**
      * This state cleans up artifacts of the login/redirect process. It runs
      * after any redirect away from the login page.
      */
     cleanupAfterRedirect: {
-      tags: 'stable',
       entry: assign({
-        sideEffect: { action: 'clearLastKnownPath' }
+        // BATTLE WISDOM: Conditionally dispatch the side-effect. If the path is
+        // already null, we do nothing. This prevents an unnecessary state update
+        // and allows the `always` transition below to handle the case immediately.
+        sideEffect: ({ context }) => context.lastKnownPath !== null ? { action: 'clearLastKnownPath' } : undefined
       }),
-      // After commanding cleanup, wait for the context to update with the cleared path.
+      // If lastKnownPath was already null, no side-effect was dispatched.
+      // We can immediately re-evaluate, preventing a deadlock.
+      always: {
+        target: 'evaluating',
+        guard: ({ context }) => context.lastKnownPath === null,
+      },
       on: {
         CONTEXT_UPDATED: {
-          target: '#navigationV2.evaluating',
-          // Guard: Only transition once the last known path has been cleared.
+          target: 'evaluating',
+          // If a side-effect was dispatched, we wait for the context update
+          // that confirms it has completed.
           guard: ({ event }) => event.value.lastKnownPath === null,
-          actions: assign(( { context, event } ) => ({ ...context, ...event.value })),
+          actions: assign(({ context, event }) => ({ ...context, ...event.value })),
         }
       }
     }
   },
 });
 
-export const navigationMachineAtom = atomWithMachine(navigationMachine);
-
-const prevNavMachineSnapshotAtom = atom<SnapshotFrom<typeof navigationMachine> | null>(null);
-
-/**
- * Journal Effect for the Navigation State Machine.
- *
- * When the StateInspector is visible, this effect will log every state
- * transition to the Event Journal and the browser console, providing a detailed
- * trace of all programmatic navigation decisions. It remains dormant otherwise.
- */
-export const navMachineJournalEffectAtom = atomEffect((get, set) => {
-  const isInspectorVisible = get(stateInspectorVisibleAtom);
-  if (!isInspectorVisible) {
-    if (get(prevNavMachineSnapshotAtom) !== null) {
-      set(prevNavMachineSnapshotAtom, null); // Reset when not visible.
-    }
-    return;
-  }
-
-  const currentSnapshot = get(navigationMachineAtom);
-  const prevSnapshot = get(prevNavMachineSnapshotAtom);
-  set(prevNavMachineSnapshotAtom, currentSnapshot);
-
-  if (!prevSnapshot) {
-    return; // Don't log on the first run.
-  }
-  
-  const entry = createJournalEntry(prevSnapshot, currentSnapshot, 'nav');
-  if (entry) {
-    set(addEventJournalEntryAtom, entry);
-    console.log(`[Journal:Nav]`, entry.reason, { from: entry.from, to: entry.to, event: entry.event, context: currentSnapshot.context });
-  }
+export const navigationMachineAtom = atomWithMachine(navigationMachine, {
+  inspect: inspector,
 });

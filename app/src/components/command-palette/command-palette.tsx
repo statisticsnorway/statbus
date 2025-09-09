@@ -7,7 +7,7 @@ import { ResetConfirmationDialog } from "./reset-confirmation-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/atoms/auth";
 import { useSetAtom } from "jotai";
-import { stateInspectorVisibleAtom } from "@/atoms/app";
+import { debugInspectorVisibleAtom } from "@/atoms/app";
 import {
   BarChartHorizontal,
   Footprints,
@@ -43,7 +43,7 @@ export function CommandPalette() {
   const { toast } = useToast();
   const router = useRouter();
   const { logout } = useAuth();
-  const setStateInspectorVisible = useSetAtom(stateInspectorVisibleAtom);
+  const setStateInspectorVisible = useSetAtom(debugInspectorVisibleAtom);
 
   useGuardedEffect(() => {
     const open = () => {
@@ -253,10 +253,10 @@ export function CommandPalette() {
             </CommandItem>
             <CommandItem
               onSelect={handleToggleStateInspector}
-              value="toggle state inspector developer tool"
+              value="toggle debug inspector developer tool"
             >
               <Binary className="mr-2 h-4 w-4" />
-              <span>Toggle State Inspector</span>
+              <span>Toggle Debug Inspector</span>
             </CommandItem>
           </CommandGroup>
         </CommandList>

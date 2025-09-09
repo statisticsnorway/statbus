@@ -6,15 +6,13 @@ import { usePathname } from 'next/navigation';
 
 // App state atoms
 import {
-  stateInspectorVisibleAtom,
-  stateInspectorExpandedAtom,
-  stateInspectorJournalVisibleAtom,
-  stateInspectorStateVisibleAtom,
-  stateInspectorCanaryExpandedAtom,
-  stateInspectorAuthStatusExpandedAtom,
-  stateInspectorRefreshExpandedAtom,
-  stateInspectorEffectJournalVisibleAtom,
-  stateInspectorMountJournalVisibleAtom,
+  debugInspectorVisibleAtom,
+  debugInspectorExpandedAtom,
+  debugInspectorJournalVisibleAtom,
+  debugInspectorStateVisibleAtom,
+  debugInspectorApiLogExpandedAtom,
+  debugInspectorEffectJournalVisibleAtom,
+  debugInspectorMountJournalVisibleAtom,
   isTokenManuallyExpiredAtom,
   combinedJournalViewAtom,
   clearAndMarkJournalAtom,
@@ -23,6 +21,7 @@ import {
   requiredSetupRedirectAtom,
   selectedTimeContextAtom,
   initialAuthCheckCompletedAtom,
+  MachineID,
 } from '@/atoms/app';
 
 // Auth state atoms
@@ -107,16 +106,14 @@ const formatDiffToString = (diff: any, path: string = ''): string => {
 };
 
 // Helper component to visually render the diff.
-export const StateInspector = () => {
-  const [isVisible, setIsVisible] = useAtom(stateInspectorVisibleAtom);
-  const [isExpanded, setIsExpanded] = useAtom(stateInspectorExpandedAtom);
-  const [isJournalVisible, setIsJournalVisible] = useAtom(stateInspectorJournalVisibleAtom);
-  const [isStateVisible, setIsStateVisible] = useAtom(stateInspectorStateVisibleAtom);
-  const [isCanaryExpanded, setIsCanaryExpanded] = useAtom(stateInspectorCanaryExpandedAtom);
-  const [isAuthStatusExpanded, setIsAuthStatusExpanded] = useAtom(stateInspectorAuthStatusExpandedAtom);
-  const [isRefreshExpanded, setIsRefreshExpanded] = useAtom(stateInspectorRefreshExpandedAtom);
-  const [isEffectJournalVisible, setIsEffectJournalVisible] = useAtom(stateInspectorEffectJournalVisibleAtom);
-  const [isMountJournalVisible, setIsMountJournalVisible] = useAtom(stateInspectorMountJournalVisibleAtom);
+export const DebugInspector = () => {
+  const [isVisible, setIsVisible] = useAtom(debugInspectorVisibleAtom);
+  const [isExpanded, setIsExpanded] = useAtom(debugInspectorExpandedAtom);
+  const [isJournalVisible, setIsJournalVisible] = useAtom(debugInspectorJournalVisibleAtom);
+  const [isStateVisible, setIsStateVisible] = useAtom(debugInspectorStateVisibleAtom);
+  const [isApiLogExpanded, setIsApiLogExpanded] = useAtom(debugInspectorApiLogExpandedAtom);
+  const [isEffectJournalVisible, setIsEffectJournalVisible] = useAtom(debugInspectorEffectJournalVisibleAtom);
+  const [isMountJournalVisible, setIsMountJournalVisible] = useAtom(debugInspectorMountJournalVisibleAtom);
   const [isEffectJournalHelpVisible, setIsEffectJournalHelpVisible] =
     React.useState(false);
   const haltedEffects = useAtomValue(haltedEffectsAtom);
@@ -148,7 +145,7 @@ export const StateInspector = () => {
     if (journalContainerRef.current) {
       journalContainerRef.current.scrollTop = journalContainerRef.current.scrollHeight;
     }
-  }, [journal], 'StateInspector.tsx:autoScrollJournal');
+  }, [journal], 'DebugInspector.tsx:autoScrollJournal');
 
   // Atoms for general state
   const authStatusDetailsValue = useAtomValue(authStatusDetailsAtom);
@@ -158,7 +155,7 @@ export const StateInspector = () => {
     // This effect runs whenever auth state changes, resetting the global atom
     // that tracks manual token expiry. This re-enables the button.
     setIsTokenManuallyExpired(false);
-  }, [authStatusDetailsValue, setIsTokenManuallyExpired], 'StateInspector.tsx:resetManualExpiryFlag');
+  }, [authStatusDetailsValue, setIsTokenManuallyExpired], 'DebugInspector.tsx:resetManualExpiryFlag');
 
   const baseDataFromAtom = useAtomValue(baseDataAtom);
   const workerStatusValue = useAtomValue(workerStatusAtom);
@@ -181,7 +178,7 @@ export const StateInspector = () => {
 
   const handleExpireToken = async () => {
     addJournalEntry({
-      machine: 'inspector',
+      machine: MachineID.Inspector,
       from: 'user',
       to: 'action',
       event: { type: 'EXPIRE_TOKEN' },
@@ -197,7 +194,7 @@ export const StateInspector = () => {
 
   const handleCheckAuth = () => {
     addJournalEntry({
-      machine: 'inspector',
+      machine: MachineID.Inspector,
       from: 'user',
       to: 'action',
       event: { type: 'CHECK_AUTH' },
@@ -210,7 +207,7 @@ export const StateInspector = () => {
 
   const handleRefreshToken = () => {
     addJournalEntry({
-      machine: 'inspector',
+      machine: MachineID.Inspector,
       from: 'user',
       to: 'action',
       event: { type: 'REFRESH_TOKEN' },
@@ -223,7 +220,7 @@ export const StateInspector = () => {
     
   useGuardedEffect(() => {
     setMounted(true);
-  }, [], 'StateInspector.tsx:setMounted');
+  }, [], 'DebugInspector.tsx:setMounted');
 
   useGuardedEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -234,10 +231,11 @@ export const StateInspector = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [setIsVisible], 'StateInspector.tsx:keydownListener');
+  }, [setIsVisible], 'DebugInspector.tsx:keydownListener');
 
   const baseDataState = baseDataFromAtom.loading ? 'loading' : baseDataFromAtom.error ? 'hasError' : 'hasData';
   const authDerivedState = authStatusDetailsValue.loading ? 'loading' : authStatusDetailsValue.error_code ? 'hasError' : 'hasData';
+
   const fullState = {
     pathname,
     authStatus: {
@@ -278,9 +276,7 @@ export const StateInspector = () => {
     navigationState: { requiredSetupRedirect: requiredSetupRedirectValue, lastKnownPathBeforeAuthChange: lastKnownPathValue },
     redirectRelevantState: redirectRelevantStateValue,
     devToolsState: { isTokenManuallyExpired: isTokenManuallyExpired },
-    lastCanaryResponse: authState.context.lastCanaryResponse,
-    lastAuthStatusResponse: authState.context.lastAuthStatusResponse,
-    lastRefreshResponse: authState.context.lastRefreshResponse,
+    authApiResponseLog: authState.context.authApiResponseLog,
   };
 
   const handleCopyState = () => {
@@ -319,7 +315,7 @@ export const StateInspector = () => {
     const reportString = JSON.stringify(report, null, 2);
 
     navigator.clipboard.writeText(reportString).then(() => {
-      console.log("[StateInspector] Full Debug Report:", report);
+      console.log("[DebugInspector] Full Debug Report:", report);
       setCopyStatus('Copied!');
       setTimeout(() => setCopyStatus(''), 2000);
     }).catch(err => {
@@ -398,7 +394,7 @@ export const StateInspector = () => {
   return (
     <div className="fixed bottom-4 right-4 bg-black bg-opacity-80 text-white rounded-lg text-xs max-w-md max-h-[80vh] overflow-auto z-[9999]">
       <div className="sticky top-0 z-10 bg-black bg-opacity-80 p-2 flex justify-between items-center">
-        <span onClick={() => setIsExpanded(!isExpanded)} className="cursor-pointer font-bold">State Inspector {isExpanded ? '▼' : '▶'}</span>
+        <span onClick={() => setIsExpanded(!isExpanded)} className="cursor-pointer font-bold">Debug Inspector {isExpanded ? '▼' : '▶'}</span>
         <div className="flex items-center space-x-1">
           <button
             onClick={handleCopy}
@@ -538,8 +534,8 @@ export const StateInspector = () => {
                 {journal.length > 0 ? (
                   journal.map((entry, index) => {
                     let machineColor = 'text-cyan-400';
-                    if (entry.machine === 'system') machineColor = 'text-purple-400';
-                    if (entry.machine === 'inspector') machineColor = 'text-orange-400';
+                    if (entry.machine === MachineID.System) machineColor = 'text-purple-400';
+                    if (entry.machine === MachineID.Inspector) machineColor = 'text-orange-400';
                     return (
                       <div key={`${entry.timestamp_epoch}-${index}`}>
                         <span className="text-gray-400">
@@ -801,53 +797,24 @@ export const StateInspector = () => {
                   <div><strong>Token Manually Expired:</strong> {stateToDisplay.devToolsState?.isTokenManuallyExpired ? 'Yes' : 'No'}</div>
                 </div>
               </div>
-              {stateToDisplay.lastCanaryResponse && (
+              {stateToDisplay.authApiResponseLog && Object.keys(stateToDisplay.authApiResponseLog).length > 0 && (
                 <div>
-                  <strong onClick={() => setIsCanaryExpanded(v => !v)} className="cursor-pointer">
-                    Last Canary Response: {isCanaryExpanded ? '▼' : '▶'}
-                    {!isCanaryExpanded && (
-                      <span className="pl-2 font-normal font-mono text-xs">
-                        {`[${new Date(stateToDisplay.lastCanaryResponse.timestamp).toLocaleTimeString()}] Token {Valid: ${stateToDisplay.lastCanaryResponse.access_token?.valid}, Expired: ${stateToDisplay.lastCanaryResponse.access_token?.expired}}`}
-                      </span>
-                    )}
+                  <strong onClick={() => setIsApiLogExpanded(v => !v)} className="cursor-pointer">
+                    Auth API Response Log ({Object.keys(stateToDisplay.authApiResponseLog).length}) {isApiLogExpanded ? '▼' : '▶'}
                   </strong>
-                  {isCanaryExpanded && (
-                    <div className="pl-4 mt-1 font-mono text-xs max-h-48 overflow-y-auto border border-gray-600 rounded p-1 bg-black/20">
-                      <pre className="whitespace-pre-wrap break-all">{JSON.stringify(stateToDisplay.lastCanaryResponse, null, 2)}</pre>
-                    </div>
-                  )}
-                </div>
-              )}
-              {stateToDisplay.lastAuthStatusResponse && (
-                <div>
-                  <strong onClick={() => setIsAuthStatusExpanded(v => !v)} className="cursor-pointer">
-                    Last Auth Status: {isAuthStatusExpanded ? '▼' : '▶'}
-                    {!isAuthStatusExpanded && (
-                      <span className="pl-2 font-normal font-mono text-xs">
-                        {`[${new Date(stateToDisplay.lastAuthStatusResponse.timestamp).toLocaleTimeString()}] OK (${stateToDisplay.lastAuthStatusResponse.statbus_role}), Refresh?: ${stateToDisplay.lastAuthStatusResponse.expired_access_token_call_refresh}`}
-                      </span>
-                    )}
-                  </strong>
-                  {isAuthStatusExpanded && (
-                    <div className="pl-4 mt-1 font-mono text-xs max-h-48 overflow-y-auto border border-gray-600 rounded p-1 bg-black/20">
-                      <pre className="whitespace-pre-wrap break-all">{JSON.stringify(stateToDisplay.lastAuthStatusResponse, null, 2)}</pre>
-                    </div>
-                  )}
-                </div>
-              )}
-              {stateToDisplay.lastRefreshResponse && (
-                <div>
-                  <strong onClick={() => setIsRefreshExpanded(v => !v)} className="cursor-pointer">
-                    Last Refresh: {isRefreshExpanded ? '▼' : '▶'}
-                    {!isRefreshExpanded && (
-                      <span className="pl-2 font-normal font-mono text-xs">
-                        {`[${new Date(stateToDisplay.lastRefreshResponse.timestamp).toLocaleTimeString()}] OK (${stateToDisplay.lastRefreshResponse.statbus_role})`}
-                      </span>
-                    )}
-                  </strong>
-                  {isRefreshExpanded && (
-                    <div className="pl-4 mt-1 font-mono text-xs max-h-48 overflow-y-auto border border-gray-600 rounded p-1 bg-black/20">
-                      <pre className="whitespace-pre-wrap break-all">{JSON.stringify(stateToDisplay.lastRefreshResponse, null, 2)}</pre>
+                  {isApiLogExpanded && (
+                    <div className="pl-4 mt-1 space-y-2 font-mono text-xs max-h-48 overflow-y-auto border border-gray-600 rounded p-1 bg-black/20">
+                      {Object.entries(stateToDisplay.authApiResponseLog)
+                        .sort(([keyA], [keyB]) => Number(keyB) - Number(keyA)) // Newest first
+                        .map(([timestamp, logEntry]: [string, any]) => (
+                          <div key={timestamp} className="border-b border-gray-700 pb-1 mb-1 last:border-b-0">
+                            <p className="text-yellow-400 font-bold">
+                              {`[${new Date(Number(timestamp)).toLocaleTimeString()}.${String(Number(timestamp) % 1000).padStart(3, '0')}] ${logEntry.type.replace(/_/g, ' ').toUpperCase()}`}
+                            </p>
+                            <pre className="whitespace-pre-wrap break-all">{JSON.stringify(logEntry.response, null, 2)}</pre>
+                          </div>
+                        ))
+                      }
                     </div>
                   )}
                 </div>

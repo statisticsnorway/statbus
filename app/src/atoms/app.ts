@@ -199,7 +199,7 @@ const redirectRelevantStateAtomUnstable = atom((get) => {
 });
 
 // Create a memoized/stabilized version of the state object.
-// This prevents the StateInspector from re-rendering infinitely.
+// This prevents the DebugInspector from re-rendering infinitely.
 export const redirectRelevantStateAtom = selectAtom(
   redirectRelevantStateAtomUnstable,
   (state) => state,
@@ -211,10 +211,18 @@ export const redirectRelevantStateAtom = selectAtom(
 // DEBUG/DEVELOPMENT ATOMS
 // ============================================================================
 
+export enum MachineID {
+  Auth = 'auth',
+  Navigation = 'navigation',
+  LoginUI = 'loginUi',
+  System = 'system',
+  Inspector = 'inspector',
+}
+
 export interface EventJournalEntry {
   timestamp_epoch: number; // For machine sorting and calculations
   timestamp_iso: string;   // For human readability in logs and debugging
-  machine: 'auth' | 'nav' | 'loginUi' | 'system' | 'inspector';
+  machine: MachineID;
   from: any; // JSON-serializable state value
   to: any;   // JSON-serializable state value
   event: any; // JSON-serializable event
@@ -224,7 +232,31 @@ export interface EventJournalEntry {
 const EVENT_JOURNAL_MAX_LENGTH = 50; // Keep the last 50 transitions.
 
 /**
- * The State Inspector Event Journal.
+ * A dedicated atom to hold a snapshot of the event journal, saved immediately
+ * before a programmatic redirect. This solves the diagnostic race condition where
+ * redirect events would be lost because the page unloads before the inspector's
+ * UI can update.
+ */
+export const preRedirectJournalSnapshotAtom = atomWithStorage<EventJournalEntry[] | null>(
+  'preRedirectJournalSnapshot',
+  null,
+  createJSONStorage(() => sessionStorage)
+);
+
+/**
+ * Write-only atom to command the saving of the current journal state to the
+ * pre-redirect snapshot storage. This is triggered by the NavigationManager.
+ */
+export const saveJournalSnapshotAtom = atom(
+  null,
+  (get, set) => {
+    const currentJournal = get(combinedJournalViewAtom);
+    set(preRedirectJournalSnapshotAtom, currentJournal);
+  }
+);
+
+/**
+ * The Debug Inspector Event Journal.
  * A persistent, session-only atom that stores a capped history of state machine
  * transitions. This serves as our stateful battle journal, surviving page
  * reloads to provide a complete debugging narrative.
@@ -247,7 +279,7 @@ export const eventJournalAtom = atomWithStorage<EventJournalEntry[]>('eventJourn
 
 /**
  * A read-only derived atom that provides a unified view of both the persistent
- * and transient journals. The StateInspector should use this to display a
+ * and transient journals. The DebugInspector should use this to display a
  * complete and chronologically-correct history at all times.
  */
 export const combinedJournalViewAtom = atom(get => {
@@ -259,7 +291,7 @@ export const combinedJournalViewAtom = atom(get => {
 });
 
 /**
- * Write-only atom for adding entries to the State Inspector Event Journal.
+ * Write-only atom for adding entries to the Debug Inspector Event Journal.
  * It intelligently writes to a transient in-memory journal before the app is
  * unified with persisted state, and to the persistent journal afterwards.
  */
@@ -297,8 +329,18 @@ export const unifyEventJournalsAtom = atom(
 
     const transientCrumbs = get(transientEventJournalAtom);
     const persistentHistory = get(eventJournalAtom);
+    const preRedirectSnapshot = get(preRedirectJournalSnapshotAtom);
 
-    const unifiedJournal = [...persistentHistory, ...transientCrumbs];
+    let journalToUnify = persistentHistory;
+
+    // If a snapshot from a previous page exists, it is the most complete history.
+    // We use it as the base and clear it.
+    if (preRedirectSnapshot) {
+      journalToUnify = preRedirectSnapshot;
+      set(preRedirectJournalSnapshotAtom, null);
+    }
+
+    const unifiedJournal = [...journalToUnify, ...transientCrumbs];
     unifiedJournal.sort((a, b) => a.timestamp_epoch - b.timestamp_epoch);
 
     set(eventJournalAtom, unifiedJournal.slice(-EVENT_JOURNAL_MAX_LENGTH));
@@ -318,7 +360,7 @@ export const clearAndMarkJournalAtom = atom(
     set(transientEventJournalAtom, []);
     const now = new Date();
     const markerEntry: EventJournalEntry = {
-        machine: 'inspector',
+        machine: MachineID.Inspector,
         from: 'system',
         to: 'state',
         event: { type: 'JOURNAL_CLEARED' },
@@ -342,9 +384,9 @@ export const logReloadToJournalAtom = atom(
     if (typeof window === 'undefined') return;
     // Check if a reload occurred.
     if (sessionStorage.getItem('statbus_unloading') === 'true') {
-      if (get(stateInspectorVisibleAtom)) { // Only log if inspector is active
+      if (get(debugInspectorVisibleAtom)) { // Only log if inspector is active
         const entry: Omit<EventJournalEntry, 'timestamp_epoch' | 'timestamp_iso'> = {
-          machine: 'system',
+          machine: MachineID.System,
           from: 'unloaded',
           to: 'loaded',
           event: { type: 'RELOAD' },
@@ -381,7 +423,7 @@ export const pageUnloadDetectorEffectAtom = atomEffect((get) => {
   if (typeof window === 'undefined') return;
 
   const handleBeforeUnload = () => {
-    if (get(stateInspectorVisibleAtom)) {
+    if (get(debugInspectorVisibleAtom)) {
       sessionStorage.setItem('statbus_unloading', 'true');
     }
   };
@@ -393,15 +435,13 @@ export const pageUnloadDetectorEffectAtom = atomEffect((get) => {
 });
 
 
-export const stateInspectorVisibleAtom = atomWithStorage('stateInspectorVisible', false);
-export const stateInspectorExpandedAtom = atomWithStorage('stateInspectorExpanded', false);
-export const stateInspectorJournalVisibleAtom = atomWithStorage('stateInspectorJournalVisible', true);
-export const stateInspectorStateVisibleAtom = atomWithStorage('stateInspectorStateVisible', true);
-export const stateInspectorCanaryExpandedAtom = atomWithStorage('stateInspectorCanaryExpanded', false);
-export const stateInspectorAuthStatusExpandedAtom = atomWithStorage('stateInspectorAuthStatusExpanded', false);
-export const stateInspectorRefreshExpandedAtom = atomWithStorage('stateInspectorRefreshExpanded', false);
-export const stateInspectorEffectJournalVisibleAtom = atomWithStorage('stateInspectorEffectJournalVisible', false);
-export const stateInspectorMountJournalVisibleAtom = atomWithStorage('stateInspectorMountJournalVisible', false);
+export const debugInspectorVisibleAtom = atomWithStorage('debugInspectorVisible', false);
+export const debugInspectorExpandedAtom = atomWithStorage('debugInspectorExpanded', false);
+export const debugInspectorJournalVisibleAtom = atomWithStorage('debugInspectorJournalVisible', true);
+export const debugInspectorStateVisibleAtom = atomWithStorage('debugInspectorStateVisible', true);
+export const debugInspectorApiLogExpandedAtom = atomWithStorage('debugInspectorApiLogExpanded', false);
+export const debugInspectorEffectJournalVisibleAtom = atomWithStorage('debugInspectorEffectJournalVisible', false);
+export const debugInspectorMountJournalVisibleAtom = atomWithStorage('debugInspectorMountJournalVisible', false);
 
 // Dev Tools State
 export const isTokenManuallyExpiredAtom = atom(false);

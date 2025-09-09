@@ -19,14 +19,14 @@ import {
   requiredSetupRedirectAtom,
   selectedTimeContextAtom,
   setupRedirectCheckAtom,
-  stateInspectorVisibleAtom,
+  debugInspectorVisibleAtom,
   redirectRelevantStateAtom,
   eventJournalAtom,
   pageUnloadDetectorEffectAtom,
   logReloadToJournalAtom,
   unifyEventJournalsAtom,
   journalUnificationEffectAtom,
-  stateInspectorExpandedAtom,
+  debugInspectorExpandedAtom,
   addEventJournalEntryAtom,
   useAppReady,
 } from './app';
@@ -42,8 +42,6 @@ import {
   fetchAuthStatusAtom,
   authMachineAtom,
   isAuthActionInProgressAtom,
-  authMachineJournalEffectAtom,
-  loginUiMachineJournalEffectAtom,
 } from './auth';
 import {
   baseDataAtom,
@@ -68,19 +66,22 @@ import {
 } from './worker_status';
 import { AuthCrossTabSyncer } from './AuthCrossTabSyncer';
 import { NavigationManager } from './NavigationManager';
-import { navigationMachineAtom, navMachineJournalEffectAtom } from './navigation-machine';
+import { navigationMachineAtom } from './navigation-machine';
+
+// ============================================================================
+// APP INITIALIZER - Handles startup logic
+// ============================================================================
+
+import { JotaiInspectorInitializer } from './inspector';
 
 // ============================================================================
 // APP INITIALIZER - Handles startup logic
 // ============================================================================
 
 const AppInitializer = ({ children }: { children: ReactNode }) => {
-  // Activate the state machine journal effects and system loggers. These are
-  // effects that will run whenever their dependencies change, but only log
-  // when the inspector is visible.
-  useAtomValue(authMachineJournalEffectAtom);
-  useAtomValue(loginUiMachineJournalEffectAtom);
-  useAtomValue(navMachineJournalEffectAtom);
+  // Activate system loggers. These are effects that will run whenever their
+  // dependencies change. State machine journaling is now handled by the
+  // inspector, not by Jotai effects.
   useAtomValue(pageUnloadDetectorEffectAtom);
   useAtomValue(journalUnificationEffectAtom);
 
@@ -482,6 +483,7 @@ export const JotaiAppProvider = ({
     <Provider>
       <Suspense fallback={loadingFallback}>
         <AppInitializer>
+          <JotaiInspectorInitializer />
           <NavigationManager />
           <AuthCrossTabSyncer />
           <PageContentGuard loadingFallback={loadingFallback}>

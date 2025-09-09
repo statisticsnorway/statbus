@@ -23,8 +23,7 @@ import { atomEffect } from 'jotai-effect'
 import { createMachine, assign, setup, type SnapshotFrom } from 'xstate'
 import { atomWithMachine } from 'jotai-xstate'
 
-import { addEventJournalEntryAtom, stateInspectorVisibleAtom } from './app';
-import { createJournalEntry } from './journal-utils';
+import { inspector } from './inspector';
 
 export const loginUiMachine = setup({
   types: {
@@ -79,33 +78,6 @@ export const loginUiMachine = setup({
   }
 });
 
-export const loginUiMachineAtom = atomWithMachine(loginUiMachine);
-
-const prevLoginUiMachineSnapshotAtom = atom<SnapshotFrom<typeof loginUiMachine> | null>(null);
-
-/**
- * Journal Effect for the Login Page UI State Machine.
- */
-export const loginUiMachineJournalEffectAtom = atomEffect((get, set) => {
-  const isInspectorVisible = get(stateInspectorVisibleAtom);
-  if (!isInspectorVisible) {
-    if (get(prevLoginUiMachineSnapshotAtom) !== null) {
-      set(prevLoginUiMachineSnapshotAtom, null); // Reset when not visible.
-    }
-    return;
-  }
-
-  const currentSnapshot = get(loginUiMachineAtom);
-  const prevSnapshot = get(prevLoginUiMachineSnapshotAtom);
-  set(prevLoginUiMachineSnapshotAtom, currentSnapshot);
-
-  if (!prevSnapshot) {
-    return; // Don't log on the first run.
-  }
-  
-  const entry = createJournalEntry(prevSnapshot, currentSnapshot, 'loginUi');
-  if (entry) {
-    set(addEventJournalEntryAtom, entry);
-    console.log(`[Journal:Login]`, entry.reason, { from: entry.from, to: entry.to, event: entry.event });
-  }
+export const loginUiMachineAtom = atomWithMachine(loginUiMachine, {
+  inspect: inspector,
 });
