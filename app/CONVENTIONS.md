@@ -74,16 +74,39 @@ atom awaits the completion of the core atom's refresh if subsequent logic or com
 ## Debugging and Diagnostics
 
 ### `useGuardedEffect` for Loop Detection
-To combat "Maximum update depth exceeded" errors, the entire application has been instrumented with a custom hook: `useGuardedEffect`.
+To combat "Maximum update depth exceeded" errors and other lifecycle issues, the application is instrumented with a custom hook: `useGuardedEffect`.
 
 - **Convention**: All React effects **MUST** use `useGuardedEffect` instead of the standard `useEffect`.
+- **Architectural Purpose**: This hook provides a diagnostic system to detect two classes of infinite loops:
+    1.  **Re-render loops:** When a single component instance re-renders rapidly, causing its effect to fire continuously.
+    2.  **Re-mount loops:** When a component is destroyed and re-created in a loop, often caused by a parent component's state change. The original guard was blind to this, but the new version explicitly tracks component mounts.
 - **Implementation**: `useGuardedEffect` is a drop-in replacement for `useEffect`. It accepts the same callback and dependency array, plus a third, mandatory argument: a unique string identifier.
 - **Identifier Format**: The identifier **MUST** be a unique, descriptive string, typically in the format `'FileName.tsx:purposeOfEffect'`. This is crucial for providing clear, actionable information in the diagnostics panel.
-- **Activation**: The diagnostic features of the hook are disabled by default and have zero performance overhead. To activate them for a debugging session, add the following to your `.env.local` file and restart the development server:
-  ```
-  NEXT_PUBLIC_ENABLE_EFFECT_GUARD=true
-  ```
-- **The Effect Journal**: When activated, the "Effect Journal" in the `StateInspector` panel comes alive. It provides a real-time, sorted list of all active effects and their call frequency. The list is sorted by the total number of calls, automatically bubbling the "hottest" and most suspicious effects to the top. This is the primary tool for identifying the source of an infinite re-render loop.
+- **Activation**: The diagnostic features are disabled by default (zero performance overhead). To activate them for a debugging session, add `NEXT_PUBLIC_ENABLE_EFFECT_GUARD=true` to your `.env.local` file and restart the server.
+- **Diagnostic Panels**: When activated, two panels become available in the `StateInspector`:
+    - **The Effect Journal**: Tracks effect call frequency to find re-render loops.
+    - **The Component Mount Journal**: Tracks mount frequency to find re-mount loops.
+- **Pattern for "Set-If-Null" Effects**:
+    - For side effects that are intended to set a default value for a state atom only if it hasn't been set yet (e.g., setting a default time context on app load), the logic **MUST** be implemented in a Jotai `atomEffect`, not a `useGuardedEffect` inside a hook.
+    - `atomEffect` decouples the side effect from the component render cycle, ensuring it runs only when its true dependencies (the source of the default value) change. Placing this logic in a hook that is consumed by frequently re-rendering components is an architectural flaw that leads to performance degradation.
+    - **Reference Implementation**: The `timeContextAutoSelectEffectAtom` is the canonical example of this pattern. It is activated by being read once in a top-level component (`HomePage`).
+- **Pattern for Subscribing to External Stores**:
+    - When using `useEffect` or `useGuardedEffect` to subscribe to an external, non-React store (like the listener pattern in `use-toast.ts`), the dependency array **MUST** be empty (`[]`).
+    - The effect should add the component's `setState` function to the listeners on mount and remove it on unmount (in the cleanup function). Including the component's `state` in the dependency array will create a feedback loop, causing the effect to re-run and re-subscribe on every state change, which is inefficient and a source of bugs.
+    - **Reference Implementation**: The `listener` effect within the `useToast` hook is the canonical example of this pattern.
+- **Pattern for Effects Reacting to State Machines**:
+    - When writing an effect that performs side-effects based on a state machine's state (e.g., from `jotai-xstate`), the dependency array **MUST NOT** depend on the entire `state` object.
+    - The `state` object from `jotai-xstate` is a new reference on every context update, even if the state *value* has not changed. Depending on the whole object will cause the effect to run on every render of the host component, leading to severe performance issues.
+    - Instead, de-structure the specific, primitive values needed from the state object *before* the effect, and use those primitives in the dependency array. You **MUST** include `state.value` as a dependency to ensure the effect re-runs when the machine transitions to a new state.
+    - **Reference Implementation**: The `performSideEffects` effect within the `NavigationManager` is the canonical example of this pattern. It depends on `stateValue`, `sideEffectAction`, and `sideEffectTargetPath` instead of the whole `state` object.
+- **Decoupling Core Logic from Dev Tools**:
+    - Core application logic (e.g., state machines, navigation managers) **MUST NOT** depend on the state of developer tools or diagnostic components (e.g., the `StateInspector`'s visibility).
+    - Creating such a dependency causes the application's core logic to re-evaluate whenever a developer interacts with the UI of the tool, leading to severe performance degradation and masking other issues.
+    - **Reference Implementation**: The `sendContextUpdates` effect in `NavigationManager` was refactored to remove its dependency on `isInspectorVisible`.
+- **Decoupling Core Logic from Dev Tools**:
+    - Core application logic (e.g., state machines, navigation managers) **MUST NOT** depend on the state of developer tools or diagnostic components (e.g., the `StateInspector`'s visibility).
+    - Creating such a dependency causes the application's core logic to re-evaluate whenever a developer interacts with the UI of the tool, leading to severe performance degradation and masking other issues.
+    - **Reference Implementation**: The `sendContextUpdates` effect in `NavigationManager` was refactored to remove its dependency on `isInspectorVisible`.
 
 ## Database Type Definitions
 The file `app/src/lib/database.types.ts` contains TypeScript types automatically generated from the PostgreSQL schema (via `./devops/manage-statbus.sh generate-types`).
