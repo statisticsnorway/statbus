@@ -42,8 +42,8 @@ import {
   fetchAuthStatusAtom,
   authMachineAtom,
   isAuthActionInProgressAtom,
-  authMachineScribeEffectAtom,
-  loginUiMachineScribeEffectAtom,
+  authMachineJournalEffectAtom,
+  loginUiMachineJournalEffectAtom,
 } from './auth';
 import {
   baseDataAtom,
@@ -68,19 +68,19 @@ import {
 } from './worker_status';
 import { AuthCrossTabSyncer } from './AuthCrossTabSyncer';
 import { NavigationManager } from './NavigationManager';
-import { navigationMachineAtom, navMachineScribeEffectAtom } from './navigation-machine';
+import { navigationMachineAtom, navMachineJournalEffectAtom } from './navigation-machine';
 
 // ============================================================================
 // APP INITIALIZER - Handles startup logic
 // ============================================================================
 
 const AppInitializer = ({ children }: { children: ReactNode }) => {
-  // Activate the state machine scribes and system loggers. These are effects
-  // that will run whenever their dependencies change, but only log when the
-  // inspector is visible.
-  useAtomValue(authMachineScribeEffectAtom);
-  useAtomValue(loginUiMachineScribeEffectAtom);
-  useAtomValue(navMachineScribeEffectAtom);
+  // Activate the state machine journal effects and system loggers. These are
+  // effects that will run whenever their dependencies change, but only log
+  // when the inspector is visible.
+  useAtomValue(authMachineJournalEffectAtom);
+  useAtomValue(loginUiMachineJournalEffectAtom);
+  useAtomValue(navMachineJournalEffectAtom);
   useAtomValue(pageUnloadDetectorEffectAtom);
   useAtomValue(journalUnificationEffectAtom);
 

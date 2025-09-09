@@ -3,6 +3,7 @@ import { atomWithMachine } from 'jotai-xstate';
 import { createMachine, assign, setup, type SnapshotFrom } from 'xstate';
 import { atomEffect } from 'jotai-effect';
 import { addEventJournalEntryAtom, stateInspectorVisibleAtom } from './app';
+import { createJournalEntry } from './journal-utils';
 
 /**
  * Navigation State Machine (navigationMachine)
@@ -260,13 +261,13 @@ export const navigationMachineAtom = atomWithMachine(navigationMachine);
 const prevNavMachineSnapshotAtom = atom<SnapshotFrom<typeof navigationMachine> | null>(null);
 
 /**
- * Scribe Effect for the Navigation State Machine.
+ * Journal Effect for the Navigation State Machine.
  *
  * When the StateInspector is visible, this effect will log every state
  * transition to the Event Journal and the browser console, providing a detailed
  * trace of all programmatic navigation decisions. It remains dormant otherwise.
  */
-export const navMachineScribeEffectAtom = atomEffect((get, set) => {
+export const navMachineJournalEffectAtom = atomEffect((get, set) => {
   const isInspectorVisible = get(stateInspectorVisibleAtom);
   if (!isInspectorVisible) {
     if (get(prevNavMachineSnapshotAtom) !== null) {
@@ -283,21 +284,9 @@ export const navMachineScribeEffectAtom = atomEffect((get, set) => {
     return; // Don't log on the first run.
   }
   
-  // A more robust check to see if a meaningful change has occurred.
-  // This prevents infinite loops caused by new object references for unchanged state.
-  const valueChanged = JSON.stringify(currentSnapshot.value) !== JSON.stringify(prevSnapshot.value);
-  const contextChanged = JSON.stringify(currentSnapshot.context) !== JSON.stringify(prevSnapshot.context);
-
-  if (valueChanged || contextChanged) {
-    const event = (currentSnapshot as any).event ?? { type: 'unknown' };
-    const entry = {
-      machine: 'nav' as const,
-      from: prevSnapshot.value,
-      to: currentSnapshot.value,
-      event: event,
-      reason: `Transitioned from ${JSON.stringify(prevSnapshot.value)} to ${JSON.stringify(currentSnapshot.value)} on event ${event.type}`
-    };
+  const entry = createJournalEntry(prevSnapshot, currentSnapshot, 'nav');
+  if (entry) {
     set(addEventJournalEntryAtom, entry);
-    console.log(`[Scribe:Nav]`, entry.reason, { from: entry.from, to: entry.to, event: entry.event });
+    console.log(`[Journal:Nav]`, entry.reason, { from: entry.from, to: entry.to, event: entry.event, context: currentSnapshot.context });
   }
 });

@@ -27,6 +27,7 @@ import { atomWithMachine } from 'jotai-xstate'
 
 import { type User, type AuthStatus as CoreAuthStatus, _parseAuthStatusRpcResponseToAuthStatus } from '@/lib/auth.types';
 import { addEventJournalEntryAtom, stateInspectorVisibleAtom } from './app';
+import { createJournalEntry } from './journal-utils';
 
 const authMachine = setup({
   types: {
@@ -355,14 +356,14 @@ export const authMachineAtom = atomWithMachine(authMachine);
 const prevAuthMachineSnapshotAtom = atom<SnapshotFrom<typeof authMachine> | null>(null);
 
 /**
- * Scribe Effect for the Authentication State Machine.
+ * Journal Effect for the Authentication State Machine.
  *
  * When the StateInspector is visible, this effect will log every state
  * transition to the Event Journal and the browser console, providing a detailed
  * trace of the authentication flow for debugging purposes. It remains dormant
  * otherwise to avoid any performance overhead.
  */
-export const authMachineScribeEffectAtom = atomEffect((get, set) => {
+export const authMachineJournalEffectAtom = atomEffect((get, set) => {
   const isInspectorVisible = get(stateInspectorVisibleAtom);
   if (!isInspectorVisible) {
     if (get(prevAuthMachineSnapshotAtom) !== null) {
@@ -379,28 +380,12 @@ export const authMachineScribeEffectAtom = atomEffect((get, set) => {
     return; // Don't log on the first run.
   }
 
-  // A more robust check to see if a meaningful change has occurred.
-  // This prevents infinite loops caused by new object references for unchanged state.
-  const valueChanged = JSON.stringify(currentSnapshot.value) !== JSON.stringify(prevSnapshot.value);
-  const contextChanged = JSON.stringify(currentSnapshot.context) !== JSON.stringify(prevSnapshot.context);
-
-  if (valueChanged || contextChanged) {
-    const event = (currentSnapshot as any).event ?? { type: 'unknown' };
-    const reasonSuffix = event.type === 'unknown'
-      ? 'due to an automatic transition.'
-      : `on event ${event.type}`;
-    const reason = `Transitioned from ${JSON.stringify(prevSnapshot.value)} to ${JSON.stringify(currentSnapshot.value)} ${reasonSuffix}`;
-    const entry = {
-      machine: 'auth' as const,
-      from: prevSnapshot.value,
-      to: currentSnapshot.value,
-      event: event,
-      reason: reason,
-    };
+  const entry = createJournalEntry(prevSnapshot, currentSnapshot, 'auth');
+  if (entry) {
     set(addEventJournalEntryAtom, entry);
-    console.log(`[Scribe:Auth]`, entry.reason, { from: entry.from, to: entry.to, event: entry.event });
+    console.log(`[Journal:Auth]`, entry.reason, { from: entry.from, to: entry.to, event: entry.event });
 
-    // After logging the main transition, check if a canary request just completed.
+    // After logging the main transition, also check if a canary request just completed.
     // This is safer than a separate effect atom.
     const currentCanary = currentSnapshot.context.lastCanaryResponse;
     const prevCanary = prevSnapshot?.context.lastCanaryResponse;

@@ -14,8 +14,8 @@ import { atomEffect } from 'jotai-effect'
 
 import { type User, type AuthStatus as CoreAuthStatus, _parseAuthStatusRpcResponseToAuthStatus } from '@/lib/auth.types';
 import { isTokenManuallyExpiredAtom } from './app';
-import { authMachineAtom, authMachineScribeEffectAtom } from './auth-machine';
-import { loginUiMachineAtom, loginUiMachineScribeEffectAtom } from './login-ui-machine';
+import { authMachineAtom, authMachineJournalEffectAtom } from './auth-machine';
+import { loginUiMachineAtom, loginUiMachineJournalEffectAtom } from './login-ui-machine';
 import {
   importStateAtom,
   initialImportState,
@@ -35,8 +35,8 @@ import { restClientAtom } from './rest-client'
 // ============================================================================
 // EXPORTS FROM MACHINE FILES
 // ============================================================================
-export { authMachineAtom, authMachineScribeEffectAtom };
-export { loginUiMachineAtom, loginUiMachineScribeEffectAtom };
+export { authMachineAtom, authMachineJournalEffectAtom };
+export { loginUiMachineAtom, loginUiMachineJournalEffectAtom };
 export { _parseAuthStatusRpcResponseToAuthStatus };
 export type { User };
 

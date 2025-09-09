@@ -24,6 +24,7 @@ import { createMachine, assign, setup, type SnapshotFrom } from 'xstate'
 import { atomWithMachine } from 'jotai-xstate'
 
 import { addEventJournalEntryAtom, stateInspectorVisibleAtom } from './app';
+import { createJournalEntry } from './journal-utils';
 
 export const loginUiMachine = setup({
   types: {
@@ -83,9 +84,9 @@ export const loginUiMachineAtom = atomWithMachine(loginUiMachine);
 const prevLoginUiMachineSnapshotAtom = atom<SnapshotFrom<typeof loginUiMachine> | null>(null);
 
 /**
- * Scribe Effect for the Login Page UI State Machine.
+ * Journal Effect for the Login Page UI State Machine.
  */
-export const loginUiMachineScribeEffectAtom = atomEffect((get, set) => {
+export const loginUiMachineJournalEffectAtom = atomEffect((get, set) => {
   const isInspectorVisible = get(stateInspectorVisibleAtom);
   if (!isInspectorVisible) {
     if (get(prevLoginUiMachineSnapshotAtom) !== null) {
@@ -102,23 +103,9 @@ export const loginUiMachineScribeEffectAtom = atomEffect((get, set) => {
     return; // Don't log on the first run.
   }
   
-  const valueChanged = JSON.stringify(currentSnapshot.value) !== JSON.stringify(prevSnapshot.value);
-  const contextChanged = JSON.stringify(currentSnapshot.context) !== JSON.stringify(prevSnapshot.context);
-
-  if (valueChanged || contextChanged) {
-    const event = (currentSnapshot as any).event ?? { type: 'unknown' };
-    const reasonSuffix = event.type === 'unknown'
-      ? 'due to an automatic transition.'
-      : `on event ${event.type}`;
-    const reason = `Transitioned from ${JSON.stringify(prevSnapshot.value)} to ${JSON.stringify(currentSnapshot.value)} ${reasonSuffix}`;
-    const entry = {
-      machine: 'loginUi' as const,
-      from: prevSnapshot.value,
-      to: currentSnapshot.value,
-      event: event,
-      reason: reason,
-    };
+  const entry = createJournalEntry(prevSnapshot, currentSnapshot, 'loginUi');
+  if (entry) {
     set(addEventJournalEntryAtom, entry);
-    console.log(`[Scribe:Login]`, entry.reason, { from: entry.from, to: entry.to, event: entry.event });
+    console.log(`[Journal:Login]`, entry.reason, { from: entry.from, to: entry.to, event: entry.event });
   }
 });
