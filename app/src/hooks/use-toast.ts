@@ -183,7 +183,7 @@ function useToast() {
         listeners.splice(index, 1)
       }
     }
-  }, [state], 'use-toast.ts:listener')
+  }, [], 'use-toast.ts:listener')
 
   return {
     ...state,
