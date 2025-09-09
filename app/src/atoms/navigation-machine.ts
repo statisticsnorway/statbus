@@ -145,7 +145,6 @@ export const navigationMachine = setup({
       on: {
         CONTEXT_UPDATED: {
           target: 'redirectingFromLogin',
-          target: 'redirectingFromLogin',
           // Guard: Wait only for the auth re-validation to complete. The `redirectingFromLogin`
           // state will then use the latest `setupPath` from the context to make its final
           // navigation decision. Waiting for `isSetupLoading` here can cause a deadlock.
