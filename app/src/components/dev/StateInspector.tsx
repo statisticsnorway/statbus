@@ -124,6 +124,8 @@ export const StateInspector = () => {
   const callCounts = useAtomValue(effectCallCountsAtom);
   const recentCallCounts = useAtomValue(effectRecentCallCountsAtom);
   const mountCounts = useAtomValue(mountCountsAtom);
+  const haltedEffectsCount = haltedEffects.size;
+  const highestMountCount = Math.max(0, ...Array.from(mountCounts.values()));
   const [mounted, setMounted] = React.useState(false);
   const [copyStatus, setCopyStatus] = React.useState(''); // For "Copied!" message
   const [isTokenManuallyExpired, setIsTokenManuallyExpired] = useAtom(isTokenManuallyExpiredAtom);
@@ -373,57 +375,48 @@ export const StateInspector = () => {
           </div>
 
           <div>
-            <strong onClick={() => setIsJournalVisible(v => !v)} className="cursor-pointer">Event Journal: {isJournalVisible ? '▼' : '▶'}</strong>
-            {isJournalVisible && (
-              <div ref={journalContainerRef} className="pl-4 mt-1 space-y-1 font-mono text-xs max-h-48 overflow-y-auto border border-gray-600 rounded p-1 bg-black/20">
-                {journal.length > 0 ? (
-                  journal.map((entry, index) => {
-                    let machineColor = 'text-cyan-400'; // Default for auth, nav, login
-                    if (entry.machine === 'system') machineColor = 'text-purple-400';
-                    if (entry.machine === 'inspector') machineColor = 'text-orange-400';
-
-                    return (
-                      <div key={`${entry.timestamp_epoch}-${index}`}>
-                        <span className="text-gray-400">
-                          {new Date(entry.timestamp_epoch).toLocaleTimeString()}.{String(entry.timestamp_epoch % 1000).padStart(3, '0')}
-                        </span>
-                        <span className={`font-bold ${machineColor}`}> [{entry.machine.toUpperCase()}] </span>
-                        <span className="text-yellow-400">{JSON.stringify(entry.from)}</span>
-                        <span className="text-gray-400"> → </span>
-                        <span className="text-green-400">{JSON.stringify(entry.to)}</span>
-                        {entry.event.type !== 'unknown' && <span className="text-gray-500"> on {entry.event.type}</span>}
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div className="text-gray-500 italic">No events recorded since journal was cleared.</div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <div className="flex items-center">
-              <strong
-                onClick={() => setIsEffectJournalVisible((v) => !v)}
-                className="cursor-pointer"
-              >
-                Effect Journal:{' '}
-                {isGuardingEnabled ? (
-                  <span className="text-green-500">(Active)</span>
-                ) : (
-                  <span className="text-gray-500">(Disabled)</span>
-                )}{' '}
-                {isEffectJournalVisible ? '▼' : '▶'}
+            <div className="flex items-center space-x-2">
+              <strong onClick={() => setIsJournalVisible((v: boolean) => !v)} className="cursor-pointer">
+                Event Journal {isJournalVisible ? '▼' : '▶'}
               </strong>
+              
+              {isGuardingEnabled ? (
+                <>
+                  <span className="text-gray-500">|</span>
+                  <strong onClick={() => setIsEffectJournalVisible((v: boolean) => !v)} className="cursor-pointer flex items-center">
+                    Effect
+                    {haltedEffectsCount > 0 ? (
+                      <span className="ml-1 text-red-400">({haltedEffectsCount} ⛔)</span>
+                    ) : (
+                      <span className="ml-1 text-green-500">(✅)</span>
+                    )}
+                    {isEffectJournalVisible ? '▼' : '▶'}
+                  </strong>
+                  
+                  <span className="text-gray-500">|</span>
+                  <strong onClick={() => setIsMountJournalVisible((v: boolean) => !v)} className="cursor-pointer flex items-center">
+                    Mount
+                    {highestMountCount > 5 ? (
+                      <span className="ml-1 text-yellow-400">({highestMountCount} ⚠️)</span>
+                    ) : (
+                      <span className="ml-1 text-green-500">(✅)</span>
+                    )}
+                     {isMountJournalVisible ? '▼' : '▶'}
+                  </strong>
+                </>
+              ) : (
+                <span className="text-gray-500 italic">(Guards Disabled)</span>
+              )}
+
               <span
-                onClick={() => setIsEffectJournalHelpVisible((v) => !v)}
-                className="ml-2 px-1.5 py-0 bg-gray-600 rounded-full text-xs cursor-pointer hover:bg-gray-500"
+                onClick={() => setIsEffectJournalHelpVisible((v: boolean) => !v)}
+                className="ml-1 px-1.5 py-0 bg-gray-600 rounded-full text-xs cursor-pointer hover:bg-gray-500"
                 title="Click for help on how to enable the Effect Guard"
               >
                 ?
               </span>
             </div>
+            
             {isEffectJournalHelpVisible && (
               <div className="pl-4 mt-1 text-xs text-gray-400 border border-gray-600 rounded p-2 bg-black/20 space-y-2">
                 <p>The Effect Guard is a development-only tool to find infinite loops.</p>
@@ -455,6 +448,33 @@ export const StateInspector = () => {
                 </div>
               </div>
             )}
+
+            {isJournalVisible && (
+              <div ref={journalContainerRef} className="pl-4 mt-1 space-y-1 font-mono text-xs max-h-48 overflow-y-auto border border-gray-600 rounded p-1 bg-black/20">
+                {journal.length > 0 ? (
+                  journal.map((entry, index) => {
+                    let machineColor = 'text-cyan-400';
+                    if (entry.machine === 'system') machineColor = 'text-purple-400';
+                    if (entry.machine === 'inspector') machineColor = 'text-orange-400';
+                    return (
+                      <div key={`${entry.timestamp_epoch}-${index}`}>
+                        <span className="text-gray-400">
+                          {new Date(entry.timestamp_epoch).toLocaleTimeString()}.{String(entry.timestamp_epoch % 1000).padStart(3, '0')}
+                        </span>
+                        <span className={`font-bold ${machineColor}`}> [{entry.machine.toUpperCase()}] </span>
+                        <span className="text-yellow-400">{JSON.stringify(entry.from)}</span>
+                        <span className="text-gray-400"> → </span>
+                        <span className="text-green-400">{JSON.stringify(entry.to)}</span>
+                        {entry.event.type !== 'unknown' && <span className="text-gray-500"> on {entry.event.type}</span>}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-gray-500 italic">No events recorded.</div>
+                )}
+              </div>
+            )}
+
             {isEffectJournalVisible && isGuardingEnabled && (
               <div className="pl-4 mt-1 space-y-2 font-mono text-xs max-h-48 overflow-y-auto border border-gray-600 rounded p-1 bg-black/20">
                 <div>
@@ -517,21 +537,7 @@ export const StateInspector = () => {
                 </div>
               </div>
             )}
-          </div>
-          
-          <div>
-            <strong
-              onClick={() => setIsMountJournalVisible((v: boolean) => !v)}
-              className="cursor-pointer"
-            >
-              Component Mount Journal:{' '}
-              {isGuardingEnabled ? (
-                <span className="text-green-500">(Active)</span>
-              ) : (
-                <span className="text-gray-500">(Disabled)</span>
-              )}{' '}
-              {isMountJournalVisible ? '▼' : '▶'}
-            </strong>
+            
             {isMountJournalVisible && isGuardingEnabled && (
               <div className="pl-4 mt-1 space-y-2 font-mono text-xs max-h-48 overflow-y-auto border border-gray-600 rounded p-1 bg-black/20">
                 <div>
