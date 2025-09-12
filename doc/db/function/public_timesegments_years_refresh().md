@@ -1,8 +1,7 @@
 ```sql
-CREATE OR REPLACE FUNCTION public.timesegments_years_refresh()
- RETURNS void
+CREATE OR REPLACE PROCEDURE public.timesegments_years_refresh()
  LANGUAGE plpgsql
-AS $function$
+AS $procedure$
 BEGIN
     -- Create a temporary table with the new data from the definition view
     CREATE TEMPORARY TABLE temp_timesegments_years ON COMMIT DROP AS
@@ -28,5 +27,5 @@ BEGIN
     -- explicitly to be safe in transactional testing environments.
     DROP TABLE temp_timesegments_years;
 END;
-$function$
+$procedure$
 ```

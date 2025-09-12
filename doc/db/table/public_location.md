@@ -4,8 +4,8 @@
 ------------------+--------------------------+-----------+----------+--------------------------------------
  id               | integer                  |           | not null | nextval('location_id_seq'::regclass)
  valid_from       | date                     |           | not null | 
- valid_after      | date                     |           | not null | 
- valid_to         | date                     |           | not null | 'infinity'::date
+ valid_to         | date                     |           | not null | 
+ valid_until      | date                     |           | not null | 
  type             | location_type            |           | not null | 
  address_part1    | character varying(200)   |           |          | 
  address_part2    | character varying(200)   |           |          | 
@@ -24,21 +24,24 @@
  edit_by_user_id  | integer                  |           | not null | 
  edit_at          | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
+    "location_pkey" PRIMARY KEY, btree (id, valid_from, valid_until) DEFERRABLE
     "ix_location_country_id" btree (country_id)
     "ix_location_data_source_id" btree (data_source_id)
     "ix_location_edit_by_user_id" btree (edit_by_user_id)
     "ix_location_establishment_id" btree (establishment_id)
-    "ix_location_establishment_id_valid_range" gist (establishment_id, daterange(valid_after, valid_to, '(]'::text))
+    "ix_location_establishment_id_valid_range" gist (establishment_id, daterange(valid_from, valid_until, '[)'::text))
     "ix_location_legal_unit_id" btree (legal_unit_id)
-    "ix_location_legal_unit_id_valid_range" gist (legal_unit_id, daterange(valid_after, valid_to, '(]'::text))
+    "ix_location_legal_unit_id_valid_range" gist (legal_unit_id, daterange(valid_from, valid_until, '[)'::text))
     "ix_location_region_id" btree (region_id)
     "ix_location_type" btree (type)
-    "location_id_daterange_excl" EXCLUDE USING gist (id WITH =, daterange(valid_after, valid_to, '(]'::text) WITH &&) DEFERRABLE
-    "location_id_valid_after_valid_to_key" UNIQUE CONSTRAINT, btree (id, valid_after, valid_to) DEFERRABLE
-    "location_type_establishment_id_daterange_excl" EXCLUDE USING gist (type WITH =, establishment_id WITH =, daterange(valid_after, valid_to, '(]'::text) WITH &&) DEFERRABLE
-    "location_type_establishment_id_valid_after_valid_to_key" UNIQUE CONSTRAINT, btree (type, establishment_id, valid_after, valid_to) DEFERRABLE
-    "location_type_legal_unit_id_daterange_excl" EXCLUDE USING gist (type WITH =, legal_unit_id WITH =, daterange(valid_after, valid_to, '(]'::text) WITH &&) DEFERRABLE
-    "location_type_legal_unit_id_valid_after_valid_to_key" UNIQUE CONSTRAINT, btree (type, legal_unit_id, valid_after, valid_to) DEFERRABLE
+    "location_id_idx" btree (id)
+    "location_id_valid_excl" EXCLUDE USING gist (id WITH =, daterange(valid_from, valid_until) WITH &&) DEFERRABLE
+    "location_type_establishment_id_idx" btree (type, establishment_id)
+    "location_type_establishment_id_valid_excl" EXCLUDE USING gist (type WITH =, establishment_id WITH =, daterange(valid_from, valid_until) WITH &&) DEFERRABLE
+    "location_type_establishment_id_valid_uniq" UNIQUE CONSTRAINT, btree (type, establishment_id, valid_from, valid_until) DEFERRABLE
+    "location_type_legal_unit_id_idx" btree (type, legal_unit_id)
+    "location_type_legal_unit_id_valid_excl" EXCLUDE USING gist (type WITH =, legal_unit_id WITH =, daterange(valid_from, valid_until) WITH &&) DEFERRABLE
+    "location_type_legal_unit_id_valid_uniq" UNIQUE CONSTRAINT, btree (type, legal_unit_id, valid_from, valid_until) DEFERRABLE
 Check constraints:
     "One and only one statistical unit id must be set" CHECK (establishment_id IS NOT NULL AND legal_unit_id IS NULL OR establishment_id IS NULL AND legal_unit_id IS NOT NULL)
     "altitude requires coordinates" CHECK (
@@ -49,7 +52,7 @@ END)
     "altitude_must_be_positive" CHECK (altitude >= 0::numeric)
     "coordinates require both latitude and longitude" CHECK (latitude IS NOT NULL AND longitude IS NOT NULL OR latitude IS NULL AND longitude IS NULL)
     "latitude_must_be_from_minus_90_to_90_degrees" CHECK (latitude >= '-90'::integer::numeric AND latitude <= 90::numeric)
-    "location_valid_check" CHECK (valid_after < valid_to)
+    "location_valid_check" CHECK (valid_from < valid_until AND valid_from > '-infinity'::date)
     "longitude_must_be_from_minus_180_to_180_degrees" CHECK (longitude >= '-180'::integer::numeric AND longitude <= 180::numeric)
     "postal_locations_cannot_have_coordinates" CHECK (
 CASE type
@@ -84,11 +87,11 @@ Policies:
 Triggers:
     location_changes_trigger AFTER INSERT OR UPDATE ON location FOR EACH STATEMENT EXECUTE FUNCTION worker.notify_worker_about_changes()
     location_deletes_trigger BEFORE DELETE ON location FOR EACH ROW EXECUTE FUNCTION worker.notify_worker_about_deletes()
-    location_establishment_id_valid_fk_insert AFTER INSERT ON location FROM establishment DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_insert_check_c('location_establishment_id_valid', 'public', 'location', '{{establishment_id}}', 'valid', 'valid_after', 'valid_to', 'public', 'establishment', '{{id}}', 'valid', 'valid_after', 'valid_to', 'SIMPLE', 'NO ACTION', 'NO ACTION')
-    location_establishment_id_valid_fk_update AFTER UPDATE OF establishment_id, valid_after, valid_to ON location FROM establishment DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_update_check_c('location_establishment_id_valid', 'public', 'location', '{{establishment_id}}', 'valid', 'valid_after', 'valid_to', 'public', 'establishment', '{{id}}', 'valid', 'valid_after', 'valid_to', 'SIMPLE', 'NO ACTION', 'NO ACTION')
-    location_legal_unit_id_valid_fk_insert AFTER INSERT ON location FROM legal_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_insert_check_c('location_legal_unit_id_valid', 'public', 'location', '{{legal_unit_id}}', 'valid', 'valid_after', 'valid_to', 'public', 'legal_unit', '{{id}}', 'valid', 'valid_after', 'valid_to', 'SIMPLE', 'NO ACTION', 'NO ACTION')
-    location_legal_unit_id_valid_fk_update AFTER UPDATE OF legal_unit_id, valid_after, valid_to ON location FROM legal_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_update_check_c('location_legal_unit_id_valid', 'public', 'location', '{{legal_unit_id}}', 'valid', 'valid_after', 'valid_to', 'public', 'legal_unit', '{{id}}', 'valid', 'valid_after', 'valid_to', 'SIMPLE', 'NO ACTION', 'NO ACTION')
-    trg_location_synchronize_valid_from_after BEFORE INSERT OR UPDATE ON location FOR EACH ROW EXECUTE FUNCTION synchronize_valid_from_after()
+    location_establishment_id_valid_fk_insert AFTER INSERT ON location FROM establishment DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_insert_check_c('location_establishment_id_valid', 'public', 'location', '{establishment_id}', 'valid', 'valid_from', 'valid_until', 'public', 'establishment', '{id}', 'valid', 'valid_from', 'valid_until', 'SIMPLE', 'NO ACTION', 'NO ACTION')
+    location_establishment_id_valid_fk_update AFTER UPDATE OF establishment_id, valid_from, valid_until, valid_to ON location FROM establishment DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_update_check_c('location_establishment_id_valid', 'public', 'location', '{establishment_id}', 'valid', 'valid_from', 'valid_until', 'public', 'establishment', '{id}', 'valid', 'valid_from', 'valid_until', 'SIMPLE', 'NO ACTION', 'NO ACTION')
+    location_legal_unit_id_valid_fk_insert AFTER INSERT ON location FROM legal_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_insert_check_c('location_legal_unit_id_valid', 'public', 'location', '{legal_unit_id}', 'valid', 'valid_from', 'valid_until', 'public', 'legal_unit', '{id}', 'valid', 'valid_from', 'valid_until', 'SIMPLE', 'NO ACTION', 'NO ACTION')
+    location_legal_unit_id_valid_fk_update AFTER UPDATE OF legal_unit_id, valid_from, valid_until, valid_to ON location FROM legal_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_update_check_c('location_legal_unit_id_valid', 'public', 'location', '{legal_unit_id}', 'valid', 'valid_from', 'valid_until', 'public', 'legal_unit', '{id}', 'valid', 'valid_from', 'valid_until', 'SIMPLE', 'NO ACTION', 'NO ACTION')
+    location_synchronize_temporal_columns_trigger BEFORE INSERT OR UPDATE OF valid_from, valid_until, valid_to ON location FOR EACH ROW EXECUTE FUNCTION sql_saga.synchronize_temporal_columns('valid_from', 'valid_until', 'valid_to', 'null', 'date', 't')
     trigger_prevent_location_id_update BEFORE UPDATE OF id ON location FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 
 ```

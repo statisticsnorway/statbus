@@ -1,5 +1,5 @@
 ```sql
-CREATE OR REPLACE FUNCTION public.statistical_history_derive(valid_after date DEFAULT '-infinity'::date, valid_to date DEFAULT 'infinity'::date)
+CREATE OR REPLACE FUNCTION public.statistical_history_derive(valid_from date DEFAULT '-infinity'::date, valid_until date DEFAULT 'infinity'::date)
  RETURNS void
  LANGUAGE plpgsql
 AS $function$
@@ -7,7 +7,7 @@ DECLARE
     v_year int;
     v_month int;
 BEGIN
-    RAISE DEBUG 'Running statistical_history_derive(valid_after=%, valid_to=%)', valid_after, valid_to;
+    RAISE DEBUG 'Running statistical_history_derive(valid_from=%, valid_until=%)', valid_from, valid_until;
 
     -- Get relevant periods using the get_statistical_history_periods function
     -- and store them in a temporary table
@@ -15,8 +15,8 @@ BEGIN
     SELECT year, month
     FROM public.get_statistical_history_periods(
         p_resolution := null::public.history_resolution, -- Get both year and year-month in the same table
-        p_valid_after := statistical_history_derive.valid_after,
-        p_valid_to := statistical_history_derive.valid_to
+        p_valid_from := statistical_history_derive.valid_from,
+        p_valid_until := statistical_history_derive.valid_until
     );
 
     -- Delete existing records for the affected periods

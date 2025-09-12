@@ -4,9 +4,9 @@
 ----------------------------------+--------------------------+-----------+----------+---------
  unit_type                        | statistical_unit_type    |           |          | 
  unit_id                          | integer                  |           |          | 
- valid_after                      | date                     |           |          | 
  valid_from                       | date                     |           |          | 
  valid_to                         | date                     |           |          | 
+ valid_until                      | date                     |           |          | 
  name                             | character varying(256)   |           |          | 
  birth_date                       | date                     |           |          | 
  death_date                       | date                     |           |          | 
@@ -75,5 +75,14 @@
  primary_for_enterprise           | boolean                  |           |          | 
  primary_for_legal_unit           | boolean                  |           |          | 
  stats                            | jsonb                    |           |          | 
+ related_establishment_ids        | integer[]                |           |          | 
+ excluded_establishment_ids       | integer[]                |           |          | 
+ included_establishment_ids       | integer[]                |           |          | 
+ related_legal_unit_ids           | integer[]                |           |          | 
+ excluded_legal_unit_ids          | integer[]                |           |          | 
+ included_legal_unit_ids          | integer[]                |           |          | 
+ related_enterprise_ids           | integer[]                |           |          | 
+ excluded_enterprise_ids          | integer[]                |           |          | 
+ included_enterprise_ids          | integer[]                |           |          | 
 
 ```
