@@ -15,7 +15,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { useTimeContext } from "@/atoms/app";
+import { useTimeContext } from "@/atoms/app-derived";
 import { useState } from "react";
 import { Tables } from "@/lib/database.types";
 
@@ -55,7 +55,7 @@ export default function TimeContextSelector({
             <CommandGroup>
               {timeContexts
                 .filter(
-                  (tc) =>
+                  (tc: Tables<'time_context'>) =>
                     tc.scope === "query" || tc.scope === "input_and_query",
                 )
                 .map((time_context: Tables<'time_context'>) => (

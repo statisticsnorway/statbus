@@ -13,11 +13,9 @@ import {
   debugInspectorApiLogExpandedAtom,
   debugInspectorEffectJournalVisibleAtom,
   debugInspectorMountJournalVisibleAtom,
-  isTokenManuallyExpiredAtom,
   combinedJournalViewAtom,
   clearAndMarkJournalAtom,
   addEventJournalEntryAtom,
-  redirectRelevantStateAtom,
   requiredSetupRedirectAtom,
   selectedTimeContextAtom,
   initialAuthCheckCompletedAtom,
@@ -35,12 +33,14 @@ import {
   isAuthenticatedStrictAtom,
   isUserConsideredAuthenticatedForUIAtom,
   lastKnownPathBeforeAuthChangeAtom,
+  isTokenManuallyExpiredAtom,
 } from '@/atoms/auth';
 
 // Feature state atoms
 import { baseDataAtom } from '@/atoms/base-data';
 import { workerStatusAtom } from '@/atoms/worker_status';
 import { queryAtom, filtersAtom, searchResultAtom, selectedUnitsAtom, paginationAtom, sortingAtom } from '@/atoms/search';
+import { redirectRelevantStateAtom } from '@/atoms/app-derived';
 import { navigationMachineAtom } from '@/atoms/navigation-machine';
 import {
   isGuardingEnabled,

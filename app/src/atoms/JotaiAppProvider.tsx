@@ -15,12 +15,9 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import {
   clientMountedAtom,
   initialAuthCheckCompletedAtom,
-  isTokenManuallyExpiredAtom,
   requiredSetupRedirectAtom,
   selectedTimeContextAtom,
-  setupRedirectCheckAtom,
   debugInspectorVisibleAtom,
-  redirectRelevantStateAtom,
   eventJournalAtom,
   pageUnloadDetectorEffectAtom,
   logReloadToJournalAtom,
@@ -28,8 +25,12 @@ import {
   journalUnificationEffectAtom,
   debugInspectorExpandedAtom,
   addEventJournalEntryAtom,
-  useAppReady,
 } from './app';
+import {
+  setupRedirectCheckAtom,
+  redirectRelevantStateAtom,
+  useAppReady,
+} from './app-derived';
 import { restClientAtom } from './rest-client';
 import {
   authStatusAtom,

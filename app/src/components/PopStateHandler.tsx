@@ -1,7 +1,7 @@
 "use client";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useSearchParams } from "next/navigation";
-import { useTimeContext } from '@/atoms/app';
+import { useTimeContext } from '@/atoms/app-derived';
 import { Tables } from '@/lib/database.types';
 
 export default function PopStateHandler() {

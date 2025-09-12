@@ -12,6 +12,7 @@ Core conventions for the Next.js (v15) application. For project-wide, SQL, or in
 - UI Components: shadcn/ui. Group custom components by feature in `components/`.
 - Testing: Jest and ts-jest.
 - Build/Deployment: Standard Next.js scripts in `package.json`.
+- Type Checking: To run the TypeScript compiler and check for type errors without emitting files, use the following command from the project root: `cd app && pnpm run tsc`.
 - Principles:
     - Fail Fast: For functionality expected to work. Provide clear error/debug info.
     - Single Source of Truth: Avoid duplicate state.

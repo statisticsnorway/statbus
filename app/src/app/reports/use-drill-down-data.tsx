@@ -3,7 +3,7 @@ import { DrillDown, DrillDownPoint } from "@/app/reports/types/drill-down";
 import { useState, useMemo } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import useSWR from "swr";
-import { useTimeContext } from '@/atoms/app';
+import { useTimeContext } from '@/atoms/app-derived';
 import { fetchWithAuthRefresh } from "@/context/RestClientStore";
 
 export const useDrillDownData = () => {

@@ -3,7 +3,7 @@
 import { useState } from "react"; // Import useState
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useAtomValue } from "jotai";
-import { appReadyAtom, timeContextAutoSelectEffectAtom } from "@/atoms/app";
+import { appReadyAtom, timeContextAutoSelectEffectAtom } from "@/atoms/app-derived";
 import Dashboard from "@/app/dashboard/page";
 
 // For dynamic titles in client components, useEffect is typically used.

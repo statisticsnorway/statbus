@@ -16,7 +16,8 @@ import {
   authMachineAtom,
   isAuthStableAtom,
 } from './auth';
-import { clientMountedAtom, setupRedirectCheckAtom, debugInspectorVisibleAtom, saveJournalSnapshotAtom } from './app';
+import { clientMountedAtom, debugInspectorVisibleAtom, saveJournalSnapshotAtom } from './app';
+import { setupRedirectCheckAtom } from './app-derived';
 
 /**
  * NavigationManager

@@ -13,7 +13,6 @@ import { useAtomValue, useSetAtom } from 'jotai'
 import { atomEffect } from 'jotai-effect'
 
 import { type User, type AuthStatus as CoreAuthStatus, _parseAuthStatusRpcResponseToAuthStatus } from '@/lib/auth.types';
-import { isTokenManuallyExpiredAtom } from './app';
 import { authMachineAtom } from './auth-machine';
 import { loginUiMachineAtom } from './login-ui-machine';
 import {
@@ -256,6 +255,9 @@ export const lastKnownPathBeforeAuthChangeAtom = atomWithStorage<string | null>(
   null,
   createJSONStorage(() => sessionStorage)
 );
+
+// Dev Tools State, moved from app.ts to break circular dependency
+export const isTokenManuallyExpiredAtom = atom(false);
 
 
 // ============================================================================
