@@ -76,7 +76,11 @@ export const sortingAtom = atom<SearchSorting>({ field: 'name', direction: 'asc'
 export const queryAtom = atom<string>('');
 
 // Filters state is also isolated into its own atom to guarantee reference stability.
-export const filtersAtom = atomWithStorage<Record<string, any>>('searchFilters_v1', {});
+// Note: This does NOT use atomWithStorage. The URL is the single source of
+// truth for filter state. Using localStorage here would create a race condition
+// where the stored state could overwrite the state derived from the URL on
+// navigation.
+export const filtersAtom = atom<Record<string, any>>({});
 
 export interface SearchResult {
   data: any[]
