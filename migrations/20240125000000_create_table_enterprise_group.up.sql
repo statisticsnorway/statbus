@@ -5,7 +5,6 @@ CREATE TABLE public.enterprise_group (
     valid_from date NOT NULL,
     valid_to date NOT NULL,
     valid_until date NOT NULL,
-    active boolean NOT NULL DEFAULT true,
     short_name varchar(16),
     name varchar(256),
     enterprise_group_type_id integer REFERENCES public.enterprise_group_type(id),
@@ -20,7 +19,6 @@ CREATE TABLE public.enterprise_group (
     reorg_type_id integer REFERENCES public.reorg_type(id),
     foreign_participation_id integer REFERENCES public.foreign_participation(id)
 );
-CREATE INDEX ix_enterprise_group_active ON public.enterprise_group USING btree (active);
 CREATE INDEX ix_enterprise_group_data_source_id ON public.enterprise_group USING btree (data_source_id);
 CREATE INDEX ix_enterprise_group_enterprise_group_type_id ON public.enterprise_group USING btree (enterprise_group_type_id);
 CREATE INDEX ix_enterprise_group_foreign_participation_id ON public.enterprise_group USING btree (foreign_participation_id);
@@ -34,9 +32,10 @@ CREATE FUNCTION admin.enterprise_group_id_exists(fk_id integer) RETURNS boolean 
 $$;
 
 -- Activate era handling
-SELECT sql_saga.add_era('public.enterprise_group', p_synchronize_valid_to_column := 'valid_to');
+SELECT sql_saga.add_era('public.enterprise_group', synchronize_valid_to_column => 'valid_to');
 SELECT sql_saga.add_unique_key(
     table_oid => 'public.enterprise_group',
+    key_type => 'primary',
     column_names => ARRAY['id'],
     unique_key_name => 'enterprise_group_id_valid'
 );

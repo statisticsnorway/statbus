@@ -5,7 +5,6 @@ CREATE TABLE public.legal_unit (
     valid_from date NOT NULL,
     valid_to date NOT NULL,
     valid_until date NOT NULL,
-    active boolean NOT NULL DEFAULT true,
     short_name character varying(16),
     name character varying(256) NOT NULL,
     birth_date date,
@@ -25,7 +24,6 @@ CREATE TABLE public.legal_unit (
     invalid_codes jsonb
 );
 
-CREATE INDEX legal_unit_active_idx ON public.legal_unit(active);
 CREATE INDEX ix_legal_unit_data_source_id ON public.legal_unit USING btree (data_source_id);
 CREATE INDEX ix_legal_unit_enterprise_id ON public.legal_unit USING btree (enterprise_id);
 CREATE INDEX ix_legal_unit_foreign_participation_id ON public.legal_unit USING btree (foreign_participation_id);
@@ -42,9 +40,10 @@ CREATE FUNCTION admin.legal_unit_id_exists(fk_id integer) RETURNS boolean LANGUA
 $$;
 
 -- Activate era handling
-SELECT sql_saga.add_era('public.legal_unit', p_synchronize_valid_to_column := 'valid_to');
+SELECT sql_saga.add_era('public.legal_unit', synchronize_valid_to_column => 'valid_to');
 SELECT sql_saga.add_unique_key(
     table_oid => 'public.legal_unit',
+    key_type => 'primary',
     column_names => ARRAY['id'],
     unique_key_name => 'legal_unit_id_valid'
 );
@@ -52,6 +51,7 @@ SELECT sql_saga.add_unique_key(
 SELECT sql_saga.add_unique_key(
     table_oid => 'public.legal_unit',
     column_names => ARRAY['enterprise_id'],
+    key_type => 'predicated',
     predicate => 'primary_for_enterprise IS TRUE',
     unique_key_name => 'legal_unit_enterprise_id_primary_valid'
 );

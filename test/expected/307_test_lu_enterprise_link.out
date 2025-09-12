@@ -60,6 +60,9 @@ SELECT * FROM public.user_create('test.restricted@statbus.org', 'restricted_user
  test.restricted@statbus.org | Restricted#123!
 (1 row)
 
+-- Reset sequences for stable IDs in this test
+ALTER SEQUENCE legal_unit_id_seq RESTART WITH 1;
+ALTER SEQUENCE establishment_id_seq RESTART WITH 1;
 -- A Super User configures statbus.
 CALL test.set_user_from_email('test.admin@statbus.org');
 \echo "User selected the Activity Category Standard"
@@ -143,7 +146,6 @@ SELECT
     valid_from,
     valid_to,
     action,
-    -- operation, -- Column does not exist
     founding_row_id,
     CASE WHEN legal_unit_id IS NOT NULL THEN 'LU_SET' ELSE 'LU_NULL' END AS data_lu_marker,
     CASE WHEN enterprise_id IS NOT NULL THEN 'EN_SET' ELSE 'EN_NULL' END AS data_en_marker,
@@ -151,16 +153,17 @@ SELECT
     CASE WHEN legal_unit_id = FIRST_VALUE(legal_unit_id) OVER (ORDER BY row_id) THEN 'SAME_LU' ELSE 'DIFF_LU' END AS lu_consistency,
     -- Check all rows have same enterprise_id
     CASE WHEN enterprise_id = FIRST_VALUE(enterprise_id) OVER (ORDER BY row_id) THEN 'SAME_EN' ELSE 'DIFF_EN' END AS en_consistency,
-    error,
+    errors,
     invalid_codes,
+    merge_status,
     state
 FROM public.test72_sc1_lu_segments_data -- Hardcoded based on sc1_job_slug
 ORDER BY row_id;
- row_id | tax_ident  |       name        |  valid_from  |   valid_to   | action  | founding_row_id | data_lu_marker | data_en_marker | lu_consistency | en_consistency | error | invalid_codes |   state   
---------+------------+-------------------+--------------+--------------+---------+-----------------+----------------+----------------+----------------+----------------+-------+---------------+-----------
-      1 | 'SC1LU001' | LU SC1 Name P1/P2 | '2023-01-01' | '2023-03-31' | insert  |               1 | LU_SET         | EN_SET         | SAME_LU        | SAME_EN        |       |               | processed
-      2 | 'SC1LU001' | LU SC1 Name P1/P2 | '2023-04-01' | '2023-06-30' | replace |               1 | LU_SET         | EN_SET         | SAME_LU        | SAME_EN        |       |               | processed
-      3 | 'SC1LU001' | LU SC1 Name P3    | '2023-07-01' | '2023-09-30' | replace |               1 | LU_SET         | EN_SET         | SAME_LU        | SAME_EN        |       |               | processed
+ row_id | tax_ident  |       name        |  valid_from  |   valid_to   | action | founding_row_id | data_lu_marker | data_en_marker | lu_consistency | en_consistency | errors | invalid_codes |                                       merge_status                                       |   state   
+--------+------------+-------------------+--------------+--------------+--------+-----------------+----------------+----------------+----------------+----------------+--------+---------------+------------------------------------------------------------------------------------------+-----------
+      1 | 'SC1LU001' | LU SC1 Name P1/P2 | '2023-01-01' | '2023-03-31' | use    |               1 | LU_SET         | EN_SET         | SAME_LU        | SAME_EN        | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | processed
+      2 | 'SC1LU001' | LU SC1 Name P1/P2 | '2023-04-01' | '2023-06-30' | use    |               1 | LU_SET         | EN_SET         | SAME_LU        | SAME_EN        | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | processed
+      3 | 'SC1LU001' | LU SC1 Name P3    | '2023-07-01' | '2023-09-30' | use    |               1 | LU_SET         | EN_SET         | SAME_LU        | SAME_EN        | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | processed
 (3 rows)
 
 \echo 'SC1: Verifying public.legal_unit table (expect 3 slices)'
@@ -171,23 +174,22 @@ SELECT
     lu.name,
     lu.valid_from,
     lu.valid_to,
-    lu.valid_after,
     CASE WHEN lu.enterprise_id IS NOT NULL THEN 'EN_SET' ELSE 'EN_NULL' END AS en_marker,
     lu.primary_for_enterprise,
     (SELECT code FROM public.sector s WHERE s.id = lu.sector_id) as sector_code,
-    (SELECT COUNT(*) FROM public.location loc WHERE loc.legal_unit_id = lu.id AND lu.valid_from <= loc.valid_to AND lu.valid_to >= loc.valid_from) as location_count_for_slice,
-    (SELECT COUNT(*) FROM public.activity act WHERE act.legal_unit_id = lu.id AND lu.valid_from <= act.valid_to AND lu.valid_to >= act.valid_from) as activity_count_for_slice,
+    (SELECT COUNT(*) FROM public.location loc WHERE loc.legal_unit_id = lu.id AND (lu.valid_from, lu.valid_until) OVERLAPS (loc.valid_from, loc.valid_until)) as location_count_for_slice,
+    (SELECT COUNT(*) FROM public.activity act WHERE act.legal_unit_id = lu.id AND (lu.valid_from, lu.valid_until) OVERLAPS (act.valid_from, act.valid_until)) as activity_count_for_slice,
     -- Check all slices have same enterprise_id
     CASE WHEN MIN(lu.enterprise_id) OVER() = MAX(lu.enterprise_id) OVER() THEN 'SAME_EN_ALL_SLICES' ELSE 'DIFF_EN_ACROSS_SLICES' END AS en_consistency
 FROM public.legal_unit lu
 JOIN public.external_ident ei ON ei.legal_unit_id = lu.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
 WHERE ei.ident = :'sc1_lu_tax_ident'
-ORDER BY lu.valid_after, lu.valid_from;
- total_slices | slice_num |       name        | valid_from |  valid_to  | valid_after | en_marker | primary_for_enterprise | sector_code | location_count_for_slice | activity_count_for_slice |   en_consistency   
---------------+-----------+-------------------+------------+------------+-------------+-----------+------------------------+-------------+--------------------------+--------------------------+--------------------
-            3 |         1 | LU SC1 Name P1/P2 | 2023-01-01 | 2023-03-31 | 2022-12-31  | EN_SET    | t                      | 2300        |                        1 |                        1 | SAME_EN_ALL_SLICES
-            3 |         2 | LU SC1 Name P1/P2 | 2023-04-01 | 2023-06-30 | 2023-03-31  | EN_SET    | t                      | 2100        |                        1 |                        1 | SAME_EN_ALL_SLICES
-            3 |         3 | LU SC1 Name P3    | 2023-07-01 | 2023-09-30 | 2023-06-30  | EN_SET    | t                      | 2100        |                        1 |                        1 | SAME_EN_ALL_SLICES
+ORDER BY lu.valid_from;
+ total_slices | slice_num |       name        | valid_from |  valid_to  | en_marker | primary_for_enterprise | sector_code | location_count_for_slice | activity_count_for_slice |   en_consistency   
+--------------+-----------+-------------------+------------+------------+-----------+------------------------+-------------+--------------------------+--------------------------+--------------------
+            3 |         1 | LU SC1 Name P1/P2 | 2023-01-01 | 2023-03-31 | EN_SET    | t                      | 2300        |                        1 |                        1 | SAME_EN_ALL_SLICES
+            3 |         2 | LU SC1 Name P1/P2 | 2023-04-01 | 2023-06-30 | EN_SET    | t                      | 2100        |                        1 |                        1 | SAME_EN_ALL_SLICES
+            3 |         3 | LU SC1 Name P3    | 2023-07-01 | 2023-09-30 | EN_SET    | t                      | 2100        |                        1 |                        1 | SAME_EN_ALL_SLICES
 (3 rows)
 
 \echo 'SC1: Verifying public.enterprise table (expect 1 new enterprise)'
@@ -267,22 +269,22 @@ SELECT
     tax_ident,
     name,
     action,
-    -- operation, -- Column does not exist
     CASE WHEN legal_unit_id IS NOT NULL THEN 'LU_SET' ELSE 'LU_NULL' END AS data_lu_marker,
     CASE WHEN enterprise_id IS NOT NULL THEN 'EN_SET' ELSE 'EN_NULL' END AS data_en_marker,
     -- Check that each row has different legal_unit_id
     CASE WHEN COUNT(*) OVER() = COUNT(*) OVER(PARTITION BY legal_unit_id) THEN 'DUPLICATE_LUS' ELSE 'UNIQUE_LUS' END AS lu_uniqueness,
     -- Check that each row has different enterprise_id
     CASE WHEN COUNT(*) OVER() = COUNT(*) OVER(PARTITION BY enterprise_id) THEN 'DUPLICATE_ENS' ELSE 'UNIQUE_ENS' END AS en_uniqueness,
-    error,
+    errors,
     invalid_codes,
+    merge_status,
     state
 FROM public.test72_sc2_two_lus_data -- Hardcoded based on sc2_job_slug
 ORDER BY row_id;
- row_id | tax_ident  |         name          | action | data_lu_marker | data_en_marker | lu_uniqueness | en_uniqueness | error | invalid_codes |   state   
---------+------------+-----------------------+--------+----------------+----------------+---------------+---------------+-------+---------------+-----------
-      1 | 'SC2LU001' | LU SC2 First Company  | insert | LU_SET         | EN_SET         | UNIQUE_LUS    | UNIQUE_ENS    |       |               | processed
-      2 | 'SC2LU002' | LU SC2 Second Company | insert | LU_SET         | EN_SET         | UNIQUE_LUS    | UNIQUE_ENS    |       |               | processed
+ row_id | tax_ident  |         name          | action | data_lu_marker | data_en_marker | lu_uniqueness | en_uniqueness | errors | invalid_codes |                                       merge_status                                       |   state   
+--------+------------+-----------------------+--------+----------------+----------------+---------------+---------------+--------+---------------+------------------------------------------------------------------------------------------+-----------
+      1 | 'SC2LU001' | LU SC2 First Company  | use    | LU_SET         | EN_SET         | UNIQUE_LUS    | UNIQUE_ENS    | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | processed
+      2 | 'SC2LU002' | LU SC2 Second Company | use    | LU_SET         | EN_SET         | UNIQUE_LUS    | UNIQUE_ENS    | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | processed
 (2 rows)
 
 \echo 'SC2: Verifying public.legal_unit table (expect 2 distinct LUs)'
@@ -438,19 +440,19 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 \echo 'SC3: Verifying _data table contents for LUs job (test72_sc3_lus)'
 SC3: Verifying _data table contents for LUs job (test72_sc3_lus)
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, error, invalid_codes, -- removed operation
+SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, errors, invalid_codes, merge_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
        CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc3_lus_data -- Hardcoded based on sc3_job_lu_slug
 ORDER BY row_id;
- row_id | founding_row_id |  tax_ident  |           name            |  valid_from  |   valid_to   | action  |   state   | error | invalid_codes | legal_unit_id_status | enterprise_id_status 
---------+-----------------+-------------+---------------------------+--------------+--------------+---------+-----------+-------+---------------+----------------------+----------------------
-      1 |               1 | 'SC3LUA001' | LU SC3 Company A          | '2023-01-01' | '2023-03-31' | insert  | processed |       |               | SET                  | SET
-      2 |               1 | 'SC3LUA001' | LU SC3 Company A          | '2023-04-01' | '2023-06-30' | replace | processed |       |               | SET                  | SET
-      3 |               1 | 'SC3LUA001' | LU SC3 Company A Changed  | '2023-07-01' | '2023-09-30' | replace | processed |       |               | SET                  | SET
-      4 |               4 | 'SC3LUB001' | LU SC3 Company B          | '2023-01-01' | '2023-03-31' | insert  | processed |       |               | SET                  | SET
-      5 |               4 | 'SC3LUB001' | LU SC3 Company B          | '2023-04-01' | '2023-06-30' | replace | processed |       |               | SET                  | SET
-      6 |               4 | 'SC3LUB001' | LU SC3 Company B Modified | '2023-07-01' | '2023-09-30' | replace | processed |       |               | SET                  | SET
+ row_id | founding_row_id |  tax_ident  |           name            |  valid_from  |   valid_to   | action |   state   | errors | invalid_codes |                                       merge_status                                       | legal_unit_id_status | enterprise_id_status 
+--------+-----------------+-------------+---------------------------+--------------+--------------+--------+-----------+--------+---------------+------------------------------------------------------------------------------------------+----------------------+----------------------
+      1 |               1 | 'SC3LUA001' | LU SC3 Company A          | '2023-01-01' | '2023-03-31' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | SET
+      2 |               1 | 'SC3LUA001' | LU SC3 Company A          | '2023-04-01' | '2023-06-30' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | SET
+      3 |               1 | 'SC3LUA001' | LU SC3 Company A Changed  | '2023-07-01' | '2023-09-30' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | SET
+      4 |               4 | 'SC3LUB001' | LU SC3 Company B          | '2023-01-01' | '2023-03-31' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | SET
+      5 |               4 | 'SC3LUB001' | LU SC3 Company B          | '2023-04-01' | '2023-06-30' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | SET
+      6 |               4 | 'SC3LUB001' | LU SC3 Company B Modified | '2023-07-01' | '2023-09-30' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | SET
 (6 rows)
 
 -- Now create and process establishments
@@ -550,31 +552,31 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 \echo 'SC3: Verifying _data table contents for ESs job (test72_sc3_ests)'
 SC3: Verifying _data table contents for ESs job (test72_sc3_ests)
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, legal_unit_tax_ident, action, state, error, invalid_codes, -- removed operation
+SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, legal_unit_tax_ident, action, state, errors, invalid_codes, merge_status,
        CASE WHEN establishment_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS establishment_id_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS lu_fk_id_status
 FROM public.test72_sc3_ests_data -- Hardcoded based on sc3_job_es_slug
 ORDER BY row_id;
- row_id | founding_row_id |  tax_ident  |          name           |  valid_from  |   valid_to   | legal_unit_tax_ident | action  |   state   | error | invalid_codes | establishment_id_status | lu_fk_id_status 
---------+-----------------+-------------+-------------------------+--------------+--------------+----------------------+---------+-----------+-------+---------------+-------------------------+-----------------
-      1 |               1 | 'SC3ESA001' | ES SC3 A1 Shop          | '2023-01-01' | '2023-03-31' | 'SC3LUA001'          | insert  | processed |       |               | SET                     | SET
-      2 |               1 | 'SC3ESA001' | ES SC3 A1 Shop          | '2023-04-01' | '2023-06-30' | 'SC3LUA001'          | replace | processed |       |               | SET                     | SET
-      3 |               1 | 'SC3ESA001' | ES SC3 A1 Shop Renamed  | '2023-07-01' | '2023-09-30' | 'SC3LUA001'          | replace | processed |       |               | SET                     | SET
-      4 |               4 | 'SC3ESA002' | ES SC3 A2 Office        | '2023-01-01' | '2023-03-31' | 'SC3LUA001'          | insert  | processed |       |               | SET                     | SET
-      5 |               4 | 'SC3ESA002' | ES SC3 A2 Office        | '2023-04-01' | '2023-06-30' | 'SC3LUA001'          | replace | processed |       |               | SET                     | SET
-      6 |               4 | 'SC3ESA002' | ES SC3 A2 Office Moved  | '2023-07-01' | '2023-09-30' | 'SC3LUA001'          | replace | processed |       |               | SET                     | SET
-      7 |               7 | 'SC3ESA003' | ES SC3 A3 Warehouse     | '2023-01-01' | '2023-03-31' | 'SC3LUA001'          | insert  | processed |       |               | SET                     | SET
-      8 |               7 | 'SC3ESA003' | ES SC3 A3 Warehouse     | '2023-04-01' | '2023-06-30' | 'SC3LUA001'          | replace | processed |       |               | SET                     | SET
-      9 |               7 | 'SC3ESA003' | ES SC3 A3 Warehouse Exp | '2023-07-01' | '2023-09-30' | 'SC3LUA001'          | replace | processed |       |               | SET                     | SET
-     10 |              10 | 'SC3ESB001' | ES SC3 B1 Factory       | '2023-01-01' | '2023-03-31' | 'SC3LUB001'          | insert  | processed |       |               | SET                     | SET
-     11 |              10 | 'SC3ESB001' | ES SC3 B1 Factory       | '2023-04-01' | '2023-06-30' | 'SC3LUB001'          | replace | processed |       |               | SET                     | SET
-     12 |              10 | 'SC3ESB001' | ES SC3 B1 Factory Mod   | '2023-07-01' | '2023-09-30' | 'SC3LUB001'          | replace | processed |       |               | SET                     | SET
-     13 |              13 | 'SC3ESB002' | ES SC3 B2 Lab           | '2023-01-01' | '2023-03-31' | 'SC3LUB001'          | insert  | processed |       |               | SET                     | SET
-     14 |              13 | 'SC3ESB002' | ES SC3 B2 Lab           | '2023-04-01' | '2023-06-30' | 'SC3LUB001'          | replace | processed |       |               | SET                     | SET
-     15 |              13 | 'SC3ESB002' | ES SC3 B2 Lab Updated   | '2023-07-01' | '2023-09-30' | 'SC3LUB001'          | replace | processed |       |               | SET                     | SET
-     16 |              16 | 'SC3ESB003' | ES SC3 B3 Service       | '2023-01-01' | '2023-03-31' | 'SC3LUB001'          | insert  | processed |       |               | SET                     | SET
-     17 |              16 | 'SC3ESB003' | ES SC3 B3 Service       | '2023-04-01' | '2023-06-30' | 'SC3LUB001'          | replace | processed |       |               | SET                     | SET
-     18 |              16 | 'SC3ESB003' | ES SC3 B3 Service New   | '2023-07-01' | '2023-09-30' | 'SC3LUB001'          | replace | processed |       |               | SET                     | SET
+ row_id | founding_row_id |  tax_ident  |          name           |  valid_from  |   valid_to   | legal_unit_tax_ident | action |   state   | errors | invalid_codes |                                        merge_status                                         | establishment_id_status | lu_fk_id_status 
+--------+-----------------+-------------+-------------------------+--------------+--------------+----------------------+--------+-----------+--------+---------------+---------------------------------------------------------------------------------------------+-------------------------+-----------------
+      1 |               1 | 'SC3ESA001' | ES SC3 A1 Shop          | '2023-01-01' | '2023-03-31' | 'SC3LUA001'          | use    | processed | {}     | {}            | {"establishment": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                     | SET
+      2 |               1 | 'SC3ESA001' | ES SC3 A1 Shop          | '2023-04-01' | '2023-06-30' | 'SC3LUA001'          | use    | processed | {}     | {}            | {"establishment": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                     | SET
+      3 |               1 | 'SC3ESA001' | ES SC3 A1 Shop Renamed  | '2023-07-01' | '2023-09-30' | 'SC3LUA001'          | use    | processed | {}     | {}            | {"establishment": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                     | SET
+      4 |               4 | 'SC3ESA002' | ES SC3 A2 Office        | '2023-01-01' | '2023-03-31' | 'SC3LUA001'          | use    | processed | {}     | {}            | {"establishment": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                     | SET
+      5 |               4 | 'SC3ESA002' | ES SC3 A2 Office        | '2023-04-01' | '2023-06-30' | 'SC3LUA001'          | use    | processed | {}     | {}            | {"establishment": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                     | SET
+      6 |               4 | 'SC3ESA002' | ES SC3 A2 Office Moved  | '2023-07-01' | '2023-09-30' | 'SC3LUA001'          | use    | processed | {}     | {}            | {"establishment": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                     | SET
+      7 |               7 | 'SC3ESA003' | ES SC3 A3 Warehouse     | '2023-01-01' | '2023-03-31' | 'SC3LUA001'          | use    | processed | {}     | {}            | {"establishment": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                     | SET
+      8 |               7 | 'SC3ESA003' | ES SC3 A3 Warehouse     | '2023-04-01' | '2023-06-30' | 'SC3LUA001'          | use    | processed | {}     | {}            | {"establishment": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                     | SET
+      9 |               7 | 'SC3ESA003' | ES SC3 A3 Warehouse Exp | '2023-07-01' | '2023-09-30' | 'SC3LUA001'          | use    | processed | {}     | {}            | {"establishment": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                     | SET
+     10 |              10 | 'SC3ESB001' | ES SC3 B1 Factory       | '2023-01-01' | '2023-03-31' | 'SC3LUB001'          | use    | processed | {}     | {}            | {"establishment": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                     | SET
+     11 |              10 | 'SC3ESB001' | ES SC3 B1 Factory       | '2023-04-01' | '2023-06-30' | 'SC3LUB001'          | use    | processed | {}     | {}            | {"establishment": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                     | SET
+     12 |              10 | 'SC3ESB001' | ES SC3 B1 Factory Mod   | '2023-07-01' | '2023-09-30' | 'SC3LUB001'          | use    | processed | {}     | {}            | {"establishment": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                     | SET
+     13 |              13 | 'SC3ESB002' | ES SC3 B2 Lab           | '2023-01-01' | '2023-03-31' | 'SC3LUB001'          | use    | processed | {}     | {}            | {"establishment": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                     | SET
+     14 |              13 | 'SC3ESB002' | ES SC3 B2 Lab           | '2023-04-01' | '2023-06-30' | 'SC3LUB001'          | use    | processed | {}     | {}            | {"establishment": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                     | SET
+     15 |              13 | 'SC3ESB002' | ES SC3 B2 Lab Updated   | '2023-07-01' | '2023-09-30' | 'SC3LUB001'          | use    | processed | {}     | {}            | {"establishment": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                     | SET
+     16 |              16 | 'SC3ESB003' | ES SC3 B3 Service       | '2023-01-01' | '2023-03-31' | 'SC3LUB001'          | use    | processed | {}     | {}            | {"establishment": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                     | SET
+     17 |              16 | 'SC3ESB003' | ES SC3 B3 Service       | '2023-04-01' | '2023-06-30' | 'SC3LUB001'          | use    | processed | {}     | {}            | {"establishment": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                     | SET
+     18 |              16 | 'SC3ESB003' | ES SC3 B3 Service New   | '2023-07-01' | '2023-09-30' | 'SC3LUB001'          | use    | processed | {}     | {}            | {"establishment": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                     | SET
 (18 rows)
 
 -- SC3 Verifications
@@ -763,19 +765,19 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 \echo 'SC4: Verifying _data table contents for V1 job (test72_sc4_order_v1)'
 SC4: Verifying _data table contents for V1 job (test72_sc4_order_v1)
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, error, invalid_codes, -- removed operation
+SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, errors, invalid_codes, merge_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
        CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc4_order_v1_data -- Hardcoded based on sc4_job_slug_v1
 ORDER BY row_id;
- row_id | founding_row_id |  tax_ident  |           name            |  valid_from  |   valid_to   | action  |   state   | error | invalid_codes | legal_unit_id_status | enterprise_id_status 
---------+-----------------+-------------+---------------------------+--------------+--------------+---------+-----------+-------+---------------+----------------------+----------------------
-      1 |               1 | 'SC3LUA001' | LU SC4 Company A          | '2023-01-01' | '2023-03-31' | insert  | processed |       |               | SET                  | SET
-      2 |               2 | 'SC3LUB001' | LU SC4 Company B          | '2023-01-01' | '2023-03-31' | insert  | processed |       |               | SET                  | SET
-      3 |               1 | 'SC3LUA001' | LU SC4 Company A          | '2023-04-01' | '2023-06-30' | replace | processed |       |               | SET                  | SET
-      4 |               2 | 'SC3LUB001' | LU SC4 Company B          | '2023-04-01' | '2023-06-30' | replace | processed |       |               | SET                  | SET
-      5 |               1 | 'SC3LUA001' | LU SC4 Company A Changed  | '2023-07-01' | '2023-09-30' | replace | processed |       |               | SET                  | SET
-      6 |               2 | 'SC3LUB001' | LU SC4 Company B Modified | '2023-07-01' | '2023-09-30' | replace | processed |       |               | SET                  | SET
+ row_id | founding_row_id |  tax_ident  |           name            |  valid_from  |   valid_to   | action |   state   | errors | invalid_codes |                                       merge_status                                       | legal_unit_id_status | enterprise_id_status 
+--------+-----------------+-------------+---------------------------+--------------+--------------+--------+-----------+--------+---------------+------------------------------------------------------------------------------------------+----------------------+----------------------
+      1 |               1 | 'SC3LUA001' | LU SC4 Company A          | '2023-01-01' | '2023-03-31' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | SET
+      2 |               2 | 'SC3LUB001' | LU SC4 Company B          | '2023-01-01' | '2023-03-31' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | SET
+      3 |               1 | 'SC3LUA001' | LU SC4 Company A          | '2023-04-01' | '2023-06-30' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | SET
+      4 |               2 | 'SC3LUB001' | LU SC4 Company B          | '2023-04-01' | '2023-06-30' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | SET
+      5 |               1 | 'SC3LUA001' | LU SC4 Company A Changed  | '2023-07-01' | '2023-09-30' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | SET
+      6 |               2 | 'SC3LUB001' | LU SC4 Company B Modified | '2023-07-01' | '2023-09-30' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | SET
 (6 rows)
 
 -- SC4 Version 2: Reverse temporal order (all P3, then P2, then P1)
@@ -814,19 +816,19 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 \echo 'SC4: Verifying _data table contents for V2 job (test72_sc4_order_v2)'
 SC4: Verifying _data table contents for V2 job (test72_sc4_order_v2)
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, error, invalid_codes, -- removed operation
+SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, errors, invalid_codes, merge_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
        CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc4_order_v2_data -- Hardcoded based on sc4_job_slug_v2
 ORDER BY row_id;
- row_id | founding_row_id |  tax_ident  |           name            |  valid_from  |   valid_to   | action  |   state   | error | invalid_codes | legal_unit_id_status | enterprise_id_status 
---------+-----------------+-------------+---------------------------+--------------+--------------+---------+-----------+-------+---------------+----------------------+----------------------
-      1 |               5 | 'SC3LUA001' | LU SC4 Company A Changed  | '2023-07-01' | '2023-09-30' | replace | processed |       |               | SET                  | SET
-      2 |               6 | 'SC3LUB001' | LU SC4 Company B Modified | '2023-07-01' | '2023-09-30' | replace | processed |       |               | SET                  | SET
-      3 |               5 | 'SC3LUA001' | LU SC4 Company A          | '2023-04-01' | '2023-06-30' | replace | processed |       |               | SET                  | SET
-      4 |               6 | 'SC3LUB001' | LU SC4 Company B          | '2023-04-01' | '2023-06-30' | replace | processed |       |               | SET                  | SET
-      5 |               5 | 'SC3LUA001' | LU SC4 Company A          | '2023-01-01' | '2023-03-31' | replace | processed |       |               | SET                  | SET
-      6 |               6 | 'SC3LUB001' | LU SC4 Company B          | '2023-01-01' | '2023-03-31' | replace | processed |       |               | SET                  | SET
+ row_id | founding_row_id |  tax_ident  |           name            |  valid_from  |   valid_to   | action |   state   | errors | invalid_codes |                                                    merge_status                                                     | legal_unit_id_status | enterprise_id_status 
+--------+-----------------+-------------+---------------------------+--------------+--------------+--------+-----------+--------+---------------+---------------------------------------------------------------------------------------------------------------------+----------------------+----------------------
+      1 |      1000000006 | 'SC3LUA001' | LU SC4 Company A Changed  | '2023-07-01' | '2023-09-30' | use    | processed | {}     | {}            | {"legal_unit": "SKIPPED_FILTERED", "primary_activity": "SKIPPED_FILTERED", "physical_location": "SKIPPED_FILTERED"} | SET                  | NULL
+      2 |      1000000007 | 'SC3LUB001' | LU SC4 Company B Modified | '2023-07-01' | '2023-09-30' | use    | processed | {}     | {}            | {"legal_unit": "SKIPPED_FILTERED", "primary_activity": "SKIPPED_FILTERED", "physical_location": "SKIPPED_FILTERED"} | SET                  | NULL
+      3 |      1000000006 | 'SC3LUA001' | LU SC4 Company A          | '2023-04-01' | '2023-06-30' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}                            | SET                  | NULL
+      4 |      1000000007 | 'SC3LUB001' | LU SC4 Company B          | '2023-04-01' | '2023-06-30' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}                            | SET                  | NULL
+      5 |      1000000006 | 'SC3LUA001' | LU SC4 Company A          | '2023-01-01' | '2023-03-31' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}                            | SET                  | NULL
+      6 |      1000000007 | 'SC3LUB001' | LU SC4 Company B          | '2023-01-01' | '2023-03-31' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}                            | SET                  | NULL
 (6 rows)
 
 -- SC4 Verification: Compare results
@@ -897,15 +899,15 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 \echo 'SC5.1: Verifying _data table contents for LUs job (test72_sc5_1_lus)'
 SC5.1: Verifying _data table contents for LUs job (test72_sc5_1_lus)
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, error, invalid_codes, -- removed operation
+SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, errors, invalid_codes, merge_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
        CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc5_1_lus_data -- Hardcoded
 ORDER BY row_id;
- row_id | founding_row_id | tax_ident  |      name      | valid_from |  valid_to  | action |   state   | error | invalid_codes | legal_unit_id_status | enterprise_id_status 
---------+-----------------+------------+----------------+------------+------------+--------+-----------+-------+---------------+----------------------+----------------------
-      1 |               1 | 'SC5ALPHA' | LU SC5.1 Alpha | 2023-01-01 | 2023-12-31 | insert | processed |       |               | SET                  | SET
-      2 |               2 | 'SC5BETA'  | LU SC5.1 Beta  | 2023-01-01 | 2023-12-31 | insert | processed |       |               | SET                  | SET
+ row_id | founding_row_id | tax_ident  |      name      | valid_from |  valid_to  | action |   state   | errors | invalid_codes |                                       merge_status                                       | legal_unit_id_status | enterprise_id_status 
+--------+-----------------+------------+----------------+------------+------------+--------+-----------+--------+---------------+------------------------------------------------------------------------------------------+----------------------+----------------------
+      1 |               1 | 'SC5ALPHA' | LU SC5.1 Alpha | 2023-01-01 | 2023-12-31 | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | SET
+      2 |               2 | 'SC5BETA'  | LU SC5.1 Beta  | 2023-01-01 | 2023-12-31 | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | SET
 (2 rows)
 
 -- Batch 2: ESs only
@@ -927,15 +929,15 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 \echo 'SC5.1: Verifying _data table contents for ESs job (test72_sc5_1_ests)'
 SC5.1: Verifying _data table contents for ESs job (test72_sc5_1_ests)
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, legal_unit_tax_ident, action, state, error, invalid_codes, -- removed operation
+SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, legal_unit_tax_ident, action, state, errors, invalid_codes, merge_status,
        CASE WHEN establishment_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS establishment_id_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS lu_fk_id_status
 FROM public.test72_sc5_1_ests_data -- Hardcoded
 ORDER BY row_id;
- row_id | founding_row_id | tax_ident  |         name          | valid_from |  valid_to  | legal_unit_tax_ident | action |   state   | error | invalid_codes | establishment_id_status | lu_fk_id_status 
---------+-----------------+------------+-----------------------+------------+------------+----------------------+--------+-----------+-------+---------------+-------------------------+-----------------
-      1 |               1 | 'SC5ES001' | ES SC5.1 Alpha Shop   | 2023-01-01 | 2023-12-31 | 'SC5ALPHA'           | insert | processed |       |               | SET                     | SET
-      2 |               2 | 'SC5ES002' | ES SC5.1 Beta Factory | 2023-01-01 | 2023-12-31 | 'SC5BETA'            | insert | processed |       |               | SET                     | SET
+ row_id | founding_row_id | tax_ident  |         name          | valid_from |  valid_to  | legal_unit_tax_ident | action |   state   | errors | invalid_codes |                                        merge_status                                         | establishment_id_status | lu_fk_id_status 
+--------+-----------------+------------+-----------------------+------------+------------+----------------------+--------+-----------+--------+---------------+---------------------------------------------------------------------------------------------+-------------------------+-----------------
+      1 |               1 | 'SC5ES001' | ES SC5.1 Alpha Shop   | 2023-01-01 | 2023-12-31 | 'SC5ALPHA'           | use    | processed | {}     | {}            | {"establishment": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                     | SET
+      2 |               2 | 'SC5ES002' | ES SC5.1 Beta Factory | 2023-01-01 | 2023-12-31 | 'SC5BETA'            | use    | processed | {}     | {}            | {"establishment": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                     | SET
 (2 rows)
 
 \echo 'SC5.1: Verifying Entity Type Split results'
@@ -1001,15 +1003,15 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 \echo 'SC6: Verifying _data table contents for Baseline job (test72_sc6_baseline)'
 SC6: Verifying _data table contents for Baseline job (test72_sc6_baseline)
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, error, invalid_codes, -- removed operation
+SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, errors, invalid_codes, merge_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
        CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc6_baseline_data -- Hardcoded
 ORDER BY row_id;
- row_id | founding_row_id | tax_ident |       name        | valid_from |  valid_to  | action |   state   | error | invalid_codes | legal_unit_id_status | enterprise_id_status 
---------+-----------------+-----------+-------------------+------------+------------+--------+-----------+-------+---------------+----------------------+----------------------
-      1 |               1 | 'SC6LUA'  | LU SC6 Original A | 2023-01-01 | 2023-12-31 | insert | processed |       |               | SET                  | SET
-      2 |               2 | 'SC6LUB'  | LU SC6 Original B | 2023-01-01 | 2023-12-31 | insert | processed |       |               | SET                  | SET
+ row_id | founding_row_id | tax_ident |       name        | valid_from |  valid_to  | action |   state   | errors | invalid_codes |                                       merge_status                                       | legal_unit_id_status | enterprise_id_status 
+--------+-----------------+-----------+-------------------+------------+------------+--------+-----------+--------+---------------+------------------------------------------------------------------------------------------+----------------------+----------------------
+      1 |               1 | 'SC6LUA'  | LU SC6 Original A | 2023-01-01 | 2023-12-31 | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | SET
+      2 |               2 | 'SC6LUB'  | LU SC6 Original B | 2023-01-01 | 2023-12-31 | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | SET
 (2 rows)
 
 -- Capture baseline enterprise IDs
@@ -1058,15 +1060,15 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 \echo 'SC6.1: Verifying _data table contents for Single Batch Update job (test72_sc6_1_single)'
 SC6.1: Verifying _data table contents for Single Batch Update job (test72_sc6_1_single)
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, error, invalid_codes, -- removed operation
+SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, errors, invalid_codes, merge_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
        CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc6_1_single_data -- Hardcoded
 ORDER BY row_id;
- row_id | founding_row_id | tax_ident |       name       | valid_from |  valid_to  | action  |   state   | error | invalid_codes | legal_unit_id_status | enterprise_id_status 
---------+-----------------+-----------+------------------+------------+------------+---------+-----------+-------+---------------+----------------------+----------------------
-      1 |               1 | 'SC6LUA'  | LU SC6 Updated A | 2023-01-01 | 2023-12-31 | replace | processed |       |               | SET                  | SET
-      2 |               2 | 'SC6LUB'  | LU SC6 Updated B | 2023-01-01 | 2023-12-31 | replace | processed |       |               | SET                  | SET
+ row_id | founding_row_id | tax_ident |       name       | valid_from |  valid_to  | action |   state   | errors | invalid_codes |                                       merge_status                                       | legal_unit_id_status | enterprise_id_status 
+--------+-----------------+-----------+------------------+------------+------------+--------+-----------+--------+---------------+------------------------------------------------------------------------------------------+----------------------+----------------------
+      1 |      1000000010 | 'SC6LUA'  | LU SC6 Updated A | 2023-01-01 | 2023-12-31 | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | NULL
+      2 |      1000000011 | 'SC6LUB'  | LU SC6 Updated B | 2023-01-01 | 2023-12-31 | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | NULL
 (2 rows)
 
 \echo 'SC6.1: Verifying single batch update preserved enterprise links'
@@ -1142,15 +1144,15 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 \echo 'SC7: Verifying _data table contents for Initial LUs job (test72_sc7_multi_lu_same_ent)'
 SC7: Verifying _data table contents for Initial LUs job (test72_sc7_multi_lu_same_ent)
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, error, invalid_codes, -- removed operation
+SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, errors, invalid_codes, merge_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
        CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc7_multi_lu_same_ent_data -- Hardcoded
 ORDER BY row_id;
- row_id | founding_row_id | tax_ident  |        name        |  valid_from  |   valid_to   | action |   state   | error | invalid_codes | legal_unit_id_status | enterprise_id_status 
---------+-----------------+------------+--------------------+--------------+--------------+--------+-----------+-------+---------------+----------------------+----------------------
-      1 |               1 | 'SC7LU001' | LU SC7 Company One | '2023-01-01' | '2023-12-31' | insert | processed |       |               | SET                  | SET
-      2 |               2 | 'SC7LU002' | LU SC7 Company Two | '2023-01-01' | '2023-12-31' | insert | processed |       |               | SET                  | SET
+ row_id | founding_row_id | tax_ident  |        name        |  valid_from  |   valid_to   | action |   state   | errors | invalid_codes |                                       merge_status                                       | legal_unit_id_status | enterprise_id_status 
+--------+-----------------+------------+--------------------+--------------+--------------+--------+-----------+--------+---------------+------------------------------------------------------------------------------------------+----------------------+----------------------
+      1 |               1 | 'SC7LU001' | LU SC7 Company One | '2023-01-01' | '2023-12-31' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | SET
+      2 |               2 | 'SC7LU002' | LU SC7 Company Two | '2023-01-01' | '2023-12-31' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | SET
 (2 rows)
 
 \echo 'SC7: Initial state - two LUs with separate enterprises'
@@ -1294,15 +1296,15 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 \echo 'SC7: Verifying _data table contents for Update Batch job (test72_sc7_update_batch)'
 SC7: Verifying _data table contents for Update Batch job (test72_sc7_update_batch)
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, error, invalid_codes, -- removed operation
+SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, errors, invalid_codes, merge_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
        CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc7_update_batch_data -- Hardcoded
 ORDER BY row_id;
- row_id | founding_row_id | tax_ident  |            name            |  valid_from  |   valid_to   | action  |   state   | error | invalid_codes | legal_unit_id_status | enterprise_id_status 
---------+-----------------+------------+----------------------------+--------------+--------------+---------+-----------+-------+---------------+----------------------+----------------------
-      1 |               1 | 'SC7LU001' | LU SC7 Company One UPDATED | '2023-01-01' | '2023-12-31' | replace | processed |       |               | SET                  | SET
-      2 |               2 | 'SC7LU003' | LU SC7 Company Three NEW   | '2023-01-01' | '2023-12-31' | insert  | processed |       |               | SET                  | SET
+ row_id | founding_row_id | tax_ident  |            name            |  valid_from  |   valid_to   | action |   state   | errors | invalid_codes |                                       merge_status                                       | legal_unit_id_status | enterprise_id_status 
+--------+-----------------+------------+----------------------------+--------------+--------------+--------+-----------+--------+---------------+------------------------------------------------------------------------------------------+----------------------+----------------------
+      1 |      1000000012 | 'SC7LU001' | LU SC7 Company One UPDATED | '2023-01-01' | '2023-12-31' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | NULL
+      2 |               2 | 'SC7LU003' | LU SC7 Company Three NEW   | '2023-01-01' | '2023-12-31' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | SET
 (2 rows)
 
 \echo 'SC7: Final state - checking primary_for_enterprise handling'
@@ -1381,14 +1383,14 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 \echo 'SC8: Verifying _data table contents for LU job (test72_sc8_lu)'
 SC8: Verifying _data table contents for LU job (test72_sc8_lu)
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, error, invalid_codes, -- removed operation
+SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, errors, invalid_codes, merge_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
        CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc8_lu_data -- Hardcoded
 ORDER BY row_id;
- row_id | founding_row_id | tax_ident  |        name         |  valid_from  |   valid_to   | action |   state   | error | invalid_codes | legal_unit_id_status | enterprise_id_status 
---------+-----------------+------------+---------------------+--------------+--------------+--------+-----------+-------+---------------+----------------------+----------------------
-      1 |               1 | 'SC8LU001' | LU SC8 Main Company | '2023-01-01' | '2023-12-31' | insert | processed |       |               | SET                  | SET
+ row_id | founding_row_id | tax_ident  |        name         |  valid_from  |   valid_to   | action |   state   | errors | invalid_codes |                                       merge_status                                       | legal_unit_id_status | enterprise_id_status 
+--------+-----------------+------------+---------------------+--------------+--------------+--------+-----------+--------+---------------+------------------------------------------------------------------------------------------+----------------------+----------------------
+      1 |               1 | 'SC8LU001' | LU SC8 Main Company | '2023-01-01' | '2023-12-31' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | SET
 (1 row)
 
 -- Step 2: Create multiple ESs for the same LU
@@ -1415,16 +1417,16 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 \echo 'SC8: Verifying _data table contents for ESs job (test72_sc8_multi_es)'
 SC8: Verifying _data table contents for ESs job (test72_sc8_multi_es)
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, legal_unit_tax_ident, action, state, error, invalid_codes, -- removed operation
+SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, legal_unit_tax_ident, action, state, errors, invalid_codes, merge_status,
        CASE WHEN establishment_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS establishment_id_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS lu_fk_id_status
 FROM public.test72_sc8_multi_es_data -- Hardcoded
 ORDER BY row_id;
- row_id | founding_row_id | tax_ident  |        name         |  valid_from  |   valid_to   | legal_unit_tax_ident | action |   state   | error | invalid_codes | establishment_id_status | lu_fk_id_status 
---------+-----------------+------------+---------------------+--------------+--------------+----------------------+--------+-----------+-------+---------------+-------------------------+-----------------
-      1 |               1 | 'SC8ES001' | ES SC8 Branch One   | '2023-01-01' | '2023-12-31' | 'SC8LU001'           | insert | processed |       |               | SET                     | SET
-      2 |               2 | 'SC8ES002' | ES SC8 Branch Two   | '2023-01-01' | '2023-12-31' | 'SC8LU001'           | insert | processed |       |               | SET                     | SET
-      3 |               3 | 'SC8ES003' | ES SC8 Branch Three | '2023-01-01' | '2023-12-31' | 'SC8LU001'           | insert | processed |       |               | SET                     | SET
+ row_id | founding_row_id | tax_ident  |        name         |  valid_from  |   valid_to   | legal_unit_tax_ident | action |   state   | errors | invalid_codes |                                        merge_status                                         | establishment_id_status | lu_fk_id_status 
+--------+-----------------+------------+---------------------+--------------+--------------+----------------------+--------+-----------+--------+---------------+---------------------------------------------------------------------------------------------+-------------------------+-----------------
+      1 |               1 | 'SC8ES001' | ES SC8 Branch One   | '2023-01-01' | '2023-12-31' | 'SC8LU001'           | use    | processed | {}     | {}            | {"establishment": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                     | SET
+      2 |               2 | 'SC8ES002' | ES SC8 Branch Two   | '2023-01-01' | '2023-12-31' | 'SC8LU001'           | use    | processed | {}     | {}            | {"establishment": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                     | SET
+      3 |               3 | 'SC8ES003' | ES SC8 Branch Three | '2023-01-01' | '2023-12-31' | 'SC8LU001'           | use    | processed | {}     | {}            | {"establishment": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                     | SET
 (3 rows)
 
 \echo 'SC8: Checking primary_for_legal_unit handling'
@@ -1515,13 +1517,13 @@ CALL worker.process_tasks(p_queue => 'import');
 -- SC9 Verifications
 \echo 'SC9: Verifying _data table contents'
 SC9: Verifying _data table contents
-SELECT row_id, tax_ident, name, valid_from, valid_to, error, invalid_codes, state, action 
+SELECT row_id, tax_ident, name, valid_from, valid_to, errors, invalid_codes, merge_status, state, action, operation
 FROM public.test72_sc9_lu_overlap_data -- Hardcoded based on sc9_job_slug
 ORDER BY row_id;
- row_id | tax_ident  |        name         |  valid_from  |   valid_to   | error | invalid_codes |   state   | action  
---------+------------+---------------------+--------------+--------------+-------+---------------+-----------+---------
-      1 | 'SC9LU001' | LU SC9 Overlap Seg1 | '2023-01-01' | '2023-06-30' |       |               | processed | insert
-      2 | 'SC9LU001' | LU SC9 Overlap Seg2 | '2023-04-01' | '2023-09-30' |       |               | processed | replace
+ row_id | tax_ident  |        name         |  valid_from  |   valid_to   | errors | invalid_codes |                                       merge_status                                       |   state   | action | operation 
+--------+------------+---------------------+--------------+--------------+--------+---------------+------------------------------------------------------------------------------------------+-----------+--------+-----------
+      1 | 'SC9LU001' | LU SC9 Overlap Seg1 | '2023-01-01' | '2023-06-30' | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | processed | use    | insert
+      2 | 'SC9LU001' | LU SC9 Overlap Seg2 | '2023-04-01' | '2023-09-30' | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | processed | use    | update
 (2 rows)
 
 \echo 'SC9: Verifying _data table contents (expecting successful processing and overlap resolution)'
@@ -1535,10 +1537,10 @@ BEGIN
         WITH data_table_content AS (
             SELECT
                 row_id,
-                action,
+                operation,
                 state,
                 CASE
-                    WHEN error IS NOT NULL AND error::TEXT <> '{}' THEN 'ERROR_PRESENT'
+                    WHEN errors IS DISTINCT FROM '{}'::jsonb THEN 'ERROR_PRESENT'
                     ELSE 'NO_ERROR'
                 END as error_status
             FROM public.test72_sc9_lu_overlap_data -- Hardcoded
@@ -1548,21 +1550,21 @@ BEGIN
                 WHEN COUNT(*) = 2
                  AND SUM(CASE WHEN state = 'processed' THEN 1 ELSE 0 END) = 2
                  AND SUM(CASE WHEN error_status = 'NO_ERROR' THEN 1 ELSE 0 END) = 2
-                 AND SUM(CASE WHEN row_id = 1 AND action = 'insert' THEN 1 ELSE 0 END) = 1
-                 AND SUM(CASE WHEN row_id = 2 AND action = 'replace' THEN 1 ELSE 0 END) = 1
-                THEN 'PASS: Both rows in _data table processed successfully with correct actions.'
+                 AND SUM(CASE WHEN row_id = 1 AND operation = 'insert' THEN 1 ELSE 0 END) = 1
+                 AND SUM(CASE WHEN row_id = 2 AND operation = 'update' THEN 1 ELSE 0 END) = 1
+                THEN 'PASS: Both rows in _data table processed successfully with correct operations.'
                 ELSE 'FAIL: _data table verification failed for SC9. ' ||
                      'Total rows: ' || COUNT(*) ||
                      ', Processed rows: ' || SUM(CASE WHEN state = 'processed' THEN 1 ELSE 0 END) ||
                      ', No error rows: ' || SUM(CASE WHEN error_status = 'NO_ERROR' THEN 1 ELSE 0 END) ||
-                     ', Row 1 action insert: ' || SUM(CASE WHEN row_id = 1 AND action = 'insert' THEN 1 ELSE 0 END) ||
-                     ', Row 2 action replace: ' || SUM(CASE WHEN row_id = 2 AND action = 'replace' THEN 1 ELSE 0 END)
+                     ', Row 1 operation insert: ' || SUM(CASE WHEN row_id = 1 AND operation = 'insert' THEN 1 ELSE 0 END) ||
+                     ', Row 2 operation update: ' || SUM(CASE WHEN row_id = 2 AND operation = 'update' THEN 1 ELSE 0 END)
             END
         FROM data_table_content
     $$) INTO v_data_table_check_result; -- No second argument to format needed
     RAISE NOTICE '%', v_data_table_check_result;
 END $sc9_verify_data_content$;
-NOTICE:  PASS: Both rows in _data table processed successfully with correct actions.
+NOTICE:  PASS: Both rows in _data table processed successfully with correct operations.
 \echo 'SC9: Verifying public.legal_unit table (expect 2 resolved slices)'
 SC9: Verifying public.legal_unit table (expect 2 resolved slices)
 CREATE TEMP TABLE sc9_lu_results AS
@@ -1657,16 +1659,16 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 \echo 'SC10 (Two Batches) Batch 1: Verifying _data table contents for job (test72_sc10_tb_lu_b1)'
 SC10 (Two Batches) Batch 1: Verifying _data table contents for job (test72_sc10_tb_lu_b1)
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, error, invalid_codes, -- removed operation
+SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, errors, invalid_codes, merge_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
        CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc10_tb_lu_b1_data -- Hardcoded based on sc10_tb_job_b1_slug
 ORDER BY row_id;
- row_id | founding_row_id |   tax_ident   |        name         |  valid_from  |   valid_to   | action  |   state   | error | invalid_codes | legal_unit_id_status | enterprise_id_status 
---------+-----------------+---------------+---------------------+--------------+--------------+---------+-----------+-------+---------------+----------------------+----------------------
-      1 |               1 | 'SC10TBLU001' | LU SC10TB Name B1P1 | '2023-01-01' | '2023-03-31' | insert  | processed |       |               | SET                  | SET
-      2 |               1 | 'SC10TBLU001' | LU SC10TB Name B1P2 | '2023-04-01' | '2023-06-30' | replace | processed |       |               | SET                  | SET
-      3 |               1 | 'SC10TBLU001' | LU SC10TB Name B1P3 | '2023-07-01' | '2023-09-30' | replace | processed |       |               | SET                  | SET
+ row_id | founding_row_id |   tax_ident   |        name         |  valid_from  |   valid_to   | action |   state   | errors | invalid_codes |                                       merge_status                                       | legal_unit_id_status | enterprise_id_status 
+--------+-----------------+---------------+---------------------+--------------+--------------+--------+-----------+--------+---------------+------------------------------------------------------------------------------------------+----------------------+----------------------
+      1 |               1 | 'SC10TBLU001' | LU SC10TB Name B1P1 | '2023-01-01' | '2023-03-31' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | SET
+      2 |               1 | 'SC10TBLU001' | LU SC10TB Name B1P2 | '2023-04-01' | '2023-06-30' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | SET
+      3 |               1 | 'SC10TBLU001' | LU SC10TB Name B1P3 | '2023-07-01' | '2023-09-30' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | SET
 (3 rows)
 
 -- SC10TB Batch 1: Verifications
@@ -1725,16 +1727,16 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo 'SC10 (Two Batches) Batch 2: Verifying _data table contents after Batch 2 processing'
 SC10 (Two Batches) Batch 2: Verifying _data table contents after Batch 2 processing
 SELECT
-    row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, error, invalid_codes, -- removed operation
+    row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, errors, invalid_codes, merge_status,
     CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
     CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc10_tb_lu_b2_data -- Hardcoded based on sc10_tb_job_b2_slug
 ORDER BY row_id;
- row_id | founding_row_id |   tax_ident   |        name         |                     valid_from                      |   valid_to   | action | state |                                                     error                                                     | invalid_codes | legal_unit_id_status | enterprise_id_status 
---------+-----------------+---------------+---------------------+-----------------------------------------------------+--------------+--------+-------+---------------------------------------------------------------------------------------------------------------+---------------+----------------------+----------------------
-      1 |                 | 'SC10TBLU001' | LU SC10TB Name B2pA | '2023-02-15'--OverlapsB1P1,B1P2                     | '2023-05-15' | skip   | error | {"valid_from": "Invalid date format: ''2023-02-15'--OverlapsB1P1,B1P2'. SQLSTATE: 22007"}                     |               | NULL                 | NULL
-      2 |                 | 'SC10TBLU001' | LU SC10TB Name B2pB | '2023-05-16'--ContiguouswithpA,overlapsB1P2,B1P3    | '2023-08-15' | skip   | error | {"valid_from": "Invalid date format: ''2023-05-16'--ContiguouswithpA,overlapsB1P2,B1P3'. SQLSTATE: 22007"}    |               | NULL                 | NULL
-      3 |                 | 'SC10TBLU001' | LU SC10TB Name B2pC | '2023-08-16'--ContiguouswithpB,overlapsB1P3,extends | '2023-11-30' | skip   | error | {"valid_from": "Invalid date format: ''2023-08-16'--ContiguouswithpB,overlapsB1P3,extends'. SQLSTATE: 22007"} |               | NULL                 | NULL
+ row_id | founding_row_id |   tax_ident   |        name         |                     valid_from                      |   valid_to   | action | state |                                                    errors                                                     | invalid_codes | merge_status | legal_unit_id_status | enterprise_id_status 
+--------+-----------------+---------------+---------------------+-----------------------------------------------------+--------------+--------+-------+---------------------------------------------------------------------------------------------------------------+---------------+--------------+----------------------+----------------------
+      1 |                 | 'SC10TBLU001' | LU SC10TB Name B2pA | '2023-02-15'--OverlapsB1P1,B1P2                     | '2023-05-15' | skip   | error | {"valid_from": "Invalid date format: ''2023-02-15'--OverlapsB1P1,B1P2'. SQLSTATE: 22007"}                     | {}            | {}           | NULL                 | NULL
+      2 |                 | 'SC10TBLU001' | LU SC10TB Name B2pB | '2023-05-16'--ContiguouswithpA,overlapsB1P2,B1P3    | '2023-08-15' | skip   | error | {"valid_from": "Invalid date format: ''2023-05-16'--ContiguouswithpA,overlapsB1P2,B1P3'. SQLSTATE: 22007"}    | {}            | {}           | NULL                 | NULL
+      3 |                 | 'SC10TBLU001' | LU SC10TB Name B2pC | '2023-08-16'--ContiguouswithpB,overlapsB1P3,extends | '2023-11-30' | skip   | error | {"valid_from": "Invalid date format: ''2023-08-16'--ContiguouswithpB,overlapsB1P3,extends'. SQLSTATE: 22007"} | {}            | {}           | NULL                 | NULL
 (3 rows)
 
 \echo 'SC10 (Two Batches) Batch 2: Verifying LU (expect 4 final slices, same enterprise, all primary)'
@@ -1885,46 +1887,46 @@ CALL worker.process_tasks(p_queue => 'import');
 SC11 (Single Batch): Verifying _data table contents
 -- Display relevant columns from the _data table
 SELECT
-    row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, error, invalid_codes,
+    row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, operation, state, errors, invalid_codes, merge_status,
     CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
     CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc11_sb_lu_overlap_data -- Hardcoded based on sc11_sb_job_slug
 ORDER BY row_id;
- row_id | founding_row_id |   tax_ident   |          name          |  valid_from  |   valid_to   | action  |   state   | error | invalid_codes | legal_unit_id_status | enterprise_id_status 
---------+-----------------+---------------+------------------------+--------------+--------------+---------+-----------+-------+---------------+----------------------+----------------------
-      1 |               1 | 'SC11SBLU001' | LU SC11SB Initial P1   | '2023-01-01' | '2023-03-31' | insert  | processed |       |               | SET                  | SET
-      2 |               1 | 'SC11SBLU001' | LU SC11SB Initial P2   | '2023-04-01' | '2023-06-30' | replace | processed |       |               | SET                  | SET
-      3 |               1 | 'SC11SBLU001' | LU SC11SB Initial P3   | '2023-07-01' | '2023-09-30' | replace | processed |       |               | SET                  | SET
-      4 |               1 | 'SC11SBLU001' | LU SC11SB Replacing pA | '2023-02-15' | '2023-05-15' | replace | processed |       |               | SET                  | SET
-      5 |               1 | 'SC11SBLU001' | LU SC11SB Replacing pB | '2023-05-16' | '2023-08-15' | replace | processed |       |               | SET                  | SET
-      6 |               1 | 'SC11SBLU001' | LU SC11SB Replacing pC | '2023-08-16' | '2023-11-30' | replace | processed |       |               | SET                  | SET
+ row_id | founding_row_id |   tax_ident   |          name          |  valid_from  |   valid_to   | action | operation |   state   | errors | invalid_codes |                                                    merge_status                                                     | legal_unit_id_status | enterprise_id_status 
+--------+-----------------+---------------+------------------------+--------------+--------------+--------+-----------+-----------+--------+---------------+---------------------------------------------------------------------------------------------------------------------+----------------------+----------------------
+      1 |               1 | 'SC11SBLU001' | LU SC11SB Initial P1   | '2023-01-01' | '2023-03-31' | use    | insert    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}                            | SET                  | SET
+      2 |               1 | 'SC11SBLU001' | LU SC11SB Initial P2   | '2023-04-01' | '2023-06-30' | use    | update    | processed | {}     | {}            | {"legal_unit": "SKIPPED_FILTERED", "primary_activity": "SKIPPED_FILTERED", "physical_location": "SKIPPED_FILTERED"} | SET                  | SET
+      3 |               1 | 'SC11SBLU001' | LU SC11SB Initial P3   | '2023-07-01' | '2023-09-30' | use    | update    | processed | {}     | {}            | {"legal_unit": "SKIPPED_FILTERED", "primary_activity": "SKIPPED_FILTERED", "physical_location": "SKIPPED_FILTERED"} | SET                  | SET
+      4 |               1 | 'SC11SBLU001' | LU SC11SB Replacing pA | '2023-02-15' | '2023-05-15' | use    | update    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}                            | SET                  | SET
+      5 |               1 | 'SC11SBLU001' | LU SC11SB Replacing pB | '2023-05-16' | '2023-08-15' | use    | update    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}                            | SET                  | SET
+      6 |               1 | 'SC11SBLU001' | LU SC11SB Replacing pC | '2023-08-16' | '2023-11-30' | use    | update    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}                            | SET                  | SET
 (6 rows)
 
 -- Check the processing status of rows in the _data table
 WITH data_check_cte AS (
     SELECT
-        row_id, action, state, error -- removed operation
+        row_id, operation, state, errors, merge_status
     FROM public.test72_sc11_sb_lu_overlap_data -- Hardcoded based on sc11_sb_job_slug
 )
 SELECT
     CASE
         WHEN COUNT(*) = 6
          AND SUM(CASE WHEN state = 'processed' THEN 1 ELSE 0 END) = 6
-         AND SUM(CASE WHEN error IS NOT NULL AND error::TEXT <> '{}' THEN 1 ELSE 0 END) = 0
-         AND SUM(CASE WHEN row_id = 1 AND action = 'insert' THEN 1 ELSE 0 END) = 1 -- removed operation check
-         AND SUM(CASE WHEN row_id > 1 AND action = 'replace' THEN 1 ELSE 0 END) = 5 -- removed operation check
-        THEN 'PASS: All 6 rows in _data table processed successfully with correct actions.'
+         AND SUM(CASE WHEN errors IS DISTINCT FROM '{}'::jsonb THEN 1 ELSE 0 END) = 0
+         AND SUM(CASE WHEN row_id = 1 AND operation = 'insert' THEN 1 ELSE 0 END) = 1
+         AND SUM(CASE WHEN row_id > 1 AND operation = 'update' THEN 1 ELSE 0 END) = 5
+        THEN 'PASS: All 6 rows in _data table processed successfully with correct operations.'
         ELSE 'FAIL: _data table verification failed for SC11. ' ||
              'Total rows: ' || COUNT(*) ||
              ', Processed rows: ' || SUM(CASE WHEN state = 'processed' THEN 1 ELSE 0 END) ||
-             ', Error rows: ' || SUM(CASE WHEN error IS NOT NULL AND error::TEXT <> '{}' THEN 1 ELSE 0 END) ||
-             ', Row 1 action insert: ' || SUM(CASE WHEN row_id = 1 AND action = 'insert' THEN 1 ELSE 0 END) ||
-             ', Subsequent action replace: ' || SUM(CASE WHEN row_id > 1 AND action = 'replace' THEN 1 ELSE 0 END)
+             ', Error rows: ' || SUM(CASE WHEN errors IS DISTINCT FROM '{}'::jsonb THEN 1 ELSE 0 END) ||
+             ', Row 1 operation insert: ' || SUM(CASE WHEN row_id = 1 AND operation = 'insert' THEN 1 ELSE 0 END) ||
+             ', Subsequent operation update: ' || SUM(CASE WHEN row_id > 1 AND operation = 'update' THEN 1 ELSE 0 END)
     END as data_table_check
 FROM data_check_cte;
-                               data_table_check                               
-------------------------------------------------------------------------------
- PASS: All 6 rows in _data table processed successfully with correct actions.
+                                data_table_check                                 
+---------------------------------------------------------------------------------
+ PASS: All 6 rows in _data table processed successfully with correct operations.
 (1 row)
 
 \echo 'SC11 (Single Batch): Verifying LU (expect 4 final slices, same enterprise, all primary)'

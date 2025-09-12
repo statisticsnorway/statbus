@@ -1,5 +1,12 @@
 BEGIN;
 
+-- Helper function to convert an array of integers into a multirange.
+CREATE OR REPLACE FUNCTION public.array_to_int4multirange(p_array int[])
+RETURNS int4multirange LANGUAGE sql IMMUTABLE AS $function$
+    SELECT range_agg(int4range(id, id, '[]')) FROM unnest(p_array) as t(id);
+$function$;
+COMMENT ON FUNCTION public.array_to_int4multirange IS 'Converts an integer array into a multirange of single-integer ranges. Useful for passing sets of IDs to procedures expecting a multirange.';
+
 -- This migration creates the physical `timepoints` TABLE and its refresh procedures.
 -- This is the foundation of the "materialize and batch" architecture, a scalable
 -- approach for handling temporal data aggregation on large datasets.
@@ -38,27 +45,28 @@ CREATE TABLE public.timepoints (
 CREATE INDEX ix_timepoints_unit ON public.timepoints (unit_type, unit_id);
 
 
-CREATE OR REPLACE FUNCTION public.timepoints_calculate(p_establishment_ids int[], p_legal_unit_ids int[], p_enterprise_ids int[])
+CREATE OR REPLACE FUNCTION public.timepoints_calculate(p_establishment_id_ranges int4multirange, p_legal_unit_id_ranges int4multirange, p_enterprise_id_ranges int4multirange)
 RETURNS TABLE(unit_type public.statistical_unit_type, unit_id int, timepoint date) LANGUAGE sql STABLE AS $function$
 -- This function calculates all significant timepoints for a given set of statistical units.
--- It is the core of the "gather and propagate" strategy.
+-- It is the core of the "gather and propagate" strategy. It accepts int4multirange for
+-- efficient filtering. A NULL range for a given unit type means all units of that type are included.
 WITH es_periods AS (
     -- 1. Gather all raw temporal periods related to the given establishments.
-    SELECT id AS unit_id, valid_from, valid_until FROM public.establishment WHERE id = ANY(p_establishment_ids)
-    UNION ALL SELECT establishment_id, valid_from, valid_until FROM public.activity WHERE establishment_id = ANY(p_establishment_ids)
-    UNION ALL SELECT establishment_id, valid_from, valid_until FROM public.location WHERE establishment_id = ANY(p_establishment_ids)
-    UNION ALL SELECT establishment_id, valid_from, valid_until FROM public.contact WHERE establishment_id = ANY(p_establishment_ids)
-    UNION ALL SELECT establishment_id, valid_from, valid_until FROM public.stat_for_unit WHERE establishment_id = ANY(p_establishment_ids)
-    UNION ALL SELECT establishment_id, valid_from, valid_until FROM public.person_for_unit WHERE establishment_id = ANY(p_establishment_ids)
+    SELECT id AS unit_id, valid_from, valid_until FROM public.establishment WHERE p_establishment_id_ranges IS NULL OR id <@ p_establishment_id_ranges
+    UNION ALL SELECT establishment_id, valid_from, valid_until FROM public.activity WHERE p_establishment_id_ranges IS NULL OR establishment_id <@ p_establishment_id_ranges
+    UNION ALL SELECT establishment_id, valid_from, valid_until FROM public.location WHERE p_establishment_id_ranges IS NULL OR establishment_id <@ p_establishment_id_ranges
+    UNION ALL SELECT establishment_id, valid_from, valid_until FROM public.contact WHERE p_establishment_id_ranges IS NULL OR establishment_id <@ p_establishment_id_ranges
+    UNION ALL SELECT establishment_id, valid_from, valid_until FROM public.stat_for_unit WHERE p_establishment_id_ranges IS NULL OR establishment_id <@ p_establishment_id_ranges
+    UNION ALL SELECT establishment_id, valid_from, valid_until FROM public.person_for_unit WHERE p_establishment_id_ranges IS NULL OR establishment_id <@ p_establishment_id_ranges
 ),
 lu_periods_base AS (
     -- 2. Gather periods directly related to the given legal units (NOT from their children yet).
-    SELECT id AS unit_id, valid_from, valid_until FROM public.legal_unit WHERE id = ANY(p_legal_unit_ids)
-    UNION ALL SELECT legal_unit_id, valid_from, valid_until FROM public.activity WHERE legal_unit_id = ANY(p_legal_unit_ids)
-    UNION ALL SELECT legal_unit_id, valid_from, valid_until FROM public.location WHERE legal_unit_id = ANY(p_legal_unit_ids)
-    UNION ALL SELECT legal_unit_id, valid_from, valid_until FROM public.contact WHERE legal_unit_id = ANY(p_legal_unit_ids)
-    UNION ALL SELECT legal_unit_id, valid_from, valid_until FROM public.stat_for_unit WHERE legal_unit_id = ANY(p_legal_unit_ids)
-    UNION ALL SELECT legal_unit_id, valid_from, valid_until FROM public.person_for_unit WHERE legal_unit_id = ANY(p_legal_unit_ids)
+    SELECT id AS unit_id, valid_from, valid_until FROM public.legal_unit WHERE p_legal_unit_id_ranges IS NULL OR id <@ p_legal_unit_id_ranges
+    UNION ALL SELECT legal_unit_id, valid_from, valid_until FROM public.activity WHERE p_legal_unit_id_ranges IS NULL OR legal_unit_id <@ p_legal_unit_id_ranges
+    UNION ALL SELECT legal_unit_id, valid_from, valid_until FROM public.location WHERE p_legal_unit_id_ranges IS NULL OR legal_unit_id <@ p_legal_unit_id_ranges
+    UNION ALL SELECT legal_unit_id, valid_from, valid_until FROM public.contact WHERE p_legal_unit_id_ranges IS NULL OR legal_unit_id <@ p_legal_unit_id_ranges
+    UNION ALL SELECT legal_unit_id, valid_from, valid_until FROM public.stat_for_unit WHERE p_legal_unit_id_ranges IS NULL OR legal_unit_id <@ p_legal_unit_id_ranges
+    UNION ALL SELECT legal_unit_id, valid_from, valid_until FROM public.person_for_unit WHERE p_legal_unit_id_ranges IS NULL OR legal_unit_id <@ p_legal_unit_id_ranges
 ),
 -- This CTE represents all periods relevant to a legal unit, including those propagated up from its child establishments.
 lu_periods_with_children AS (
@@ -67,29 +75,29 @@ lu_periods_with_children AS (
     -- Propagate from establishments to legal units, WITH TRIMMING to the lifespan of the link.
     SELECT es.legal_unit_id, GREATEST(p.valid_from, es.valid_from) AS valid_from, LEAST(p.valid_until, es.valid_until) AS valid_until
     FROM es_periods AS p JOIN public.establishment AS es ON p.unit_id = es.id
-    WHERE es.legal_unit_id = ANY(p_legal_unit_ids) AND from_until_overlaps(p.valid_from, p.valid_until, es.valid_from, es.valid_until)
+    WHERE (p_legal_unit_id_ranges IS NULL OR es.legal_unit_id <@ p_legal_unit_id_ranges) AND from_until_overlaps(p.valid_from, p.valid_until, es.valid_from, es.valid_until)
 ),
 all_periods (unit_type, unit_id, valid_from, valid_until) AS (
     -- 3. Combine and trim all periods for all unit types.
     -- Establishment periods are trimmed to their own lifespan slices.
     SELECT 'establishment'::public.statistical_unit_type, e.id, GREATEST(p.valid_from, e.valid_from), LEAST(p.valid_until, e.valid_until)
     FROM es_periods p JOIN public.establishment e ON p.unit_id = e.id
-    WHERE e.id = ANY(p_establishment_ids) AND from_until_overlaps(p.valid_from, p.valid_until, e.valid_from, e.valid_until)
+    WHERE (p_establishment_id_ranges IS NULL OR e.id <@ p_establishment_id_ranges) AND from_until_overlaps(p.valid_from, p.valid_until, e.valid_from, e.valid_until)
     UNION ALL
     -- Legal Unit periods are from the comprehensive CTE, trimmed to their own lifespan slices.
     SELECT 'legal_unit', l.id, GREATEST(p.valid_from, l.valid_from), LEAST(p.valid_until, l.valid_until)
     FROM lu_periods_with_children p JOIN public.legal_unit l ON p.unit_id = l.id
-    WHERE l.id = ANY(p_legal_unit_ids) AND from_until_overlaps(p.valid_from, p.valid_until, l.valid_from, l.valid_until)
+    WHERE (p_legal_unit_id_ranges IS NULL OR l.id <@ p_legal_unit_id_ranges) AND from_until_overlaps(p.valid_from, p.valid_until, l.valid_from, l.valid_until)
     UNION ALL
     -- Enterprise periods are propagated from Legal Units (and their children), trimmed to the LU-EN link lifespan.
     SELECT 'enterprise', lu.enterprise_id, GREATEST(p.valid_from, lu.valid_from), LEAST(p.valid_until, lu.valid_until)
     FROM lu_periods_with_children p JOIN public.legal_unit lu ON p.unit_id = lu.id
-    WHERE lu.enterprise_id = ANY(p_enterprise_ids) AND from_until_overlaps(p.valid_from, p.valid_until, lu.valid_from, lu.valid_until)
+    WHERE (p_enterprise_id_ranges IS NULL OR lu.enterprise_id <@ p_enterprise_id_ranges) AND from_until_overlaps(p.valid_from, p.valid_until, lu.valid_from, lu.valid_until)
     UNION ALL
     -- Enterprise periods are also propagated from directly-linked Establishments, trimmed to the EST-EN link lifespan.
     SELECT 'enterprise', es.enterprise_id, GREATEST(p.valid_from, es.valid_from), LEAST(p.valid_until, es.valid_until)
     FROM es_periods p JOIN public.establishment es ON p.unit_id = es.id
-    WHERE es.enterprise_id = ANY(p_enterprise_ids) AND from_until_overlaps(p.valid_from, p.valid_until, es.valid_from, es.valid_until)
+    WHERE es.enterprise_id IS NOT NULL AND (p_enterprise_id_ranges IS NULL OR es.enterprise_id <@ p_enterprise_id_ranges) AND from_until_overlaps(p.valid_from, p.valid_until, es.valid_from, es.valid_until)
 ),
 unpivoted AS (
     -- 4. Unpivot valid periods into a single `timepoint` column, ensuring we don't create zero-duration segments.
@@ -103,94 +111,104 @@ FROM unpivoted up
 WHERE up.timepoint IS NOT NULL;
 $function$;
 
-CREATE OR REPLACE PROCEDURE public.timepoints_refresh(p_unit_ids int[] DEFAULT NULL, p_unit_type public.statistical_unit_type DEFAULT NULL)
+CREATE OR REPLACE PROCEDURE public.timepoints_refresh(
+    p_establishment_id_ranges int4multirange DEFAULT NULL,
+    p_legal_unit_id_ranges int4multirange DEFAULT NULL,
+    p_enterprise_id_ranges int4multirange DEFAULT NULL
+)
 LANGUAGE plpgsql AS $procedure$
--- This procedure populates the physical `public.timepoints` table.
--- It processes units in batches to keep memory usage low, making it suitable for very large datasets.
---
--- The process is ordered from the bottom of the hierarchy upwards (Establishment -> Legal Unit -> Enterprise)
--- because the calculation for a parent unit depends on having the data for its children.
---
--- Parameters:
---   p_unit_ids: (Not yet implemented) An array of specific unit IDs to refresh.
---   p_unit_type: If specified, only units of this type will be refreshed. If NULL, all types are refreshed.
 DECLARE
-    v_batch_size int := 50000;
-    v_min_id int; v_max_id int; v_start_id int; v_end_id int;
-    v_batch_ids int[]; v_all_lu_ids int[]; v_all_en_ids int[];
-    v_target_type public.statistical_unit_type;
-    v_table_name text;
+    rec RECORD;
+    v_en_batch INT[];
+    v_lu_batch INT[];
+    v_es_batch INT[];
+    v_batch_size INT := 250; -- Number of enterprises to process per batch
+    v_total_enterprises INT;
+    v_processed_count INT := 0;
+    v_batch_num INT := 0;
 BEGIN
-    -- For a full refresh (both parameters NULL), start by clearing the table.
-    IF p_unit_ids IS NULL AND p_unit_type IS NULL THEN
+    ANALYZE public.establishment, public.legal_unit, public.enterprise, public.activity, public.location, public.contact, public.stat_for_unit, public.person_for_unit;
+
+    IF p_establishment_id_ranges IS NULL AND p_legal_unit_id_ranges IS NULL AND p_enterprise_id_ranges IS NULL THEN
+        -- Full refresh: Use a staging table for performance and to minimize lock duration.
+        CREATE TEMP TABLE timepoints_new (LIKE public.timepoints) ON COMMIT DROP;
+
+        SELECT count(*) INTO v_total_enterprises FROM public.enterprise;
+        RAISE DEBUG 'Starting full timepoints refresh for % enterprises in batches of %...', v_total_enterprises, v_batch_size;
+
+        FOR rec IN SELECT id FROM public.enterprise LOOP
+            v_en_batch := array_append(v_en_batch, rec.id);
+
+            IF array_length(v_en_batch, 1) >= v_batch_size THEN
+                -- For this batch of enterprises, find all descendant LUs and ESTs
+                v_processed_count := v_processed_count + array_length(v_en_batch, 1);
+                v_batch_num := v_batch_num + 1;
+                RAISE DEBUG 'Processing batch % (enterprises %-% of %)', v_batch_num, v_processed_count - v_batch_size + 1, v_processed_count, v_total_enterprises;
+
+                v_lu_batch := ARRAY(SELECT id FROM public.legal_unit WHERE enterprise_id = ANY(v_en_batch));
+                v_es_batch := ARRAY(
+                    SELECT id FROM public.establishment WHERE legal_unit_id = ANY(v_lu_batch)
+                    UNION
+                    SELECT id FROM public.establishment WHERE enterprise_id = ANY(v_en_batch)
+                );
+
+                INSERT INTO timepoints_new
+                SELECT * FROM public.timepoints_calculate(
+                    public.array_to_int4multirange(v_es_batch),
+                    public.array_to_int4multirange(v_lu_batch),
+                    public.array_to_int4multirange(v_en_batch)
+                ) ON CONFLICT DO NOTHING;
+
+                v_en_batch := '{}'; -- Reset for next batch
+            END IF;
+        END LOOP;
+
+        -- Process the final, smaller batch
+        IF array_length(v_en_batch, 1) > 0 THEN
+            v_batch_num := v_batch_num + 1;
+            RAISE DEBUG 'Processing final batch % (enterprises %-% of %)', v_batch_num, v_processed_count + 1, v_total_enterprises, v_total_enterprises;
+            v_lu_batch := ARRAY(SELECT id FROM public.legal_unit WHERE enterprise_id = ANY(v_en_batch));
+            v_es_batch := ARRAY(
+                SELECT id FROM public.establishment WHERE legal_unit_id = ANY(v_lu_batch)
+                UNION
+                SELECT id FROM public.establishment WHERE enterprise_id = ANY(v_en_batch)
+            );
+            INSERT INTO timepoints_new
+            SELECT * FROM public.timepoints_calculate(
+                public.array_to_int4multirange(v_es_batch),
+                public.array_to_int4multirange(v_lu_batch),
+                public.array_to_int4multirange(v_en_batch)
+            ) ON CONFLICT DO NOTHING;
+        END IF;
+
+        -- Atomically swap the data
+        RAISE DEBUG 'Populated staging table, now swapping data...';
         TRUNCATE public.timepoints;
+        INSERT INTO public.timepoints SELECT * FROM timepoints_new;
+        RAISE DEBUG 'Full timepoints refresh complete.';
+    ELSE
+        -- Partial refresh
+        RAISE DEBUG 'Starting partial timepoints refresh...';
+        IF p_establishment_id_ranges IS NOT NULL THEN
+            DELETE FROM public.timepoints WHERE unit_type = 'establishment' AND unit_id <@ p_establishment_id_ranges;
+        END IF;
+        IF p_legal_unit_id_ranges IS NOT NULL THEN
+            DELETE FROM public.timepoints WHERE unit_type = 'legal_unit' AND unit_id <@ p_legal_unit_id_ranges;
+        END IF;
+        IF p_enterprise_id_ranges IS NOT NULL THEN
+            DELETE FROM public.timepoints WHERE unit_type = 'enterprise' AND unit_id <@ p_enterprise_id_ranges;
+        END IF;
+
+        INSERT INTO public.timepoints SELECT * FROM public.timepoints_calculate(
+            p_establishment_id_ranges,
+            p_legal_unit_id_ranges,
+            p_enterprise_id_ranges
+        ) ON CONFLICT DO NOTHING;
+
+        RAISE DEBUG 'Partial timepoints refresh complete.';
     END IF;
 
-    -- Refresh Establishments
-    -- This is the base of the hierarchy. The calculation is self-contained.
-    v_target_type := 'establishment';
-    v_table_name := 'establishment';
-    IF p_unit_type IS NULL OR p_unit_type = v_target_type THEN
-        EXECUTE format('SELECT MIN(id), MAX(id) FROM public.%I', v_table_name) INTO v_min_id, v_max_id;
-        IF v_min_id IS NOT NULL THEN
-            FOR i IN v_min_id..v_max_id BY v_batch_size LOOP
-                v_start_id := i; v_end_id := i + v_batch_size - 1;
-                EXECUTE format('SELECT array_agg(id) FROM public.%I WHERE id BETWEEN %L AND %L', v_table_name, v_start_id, v_end_id) INTO v_batch_ids;
-                IF v_batch_ids IS NULL OR cardinality(v_batch_ids) = 0 THEN CONTINUE; END IF;
-                -- Delete existing timepoints for this batch before re-inserting.
-                DELETE FROM public.timepoints WHERE unit_type = v_target_type AND unit_id = ANY(v_batch_ids);
-                -- Calculate and insert the new timepoints for this batch.
-                -- Note: We filter the results of `timepoints_calculate` to ensure we only insert
-                -- the type we are currently processing.
-                INSERT INTO public.timepoints SELECT * FROM public.timepoints_calculate(v_batch_ids, '{}', '{}') WHERE unit_type = v_target_type;
-            END LOOP;
-        END IF;
-    END IF;
-
-    -- Refresh Legal Units
-    -- This depends on establishment data, so we must gather all child establishment IDs for the current batch of legal units.
-    v_target_type := 'legal_unit';
-    v_table_name := 'legal_unit';
-    IF p_unit_type IS NULL OR p_unit_type = v_target_type THEN
-        EXECUTE format('SELECT MIN(id), MAX(id) FROM public.%I', v_table_name) INTO v_min_id, v_max_id;
-        IF v_min_id IS NOT NULL THEN
-            FOR i IN v_min_id..v_max_id BY v_batch_size LOOP
-                v_start_id := i; v_end_id := i + v_batch_size - 1;
-                EXECUTE format('SELECT array_agg(id) FROM public.%I WHERE id BETWEEN %L AND %L', v_table_name, v_start_id, v_end_id) INTO v_batch_ids;
-                IF v_batch_ids IS NULL OR cardinality(v_batch_ids) = 0 THEN CONTINUE; END IF;
-                -- Find all child establishments for this batch of legal units.
-                SELECT array_agg(DISTINCT id) INTO v_all_en_ids FROM public.establishment WHERE legal_unit_id = ANY(v_batch_ids);
-                DELETE FROM public.timepoints WHERE unit_type = v_target_type AND unit_id = ANY(v_batch_ids);
-                -- Calculate timepoints, passing both the legal units and their children.
-                INSERT INTO public.timepoints SELECT * FROM public.timepoints_calculate(COALESCE(v_all_en_ids, '{}'), v_batch_ids, '{}') WHERE unit_type = v_target_type;
-            END LOOP;
-        END IF;
-    END IF;
-
-    -- Refresh Enterprises
-    -- This is the top of the hierarchy. It depends on both legal units and directly-linked establishments.
-    v_target_type := 'enterprise';
-    v_table_name := 'enterprise';
-    IF p_unit_type IS NULL OR p_unit_type = v_target_type THEN
-        EXECUTE format('SELECT MIN(id), MAX(id) FROM public.%I', v_table_name) INTO v_min_id, v_max_id;
-        IF v_min_id IS NOT NULL THEN
-            FOR i IN v_min_id..v_max_id BY v_batch_size LOOP
-                v_start_id := i; v_end_id := i + v_batch_size - 1;
-                EXECUTE format('SELECT array_agg(id) FROM public.%I WHERE id BETWEEN %L AND %L', v_table_name, v_start_id, v_end_id) INTO v_batch_ids;
-                IF v_batch_ids IS NULL OR cardinality(v_batch_ids) = 0 THEN CONTINUE; END IF;
-                -- Find all child legal units and establishments for this batch of enterprises.
-                SELECT array_agg(DISTINCT id) INTO v_all_lu_ids FROM public.legal_unit WHERE enterprise_id = ANY(v_batch_ids);
-                SELECT array_agg(DISTINCT id) INTO v_all_en_ids FROM public.establishment WHERE enterprise_id = ANY(v_batch_ids);
-                -- Also include "grandchildren" establishments (via the legal units).
-                IF v_all_lu_ids IS NOT NULL THEN
-                    v_all_en_ids := array_cat(COALESCE(v_all_en_ids, '{}'), (SELECT array_agg(DISTINCT id) FROM public.establishment WHERE legal_unit_id = ANY(v_all_lu_ids)));
-                END IF;
-                DELETE FROM public.timepoints WHERE unit_type = v_target_type AND unit_id = ANY(v_batch_ids);
-                -- Calculate timepoints, passing enterprises and all their descendants.
-                INSERT INTO public.timepoints SELECT * FROM public.timepoints_calculate(COALESCE(v_all_en_ids, '{}'), COALESCE(v_all_lu_ids, '{}'), v_batch_ids) WHERE unit_type = v_target_type;
-            END LOOP;
-        END IF;
-    END IF;
+    ANALYZE public.timepoints;
 END;
 $procedure$;
 

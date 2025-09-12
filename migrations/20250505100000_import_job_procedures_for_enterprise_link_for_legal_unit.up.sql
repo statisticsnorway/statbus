@@ -123,8 +123,8 @@ BEGIN
                 primary_for_enterprise = tear.resolved_primary_for_enterprise,
                 state = CASE WHEN tear.is_error THEN 'error'::public.import_data_state ELSE 'analysing'::public.import_data_state END,
                 errors = CASE
-                            WHEN tear.is_error THEN COALESCE(dt.errors, '{}'::jsonb) || tear.error_details
-                            ELSE CASE WHEN (dt.errors - %2$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.errors - %2$L::TEXT[]) END
+                            WHEN tear.is_error THEN dt.errors || tear.error_details
+                            ELSE dt.errors - %2$L::TEXT[]
                         END,
                 last_completed_priority = %3$L
             FROM temp_enterprise_analysis_results tear
@@ -143,7 +143,7 @@ BEGIN
             UPDATE public.%1$I dt SET
                 last_completed_priority = %2$L,
                 state = 'analysing'::public.import_data_state,
-                errors = CASE WHEN (dt.errors - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.errors - %3$L::TEXT[]) END -- Clear this step's error if not an error from this step
+                errors = dt.errors - %3$L::TEXT[] -- Clear this step's error if not an error from this step
             WHERE dt.row_id = ANY($1)
               AND dt.action IS DISTINCT FROM 'skip'
               AND NOT EXISTS (SELECT 1 FROM temp_enterprise_analysis_results tear WHERE tear.row_id = dt.row_id);
@@ -266,7 +266,7 @@ BEGIN
         FROM temp_created_enterprises tce -- tce.data_row_id is the founding_row_id
         WHERE dt.founding_row_id = tce.data_row_id -- Link all rows of the entity via founding_row_id
           AND dt.row_id = ANY($1) -- Ensure we only update rows from the current batch
-          AND dt.state != 'error'; -- Avoid updating rows already in error from a prior step
+          AND dt.action = 'use'; -- Only update usable rows
     $$, v_data_table_name /* %1$I */, 'processing'::public.import_data_state /* %2$L */);
     RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit: Updating _data for new enterprises and their related rows (action=insert): %', p_job_id, v_sql;
     EXECUTE v_sql USING p_batch_row_ids;
@@ -275,10 +275,9 @@ BEGIN
     -- Step 4: Update rows that were already processed by analyse step (existing LUs, action = 'replace') - just advance priority
     v_sql := format($$
         UPDATE public.%1$I dt SET
-            state = %2$L
+            state = %2$L::public.import_data_state
         WHERE dt.row_id = ANY($1)
-          AND dt.action = 'use' AND dt.operation = 'replace' -- Only update rows for existing LUs
-          AND dt.state != %3$L; -- Avoid rows already in error
+          AND dt.action = 'use' AND dt.operation = 'replace'; -- Only update rows for existing LUs
     $$, v_data_table_name /* %1$I */, 'processing' /* %2$L */, 'error' /* %3$L */);
      RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit: Updating existing LUs (action=replace, priority only): %', p_job_id, v_sql;
     EXECUTE v_sql USING p_batch_row_ids;

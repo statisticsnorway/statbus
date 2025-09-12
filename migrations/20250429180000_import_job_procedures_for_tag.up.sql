@@ -52,28 +52,28 @@ BEGIN
         UPDATE public.%1$I dt SET -- v_data_table_name
             tag_path_ltree = rt.casted_ltree_path, -- Use casted_ltree_path from resolved_tags
             tag_id = rt.resolved_tag_id,
-            -- Determine state first
+            -- A malformed tag path or a tag that is not found are both treated as hard errors.
+            -- Unlike other soft-errors (e.g. invalid sector codes), a missing tag is a hard error because
+            -- tags are critical for identifying and managing import sets post-processing.
             state = CASE
                         WHEN dt.tag_path IS NOT NULL AND rt.ltree_error_msg IS NOT NULL THEN 'error'::public.import_data_state
                         WHEN dt.tag_path IS NOT NULL AND rt.ltree_error_msg IS NULL AND rt.resolved_tag_id IS NULL THEN 'error'::public.import_data_state
                         ELSE 'analysing'::public.import_data_state
                     END,
-            -- Then determine action based on the new state or existing action
             action = CASE
-                        -- If this step causes an error, action becomes 'skip'
                         WHEN (dt.tag_path IS NOT NULL AND rt.ltree_error_msg IS NOT NULL) OR (dt.tag_path IS NOT NULL AND rt.ltree_error_msg IS NULL AND rt.resolved_tag_id IS NULL) THEN 'skip'::public.import_row_action_type
-                        -- Otherwise, preserve existing action (which could be 'skip' from a prior step, or 'insert'/'replace' etc.)
                         ELSE dt.action
                     END,
             errors = CASE
                         WHEN dt.tag_path IS NOT NULL AND rt.ltree_error_msg IS NOT NULL THEN
-                            COALESCE(dt.errors, '{}'::jsonb) || jsonb_build_object('tag_path', rt.ltree_error_msg) -- Use error message from cast
+                            dt.errors || jsonb_build_object('tag_path', rt.ltree_error_msg)
                         WHEN dt.tag_path IS NOT NULL AND rt.ltree_error_msg IS NULL AND rt.resolved_tag_id IS NULL THEN
-                            COALESCE(dt.errors, '{}'::jsonb) || jsonb_build_object('tag_path', 'Tag not found for path: ' || dt.tag_path)
-                        ELSE -- Success or no tag_path provided
-                            CASE WHEN (dt.errors - %2$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.errors - %2$L::TEXT[]) END -- v_error_keys_to_clear_arr
+                            dt.errors || jsonb_build_object('tag_path', 'Tag not found for path: ' || dt.tag_path)
+                        ELSE
+                            dt.errors - %2$L::TEXT[]
                     END,
-            invalid_codes = dt.invalid_codes, -- Preserve existing invalid_codes as this step only produces hard errors for tags
+            -- This step does not produce soft errors; it preserves any from prior steps.
+            invalid_codes = dt.invalid_codes,
             last_completed_priority = %3$L -- v_step.priority
         FROM (
             SELECT row_id FROM public.%1$I WHERE row_id = ANY($1) AND action IS DISTINCT FROM 'skip' -- v_data_table_name, p_batch_row_ids
@@ -81,9 +81,9 @@ BEGIN
         LEFT JOIN resolved_tags rt ON base.row_id = rt.row_id
         WHERE dt.row_id = base.row_id;
     $$,
-        v_data_table_name,          -- %1$I
-        v_error_keys_to_clear_arr,  -- %2$L
-        v_step.priority             -- %3$L
+        v_data_table_name,          /* %1$I */
+        v_error_keys_to_clear_arr,  /* %2$L */
+        v_step.priority             /* %3$L */
     );
     RAISE DEBUG '[Job %] analyse_tags: Single-pass batch update for non-skipped rows (tag errors are fatal): %', p_job_id, v_sql;
     BEGIN
@@ -207,7 +207,11 @@ BEGIN
         WHERE dt.row_id = ANY($1)
           AND dt.action = 'use'
           AND dt.tag_id IS NOT NULL;
-    $$, v_data_table_name, v_select_lu_id_expr, v_select_est_id_expr);
+    $$,
+        v_data_table_name,    /* %1$I */
+        v_select_lu_id_expr,  /* %2$s */
+        v_select_est_id_expr  /* %3$s */
+    );
 
     RAISE DEBUG '[Job %] process_tags: Populating temp source table: %', p_job_id, v_sql;
     EXECUTE v_sql USING p_batch_row_ids;
@@ -260,8 +264,10 @@ BEGIN
     EXCEPTION WHEN OTHERS THEN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
         RAISE WARNING '[Job %] process_tags: Error during batch operation: %. SQLSTATE: %', p_job_id, error_message, SQLSTATE;
-        v_sql := format($$UPDATE public.%1$I SET state = 'error', errors = COALESCE(errors, '{}'::jsonb) || jsonb_build_object('batch_error_process_tags', %2$L) WHERE row_id = ANY($1)$$,
-                        v_data_table_name, error_message);
+        v_sql := format($$UPDATE public.%1$I SET state = 'error', errors = errors || jsonb_build_object('batch_error_process_tags', %2$L) WHERE row_id = ANY($1)$$,
+                        v_data_table_name, /* %1$I */
+                        error_message      /* %2$L */
+        );
         EXECUTE v_sql USING p_batch_row_ids;
         RAISE;
     END;

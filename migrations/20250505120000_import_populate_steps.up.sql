@@ -137,9 +137,9 @@ WITH ordered_values AS (
         ('metadata',          'founding_row_id',             'INTEGER',    'internal', true, NULL,          false), -- Added: For linking temporal records of the same entity
         ('metadata',          'state',                       'public.import_data_state','metadata', false, '''pending''', false),
         ('metadata',          'last_completed_priority',     'INTEGER',   'metadata', false, '0',           false),
-        ('metadata',          'errors',                      'JSONB',     'metadata', true,  NULL,          false),
-        ('metadata',          'merge_statuses',              'JSONB',     'metadata', true,  NULL,          false),
-        ('metadata',          'invalid_codes',               'JSONB',     'metadata', true,  NULL,          false)
+        ('metadata',          'errors',                      'JSONB',     'metadata', false, '''{}''::jsonb', false),
+        ('metadata',          'merge_status',                'JSONB',     'metadata', false, '''{}''::jsonb', false),
+        ('metadata',          'invalid_codes',               'JSONB',     'metadata', false, '''{}''::jsonb', false)
     ) AS v_raw(step_code, column_name, column_type, purpose, is_nullable, default_value, is_uniquely_identifying)
 ),
 values_with_priority AS (

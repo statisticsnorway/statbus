@@ -297,9 +297,9 @@ Describing table for definition: legal_unit_job_provided (Job: t54_lu_tc, Data T
  founding_row_id                  | integer                   |           |          | 
  state                            | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority          | integer                   |           | not null | 0
- errors                           | jsonb                     |           |          | 
- merge_statuses                   | jsonb                     |           |          | 
- invalid_codes                    | jsonb                     |           |          | 
+ errors                           | jsonb                     |           | not null | '{}'::jsonb
+ merge_status                     | jsonb                     |           | not null | '{}'::jsonb
+ invalid_codes                    | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "t54_lu_tc_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_lu_tc_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND errors IS NULL
@@ -416,9 +416,9 @@ Describing table for definition: legal_unit_source_dates (Job: t54_lu_sd, Data T
  founding_row_id                  | integer                   |           |          | 
  state                            | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority          | integer                   |           | not null | 0
- errors                           | jsonb                     |           |          | 
- merge_statuses                   | jsonb                     |           |          | 
- invalid_codes                    | jsonb                     |           |          | 
+ errors                           | jsonb                     |           | not null | '{}'::jsonb
+ merge_status                     | jsonb                     |           | not null | '{}'::jsonb
+ invalid_codes                    | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "t54_lu_sd_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_lu_sd_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND errors IS NULL
@@ -535,9 +535,9 @@ Describing table for definition: establishment_for_lu_job_provided (Job: t54_est
  founding_row_id                  | integer                   |           |          | 
  state                            | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority          | integer                   |           | not null | 0
- errors                           | jsonb                     |           |          | 
- merge_statuses                   | jsonb                     |           |          | 
- invalid_codes                    | jsonb                     |           |          | 
+ errors                           | jsonb                     |           | not null | '{}'::jsonb
+ merge_status                     | jsonb                     |           | not null | '{}'::jsonb
+ invalid_codes                    | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "t54_est_lu_tc_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_est_lu_tc_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND errors IS NULL
@@ -654,9 +654,9 @@ Describing table for definition: establishment_for_lu_source_dates (Job: t54_est
  founding_row_id                  | integer                   |           |          | 
  state                            | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority          | integer                   |           | not null | 0
- errors                           | jsonb                     |           |          | 
- merge_statuses                   | jsonb                     |           |          | 
- invalid_codes                    | jsonb                     |           |          | 
+ errors                           | jsonb                     |           | not null | '{}'::jsonb
+ merge_status                     | jsonb                     |           | not null | '{}'::jsonb
+ invalid_codes                    | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "t54_est_lu_sd_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_est_lu_sd_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND errors IS NULL
@@ -771,9 +771,9 @@ Describing table for definition: establishment_without_lu_job_provided (Job: t54
  founding_row_id                  | integer                   |           |          | 
  state                            | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority          | integer                   |           | not null | 0
- errors                           | jsonb                     |           |          | 
- merge_statuses                   | jsonb                     |           |          | 
- invalid_codes                    | jsonb                     |           |          | 
+ errors                           | jsonb                     |           | not null | '{}'::jsonb
+ merge_status                     | jsonb                     |           | not null | '{}'::jsonb
+ invalid_codes                    | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "t54_est_wolu_tc_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_est_wolu_tc_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND errors IS NULL
@@ -888,9 +888,9 @@ Describing table for definition: establishment_without_lu_source_dates (Job: t54
  founding_row_id                  | integer                   |           |          | 
  state                            | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority          | integer                   |           | not null | 0
- errors                           | jsonb                     |           |          | 
- merge_statuses                   | jsonb                     |           |          | 
- invalid_codes                    | jsonb                     |           |          | 
+ errors                           | jsonb                     |           | not null | '{}'::jsonb
+ merge_status                     | jsonb                     |           | not null | '{}'::jsonb
+ invalid_codes                    | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "t54_est_wolu_sd_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_est_wolu_sd_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND errors IS NULL
@@ -940,9 +940,9 @@ Describing table for definition: generic_unit_stats_update_job_provided (Job: t5
  founding_row_id            | integer                   |           |          | 
  state                      | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority    | integer                   |           | not null | 0
- errors                     | jsonb                     |           |          | 
- merge_statuses             | jsonb                     |           |          | 
- invalid_codes              | jsonb                     |           |          | 
+ errors                     | jsonb                     |           | not null | '{}'::jsonb
+ merge_status               | jsonb                     |           | not null | '{}'::jsonb
+ invalid_codes              | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "t54_gus_jp_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_gus_jp_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND errors IS NULL
@@ -992,9 +992,9 @@ Describing table for definition: generic_unit_stats_update_source_dates (Job: t5
  founding_row_id            | integer                   |           |          | 
  state                      | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority    | integer                   |           | not null | 0
- errors                     | jsonb                     |           |          | 
- merge_statuses             | jsonb                     |           |          | 
- invalid_codes              | jsonb                     |           |          | 
+ errors                     | jsonb                     |           | not null | '{}'::jsonb
+ merge_status               | jsonb                     |           | not null | '{}'::jsonb
+ invalid_codes              | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "t54_gus_sd_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_gus_sd_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND errors IS NULL

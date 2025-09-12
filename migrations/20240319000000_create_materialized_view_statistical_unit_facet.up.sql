@@ -2,6 +2,7 @@ BEGIN;
 
 CREATE VIEW public.statistical_unit_facet_def AS
 SELECT valid_from
+     , valid_to
      , valid_until
      , unit_type
      , physical_region_path
@@ -15,6 +16,7 @@ SELECT valid_from
 FROM public.statistical_unit
 WHERE include_unit_in_reports
 GROUP BY valid_from
+       , valid_to
        , valid_until
        , unit_type
        , physical_region_path

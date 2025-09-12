@@ -58,7 +58,7 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_68_01_single_lu' ORDER BY slug;
 
 \echo "Data table row status for import_68_01_single_lu:"
-SELECT row_id, state, error, action, operation FROM public.import_68_01_single_lu_data;
+SELECT row_id, state, errors, merge_status, action, operation FROM public.import_68_01_single_lu_data;
 
 \echo "Verification for Scenario 1: Single LU"
 \echo "Legal Units (verify attributes, not specific IDs):"
@@ -67,14 +67,14 @@ SELECT
     lu.name,
     ei.ident AS tax_ident,
     lu.primary_for_enterprise,
-    lu.valid_from, lu.valid_after, lu.valid_to,
+    lu.valid_from, lu.valid_to,
     (SELECT COUNT(*) FROM public.enterprise WHERE id = lu.enterprise_id) as linked_enterprise_exists
 FROM public.legal_unit lu
 JOIN public.external_ident ei ON ei.legal_unit_id = lu.id
 JOIN public.external_ident_type eit ON eit.id = ei.type_id AND eit.code = 'tax_ident'
 WHERE ei.ident = '680100001'
-GROUP BY lu.name, ei.ident, lu.primary_for_enterprise, lu.valid_from, lu.valid_after, lu.valid_to, lu.enterprise_id
-ORDER BY ei.ident, lu.valid_after, lu.valid_from, lu.valid_to;
+GROUP BY lu.name, ei.ident, lu.primary_for_enterprise, lu.valid_from, lu.valid_to, lu.enterprise_id
+ORDER BY ei.ident, lu.valid_from, lu.valid_to;
 
 \echo "Enterprises (verify one was created and LU is primary):"
 SELECT
@@ -157,21 +157,21 @@ SELECT
     COUNT(*) AS lu_count,
     lu.name,
     ei.ident AS tax_ident,
-    lu.valid_from, lu.valid_after, lu.valid_to,
+    lu.valid_from, lu.valid_to,
     (SELECT COUNT(*) FROM public.enterprise WHERE id = lu.enterprise_id) as linked_enterprise_exists
 FROM public.legal_unit lu
 JOIN public.external_ident ei ON ei.legal_unit_id = lu.id
 JOIN public.external_ident_type eit ON eit.id = ei.type_id AND eit.code = 'tax_ident'
 WHERE ei.ident = '680200001'
-GROUP BY lu.name, ei.ident, lu.valid_from, lu.valid_after, lu.valid_to, lu.enterprise_id
-ORDER BY ei.ident, lu.valid_after, lu.valid_from, lu.valid_to;
+GROUP BY lu.name, ei.ident, lu.valid_from, lu.valid_to, lu.enterprise_id
+ORDER BY ei.ident, lu.valid_from, lu.valid_to;
 \echo "Establishments:"
 SELECT
     COUNT(*) AS est_count,
     est.name,
     est_ei.ident AS est_tax_ident,
     est.primary_for_legal_unit,
-    est.valid_from, est.valid_after, est.valid_to,
+    est.valid_from, est.valid_to,
     (SELECT COUNT(*)
      FROM public.legal_unit lu_link
      JOIN public.external_ident ei_link ON ei_link.legal_unit_id = lu_link.id
@@ -183,8 +183,8 @@ FROM public.establishment est
 JOIN public.external_ident est_ei ON est_ei.establishment_id = est.id
 JOIN public.external_ident_type est_eit ON est_eit.id = est_ei.type_id AND est_eit.code = 'tax_ident' -- Changed to tax_ident
 WHERE est_ei.ident = 'E68020001'
-GROUP BY est.name, est_ei.ident, est.primary_for_legal_unit, est.valid_from, est.valid_after, est.valid_to, est.legal_unit_id, est.enterprise_id
-ORDER BY est_ei.ident, est.valid_after, est.valid_from, est.valid_to;
+GROUP BY est.name, est_ei.ident, est.primary_for_legal_unit, est.valid_from, est.valid_to, est.legal_unit_id, est.enterprise_id
+ORDER BY est_ei.ident, est.valid_from, est.valid_to;
 \echo "Enterprises (verify one was created and LU is primary):"
 SELECT
     COUNT(*) as enterprise_count,
@@ -246,7 +246,7 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_68_03_informal_es' ORDER BY slug; -- Added error_details
 
 \echo "Data table row status for import_68_03_informal_es:" -- Added for consistency
-SELECT row_id, state, error, action, operation FROM public.import_68_03_informal_es_data ORDER BY row_id;
+SELECT row_id, state, errors, merge_status, action, operation FROM public.import_68_03_informal_es_data ORDER BY row_id;
 
 \echo "Verification for Scenario 3: Informal ES"
 \echo "Establishments:"
@@ -256,14 +256,14 @@ SELECT
     ei.ident AS tax_ident,
     est.legal_unit_id, -- Should be NULL for informal
     est.primary_for_enterprise,
-    est.valid_from, est.valid_after, est.valid_to,
+    est.valid_from, est.valid_to,
     (SELECT COUNT(*) FROM public.enterprise WHERE id = est.enterprise_id) as linked_enterprise_exists
 FROM public.establishment est
 JOIN public.external_ident ei ON ei.establishment_id = est.id
 JOIN public.external_ident_type eit ON eit.id = ei.type_id AND eit.code = 'tax_ident'
 WHERE ei.ident = 'E68030001'
-GROUP BY est.name, ei.ident, est.legal_unit_id, est.primary_for_enterprise, est.valid_from, est.valid_after, est.valid_to, est.enterprise_id
-ORDER BY ei.ident, est.valid_after, est.valid_from, est.valid_to;
+GROUP BY est.name, ei.ident, est.legal_unit_id, est.primary_for_enterprise, est.valid_from, est.valid_to, est.enterprise_id
+ORDER BY ei.ident, est.valid_from, est.valid_to;
 \echo "Enterprises (verify one was created and ES is primary):"
 SELECT
     COUNT(*) as enterprise_count,
@@ -320,7 +320,7 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_68_04_two_lus' ORDER BY slug; -- Added error_details
 
 \echo "Data table row status for import_68_04_two_lus:" -- Added for consistency
-SELECT row_id, state, error, action, operation FROM public.import_68_04_two_lus_data ORDER BY row_id;
+SELECT row_id, state, errors, merge_status, action, operation FROM public.import_68_04_two_lus_data ORDER BY row_id;
 
 \echo "Verification for Scenario 4: Two LUs"
 \echo "Legal Units:"
@@ -328,13 +328,13 @@ SELECT
     lu.name,
     ei.ident AS tax_ident,
     lu.primary_for_enterprise,
-    lu.valid_from, lu.valid_after, lu.valid_to,
+    lu.valid_from, lu.valid_to,
     (SELECT COUNT(*) FROM public.enterprise WHERE id = lu.enterprise_id) as linked_enterprise_exists
 FROM public.legal_unit lu
 JOIN public.external_ident ei ON ei.legal_unit_id = lu.id
 JOIN public.external_ident_type eit ON eit.id = ei.type_id AND eit.code = 'tax_ident'
 WHERE ei.ident LIKE '6804%'
-ORDER BY ei.ident, lu.valid_after, lu.valid_from, lu.valid_to;
+ORDER BY ei.ident, lu.valid_from, lu.valid_to;
 \echo "Enterprises (verify two were created, each linked to one LU as primary):"
 SELECT
     ent.short_name,
@@ -396,16 +396,16 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_68_05_lu_periods' ORDER BY slug;
 
 \echo "Data table row status for import_68_05_lu_periods:"
-SELECT row_id, state, error, action, operation FROM public.import_68_05_lu_periods_data ORDER BY row_id;
+SELECT row_id, state, errors, merge_status, action, operation FROM public.import_68_05_lu_periods_data ORDER BY row_id;
 
 \echo "Verification for Scenario 5: LU Three Periods"
 \echo "Legal Units (expect 2 slices: P1+P2 merged, P3 separate with invalid sector):"
-SELECT lu.name, ei.ident AS tax_ident, sec.code AS sector_code, lu.invalid_codes->>'sector_code' as invalid_sector_code, lu.valid_from, lu.valid_after, lu.valid_to
+SELECT lu.name, ei.ident AS tax_ident, sec.code AS sector_code, lu.invalid_codes->>'sector_code' as invalid_sector_code, lu.valid_from, lu.valid_to
 FROM public.legal_unit lu
 JOIN public.external_ident ei ON ei.legal_unit_id = lu.id
 JOIN public.external_ident_type eit ON eit.id = ei.type_id AND eit.code = 'tax_ident'
 LEFT JOIN public.sector sec ON lu.sector_id = sec.id
-WHERE ei.ident = '680500001' ORDER BY ei.ident, lu.valid_after, lu.valid_from, lu.valid_to;
+WHERE ei.ident = '680500001' ORDER BY ei.ident, lu.valid_from, lu.valid_to;
 
 \echo "Physical Locations for LU 680500001 (expect 2 slices: P1+P2 merged, P3 separate):"
 SELECT
@@ -413,14 +413,13 @@ SELECT
     loc.type,
     loc.address_part1,
     loc.valid_from,
-    loc.valid_after,
     loc.valid_to
 FROM public.location loc
 -- Correctly join to find the legal_unit_id associated with tax_ident '680500001'
 JOIN public.external_ident ei ON loc.legal_unit_id = ei.legal_unit_id
 JOIN public.external_ident_type eit ON ei.type_id = eit.id
 WHERE ei.ident = '680500001' AND eit.code = 'tax_ident' AND loc.type = 'physical'
-ORDER BY ei.ident, loc.type, loc.valid_after, loc.valid_from, loc.valid_to;
+ORDER BY ei.ident, loc.type, loc.valid_from, loc.valid_to;
 
 CALL worker.process_tasks(p_queue => 'analytics');
 
@@ -489,24 +488,23 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug LIKE 'import_68_06%' ORDER BY slug; -- Added error_details
 
 \echo "Data table row status for import_68_06_lu_periods:" -- Added for consistency
-SELECT row_id, state, error, action, operation FROM public.import_68_06_lu_periods_data ORDER BY row_id;
+SELECT row_id, state, errors, merge_status, action, operation FROM public.import_68_06_lu_periods_data ORDER BY row_id;
 \echo "Data table row status for import_68_06_es_periods:" -- Added for consistency
-SELECT row_id, state, error, action, operation FROM public.import_68_06_es_periods_data ORDER BY row_id;
+SELECT row_id, state, errors, merge_status, action, operation FROM public.import_68_06_es_periods_data ORDER BY row_id;
 
 \echo "Verification for Scenario 6: LU + ES Three Periods"
 \echo "Legal Units (expect 1 slice in public.legal_unit, as address change is in location table):"
-SELECT lu.name, ei.ident AS tax_ident, lu.valid_from, lu.valid_after, lu.valid_to
+SELECT lu.name, ei.ident AS tax_ident, lu.valid_from, lu.valid_to
 FROM public.legal_unit lu
 JOIN public.external_ident ei ON ei.legal_unit_id = lu.id
 JOIN public.external_ident_type eit ON eit.id = ei.type_id AND eit.code = 'tax_ident'
-WHERE ei.ident = '680600001' ORDER BY ei.ident, lu.valid_after, lu.valid_from, lu.valid_to;
+WHERE ei.ident = '680600001' ORDER BY ei.ident, lu.valid_from, lu.valid_to;
 \echo "Establishments (expect 1 slice in public.establishment, showing linked LU's tax_ident):"
 SELECT 
     est.name, 
     est_ei.ident AS est_tax_ident, 
     lu_ei.ident AS legal_unit_tax_ident, 
     est.valid_from, 
-    est.valid_after, 
     est.valid_to
 FROM public.establishment est
 JOIN public.external_ident est_ei ON est_ei.establishment_id = est.id
@@ -515,7 +513,7 @@ LEFT JOIN public.legal_unit lu ON est.legal_unit_id = lu.id
 LEFT JOIN public.external_ident lu_ei ON lu_ei.legal_unit_id = lu.id
 LEFT JOIN public.external_ident_type lu_eit ON lu_eit.id = lu_ei.type_id AND lu_eit.code = 'tax_ident'
 WHERE est_ei.ident = 'E68060001' 
-ORDER BY est_ei.ident, est.valid_after, est.valid_from, est.valid_to;
+ORDER BY est_ei.ident, est.valid_from, est.valid_to;
 
 CALL worker.process_tasks(p_queue => 'analytics');
 
@@ -562,7 +560,7 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_68_07_informal_es_periods' ORDER BY slug; -- Added error_details
 
 \echo "Data table row status for import_68_07_informal_es_periods:" -- Added for consistency
-SELECT row_id, state, error, action, operation FROM public.import_68_07_informal_es_periods_data ORDER BY row_id;
+SELECT row_id, state, errors, merge_status, action, operation FROM public.import_68_07_informal_es_periods_data ORDER BY row_id;
 
 \echo "Verification for Scenario 7: Informal ES Three Periods"
 \echo "Establishments (expect 1 slice in public.establishment, as address/activity change does not slice establishment directly):"
@@ -571,12 +569,11 @@ SELECT
     ei.ident AS tax_ident,
     (SELECT COUNT(*) FROM public.enterprise WHERE id = est.enterprise_id) as linked_enterprise_exists,
     est.valid_from,
-    est.valid_after,
     est.valid_to
 FROM public.establishment est
 JOIN public.external_ident ei ON ei.establishment_id = est.id
 JOIN public.external_ident_type eit ON eit.id = ei.type_id AND eit.code = 'tax_ident' -- Assuming informal ES uses 'tax_ident'
-WHERE ei.ident = 'E68070001' ORDER BY ei.ident, est.valid_after, est.valid_from, est.valid_to;
+WHERE ei.ident = 'E68070001' ORDER BY ei.ident, est.valid_from, est.valid_to;
 
 \echo "Physical Locations for ES E68070001 (expect 2 slices due to address change):"
 SELECT
@@ -584,13 +581,12 @@ SELECT
     loc.type,
     loc.address_part1,
     loc.valid_from,
-    loc.valid_after,
     loc.valid_to
 FROM public.location loc
 JOIN public.external_ident ei ON loc.establishment_id = ei.establishment_id
 JOIN public.external_ident_type eit ON ei.type_id = eit.id
 WHERE ei.ident = 'E68070001' AND eit.code = 'tax_ident' AND loc.type = 'physical'
-ORDER BY ei.ident, loc.type, loc.valid_after, loc.valid_from, loc.valid_to;
+ORDER BY ei.ident, loc.type, loc.valid_from, loc.valid_to;
 
 CALL worker.process_tasks(p_queue => 'analytics');
 

@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE TABLE public.person_for_unit (
-    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id SERIAL NOT NULL,
     valid_from date NOT NULL,
     valid_to date NOT NULL,
     valid_until date NOT NULL,
@@ -22,30 +22,33 @@ CREATE INDEX ix_person_for_unit_legal_unit_id ON public.person_for_unit USING bt
 CREATE INDEX ix_person_for_unit_establishment_id ON public.person_for_unit USING btree (establishment_id);
 
 -- Activate era handling
-SELECT sql_saga.add_era('public.person_for_unit', p_synchronize_valid_to_column := 'valid_to');
+SELECT sql_saga.add_era('public.person_for_unit', synchronize_valid_to_column => 'valid_to');
 SELECT sql_saga.add_unique_key(
-    table_oid => 'public.person_for_unit',
+    table_oid => 'public.person_for_unit'::regclass,
+    key_type => 'primary',
     column_names => ARRAY['id'],
     unique_key_name => 'person_for_unit_id_valid'
 );
 SELECT sql_saga.add_unique_key(
-    table_oid => 'public.person_for_unit',
+    table_oid => 'public.person_for_unit'::regclass,
+    key_type => 'natural',
     column_names => ARRAY['person_id', 'person_role_id', 'establishment_id'],
     unique_key_name => 'person_for_unit_person_role_establishment_valid'
 );
 SELECT sql_saga.add_unique_key(
-    table_oid => 'public.person_for_unit',
+    table_oid => 'public.person_for_unit'::regclass,
+    key_type => 'natural',
     column_names => ARRAY['person_id', 'person_role_id', 'legal_unit_id'],
     unique_key_name => 'person_for_unit_person_role_legal_unit_valid'
 );
 SELECT sql_saga.add_foreign_key(
-    fk_table_oid => 'public.person_for_unit',
+    fk_table_oid => 'public.person_for_unit'::regclass,
     fk_column_names => ARRAY['establishment_id'],
     fk_era_name => 'valid',
     unique_key_name => 'establishment_id_valid'
 );
 SELECT sql_saga.add_foreign_key(
-    fk_table_oid => 'public.person_for_unit',
+    fk_table_oid => 'public.person_for_unit'::regclass,
     fk_column_names => ARRAY['legal_unit_id'],
     fk_era_name => 'valid',
     unique_key_name => 'legal_unit_id_valid'

@@ -1,4 +1,5 @@
 -- Implements the analyse and operation procedures for the legal_unit import target.
+BEGIN;
 
 -- Procedure to analyse base legal unit data
 CREATE OR REPLACE PROCEDURE import.analyse_legal_unit(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
@@ -75,16 +76,16 @@ BEGIN
                      END,
             errors = CASE
                         WHEN NULLIF(trim(dt.name), '') IS NULL THEN
-                            COALESCE(dt.errors, '{}'::jsonb) || jsonb_build_object('name', 'Missing required name')
+                            dt.errors || jsonb_build_object('name', 'Missing required name')
                         WHEN dt.status_id IS NULL THEN
-                            COALESCE(dt.errors, '{}'::jsonb) || jsonb_build_object('status_code', 'Status code could not be resolved and is required for this operation.')
-                        ELSE 
-                            CASE WHEN (dt.errors - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.errors - %3$L::TEXT[]) END
+                            dt.errors || jsonb_build_object('status_code', 'Status code could not be resolved and is required for this operation.')
+                        ELSE
+                            dt.errors - %3$L::TEXT[]
                     END,
             invalid_codes = CASE
                                 WHEN (NULLIF(trim(dt.name), '') IS NOT NULL) AND dt.status_id IS NOT NULL THEN -- Only populate invalid_codes if no fatal error in this step
                                     jsonb_strip_nulls(
-                                     COALESCE(dt.invalid_codes, '{}'::jsonb) - %4$L::TEXT[] || 
+                                     (dt.invalid_codes - %4$L::TEXT[]) ||
                                      jsonb_build_object('data_source_code', CASE WHEN NULLIF(dt.data_source_code, '') IS NOT NULL AND l.resolved_data_source_id IS NULL THEN dt.data_source_code ELSE NULL END) ||
                                      jsonb_build_object('legal_form_code', CASE WHEN NULLIF(dt.legal_form_code, '') IS NOT NULL AND l.resolved_legal_form_id IS NULL THEN dt.legal_form_code ELSE NULL END) ||
                                      jsonb_build_object('sector_code', CASE WHEN NULLIF(dt.sector_code, '') IS NOT NULL AND l.resolved_sector_id IS NULL THEN dt.sector_code ELSE NULL END) ||
@@ -139,8 +140,59 @@ BEGIN
         RAISE;
     END;
 
+    -- The explicit 'pg_temp.' schema ensures we only check for session-local tables.
+    IF to_regclass('pg_temp.debug_lu_analysis_after') IS NOT NULL THEN DROP TABLE debug_lu_analysis_after; END IF;
+    CREATE TEMP TABLE debug_lu_analysis_after (
+        row_id INT PRIMARY KEY,
+        name TEXT,
+        typed_death_date DATE,
+        derived_valid_to DATE,
+        derived_valid_until DATE
+    ) ON COMMIT DROP;
+
+    v_sql := format($$
+        INSERT INTO debug_lu_analysis_after (row_id, name, typed_death_date, derived_valid_to, derived_valid_until)
+        SELECT row_id, name, typed_death_date, derived_valid_to, derived_valid_until
+        FROM public.%1$I WHERE row_id = ANY($1)
+    $$, v_job.data_table_name);
+    EXECUTE v_sql USING p_batch_row_ids;
+
+    -- Log the contents for debugging if client_min_messages is DEBUG
+    IF current_setting('client_min_messages') = 'debug' THEN
+        DECLARE
+            r RECORD;
+        BEGIN
+            FOR r IN SELECT * FROM debug_lu_analysis_after ORDER BY row_id LOOP
+                RAISE DEBUG '[Job %][Row %] analyse_legal_unit AFTER: name="%", typed_death_date="%", derived_valid_to="%", derived_valid_until="%"', p_job_id, r.row_id, r.name, r.typed_death_date, r.derived_valid_to, r.derived_valid_until;
+            END LOOP;
+        END;
+    END IF;
+
     -- Propagate errors to all rows of a new entity if one fails
     CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_job.data_table_name, p_batch_row_ids, v_error_keys_to_clear_arr, 'analyse_legal_unit');
+
+    -- Resolve primary_for_enterprise conflicts within the current batch in the main data table
+    -- This is done here because this analysis step runs AFTER the enterprise_link step has populated enterprise_id and primary_for_enterprise
+    RAISE DEBUG '[Job %] analyse_legal_unit: Resolving primary_for_enterprise conflicts within the batch in %s.', p_job_id, v_job.data_table_name;
+    v_sql := format($$
+        WITH BatchPrimaries AS (
+            SELECT
+                row_id,
+                FIRST_VALUE(row_id) OVER (
+                    PARTITION BY enterprise_id, daterange(derived_valid_from, derived_valid_until, '[)')
+                    ORDER BY legal_unit_id ASC NULLS LAST, row_id ASC
+                ) as winner_row_id
+            FROM public.%1$I
+            WHERE row_id = ANY($1) AND primary_for_enterprise = true AND enterprise_id IS NOT NULL
+        )
+        UPDATE public.%1$I dt
+        SET primary_for_enterprise = false
+        FROM BatchPrimaries bp
+        WHERE dt.row_id = bp.row_id
+          AND dt.row_id != bp.winner_row_id
+          AND dt.primary_for_enterprise = true;
+    $$, v_job.data_table_name);
+    EXECUTE v_sql USING p_batch_row_ids;
 
     RAISE DEBUG '[Job %] analyse_legal_unit (Batch): Finished analysis for batch. Total errors in batch: %', p_job_id, v_error_count;
 END;
@@ -165,6 +217,7 @@ DECLARE
     rec_created_lu RECORD;
     v_start_time TIMESTAMPTZ;
     v_duration_ms NUMERIC;
+    v_merge_mode sql_saga.temporal_merge_mode;
 BEGIN
     v_start_time := clock_timestamp();
     RAISE DEBUG '[Job %] process_legal_unit (Batch): Starting operation for % rows', p_job_id, array_length(p_batch_row_ids, 1);
@@ -188,32 +241,6 @@ BEGIN
     v_edit_by_user_id := v_job.user_id;
 
     RAISE DEBUG '[Job %] process_legal_unit: Operation Type: %, User ID: %', p_job_id, v_definition.strategy, v_edit_by_user_id;
-
-    -- Resolve primary_for_enterprise conflicts within the current batch in the main data table
-    RAISE DEBUG '[Job %] process_legal_unit: Resolving primary_for_enterprise conflicts within the batch in %s.', p_job_id, v_data_table_name;
-    v_sql := format($$
-        WITH BatchPrimaries AS (
-            SELECT
-                row_id,
-                FIRST_VALUE(row_id) OVER (
-                    PARTITION BY enterprise_id, daterange(derived_valid_from, derived_valid_until, '[)')
-                    ORDER BY legal_unit_id ASC NULLS LAST, row_id ASC
-                ) as winner_row_id
-            FROM public.%1$I
-            WHERE row_id = ANY($1) AND primary_for_enterprise = true AND enterprise_id IS NOT NULL
-        )
-        UPDATE public.%1$I dt
-        SET primary_for_enterprise = false
-        FROM BatchPrimaries bp
-        WHERE dt.row_id = bp.row_id
-          AND dt.row_id != bp.winner_row_id
-          AND dt.primary_for_enterprise = true;
-    $$, v_data_table_name);
-    EXECUTE v_sql USING p_batch_row_ids;
-
-    IF FOUND THEN
-        RAISE DEBUG '[Job %] process_legal_unit: Resolved primary_for_enterprise conflicts in %s.', p_job_id, v_data_table_name;
-    END IF;
 
     -- Create an updatable view over the batch data. This avoids copying data to a temp table
     -- and allows sql_saga to write feedback and generated IDs directly back to the main data table.
@@ -239,13 +266,22 @@ BEGIN
             edit_by_user_id,
             edit_at,
             edit_comment,
-            invalid_codes,
+            NULLIF(invalid_codes,'{}'::JSONB) AS invalid_codes,
             errors,
-            merge_statuses
+            merge_status
         FROM public.%1$I
-        WHERE row_id = ANY(%2$L) AND action = 'use' AND state != 'error';
+        WHERE row_id = ANY(%2$L) AND action = 'use';
     $$, v_data_table_name, p_batch_row_ids);
     EXECUTE v_sql;
+
+    -- Log the contents of the source view for debugging
+    DECLARE
+        r RECORD;
+    BEGIN
+        FOR r IN SELECT * FROM temp_lu_source_view LOOP
+            RAISE DEBUG '[Job %][Row %] process_legal_unit source_view: valid_to="%", valid_until="%", death_date="%"', p_job_id, r.data_row_id, r.valid_to, r.valid_until, r.death_date;
+        END LOOP;
+    END;
 
     BEGIN
         -- Demotion logic
@@ -267,34 +303,34 @@ BEGIN
             SELECT
                 ex_lu.id, false, incoming_primary.new_primary_valid_from, incoming_primary.new_primary_valid_until,
                 incoming_primary.demotion_edit_by_user_id, incoming_primary.demotion_edit_at,
-                COALESCE(ex_lu.edit_comment || '; ', '') || 'Demoted: LU ' || COALESCE(incoming_primary.incoming_lu_id::TEXT, 'NEW') ||
-                    ' became primary for enterprise ' || incoming_primary.target_enterprise_id ||
-                    ' for period [' || incoming_primary.new_primary_valid_from || ', ' || incoming_primary.new_primary_valid_until || ')' ||
-                    ' by job ' || %2$L
+                'Demoted from primary by import job ' || %L ||
+                '; new primary is LU ' || COALESCE(incoming_primary.incoming_lu_id::TEXT, 'NEW') ||
+                ' for enterprise ' || incoming_primary.target_enterprise_id ||
+                ' during [' || incoming_primary.new_primary_valid_from || ', ' || incoming_primary.new_primary_valid_until || ')'
             FROM public.legal_unit ex_lu
             JOIN (
                 SELECT dt.legal_unit_id AS incoming_lu_id, dt.enterprise_id AS target_enterprise_id,
                        dt.derived_valid_from AS new_primary_valid_from, dt.derived_valid_until AS new_primary_valid_until,
                        dt.edit_by_user_id AS demotion_edit_by_user_id, dt.edit_at AS demotion_edit_at
-                FROM public.%1$I dt
+                FROM public.%I dt
                 WHERE dt.row_id = ANY($1) AND dt.primary_for_enterprise = true AND dt.enterprise_id IS NOT NULL
             ) AS incoming_primary
             ON ex_lu.enterprise_id = incoming_primary.target_enterprise_id
             WHERE ex_lu.id IS DISTINCT FROM incoming_primary.incoming_lu_id
               AND ex_lu.primary_for_enterprise = true
               AND public.from_until_overlaps(ex_lu.valid_from, ex_lu.valid_until, incoming_primary.new_primary_valid_from, incoming_primary.new_primary_valid_until);
-        $$, v_data_table_name, p_job_id);
+        $$, p_job_id, v_data_table_name);
         EXECUTE v_sql USING p_batch_row_ids;
 
         IF FOUND THEN
             RAISE DEBUG '[Job %] process_legal_unit: Identified % LUs for demotion.', p_job_id, (SELECT count(*) FROM temp_lu_demotion_source);
             CALL sql_saga.temporal_merge(
-                p_target_table => 'public.legal_unit'::regclass,
-                p_source_table => 'temp_lu_demotion_source'::regclass,
-                p_identity_columns => ARRAY['id'],
-                p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
-                p_mode => 'PATCH_FOR_PORTION_OF',
-                p_source_row_id_column => 'row_id'
+                target_table => 'public.legal_unit'::regclass,
+                source_table => 'temp_lu_demotion_source'::regclass,
+                identity_columns => ARRAY['id'],
+                ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
+                mode => 'PATCH_FOR_PORTION_OF',
+                source_row_id_column => 'row_id'
             );
             FOR v_batch_result IN SELECT * FROM pg_temp.temporal_merge_feedback WHERE status = 'ERROR' LOOP
                  RAISE WARNING '[Job %] process_legal_unit: Error during demotion for LU ID %: %', p_job_id, (v_batch_result.target_entity_ids->0->>'id')::INT, v_batch_result.error_message;
@@ -304,21 +340,31 @@ BEGIN
         END IF;
 
         -- Main data merge operation
+        -- Determine merge mode from job strategy
+        v_merge_mode := CASE v_definition.strategy
+            WHEN 'insert_or_replace' THEN 'MERGE_ENTITY_REPLACE'::sql_saga.temporal_merge_mode
+            WHEN 'replace_only' THEN 'MERGE_ENTITY_REPLACE'::sql_saga.temporal_merge_mode
+            WHEN 'insert_or_update' THEN 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode
+            WHEN 'update_only' THEN 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode
+            ELSE 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode -- Default to safer patch
+        END;
+        RAISE DEBUG '[Job %] process_legal_unit: Determined merge mode % from strategy %', p_job_id, v_merge_mode, v_definition.strategy;
+
         RAISE DEBUG '[Job %] process_legal_unit: Calling main sql_saga.temporal_merge operation.', p_job_id;
         CALL sql_saga.temporal_merge(
-            p_target_table => 'public.legal_unit'::regclass,
-            p_source_table => 'temp_lu_source_view'::regclass,
-            p_identity_columns => ARRAY['id'],
-            p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at', 'invalid_codes'],
-            p_mode => 'MERGE_ENTITY_REPLACE',
-            p_identity_correlation_column => 'founding_row_id',
-            p_update_source_with_identity => true,
-            p_update_source_with_feedback => true,
-            p_feedback_status_column => 'merge_statuses',
-            p_feedback_status_key => 'legal_unit',
-            p_feedback_error_column => 'errors',
-            p_feedback_error_key => 'legal_unit',
-            p_source_row_id_column => 'data_row_id'
+            target_table => 'public.legal_unit'::regclass,
+            source_table => 'temp_lu_source_view'::regclass,
+            identity_columns => ARRAY['id'],
+            ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at', 'invalid_codes'],
+            mode => v_merge_mode,
+            identity_correlation_column => 'founding_row_id',
+            update_source_with_identity => true,
+            update_source_with_feedback => true,
+            feedback_status_column => 'merge_status',
+            feedback_status_key => 'legal_unit',
+            feedback_error_column => 'errors',
+            feedback_error_key => 'legal_unit',
+            source_row_id_column => 'data_row_id'
         );
 
         -- With feedback written directly to the data table, we just need to count successes and errors.
@@ -327,7 +373,7 @@ BEGIN
 
         EXECUTE format($$
             UPDATE public.%1$I dt SET
-                state = CASE WHEN dt.errors IS NULL THEN 'processing'::public.import_data_state ELSE 'error'::public.import_data_state END
+                state = CASE WHEN dt.errors ? 'legal_unit' THEN 'error'::public.import_data_state ELSE 'processing'::public.import_data_state END
             WHERE dt.row_id = ANY($1) AND dt.action = 'use';
         $$, v_data_table_name)
         USING p_batch_row_ids;
@@ -336,13 +382,44 @@ BEGIN
 
         RAISE DEBUG '[Job %] process_legal_unit: temporal_merge finished. Success: %, Errors: %', p_job_id, v_update_count, v_error_count;
 
+        -- Intra-batch propagation of newly assigned legal_unit_id
+        RAISE DEBUG '[Job %] process_legal_unit: Propagating legal_unit_id for new entities within the batch.', p_job_id;
+        v_sql := format($$
+            WITH id_source AS (
+                SELECT DISTINCT founding_row_id, legal_unit_id
+                FROM public.%1$I
+                WHERE row_id = ANY($1) AND legal_unit_id IS NOT NULL
+            )
+            UPDATE public.%1$I dt
+            SET legal_unit_id = id_source.legal_unit_id
+            FROM id_source
+            WHERE dt.row_id = ANY($1)
+              AND dt.founding_row_id = id_source.founding_row_id
+              AND dt.legal_unit_id IS NULL;
+        $$, v_data_table_name);
+        EXECUTE v_sql USING p_batch_row_ids;
+
+        -- Process external identifiers now that legal_unit_id is available for new units
+        CALL import.helper_process_external_idents(p_job_id, p_batch_row_ids, 'external_idents');
+
     EXCEPTION WHEN OTHERS THEN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
-        RAISE WARNING '[Job %] process_legal_unit: Error during batch operation: %', p_job_id, replace(error_message, '%', '%%');
+        RAISE WARNING '[Job %] process_legal_unit: Unhandled error during batch operation: %', p_job_id, replace(error_message, '%', '%%');
+        -- Attempt to mark individual data rows as error (best effort)
+        BEGIN
+            v_sql := format($$UPDATE public.%1$I SET state = %2$L, errors = errors || jsonb_build_object('unhandled_error_process_lu', %3$L) WHERE row_id = ANY($1) AND state != 'error'$$, -- LCP not changed here
+                           v_data_table_name /* %1$I */, 'error'::public.import_data_state /* %2$L */, error_message /* %3$L */);
+            EXECUTE v_sql USING p_batch_row_ids;
+        EXCEPTION WHEN OTHERS THEN
+            RAISE WARNING '[Job %] process_legal_unit: Failed to mark individual data rows as error after unhandled exception: %', p_job_id, SQLERRM;
+        END;
+        -- Mark the job as failed
         UPDATE public.import_job
-        SET error = jsonb_build_object('process_legal_unit_error', error_message), state = 'finished'
+        SET error = jsonb_build_object('process_legal_unit_unhandled_error', error_message),
+            state = 'finished'
         WHERE id = p_job_id;
-        RAISE;
+        RAISE DEBUG '[Job %] process_legal_unit: Marked job as failed due to unhandled error: %', p_job_id, error_message;
+        RAISE; -- Re-raise the original unhandled error
     END;
 
     -- The framework now handles advancing priority for all rows, including 'skip'. No update needed here.
@@ -353,27 +430,7 @@ BEGIN
 
     IF to_regclass('pg_temp.temp_lu_source_view') IS NOT NULL THEN DROP VIEW temp_lu_source_view; END IF;
     IF to_regclass('pg_temp.temp_lu_demotion_source') IS NOT NULL THEN DROP TABLE temp_lu_demotion_source; END IF;
-
-EXCEPTION WHEN OTHERS THEN
-    GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
-    RAISE WARNING '[Job %] process_legal_unit: Unhandled error: %', p_job_id, replace(error_message, '%', '%%');
-    -- Ensure all temp tables are dropped
-    IF to_regclass('pg_temp.temp_lu_source_view') IS NOT NULL THEN DROP VIEW temp_lu_source_view; END IF;
-    IF to_regclass('pg_temp.temp_lu_demotion_source') IS NOT NULL THEN DROP TABLE temp_lu_demotion_source; END IF;
-    -- Attempt to mark individual data rows as error (best effort)
-    BEGIN
-        v_sql := format($$UPDATE public.%1$I SET state = %2$L, errors = COALESCE(errors, '{}'::jsonb) || jsonb_build_object('unhandled_error_process_lu', %3$L) WHERE row_id = ANY($1) AND state != 'error'$$, -- LCP not changed here
-                       v_data_table_name /* %1$I */, 'error'::public.import_data_state /* %2$L */, error_message /* %3$L */);
-        EXECUTE v_sql USING p_batch_row_ids;
-    EXCEPTION WHEN OTHERS THEN
-        RAISE WARNING '[Job %] process_legal_unit: Failed to mark individual data rows as error after unhandled exception: %', p_job_id, SQLERRM;
-    END;
-    -- Mark the job as failed
-    UPDATE public.import_job
-    SET error = jsonb_build_object('process_legal_unit_unhandled_error', error_message),
-        state = 'finished'
-    WHERE id = p_job_id;
-    RAISE DEBUG '[Job %] process_legal_unit: Marked job as failed due to unhandled error: %', p_job_id, error_message;
-    RAISE; -- Re-raise the original unhandled error
 END;
 $procedure$;
+
+END;

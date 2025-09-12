@@ -21,7 +21,7 @@ CREATE TABLE trigger_test.temporal_table (
 -- This creates the trigger automatically.
 SELECT sql_saga.add_era(
     'trigger_test.temporal_table'::regclass,
-    p_synchronize_valid_to_column := 'valid_to'
+    synchronize_valid_to_column => 'valid_to'
 );
 
 -- Function to display table contents

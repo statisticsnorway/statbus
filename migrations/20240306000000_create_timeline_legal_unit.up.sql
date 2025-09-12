@@ -82,6 +82,12 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
     , related_establishment_ids
     , excluded_establishment_ids
     , included_establishment_ids
+    , related_legal_unit_ids
+    , excluded_legal_unit_ids
+    , included_legal_unit_ids
+    , related_enterprise_ids
+    , excluded_enterprise_ids
+    , included_enterprise_ids
     , legal_unit_id
     , enterprise_id
     --
@@ -367,6 +373,16 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
            , COALESCE(esa.related_establishment_ids, ARRAY[]::INT[]) AS related_establishment_ids
            , COALESCE(esa.excluded_establishment_ids, ARRAY[]::INT[]) AS excluded_establishment_ids
            , COALESCE(esa.included_establishment_ids, ARRAY[]::INT[]) AS included_establishment_ids
+           , ARRAY[basis.unit_id] AS related_legal_unit_ids
+           , ARRAY[]::INT[] AS excluded_legal_unit_ids
+           , CASE WHEN basis.include_unit_in_reports THEN ARRAY[basis.unit_id] ELSE '{}'::INT[] END AS included_legal_unit_ids
+           , CASE WHEN basis.enterprise_id IS NOT NULL THEN ARRAY[basis.enterprise_id] ELSE ARRAY[]::INT[] END AS related_enterprise_ids
+           , ARRAY[]::INT[] AS excluded_enterprise_ids
+           -- 'included_*' arrays form a directed acyclic graph (DAG) for statistical roll-ups.
+           -- A unit includes IDs of units below it in the hierarchy, plus itself.
+           -- E.g., a legal_unit includes its establishments' IDs; an establishment includes its own ID.
+           -- A child NEVER includes its parent's ID in this array. This prevents double-counting stats during roll-ups.
+           , ARRAY[]::INT[] AS included_enterprise_ids
            , basis.legal_unit_id
            , basis.enterprise_id
            --
@@ -427,9 +443,10 @@ CREATE INDEX IF NOT EXISTS idx_timeline_legal_unit_enterprise_id ON public.timel
 
 
 -- Create a function to refresh the timeline_legal_unit table
-CREATE OR REPLACE PROCEDURE public.timeline_legal_unit_refresh(p_unit_ids int[] DEFAULT NULL) LANGUAGE plpgsql AS $$
+CREATE OR REPLACE PROCEDURE public.timeline_legal_unit_refresh(p_unit_id_ranges int4multirange DEFAULT NULL) LANGUAGE plpgsql AS $$
 BEGIN
-    CALL public.timeline_refresh('timeline_legal_unit', 'legal_unit', p_unit_ids);
+    ANALYZE public.timesegments, public.legal_unit, public.activity, public.location, public.contact, public.stat_for_unit, public.timeline_establishment;
+    CALL public.timeline_refresh('timeline_legal_unit', 'legal_unit', p_unit_id_ranges);
 END;
 $$;
 

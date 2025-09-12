@@ -30,30 +30,33 @@ CREATE INDEX ix_activity_establishment_valid_from_valid_until ON public.activity
 CREATE INDEX ix_activity_legal_unit_id_valid_range ON public.activity USING gist (legal_unit_id, daterange(valid_from, valid_until, '[)'));
 
 -- Activate era handling
-SELECT sql_saga.add_era('public.activity', p_synchronize_valid_to_column := 'valid_to');
+SELECT sql_saga.add_era('public.activity', synchronize_valid_to_column => 'valid_to');
 SELECT sql_saga.add_unique_key(
-    table_oid => 'public.activity',
+    table_oid => 'public.activity'::regclass,
+    key_type => 'primary',
     column_names => ARRAY['id'],
     unique_key_name => 'activity_id_valid'
 );
 SELECT sql_saga.add_unique_key(
-    table_oid => 'public.activity',
+    table_oid => 'public.activity'::regclass,
+    key_type => 'natural',
     column_names => ARRAY['type', 'establishment_id'],
     unique_key_name => 'activity_type_establishment_id_valid'
 );
 SELECT sql_saga.add_unique_key(
-    table_oid => 'public.activity',
+    table_oid => 'public.activity'::regclass,
+    key_type => 'natural',
     column_names => ARRAY['type', 'legal_unit_id'],
     unique_key_name => 'activity_type_legal_unit_id_valid'
 );
 SELECT sql_saga.add_foreign_key(
-    fk_table_oid => 'public.activity',
+    fk_table_oid => 'public.activity'::regclass,
     fk_column_names => ARRAY['establishment_id'],
     fk_era_name => 'valid',
     unique_key_name => 'establishment_id_valid'
 );
 SELECT sql_saga.add_foreign_key(
-    fk_table_oid => 'public.activity',
+    fk_table_oid => 'public.activity'::regclass,
     fk_column_names => ARRAY['legal_unit_id'],
     fk_era_name => 'valid',
     unique_key_name => 'legal_unit_id_valid'

@@ -61,20 +61,20 @@ BEGIN
                     END,
             errors = CASE
                         WHEN NULLIF(dt.status_code, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL AND %2$L::INTEGER IS NULL THEN
-                            COALESCE(dt.errors, '{}'::jsonb) || jsonb_build_object('status_code', 'Provided status_code ''' || dt.status_code || ''' not found/active and no default available')
+                            dt.errors || jsonb_build_object('status_code', 'Provided status_code ''' || dt.status_code || ''' not found/active and no default available')
                         WHEN NULLIF(dt.status_code, '') IS NULL AND %2$L::INTEGER IS NULL THEN
-                            COALESCE(dt.errors, '{}'::jsonb) || jsonb_build_object('status_code', 'Status code not provided and no active default status found')
+                            dt.errors || jsonb_build_object('status_code', 'Status code not provided and no active default status found')
                         ELSE
-                            CASE WHEN (dt.errors - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.errors - %3$L::TEXT[]) END
+                            dt.errors - %3$L::TEXT[]
                     END,
             invalid_codes =
                 CASE
                     -- Soft error: Invalid code provided, but default is available and used.
                     WHEN NULLIF(dt.status_code, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL AND %2$L::INTEGER IS NOT NULL THEN
-                        COALESCE(dt.invalid_codes, '{}'::jsonb) || jsonb_build_object('status_code', dt.status_code)
+                        dt.invalid_codes || jsonb_build_object('status_code', dt.status_code)
                     -- Default case: clear 'status_code' from invalid_codes if it exists (e.g. if code is valid or hard error occurs for status_code).
                     ELSE
-                        CASE WHEN (COALESCE(dt.invalid_codes, '{}'::jsonb) - 'status_code') = '{}'::jsonb THEN NULL ELSE (COALESCE(dt.invalid_codes, '{}'::jsonb) - 'status_code') END
+                        dt.invalid_codes - 'status_code'
                 END,
             last_completed_priority = %4$L::INTEGER -- Always v_step.priority
         FROM status_lookup sl

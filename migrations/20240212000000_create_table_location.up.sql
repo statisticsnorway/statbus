@@ -81,19 +81,22 @@ CREATE INDEX ix_location_legal_unit_id_valid_range ON public.location USING gist
 CREATE INDEX ix_location_establishment_id_valid_range ON public.location USING gist (establishment_id, daterange(valid_from, valid_until, '[)'));
 
 -- Activate era handling
-SELECT sql_saga.add_era('public.location', p_synchronize_valid_to_column := 'valid_to');
+SELECT sql_saga.add_era('public.location', synchronize_valid_to_column => 'valid_to');
 SELECT sql_saga.add_unique_key(
     table_oid => 'public.location',
+    key_type => 'primary',
     column_names => ARRAY['id'],
     unique_key_name => 'location_id_valid'
 );
 SELECT sql_saga.add_unique_key(
     table_oid => 'public.location',
+    key_type => 'natural',
     column_names => ARRAY['type', 'establishment_id'],
     unique_key_name => 'location_type_establishment_id_valid'
 );
 SELECT sql_saga.add_unique_key(
     table_oid => 'public.location',
+    key_type => 'natural',
     column_names => ARRAY['type', 'legal_unit_id'],
     unique_key_name => 'location_type_legal_unit_id_valid'
 );

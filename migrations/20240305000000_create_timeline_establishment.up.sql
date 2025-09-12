@@ -83,6 +83,15 @@ CREATE OR REPLACE VIEW public.timeline_establishment_def
     , primary_for_legal_unit
     --
     , stats
+    , related_establishment_ids
+    , excluded_establishment_ids
+    , included_establishment_ids
+    , related_legal_unit_ids
+    , excluded_legal_unit_ids
+    , included_legal_unit_ids
+    , related_enterprise_ids
+    , excluded_enterprise_ids
+    , included_enterprise_ids
     )
     AS
       WITH establishment_stats AS (
@@ -198,6 +207,19 @@ CREATE OR REPLACE VIEW public.timeline_establishment_def
            , es.primary_for_legal_unit AS primary_for_legal_unit
            --
            , COALESCE(es_stats.stats, '{}'::JSONB) AS stats
+           -- 'included_*' arrays form a directed acyclic graph (DAG) for statistical roll-ups.
+           -- A unit includes IDs of units below it in the hierarchy, plus itself.
+           -- E.g., a legal_unit includes its establishments' IDs; an establishment includes its own ID.
+           -- A child NEVER includes its parent's ID in this array. This prevents double-counting stats during roll-ups.
+           , ARRAY[t.unit_id] AS related_establishment_ids
+           , ARRAY[]::INT[] AS excluded_establishment_ids
+           , CASE WHEN st.include_unit_in_reports THEN ARRAY[t.unit_id] ELSE '{}'::INT[] END AS included_establishment_ids
+           , CASE WHEN es.legal_unit_id IS NOT NULL THEN ARRAY[es.legal_unit_id] ELSE ARRAY[]::INT[] END AS related_legal_unit_ids
+           , ARRAY[]::INT[] AS excluded_legal_unit_ids
+           , ARRAY[]::INT[] AS included_legal_unit_ids
+           , CASE WHEN es.enterprise_id IS NOT NULL THEN ARRAY[es.enterprise_id] ELSE ARRAY[]::INT[] END AS related_enterprise_ids
+           , ARRAY[]::INT[] AS excluded_enterprise_ids
+           , ARRAY[]::INT[] AS included_enterprise_ids
       --
       FROM public.timesegments AS t
       JOIN LATERAL (
@@ -305,45 +327,38 @@ CREATE INDEX IF NOT EXISTS idx_timeline_establishment_enterprise_id ON public.ti
 
 
 -- Create a function to refresh the timeline_establishment table
-CREATE OR REPLACE PROCEDURE public.timeline_refresh(p_target_table text, p_unit_type public.statistical_unit_type, p_unit_ids int[] DEFAULT NULL)
+CREATE OR REPLACE PROCEDURE public.timeline_refresh(p_target_table text, p_unit_type public.statistical_unit_type, p_unit_id_ranges int4multirange DEFAULT NULL)
 LANGUAGE plpgsql AS $procedure$
 DECLARE
     v_batch_size INT := 50000;
     v_def_view_name text := p_target_table || '_def';
-    v_min_id int;
-    v_max_id int;
-    v_start_id int;
-    v_end_id int;
+    v_min_id int; v_max_id int; v_start_id int; v_end_id int;
 BEGIN
-    IF p_unit_ids IS NULL THEN
-        -- Full refresh
+    IF p_unit_id_ranges IS NOT NULL THEN
+        EXECUTE format('DELETE FROM public.%I WHERE unit_type = %L AND unit_id <@ %L::int4multirange', p_target_table, p_unit_type, p_unit_id_ranges);
+        EXECUTE format('INSERT INTO public.%I SELECT * FROM public.%I WHERE unit_type = %L AND unit_id <@ %L::int4multirange',
+                       p_target_table, v_def_view_name, p_unit_type, p_unit_id_ranges);
+    ELSE
         SELECT MIN(unit_id), MAX(unit_id) INTO v_min_id, v_max_id FROM public.timesegments WHERE unit_type = p_unit_type;
         IF v_min_id IS NULL THEN RETURN; END IF;
 
         FOR i IN v_min_id..v_max_id BY v_batch_size LOOP
-            v_start_id := i;
-            v_end_id := i + v_batch_size - 1;
-
-            -- Batched DELETE is used instead of TRUNCATE to avoid taking an ACCESS EXCLUSIVE lock,
-            -- which would block concurrent reads on the table. This is more MVCC-friendly.
+            v_start_id := i; v_end_id := i + v_batch_size - 1;
             EXECUTE format('DELETE FROM public.%I WHERE unit_type = %L AND unit_id BETWEEN %L AND %L',
                            p_target_table, p_unit_type, v_start_id, v_end_id);
-
             EXECUTE format('INSERT INTO public.%I SELECT * FROM public.%I WHERE unit_type = %L AND unit_id BETWEEN %L AND %L',
                            p_target_table, v_def_view_name, p_unit_type, v_start_id, v_end_id);
         END LOOP;
-    ELSE
-        -- Partial refresh for the given unit IDs
-        EXECUTE format('DELETE FROM public.%I WHERE unit_type = %L AND unit_id = ANY(%L::int[])', p_target_table, p_unit_type, p_unit_ids);
-        EXECUTE format('INSERT INTO public.%I SELECT * FROM public.%I WHERE unit_type = %L AND unit_id = ANY(%L::int[])',
-                       p_target_table, v_def_view_name, p_unit_type, p_unit_ids);
     END IF;
+
+    EXECUTE format('ANALYZE public.%I', p_target_table);
 END;
 $procedure$;
 
-CREATE OR REPLACE PROCEDURE public.timeline_establishment_refresh(p_unit_ids int[] DEFAULT NULL) LANGUAGE plpgsql AS $$
+CREATE OR REPLACE PROCEDURE public.timeline_establishment_refresh(p_unit_id_ranges int4multirange DEFAULT NULL) LANGUAGE plpgsql AS $$
 BEGIN
-    CALL public.timeline_refresh('timeline_establishment', 'establishment', p_unit_ids);
+    ANALYZE public.timesegments, public.establishment, public.activity, public.location, public.contact, public.stat_for_unit;
+    CALL public.timeline_refresh('timeline_establishment', 'establishment', p_unit_id_ranges);
 END;
 $$;
 

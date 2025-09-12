@@ -90,45 +90,31 @@ ORDER BY slug;
 CALL worker.process_tasks(p_queue => 'import');
 \copy public.import_lu_2016_sht_upload FROM 'samples/norway/small-history/2016-enheter.csv' WITH CSV HEADER;
 \echo Processing tasks for import_lu_2016_sht with DEBUG1
---SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
---SET client_min_messages TO NOTICE;
 
 \copy public.import_lu_2017_sht_upload FROM 'samples/norway/small-history/2017-enheter.csv' WITH CSV HEADER;
 \echo Processing tasks for import_lu_2017_sht
---SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
---SET client_min_messages TO NOTICE;
 
 \copy public.import_lu_2018_sht_upload FROM 'samples/norway/small-history/2018-enheter.csv' WITH CSV HEADER;
 \echo Processing tasks for import_lu_2018_sht
---SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
---SET client_min_messages TO NOTICE;
 
 \copy public.import_es_2015_sht_upload FROM 'samples/norway/small-history/2015-underenheter.csv' WITH CSV HEADER;
 \echo Processing tasks for import_es_2015_sht
---SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
---SET client_min_messages TO NOTICE;
 
 \copy public.import_es_2016_sht_upload FROM 'samples/norway/small-history/2016-underenheter.csv' WITH CSV HEADER;
 \echo Processing tasks for import_es_2016_sht
---SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
---SET client_min_messages TO NOTICE;
 
 \copy public.import_es_2017_sht_upload FROM 'samples/norway/small-history/2017-underenheter.csv' WITH CSV HEADER;
 \echo Processing tasks for import_es_2017_sht
---SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
---SET client_min_messages TO NOTICE;
 
 \copy public.import_es_2018_sht_upload FROM 'samples/norway/small-history/2018-underenheter.csv' WITH CSV HEADER;
 \echo Processing tasks for import_es_2018_sht
---SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
---SET client_min_messages TO NOTICE;
 
 \echo Check import job state before import
 SELECT state, count(*) FROM import_job GROUP BY state;
@@ -166,16 +152,16 @@ WITH target_lu_base AS (
     LIMIT 1
 )
 SELECT
-    lu.valid_from, lu.valid_to, lu.valid_after, lu.name,
+    lu.valid_from, lu.valid_to, lu.name,
     sec.code AS sector_code,
     lf.code AS legal_form_code,
-    lu.edit_comment, lu.active,
+    lu.edit_comment,
     lu.primary_for_enterprise
 FROM public.legal_unit lu
 JOIN target_lu_base tlb ON lu.id = tlb.id
 LEFT JOIN public.sector sec ON lu.sector_id = sec.id
 LEFT JOIN public.legal_form lf ON lu.legal_form_id = lf.id
-ORDER BY lu.valid_after;
+ORDER BY lu.valid_from;
 
 \echo "Debug: BOBILER AS - Establishment (tax_ident 929895711) segments in public.establishment"
 WITH target_est_base AS (
@@ -186,14 +172,14 @@ WITH target_est_base AS (
     LIMIT 1
 )
 SELECT
-    est.valid_from, est.valid_to, est.valid_after, est.name,
+    est.valid_from, est.valid_to, est.name,
     (SELECT lu_ei.ident FROM public.legal_unit lu JOIN public.external_ident lu_ei ON lu.id = lu_ei.legal_unit_id JOIN public.external_ident_type lu_eit ON lu_ei.type_id = lu_eit.id WHERE lu.id = est.legal_unit_id AND lu_eit.code = 'tax_ident' LIMIT 1) AS legal_unit_tax_ident,
     est.primary_for_legal_unit,
     est.primary_for_enterprise,
-    est.edit_comment, est.active
+    est.edit_comment
 FROM public.establishment est
 JOIN target_est_base teb ON est.id = teb.id
-ORDER BY est.valid_after;
+ORDER BY est.valid_from;
 
 \echo "Debug: BOBILER AS - Activity segments for Establishment (tax_ident 929895711) in public.activity"
 WITH target_est_base AS (
@@ -204,235 +190,87 @@ WITH target_est_base AS (
     LIMIT 1
 )
 SELECT
-    act.valid_from, act.valid_to, act.valid_after,
+    act.valid_from, act.valid_to,
     ac.code AS activity_category_code,
     ac.path AS activity_category_path,
     act.type, act.edit_comment
 FROM public.activity act
 JOIN target_est_base teb ON act.establishment_id = teb.id
 JOIN public.activity_category ac ON act.category_id = ac.id
-ORDER BY act.valid_after, act.type;
+ORDER BY act.valid_from, act.type;
 
 \echo "Checking for Row-level errors for all import jobs:"
 
 \echo "Row-level errors for job import_es_2015_sht (table import_es_2015_sht_data):"
-SELECT row_id, state, error,
+SELECT row_id, state, errors, invalid_codes, merge_status,
        tax_ident::TEXT AS tax_ident,
        name::TEXT AS name,
        legal_unit_tax_ident::TEXT AS legal_unit_tax_ident
 FROM public.import_es_2015_sht_data
-WHERE state = 'error' OR error IS NOT NULL
+WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;
 
 \echo "Row-level errors for job import_es_2016_sht (table import_es_2016_sht_data):"
-SELECT row_id, state, error,
+SELECT row_id, state, errors, invalid_codes, merge_status,
        tax_ident::TEXT AS tax_ident,
        name::TEXT AS name,
        legal_unit_tax_ident::TEXT AS legal_unit_tax_ident
 FROM public.import_es_2016_sht_data
-WHERE state = 'error' OR error IS NOT NULL
+WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;
 
 \echo "Row-level errors for job import_es_2017_sht (table import_es_2017_sht_data):"
-SELECT row_id, state, error,
+SELECT row_id, state, errors, invalid_codes, merge_status,
        tax_ident::TEXT AS tax_ident,
        name::TEXT AS name,
        legal_unit_tax_ident::TEXT AS legal_unit_tax_ident
 FROM public.import_es_2017_sht_data
-WHERE state = 'error' OR error IS NOT NULL
+WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;
 
 \echo "Row-level errors for job import_es_2018_sht (table import_es_2018_sht_data):"
-SELECT row_id, state, error,
+SELECT row_id, state, errors, invalid_codes, merge_status,
        tax_ident::TEXT AS tax_ident,
        name::TEXT AS name,
        legal_unit_tax_ident::TEXT AS legal_unit_tax_ident
 FROM public.import_es_2018_sht_data
-WHERE state = 'error' OR error IS NOT NULL
+WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;
 
 \echo "Row-level errors for job import_lu_2015_sht (table import_lu_2015_sht_data):"
-SELECT row_id, state, error,
+SELECT row_id, state, errors, invalid_codes, merge_status,
        tax_ident::TEXT AS tax_ident,
        name::TEXT AS name
 FROM public.import_lu_2015_sht_data
-WHERE state = 'error' OR error IS NOT NULL
+WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;
 
 \echo "Row-level errors for job import_lu_2016_sht (table import_lu_2016_sht_data):"
-SELECT row_id, state, error,
+SELECT row_id, state, errors, invalid_codes, merge_status,
        tax_ident::TEXT AS tax_ident,
        name::TEXT AS name
 FROM public.import_lu_2016_sht_data
-WHERE state = 'error' OR error IS NOT NULL
+WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;
 
 \echo "Row-level errors for job import_lu_2017_sht (table import_lu_2017_sht_data):"
-SELECT row_id, state, error,
+SELECT row_id, state, errors, invalid_codes, merge_status,
        tax_ident::TEXT AS tax_ident,
        name::TEXT AS name
 FROM public.import_lu_2017_sht_data
-WHERE state = 'error' OR error IS NOT NULL
+WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;
 
 \echo "Row-level errors for job import_lu_2018_sht (table import_lu_2018_sht_data):"
-SELECT row_id, state, error,
+SELECT row_id, state, errors, invalid_codes, merge_status,
        tax_ident::TEXT AS tax_ident,
        name::TEXT AS name
 FROM public.import_lu_2018_sht_data
-WHERE state = 'error' OR error IS NOT NULL
+WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;
 
 \echo Check the state of all tasks before running analytics.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
-
-\echo "Explicitly refreshing timesegments before checking timeline_establishment_def"
-CALL public.timesegments_refresh();
-
-\echo "Duplicate (unit_type, unit_id, timepoint) in public.timepoints for establishments:"
-SELECT unit_type, unit_id, timepoint, COUNT(*)
-FROM public.timepoints
-WHERE unit_type = 'establishment'
-GROUP BY unit_type, unit_id, timepoint
-HAVING COUNT(*) > 1
-ORDER BY unit_id, timepoint;
-
-\echo "Duplicate (unit_type, unit_id, valid_after) in timeline_establishment_def that would cause ON CONFLICT error:"
-SELECT unit_type, unit_id, valid_after, COUNT(*)
-FROM public.timeline_establishment_def
-GROUP BY unit_type, unit_id, valid_after
-HAVING COUNT(*) > 1
-ORDER BY unit_id, valid_after;
-
-\echo "Duplicates from timeline_establishment_def that would cause INSERT ON CONFLICT to fail"
-SELECT unit_type, unit_id, valid_after, COUNT(*)
-FROM public.timeline_establishment_def
-GROUP BY unit_type, unit_id, valid_after
-HAVING COUNT(*) > 1
-ORDER BY unit_id, valid_after;
-
-\echo "Detailed duplicate rows from timeline_establishment_def causing ON CONFLICT errors:"
-WITH DuplicatedKeys AS (
-    SELECT unit_type, unit_id, valid_after
-    FROM public.timeline_establishment_def
-    GROUP BY unit_type, unit_id, valid_after
-    HAVING COUNT(*) > 1
-)
-SELECT ted.unit_id, ted.valid_after, ted.valid_from, ted.valid_to,
-       ted.name,
-       ted.primary_activity_category_id, ted.primary_activity_category_code,
-       ted.secondary_activity_category_id, ted.secondary_activity_category_code,
-       array_length(ted.activity_category_paths, 1) as num_activity_paths,
-       phl.id as physical_location_id, ted.physical_address_part1, ted.physical_postcode,
-       pol.id as postal_location_id, ted.postal_address_part1, ted.postal_postcode,
-       c.id as contact_id, ted.web_address,
-       ted.last_edit_at
-FROM public.timeline_establishment_def ted
-JOIN DuplicatedKeys dk ON ted.unit_type = dk.unit_type AND ted.unit_id = dk.unit_id AND ted.valid_after = dk.valid_after
-LEFT JOIN public.location phl ON phl.establishment_id = ted.unit_id AND phl.type = 'physical' AND after_to_overlaps(ted.valid_after, ted.valid_to, phl.valid_after, phl.valid_to)
-LEFT JOIN public.location pol ON pol.establishment_id = ted.unit_id AND pol.type = 'postal' AND after_to_overlaps(ted.valid_after, ted.valid_to, pol.valid_after, pol.valid_to)
-LEFT JOIN public.contact c ON c.establishment_id = ted.unit_id AND after_to_overlaps(ted.valid_after, ted.valid_to, c.valid_after, c.valid_to)
-ORDER BY ted.unit_id, ted.valid_after,
-         ted.primary_activity_category_id NULLS FIRST,
-         ted.secondary_activity_category_id NULLS FIRST,
-         phl.id NULLS FIRST,
-         pol.id NULLS FIRST,
-         c.id NULLS FIRST;
-
-\echo "Checking for duplicates from enterprise_with_primary_legal_unit stage (within timeline_enterprise_def logic):"
-WITH timesegments_enterprise AS (
-    SELECT ts.*, en.id AS enterprise_id
-    FROM public.timesegments AS ts
-    INNER JOIN public.enterprise AS en
-        ON ts.unit_type = 'enterprise' AND ts.unit_id = en.id
-)
-SELECT ten.enterprise_id, ten.valid_after AS segment_valid_after, ten.valid_to AS segment_valid_to, COUNT(*) as num_primary_lu_matches
-FROM timesegments_enterprise AS ten
-INNER JOIN public.timeline_legal_unit AS tlu
-    ON tlu.enterprise_id = ten.enterprise_id
-    AND tlu.primary_for_enterprise = true
-    AND public.after_to_overlaps(ten.valid_after, ten.valid_to, tlu.valid_after, tlu.valid_to)
-GROUP BY ten.enterprise_id, ten.valid_after, ten.valid_to
-HAVING COUNT(*) > 1
-ORDER BY ten.enterprise_id, segment_valid_after;
-
-\echo "Checking for duplicates from enterprise_with_primary_establishment stage (within timeline_enterprise_def logic):"
-WITH timesegments_enterprise AS (
-    SELECT ts.*, en.id AS enterprise_id
-    FROM public.timesegments AS ts
-    INNER JOIN public.enterprise AS en
-        ON ts.unit_type = 'enterprise' AND ts.unit_id = en.id
-)
-SELECT ten.enterprise_id, ten.valid_after AS segment_valid_after, ten.valid_to AS segment_valid_to, COUNT(*) as num_primary_es_matches
-FROM timesegments_enterprise AS ten
-INNER JOIN public.timeline_establishment AS tes
-    ON tes.enterprise_id = ten.enterprise_id
-    AND tes.primary_for_enterprise = true
-    AND public.after_to_overlaps(ten.valid_after, ten.valid_to, tes.valid_after, tes.valid_to)
-GROUP BY ten.enterprise_id, ten.valid_after, ten.valid_to
-HAVING COUNT(*) > 1
-ORDER BY ten.enterprise_id, segment_valid_after;
-
-\echo "Duplicate (unit_type, unit_id, valid_after) in timeline_enterprise_def that would cause ON CONFLICT error:"
-SELECT unit_type, unit_id, valid_after, COUNT(*)
-FROM public.timeline_enterprise_def
-GROUP BY unit_type, unit_id, valid_after
-HAVING COUNT(*) > 1
-ORDER BY unit_id, valid_after;
-
-\echo "Detailed duplicate rows from timeline_enterprise_def causing ON CONFLICT errors:"
-WITH DuplicatedKeys AS (
-    SELECT unit_type, unit_id, valid_after
-    FROM public.timeline_enterprise_def
-    GROUP BY unit_type, unit_id, valid_after
-    HAVING COUNT(*) > 1
-)
-SELECT ted.unit_id, ted.valid_after, ted.valid_from, ted.valid_to,
-       ted.name,
-       ted.primary_activity_category_code,
-       ted.sector_code,
-       ted.legal_form_code,
-       ted.last_edit_comment,
-       ted.last_edit_at,
-       ted.primary_legal_unit_id,
-       ted.primary_establishment_id
-FROM public.timeline_enterprise_def ted
-JOIN DuplicatedKeys dk ON ted.unit_type = dk.unit_type AND ted.unit_id = dk.unit_id AND ted.valid_after = dk.valid_after
-ORDER BY ted.unit_id, ted.valid_after, ted.valid_from NULLS FIRST, ted.valid_to NULLS FIRST, ted.name NULLS FIRST, ted.last_edit_at NULLS FIRST;
-
-\echo "Checking for duplicates in the data that would be inserted into timeline_enterprise (simulating temp_timeline_enterprise):"
-CREATE TEMP TABLE debug_temp_timeline_enterprise AS
-SELECT * FROM public.timeline_enterprise_def
-WHERE public.after_to_overlaps(valid_after, valid_to, '2014-12-31'::date, 'infinity'::date);
-
-\echo "Duplicate (unit_type, unit_id, valid_after) in simulated debug_temp_timeline_enterprise:"
-SELECT unit_type, unit_id, valid_after, COUNT(*)
-FROM debug_temp_timeline_enterprise
-GROUP BY unit_type, unit_id, valid_after
-HAVING COUNT(*) > 1
-ORDER BY unit_id, valid_after;
-
-\echo "Detailed duplicate rows from simulated debug_temp_timeline_enterprise:"
-WITH DuplicatedKeysInTemp AS (
-    SELECT unit_type, unit_id, valid_after
-    FROM debug_temp_timeline_enterprise
-    GROUP BY unit_type, unit_id, valid_after
-    HAVING COUNT(*) > 1
-)
-SELECT ted.unit_id, ted.valid_after, ted.valid_from, ted.valid_to,
-       ted.name,
-       ted.primary_activity_category_code,
-       ted.sector_code,
-       ted.legal_form_code,
-       ted.last_edit_comment,
-       ted.last_edit_at,
-       ted.primary_legal_unit_id,
-       ted.primary_establishment_id
-FROM debug_temp_timeline_enterprise ted
-JOIN DuplicatedKeysInTemp dk ON ted.unit_type = dk.unit_type AND ted.unit_id = dk.unit_id AND ted.valid_after = dk.valid_after
-ORDER BY ted.unit_id, ted.valid_after, ted.valid_from NULLS FIRST, ted.valid_to NULLS FIRST, ted.name NULLS FIRST, ted.last_edit_at NULLS FIRST;
-
-DROP TABLE debug_temp_timeline_enterprise;
 
 -- Once the Imports are finished, then all the analytics can be processed, but only once.
 CALL worker.process_tasks(p_queue => 'analytics');
@@ -458,15 +296,14 @@ SELECT valid_from
 
 \echo Getting statistical_units after upload
 \x
-SELECT valid_after
-     , valid_from
+SELECT valid_from
      , valid_to
+     , valid_until
      , unit_type
      , external_idents
      , jsonb_pretty(
           public.remove_ephemeral_data_from_hierarchy(
           to_jsonb(statistical_unit.*)
-          -'valid_after'
           -'valid_from'
           -'valid_to'
           -'unit_type'
@@ -482,21 +319,20 @@ SELECT valid_after
 \x
 
 
-\echo Generate traces of indices used to build the history, analysis with tools such as shipped "/pev2" aka "postgres explain visualizer pev2 query performance"
-\o tmp/50_import_jobs_for_norway_small_history-timepoints.log
-EXPLAIN ANALYZE SELECT * FROM public.timepoints;
-\o tmp/50_import_jobs_for_norway_small_history-timesegments_def.log
-EXPLAIN ANALYZE SELECT * FROM public.timesegments_def;
-\o tmp/50_import_jobs_for_norway_small_history-timeline_establishment_def.log
-EXPLAIN ANALYZE SELECT * FROM public.timeline_establishment_def;
-\o tmp/50_import_jobs_for_norway_small_history-timeline_legal_unit_def.log
-EXPLAIN ANALYZE SELECT * FROM public.timeline_legal_unit_def;
-\o tmp/50_import_jobs_for_norway_small_history-timeline_enterprise_def.log
-EXPLAIN ANALYZE SELECT * FROM public.timeline_enterprise_def;
-\o tmp/50_import_jobs_for_norway_small_history-statistical_unit_def.log
-EXPLAIN ANALYZE SELECT * FROM public.statistical_unit_def;
+\echo '--- Generating query plans for review ---'
+\o test/expected/303_import_jobs_for_norway_small_history-timepoints.explain.txt
+EXPLAIN SELECT * FROM public.timepoints;
+\o test/expected/303_import_jobs_for_norway_small_history-timesegments_def.explain.txt
+EXPLAIN SELECT * FROM public.timesegments_def;
+\o test/expected/303_import_jobs_for_norway_small_history-timeline_establishment_def.explain.txt
+EXPLAIN SELECT * FROM public.timeline_establishment_def;
+\o test/expected/303_import_jobs_for_norway_small_history-timeline_legal_unit_def.explain.txt
+EXPLAIN SELECT * FROM public.timeline_legal_unit_def;
+\o test/expected/303_import_jobs_for_norway_small_history-timeline_enterprise_def.explain.txt
+EXPLAIN SELECT * FROM public.timeline_enterprise_def;
+\o test/expected/303_import_jobs_for_norway_small_history-statistical_unit_def.explain.txt
+EXPLAIN SELECT * FROM public.statistical_unit_def;
 \o
-
 
 RESET client_min_messages;
 

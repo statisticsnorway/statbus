@@ -370,9 +370,9 @@ END $$;
  row_id                           | integer                   |           | not null | generated always as identity | plain    |              | 
  valid_from                       | text                      |           |          |                              | extended |              | 
  valid_to                         | text                      |           |          |                              | extended |              | 
- derived_valid_after              | date                      |           |          |                              | plain    |              | 
  derived_valid_from               | date                      |           |          |                              | plain    |              | 
  derived_valid_to                 | date                      |           |          |                              | plain    |              | 
+ derived_valid_until              | date                      |           |          |                              | plain    |              | 
  operation                        | import_row_operation_type |           |          |                              | plain    |              | 
  action                           | import_row_action_type    |           |          |                              | plain    |              | 
  tax_ident                        | text                      |           |          |                              | extended |              | 
@@ -458,11 +458,12 @@ END $$;
  founding_row_id                  | integer                   |           |          |                              | plain    |              | 
  state                            | import_data_state         |           | not null | 'pending'::import_data_state | plain    |              | 
  last_completed_priority          | integer                   |           | not null | 0                            | plain    |              | 
- error                            | jsonb                     |           |          |                              | extended |              | 
- invalid_codes                    | jsonb                     |           |          |                              | extended |              | 
+ errors                           | jsonb                     |           | not null | '{}'::jsonb                  | extended |              | 
+ merge_status                     | jsonb                     |           | not null | '{}'::jsonb                  | extended |              | 
+ invalid_codes                    | jsonb                     |           | not null | '{}'::jsonb                  | extended |              | 
 Indexes:
     "import_71_a1_lu_data_pkey" PRIMARY KEY, btree (row_id)
-    "import_71_a1_lu_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND error IS NULL
+    "import_71_a1_lu_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND errors IS NULL
     "import_71_a1_lu_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "import_71_a1_lu_data_nin_ident_idx" btree (nin_ident)
     "import_71_a1_lu_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
@@ -487,7 +488,7 @@ INSERT INTO public.import_71_a1_lu_upload(
     primary_activity_category_code, sector_code, legal_form_code, email_address, men_employees, women_employees, tag_path
 ) VALUES (
     '71A000001', 'NIN71A001', 'LU-71A Period 1', '2023-01-01', '2023-03-31', 'Addr 1 LU-71A', 'NO', '1001', '0301',
-    '01.110', 'S1', 'AS', 'lu71a_p1@example.com', '6', '4', 'TestTag.LU'
+    '01.110', '2100', 'AS', 'lu71a_p1@example.com', '6', '4', 'TestTag.LU'
 );
 CALL worker.process_tasks(p_queue => 'import');
 \echo "Job status for import_71_a1_lu:"
@@ -500,10 +501,10 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, e
 
 \echo "Data table for import_71_a1_lu:"
 "Data table for import_71_a1_lu:"
-SELECT row_id, state, error, action, operation, tax_ident, nin_ident, name, valid_from, valid_to FROM public.import_71_a1_lu_data ORDER BY row_id;
- row_id |   state   | error | action | operation | tax_ident | nin_ident |      name       | valid_from |  valid_to  
---------+-----------+-------+--------+-----------+-----------+-----------+-----------------+------------+------------
-      1 | processed |       | insert | insert    | 71A000001 | NIN71A001 | LU-71A Period 1 | 2023-01-01 | 2023-03-31
+SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident, nin_ident, name, valid_from, valid_to FROM public.import_71_a1_lu_data ORDER BY row_id;
+ row_id |   state   | errors | invalid_codes |                                                                                    merge_status                                                                                    | action | operation | tax_ident | nin_ident |      name       | valid_from |  valid_to  
+--------+-----------+--------+---------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+--------+-----------+-----------+-----------+-----------------+------------+------------
+      1 | processed | {}     | {}            | {"contact": "APPLIED", "legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED", "stat_men_employees": "APPLIED", "stat_women_employees": "APPLIED"} | use    | insert    | 71A000001 | NIN71A001 | LU-71A Period 1 | 2023-01-01 | 2023-03-31
 (1 row)
 
 \echo "Verification for LU-71A ('71A000001') after Sub-Scenario 71.A.1 (all segments shown):"
@@ -519,7 +520,7 @@ LEFT JOIN public.legal_form lf ON lu.legal_form_id = lf.id
 WHERE ei.ident = '71A000001' ORDER BY lu.valid_from, lu.valid_to;
       name       | tax_ident | nin_ident | sector_code | legal_form_code | valid_from |  valid_to  
 -----------------+-----------+-----------+-------------+-----------------+------------+------------
- LU-71A Period 1 | 71A000001 | NIN71A001 |             | AS              | 2023-01-01 | 2023-03-31
+ LU-71A Period 1 | 71A000001 | NIN71A001 | 2100        | AS              | 2023-01-01 | 2023-03-31
 (1 row)
 
 \echo "Stat (Men/Women Employees):"
@@ -550,11 +551,9 @@ INSERT INTO public.import_71_a2_lu_upload(
     primary_activity_category_code, sector_code, legal_form_code, email_address, men_employees, women_employees, tag_path
 ) VALUES (
     '71A000001', 'NIN71A001', 'LU-71A Period 2 Updated Name', '2023-04-01', '2023-06-30', 'Addr 1 LU-71A', 'NO', '1001', '0301',
-    '01.110', 'S1', 'AS', 'lu71a_p1@example.com', '7', '4', 'TestTag.LU' -- Women employees, address, etc. unchanged. NIN kept same.
+    '01.110', '2100', 'AS', 'lu71a_p1@example.com', '7', '4', 'TestTag.LU' -- Women employees, address, etc. unchanged. NIN kept same.
 );
---SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
---SET client_min_messages TO NOTICE;
 \echo "Job status for import_71_a2_lu:"
 "Job status for import_71_a2_lu:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_71_a2_lu';
@@ -565,10 +564,10 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, e
 
 \echo "Data table for import_71_a2_lu:"
 "Data table for import_71_a2_lu:"
-SELECT row_id, state, error, action, operation, tax_ident, nin_ident, name, valid_from, valid_to FROM public.import_71_a2_lu_data ORDER BY row_id;
- row_id |   state   | error | action  | operation | tax_ident | nin_ident |             name             | valid_from |  valid_to  
---------+-----------+-------+---------+-----------+-----------+-----------+------------------------------+------------+------------
-      1 | processed |       | replace | replace   | 71A000001 | NIN71A001 | LU-71A Period 2 Updated Name | 2023-04-01 | 2023-06-30
+SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident, nin_ident, name, valid_from, valid_to FROM public.import_71_a2_lu_data ORDER BY row_id;
+ row_id |   state   | errors | invalid_codes |                                                                                    merge_status                                                                                    | action | operation | tax_ident | nin_ident |             name             | valid_from |  valid_to  
+--------+-----------+--------+---------------+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+--------+-----------+-----------+-----------+------------------------------+------------+------------
+      1 | processed | {}     | {}            | {"contact": "APPLIED", "legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED", "stat_men_employees": "APPLIED", "stat_women_employees": "APPLIED"} | use    | replace   | 71A000001 | NIN71A001 | LU-71A Period 2 Updated Name | 2023-04-01 | 2023-06-30
 (1 row)
 
 \echo "Verification for LU-71A ('71A000001') after Sub-Scenario 71.A.2 (all segments shown):"
@@ -584,8 +583,8 @@ LEFT JOIN public.legal_form lf ON lu.legal_form_id = lf.id
 WHERE ei.ident = '71A000001' ORDER BY lu.valid_from, lu.valid_to;
              name             | tax_ident | nin_ident | sector_code | legal_form_code | valid_from |  valid_to  
 ------------------------------+-----------+-----------+-------------+-----------------+------------+------------
- LU-71A Period 1              | 71A000001 | NIN71A001 |             | AS              | 2023-01-01 | 2023-03-31
- LU-71A Period 2 Updated Name | 71A000001 | NIN71A001 |             | AS              | 2023-04-01 | 2023-06-30
+ LU-71A Period 1              | 71A000001 | NIN71A001 | 2100        | AS              | 2023-01-01 | 2023-03-31
+ LU-71A Period 2 Updated Name | 71A000001 | NIN71A001 | 2100        | AS              | 2023-04-01 | 2023-06-30
 (2 rows)
 
 \echo "Stat (Men/Women Employees - men_employees updated in latest segment):"
@@ -634,7 +633,7 @@ BEGIN
     VALUES (v_definition_id, 'import_71_b_lu_for_es', 'Test 71.B: Base LU for Formal ES', 'Test 71.B');
 END $$;
 INSERT INTO public.import_71_b_lu_for_es_upload(tax_ident, nin_ident, name, valid_from, valid_to, sector_code, legal_form_code, primary_activity_category_code) VALUES
-('71B000000', 'NIN_LU_FOR_ES_71B', 'Base LU for ES-71B', '2023-01-01', '2023-12-31', 'S_Base', 'AS', '00.000');
+('71B000000', 'NIN_LU_FOR_ES_71B', 'Base LU for ES-71B', '2023-01-01', '2023-12-31', '2100', 'AS', '00.000');
 CALL worker.process_tasks(p_queue => 'import');
 -- Sub-Scenario 71.B.1: Initial Formal ES Import
 \echo "Sub-Scenario 71.B.1: Initial Formal ES Import for ES-71B"
@@ -653,9 +652,7 @@ INSERT INTO public.import_71_b1_es_upload(
     'E71B00001', 'NIN_ES_71B001', '71B000000', 'ES-71B Period 1', '2023-01-01', '2023-03-31', 'Addr 1 ES-71B', 'NO', '2001', '0301',
     '02.110', 'es71b_p1@example.com', '3', '2', 'TestTag.ES.Formal'
 );
---SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
---SET client_min_messages TO NOTICE;
 \echo "Verification for ES-71B ('E71B00001') after Sub-Scenario 71.B.1 (all segments shown):"
 "Verification for ES-71B ('E71B00001') after Sub-Scenario 71.B.1 (all segments shown):"
 \echo "Establishment External Idents (tax_ident, nin_ident):"

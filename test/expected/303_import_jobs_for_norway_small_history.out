@@ -97,7 +97,7 @@ DECLARE
 BEGIN
     -- 1. Create the definition record (initially invalid)
     INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id)
-    VALUES ('brreg_hovedenhet_2024', 'Import of BRREG Hovedenhet using 2024 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_replace', 'legal_unit', 'job_provided', false, (SELECT id FROM public.data_source WHERE code = 'brreg'))
+    VALUES ('brreg_hovedenhet_2024', 'Import of BRREG Hovedenhet using 2024 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_update', 'legal_unit', 'job_provided', false, (SELECT id FROM public.data_source WHERE code = 'brreg'))
     RETURNING id INTO def_id;
 
     -- 2. Link the required steps to the definition
@@ -255,9 +255,9 @@ SELECT d.slug,
 FROM public.import_definition d
 LEFT JOIN public.data_source ds ON ds.id = d.data_source_id
 WHERE d.slug = 'brreg_hovedenhet_2024';
-         slug          |                     name                      |                    note                     | data_source | valid_time_from |     strategy      | valid | validation_error 
------------------------+-----------------------------------------------+---------------------------------------------+-------------+-----------------+-------------------+-------+------------------
- brreg_hovedenhet_2024 | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | brreg       | job_provided    | insert_or_replace | t     | 
+         slug          |                     name                      |                    note                     | data_source | valid_time_from |     strategy     | valid | validation_error 
+-----------------------+-----------------------------------------------+---------------------------------------------+-------------+-----------------+------------------+-------+------------------
+ brreg_hovedenhet_2024 | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | brreg       | job_provided    | insert_or_update | t     | 
 (1 row)
 
 -- Set the definition to valid (can now be used to create jobs)
@@ -282,7 +282,7 @@ DECLARE
 BEGIN
     -- 1. Create the definition record (initially invalid)
     INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id)
-    VALUES ('brreg_underenhet_2024', 'Import of BRREG Underenhet using 2024 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_replace', 'establishment_formal', 'job_provided', false, (SELECT id FROM public.data_source WHERE code = 'brreg'))
+    VALUES ('brreg_underenhet_2024', 'Import of BRREG Underenhet using 2024 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_update', 'establishment_formal', 'job_provided', false, (SELECT id FROM public.data_source WHERE code = 'brreg'))
     RETURNING id INTO def_id;
 
     -- 2. Link the required steps to the definition
@@ -422,9 +422,9 @@ SELECT d.slug,
 FROM public.import_definition d
 LEFT JOIN public.data_source ds ON ds.id = d.data_source_id
 WHERE d.slug = 'brreg_underenhet_2024';
-         slug          |                     name                      |                    note                     | data_source | valid_time_from |     strategy      | valid | validation_error 
------------------------+-----------------------------------------------+---------------------------------------------+-------------+-----------------+-------------------+-------+------------------
- brreg_underenhet_2024 | Import of BRREG Underenhet using 2024 columns | Easy upload of the CSV file found at brreg. | brreg       | job_provided    | insert_or_replace | t     | 
+         slug          |                     name                      |                    note                     | data_source | valid_time_from |     strategy     | valid | validation_error 
+-----------------------+-----------------------------------------------+---------------------------------------------+-------------+-----------------+------------------+-------+------------------
+ brreg_underenhet_2024 | Import of BRREG Underenhet using 2024 columns | Easy upload of the CSV file found at brreg. | brreg       | job_provided    | insert_or_update | t     | 
 (1 row)
 
 -- Set the definition to valid (can now be used to create jobs)
@@ -436,10 +436,10 @@ SELECT slug, name, note, valid_time_from, strategy, valid, validation_error
 FROM public.import_definition
 WHERE slug LIKE 'brreg_%_2024'
 ORDER BY slug;
-         slug          |                     name                      |                    note                     | valid_time_from |     strategy      | valid | validation_error 
------------------------+-----------------------------------------------+---------------------------------------------+-----------------+-------------------+-------+------------------
- brreg_hovedenhet_2024 | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | job_provided    | insert_or_replace | t     | 
- brreg_underenhet_2024 | Import of BRREG Underenhet using 2024 columns | Easy upload of the CSV file found at brreg. | job_provided    | insert_or_replace | t     | 
+         slug          |                     name                      |                    note                     | valid_time_from |     strategy     | valid | validation_error 
+-----------------------+-----------------------------------------------+---------------------------------------------+-----------------+------------------+-------+------------------
+ brreg_hovedenhet_2024 | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | job_provided    | insert_or_update | t     | 
+ brreg_underenhet_2024 | Import of BRREG Underenhet using 2024 columns | Easy upload of the CSV file found at brreg. | job_provided    | insert_or_update | t     | 
 (2 rows)
 
 -- Per year jobs for hovedenhet
@@ -587,9 +587,9 @@ Triggers:
  row_id                           | integer                   |           | not null | generated always as identity
  valid_from                       | text                      |           |          | 
  valid_to                         | text                      |           |          | 
- derived_valid_after              | date                      |           |          | 
  derived_valid_from               | date                      |           |          | 
  derived_valid_to                 | date                      |           |          | 
+ derived_valid_until              | date                      |           |          | 
  operation                        | import_row_operation_type |           |          | 
  action                           | import_row_action_type    |           |          | 
  tax_ident                        | text                      |           |          | 
@@ -671,11 +671,12 @@ Triggers:
  founding_row_id                  | integer                   |           |          | 
  state                            | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority          | integer                   |           | not null | 0
- error                            | jsonb                     |           |          | 
- invalid_codes                    | jsonb                     |           |          | 
+ errors                           | jsonb                     |           | not null | '{}'::jsonb
+ merge_status                     | jsonb                     |           | not null | '{}'::jsonb
+ invalid_codes                    | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "import_lu_2015_sht_data_pkey" PRIMARY KEY, btree (row_id)
-    "import_lu_2015_sht_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND error IS NULL
+    "import_lu_2015_sht_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND errors IS NULL
     "import_lu_2015_sht_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "import_lu_2015_sht_data_stat_ident_idx" btree (stat_ident)
     "import_lu_2015_sht_data_state_last_completed_priority_row_i_idx" btree (state, last_completed_priority, row_id)
@@ -820,7 +821,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          "slug": "brreg_hovedenhet_2024",                                         +
          "active": true,                                                          +
          "custom": true,                                                          +
-         "strategy": "insert_or_replace",                                         +
+         "strategy": "insert_or_update",                                          +
          "valid_time_from": "job_provided",                                       +
          "validation_error": null,                                                +
          "default_retention_period": "@ 1 year 6 mons"                            +
@@ -1284,15 +1285,6 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          {                                                                        +
              "purpose": "internal",                                               +
              "priority": 3,                                                       +
-             "column_name": "derived_valid_after",                                +
-             "column_type": "DATE",                                               +
-             "is_nullable": true,                                                 +
-             "default_value": null,                                               +
-             "is_uniquely_identifying": false                                     +
-         },                                                                       +
-         {                                                                        +
-             "purpose": "internal",                                               +
-             "priority": 4,                                                       +
              "column_name": "derived_valid_from",                                 +
              "column_type": "DATE",                                               +
              "is_nullable": true,                                                 +
@@ -1301,8 +1293,17 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          },                                                                       +
          {                                                                        +
              "purpose": "internal",                                               +
-             "priority": 5,                                                       +
+             "priority": 4,                                                       +
              "column_name": "derived_valid_to",                                   +
+             "column_type": "DATE",                                               +
+             "is_nullable": true,                                                 +
+             "default_value": null,                                               +
+             "is_uniquely_identifying": false                                     +
+         },                                                                       +
+         {                                                                        +
+             "purpose": "internal",                                               +
+             "priority": 5,                                                       +
+             "column_name": "derived_valid_until",                                +
              "column_type": "DATE",                                               +
              "is_nullable": true,                                                 +
              "default_value": null,                                               +
@@ -2040,19 +2041,28 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          {                                                                        +
              "purpose": "metadata",                                               +
              "priority": 4,                                                       +
-             "column_name": "error",                                              +
+             "column_name": "errors",                                             +
              "column_type": "JSONB",                                              +
-             "is_nullable": true,                                                 +
-             "default_value": null,                                               +
+             "is_nullable": false,                                                +
+             "default_value": "'{}'::jsonb",                                      +
              "is_uniquely_identifying": false                                     +
          },                                                                       +
          {                                                                        +
              "purpose": "metadata",                                               +
              "priority": 5,                                                       +
+             "column_name": "merge_status",                                       +
+             "column_type": "JSONB",                                              +
+             "is_nullable": false,                                                +
+             "default_value": "'{}'::jsonb",                                      +
+             "is_uniquely_identifying": false                                     +
+         },                                                                       +
+         {                                                                        +
+             "purpose": "metadata",                                               +
+             "priority": 6,                                                       +
              "column_name": "invalid_codes",                                      +
              "column_type": "JSONB",                                              +
-             "is_nullable": true,                                                 +
-             "default_value": null,                                               +
+             "is_nullable": false,                                                +
+             "default_value": "'{}'::jsonb",                                      +
              "is_uniquely_identifying": false                                     +
          }                                                                        +
      ],                                                                           +
@@ -2328,9 +2338,9 @@ Triggers:
  row_id                           | integer                   |           | not null | generated always as identity
  valid_from                       | text                      |           |          | 
  valid_to                         | text                      |           |          | 
- derived_valid_after              | date                      |           |          | 
  derived_valid_from               | date                      |           |          | 
  derived_valid_to                 | date                      |           |          | 
+ derived_valid_until              | date                      |           |          | 
  operation                        | import_row_operation_type |           |          | 
  action                           | import_row_action_type    |           |          | 
  tax_ident                        | text                      |           |          | 
@@ -2412,11 +2422,12 @@ Triggers:
  founding_row_id                  | integer                   |           |          | 
  state                            | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority          | integer                   |           | not null | 0
- error                            | jsonb                     |           |          | 
- invalid_codes                    | jsonb                     |           |          | 
+ errors                           | jsonb                     |           | not null | '{}'::jsonb
+ merge_status                     | jsonb                     |           | not null | '{}'::jsonb
+ invalid_codes                    | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "import_es_2015_sht_data_pkey" PRIMARY KEY, btree (row_id)
-    "import_es_2015_sht_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND error IS NULL
+    "import_es_2015_sht_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND errors IS NULL
     "import_es_2015_sht_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "import_es_2015_sht_data_stat_ident_idx" btree (stat_ident)
     "import_es_2015_sht_data_state_last_completed_priority_row_i_idx" btree (state, last_completed_priority, row_id)
@@ -2561,7 +2572,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          "slug": "brreg_underenhet_2024",                                           +
          "active": true,                                                            +
          "custom": true,                                                            +
-         "strategy": "insert_or_replace",                                           +
+         "strategy": "insert_or_update",                                            +
          "valid_time_from": "job_provided",                                         +
          "validation_error": null,                                                  +
          "default_retention_period": "@ 1 year 6 mons"                              +
@@ -3025,15 +3036,6 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          {                                                                          +
              "purpose": "internal",                                                 +
              "priority": 3,                                                         +
-             "column_name": "derived_valid_after",                                  +
-             "column_type": "DATE",                                                 +
-             "is_nullable": true,                                                   +
-             "default_value": null,                                                 +
-             "is_uniquely_identifying": false                                       +
-         },                                                                         +
-         {                                                                          +
-             "purpose": "internal",                                                 +
-             "priority": 4,                                                         +
              "column_name": "derived_valid_from",                                   +
              "column_type": "DATE",                                                 +
              "is_nullable": true,                                                   +
@@ -3042,8 +3044,17 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          },                                                                         +
          {                                                                          +
              "purpose": "internal",                                                 +
-             "priority": 5,                                                         +
+             "priority": 4,                                                         +
              "column_name": "derived_valid_to",                                     +
+             "column_type": "DATE",                                                 +
+             "is_nullable": true,                                                   +
+             "default_value": null,                                                 +
+             "is_uniquely_identifying": false                                       +
+         },                                                                         +
+         {                                                                          +
+             "purpose": "internal",                                                 +
+             "priority": 5,                                                         +
+             "column_name": "derived_valid_until",                                  +
              "column_type": "DATE",                                                 +
              "is_nullable": true,                                                   +
              "default_value": null,                                                 +
@@ -3781,19 +3792,28 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          {                                                                          +
              "purpose": "metadata",                                                 +
              "priority": 4,                                                         +
-             "column_name": "error",                                                +
+             "column_name": "errors",                                               +
              "column_type": "JSONB",                                                +
-             "is_nullable": true,                                                   +
-             "default_value": null,                                                 +
+             "is_nullable": false,                                                  +
+             "default_value": "'{}'::jsonb",                                        +
              "is_uniquely_identifying": false                                       +
          },                                                                         +
          {                                                                          +
              "purpose": "metadata",                                                 +
              "priority": 5,                                                         +
+             "column_name": "merge_status",                                         +
+             "column_type": "JSONB",                                                +
+             "is_nullable": false,                                                  +
+             "default_value": "'{}'::jsonb",                                        +
+             "is_uniquely_identifying": false                                       +
+         },                                                                         +
+         {                                                                          +
+             "purpose": "metadata",                                                 +
+             "priority": 6,                                                         +
              "column_name": "invalid_codes",                                        +
              "column_type": "JSONB",                                                +
-             "is_nullable": true,                                                   +
-             "default_value": null,                                                 +
+             "is_nullable": false,                                                  +
+             "default_value": "'{}'::jsonb",                                        +
              "is_uniquely_identifying": false                                       +
          }                                                                          +
      ],                                                                             +
@@ -3971,45 +3991,31 @@ CALL worker.process_tasks(p_queue => 'import');
 \copy public.import_lu_2016_sht_upload FROM 'samples/norway/small-history/2016-enheter.csv' WITH CSV HEADER;
 \echo Processing tasks for import_lu_2016_sht with DEBUG1
 Processing tasks for import_lu_2016_sht with DEBUG1
---SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
---SET client_min_messages TO NOTICE;
 \copy public.import_lu_2017_sht_upload FROM 'samples/norway/small-history/2017-enheter.csv' WITH CSV HEADER;
 \echo Processing tasks for import_lu_2017_sht
 Processing tasks for import_lu_2017_sht
---SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
---SET client_min_messages TO NOTICE;
 \copy public.import_lu_2018_sht_upload FROM 'samples/norway/small-history/2018-enheter.csv' WITH CSV HEADER;
 \echo Processing tasks for import_lu_2018_sht
 Processing tasks for import_lu_2018_sht
---SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
---SET client_min_messages TO NOTICE;
 \copy public.import_es_2015_sht_upload FROM 'samples/norway/small-history/2015-underenheter.csv' WITH CSV HEADER;
 \echo Processing tasks for import_es_2015_sht
 Processing tasks for import_es_2015_sht
---SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
---SET client_min_messages TO NOTICE;
 \copy public.import_es_2016_sht_upload FROM 'samples/norway/small-history/2016-underenheter.csv' WITH CSV HEADER;
 \echo Processing tasks for import_es_2016_sht
 Processing tasks for import_es_2016_sht
---SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
---SET client_min_messages TO NOTICE;
 \copy public.import_es_2017_sht_upload FROM 'samples/norway/small-history/2017-underenheter.csv' WITH CSV HEADER;
 \echo Processing tasks for import_es_2017_sht
 Processing tasks for import_es_2017_sht
---SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
---SET client_min_messages TO NOTICE;
 \copy public.import_es_2018_sht_upload FROM 'samples/norway/small-history/2018-underenheter.csv' WITH CSV HEADER;
 \echo Processing tasks for import_es_2018_sht
 Processing tasks for import_es_2018_sht
---SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
---SET client_min_messages TO NOTICE;
 \echo Check import job state before import
 Check import job state before import
 SELECT state, count(*) FROM import_job GROUP BY state;
@@ -4476,19 +4482,19 @@ WITH target_lu_base AS (
     LIMIT 1
 )
 SELECT
-    lu.valid_from, lu.valid_to, lu.valid_after, lu.name,
+    lu.valid_from, lu.valid_to, lu.name,
     sec.code AS sector_code,
     lf.code AS legal_form_code,
-    lu.edit_comment, lu.active,
+    lu.edit_comment,
     lu.primary_for_enterprise
 FROM public.legal_unit lu
 JOIN target_lu_base tlb ON lu.id = tlb.id
 LEFT JOIN public.sector sec ON lu.sector_id = sec.id
 LEFT JOIN public.legal_form lf ON lu.legal_form_id = lf.id
-ORDER BY lu.valid_after;
- valid_from | valid_to | valid_after |    name    | sector_code | legal_form_code |        edit_comment         | active | primary_for_enterprise 
-------------+----------+-------------+------------+-------------+-----------------+-----------------------------+--------+------------------------
- 2015-01-01 | infinity | 2014-12-31  | BOBILER AS | 2100        | AS              | BRREG Hovedenhet 2018 (SHT) | t      | t
+ORDER BY lu.valid_from;
+ valid_from | valid_to |    name    | sector_code | legal_form_code |        edit_comment         | primary_for_enterprise 
+------------+----------+------------+-------------+-----------------+-----------------------------+------------------------
+ 2015-01-01 | infinity | BOBILER AS | 2100        | AS              | BRREG Hovedenhet 2018 (SHT) | t
 (1 row)
 
 \echo "Debug: BOBILER AS - Establishment (tax_ident 929895711) segments in public.establishment"
@@ -4501,17 +4507,17 @@ WITH target_est_base AS (
     LIMIT 1
 )
 SELECT
-    est.valid_from, est.valid_to, est.valid_after, est.name,
+    est.valid_from, est.valid_to, est.name,
     (SELECT lu_ei.ident FROM public.legal_unit lu JOIN public.external_ident lu_ei ON lu.id = lu_ei.legal_unit_id JOIN public.external_ident_type lu_eit ON lu_ei.type_id = lu_eit.id WHERE lu.id = est.legal_unit_id AND lu_eit.code = 'tax_ident' LIMIT 1) AS legal_unit_tax_ident,
     est.primary_for_legal_unit,
     est.primary_for_enterprise,
-    est.edit_comment, est.active
+    est.edit_comment
 FROM public.establishment est
 JOIN target_est_base teb ON est.id = teb.id
-ORDER BY est.valid_after;
- valid_from | valid_to | valid_after |    name    | legal_unit_tax_ident | primary_for_legal_unit | primary_for_enterprise |        edit_comment         | active 
-------------+----------+-------------+------------+----------------------+------------------------+------------------------+-----------------------------+--------
- 2015-01-01 | infinity | 2014-12-31  | BOBILER AS | 876278812            | t                      |                        | BRREG Underenhet 2018 (SHT) | t
+ORDER BY est.valid_from;
+ valid_from | valid_to |    name    | legal_unit_tax_ident | primary_for_legal_unit | primary_for_enterprise |        edit_comment         
+------------+----------+------------+----------------------+------------------------+------------------------+-----------------------------
+ 2015-01-01 | infinity | BOBILER AS | 876278812            | t                      |                        | BRREG Underenhet 2018 (SHT)
 (1 row)
 
 \echo "Debug: BOBILER AS - Activity segments for Establishment (tax_ident 929895711) in public.activity"
@@ -4524,121 +4530,121 @@ WITH target_est_base AS (
     LIMIT 1
 )
 SELECT
-    act.valid_from, act.valid_to, act.valid_after,
+    act.valid_from, act.valid_to,
     ac.code AS activity_category_code,
     ac.path AS activity_category_path,
     act.type, act.edit_comment
 FROM public.activity act
 JOIN target_est_base teb ON act.establishment_id = teb.id
 JOIN public.activity_category ac ON act.category_id = ac.id
-ORDER BY act.valid_after, act.type;
- valid_from |  valid_to  | valid_after | activity_category_code | activity_category_path |  type   |        edit_comment         
-------------+------------+-------------+------------------------+------------------------+---------+-----------------------------
- 2015-01-01 | 2016-12-31 | 2014-12-31  | 45.112                 | G.45.1.1.2             | primary | BRREG Underenhet 2016 (SHT)
- 2017-01-01 | 2017-12-31 | 2016-12-31  | 47.912                 | G.47.9.1.2             | primary | BRREG Underenhet 2017 (SHT)
- 2018-01-01 | infinity   | 2017-12-31  | 45.112                 | G.45.1.1.2             | primary | BRREG Underenhet 2018 (SHT)
+ORDER BY act.valid_from, act.type;
+ valid_from |  valid_to  | activity_category_code | activity_category_path |  type   |        edit_comment         
+------------+------------+------------------------+------------------------+---------+-----------------------------
+ 2015-01-01 | 2016-12-31 | 45.112                 | G.45.1.1.2             | primary | BRREG Underenhet 2016 (SHT)
+ 2017-01-01 | 2017-12-31 | 47.912                 | G.47.9.1.2             | primary | BRREG Underenhet 2017 (SHT)
+ 2018-01-01 | infinity   | 45.112                 | G.45.1.1.2             | primary | BRREG Underenhet 2018 (SHT)
 (3 rows)
 
 \echo "Checking for Row-level errors for all import jobs:"
 "Checking for Row-level errors for all import jobs:"
 \echo "Row-level errors for job import_es_2015_sht (table import_es_2015_sht_data):"
 "Row-level errors for job import_es_2015_sht (table import_es_2015_sht_data):"
-SELECT row_id, state, error,
+SELECT row_id, state, errors, invalid_codes, merge_status,
        tax_ident::TEXT AS tax_ident,
        name::TEXT AS name,
        legal_unit_tax_ident::TEXT AS legal_unit_tax_ident
 FROM public.import_es_2015_sht_data
-WHERE state = 'error' OR error IS NOT NULL
+WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;
- row_id | state | error | tax_ident | name | legal_unit_tax_ident 
---------+-------+-------+-----------+------+----------------------
+ row_id | state | errors | invalid_codes | merge_status | tax_ident | name | legal_unit_tax_ident 
+--------+-------+--------+---------------+--------------+-----------+------+----------------------
 (0 rows)
 
 \echo "Row-level errors for job import_es_2016_sht (table import_es_2016_sht_data):"
 "Row-level errors for job import_es_2016_sht (table import_es_2016_sht_data):"
-SELECT row_id, state, error,
+SELECT row_id, state, errors, invalid_codes, merge_status,
        tax_ident::TEXT AS tax_ident,
        name::TEXT AS name,
        legal_unit_tax_ident::TEXT AS legal_unit_tax_ident
 FROM public.import_es_2016_sht_data
-WHERE state = 'error' OR error IS NOT NULL
+WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;
- row_id | state | error | tax_ident | name | legal_unit_tax_ident 
---------+-------+-------+-----------+------+----------------------
+ row_id | state | errors | invalid_codes | merge_status | tax_ident | name | legal_unit_tax_ident 
+--------+-------+--------+---------------+--------------+-----------+------+----------------------
 (0 rows)
 
 \echo "Row-level errors for job import_es_2017_sht (table import_es_2017_sht_data):"
 "Row-level errors for job import_es_2017_sht (table import_es_2017_sht_data):"
-SELECT row_id, state, error,
+SELECT row_id, state, errors, invalid_codes, merge_status,
        tax_ident::TEXT AS tax_ident,
        name::TEXT AS name,
        legal_unit_tax_ident::TEXT AS legal_unit_tax_ident
 FROM public.import_es_2017_sht_data
-WHERE state = 'error' OR error IS NOT NULL
+WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;
- row_id | state | error | tax_ident | name | legal_unit_tax_ident 
---------+-------+-------+-----------+------+----------------------
+ row_id | state | errors | invalid_codes | merge_status | tax_ident | name | legal_unit_tax_ident 
+--------+-------+--------+---------------+--------------+-----------+------+----------------------
 (0 rows)
 
 \echo "Row-level errors for job import_es_2018_sht (table import_es_2018_sht_data):"
 "Row-level errors for job import_es_2018_sht (table import_es_2018_sht_data):"
-SELECT row_id, state, error,
+SELECT row_id, state, errors, invalid_codes, merge_status,
        tax_ident::TEXT AS tax_ident,
        name::TEXT AS name,
        legal_unit_tax_ident::TEXT AS legal_unit_tax_ident
 FROM public.import_es_2018_sht_data
-WHERE state = 'error' OR error IS NOT NULL
+WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;
- row_id | state | error | tax_ident | name | legal_unit_tax_ident 
---------+-------+-------+-----------+------+----------------------
+ row_id | state | errors | invalid_codes | merge_status | tax_ident | name | legal_unit_tax_ident 
+--------+-------+--------+---------------+--------------+-----------+------+----------------------
 (0 rows)
 
 \echo "Row-level errors for job import_lu_2015_sht (table import_lu_2015_sht_data):"
 "Row-level errors for job import_lu_2015_sht (table import_lu_2015_sht_data):"
-SELECT row_id, state, error,
+SELECT row_id, state, errors, invalid_codes, merge_status,
        tax_ident::TEXT AS tax_ident,
        name::TEXT AS name
 FROM public.import_lu_2015_sht_data
-WHERE state = 'error' OR error IS NOT NULL
+WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;
- row_id | state | error | tax_ident | name 
---------+-------+-------+-----------+------
+ row_id | state | errors | invalid_codes | merge_status | tax_ident | name 
+--------+-------+--------+---------------+--------------+-----------+------
 (0 rows)
 
 \echo "Row-level errors for job import_lu_2016_sht (table import_lu_2016_sht_data):"
 "Row-level errors for job import_lu_2016_sht (table import_lu_2016_sht_data):"
-SELECT row_id, state, error,
+SELECT row_id, state, errors, invalid_codes, merge_status,
        tax_ident::TEXT AS tax_ident,
        name::TEXT AS name
 FROM public.import_lu_2016_sht_data
-WHERE state = 'error' OR error IS NOT NULL
+WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;
- row_id | state | error | tax_ident | name 
---------+-------+-------+-----------+------
+ row_id | state | errors | invalid_codes | merge_status | tax_ident | name 
+--------+-------+--------+---------------+--------------+-----------+------
 (0 rows)
 
 \echo "Row-level errors for job import_lu_2017_sht (table import_lu_2017_sht_data):"
 "Row-level errors for job import_lu_2017_sht (table import_lu_2017_sht_data):"
-SELECT row_id, state, error,
+SELECT row_id, state, errors, invalid_codes, merge_status,
        tax_ident::TEXT AS tax_ident,
        name::TEXT AS name
 FROM public.import_lu_2017_sht_data
-WHERE state = 'error' OR error IS NOT NULL
+WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;
- row_id | state | error | tax_ident | name 
---------+-------+-------+-----------+------
+ row_id | state | errors | invalid_codes | merge_status | tax_ident | name 
+--------+-------+--------+---------------+--------------+-----------+------
 (0 rows)
 
 \echo "Row-level errors for job import_lu_2018_sht (table import_lu_2018_sht_data):"
 "Row-level errors for job import_lu_2018_sht (table import_lu_2018_sht_data):"
-SELECT row_id, state, error,
+SELECT row_id, state, errors, invalid_codes, merge_status,
        tax_ident::TEXT AS tax_ident,
        name::TEXT AS name
 FROM public.import_lu_2018_sht_data
-WHERE state = 'error' OR error IS NOT NULL
+WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;
- row_id | state | error | tax_ident | name 
---------+-------+-------+-----------+------
+ row_id | state | errors | invalid_codes | merge_status | tax_ident | name 
+--------+-------+--------+---------------+--------------+-----------+------
 (0 rows)
 
 \echo Check the state of all tasks before running analytics.
@@ -4646,197 +4652,10 @@ Check the state of all tasks before running analytics.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | pending   |     7
+ analytics | pending   |     6
  import    | completed |   352
 (2 rows)
 
-\echo "Explicitly refreshing timesegments before checking timeline_establishment_def"
-"Explicitly refreshing timesegments before checking timeline_establishment_def"
-CALL public.timesegments_refresh();
-\echo "Duplicate (unit_type, unit_id, timepoint) in public.timepoints for establishments:"
-"Duplicate (unit_type, unit_id, timepoint) in public.timepoints for establishments:"
-SELECT unit_type, unit_id, timepoint, COUNT(*)
-FROM public.timepoints
-WHERE unit_type = 'establishment'
-GROUP BY unit_type, unit_id, timepoint
-HAVING COUNT(*) > 1
-ORDER BY unit_id, timepoint;
- unit_type | unit_id | timepoint | count 
------------+---------+-----------+-------
-(0 rows)
-
-\echo "Duplicate (unit_type, unit_id, valid_after) in timeline_establishment_def that would cause ON CONFLICT error:"
-"Duplicate (unit_type, unit_id, valid_after) in timeline_establishment_def that would cause ON CONFLICT error:"
-SELECT unit_type, unit_id, valid_after, COUNT(*)
-FROM public.timeline_establishment_def
-GROUP BY unit_type, unit_id, valid_after
-HAVING COUNT(*) > 1
-ORDER BY unit_id, valid_after;
- unit_type | unit_id | valid_after | count 
------------+---------+-------------+-------
-(0 rows)
-
-\echo "Duplicates from timeline_establishment_def that would cause INSERT ON CONFLICT to fail"
-"Duplicates from timeline_establishment_def that would cause INSERT ON CONFLICT to fail"
-SELECT unit_type, unit_id, valid_after, COUNT(*)
-FROM public.timeline_establishment_def
-GROUP BY unit_type, unit_id, valid_after
-HAVING COUNT(*) > 1
-ORDER BY unit_id, valid_after;
- unit_type | unit_id | valid_after | count 
------------+---------+-------------+-------
-(0 rows)
-
-\echo "Detailed duplicate rows from timeline_establishment_def causing ON CONFLICT errors:"
-"Detailed duplicate rows from timeline_establishment_def causing ON CONFLICT errors:"
-WITH DuplicatedKeys AS (
-    SELECT unit_type, unit_id, valid_after
-    FROM public.timeline_establishment_def
-    GROUP BY unit_type, unit_id, valid_after
-    HAVING COUNT(*) > 1
-)
-SELECT ted.unit_id, ted.valid_after, ted.valid_from, ted.valid_to,
-       ted.name,
-       ted.primary_activity_category_id, ted.primary_activity_category_code,
-       ted.secondary_activity_category_id, ted.secondary_activity_category_code,
-       array_length(ted.activity_category_paths, 1) as num_activity_paths,
-       phl.id as physical_location_id, ted.physical_address_part1, ted.physical_postcode,
-       pol.id as postal_location_id, ted.postal_address_part1, ted.postal_postcode,
-       c.id as contact_id, ted.web_address,
-       ted.last_edit_at
-FROM public.timeline_establishment_def ted
-JOIN DuplicatedKeys dk ON ted.unit_type = dk.unit_type AND ted.unit_id = dk.unit_id AND ted.valid_after = dk.valid_after
-LEFT JOIN public.location phl ON phl.establishment_id = ted.unit_id AND phl.type = 'physical' AND after_to_overlaps(ted.valid_after, ted.valid_to, phl.valid_after, phl.valid_to)
-LEFT JOIN public.location pol ON pol.establishment_id = ted.unit_id AND pol.type = 'postal' AND after_to_overlaps(ted.valid_after, ted.valid_to, pol.valid_after, pol.valid_to)
-LEFT JOIN public.contact c ON c.establishment_id = ted.unit_id AND after_to_overlaps(ted.valid_after, ted.valid_to, c.valid_after, c.valid_to)
-ORDER BY ted.unit_id, ted.valid_after,
-         ted.primary_activity_category_id NULLS FIRST,
-         ted.secondary_activity_category_id NULLS FIRST,
-         phl.id NULLS FIRST,
-         pol.id NULLS FIRST,
-         c.id NULLS FIRST;
- unit_id | valid_after | valid_from | valid_to | name | primary_activity_category_id | primary_activity_category_code | secondary_activity_category_id | secondary_activity_category_code | num_activity_paths | physical_location_id | physical_address_part1 | physical_postcode | postal_location_id | postal_address_part1 | postal_postcode | contact_id | web_address | last_edit_at 
----------+-------------+------------+----------+------+------------------------------+--------------------------------+--------------------------------+----------------------------------+--------------------+----------------------+------------------------+-------------------+--------------------+----------------------+-----------------+------------+-------------+--------------
-(0 rows)
-
-\echo "Checking for duplicates from enterprise_with_primary_legal_unit stage (within timeline_enterprise_def logic):"
-"Checking for duplicates from enterprise_with_primary_legal_unit stage (within timeline_enterprise_def logic):"
-WITH timesegments_enterprise AS (
-    SELECT ts.*, en.id AS enterprise_id
-    FROM public.timesegments AS ts
-    INNER JOIN public.enterprise AS en
-        ON ts.unit_type = 'enterprise' AND ts.unit_id = en.id
-)
-SELECT ten.enterprise_id, ten.valid_after AS segment_valid_after, ten.valid_to AS segment_valid_to, COUNT(*) as num_primary_lu_matches
-FROM timesegments_enterprise AS ten
-INNER JOIN public.timeline_legal_unit AS tlu
-    ON tlu.enterprise_id = ten.enterprise_id
-    AND tlu.primary_for_enterprise = true
-    AND public.after_to_overlaps(ten.valid_after, ten.valid_to, tlu.valid_after, tlu.valid_to)
-GROUP BY ten.enterprise_id, ten.valid_after, ten.valid_to
-HAVING COUNT(*) > 1
-ORDER BY ten.enterprise_id, segment_valid_after;
- enterprise_id | segment_valid_after | segment_valid_to | num_primary_lu_matches 
----------------+---------------------+------------------+------------------------
-(0 rows)
-
-\echo "Checking for duplicates from enterprise_with_primary_establishment stage (within timeline_enterprise_def logic):"
-"Checking for duplicates from enterprise_with_primary_establishment stage (within timeline_enterprise_def logic):"
-WITH timesegments_enterprise AS (
-    SELECT ts.*, en.id AS enterprise_id
-    FROM public.timesegments AS ts
-    INNER JOIN public.enterprise AS en
-        ON ts.unit_type = 'enterprise' AND ts.unit_id = en.id
-)
-SELECT ten.enterprise_id, ten.valid_after AS segment_valid_after, ten.valid_to AS segment_valid_to, COUNT(*) as num_primary_es_matches
-FROM timesegments_enterprise AS ten
-INNER JOIN public.timeline_establishment AS tes
-    ON tes.enterprise_id = ten.enterprise_id
-    AND tes.primary_for_enterprise = true
-    AND public.after_to_overlaps(ten.valid_after, ten.valid_to, tes.valid_after, tes.valid_to)
-GROUP BY ten.enterprise_id, ten.valid_after, ten.valid_to
-HAVING COUNT(*) > 1
-ORDER BY ten.enterprise_id, segment_valid_after;
- enterprise_id | segment_valid_after | segment_valid_to | num_primary_es_matches 
----------------+---------------------+------------------+------------------------
-(0 rows)
-
-\echo "Duplicate (unit_type, unit_id, valid_after) in timeline_enterprise_def that would cause ON CONFLICT error:"
-"Duplicate (unit_type, unit_id, valid_after) in timeline_enterprise_def that would cause ON CONFLICT error:"
-SELECT unit_type, unit_id, valid_after, COUNT(*)
-FROM public.timeline_enterprise_def
-GROUP BY unit_type, unit_id, valid_after
-HAVING COUNT(*) > 1
-ORDER BY unit_id, valid_after;
- unit_type | unit_id | valid_after | count 
------------+---------+-------------+-------
-(0 rows)
-
-\echo "Detailed duplicate rows from timeline_enterprise_def causing ON CONFLICT errors:"
-"Detailed duplicate rows from timeline_enterprise_def causing ON CONFLICT errors:"
-WITH DuplicatedKeys AS (
-    SELECT unit_type, unit_id, valid_after
-    FROM public.timeline_enterprise_def
-    GROUP BY unit_type, unit_id, valid_after
-    HAVING COUNT(*) > 1
-)
-SELECT ted.unit_id, ted.valid_after, ted.valid_from, ted.valid_to,
-       ted.name,
-       ted.primary_activity_category_code,
-       ted.sector_code,
-       ted.legal_form_code,
-       ted.last_edit_comment,
-       ted.last_edit_at,
-       ted.primary_legal_unit_id,
-       ted.primary_establishment_id
-FROM public.timeline_enterprise_def ted
-JOIN DuplicatedKeys dk ON ted.unit_type = dk.unit_type AND ted.unit_id = dk.unit_id AND ted.valid_after = dk.valid_after
-ORDER BY ted.unit_id, ted.valid_after, ted.valid_from NULLS FIRST, ted.valid_to NULLS FIRST, ted.name NULLS FIRST, ted.last_edit_at NULLS FIRST;
- unit_id | valid_after | valid_from | valid_to | name | primary_activity_category_code | sector_code | legal_form_code | last_edit_comment | last_edit_at | primary_legal_unit_id | primary_establishment_id 
----------+-------------+------------+----------+------+--------------------------------+-------------+-----------------+-------------------+--------------+-----------------------+--------------------------
-(0 rows)
-
-\echo "Checking for duplicates in the data that would be inserted into timeline_enterprise (simulating temp_timeline_enterprise):"
-"Checking for duplicates in the data that would be inserted into timeline_enterprise (simulating temp_timeline_enterprise):"
-CREATE TEMP TABLE debug_temp_timeline_enterprise AS
-SELECT * FROM public.timeline_enterprise_def
-WHERE public.after_to_overlaps(valid_after, valid_to, '2014-12-31'::date, 'infinity'::date);
-\echo "Duplicate (unit_type, unit_id, valid_after) in simulated debug_temp_timeline_enterprise:"
-"Duplicate (unit_type, unit_id, valid_after) in simulated debug_temp_timeline_enterprise:"
-SELECT unit_type, unit_id, valid_after, COUNT(*)
-FROM debug_temp_timeline_enterprise
-GROUP BY unit_type, unit_id, valid_after
-HAVING COUNT(*) > 1
-ORDER BY unit_id, valid_after;
- unit_type | unit_id | valid_after | count 
------------+---------+-------------+-------
-(0 rows)
-
-\echo "Detailed duplicate rows from simulated debug_temp_timeline_enterprise:"
-"Detailed duplicate rows from simulated debug_temp_timeline_enterprise:"
-WITH DuplicatedKeysInTemp AS (
-    SELECT unit_type, unit_id, valid_after
-    FROM debug_temp_timeline_enterprise
-    GROUP BY unit_type, unit_id, valid_after
-    HAVING COUNT(*) > 1
-)
-SELECT ted.unit_id, ted.valid_after, ted.valid_from, ted.valid_to,
-       ted.name,
-       ted.primary_activity_category_code,
-       ted.sector_code,
-       ted.legal_form_code,
-       ted.last_edit_comment,
-       ted.last_edit_at,
-       ted.primary_legal_unit_id,
-       ted.primary_establishment_id
-FROM debug_temp_timeline_enterprise ted
-JOIN DuplicatedKeysInTemp dk ON ted.unit_type = dk.unit_type AND ted.unit_id = dk.unit_id AND ted.valid_after = dk.valid_after
-ORDER BY ted.unit_id, ted.valid_after, ted.valid_from NULLS FIRST, ted.valid_to NULLS FIRST, ted.name NULLS FIRST, ted.last_edit_at NULLS FIRST;
- unit_id | valid_after | valid_from | valid_to | name | primary_activity_category_code | sector_code | legal_form_code | last_edit_comment | last_edit_at | primary_legal_unit_id | primary_establishment_id 
----------+-------------+------------+----------+------+--------------------------------+-------------+-----------------+-------------------+--------------+-----------------------+--------------------------
-(0 rows)
-
-DROP TABLE debug_temp_timeline_enterprise;
 -- Once the Imports are finished, then all the analytics can be processed, but only once.
 CALL worker.process_tasks(p_queue => 'analytics');
 \echo Check the state of all tasks after running analytics.
@@ -4844,7 +4663,7 @@ Check the state of all tasks after running analytics.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |     9
+ analytics | completed |     8
  import    | completed |   352
 (2 rows)
 
@@ -4856,7 +4675,7 @@ Check the state of all tasks after running analytics.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |     9
+ analytics | completed |     8
  import    | completed |   352
 (2 rows)
 
@@ -4925,15 +4744,14 @@ SELECT valid_from
 \echo Getting statistical_units after upload
 Getting statistical_units after upload
 \x
-SELECT valid_after
-     , valid_from
+SELECT valid_from
      , valid_to
+     , valid_until
      , unit_type
      , external_idents
      , jsonb_pretty(
           public.remove_ephemeral_data_from_hierarchy(
           to_jsonb(statistical_unit.*)
-          -'valid_after'
           -'valid_from'
           -'valid_to'
           -'unit_type'
@@ -4947,9 +4765,9 @@ SELECT valid_after
  FROM public.statistical_unit
  ORDER BY valid_from, valid_to, unit_type, external_idents ->> 'tax_ident';
 -[ RECORD 1 ]---------+------------------------------------------------------------------------
-valid_after           | 2014-12-31
 valid_from            | 2015-01-01
 valid_to              | 2015-12-31
+valid_until           | 2016-01-01
 unit_type             | establishment
 external_idents       | {"tax_ident": "929554205"}
 statistical_unit_data | {                                                                      +
@@ -4965,6 +4783,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "2016-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -5005,7 +4824,7 @@ statistical_unit_data | {                                                       
                       |     "include_unit_in_reports": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": null,                                 +
-                      |     "included_establishment_count": null,                              +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "90.011",                        +
                       |     "primary_activity_category_path": "R.90.0.1.1",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -5016,9 +4835,9 @@ stats                 | {                                                       
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 2 ]---------+------------------------------------------------------------------------
-valid_after           | 2014-12-31
 valid_from            | 2015-01-01
 valid_to              | 2015-12-31
+valid_until           | 2016-01-01
 unit_type             | establishment
 external_idents       | {"tax_ident": "992603216"}
 statistical_unit_data | {                                                                      +
@@ -5034,6 +4853,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "2016-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -5074,7 +4894,7 @@ statistical_unit_data | {                                                       
                       |     "include_unit_in_reports": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": null,                                 +
-                      |     "included_establishment_count": null,                              +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
                       |     "secondary_activity_category_code": null,                          +
@@ -5098,9 +4918,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 3 ]---------+------------------------------------------------------------------------
-valid_after           | 2014-12-31
 valid_from            | 2015-01-01
 valid_to              | 2015-12-31
+valid_until           | 2016-01-01
 unit_type             | establishment
 external_idents       | {"tax_ident": "996464415"}
 statistical_unit_data | {                                                                      +
@@ -5116,6 +4936,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "2016-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -5156,7 +4977,7 @@ statistical_unit_data | {                                                       
                       |     "include_unit_in_reports": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": null,                                 +
-                      |     "included_establishment_count": null,                              +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "49.41",                         +
                       |     "primary_activity_category_path": "H.49.4.1",                      +
                       |     "secondary_activity_category_code": null,                          +
@@ -5180,9 +5001,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 4 ]---------+------------------------------------------------------------------------
-valid_after           | 2014-12-31
 valid_from            | 2015-01-01
 valid_to              | 2015-12-31
+valid_until           | 2016-01-01
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "918420533"}
 statistical_unit_data | {                                                                      +
@@ -5198,6 +5019,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "2016-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -5236,7 +5058,7 @@ statistical_unit_data | {                                                       
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
                       |     "included_enterprise_count": null,                                 +
-                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
@@ -5260,9 +5082,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 5 ]---------+------------------------------------------------------------------------
-valid_after           | 2014-12-31
 valid_from            | 2015-01-01
 valid_to              | 2015-12-31
+valid_until           | 2016-01-01
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "929267486"}
 statistical_unit_data | {                                                                      +
@@ -5278,6 +5100,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Personlig næringsdrivende",                        +
                       |     "sector_path": "innl.e_hush.8200",                                 +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "2016-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -5316,7 +5139,7 @@ statistical_unit_data | {                                                       
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
                       |     "included_enterprise_count": null,                                 +
-                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "90.011",                        +
                       |     "primary_activity_category_path": "R.90.0.1.1",                    +
@@ -5328,9 +5151,9 @@ stats                 | {                                                       
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 6 ]---------+------------------------------------------------------------------------
-valid_after           | 2014-12-31
 valid_from            | 2015-01-01
 valid_to              | 2015-12-31
+valid_until           | 2016-01-01
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
@@ -5346,6 +5169,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "2016-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -5384,7 +5208,7 @@ statistical_unit_data | {                                                       
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
                       |     "included_enterprise_count": null,                                 +
-                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "49.41",                         +
                       |     "primary_activity_category_path": "H.49.4.1",                      +
@@ -5409,9 +5233,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 7 ]---------+------------------------------------------------------------------------
-valid_after           | 2014-12-31
 valid_from            | 2015-01-01
 valid_to              | 2015-12-31
+valid_until           | 2016-01-01
 unit_type             | enterprise
 external_idents       | {"tax_ident": "918420533"}
 statistical_unit_data | {                                                                      +
@@ -5427,6 +5251,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "2016-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -5464,7 +5289,7 @@ statistical_unit_data | {                                                       
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
-                      |     "included_enterprise_count": null,                                 +
+                      |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "41.2",                          +
@@ -5488,9 +5313,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 8 ]---------+------------------------------------------------------------------------
-valid_after           | 2014-12-31
 valid_from            | 2015-01-01
 valid_to              | 2015-12-31
+valid_until           | 2016-01-01
 unit_type             | enterprise
 external_idents       | {"tax_ident": "929267486"}
 statistical_unit_data | {                                                                      +
@@ -5506,6 +5331,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Personlig næringsdrivende",                        +
                       |     "sector_path": "innl.e_hush.8200",                                 +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "2016-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -5543,7 +5369,7 @@ statistical_unit_data | {                                                       
                       |         "R.90.0.1.1"                                                   +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
-                      |     "included_enterprise_count": null,                                 +
+                      |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "90.011",                        +
@@ -5555,9 +5381,9 @@ stats                 |
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 9 ]---------+------------------------------------------------------------------------
-valid_after           | 2014-12-31
 valid_from            | 2015-01-01
 valid_to              | 2015-12-31
+valid_until           | 2016-01-01
 unit_type             | enterprise
 external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
@@ -5573,6 +5399,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "2016-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -5610,7 +5437,7 @@ statistical_unit_data | {                                                       
                       |         "H.49.4.1"                                                     +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
-                      |     "included_enterprise_count": null,                                 +
+                      |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "49.41",                         +
@@ -5634,9 +5461,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 10 ]--------+------------------------------------------------------------------------
-valid_after           | 2014-12-31
 valid_from            | 2015-01-01
 valid_to              | 2016-12-31
+valid_until           | 2017-01-01
 unit_type             | establishment
 external_idents       | {"tax_ident": "929895711"}
 statistical_unit_data | {                                                                      +
@@ -5652,6 +5479,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "2017-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -5692,7 +5520,7 @@ statistical_unit_data | {                                                       
                       |     "include_unit_in_reports": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": null,                                 +
-                      |     "included_establishment_count": null,                              +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "45.112",                        +
                       |     "primary_activity_category_path": "G.45.1.1.2",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -5703,9 +5531,9 @@ stats                 | {                                                       
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 11 ]--------+------------------------------------------------------------------------
-valid_after           | 2014-12-31
 valid_from            | 2015-01-01
 valid_to              | 2016-12-31
+valid_until           | 2017-01-01
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "876278812"}
 statistical_unit_data | {                                                                      +
@@ -5721,74 +5549,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
-                      |     "web_address": null,                                               +
-                      |     "phone_number": null,                                              +
-                      |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
-                      |     "mobile_number": null,                                             +
-                      |     "has_legal_unit": true,                                            +
-                      |     "unit_size_code": null,                                            +
-                      |     "legal_form_code": "AS",                                           +
-                      |     "legal_form_name": "Aksjeselskap",                                 +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
-                      |     "postal_postcode": "5350",                                         +
-                      |     "postal_longitude": null,                                          +
-                      |     "postal_postplace": "BRATTHOLMEN",                                 +
-                      |     "data_source_codes": null,                                         +
-                      |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
-                      |     "physical_postcode": "5350",                                       +
-                      |     "physical_longitude": null,                                        +
-                      |     "physical_postplace": "BRATTHOLMEN",                               +
-                      |     "postal_region_code": "4626",                                      +
-                      |     "postal_region_path": "46.26",                                     +
-                      |     "physical_region_code": "4626",                                    +
-                      |     "physical_region_path": "46.26",                                   +
-                      |     "postal_address_part1": "Skrubbenesvegen 82",                      +
-                      |     "postal_address_part2": null,                                      +
-                      |     "postal_address_part3": null,                                      +
-                      |     "postal_country_iso_2": "NO",                                      +
-                      |     "physical_address_part1": "Brattholmen",                           +
-                      |     "physical_address_part2": null,                                    +
-                      |     "physical_address_part3": null,                                    +
-                      |     "physical_country_iso_2": "NO",                                    +
-                      |     "activity_category_paths": [                                       +
-                      |         "G.45.1.1.2"                                                   +
-                      |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
-                      |     "included_enterprise_count": null,                                 +
-                      |     "included_legal_unit_count": null,                                 +
-                      |     "included_establishment_count": 1,                                 +
-                      |     "primary_activity_category_code": "45.112",                        +
-                      |     "primary_activity_category_path": "G.45.1.1.2",                    +
-                      |     "secondary_activity_category_code": null,                          +
-                      |     "secondary_activity_category_path": null                           +
-                      | }
-stats                 | {                                                                      +
-                      | }
-stats_summary         | {                                                                      +
-                      | }
--[ RECORD 12 ]--------+------------------------------------------------------------------------
-valid_after           | 2014-12-31
-valid_from            | 2015-01-01
-valid_to              | 2016-12-31
-unit_type             | enterprise
-external_idents       | {"tax_ident": "876278812"}
-statistical_unit_data | {                                                                      +
-                      |     "name": "BOBILER AS",                                              +
-                      |     "search": "'as':2 'bobiler':1",                                    +
-                      |     "landline": null,                                                  +
-                      |     "tag_paths": [                                                     +
-                      |     ],                                                                 +
-                      |     "birth_date": "1996-01-05",                                        +
-                      |     "death_date": null,                                                +
-                      |     "fax_number": null,                                                +
-                      |     "sector_code": "2100",                                             +
-                      |     "sector_name": "Private aksjeselskaper mv.",                       +
-                      |     "sector_path": "innl.a_ikke_fin.2100",                             +
-                      |     "status_code": "active",                                           +
+                      |     "valid_until": "2017-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -5834,13 +5595,82 @@ statistical_unit_data | {                                                       
                       |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
+stats                 | {                                                                      +
+                      | }
+stats_summary         | {                                                                      +
+                      | }
+-[ RECORD 12 ]--------+------------------------------------------------------------------------
+valid_from            | 2015-01-01
+valid_to              | 2016-12-31
+valid_until           | 2017-01-01
+unit_type             | enterprise
+external_idents       | {"tax_ident": "876278812"}
+statistical_unit_data | {                                                                      +
+                      |     "name": "BOBILER AS",                                              +
+                      |     "search": "'as':2 'bobiler':1",                                    +
+                      |     "landline": null,                                                  +
+                      |     "tag_paths": [                                                     +
+                      |     ],                                                                 +
+                      |     "birth_date": "1996-01-05",                                        +
+                      |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
+                      |     "sector_code": "2100",                                             +
+                      |     "sector_name": "Private aksjeselskaper mv.",                       +
+                      |     "sector_path": "innl.a_ikke_fin.2100",                             +
+                      |     "status_code": "active",                                           +
+                      |     "valid_until": "2017-01-01",                                       +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
+                      |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
+                      |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
+                      |     "legal_form_code": "AS",                                           +
+                      |     "legal_form_name": "Aksjeselskap",                                 +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
+                      |     "postal_postcode": "5350",                                         +
+                      |     "postal_longitude": null,                                          +
+                      |     "postal_postplace": "BRATTHOLMEN",                                 +
+                      |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
+                      |     "physical_postcode": "5350",                                       +
+                      |     "physical_longitude": null,                                        +
+                      |     "physical_postplace": "BRATTHOLMEN",                               +
+                      |     "postal_region_code": "4626",                                      +
+                      |     "postal_region_path": "46.26",                                     +
+                      |     "physical_region_code": "4626",                                    +
+                      |     "physical_region_path": "46.26",                                   +
+                      |     "postal_address_part1": "Skrubbenesvegen 82",                      +
+                      |     "postal_address_part2": null,                                      +
+                      |     "postal_address_part3": null,                                      +
+                      |     "postal_country_iso_2": "NO",                                      +
+                      |     "physical_address_part1": "Brattholmen",                           +
+                      |     "physical_address_part2": null,                                    +
+                      |     "physical_address_part3": null,                                    +
+                      |     "physical_country_iso_2": "NO",                                    +
+                      |     "activity_category_paths": [                                       +
+                      |         "G.45.1.1.2"                                                   +
+                      |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": 1,                                    +
+                      |     "included_legal_unit_count": 1,                                    +
+                      |     "included_establishment_count": 1,                                 +
+                      |     "primary_activity_category_code": "45.112",                        +
+                      |     "primary_activity_category_path": "G.45.1.1.2",                    +
+                      |     "secondary_activity_category_code": null,                          +
+                      |     "secondary_activity_category_path": null                           +
+                      | }
 stats                 | 
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 13 ]--------+------------------------------------------------------------------------
-valid_after           | 2015-12-31
 valid_from            | 2016-01-01
 valid_to              | 2016-12-31
+valid_until           | 2017-01-01
 unit_type             | establishment
 external_idents       | {"tax_ident": "928719510"}
 statistical_unit_data | {                                                                      +
@@ -5856,6 +5686,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "2017-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -5896,7 +5727,7 @@ statistical_unit_data | {                                                       
                       |     "include_unit_in_reports": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": null,                                 +
-                      |     "included_establishment_count": null,                              +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "47.912",                        +
                       |     "primary_activity_category_path": "G.47.9.1.2",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -5907,9 +5738,9 @@ stats                 | {                                                       
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 14 ]--------+------------------------------------------------------------------------
-valid_after           | 2015-12-31
 valid_from            | 2016-01-01
 valid_to              | 2016-12-31
+valid_until           | 2017-01-01
 unit_type             | establishment
 external_idents       | {"tax_ident": "972287091"}
 statistical_unit_data | {                                                                      +
@@ -5925,6 +5756,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "2017-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -5965,7 +5797,7 @@ statistical_unit_data | {                                                       
                       |     "include_unit_in_reports": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": null,                                 +
-                      |     "included_establishment_count": null,                              +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "47.75",                         +
                       |     "primary_activity_category_path": "G.47.7.5",                      +
                       |     "secondary_activity_category_code": null,                          +
@@ -5989,9 +5821,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 15 ]--------+------------------------------------------------------------------------
-valid_after           | 2015-12-31
 valid_from            | 2016-01-01
 valid_to              | 2016-12-31
+valid_until           | 2017-01-01
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "928554198"}
 statistical_unit_data | {                                                                      +
@@ -6007,6 +5839,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Personlig næringsdrivende",                        +
                       |     "sector_path": "innl.e_hush.8200",                                 +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "2017-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -6045,7 +5878,7 @@ statistical_unit_data | {                                                       
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
                       |     "included_enterprise_count": null,                                 +
-                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "47.912",                        +
                       |     "primary_activity_category_path": "G.47.9.1.2",                    +
@@ -6057,9 +5890,9 @@ stats                 | {                                                       
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 16 ]--------+------------------------------------------------------------------------
-valid_after           | 2015-12-31
 valid_from            | 2016-01-01
 valid_to              | 2016-12-31
+valid_until           | 2017-01-01
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "976126637"}
 statistical_unit_data | {                                                                      +
@@ -6075,6 +5908,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "2017-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -6113,7 +5947,7 @@ statistical_unit_data | {                                                       
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
                       |     "included_enterprise_count": null,                                 +
-                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "47.75",                         +
                       |     "primary_activity_category_path": "G.47.7.5",                      +
@@ -6138,9 +5972,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 17 ]--------+------------------------------------------------------------------------
-valid_after           | 2015-12-31
 valid_from            | 2016-01-01
 valid_to              | 2016-12-31
+valid_until           | 2017-01-01
 unit_type             | enterprise
 external_idents       | {"tax_ident": "928554198"}
 statistical_unit_data | {                                                                      +
@@ -6156,6 +5990,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Personlig næringsdrivende",                        +
                       |     "sector_path": "innl.e_hush.8200",                                 +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "2017-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -6193,7 +6028,7 @@ statistical_unit_data | {                                                       
                       |         "G.47.9.1.2"                                                   +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
-                      |     "included_enterprise_count": null,                                 +
+                      |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "47.912",                        +
@@ -6205,9 +6040,9 @@ stats                 |
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 18 ]--------+------------------------------------------------------------------------
-valid_after           | 2015-12-31
 valid_from            | 2016-01-01
 valid_to              | 2016-12-31
+valid_until           | 2017-01-01
 unit_type             | enterprise
 external_idents       | {"tax_ident": "976126637"}
 statistical_unit_data | {                                                                      +
@@ -6223,6 +6058,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "2017-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -6260,7 +6096,7 @@ statistical_unit_data | {                                                       
                       |         "G.47.7.5"                                                     +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
-                      |     "included_enterprise_count": null,                                 +
+                      |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "47.75",                         +
@@ -6284,9 +6120,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 19 ]--------+------------------------------------------------------------------------
-valid_after           | 2015-12-31
 valid_from            | 2016-01-01
 valid_to              | 2017-12-31
+valid_until           | 2018-01-01
 unit_type             | establishment
 external_idents       | {"tax_ident": "992603216"}
 statistical_unit_data | {                                                                      +
@@ -6302,6 +6138,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "2018-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -6342,7 +6179,7 @@ statistical_unit_data | {                                                       
                       |     "include_unit_in_reports": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": null,                                 +
-                      |     "included_establishment_count": null,                              +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
                       |     "secondary_activity_category_code": null,                          +
@@ -6366,9 +6203,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 20 ]--------+------------------------------------------------------------------------
-valid_after           | 2015-12-31
 valid_from            | 2016-01-01
 valid_to              | 2017-12-31
+valid_until           | 2018-01-01
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "918420533"}
 statistical_unit_data | {                                                                      +
@@ -6384,6 +6221,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Personlig næringsdrivende",                        +
                       |     "sector_path": "innl.e_hush.8200",                                 +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "2018-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -6422,7 +6260,7 @@ statistical_unit_data | {                                                       
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
                       |     "included_enterprise_count": null,                                 +
-                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
@@ -6446,9 +6284,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 21 ]--------+------------------------------------------------------------------------
-valid_after           | 2015-12-31
 valid_from            | 2016-01-01
 valid_to              | 2017-12-31
+valid_until           | 2018-01-01
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
@@ -6464,6 +6302,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "2018-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -6502,7 +6341,7 @@ statistical_unit_data | {                                                       
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
                       |     "included_enterprise_count": null,                                 +
-                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
@@ -6527,9 +6366,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 22 ]--------+------------------------------------------------------------------------
-valid_after           | 2015-12-31
 valid_from            | 2016-01-01
 valid_to              | 2017-12-31
+valid_until           | 2018-01-01
 unit_type             | enterprise
 external_idents       | {"tax_ident": "918420533"}
 statistical_unit_data | {                                                                      +
@@ -6545,6 +6384,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Personlig næringsdrivende",                        +
                       |     "sector_path": "innl.e_hush.8200",                                 +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "2018-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -6582,7 +6422,7 @@ statistical_unit_data | {                                                       
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
-                      |     "included_enterprise_count": null,                                 +
+                      |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "41.2",                          +
@@ -6606,9 +6446,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 23 ]--------+------------------------------------------------------------------------
-valid_after           | 2015-12-31
 valid_from            | 2016-01-01
 valid_to              | 2017-12-31
+valid_until           | 2018-01-01
 unit_type             | enterprise
 external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
@@ -6624,6 +6464,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "2018-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -6661,7 +6502,7 @@ statistical_unit_data | {                                                       
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
-                      |     "included_enterprise_count": null,                                 +
+                      |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "41.2",                          +
@@ -6685,9 +6526,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 24 ]--------+------------------------------------------------------------------------
-valid_after           | 2015-12-31
 valid_from            | 2016-01-01
 valid_to              | infinity
+valid_until           | infinity
 unit_type             | establishment
 external_idents       | {"tax_ident": "929554205"}
 statistical_unit_data | {                                                                      +
@@ -6703,6 +6544,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -6743,7 +6585,7 @@ statistical_unit_data | {                                                       
                       |     "include_unit_in_reports": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": null,                                 +
-                      |     "included_establishment_count": null,                              +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "90.011",                        +
                       |     "primary_activity_category_path": "R.90.0.1.1",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -6754,9 +6596,9 @@ stats                 | {                                                       
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 25 ]--------+------------------------------------------------------------------------
-valid_after           | 2015-12-31
 valid_from            | 2016-01-01
 valid_to              | infinity
+valid_until           | infinity
 unit_type             | establishment
 external_idents       | {"tax_ident": "996464415"}
 statistical_unit_data | {                                                                      +
@@ -6772,6 +6614,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -6812,7 +6655,7 @@ statistical_unit_data | {                                                       
                       |     "include_unit_in_reports": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": null,                                 +
-                      |     "included_establishment_count": null,                              +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
                       |     "secondary_activity_category_code": null,                          +
@@ -6836,9 +6679,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 26 ]--------+------------------------------------------------------------------------
-valid_after           | 2015-12-31
 valid_from            | 2016-01-01
 valid_to              | infinity
+valid_until           | infinity
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "929267486"}
 statistical_unit_data | {                                                                      +
@@ -6854,74 +6697,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Personlig næringsdrivende",                        +
                       |     "sector_path": "innl.e_hush.8200",                                 +
                       |     "status_code": "active",                                           +
-                      |     "web_address": null,                                               +
-                      |     "phone_number": null,                                              +
-                      |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
-                      |     "mobile_number": null,                                             +
-                      |     "has_legal_unit": true,                                            +
-                      |     "unit_size_code": null,                                            +
-                      |     "legal_form_code": "ENK",                                          +
-                      |     "legal_form_name": "Enkeltpersonforetak",                          +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
-                      |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
-                      |     "postal_postplace": null,                                          +
-                      |     "data_source_codes": null,                                         +
-                      |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
-                      |     "physical_postcode": "4550",                                       +
-                      |     "physical_longitude": null,                                        +
-                      |     "physical_postplace": "FARSUND",                                   +
-                      |     "postal_region_code": null,                                        +
-                      |     "postal_region_path": null,                                        +
-                      |     "physical_region_code": "4206",                                    +
-                      |     "physical_region_path": "42.06",                                   +
-                      |     "postal_address_part1": null,                                      +
-                      |     "postal_address_part2": null,                                      +
-                      |     "postal_address_part3": null,                                      +
-                      |     "postal_country_iso_2": null,                                      +
-                      |     "physical_address_part1": "Stormyrvegen 9",                        +
-                      |     "physical_address_part2": null,                                    +
-                      |     "physical_address_part3": null,                                    +
-                      |     "physical_country_iso_2": "NO",                                    +
-                      |     "activity_category_paths": [                                       +
-                      |         "R.90.0.1.1"                                                   +
-                      |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
-                      |     "included_enterprise_count": null,                                 +
-                      |     "included_legal_unit_count": null,                                 +
-                      |     "included_establishment_count": 1,                                 +
-                      |     "primary_activity_category_code": "90.011",                        +
-                      |     "primary_activity_category_path": "R.90.0.1.1",                    +
-                      |     "secondary_activity_category_code": null,                          +
-                      |     "secondary_activity_category_path": null                           +
-                      | }
-stats                 | {                                                                      +
-                      | }
-stats_summary         | {                                                                      +
-                      | }
--[ RECORD 27 ]--------+------------------------------------------------------------------------
-valid_after           | 2015-12-31
-valid_from            | 2016-01-01
-valid_to              | infinity
-unit_type             | enterprise
-external_idents       | {"tax_ident": "929267486"}
-statistical_unit_data | {                                                                      +
-                      |     "name": "REPPE GEIR RYTMISKE TJENESTER",                           +
-                      |     "search": "'geir':2 'reppe':1 'rytmiske':3 'tjenester':4",         +
-                      |     "landline": null,                                                  +
-                      |     "tag_paths": [                                                     +
-                      |     ],                                                                 +
-                      |     "birth_date": null,                                                +
-                      |     "death_date": null,                                                +
-                      |     "fax_number": null,                                                +
-                      |     "sector_code": "8200",                                             +
-                      |     "sector_name": "Personlig næringsdrivende",                        +
-                      |     "sector_path": "innl.e_hush.8200",                                 +
-                      |     "status_code": "active",                                           +
+                      |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -6967,13 +6743,82 @@ statistical_unit_data | {                                                       
                       |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
+stats                 | {                                                                      +
+                      | }
+stats_summary         | {                                                                      +
+                      | }
+-[ RECORD 27 ]--------+------------------------------------------------------------------------
+valid_from            | 2016-01-01
+valid_to              | infinity
+valid_until           | infinity
+unit_type             | enterprise
+external_idents       | {"tax_ident": "929267486"}
+statistical_unit_data | {                                                                      +
+                      |     "name": "REPPE GEIR RYTMISKE TJENESTER",                           +
+                      |     "search": "'geir':2 'reppe':1 'rytmiske':3 'tjenester':4",         +
+                      |     "landline": null,                                                  +
+                      |     "tag_paths": [                                                     +
+                      |     ],                                                                 +
+                      |     "birth_date": null,                                                +
+                      |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
+                      |     "sector_code": "8200",                                             +
+                      |     "sector_name": "Personlig næringsdrivende",                        +
+                      |     "sector_path": "innl.e_hush.8200",                                 +
+                      |     "status_code": "active",                                           +
+                      |     "valid_until": "infinity",                                         +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
+                      |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
+                      |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
+                      |     "legal_form_code": "ENK",                                          +
+                      |     "legal_form_name": "Enkeltpersonforetak",                          +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
+                      |     "postal_postcode": null,                                           +
+                      |     "postal_longitude": null,                                          +
+                      |     "postal_postplace": null,                                          +
+                      |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "BRREG Hovedenhet 2018 (SHT)",                +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
+                      |     "physical_postcode": "4550",                                       +
+                      |     "physical_longitude": null,                                        +
+                      |     "physical_postplace": "FARSUND",                                   +
+                      |     "postal_region_code": null,                                        +
+                      |     "postal_region_path": null,                                        +
+                      |     "physical_region_code": "4206",                                    +
+                      |     "physical_region_path": "42.06",                                   +
+                      |     "postal_address_part1": null,                                      +
+                      |     "postal_address_part2": null,                                      +
+                      |     "postal_address_part3": null,                                      +
+                      |     "postal_country_iso_2": null,                                      +
+                      |     "physical_address_part1": "Stormyrvegen 9",                        +
+                      |     "physical_address_part2": null,                                    +
+                      |     "physical_address_part3": null,                                    +
+                      |     "physical_country_iso_2": "NO",                                    +
+                      |     "activity_category_paths": [                                       +
+                      |         "R.90.0.1.1"                                                   +
+                      |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": 1,                                    +
+                      |     "included_legal_unit_count": 1,                                    +
+                      |     "included_establishment_count": 1,                                 +
+                      |     "primary_activity_category_code": "90.011",                        +
+                      |     "primary_activity_category_path": "R.90.0.1.1",                    +
+                      |     "secondary_activity_category_code": null,                          +
+                      |     "secondary_activity_category_path": null                           +
+                      | }
 stats                 | 
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 28 ]--------+------------------------------------------------------------------------
-valid_after           | 2016-12-31
 valid_from            | 2017-01-01
 valid_to              | 2017-12-31
+valid_until           | 2018-01-01
 unit_type             | establishment
 external_idents       | {"tax_ident": "928719510"}
 statistical_unit_data | {                                                                      +
@@ -6989,6 +6834,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "2018-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -7029,7 +6875,7 @@ statistical_unit_data | {                                                       
                       |     "include_unit_in_reports": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": null,                                 +
-                      |     "included_establishment_count": null,                              +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "68.209",                        +
                       |     "primary_activity_category_path": "L.68.2.0.9",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -7040,9 +6886,9 @@ stats                 | {                                                       
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 29 ]--------+------------------------------------------------------------------------
-valid_after           | 2016-12-31
 valid_from            | 2017-01-01
 valid_to              | 2017-12-31
+valid_until           | 2018-01-01
 unit_type             | establishment
 external_idents       | {"tax_ident": "929895711"}
 statistical_unit_data | {                                                                      +
@@ -7058,6 +6904,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "2018-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -7098,7 +6945,7 @@ statistical_unit_data | {                                                       
                       |     "include_unit_in_reports": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": null,                                 +
-                      |     "included_establishment_count": null,                              +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "47.912",                        +
                       |     "primary_activity_category_path": "G.47.9.1.2",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -7109,9 +6956,9 @@ stats                 | {                                                       
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 30 ]--------+------------------------------------------------------------------------
-valid_after           | 2016-12-31
 valid_from            | 2017-01-01
 valid_to              | 2017-12-31
+valid_until           | 2018-01-01
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "876278812"}
 statistical_unit_data | {                                                                      +
@@ -7127,6 +6974,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "2018-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -7165,7 +7013,7 @@ statistical_unit_data | {                                                       
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
                       |     "included_enterprise_count": null,                                 +
-                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "45.112",                        +
                       |     "primary_activity_category_path": "G.45.1.1.2",                    +
@@ -7177,9 +7025,9 @@ stats                 | {                                                       
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 31 ]--------+------------------------------------------------------------------------
-valid_after           | 2016-12-31
 valid_from            | 2017-01-01
 valid_to              | 2017-12-31
+valid_until           | 2018-01-01
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "928554198"}
 statistical_unit_data | {                                                                      +
@@ -7195,6 +7043,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Personlig næringsdrivende",                        +
                       |     "sector_path": "innl.e_hush.8200",                                 +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "2018-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -7233,7 +7082,7 @@ statistical_unit_data | {                                                       
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
                       |     "included_enterprise_count": null,                                 +
-                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "68.209",                        +
                       |     "primary_activity_category_path": "L.68.2.0.9",                    +
@@ -7245,9 +7094,9 @@ stats                 | {                                                       
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 32 ]--------+------------------------------------------------------------------------
-valid_after           | 2016-12-31
 valid_from            | 2017-01-01
 valid_to              | 2017-12-31
+valid_until           | 2018-01-01
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "976126637"}
 statistical_unit_data | {                                                                      +
@@ -7263,6 +7112,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "2018-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -7301,7 +7151,7 @@ statistical_unit_data | {                                                       
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
                       |     "included_enterprise_count": null,                                 +
-                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "47.71",                         +
                       |     "primary_activity_category_path": "G.47.7.1",                      +
@@ -7326,9 +7176,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 33 ]--------+------------------------------------------------------------------------
-valid_after           | 2016-12-31
 valid_from            | 2017-01-01
 valid_to              | 2017-12-31
+valid_until           | 2018-01-01
 unit_type             | enterprise
 external_idents       | {"tax_ident": "876278812"}
 statistical_unit_data | {                                                                      +
@@ -7344,6 +7194,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "2018-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -7381,7 +7232,7 @@ statistical_unit_data | {                                                       
                       |         "G.45.1.1.2"                                                   +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
-                      |     "included_enterprise_count": null,                                 +
+                      |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "45.112",                        +
@@ -7393,9 +7244,9 @@ stats                 |
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 34 ]--------+------------------------------------------------------------------------
-valid_after           | 2016-12-31
 valid_from            | 2017-01-01
 valid_to              | 2017-12-31
+valid_until           | 2018-01-01
 unit_type             | enterprise
 external_idents       | {"tax_ident": "928554198"}
 statistical_unit_data | {                                                                      +
@@ -7411,6 +7262,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Personlig næringsdrivende",                        +
                       |     "sector_path": "innl.e_hush.8200",                                 +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "2018-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -7448,7 +7300,7 @@ statistical_unit_data | {                                                       
                       |         "L.68.2.0.9"                                                   +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
-                      |     "included_enterprise_count": null,                                 +
+                      |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "68.209",                        +
@@ -7460,9 +7312,9 @@ stats                 |
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 35 ]--------+------------------------------------------------------------------------
-valid_after           | 2016-12-31
 valid_from            | 2017-01-01
 valid_to              | 2017-12-31
+valid_until           | 2018-01-01
 unit_type             | enterprise
 external_idents       | {"tax_ident": "976126637"}
 statistical_unit_data | {                                                                      +
@@ -7478,6 +7330,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "2018-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -7515,7 +7368,7 @@ statistical_unit_data | {                                                       
                       |         "G.47.7.1"                                                     +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
-                      |     "included_enterprise_count": null,                                 +
+                      |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "47.71",                         +
@@ -7539,9 +7392,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 36 ]--------+------------------------------------------------------------------------
-valid_after           | 2016-12-31
 valid_from            | 2017-01-01
 valid_to              | infinity
+valid_until           | infinity
 unit_type             | establishment
 external_idents       | {"tax_ident": "972287091"}
 statistical_unit_data | {                                                                      +
@@ -7557,6 +7410,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -7597,7 +7451,7 @@ statistical_unit_data | {                                                       
                       |     "include_unit_in_reports": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": null,                                 +
-                      |     "included_establishment_count": null,                              +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "47.71",                         +
                       |     "primary_activity_category_path": "G.47.7.1",                      +
                       |     "secondary_activity_category_code": null,                          +
@@ -7621,9 +7475,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 37 ]--------+------------------------------------------------------------------------
-valid_after           | 2017-12-31
 valid_from            | 2018-01-01
 valid_to              | infinity
+valid_until           | infinity
 unit_type             | establishment
 external_idents       | {"tax_ident": "928719510"}
 statistical_unit_data | {                                                                      +
@@ -7639,6 +7493,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -7679,7 +7534,7 @@ statistical_unit_data | {                                                       
                       |     "include_unit_in_reports": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": null,                                 +
-                      |     "included_establishment_count": null,                              +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "47.912",                        +
                       |     "primary_activity_category_path": "G.47.9.1.2",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -7690,9 +7545,9 @@ stats                 | {                                                       
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 38 ]--------+------------------------------------------------------------------------
-valid_after           | 2017-12-31
 valid_from            | 2018-01-01
 valid_to              | infinity
+valid_until           | infinity
 unit_type             | establishment
 external_idents       | {"tax_ident": "929895711"}
 statistical_unit_data | {                                                                      +
@@ -7708,6 +7563,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -7748,7 +7604,7 @@ statistical_unit_data | {                                                       
                       |     "include_unit_in_reports": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": null,                                 +
-                      |     "included_establishment_count": null,                              +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "45.112",                        +
                       |     "primary_activity_category_path": "G.45.1.1.2",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -7759,9 +7615,9 @@ stats                 | {                                                       
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 39 ]--------+------------------------------------------------------------------------
-valid_after           | 2017-12-31
 valid_from            | 2018-01-01
 valid_to              | infinity
+valid_until           | infinity
 unit_type             | establishment
 external_idents       | {"tax_ident": "992603216"}
 statistical_unit_data | {                                                                      +
@@ -7777,6 +7633,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -7817,7 +7674,7 @@ statistical_unit_data | {                                                       
                       |     "include_unit_in_reports": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": null,                                 +
-                      |     "included_establishment_count": null,                              +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
                       |     "secondary_activity_category_code": null,                          +
@@ -7841,9 +7698,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 40 ]--------+------------------------------------------------------------------------
-valid_after           | 2017-12-31
 valid_from            | 2018-01-01
 valid_to              | infinity
+valid_until           | infinity
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "876278812"}
 statistical_unit_data | {                                                                      +
@@ -7859,6 +7716,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -7897,7 +7755,7 @@ statistical_unit_data | {                                                       
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
                       |     "included_enterprise_count": null,                                 +
-                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "45.112",                        +
                       |     "primary_activity_category_path": "G.45.1.1.2",                    +
@@ -7909,9 +7767,9 @@ stats                 | {                                                       
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 41 ]--------+------------------------------------------------------------------------
-valid_after           | 2017-12-31
 valid_from            | 2018-01-01
 valid_to              | infinity
+valid_until           | infinity
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "918420533"}
 statistical_unit_data | {                                                                      +
@@ -7927,6 +7785,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Personlig næringsdrivende",                        +
                       |     "sector_path": "innl.e_hush.8200",                                 +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -7965,7 +7824,7 @@ statistical_unit_data | {                                                       
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
                       |     "included_enterprise_count": null,                                 +
-                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
@@ -7989,9 +7848,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 42 ]--------+------------------------------------------------------------------------
-valid_after           | 2017-12-31
 valid_from            | 2018-01-01
 valid_to              | infinity
+valid_until           | infinity
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "928554198"}
 statistical_unit_data | {                                                                      +
@@ -8007,6 +7866,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Personlig næringsdrivende",                        +
                       |     "sector_path": "innl.e_hush.8200",                                 +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -8045,7 +7905,7 @@ statistical_unit_data | {                                                       
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
                       |     "included_enterprise_count": null,                                 +
-                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "68.209",                        +
                       |     "primary_activity_category_path": "L.68.2.0.9",                    +
@@ -8057,9 +7917,9 @@ stats                 | {                                                       
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 43 ]--------+------------------------------------------------------------------------
-valid_after           | 2017-12-31
 valid_from            | 2018-01-01
 valid_to              | infinity
+valid_until           | infinity
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "976126637"}
 statistical_unit_data | {                                                                      +
@@ -8075,6 +7935,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -8113,7 +7974,7 @@ statistical_unit_data | {                                                       
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
                       |     "included_enterprise_count": null,                                 +
-                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "47.71",                         +
                       |     "primary_activity_category_path": "G.47.7.1",                      +
@@ -8138,9 +7999,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 44 ]--------+------------------------------------------------------------------------
-valid_after           | 2017-12-31
 valid_from            | 2018-01-01
 valid_to              | infinity
+valid_until           | infinity
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
@@ -8156,6 +8017,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Ideelle organisasjoner",                           +
                       |     "sector_path": "innl.d_ideell.7000",                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -8194,7 +8056,7 @@ statistical_unit_data | {                                                       
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
                       |     "included_enterprise_count": null,                                 +
-                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
@@ -8219,9 +8081,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 45 ]--------+------------------------------------------------------------------------
-valid_after           | 2017-12-31
 valid_from            | 2018-01-01
 valid_to              | infinity
+valid_until           | infinity
 unit_type             | enterprise
 external_idents       | {"tax_ident": "876278812"}
 statistical_unit_data | {                                                                      +
@@ -8237,6 +8099,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -8274,7 +8137,7 @@ statistical_unit_data | {                                                       
                       |         "G.45.1.1.2"                                                   +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
-                      |     "included_enterprise_count": null,                                 +
+                      |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "45.112",                        +
@@ -8286,9 +8149,9 @@ stats                 |
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 46 ]--------+------------------------------------------------------------------------
-valid_after           | 2017-12-31
 valid_from            | 2018-01-01
 valid_to              | infinity
+valid_until           | infinity
 unit_type             | enterprise
 external_idents       | {"tax_ident": "918420533"}
 statistical_unit_data | {                                                                      +
@@ -8304,6 +8167,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Personlig næringsdrivende",                        +
                       |     "sector_path": "innl.e_hush.8200",                                 +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -8341,7 +8205,7 @@ statistical_unit_data | {                                                       
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
-                      |     "included_enterprise_count": null,                                 +
+                      |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "41.2",                          +
@@ -8365,9 +8229,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 47 ]--------+------------------------------------------------------------------------
-valid_after           | 2017-12-31
 valid_from            | 2018-01-01
 valid_to              | infinity
+valid_until           | infinity
 unit_type             | enterprise
 external_idents       | {"tax_ident": "928554198"}
 statistical_unit_data | {                                                                      +
@@ -8383,6 +8247,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Personlig næringsdrivende",                        +
                       |     "sector_path": "innl.e_hush.8200",                                 +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -8420,7 +8285,7 @@ statistical_unit_data | {                                                       
                       |         "L.68.2.0.9"                                                   +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
-                      |     "included_enterprise_count": null,                                 +
+                      |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "68.209",                        +
@@ -8432,9 +8297,9 @@ stats                 |
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 48 ]--------+------------------------------------------------------------------------
-valid_after           | 2017-12-31
 valid_from            | 2018-01-01
 valid_to              | infinity
+valid_until           | infinity
 unit_type             | enterprise
 external_idents       | {"tax_ident": "976126637"}
 statistical_unit_data | {                                                                      +
@@ -8450,6 +8315,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -8487,7 +8353,7 @@ statistical_unit_data | {                                                       
                       |         "G.47.7.1"                                                     +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
-                      |     "included_enterprise_count": null,                                 +
+                      |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "47.71",                         +
@@ -8511,9 +8377,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 49 ]--------+------------------------------------------------------------------------
-valid_after           | 2017-12-31
 valid_from            | 2018-01-01
 valid_to              | infinity
+valid_until           | infinity
 unit_type             | enterprise
 external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
@@ -8529,6 +8395,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Ideelle organisasjoner",                           +
                       |     "sector_path": "innl.d_ideell.7000",                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -8566,7 +8433,7 @@ statistical_unit_data | {                                                       
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
-                      |     "included_enterprise_count": null,                                 +
+                      |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "41.2",                          +
@@ -8591,20 +8458,20 @@ stats_summary         | {                                                       
                       | }
 
 \x
-\echo Generate traces of indices used to build the history, analysis with tools such as shipped "/pev2" aka "postgres explain visualizer pev2 query performance"
-Generate traces of indices used to build the history, analysis with tools such as shipped "/pev2" aka "postgres explain visualizer pev2 query performance"
-\o tmp/50_import_jobs_for_norway_small_history-timepoints.log
-EXPLAIN ANALYZE SELECT * FROM public.timepoints;
-\o tmp/50_import_jobs_for_norway_small_history-timesegments_def.log
-EXPLAIN ANALYZE SELECT * FROM public.timesegments_def;
-\o tmp/50_import_jobs_for_norway_small_history-timeline_establishment_def.log
-EXPLAIN ANALYZE SELECT * FROM public.timeline_establishment_def;
-\o tmp/50_import_jobs_for_norway_small_history-timeline_legal_unit_def.log
-EXPLAIN ANALYZE SELECT * FROM public.timeline_legal_unit_def;
-\o tmp/50_import_jobs_for_norway_small_history-timeline_enterprise_def.log
-EXPLAIN ANALYZE SELECT * FROM public.timeline_enterprise_def;
-\o tmp/50_import_jobs_for_norway_small_history-statistical_unit_def.log
-EXPLAIN ANALYZE SELECT * FROM public.statistical_unit_def;
+\echo '--- Generating query plans for review ---'
+--- Generating query plans for review ---
+\o test/expected/303_import_jobs_for_norway_small_history-timepoints.explain.txt
+EXPLAIN SELECT * FROM public.timepoints;
+\o test/expected/303_import_jobs_for_norway_small_history-timesegments_def.explain.txt
+EXPLAIN SELECT * FROM public.timesegments_def;
+\o test/expected/303_import_jobs_for_norway_small_history-timeline_establishment_def.explain.txt
+EXPLAIN SELECT * FROM public.timeline_establishment_def;
+\o test/expected/303_import_jobs_for_norway_small_history-timeline_legal_unit_def.explain.txt
+EXPLAIN SELECT * FROM public.timeline_legal_unit_def;
+\o test/expected/303_import_jobs_for_norway_small_history-timeline_enterprise_def.explain.txt
+EXPLAIN SELECT * FROM public.timeline_enterprise_def;
+\o test/expected/303_import_jobs_for_norway_small_history-statistical_unit_def.explain.txt
+EXPLAIN SELECT * FROM public.statistical_unit_def;
 \o
 RESET client_min_messages;
 \i test/rollback_unless_persist_is_specified.sql

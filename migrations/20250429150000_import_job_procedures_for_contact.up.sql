@@ -5,7 +5,7 @@ BEGIN;
 
 -- Procedure to analyse contact data (Batch Oriented)
 CREATE OR REPLACE PROCEDURE import.analyse_contact(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
-LANGUAGE plpgsql AS $analyse_contact$ -- Function name remains the same, step name changed
+LANGUAGE plpgsql AS $analyse_contact$
 DECLARE
     v_job public.import_job;
     v_step public.import_step;
@@ -25,17 +25,20 @@ BEGIN
         RAISE EXCEPTION '[Job %] contact step not found in snapshot', p_job_id;
     END IF;
 
-    -- Single-pass update to advance priority for all non-skipped rows.
-    -- This step runs for rows that might already be in an 'error' state to allow error aggregation, but it does not generate new errors.
+    -- This procedure now only advances the priority for all processed rows.
+    -- The lookup for existing contact_id has been removed, as the natural key
+    -- lookup will be handled by the process_contact step.
     v_sql := format($$
         UPDATE public.%1$I dt SET
-            last_completed_priority = %2$L,
-            state = CASE WHEN dt.state = 'error' THEN 'error'::public.import_data_state ELSE 'analysing'::public.import_data_state END
-        WHERE dt.row_id = ANY($1) AND dt.action IS DISTINCT FROM 'skip';
-    $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */);
+            last_completed_priority = %2$L
+        WHERE dt.row_id = ANY($1);
+    $$,
+        v_data_table_name,    /* %1$I */
+        v_step.priority       /* %2$L */
+    );
 
     RAISE DEBUG '[Job %] analyse_contact: Updating rows: %', p_job_id, v_sql;
-    
+
     BEGIN
         EXECUTE v_sql USING p_batch_row_ids;
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
@@ -72,6 +75,7 @@ DECLARE
     v_select_est_id_expr TEXT;
     v_source_view_name TEXT;
     v_relevant_rows_count INT;
+    v_merge_mode sql_saga.temporal_merge_mode;
 BEGIN
     RAISE DEBUG '[Job %] process_contact (Batch): Starting operation for % rows', p_job_id, array_length(p_batch_row_ids, 1);
 
@@ -92,7 +96,7 @@ BEGIN
         v_select_lu_id_expr := 'dt.legal_unit_id';
         v_select_est_id_expr := 'NULL::INTEGER';
     ELSIF v_job_mode = 'establishment_formal' THEN
-        v_select_lu_id_expr := 'dt.legal_unit_id';
+        v_select_lu_id_expr := 'NULL::INTEGER';
         v_select_est_id_expr := 'dt.establishment_id';
     ELSIF v_job_mode = 'establishment_informal' THEN
         v_select_lu_id_expr := 'NULL::INTEGER';
@@ -117,14 +121,19 @@ BEGIN
             dt.web_address, dt.email_address, dt.phone_number, dt.landline, dt.mobile_number, dt.fax_number,
             dt.data_source_id,
             dt.edit_by_user_id, dt.edit_at, dt.edit_comment,
-            dt.errors, dt.merge_statuses
+            dt.errors, dt.merge_status
         FROM public.%4$I dt
         WHERE dt.row_id = ANY(%5$L)
           AND dt.action = 'use'
-          AND dt.state != 'error'
           -- Only process rows that have some actual contact data
           AND (dt.web_address IS NOT NULL OR dt.email_address IS NOT NULL OR dt.phone_number IS NOT NULL OR dt.landline IS NOT NULL OR dt.mobile_number IS NOT NULL OR dt.fax_number IS NOT NULL);
-    $$, v_source_view_name, v_select_lu_id_expr, v_select_est_id_expr, v_data_table_name, p_batch_row_ids);
+    $$,
+        v_source_view_name,   /* %1$I */
+        v_select_lu_id_expr,  /* %2$s */
+        v_select_est_id_expr, /* %3$s */
+        v_data_table_name,    /* %4$I */
+        p_batch_row_ids       /* %5$L */
+    );
     EXECUTE v_sql;
 
     EXECUTE format('SELECT count(*) FROM %I', v_source_view_name) INTO v_relevant_rows_count;
@@ -136,20 +145,31 @@ BEGIN
     RAISE DEBUG '[Job %] process_contact: Calling sql_saga.temporal_merge for % rows.', p_job_id, v_relevant_rows_count;
 
     BEGIN
+        -- Determine merge mode from job strategy
+        v_merge_mode := CASE v_definition.strategy
+            WHEN 'insert_or_replace' THEN 'MERGE_ENTITY_REPLACE'::sql_saga.temporal_merge_mode
+            WHEN 'replace_only' THEN 'MERGE_ENTITY_REPLACE'::sql_saga.temporal_merge_mode
+            WHEN 'insert_or_update' THEN 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode
+            WHEN 'update_only' THEN 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode
+            ELSE 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode -- Default to safer patch
+        END;
+        RAISE DEBUG '[Job %] process_contact: Determined merge mode % from strategy %', p_job_id, v_merge_mode, v_definition.strategy;
+
         CALL sql_saga.temporal_merge(
-            p_target_table => 'public.contact'::regclass,
-            p_source_table => v_source_view_name::regclass,
-            p_identity_columns => ARRAY['id'],
-            p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
-            p_mode => 'MERGE_ENTITY_REPLACE',
-            p_identity_correlation_column => 'founding_row_id',
-            p_update_source_with_identity => true,
-            p_update_source_with_feedback => true,
-            p_feedback_status_column => 'merge_statuses',
-            p_feedback_status_key => 'contact',
-            p_feedback_error_column => 'errors',
-            p_feedback_error_key => 'contact',
-            p_source_row_id_column => 'row_id'
+            target_table => 'public.contact'::regclass,
+            source_table => v_source_view_name::regclass,
+            identity_columns => ARRAY['id'],
+            natural_identity_columns => ARRAY['legal_unit_id', 'establishment_id'],
+            ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
+            mode => v_merge_mode,
+            identity_correlation_column => 'founding_row_id',
+            update_source_with_identity => true,
+            update_source_with_feedback => true,
+            feedback_status_column => 'merge_status',
+            feedback_status_key => 'contact',
+            feedback_error_column => 'errors',
+            feedback_error_key => 'contact',
+            source_row_id_column => 'row_id'
         );
 
         EXECUTE format($$ SELECT count(*) FROM public.%1$I WHERE row_id = ANY($1) AND errors->'contact' IS NOT NULL $$, v_data_table_name)
@@ -157,10 +177,13 @@ BEGIN
 
         EXECUTE format($$
             UPDATE public.%1$I dt SET
-                state = CASE WHEN dt.errors IS NULL THEN 'processing' ELSE 'error' END
+                state = CASE WHEN dt.errors ? 'contact' THEN 'error'::public.import_data_state ELSE 'processing'::public.import_data_state END
             FROM %2$I v
             WHERE dt.row_id = v.row_id;
-        $$, v_data_table_name, v_source_view_name);
+        $$,
+            v_data_table_name,  /* %1$I */
+            v_source_view_name  /* %2$I */
+        );
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
         v_update_count := v_update_count - v_error_count;
 
@@ -169,8 +192,10 @@ BEGIN
     EXCEPTION WHEN OTHERS THEN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
         RAISE WARNING '[Job %] process_contact: Error during temporal_merge: %. SQLSTATE: %', p_job_id, error_message, SQLSTATE;
-        v_sql := format($$UPDATE public.%1$I SET state = 'error', errors = COALESCE(errors, '{}'::jsonb) || jsonb_build_object('batch_error_process_contact', %2$L) WHERE row_id = ANY($1)$$,
-                        v_data_table_name, error_message);
+        v_sql := format($$UPDATE public.%1$I SET state = 'error'::public.import_data_state, errors = errors || jsonb_build_object('batch_error_process_contact', %2$L) WHERE row_id = ANY($1)$$,
+                        v_data_table_name, /* %1$I */
+                        error_message      /* %2$L */
+        );
         EXECUTE v_sql USING p_batch_row_ids;
         RAISE; -- Re-throw
     END;

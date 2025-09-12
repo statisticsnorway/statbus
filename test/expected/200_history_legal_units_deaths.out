@@ -148,7 +148,7 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | pending   |     6
+ analytics | pending   |     4
  import    | completed |    44
 (2 rows)
 
@@ -170,7 +170,7 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |     8
+ analytics | completed |     6
  import    | completed |    44
 (2 rows)
 
@@ -185,16 +185,16 @@ SELECT
 
 \echo "Check statistical units"
 "Check statistical units"
-SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_after, valid_from, valid_to, birth_date, death_date
+SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_from, valid_to, birth_date, death_date
 FROM public.statistical_unit
 WHERE unit_type = 'legal_unit'
 ORDER BY external_idents ->> 'tax_ident', valid_from;
- tax_ident |       name        | valid_after | valid_from |  valid_to  | birth_date | death_date 
------------+-------------------+-------------+------------+------------+------------+------------
- 823573673 | Kranløft Vestland | 2009-12-31  | 2010-01-01 | 2012-12-30 | 2010-01-01 | 
- 823573673 | Kranløft Vestland | 2012-12-30  | 2012-12-31 | 2012-12-31 | 2010-01-01 | 2012-12-31
- 921835809 | Kranløft Østland  | 2009-12-31  | 2010-01-01 | 2011-12-30 | 2010-01-01 | 
- 921835809 | Kranløft Østland  | 2011-12-30  | 2011-12-31 | 2011-12-31 | 2010-01-01 | 2011-12-31
+ tax_ident |       name        | valid_from |  valid_to  | birth_date | death_date 
+-----------+-------------------+------------+------------+------------+------------
+ 823573673 | Kranløft Vestland | 2010-01-01 | 2012-12-30 | 2010-01-01 | 
+ 823573673 | Kranløft Vestland | 2012-12-31 | 2012-12-31 | 2010-01-01 | 2012-12-31
+ 921835809 | Kranløft Østland  | 2010-01-01 | 2011-12-30 | 2010-01-01 | 
+ 921835809 | Kranløft Østland  | 2011-12-31 | 2011-12-31 | 2010-01-01 | 2011-12-31
 (4 rows)
 
 \echo "Check statistical unit history by year - deaths should be 1 for year 2011 and 2012"
@@ -291,7 +291,7 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | pending   |     6
+ analytics | pending   |     4
  import    | completed |    44
 (2 rows)
 
@@ -313,7 +313,7 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |     8
+ analytics | completed |     6
  import    | completed |    44
 (2 rows)
 
@@ -328,15 +328,15 @@ SELECT
 
 \echo "Check statistical units"
 "Check statistical units"
-SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_after, valid_from, valid_to, birth_date, death_date
+SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_from, valid_to, birth_date, death_date
 FROM public.statistical_unit
 WHERE unit_type = 'legal_unit'
 ORDER BY external_idents ->> 'tax_ident', valid_from;
- tax_ident |       name        | valid_after | valid_from |  valid_to  | birth_date | death_date 
------------+-------------------+-------------+------------+------------+------------+------------
- 823573673 | Kranløft Vestland | 2009-12-31  | 2010-01-01 | 2012-12-30 | 2010-01-01 | 
- 823573673 | Kranløft Vestland | 2012-12-30  | 2012-12-31 | 2012-12-31 | 2010-01-01 | 2012-12-31
- 921835809 | Kranløft Østland  | 2009-12-31  | 2010-01-01 | 2011-01-31 | 2010-01-01 | 2011-01-31
+ tax_ident |       name        | valid_from |  valid_to  | birth_date | death_date 
+-----------+-------------------+------------+------------+------------+------------
+ 823573673 | Kranløft Vestland | 2010-01-01 | 2012-12-30 | 2010-01-01 | 
+ 823573673 | Kranløft Vestland | 2012-12-31 | 2012-12-31 | 2010-01-01 | 2012-12-31
+ 921835809 | Kranløft Østland  | 2010-01-01 | 2011-01-31 | 2010-01-01 | 2011-01-31
 (3 rows)
 
 \echo "Check statistical unit history by year - deaths should be 1 for year 2011 and 2012"
@@ -433,7 +433,7 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | pending   |     6
+ analytics | pending   |     4
  import    | completed |    44
 (2 rows)
 
@@ -455,7 +455,7 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |     8
+ analytics | completed |     6
  import    | completed |    44
 (2 rows)
 
@@ -470,15 +470,15 @@ SELECT
 
 \echo "Check statistical units"
 "Check statistical units"
-SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_after, valid_from, valid_to, birth_date, death_date
+SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_from, valid_to, birth_date, death_date
 FROM public.statistical_unit
 WHERE unit_type = 'legal_unit'
 ORDER BY external_idents ->> 'tax_ident', valid_from;
- tax_ident |       name        | valid_after | valid_from |  valid_to  | birth_date | death_date 
------------+-------------------+-------------+------------+------------+------------+------------
- 823573673 | Kranløft Vestland | 2009-12-31  | 2010-01-01 | 2011-12-31 | 2010-01-01 | 
- 823573673 | Kranløft Vestland | 2011-12-31  | 2012-01-01 | 2012-01-01 | 2010-01-01 | 2012-01-01
- 921835809 | Kranløft Østland  | 2009-12-31  | 2010-01-01 | 2011-01-01 | 2010-01-01 | 2011-01-01
+ tax_ident |       name        | valid_from |  valid_to  | birth_date | death_date 
+-----------+-------------------+------------+------------+------------+------------
+ 823573673 | Kranløft Vestland | 2010-01-01 | 2011-12-31 | 2010-01-01 | 
+ 823573673 | Kranløft Vestland | 2012-01-01 | 2012-01-01 | 2010-01-01 | 2012-01-01
+ 921835809 | Kranløft Østland  | 2010-01-01 | 2011-01-01 | 2010-01-01 | 2011-01-01
 (3 rows)
 
 \echo "Check statistical unit history by year - deaths should be 1 for year 2011 and 2012"

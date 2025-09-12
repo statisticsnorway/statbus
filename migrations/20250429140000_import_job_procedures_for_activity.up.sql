@@ -81,7 +81,7 @@ BEGIN
             FROM public.%1$I dt_sub -- Target data table
             LEFT JOIN public.activity_category pac ON dt_sub.primary_activity_category_code IS NOT NULL AND pac.code = dt_sub.primary_activity_category_code
             LEFT JOIN public.activity_category sac ON dt_sub.secondary_activity_category_code IS NOT NULL AND sac.code = dt_sub.secondary_activity_category_code
-            WHERE dt_sub.row_id = ANY($1) AND dt_sub.action IS DISTINCT FROM 'skip' -- Exclude skipped rows from main processing
+            WHERE dt_sub.row_id = ANY($1) AND dt_sub.action = 'use'
         )
         UPDATE public.%1$I dt SET -- Target data table
             primary_activity_category_id = CASE
@@ -93,12 +93,12 @@ BEGIN
                                                  ELSE dt.secondary_activity_category_id -- Keep existing if not this step's target
                                              END,
             state = 'analysing'::public.import_data_state, -- Activity lookup issues are non-fatal, state remains analysing
-            errors = CASE WHEN (dt.errors - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.errors - %3$L::TEXT[]) END, -- Always clear this step's error key
+            errors = dt.errors - %3$L::TEXT[], -- Always clear this step's error key
             invalid_codes = CASE
                                 WHEN (%4$s) THEN -- Lookup failed for the current activity type
-                                    COALESCE(dt.invalid_codes, '{}'::jsonb) || jsonb_strip_nulls(%5$s) -- Add specific invalid code with original value
+                                    dt.invalid_codes || jsonb_strip_nulls(%5$s) -- Add specific invalid code with original value
                                 ELSE -- Success for this activity type: clear this step's invalid_code key
-                                    CASE WHEN (dt.invalid_codes - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.invalid_codes - %3$L::TEXT[]) END
+                                    dt.invalid_codes - %3$L::TEXT[]
                             END,
             last_completed_priority = %6$L::INTEGER -- Always advance priority for this step
         FROM lookups l
@@ -168,6 +168,7 @@ DECLARE
     v_select_est_id_expr TEXT;
     v_source_view_name TEXT;
     v_relevant_rows_count INT;
+    v_merge_mode sql_saga.temporal_merge_mode;
 BEGIN
     RAISE DEBUG '[Job %] process_activity (Batch) for step_code %: Starting operation for % rows', p_job_id, p_step_code, array_length(p_batch_row_ids, 1);
 
@@ -188,7 +189,7 @@ BEGIN
         v_select_lu_id_expr := 'dt.legal_unit_id';
         v_select_est_id_expr := 'NULL::INTEGER';
     ELSIF v_job_mode = 'establishment_formal' THEN
-        v_select_lu_id_expr := 'dt.legal_unit_id';
+        v_select_lu_id_expr := 'NULL::INTEGER';
         v_select_est_id_expr := 'dt.establishment_id';
     ELSIF v_job_mode = 'establishment_informal' THEN
         v_select_lu_id_expr := 'NULL::INTEGER';
@@ -215,13 +216,19 @@ BEGIN
                 dt.derived_valid_until AS valid_until,
                 dt.data_source_id,
                 dt.edit_by_user_id, dt.edit_at, dt.edit_comment,
-                dt.errors, dt.merge_statuses
+                dt.errors, dt.merge_status
             FROM public.%4$I dt
             WHERE dt.row_id = ANY(%5$L)
               AND dt.action = 'use'
-              AND dt.state != 'error'
-              AND dt.primary_activity_category_id IS NOT NULL;
-        $$, v_source_view_name, v_select_lu_id_expr, v_select_est_id_expr, v_data_table_name, p_batch_row_ids);
+              AND dt.primary_activity_category_id IS NOT NULL
+              AND NULLIF(dt.primary_activity_category_code, '') IS NOT NULL;
+        $$,
+            v_source_view_name,   /* %1$I */
+            v_select_lu_id_expr,  /* %2$s */
+            v_select_est_id_expr, /* %3$s */
+            v_data_table_name,    /* %4$I */
+            p_batch_row_ids       /* %5$L */
+        );
 
     ELSIF p_step_code = 'secondary_activity' THEN
         v_sql := format($$
@@ -239,13 +246,19 @@ BEGIN
                 dt.derived_valid_until AS valid_until,
                 dt.data_source_id,
                 dt.edit_by_user_id, dt.edit_at, dt.edit_comment,
-                dt.errors, dt.merge_statuses
+                dt.errors, dt.merge_status
             FROM public.%4$I dt
             WHERE dt.row_id = ANY(%5$L)
               AND dt.action = 'use'
-              AND dt.state != 'error'
-              AND dt.secondary_activity_category_id IS NOT NULL;
-        $$, v_source_view_name, v_select_lu_id_expr, v_select_est_id_expr, v_data_table_name, p_batch_row_ids);
+              AND dt.secondary_activity_category_id IS NOT NULL
+              AND NULLIF(dt.secondary_activity_category_code, '') IS NOT NULL;
+        $$,
+            v_source_view_name,   /* %1$I */
+            v_select_lu_id_expr,  /* %2$s */
+            v_select_est_id_expr, /* %3$s */
+            v_data_table_name,    /* %4$I */
+            p_batch_row_ids       /* %5$L */
+        );
     ELSE
         RAISE EXCEPTION '[Job %] process_activity: Invalid step_code %.', p_job_id, p_step_code;
     END IF;
@@ -261,31 +274,48 @@ BEGIN
     RAISE DEBUG '[Job %] process_activity: Calling sql_saga.temporal_merge for % rows (step: %).', p_job_id, v_relevant_rows_count, p_step_code;
 
     BEGIN
+        -- Determine merge mode from job strategy
+        v_merge_mode := CASE v_definition.strategy
+            WHEN 'insert_or_replace' THEN 'MERGE_ENTITY_REPLACE'::sql_saga.temporal_merge_mode
+            WHEN 'replace_only' THEN 'MERGE_ENTITY_REPLACE'::sql_saga.temporal_merge_mode
+            WHEN 'insert_or_update' THEN 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode
+            WHEN 'update_only' THEN 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode
+            ELSE 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode -- Default to safer patch
+        END;
+        RAISE DEBUG '[Job %] process_activity: Determined merge mode % from strategy %', p_job_id, v_merge_mode, v_definition.strategy;
+
         CALL sql_saga.temporal_merge(
-            p_target_table => 'public.activity'::regclass,
-            p_source_table => v_source_view_name::regclass,
-            p_identity_columns => ARRAY['id'],
-            p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
-            p_mode => 'MERGE_ENTITY_REPLACE',
-            p_identity_correlation_column => 'founding_row_id',
-            p_update_source_with_identity => true,
-            p_update_source_with_feedback => true,
-            p_feedback_status_column => 'merge_statuses',
-            p_feedback_status_key => p_step_code,
-            p_feedback_error_column => 'errors',
-            p_feedback_error_key => p_step_code,
-            p_source_row_id_column => 'row_id'
+            target_table => 'public.activity'::regclass,
+            source_table => v_source_view_name::regclass,
+            identity_columns => ARRAY['id'],
+            natural_identity_columns => ARRAY['legal_unit_id', 'establishment_id', 'type'],
+            ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
+            mode => v_merge_mode,
+            identity_correlation_column => 'founding_row_id',
+            update_source_with_identity => true,
+            update_source_with_feedback => true,
+            feedback_status_column => 'merge_status',
+            feedback_status_key => p_step_code,
+            feedback_error_column => 'errors',
+            feedback_error_key => p_step_code,
+            source_row_id_column => 'row_id'
         );
 
-        EXECUTE format($$ SELECT count(*) FROM public.%1$I WHERE row_id = ANY($1) AND errors->%2$L IS NOT NULL $$, v_data_table_name, p_step_code)
-            INTO v_error_count USING p_batch_row_ids;
+        EXECUTE format($$ SELECT count(*) FROM public.%1$I WHERE row_id = ANY($1) AND errors->%2$L IS NOT NULL $$,
+            v_data_table_name, /* %1$I */
+            p_step_code        /* %2$L */
+        ) INTO v_error_count USING p_batch_row_ids;
 
         EXECUTE format($$
             UPDATE public.%1$I dt SET
-                state = CASE WHEN dt.errors IS NULL THEN 'processing' ELSE 'error' END
+                state = (CASE WHEN dt.errors ? %3$L THEN 'error' ELSE 'processing' END)::public.import_data_state
             FROM %2$I v
             WHERE dt.row_id = v.row_id;
-        $$, v_data_table_name, v_source_view_name);
+        $$,
+            v_data_table_name,  /* %1$I */
+            v_source_view_name, /* %2$I */
+            p_step_code         /* %3$L */
+        );
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
         v_update_count := v_update_count - v_error_count;
 
@@ -294,8 +324,10 @@ BEGIN
     EXCEPTION WHEN OTHERS THEN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
         RAISE WARNING '[Job %] process_activity: Error during temporal_merge for step %: %. SQLSTATE: %', p_job_id, p_step_code, error_message, SQLSTATE;
-        v_sql := format($$UPDATE public.%1$I SET state = 'error', errors = COALESCE(errors, '{}'::jsonb) || jsonb_build_object('batch_error_process_activity', %2$L) WHERE row_id = ANY($1)$$,
-                        v_data_table_name, error_message);
+        v_sql := format($$UPDATE public.%1$I SET state = 'error'::public.import_data_state, errors = errors || jsonb_build_object('batch_error_process_activity', %2$L) WHERE row_id = ANY($1)$$,
+                        v_data_table_name, /* %1$I */
+                        error_message      /* %2$L */
+        );
         EXECUTE v_sql USING p_batch_row_ids;
         RAISE; -- Re-throw
     END;

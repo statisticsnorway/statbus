@@ -85,6 +85,15 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error
 FROM public.import_job
 WHERE slug LIKE 'import_33_%' ORDER BY slug;
 
+\echo "Data table for Legal Units (import_33_lu_era):"
+SELECT row_id, state, errors, merge_status, action, operation, tax_ident, name FROM public.import_33_lu_era_data ORDER BY row_id;
+
+\echo "Data table for Formal Establishments (import_33_esflu_era):"
+SELECT row_id, state, errors, merge_status, action, operation, tax_ident, legal_unit_tax_ident, name FROM public.import_33_esflu_era_data ORDER BY row_id;
+
+\echo "Data table for Informal Establishments (import_33_eswlu_era):"
+SELECT row_id, state, errors, merge_status, action, operation, tax_ident, name FROM public.import_33_eswlu_era_data ORDER BY row_id;
+
 \echo Run worker processing for initial analytics tasks
 CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
@@ -152,7 +161,7 @@ WITH equator_enterprise AS (
 )
 SELECT
   public.remove_ephemeral_data_from_hierarchy(
-    connect_legal_unit_to_enterprise(nile_legal_unit.unit_id, equator_enterprise.unit_id)
+    connect_legal_unit_to_enterprise(nile_legal_unit.unit_id, equator_enterprise.unit_id, '2024-01-01'::date)
   )
 FROM equator_enterprise
    , nile_legal_unit;

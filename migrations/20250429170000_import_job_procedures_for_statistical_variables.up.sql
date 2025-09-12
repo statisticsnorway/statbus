@@ -75,6 +75,11 @@ DECLARE
     v_error_json_sql TEXT := '';
     v_error_keys_to_clear_list TEXT[];
     v_add_separator BOOLEAN := FALSE;
+    v_job_mode public.import_mode;
+    v_stat_lookup_condition_sql TEXT;
+    v_stat_source_cols JSONB;
+    v_stat_source_col_names TEXT[];
+    v_invalid_stat_cols TEXT[];
 BEGIN
     RAISE DEBUG '[Job %] analyse_statistical_variables (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_row_ids, 1);
 
@@ -87,29 +92,54 @@ BEGIN
         RAISE EXCEPTION '[Job %] Failed to load valid import_data_column_list from definition_snapshot', p_job_id;
     END IF;
 
+    v_job_mode := (v_job.definition_snapshot->'import_definition'->>'mode')::public.import_mode;
+
     -- Find the step details from the snapshot
     SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = 'statistical_variables';
     IF NOT FOUND THEN
         RAISE EXCEPTION '[Job %] statistical_variables target not found in snapshot', p_job_id;
     END IF;
 
-    -- No longer filter v_stat_data_cols by step_id here.
-    -- The loop will iterate over all source_input columns and join to stat_definition_active.
-    IF v_stat_data_cols IS NULL OR jsonb_array_length(v_stat_data_cols) = 0 THEN
-         RAISE DEBUG '[Job %] analyse_statistical_variables: No data columns found in snapshot. Skipping analysis.', p_job_id;
+    -- Extract source_input columns specifically for the statistical_variables step
+    SELECT jsonb_agg(elem) INTO v_stat_source_cols
+    FROM jsonb_array_elements(v_stat_data_cols) as elem
+    WHERE elem->>'purpose' = 'source_input' AND (elem->>'step_id')::int = v_step.id;
+
+    RAISE DEBUG '[Job %] Statistical variable source columns from snapshot for step %: %', p_job_id, v_step.id, v_stat_source_cols;
+
+    IF v_stat_source_cols IS NULL OR jsonb_array_length(v_stat_source_cols) = 0 THEN
+         RAISE DEBUG '[Job %] analyse_statistical_variables: No source_input data columns found for statistical_variables step. Skipping analysis.', p_job_id;
          EXECUTE format($$UPDATE public.%1$I SET last_completed_priority = %2$L WHERE row_id = ANY($1)$$,
                         v_data_table_name /* %1$I */, v_step.priority /* %2$L */) USING p_batch_row_ids;
          RETURN;
     END IF;
 
+    -- Check for misconfigured stat variables (FAIL FAST)
+    SELECT array_agg(elem->>'column_name') INTO v_stat_source_col_names
+    FROM jsonb_array_elements(v_stat_source_cols) elem;
+
+    SELECT array_agg(u.col_name) INTO v_invalid_stat_cols
+    FROM unnest(v_stat_source_col_names) u(col_name)
+    LEFT JOIN public.stat_definition_active sda ON sda.code = u.col_name
+    WHERE sda.id IS NULL;
+
+    IF v_invalid_stat_cols IS NOT NULL AND array_length(v_invalid_stat_cols, 1) > 0 THEN
+        RAISE EXCEPTION '[Job %] Import Definition Inconsistency: The definition for step ''statistical_variables'' includes source columns that are not defined as active statistical variables: %. Please correct the import definition or activate the corresponding statistical variables.', p_job_id, array_to_string(v_invalid_stat_cols, ', ');
+    END IF;
+
     v_add_separator := FALSE;
     FOR v_col_rec IN
+        WITH source_cols AS (
+            SELECT
+                elem->>'column_name' as stat_code
+            FROM jsonb_array_elements(v_stat_source_cols) elem
+        )
         SELECT
-            idc.value->>'column_name' as col_name, -- idc for import_data_column
-            sda.type
-        FROM jsonb_array_elements(v_stat_data_cols) idc -- Iterate over all data columns from snapshot
-        JOIN public.stat_definition_active sda ON sda.code = (idc.value->>'column_name') -- Join to find actual stats
-        WHERE idc.value->>'purpose' = 'source_input' -- Consider only source_input columns
+            sda.id as stat_definition_id,
+            sda.code as col_name,
+            sda.type as type
+        FROM source_cols sc
+        JOIN public.stat_definition_active sda ON sda.code = sc.stat_code
     LOOP
         IF v_add_separator THEN
             v_error_conditions_sql := v_error_conditions_sql || ' OR ';
@@ -140,28 +170,26 @@ BEGIN
 
     v_sql := format($$
         UPDATE public.%1$I dt SET
-            -- Determine state first
             state = CASE
-                        WHEN %2$s THEN 'error'::public.import_data_state -- Error condition for this step
-                        ELSE 'analysing'::public.import_data_state -- No error from this step
+                        WHEN (%2$s) THEN 'error'::public.import_data_state
+                        ELSE 'analysing'::public.import_data_state
                     END,
-            -- Then determine action based on the new state or existing action
             action = CASE
-                        WHEN %2$s THEN 'skip'::public.import_row_action_type -- If this step causes an error, action becomes 'skip'
-                        ELSE dt.action -- Otherwise, preserve existing action
+                        WHEN (%2$s) THEN 'skip'::public.import_row_action_type
+                        ELSE dt.action
                      END,
             errors = CASE
-                        WHEN %2$s THEN COALESCE(dt.errors, '{}'::jsonb) || jsonb_strip_nulls(%3$s) -- Error condition for this step
-                        ELSE CASE WHEN (dt.errors - %4$L) = '{}'::jsonb THEN NULL ELSE (dt.errors - %4$L) END -- Clear errors specific to this step if no new error
+                        WHEN (%2$s) THEN dt.errors || jsonb_strip_nulls(%3$s)
+                        ELSE dt.errors - %4$L::text[]
                     END,
-            last_completed_priority = %5$L -- Always v_step.priority
-        WHERE dt.row_id = ANY($1) AND dt.action IS DISTINCT FROM 'skip'; -- Process if action is distinct from 'skip' (handles NULL)
+            last_completed_priority = %5$L
+        WHERE dt.row_id = ANY($1) AND dt.action = 'use';
     $$,
-        v_data_table_name /* %1$I */,
-        v_error_conditions_sql /* %2$s */, -- Reused for state/action/error conditions
-        v_error_json_sql /* %3$s */,       -- Error JSON to append
-        v_error_keys_to_clear_list /* %4$L */, -- Keys to clear from error JSON
-        v_step.priority /* %5$L */            -- last_completed_priority (always this step's priority)
+        v_data_table_name,            /* %1$I */
+        v_error_conditions_sql,       /* %2$s */
+        v_error_json_sql,             /* %3$s */
+        v_error_keys_to_clear_list,   /* %4$L */
+        v_step.priority               /* %5$L */
     );
 
     RAISE DEBUG '[Job %] analyse_statistical_variables: Single-pass batch update for non-skipped rows: %', p_job_id, v_sql;
@@ -226,7 +254,9 @@ DECLARE
     v_select_est_id_expr TEXT;
     v_source_view_name TEXT;
     v_relevant_rows_count INT;
-    v_id_select_expr TEXT;
+    v_all_stat_error_keys TEXT[];
+    v_pk_id_col_name TEXT;
+    v_merge_mode sql_saga.temporal_merge_mode;
 BEGIN
     RAISE DEBUG '[Job %] process_statistical_variables (Batch): Starting for % rows', p_job_id, array_length(p_batch_row_ids, 1);
 
@@ -242,7 +272,7 @@ BEGIN
         v_select_lu_id_expr := 'dt.legal_unit_id';
         v_select_est_id_expr := 'NULL::INTEGER';
     ELSIF v_job_mode = 'establishment_formal' THEN
-        v_select_lu_id_expr := 'dt.legal_unit_id';
+        v_select_lu_id_expr := 'NULL::INTEGER';
         v_select_est_id_expr := 'dt.establishment_id';
     ELSIF v_job_mode = 'establishment_informal' THEN
         v_select_lu_id_expr := 'NULL::INTEGER';
@@ -257,54 +287,59 @@ BEGIN
     -- Find step and data column details from snapshot
     SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = p_step_code;
     IF NOT FOUND THEN RAISE EXCEPTION '[Job %] Step % not found in snapshot', p_job_id, p_step_code; END IF;
-    v_stat_data_cols := v_job.definition_snapshot->'import_data_column_list';
+    
+    -- Filter data columns for just this step
+    SELECT jsonb_agg(elem) INTO v_stat_data_cols
+    FROM jsonb_array_elements(v_job.definition_snapshot->'import_data_column_list') as elem
+    WHERE (elem->>'step_id')::int = v_step.id;
+
+    RAISE DEBUG '[Job %] process_statistical_variables: Data columns for step % from snapshot: %', p_job_id, p_step_code, v_stat_data_cols;
 
     -- Loop over each statistical variable defined for this import and process it.
     FOR v_stat_def IN
+        WITH source_cols AS (
+            SELECT
+                elem->>'column_name' as stat_code
+            FROM jsonb_array_elements(v_stat_data_cols) elem
+            WHERE elem->>'purpose' = 'source_input'
+        )
         SELECT
             sda.id as stat_definition_id,
             sda.code as stat_code,
             sda.type as stat_type,
-            idc.value->>'column_name' as source_col_name,
-            pk_idc.value->>'column_name' as pk_col_name
-        FROM jsonb_array_elements(v_stat_data_cols) idc
-        JOIN public.stat_definition_active sda ON sda.code = (idc.value->>'column_name')
-        LEFT JOIN jsonb_array_elements(v_stat_data_cols) pk_idc
-            ON pk_idc.value->>'purpose' = 'pk_id'
-           AND pk_idc.value->>'column_name' = 'stat_for_unit_' || sda.code
-        WHERE idc.value->>'purpose' = 'source_input'
+            sc.stat_code as source_col_name
+        FROM source_cols sc
+        JOIN public.stat_definition_active sda ON sda.code = sc.stat_code
     LOOP
+        RAISE DEBUG '[Job %] process_statistical_variables: Found stat variable to process: %', p_job_id, v_stat_def;
+
         -- Create a dedicated, updatable temp view for this specific statistical variable
         v_source_view_name := 'temp_stat_source_view_' || v_stat_def.stat_code;
-
-        v_id_select_expr := CASE
-            WHEN v_stat_def.pk_col_name IS NOT NULL THEN format('dt.%I', v_stat_def.pk_col_name)
-            ELSE 'NULL::INTEGER'
-        END;
+        v_pk_id_col_name := 'stat_for_unit_' || v_stat_def.stat_code || '_id';
 
         v_sql := format($$
             CREATE OR REPLACE TEMP VIEW %1$I AS
             SELECT
                 dt.row_id,
                 dt.founding_row_id,
-                %2$s as id,
-                %3$s AS legal_unit_id,
-                %4$s AS establishment_id,
-                %5$L::INTEGER as stat_definition_id,
-                CASE %6$L
-                    WHEN 'string' THEN dt.%7$I
+                dt.%9$I as id,
+                %2$s AS legal_unit_id,
+                %3$s AS establishment_id,
+                %4$L::INTEGER as stat_definition_id,
+                CASE %5$L
+                    WHEN 'string' THEN dt.%6$I
                     ELSE NULL
                 END AS value_string,
-                CASE %6$L
-                    WHEN 'int' THEN (import.safe_cast_to_integer(dt.%7$I)).p_value
+                CASE %5$L
+                    WHEN 'int' THEN (import.safe_cast_to_integer(dt.%6$I)).p_value
                     ELSE NULL
                 END AS value_int,
-                CASE %6$L
-                    WHEN 'float' THEN (import.safe_cast_to_numeric(dt.%7$I)).p_value
+                CASE %5$L
+                    WHEN 'float' THEN (import.safe_cast_to_numeric(dt.%6$I)).p_value
                     ELSE NULL
                 END AS value_float,
-                CASE %6$L
-                    WHEN 'bool' THEN (import.safe_cast_to_boolean(dt.%7$I)).p_value
+                CASE %5$L
+                    WHEN 'bool' THEN (import.safe_cast_to_boolean(dt.%6$I)).p_value
                     ELSE NULL
                 END AS value_bool,
                 dt.derived_valid_from AS valid_from,
@@ -315,48 +350,59 @@ BEGIN
                 dt.edit_at,
                 dt.edit_comment,
                 dt.errors,
-                dt.merge_statuses
-            FROM public.%8$I dt
-            WHERE dt.row_id = ANY(%9$L)
+                merge_status
+            FROM public.%7$I dt
+            WHERE dt.row_id = ANY(%8$L)
               AND dt.action = 'use'
-              AND dt.state != 'error'
-              AND dt.%7$I IS NOT NULL AND char_length(trim(dt.%7$I)) > 0;
+              AND NULLIF(dt.%6$I, '') IS NOT NULL;
         $$,
-            v_source_view_name,       -- %1$I
-            v_id_select_expr,           -- %2$s
-            v_select_lu_id_expr,      -- %3$s
-            v_select_est_id_expr,     -- %4$s
-            v_stat_def.stat_definition_id, -- %5$L
-            v_stat_def.stat_type,       -- %6$L
-            v_stat_def.source_col_name, -- %7$I
-            v_data_table_name,          -- %8$I
-            p_batch_row_ids             -- %9$L
+            v_source_view_name,           /* %1$I */
+            v_select_lu_id_expr,          /* %2$s */
+            v_select_est_id_expr,         /* %3$s */
+            v_stat_def.stat_definition_id, /* %4$L */
+            v_stat_def.stat_type,           /* %5$L */
+            v_stat_def.source_col_name,     /* %6$I */
+            v_data_table_name,              /* %7$I */
+            p_batch_row_ids,                /* %8$L */
+            v_pk_id_col_name              /* %9$I */
         );
+        RAISE DEBUG '[Job %] process_statistical_variables: Temp view SQL for stat "%": %', p_job_id, v_stat_def.stat_code, v_sql;
         EXECUTE v_sql;
 
         EXECUTE format('SELECT count(*) FROM %I', v_source_view_name) INTO v_relevant_rows_count;
         IF v_relevant_rows_count = 0 THEN
-            RAISE DEBUG '[Job %] process_statistical_variables: No usable data for stat ''%'' in this batch. Skipping.', p_job_id, v_stat_def.stat_code;
+            RAISE DEBUG '[Job %] process_statistical_variables: No usable data for stat ''%'' in this batch (0 relevant rows). Skipping.', p_job_id, v_stat_def.stat_code;
             CONTINUE;
         END IF;
 
         RAISE DEBUG '[Job %] process_statistical_variables: Calling sql_saga.temporal_merge for % rows for stat ''%''.', p_job_id, v_relevant_rows_count, v_stat_def.stat_code;
 
         BEGIN
+            -- Determine merge mode from job strategy
+            v_merge_mode := CASE v_definition.strategy
+                WHEN 'insert_or_replace' THEN 'MERGE_ENTITY_REPLACE'::sql_saga.temporal_merge_mode
+                WHEN 'replace_only' THEN 'MERGE_ENTITY_REPLACE'::sql_saga.temporal_merge_mode
+                WHEN 'insert_or_update' THEN 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode
+                WHEN 'update_only' THEN 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode
+                ELSE 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode -- Default to safer patch
+            END;
+            RAISE DEBUG '[Job %] process_statistical_variables: Determined merge mode % from strategy % for stat %', p_job_id, v_merge_mode, v_definition.strategy, v_stat_def.stat_code;
+
             CALL sql_saga.temporal_merge(
-                p_target_table => 'public.stat_for_unit'::regclass,
-                p_source_table => v_source_view_name::regclass,
-                p_identity_columns => ARRAY['id'],
-                p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
-                p_mode => 'MERGE_ENTITY_REPLACE',
-                p_identity_correlation_column => 'founding_row_id',
-                p_update_source_with_identity => true,
-                p_update_source_with_feedback => true,
-                p_feedback_status_column => 'merge_statuses',
-                p_feedback_status_key => 'stat_' || v_stat_def.stat_code,
-                p_feedback_error_column => 'errors',
-                p_feedback_error_key => 'stat_' || v_stat_def.stat_code,
-                p_source_row_id_column => 'row_id'
+                target_table => 'public.stat_for_unit'::regclass,
+                source_table => v_source_view_name::regclass,
+                identity_columns => ARRAY['id'],
+                natural_identity_columns => ARRAY['stat_definition_id', 'legal_unit_id', 'establishment_id'],
+                ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at', 'created_at'],
+                mode => v_merge_mode,
+                identity_correlation_column => 'founding_row_id',
+                update_source_with_identity => true,
+                update_source_with_feedback => true,
+                feedback_status_column => 'merge_status',
+                feedback_status_key => 'stat_' || v_stat_def.stat_code,
+                feedback_error_column => 'errors',
+                feedback_error_key => 'stat_' || v_stat_def.stat_code,
+                source_row_id_column => 'row_id'
             );
         EXCEPTION WHEN OTHERS THEN
             GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
@@ -364,26 +410,45 @@ BEGIN
             -- Mark rows in this specific view as having an error for this stat
             EXECUTE format($$
                 UPDATE public.%1$I dt
-                SET errors = COALESCE(errors, '{}'::jsonb) || jsonb_build_object(%2$L, %3$L)
+                SET errors = dt.errors || jsonb_build_object(%2$L, %3$L)
                 FROM %4$I v
                 WHERE dt.row_id = v.row_id;
-            $$, v_data_table_name, 'stat_' || v_stat_def.stat_code, error_message, v_source_view_name);
+            $$,
+                v_data_table_name,               /* %1$I */
+                'stat_' || v_stat_def.stat_code, /* %2$L */
+                error_message,                   /* %3$L */
+                v_source_view_name               /* %4$I */
+            );
             -- Don't re-raise, try to continue with other stats
         END;
     END LOOP;
 
     -- Final update to set state for any rows that accumulated errors during the loop
+    v_all_stat_error_keys := ARRAY(
+        SELECT 'stat_' || sda.code
+        FROM jsonb_array_elements(v_stat_data_cols) idc
+        JOIN public.stat_definition_active sda ON sda.code = (idc.value->>'column_name')
+        WHERE idc.value->>'purpose' = 'source_input'
+    );
+
     v_sql := format($$
-        WITH error_rows AS (
-            SELECT row_id FROM public.%1$I WHERE row_id = ANY($1) AND errors IS NOT NULL
-        )
         UPDATE public.%1$I dt
-        SET state = 'error'
-        FROM error_rows er
-        WHERE dt.row_id = er.row_id;
-    $$, v_data_table_name);
+        SET state = (CASE
+                        WHEN dt.errors ?| %2$L THEN 'error'
+                        ELSE 'processing'
+                    END)::public.import_data_state
+        WHERE dt.row_id = ANY($1);
+    $$,
+        v_data_table_name,       /* %1$I */
+        v_all_stat_error_keys    /* %2$L */
+    );
     EXECUTE v_sql USING p_batch_row_ids;
-    GET DIAGNOSTICS v_error_count = ROW_COUNT;
+
+    -- After the update, correctly count rows that are now in an error state for this step
+    EXECUTE format($$SELECT count(*) FROM public.%1$I WHERE row_id = ANY($1) AND state = 'error' AND errors ?| %2$L $$,
+        v_data_table_name,       /* %1$I */
+        v_all_stat_error_keys    /* %2$L */
+    ) INTO v_error_count USING p_batch_row_ids;
 
     -- Count total rows in batch to calculate success count
     EXECUTE format('SELECT count(*) FROM public.%1$I WHERE row_id = ANY($1)', v_data_table_name)

@@ -11,137 +11,63 @@ DECLARE
     v_step public.import_step;
     v_data_table_name TEXT;
     v_sql TEXT;
-    v_update_count INT := 0;
-    v_processed_non_skip_count INT := 0; -- To track rows handled by the first main update
-    v_skipped_update_count INT := 0;
-    v_error_count INT := 0;
+    v_update_count INT;
     v_job_mode public.import_mode;
-    error_message TEXT;
-    v_error_keys_to_clear_arr TEXT[];
-    v_external_ident_source_column_names_json JSONB;
-    v_external_ident_source_columns TEXT[];
+    v_error_keys_to_clear TEXT[];
 BEGIN
-    RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment (Batch): Starting analysis for % rows. Batch Row IDs: %', p_job_id, array_length(p_batch_row_ids, 1), p_batch_row_ids;
-
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
     v_data_table_name := v_job.data_table_name;
     v_job_mode := (v_job.definition_snapshot->'import_definition'->>'mode')::public.import_mode;
 
-    -- Determine relevant source column names for external identifiers from the definition snapshot
-    SELECT COALESCE(jsonb_agg(idc_element->>'column_name'), '[]'::jsonb)
-    INTO v_external_ident_source_column_names_json
-    FROM jsonb_array_elements(v_job.definition_snapshot->'import_data_column_list') AS idc_element
-    JOIN jsonb_array_elements(v_job.definition_snapshot->'import_step_list') AS isl_element
-      ON (isl_element->>'code') = 'external_idents' AND (idc_element->>'step_id')::INT = (isl_element->>'id')::INT
-    WHERE idc_element->>'purpose' = 'source_input';
+    SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = p_step_code;
+    IF NOT FOUND THEN RAISE EXCEPTION '[Job %] Step % not found in snapshot', p_job_id, p_step_code; END IF;
 
-    SELECT ARRAY(SELECT jsonb_array_elements_text(v_external_ident_source_column_names_json))
-    INTO v_external_ident_source_columns;
-
-    IF array_length(v_external_ident_source_columns, 1) IS NULL OR array_length(v_external_ident_source_columns, 1) = 0 THEN
-        -- Fallback if no specific columns are found
-        v_external_ident_source_columns := ARRAY['tax_ident']; -- Sensible default
-        RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: No source_input columns found for external_idents step. Falling back to: %', p_job_id, v_external_ident_source_columns;
-    ELSE
-        RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: Identified external_idents source_input columns: %', p_job_id, v_external_ident_source_columns;
-    END IF;
-    v_error_keys_to_clear_arr := v_external_ident_source_columns;
-
-    -- Find the step details from the snapshot first
-    SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = 'enterprise_link_for_establishment';
-    IF NOT FOUND THEN RAISE EXCEPTION '[Job %] enterprise_link_for_establishment step not found in snapshot', p_job_id; END IF;
-
-    IF v_job_mode != 'establishment_informal' THEN
-        RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: Skipping, job mode is %, not ''establishment_informal''.', p_job_id, v_job_mode;
-        EXECUTE format($$UPDATE public.%1$I SET last_completed_priority = %2$L WHERE row_id = ANY($1)$$, 
-                       v_data_table_name /* %1$I */, v_step.priority /* %2$L */) USING p_batch_row_ids;
-        RETURN;
-    END IF;
-
-    -- For 'replace' actions in 'establishment_informal' mode, attempt to find the existing establishment
-    -- and its enterprise. If not found, or if enterprise_id is NULL, it's a fatal error.
-    v_sql := format($$
-        WITH est_data AS (
-            SELECT dt.row_id, est.enterprise_id AS existing_enterprise_id, est.primary_for_enterprise AS existing_primary_for_enterprise, est.id as found_est_id
-            FROM public.%1$I dt -- v_data_table_name
-            LEFT JOIN public.establishment est ON dt.establishment_id = est.id
-            WHERE dt.row_id = ANY($1) AND dt.operation = 'replace' AND dt.establishment_id IS NOT NULL AND %2$L = 'establishment_informal' -- v_job_mode
-        )
-        UPDATE public.%1$I dt SET -- v_data_table_name
-            enterprise_id = CASE
-                                WHEN dt.operation = 'replace' AND dt.establishment_id IS NOT NULL AND %2$L = 'establishment_informal' AND ed.found_est_id IS NOT NULL THEN ed.existing_enterprise_id -- v_job_mode
-                                ELSE dt.enterprise_id
-                            END,
-            primary_for_enterprise = CASE
-                                        WHEN dt.operation = 'replace' AND dt.establishment_id IS NOT NULL AND %2$L = 'establishment_informal' AND ed.found_est_id IS NOT NULL THEN ed.existing_primary_for_enterprise -- v_job_mode
-                                        ELSE dt.primary_for_enterprise
-                                     END,
-            state = CASE
-                        WHEN dt.operation = 'replace' AND dt.establishment_id IS NOT NULL AND %2$L = 'establishment_informal' AND ed.found_est_id IS NULL THEN 'error'::public.import_data_state -- EST not found -- v_job_mode
-                        WHEN dt.operation = 'replace' AND dt.establishment_id IS NOT NULL AND %2$L = 'establishment_informal' AND ed.found_est_id IS NOT NULL AND ed.existing_enterprise_id IS NULL THEN 'error'::public.import_data_state -- EST found but no enterprise_id (inconsistent for informal) -- v_job_mode
-                        ELSE 'analysing'::public.import_data_state
-                    END,
-            errors = CASE
-                        WHEN dt.operation = 'replace' AND dt.establishment_id IS NOT NULL AND %2$L = 'establishment_informal' AND ed.found_est_id IS NULL THEN -- v_job_mode
-                            COALESCE(dt.errors, '{}'::jsonb) || (SELECT jsonb_object_agg(col_name, 'Establishment identified by external identifier was not found for ''replace'' action.') FROM unnest(%5$L::TEXT[]) as col_name)
-                        WHEN dt.operation = 'replace' AND dt.establishment_id IS NOT NULL AND %2$L = 'establishment_informal' AND ed.found_est_id IS NOT NULL AND ed.existing_enterprise_id IS NULL THEN -- v_job_mode
-                            COALESCE(dt.errors, '{}'::jsonb) || (SELECT jsonb_object_agg(col_name, 'Informal establishment found for ''replace'' action, but it is not linked to an enterprise.') FROM unnest(%5$L::TEXT[]) as col_name)
-                        ELSE CASE WHEN (dt.errors - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.errors - %3$L::TEXT[]) END -- v_error_keys_to_clear_arr
-                    END,
-            last_completed_priority = %4$L -- Always v_step.priority
-        FROM public.%1$I dt_main -- Alias for the main table being updated -- v_data_table_name
-        LEFT JOIN est_data ed ON dt_main.row_id = ed.row_id
-        WHERE dt.row_id = dt_main.row_id
-          AND dt_main.row_id = ANY($1) AND dt_main.operation = 'replace' AND %2$L = 'establishment_informal'; -- v_job_mode
-    $$,
-        v_data_table_name,          -- %1$I
-        v_job_mode,                 -- %2$L
-        v_error_keys_to_clear_arr,  -- %3$L
-        v_step.priority,            -- %4$L (always this step's priority)
-        v_external_ident_source_columns -- %5$L
-    );
-
-    RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: Updating "replace" rows for informal establishments: %', p_job_id, v_sql;
-
-    BEGIN
-        EXECUTE v_sql USING p_batch_row_ids;
-        GET DIAGNOSTICS v_processed_non_skip_count = ROW_COUNT; -- This counts rows updated by the above SQL (action='replace' and mode='establishment_informal')
-        RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: Processed % "replace" rows for informal establishments (includes potential errors).', p_job_id, v_processed_non_skip_count;
-
-        -- Update priority for 'insert' rows, and 'replace' rows not matching the first UPDATE's criteria. Skipped rows are not touched.
+    -- This analysis is only for informal establishments. Other modes do nothing but advance priority.
+    IF v_job_mode = 'establishment_informal' THEN
+        -- For 'replace' actions, validate that the existing establishment is informal and has an enterprise link.
         v_sql := format($$
-            UPDATE public.%1$I dt SET -- v_data_table_name
-                last_completed_priority = %2$s, -- v_step.priority
-                state = 'analysing'::public.import_data_state,
-                errors = CASE WHEN (dt.errors - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.errors - %3$L::TEXT[]) END -- v_error_keys_to_clear_arr
-            WHERE dt.row_id = ANY($1) -- p_batch_row_ids
-              AND (dt.operation = 'insert' OR (dt.operation = 'replace' AND dt.last_completed_priority < %2$s)); -- v_step.priority
-        $$,
-            v_data_table_name,              -- %1$I
-            v_step.priority,                -- %2$s
-            v_error_keys_to_clear_arr,      -- %3$L
-            p_batch_row_ids                 -- $1
-        );
+            WITH validation AS (
+                SELECT
+                    dt.row_id,
+                    est.id as found_est_id,
+                    est.enterprise_id AS existing_enterprise_id,
+                    est.primary_for_enterprise AS existing_primary_for_enterprise
+                FROM public.%1$I dt
+                LEFT JOIN public.establishment est ON dt.establishment_id = est.id
+                WHERE dt.row_id = ANY($1)
+                  AND dt.operation = 'replace'
+                  AND dt.action IS DISTINCT FROM 'skip'
+            )
+            UPDATE public.%1$I dt SET
+                enterprise_id = v.existing_enterprise_id,
+                primary_for_enterprise = v.existing_primary_for_enterprise,
+                state = CASE
+                    WHEN v.found_est_id IS NULL THEN 'error'::public.import_data_state
+                    WHEN v.existing_enterprise_id IS NULL THEN 'error'::public.import_data_state
+                    ELSE dt.state
+                END,
+                action = CASE
+                    WHEN v.found_est_id IS NULL OR v.existing_enterprise_id IS NULL THEN 'skip'::public.import_row_action_type
+                    ELSE dt.action
+                END,
+                errors = dt.errors || CASE
+                    WHEN v.found_est_id IS NULL THEN jsonb_build_object('tax_ident', 'Informal establishment for "replace" not found.')
+                    WHEN v.existing_enterprise_id IS NULL THEN jsonb_build_object('tax_ident', 'Informal establishment for "replace" is not linked to an enterprise.')
+                    ELSE '{}'::jsonb
+                END
+            FROM validation v
+            WHERE dt.row_id = v.row_id;
+        $$, v_data_table_name);
+        RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: Validating "replace" rows for informal establishments.', p_job_id;
         EXECUTE v_sql USING p_batch_row_ids;
-        GET DIAGNOSTICS v_update_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: Updated priority/state for % other rows.', p_job_id, v_update_count;
-        v_update_count := v_processed_non_skip_count + v_update_count; -- Total rows touched
+    END IF;
 
-    EXCEPTION WHEN OTHERS THEN
-        error_message := SQLERRM;
-        RAISE WARNING '[Job %] analyse_enterprise_link_for_establishment: Error during batch update: %', p_job_id, error_message;
-        UPDATE public.import_job
-        SET error = jsonb_build_object('analyse_enterprise_link_for_establishment_error', error_message),
-            state = 'finished'
-        WHERE id = p_job_id;
-        RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: Marked job as failed due to error: %', p_job_id, error_message;
-        RAISE;
-    END;
+    -- Always advance priority for all rows in the batch to prevent loops.
+    EXECUTE format('UPDATE public.%I SET last_completed_priority = %s WHERE row_id = ANY($1)', v_data_table_name, v_step.priority)
+    USING p_batch_row_ids;
+    GET DIAGNOSTICS v_update_count = ROW_COUNT;
 
-    -- Propagate errors to all rows of a new entity if one fails
-    CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_row_ids, v_error_keys_to_clear_arr, 'analyse_enterprise_link_for_establishment');
-
-    RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment (Batch): Finished analysis successfully.', p_job_id;
+    RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment (Batch): Finished analysis. Updated priority for % rows.', p_job_id, v_update_count;
 END;
 $analyse_enterprise_link_for_establishment$;
 
@@ -178,6 +104,7 @@ BEGIN
     END IF;
 
     -- Step 1: Identify rows needing enterprise creation (new standalone ESTs, action = 'insert')
+    IF to_regclass('pg_temp.temp_new_est_for_enterprise_creation') IS NOT NULL THEN DROP TABLE temp_new_est_for_enterprise_creation; END IF;
     CREATE TEMP TABLE temp_new_est_for_enterprise_creation (
         data_row_id INTEGER PRIMARY KEY, -- This will be the founding_row_id for the new EST entity
         est_name TEXT,
@@ -196,6 +123,7 @@ BEGIN
 
     -- Step 2: Create new enterprises for ESTs in temp_new_est_for_enterprise_creation and map them
     -- temp_created_enterprises.data_row_id will store the founding_row_id of the EST
+    IF to_regclass('pg_temp.temp_created_enterprises') IS NOT NULL THEN DROP TABLE temp_created_enterprises; END IF;
     CREATE TEMP TABLE temp_created_enterprises (
         data_row_id INTEGER PRIMARY KEY, -- Stores the founding_row_id of the EST
         enterprise_id INT NOT NULL
@@ -232,7 +160,7 @@ BEGIN
         FROM temp_created_enterprises tce -- tce.data_row_id is the founding_row_id
         WHERE dt.founding_row_id = tce.data_row_id -- Link all rows of the entity via founding_row_id
           AND dt.row_id = ANY($1) -- p_batch_row_ids
-          AND dt.state != 'error'; -- Avoid updating rows already in error from a prior step
+          AND dt.action = 'use'; -- Only update usable rows
     $$, v_data_table_name, 'processing'::public.import_data_state);
     RAISE DEBUG '[Job %] process_enterprise_link_for_establishment: Updating _data for new enterprises and their related rows: %', p_job_id, v_sql;
     EXECUTE v_sql USING p_batch_row_ids;
@@ -244,7 +172,7 @@ BEGIN
             state = %2$L
         WHERE dt.row_id = ANY($1)
           AND dt.operation = 'replace' -- Only update rows for existing ESTs (mode 'establishment_informal' implies no LU link in data)
-          AND dt.state != %3$L; -- Avoid rows already in error
+          AND dt.action = 'use'; -- Only update usable rows
     $$, v_data_table_name /* %1$I */, 'processing' /* %2$L */, 'error' /* %3$L */);
      RAISE DEBUG '[Job %] process_enterprise_link_for_establishment: Updating existing ESTs (action=replace, priority only): %', p_job_id, v_sql;
     EXECUTE v_sql USING p_batch_row_ids;

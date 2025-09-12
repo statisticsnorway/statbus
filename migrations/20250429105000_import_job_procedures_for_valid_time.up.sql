@@ -105,20 +105,20 @@ BEGIN
                      END,
             errors = CASE
                         WHEN NULLIF(cdc.original_vf, '') IS NULL THEN -- Mandatory value missing
-                            COALESCE(dt.errors, '{}'::jsonb) || jsonb_build_object('valid_from', 'Missing mandatory value')
+                            dt.errors || jsonb_build_object('valid_from', 'Missing mandatory value')
                         WHEN cdc.vf_error_msg IS NOT NULL THEN -- Cast error for valid_from
-                            COALESCE(dt.errors, '{}'::jsonb) || jsonb_build_object('valid_from', cdc.vf_error_msg)
+                            dt.errors || jsonb_build_object('valid_from', cdc.vf_error_msg)
                         WHEN NULLIF(cdc.original_vt, '') IS NULL THEN -- Mandatory value missing
-                            COALESCE(dt.errors, '{}'::jsonb) || jsonb_build_object('valid_to', 'Missing mandatory value')
+                            dt.errors || jsonb_build_object('valid_to', 'Missing mandatory value')
                         WHEN cdc.vt_error_msg IS NOT NULL THEN -- Cast error for valid_to
-                            COALESCE(dt.errors, '{}'::jsonb) || jsonb_build_object('valid_to', cdc.vt_error_msg)
+                            dt.errors || jsonb_build_object('valid_to', cdc.vt_error_msg)
                         WHEN cdc.casted_vf IS NOT NULL AND cdc.casted_vu IS NOT NULL AND (cdc.casted_vf >= cdc.casted_vu) THEN -- Invalid period
-                            COALESCE(dt.errors, '{}'::jsonb) || jsonb_build_object(
+                            dt.errors || jsonb_build_object(
                                 'valid_from', 'Resulting period is invalid: derived_valid_from (' || cdc.casted_vf::TEXT || ') must be before derived_valid_until (' || cdc.casted_vu::TEXT || ')',
                                 'valid_to',   'Resulting period is invalid: derived_valid_from (' || cdc.casted_vf::TEXT || ') must be before derived_valid_until (' || cdc.casted_vu::TEXT || ')'
                             )
                         ELSE -- No error from this step, clear specific keys
-                            CASE WHEN (dt.errors - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.errors - %3$L::TEXT[]) END
+                            dt.errors - %3$L::TEXT[]
                     END,
             last_completed_priority = %4$L -- Always v_step.priority
         FROM casted_dates_cte cdc -- Use cdc alias

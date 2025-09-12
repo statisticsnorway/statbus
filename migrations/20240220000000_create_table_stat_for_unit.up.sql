@@ -38,20 +38,23 @@ CREATE INDEX ix_stat_for_unit_establishment_id ON public.stat_for_unit USING btr
 CREATE INDEX ix_stat_for_unit_legal_unit_id_valid_range ON public.stat_for_unit USING gist (legal_unit_id, daterange(valid_from, valid_until, '[)'));
 
 -- Activate era handling
-SELECT sql_saga.add_era('public.stat_for_unit', p_synchronize_valid_to_column := 'valid_to');
+SELECT sql_saga.add_era('public.stat_for_unit', synchronize_valid_to_column => 'valid_to');
 SELECT sql_saga.add_unique_key(
     table_oid => 'public.stat_for_unit',
+    key_type => 'primary',
     column_names => ARRAY['id'],
     unique_key_name => 'stat_for_unit_id_valid'
 );
 SELECT sql_saga.add_unique_key(
     table_oid => 'public.stat_for_unit',
+    key_type => 'natural',
     column_names => ARRAY['stat_definition_id', 'establishment_id'],
     unique_key_name => 'stat_for_unit_stat_definition_id_establishment_id_valid'
 );
 -- Add the corresponding unique key for legal_unit_id for symmetry.
 SELECT sql_saga.add_unique_key(
     table_oid => 'public.stat_for_unit',
+    key_type => 'natural', 
     column_names => ARRAY['stat_definition_id', 'legal_unit_id'],
     unique_key_name => 'stat_for_unit_stat_definition_id_legal_unit_id_valid'
 );

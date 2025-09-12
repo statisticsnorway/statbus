@@ -80,6 +80,7 @@ CALL worker.process_tasks(p_queue => 'import');
 --SET client_min_messages TO NOTICE;
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
+
 \echo "Checking unit counts after import processing"
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
@@ -95,9 +96,9 @@ SELECT
     curr_start,
     curr_stop
 FROM public.get_statistical_history_periods(
-    p_resolution := 'year',
-    p_valid_after := '2018-01-01',
-    p_valid_to := '2020-12-31'
+    p_resolution := 'year'::public.history_resolution,
+    p_valid_from := '2018-01-01'::DATE,
+    p_valid_until := '2021-01-01'::DATE
 )
 ORDER BY year;
 
@@ -110,7 +111,7 @@ SELECT
     curr_start,
     curr_stop
 FROM public.get_statistical_history_periods(
-    p_resolution := 'year'
+    p_resolution := 'year'::public.history_resolution
 )
 WHERE year BETWEEN EXTRACT(YEAR FROM current_date - interval '5 years')::int
               AND EXTRACT(YEAR FROM current_date)::int
@@ -126,9 +127,9 @@ SELECT
     curr_start,
     curr_stop
 FROM public.get_statistical_history_periods(
-    p_resolution := 'year',
-    p_valid_after := '2020-01-01',
-    p_valid_to := '2022-12-31'
+    p_resolution := 'year'::public.history_resolution,
+    p_valid_from := '2020-01-01'::DATE,
+    p_valid_until := '2023-01-01'::DATE
 )
 WHERE year BETWEEN 2020 AND 2022
 ORDER BY year;
@@ -142,9 +143,9 @@ SELECT
     curr_start,
     curr_stop
 FROM public.get_statistical_history_periods(
-    p_resolution := 'year-month',
-    p_valid_after := '2019-06-01',
-    p_valid_to := '2019-12-31'
+    p_resolution := 'year-month'::public.history_resolution,
+    p_valid_from := '2019-06-01'::DATE,
+    p_valid_until := '2020-01-01'::DATE
 )
 ORDER BY year, month;
 
@@ -153,28 +154,42 @@ ORDER BY year, month;
 CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
-\echo "Inspecting import job data for import_03_lu_era"
-SELECT row_id, state, errors, tax_ident, name, valid_from, valid_to, merge_statuses
+\echo "Inspecting import job data for import_03_lu_era (showing error rows first)"
+(SELECT row_id, state, errors, tax_ident, name, valid_from, valid_to, merge_status
 FROM public.import_03_lu_era_data
+WHERE state = 'error'
+ORDER BY row_id)
+UNION ALL
+(SELECT row_id, state, errors, tax_ident, name, valid_from, valid_to, merge_status
+FROM public.import_03_lu_era_data
+WHERE state != 'error'
 ORDER BY row_id
-LIMIT 5;
+LIMIT 5);
 
 \echo "Checking import job status for import_03_lu_era"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
-       (SELECT COUNT(*) FROM public.import_03_lu_era_data dr WHERE dr.state = 'error') AS error_rows
+       (SELECT COUNT(*) FROM public.import_03_lu_era_data dr WHERE dr.state = 'error') AS error_rows,
+       error
 FROM public.import_job
 WHERE slug = 'import_03_lu_era'
 ORDER BY slug;
 
-\echo "Inspecting import job data for import_03_esflu_era"
-SELECT row_id, state, errors, tax_ident, legal_unit_tax_ident, name, valid_from, valid_to, merge_statuses
+\echo "Inspecting import job data for import_03_esflu_era (showing error rows first)"
+(SELECT row_id, state, errors, tax_ident, legal_unit_tax_ident, name, valid_from, valid_to, merge_status
 FROM public.import_03_esflu_era_data
+WHERE state = 'error'
+ORDER BY row_id)
+UNION ALL
+(SELECT row_id, state, errors, tax_ident, legal_unit_tax_ident, name, valid_from, valid_to, merge_status
+FROM public.import_03_esflu_era_data
+WHERE state != 'error'
 ORDER BY row_id
-LIMIT 5;
+LIMIT 5);
 
 \echo "Checking import job status for import_03_esflu_era"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
-       (SELECT COUNT(*) FROM public.import_03_esflu_era_data dr WHERE dr.state = 'error') AS error_rows
+       (SELECT COUNT(*) FROM public.import_03_esflu_era_data dr WHERE dr.state = 'error') AS error_rows,
+       error
 FROM public.import_job
 WHERE slug = 'import_03_esflu_era'
 ORDER BY slug;
@@ -195,7 +210,7 @@ WITH timepoints_with_tax_ident AS (
                WHEN tp.unit_type = 'enterprise' THEN
                    (SELECT tei.external_idents->>'tax_ident'
                     FROM public.enterprise_external_idents AS tei
-                    WHERE tei.unit_id = tp.unit_id ORDER BY tei.valid_after LIMIT 1)
+                    WHERE tei.unit_id = tp.unit_id ORDER BY tei.valid_from LIMIT 1)
                ELSE
                    public.get_external_idents(tp.unit_type, tp.unit_id)->>'tax_ident'
            END AS tax_ident
@@ -211,14 +226,14 @@ ORDER BY tpti.unit_type, tpti.tax_ident, tpti.timepoint;
 WITH timesegments_with_tax_ident AS (
     SELECT ts.unit_type,
            ts.unit_id,
-           ts.valid_after,
-           ts.valid_to,
+           ts.valid_from,
+           ts.valid_until,
            -- For enterprises, the tax_ident is constant over its life. Find it once robustly.
            CASE
                WHEN ts.unit_type = 'enterprise' THEN
                    (SELECT tei.external_idents->>'tax_ident'
                     FROM public.enterprise_external_idents AS tei
-                    WHERE tei.unit_id = ts.unit_id ORDER BY tei.valid_after LIMIT 1)
+                    WHERE tei.unit_id = ts.unit_id ORDER BY tei.valid_from LIMIT 1)
                ELSE
                    public.get_external_idents(ts.unit_type, ts.unit_id)->>'tax_ident'
            END AS tax_ident
@@ -226,10 +241,10 @@ WITH timesegments_with_tax_ident AS (
 )
 SELECT tsti.unit_type,
        tsti.tax_ident,
-       tsti.valid_after,
-       tsti.valid_to
+       tsti.valid_from,
+       tsti.valid_until
 FROM timesegments_with_tax_ident AS tsti
-ORDER BY tsti.unit_type, tsti.tax_ident, tsti.valid_after;
+ORDER BY tsti.unit_type, tsti.tax_ident, tsti.valid_from;
 
 
 \echo "Checking timesegments_years."
@@ -248,9 +263,9 @@ WITH timeline_establishment_with_tax_ident AS (
 )
 SELECT tet.unit_type
      , tet.tax_ident
-     , tet.valid_after
      , tet.valid_from
      , tet.valid_to
+     , tet.valid_until
      , tet.name
      , tet.birth_date
      , tet.death_date
@@ -280,7 +295,7 @@ SELECT tet.unit_type
      , tet.postal_country_iso_2
      , tet.invalid_codes
 FROM timeline_establishment_with_tax_ident AS tet
-ORDER BY tet.unit_type, tet.tax_ident, tet.valid_after, tet.valid_to;
+ORDER BY tet.unit_type, tet.tax_ident, tet.valid_from, tet.valid_until;
 
 
 \echo "Checking timeline_establishment stats"
@@ -291,12 +306,12 @@ WITH timeline_establishment_stats_with_tax_ident AS (
 )
 SELECT unit_type
      , tax_ident
-     , valid_after
      , valid_from
      , valid_to
+     , valid_until
      , stats
 FROM timeline_establishment_stats_with_tax_ident
-ORDER BY unit_type, tax_ident, valid_after, valid_to;
+ORDER BY unit_type, tax_ident, valid_from, valid_until;
 
 \echo "Checking timeline_legal_unit data"
 WITH timeline_legal_unit_with_tax_ident AS (
@@ -306,9 +321,9 @@ WITH timeline_legal_unit_with_tax_ident AS (
 )
 SELECT tlut.unit_type
      , tlut.tax_ident
-     , tlut.valid_after
-     , valid_from
-     , valid_to
+     , tlut.valid_from
+     , tlut.valid_to
+     , tlut.valid_until
      , name
      , birth_date
      , death_date
@@ -338,7 +353,7 @@ SELECT tlut.unit_type
      , tlut.postal_country_iso_2
      , tlut.invalid_codes
 FROM timeline_legal_unit_with_tax_ident AS tlut
-ORDER BY tlut.unit_type, tlut.tax_ident, tlut.valid_after, tlut.valid_to;
+ORDER BY tlut.unit_type, tlut.tax_ident, tlut.valid_from, tlut.valid_until;
 
 
 \x
@@ -350,14 +365,14 @@ WITH timeline_legal_unit_stats_with_tax_ident AS (
 )
 SELECT unit_type
      , tax_ident
-     , valid_after
      , valid_from
      , valid_to
+     , valid_until
      , name
      , stats
      , jsonb_pretty(stats_summary) AS stats_summary
 FROM timeline_legal_unit_stats_with_tax_ident
-ORDER BY unit_type, tax_ident, valid_after, valid_to;
+ORDER BY unit_type, tax_ident, valid_from, valid_until;
 \x
 
 
@@ -369,14 +384,14 @@ WITH timeline_enterprise_with_tax_ident AS (
     LEFT JOIN public.enterprise_external_idents AS eei
            ON eei.unit_type = te_base.unit_type
           AND eei.unit_id = te_base.unit_id
-          AND daterange(eei.valid_after, eei.valid_to, '(]')
-           && daterange(te_base.valid_after, te_base.valid_to, '(]')
+          AND daterange(eei.valid_from, eei.valid_until, '[)')
+           && daterange(te_base.valid_from, te_base.valid_until, '[)')
 )
 SELECT te.unit_type
      , te.tax_ident
-     , te.valid_after
      , te.valid_from
      , te.valid_to
+     , te.valid_until
      , te.name
      , te.birth_date
      , te.death_date
@@ -406,7 +421,7 @@ SELECT te.unit_type
      , te.postal_country_iso_2
      , te.invalid_codes
 FROM timeline_enterprise_with_tax_ident AS te
-ORDER BY te.unit_type, te.tax_ident, te.valid_after, te.valid_to;
+ORDER BY te.unit_type, te.tax_ident, te.valid_from, te.valid_until;
 
 
 \x
@@ -418,18 +433,18 @@ WITH timeline_enterprise_stats_with_tax_ident AS (
     LEFT JOIN public.enterprise_external_idents AS eei
            ON eei.unit_type = tes_base.unit_type
           AND eei.unit_id = tes_base.unit_id
-          AND daterange(eei.valid_after, eei.valid_to, '(]')
-           && daterange(tes_base.valid_after, tes_base.valid_to, '(]')
+          AND daterange(eei.valid_from, eei.valid_until, '[)')
+           && daterange(tes_base.valid_from, tes_base.valid_until, '[)')
 )
 SELECT unit_type
      , tax_ident
-     , valid_after
      , valid_from
      , valid_to
+     , valid_until
      , name
      , jsonb_pretty(stats_summary) AS stats_summary
 FROM timeline_enterprise_stats_with_tax_ident
-ORDER BY unit_type, tax_ident, valid_after, valid_to;
+ORDER BY unit_type, tax_ident, valid_from, valid_until;
 \x
 
 
@@ -440,9 +455,9 @@ WITH statistical_unit_ordered AS (
            su_base.external_idents->>'tax_ident' AS tax_ident_for_ordering
     FROM public.statistical_unit AS su_base
 )
-SELECT valid_after
-     , valid_from
+SELECT valid_from
      , valid_to
+     , valid_until
      , unit_type
      , external_idents
      , jsonb_pretty(
@@ -450,7 +465,6 @@ SELECT valid_after
           to_jsonb(statistical_unit_ordered.*)
           -'stats'
           -'stats_summary'
-          -'valid_after'
           -'valid_from'
           -'valid_to'
           -'unit_type'
@@ -461,7 +475,7 @@ SELECT valid_after
      , jsonb_pretty(stats) AS stats
      , jsonb_pretty(stats_summary) AS stats_summary
  FROM statistical_unit_ordered
- ORDER BY valid_after, valid_from, valid_to, unit_type, tax_ident_for_ordering;
+ ORDER BY valid_from, valid_until, unit_type, tax_ident_for_ordering;
 
 \echo "Checking statistical_unit totals"
 SELECT unit_type
@@ -768,9 +782,9 @@ WITH selected_enterprise AS (
        AND unit_type = 'enterprise'
      LIMIT 1
 )
-SELECT valid_after
-     , valid_from
+SELECT valid_from
      , valid_to
+     , valid_until
      , unit_type
      , external_idents
      , jsonb_pretty(stats) AS stats
@@ -789,9 +803,9 @@ WITH selected_enterprise AS (
        AND unit_type = 'enterprise'
      LIMIT 1
 )
-SELECT valid_after
-     , valid_from
+SELECT valid_from
      , valid_to
+     , valid_until
      , unit_type
      , external_idents
      , jsonb_pretty(stats) AS stats

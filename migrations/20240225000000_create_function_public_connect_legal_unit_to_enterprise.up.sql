@@ -106,30 +106,28 @@ BEGIN
 
     -- Atomically apply all staged changes to the timeline.
     CALL sql_saga.temporal_merge(
-      p_target_table => 'public.legal_unit',
-      p_source_table => 'temp_lu_source',
-      p_id_columns => ARRAY['id'],
-      p_ephemeral_columns => ARRAY[],
-      p_mode => 'PATCH_FOR_PORTION_OF',
-      p_source_row_id_column => 'row_id'
+      target_table => 'public.legal_unit',
+      source_table => 'temp_lu_source',
+      identity_columns => ARRAY['id'],
+      ephemeral_columns => ARRAY[]::TEXT[],
+      mode => 'PATCH_FOR_PORTION_OF',
+      source_row_id_column => 'row_id'
     );
 
     -- Capture the IDs of legal units that were modified.
     SELECT array_agg(id) INTO updated_legal_unit_ids FROM temp_lu_source;
 
-    -- If the old enterprise has no more legal units or establishments, delete it.
+    -- An enterprise is timeless; it exists as long as any historical record from any
+    -- unit references it. Only delete the old enterprise if, after this operation,
+    -- it has no legal units or establishments connected to it across all of time.
     WITH deleted AS (
         DELETE FROM public.enterprise AS en
         WHERE en.id = old_enterprise_id
-        AND NOT EXISTS(
-            SELECT 1
-            FROM public.legal_unit AS lu
-            WHERE lu.enterprise_id = old_enterprise_id
+        AND NOT EXISTS (
+            SELECT 1 FROM public.legal_unit lu WHERE lu.enterprise_id = old_enterprise_id
         )
-        AND NOT EXISTS(
-            SELECT 1
-            FROM public.establishment AS es
-            WHERE es.enterprise_id = old_enterprise_id
+        AND NOT EXISTS (
+            SELECT 1 FROM public.establishment es WHERE es.enterprise_id = old_enterprise_id
         )
         RETURNING id
     )

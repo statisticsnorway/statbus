@@ -231,17 +231,17 @@ CREATE OR REPLACE VIEW public.statistical_unit_def
            --
            , invalid_codes
            , has_legal_unit
-           , CASE WHEN establishment_id IS NOT NULL THEN ARRAY[establishment_id] ELSE ARRAY[]::INT[] END AS related_establishment_ids
-           , NULL::INT[] AS excluded_establishment_ids
-           , NULL::INT[] AS included_establishment_ids
-           , CASE WHEN legal_unit_id IS NOT NULL THEN ARRAY[legal_unit_id] ELSE ARRAY[]::INT[] END AS related_legal_unit_ids
-           , NULL::INT[] AS excluded_legal_unit_ids
-           , NULL::INT[] AS included_legal_unit_ids
-           , CASE WHEN enterprise_id IS NOT NULL THEN ARRAY[enterprise_id] ELSE ARRAY[]::INT[] END AS related_enterprise_ids
-           , NULL::INT[] AS excluded_enterprise_ids
-           , NULL::INT[] AS included_enterprise_ids
+           , related_establishment_ids
+           , excluded_establishment_ids
+           , included_establishment_ids
+           , related_legal_unit_ids
+           , excluded_legal_unit_ids
+           , included_legal_unit_ids
+           , related_enterprise_ids
+           , excluded_enterprise_ids
+           , included_enterprise_ids
            , stats
-           , COALESCE(public.jsonb_stats_to_summary('{}'::JSONB,stats), '{}'::JSONB) AS stats_summary
+           , COALESCE(public.jsonb_stats_to_summary('{}'::jsonb, stats), '{}'::jsonb) AS stats_summary
            , NULL::INT AS primary_establishment_id
            , NULL::INT AS primary_legal_unit_id
       FROM public.timeline_establishment
@@ -320,15 +320,15 @@ CREATE OR REPLACE VIEW public.statistical_unit_def
            --
            , invalid_codes
            , has_legal_unit
-           , COALESCE(related_establishment_ids,ARRAY[]::INT[]) AS related_establishment_ids
-           , COALESCE(excluded_establishment_ids,ARRAY[]::INT[]) AS excluded_establishment_ids
-           , COALESCE(included_establishment_ids,ARRAY[]::INT[]) AS included_establishment_ids
-           , CASE WHEN legal_unit_id IS NOT NULL THEN ARRAY[legal_unit_id] ELSE ARRAY[]::INT[] END AS related_legal_unit_ids
-           , NULL::INT[] AS excluded_legal_unit_ids
-           , NULL::INT[] AS included_legal_unit_ids
-           , CASE WHEN enterprise_id IS NOT NULL THEN ARRAY[enterprise_id] ELSE ARRAY[]::INT[] END AS related_enterprise_ids
-           , NULL::INT[] AS excluded_enterprise_ids
-           , NULL::INT[] AS included_enterprise_ids
+           , related_establishment_ids
+           , excluded_establishment_ids
+           , included_establishment_ids
+           , related_legal_unit_ids
+           , excluded_legal_unit_ids
+           , included_legal_unit_ids
+           , related_enterprise_ids
+           , excluded_enterprise_ids
+           , included_enterprise_ids
            , stats
            , stats_summary
            , NULL::INT AS primary_establishment_id
@@ -409,15 +409,15 @@ CREATE OR REPLACE VIEW public.statistical_unit_def
            --
            , invalid_codes
            , has_legal_unit
-           , COALESCE(related_establishment_ids,ARRAY[]::INT[]) AS related_establishment_ids
-           , COALESCE(excluded_establishment_ids,ARRAY[]::INT[]) AS excluded_establishment_ids
-           , COALESCE(included_establishment_ids,ARRAY[]::INT[]) AS included_establishment_ids
-           , COALESCE(related_legal_unit_ids,ARRAY[]::INT[]) AS related_legal_unit_ids
-           , COALESCE(excluded_legal_unit_ids,ARRAY[]::INT[]) AS excluded_legal_unit_ids
-           , COALESCE(included_legal_unit_ids,ARRAY[]::INT[]) AS included_legal_unit_ids
-           , CASE WHEN enterprise_id IS NOT NULL THEN ARRAY[enterprise_id] ELSE ARRAY[]::INT[] END AS related_enterprise_ids
-           , NULL::INT[] AS excluded_enterprise_ids
-           , NULL::INT[] AS included_enterprise_ids
+           , related_establishment_ids
+           , excluded_establishment_ids
+           , included_establishment_ids
+           , related_legal_unit_ids
+           , excluded_legal_unit_ids
+           , included_legal_unit_ids
+           , related_enterprise_ids
+           , excluded_enterprise_ids
+           , included_enterprise_ids
            , NULL::JSONB AS stats
            , stats_summary
            , primary_establishment_id

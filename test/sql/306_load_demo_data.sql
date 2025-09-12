@@ -120,7 +120,7 @@ SELECT unit_type
      , jsonb_agg(DISTINCT invalid_codes) FILTER (WHERE invalid_codes IS NOT NULL) AS invalid_codes
      , jsonb_pretty(jsonb_stats_summary_merge_agg(stats_summary)) AS stats_summary
  FROM statistical_unit
- WHERE valid_after < CURRENT_DATE AND CURRENT_DATE <= valid_to
+ WHERE valid_from <= CURRENT_DATE AND CURRENT_DATE < valid_until
  GROUP BY unit_type;
 \x
 
@@ -179,7 +179,7 @@ SELECT unit_type
      , jsonb_agg(DISTINCT invalid_codes) FILTER (WHERE invalid_codes IS NOT NULL) AS invalid_codes
      , jsonb_pretty(jsonb_stats_summary_merge_agg(stats_summary)) AS stats_summary
  FROM statistical_unit
- WHERE valid_after < CURRENT_DATE AND CURRENT_DATE <= valid_to
+ WHERE valid_from <= CURRENT_DATE AND CURRENT_DATE < valid_until
  GROUP BY unit_type;
 \x
 
@@ -226,7 +226,7 @@ SELECT unit_type
      , jsonb_agg(DISTINCT invalid_codes) FILTER (WHERE invalid_codes IS NOT NULL) AS invalid_codes
      , jsonb_pretty(jsonb_stats_summary_merge_agg(stats_summary)) AS stats_summary
  FROM statistical_unit
- WHERE valid_after < CURRENT_DATE AND CURRENT_DATE <= valid_to
+ WHERE valid_from <= CURRENT_DATE AND CURRENT_DATE < valid_until
  GROUP BY unit_type;
 \x
 
@@ -274,7 +274,7 @@ SELECT unit_type
      , jsonb_agg(DISTINCT invalid_codes) FILTER (WHERE invalid_codes IS NOT NULL) AS invalid_codes
      , jsonb_pretty(jsonb_stats_summary_merge_agg(stats_summary)) AS stats_summary
  FROM statistical_unit
- WHERE valid_after < CURRENT_DATE AND CURRENT_DATE <= valid_to
+ WHERE valid_from <= CURRENT_DATE AND CURRENT_DATE < valid_until
  GROUP BY unit_type;
 \x
 

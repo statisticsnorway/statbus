@@ -188,8 +188,8 @@ END;
 $procedure$;
 
 -- Register import_job_process command in the worker system
-INSERT INTO worker.queue_registry (queue, concurrent, description)
-VALUES ('import', true, 'Concurrent queue for processing import jobs');
+INSERT INTO worker.queue_registry (queue, description)
+VALUES ('import', 'Serial queue for processing import jobs');
 
 INSERT INTO worker.command_registry (queue, command, handler_procedure, before_procedure, after_procedure, description)
 VALUES
@@ -1923,13 +1923,13 @@ BEGIN
                     IF job.review THEN
                         -- Transition rows from 'analysing' to 'analysed' if review is required
                         RAISE DEBUG '[Job %] Updating data rows from analysing to analysed in table % for review', job_id, job.data_table_name;
-                        EXECUTE format($$UPDATE public.%I SET state = %L WHERE state = %L AND errors IS NULL$$, job.data_table_name, 'analysed'::public.import_data_state, 'analysing'::public.import_data_state);
+                        EXECUTE format($$UPDATE public.%I SET state = %L WHERE state = %L AND action = 'use'$$, job.data_table_name, 'analysed'::public.import_data_state, 'analysing'::public.import_data_state);
                         job := admin.import_job_set_state(job, 'waiting_for_review');
                         RAISE DEBUG '[Job %] Analysis complete, waiting for review.', job_id;
                     ELSE
                         -- Transition rows from 'analysing' to 'processing' if no review
                         RAISE DEBUG '[Job %] Updating data rows from analysing to processing and resetting LCP in table %', job_id, job.data_table_name;
-                        EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L AND errors IS NULL$$, job.data_table_name, 'processing'::public.import_data_state, 'analysing'::public.import_data_state);
+                        EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L AND action = 'use'$$, job.data_table_name, 'processing'::public.import_data_state, 'analysing'::public.import_data_state);
                         job := admin.import_job_set_state(job, 'processing_data');
                         RAISE DEBUG '[Job %] Analysis complete, proceeding to processing.', job_id;
                         should_reschedule := TRUE; -- Reschedule to start processing
@@ -1947,7 +1947,7 @@ BEGIN
                 RAISE DEBUG '[Job %] Approved, transitioning to processing_data.', job_id;
                 -- Transition rows in _data table from 'analysed' to 'processing' and reset LCP
                 RAISE DEBUG '[Job %] Updating data rows from analysed to processing and resetting LCP in table % after approval', job_id, job.data_table_name;
-                EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L AND errors IS NULL$$, job.data_table_name, 'processing'::public.import_data_state, 'analysed'::public.import_data_state);
+                EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L AND action = 'use'$$, job.data_table_name, 'processing'::public.import_data_state, 'analysed'::public.import_data_state);
                 job := admin.import_job_set_state(job, 'processing_data');
                 should_reschedule := TRUE; -- Reschedule immediately to start import
             END;
@@ -2008,6 +2008,27 @@ EXCEPTION WHEN OTHERS THEN
 END;
 $import_job_process$;
 
+
+CREATE PROCEDURE admin.disable_temporal_triggers()
+LANGUAGE plpgsql SECURITY DEFINER AS $procedure$
+BEGIN
+    CALL sql_saga.disable_temporal_triggers(
+        'public.legal_unit'::regclass, 'public.establishment'::regclass, 'public.activity'::regclass, 'public.location'::regclass,
+        'public.contact'::regclass, 'public.stat_for_unit'::regclass, 'public.person_for_unit'::regclass
+    );
+END;
+$procedure$;
+
+CREATE PROCEDURE admin.enable_temporal_triggers()
+LANGUAGE plpgsql SECURITY DEFINER AS $procedure$
+BEGIN
+    CALL sql_saga.enable_temporal_triggers(
+        'public.legal_unit'::regclass, 'public.establishment'::regclass, 'public.activity'::regclass, 'public.location'::regclass,
+        'public.contact'::regclass, 'public.stat_for_unit'::regclass, 'public.person_for_unit'::regclass
+    );
+END;
+$procedure$;
+
 -- Helper procedure to process a single batch through all processing steps
 CREATE PROCEDURE admin.import_job_process_batch(
     job public.import_job,
@@ -2023,6 +2044,12 @@ BEGIN
     RAISE DEBUG '[Job %] Processing batch of % rows through all process steps.', job.id, array_length(batch_row_ids, 1);
     targets := job.definition_snapshot->'import_step_list';
 
+    -- Temporarily disable all relevant foreign key triggers for the duration of the batch transaction.
+    -- This allows the transaction to reach a temporarily inconsistent state between procedure calls
+    -- (e.g., a child record being created before its parent), with the guarantee that the final state
+    -- will be consistent when triggers are re-enabled at the end of the transaction.
+    CALL admin.disable_temporal_triggers();
+
     FOR target_rec IN SELECT * FROM jsonb_populate_recordset(NULL::public.import_step, targets) ORDER BY priority
     LOOP
         proc_to_call := target_rec.process_procedure;
@@ -2031,10 +2058,14 @@ BEGIN
         END IF;
 
         RAISE DEBUG '[Job %] Batch processing: Calling % for step %', job.id, proc_to_call, target_rec.code;
-        
+
         -- Since this is one transaction, any error will roll back the entire batch.
         EXECUTE format('CALL %s($1, $2, $3)', proc_to_call) USING job.id, batch_row_ids, target_rec.code;
     END LOOP;
+
+    -- Re-enable triggers. They will be checked for the entire transaction at this point.
+    CALL admin.enable_temporal_triggers();
+
     RAISE DEBUG '[Job %] Batch processing complete.', job.id;
 END;
 $import_job_process_batch$;
@@ -2217,7 +2248,7 @@ BEGIN
         WITH entity_batch AS (
             SELECT DISTINCT COALESCE(founding_row_id, row_id) AS entity_root_id
             FROM public.%1$I
-            WHERE state = 'processing' AND errors IS NULL AND action != 'skip'
+            WHERE state = 'processing' AND action = 'use'
             ORDER BY entity_root_id
             LIMIT %2$L
         )
@@ -2226,7 +2257,7 @@ BEGIN
             SELECT dt.row_id
             FROM public.%1$I dt
             JOIN entity_batch eb ON COALESCE(dt.founding_row_id, dt.row_id) = eb.entity_root_id
-            WHERE dt.state = 'processing' AND dt.errors IS NULL AND dt.action != 'skip'
+            WHERE dt.state = 'processing' AND dt.action = 'use'
             ORDER BY dt.row_id
             FOR UPDATE SKIP LOCKED
         ) t

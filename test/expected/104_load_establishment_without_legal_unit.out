@@ -171,23 +171,23 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | pending   |     2
+ analytics | pending   |     5
  import    | completed |    44
 (2 rows)
 
 \echo "Inspecting import job data for import_02_eswlu_tc"
 "Inspecting import job data for import_02_eswlu_tc"
-SELECT row_id, state, errors, tax_ident, name, data_source_code, merge_statuses
+SELECT row_id, state, errors, tax_ident, name, data_source_code, merge_status
 FROM public.import_02_eswlu_tc_data
 ORDER BY row_id
 LIMIT 5;
- row_id |   state   | errors | tax_ident |             name              | data_source_code |        merge_statuses        
---------+-----------+--------+-----------+-------------------------------+------------------+------------------------------
-      1 | processed | {}     | 819097232 | NETT & EL TEKNIKK AS          | brreg            | {"establishment": "APPLIED"}
-      2 | processed | {}     | 825481982 | GRAPHICS BY MIA               | brreg            | {"establishment": "APPLIED"}
-      3 | processed | {}     | 873124032 | NORSVIN SA TESTESTASJON DELTA | brreg            | {"establishment": "APPLIED"}
-      4 | processed | {}     | 895406732 | KRAN & SPESIALLØFT AS         | brreg            | {"establishment": "APPLIED"}
-      5 | processed | {}     | 911856174 | VIKEDAL LEGEKONTOR            | brreg            | {"establishment": "APPLIED"}
+ row_id |   state   | errors | tax_ident |             name              | data_source_code |                                                                      merge_status                                                                      
+--------+-----------+--------+-----------+-------------------------------+------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------
+      1 | processed | {}     | 819097232 | NETT & EL TEKNIKK AS          | brreg            | {"establishment": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+      2 | processed | {}     | 825481982 | GRAPHICS BY MIA               | brreg            | {"establishment": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+      3 | processed | {}     | 873124032 | NORSVIN SA TESTESTASJON DELTA | brreg            | {"establishment": "APPLIED", "stat_employees": "APPLIED", "postal_location": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+      4 | processed | {}     | 895406732 | KRAN & SPESIALLØFT AS         | brreg            | {"establishment": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+      5 | processed | {}     | 911856174 | VIKEDAL LEGEKONTOR            | brreg            | {"establishment": "APPLIED", "stat_employees": "APPLIED", "postal_location": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
 (5 rows)
 
 \echo "Checking import job status for import_02_eswlu_tc"
@@ -219,7 +219,7 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |     4
+ analytics | completed |     7
  import    | completed |    44
 (2 rows)
 

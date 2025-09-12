@@ -213,7 +213,7 @@ BEGIN
             primary_for_legal_unit = CASE WHEN pre.errors_jsonb IS NULL THEN pre.primary_for_legal_unit ELSE dt.primary_for_legal_unit END,
             state = CASE WHEN pre.errors_jsonb IS NOT NULL THEN 'error'::public.import_data_state ELSE dt.state END,
             action = CASE WHEN pre.errors_jsonb IS NOT NULL THEN 'skip'::public.import_row_action_type ELSE dt.action END,
-            errors = CASE WHEN pre.errors_jsonb IS NOT NULL THEN COALESCE(dt.errors, '{}'::jsonb) || pre.errors_jsonb ELSE (CASE WHEN (dt.errors - %2$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.errors - %2$L::TEXT[]) END) END,
+            errors = CASE WHEN pre.errors_jsonb IS NOT NULL THEN dt.errors || pre.errors_jsonb ELSE dt.errors - %2$L::TEXT[] END,
             last_completed_priority = %3$L
         FROM temp_precalc pre
         WHERE dt.row_id = pre.data_row_id

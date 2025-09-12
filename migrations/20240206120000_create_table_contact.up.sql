@@ -39,20 +39,21 @@ CREATE INDEX ix_contact_edit_by_user_id ON public.contact USING btree (edit_by_u
 CREATE INDEX ix_contact_legal_unit_id_valid_range ON public.contact USING gist (legal_unit_id, daterange(valid_from, valid_until, '[)'));
 
 -- Activate era handling
-SELECT sql_saga.add_era('public.contact', p_synchronize_valid_to_column := 'valid_to');
+SELECT sql_saga.add_era('public.contact', synchronize_valid_to_column => 'valid_to');
 SELECT sql_saga.add_unique_key(
-    table_oid => 'public.contact',
+    table_oid => 'public.contact'::regclass,
+    key_type => 'primary',
     column_names => ARRAY['id'],
     unique_key_name => 'contact_id_valid'
 );
 SELECT sql_saga.add_foreign_key(
-    fk_table_oid => 'public.contact',
+    fk_table_oid => 'public.contact'::regclass,
     fk_column_names => ARRAY['establishment_id'],
     fk_era_name => 'valid',
     unique_key_name => 'establishment_id_valid'
 );
 SELECT sql_saga.add_foreign_key(
-    fk_table_oid => 'public.contact',
+    fk_table_oid => 'public.contact'::regclass,
     fk_column_names => ARRAY['legal_unit_id'],
     fk_era_name => 'valid',
     unique_key_name => 'legal_unit_id_valid'

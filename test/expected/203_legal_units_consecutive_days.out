@@ -110,7 +110,7 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | pending   |     6
+ analytics | pending   |     5
  import    | completed |    44
 (2 rows)
 
@@ -131,7 +131,7 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |     8
+ analytics | completed |     7
  import    | completed |    44
 (2 rows)
 
@@ -150,7 +150,6 @@ SELECT
 "Checking timeline_legal_unit data after Day 1 load"
 SELECT unit_type
      , public.get_external_idents(unit_type, unit_id)->>'tax_ident' AS tax_ident
-     , valid_after
      , valid_from
      , valid_to
      , name
@@ -169,10 +168,10 @@ SELECT unit_type
      , physical_country_iso_2
      , invalid_codes
 FROM public.timeline_legal_unit
-ORDER BY unit_type, unit_id, valid_after, valid_to;
- unit_type  | tax_ident  | valid_after | valid_from | valid_to |       name       | birth_date | death_date |            search            | primary_activity_category_path | activity_category_paths |   sector_path   | sector_code |    sector_name     | data_source_codes | legal_form_code |       legal_form_name       | physical_region_path | physical_country_iso_2 | invalid_codes 
-------------+------------+-------------+------------+----------+------------------+------------+------------+------------------------------+--------------------------------+-------------------------+-----------------+-------------+--------------------+-------------------+-----------------+-----------------------------+----------------------+------------------------+---------------
- legal_unit | 3212760144 | 2025-02-28  | 2025-03-01 | infinity | NILE PEARL WATER | 2016-10-01 |            | 'nile':1 'pearl':2 'water':3 | G.47.5.2                       | {G.47.5.2}              | DOMESTIC.C.6100 | 6100        | Central government | {nlr}             | 1               | Public limited company (SA) | 2.256.13             | UG                     | 
+ORDER BY unit_type, unit_id, valid_from, valid_to;
+ unit_type  | tax_ident  | valid_from | valid_to |       name       | birth_date | death_date |            search            | primary_activity_category_path | activity_category_paths |   sector_path   | sector_code |    sector_name     | data_source_codes | legal_form_code |       legal_form_name       | physical_region_path | physical_country_iso_2 | invalid_codes 
+------------+------------+------------+----------+------------------+------------+------------+------------------------------+--------------------------------+-------------------------+-----------------+-------------+--------------------+-------------------+-----------------+-----------------------------+----------------------+------------------------+---------------
+ legal_unit | 3212760144 | 2025-03-01 | infinity | NILE PEARL WATER | 2016-10-01 |            | 'nile':1 'pearl':2 'water':3 | G.47.5.2                       | {G.47.5.2}              | DOMESTIC.C.6100 | 6100        | Central government | {nlr}             | 1               | Public limited company (SA) | 2.256.13             | UG                     | 
 (1 row)
 
 -- Create Import Job for Legal Units (Day 4)
@@ -188,14 +187,12 @@ SELECT
 \copy public.import_43_lu_day4_upload(valid_from,valid_to,tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'test/data/43_legal-units-day-4.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \echo Run worker processing for import jobs (Day 4)
 Run worker processing for import jobs (Day 4)
---SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
---SET client_min_messages TO NOTICE;
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | pending   |     5
- analytics | completed |     8
+ analytics | pending   |     4
+ analytics | completed |     7
  import    | completed |    88
 (3 rows)
 
@@ -216,7 +213,7 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |    15
+ analytics | completed |    13
  import    | completed |    88
 (2 rows)
 
@@ -235,7 +232,6 @@ SELECT
 "Checking timeline_legal_unit data after Day 4 load"
 SELECT unit_type
      , public.get_external_idents(unit_type, unit_id)->>'tax_ident' AS tax_ident
-     , valid_after
      , valid_from
      , valid_to
      , name
@@ -254,10 +250,10 @@ SELECT unit_type
      , physical_country_iso_2
      , invalid_codes
 FROM public.timeline_legal_unit
-ORDER BY unit_type, unit_id, valid_after, valid_to;
- unit_type  | tax_ident  | valid_after | valid_from | valid_to |       name       | birth_date | death_date |            search            | primary_activity_category_path | activity_category_paths |   sector_path   | sector_code |    sector_name     | data_source_codes | legal_form_code |       legal_form_name       | physical_region_path | physical_country_iso_2 | invalid_codes 
-------------+------------+-------------+------------+----------+------------------+------------+------------+------------------------------+--------------------------------+-------------------------+-----------------+-------------+--------------------+-------------------+-----------------+-----------------------------+----------------------+------------------------+---------------
- legal_unit | 3212760144 | 2025-02-28  | 2025-03-01 | infinity | NILE PEARL WATER | 2016-10-01 |            | 'nile':1 'pearl':2 'water':3 | G.47.5.2                       | {G.47.5.2}              | DOMESTIC.C.6100 | 6100        | Central government | {nlr}             | 1               | Public limited company (SA) | 2.256.13             | UG                     | 
+ORDER BY unit_type, unit_id, valid_from, valid_to;
+ unit_type  | tax_ident  | valid_from | valid_to |       name       | birth_date | death_date |            search            | primary_activity_category_path | activity_category_paths |   sector_path   | sector_code |    sector_name     | data_source_codes | legal_form_code |       legal_form_name       | physical_region_path | physical_country_iso_2 | invalid_codes 
+------------+------------+------------+----------+------------------+------------+------------+------------------------------+--------------------------------+-------------------------+-----------------+-------------+--------------------+-------------------+-----------------+-----------------------------+----------------------+------------------------+---------------
+ legal_unit | 3212760144 | 2025-03-01 | infinity | NILE PEARL WATER | 2016-10-01 |            | 'nile':1 'pearl':2 'water':3 | G.47.5.2                       | {G.47.5.2}              | DOMESTIC.C.6100 | 6100        | Central government | {nlr}             | 1               | Public limited company (SA) | 2.256.13             | UG                     | 
 (1 row)
 
 -- Create Import Job for Legal Units (Day 3)
@@ -277,8 +273,8 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | pending   |     5
- analytics | completed |    15
+ analytics | pending   |     4
+ analytics | completed |    13
  import    | completed |   132
 (3 rows)
 
@@ -299,7 +295,7 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |    22
+ analytics | completed |    19
  import    | completed |   132
 (2 rows)
 
@@ -318,7 +314,6 @@ SELECT
 "Checking timeline_legal_unit data after Day 3 load"
 SELECT unit_type
      , public.get_external_idents(unit_type, unit_id)->>'tax_ident' AS tax_ident
-     , valid_after
      , valid_from
      , valid_to
      , name
@@ -337,10 +332,10 @@ SELECT unit_type
      , physical_country_iso_2
      , invalid_codes
 FROM public.timeline_legal_unit
-ORDER BY unit_type, unit_id, valid_after, valid_to;
- unit_type  | tax_ident  | valid_after | valid_from | valid_to |       name       | birth_date | death_date |            search            | primary_activity_category_path | activity_category_paths |   sector_path   | sector_code |    sector_name     | data_source_codes | legal_form_code |       legal_form_name       | physical_region_path | physical_country_iso_2 | invalid_codes 
-------------+------------+-------------+------------+----------+------------------+------------+------------+------------------------------+--------------------------------+-------------------------+-----------------+-------------+--------------------+-------------------+-----------------+-----------------------------+----------------------+------------------------+---------------
- legal_unit | 3212760144 | 2025-02-28  | 2025-03-01 | infinity | NILE PEARL WATER | 2016-10-01 |            | 'nile':1 'pearl':2 'water':3 | G.47.5.2                       | {G.47.5.2}              | DOMESTIC.C.6100 | 6100        | Central government | {nlr}             | 1               | Public limited company (SA) | 2.256.13             | UG                     | 
+ORDER BY unit_type, unit_id, valid_from, valid_to;
+ unit_type  | tax_ident  | valid_from | valid_to |       name       | birth_date | death_date |            search            | primary_activity_category_path | activity_category_paths |   sector_path   | sector_code |    sector_name     | data_source_codes | legal_form_code |       legal_form_name       | physical_region_path | physical_country_iso_2 | invalid_codes 
+------------+------------+------------+----------+------------------+------------+------------+------------------------------+--------------------------------+-------------------------+-----------------+-------------+--------------------+-------------------+-----------------+-----------------------------+----------------------+------------------------+---------------
+ legal_unit | 3212760144 | 2025-03-01 | infinity | NILE PEARL WATER | 2016-10-01 |            | 'nile':1 'pearl':2 'water':3 | G.47.5.2                       | {G.47.5.2}              | DOMESTIC.C.6100 | 6100        | Central government | {nlr}             | 1               | Public limited company (SA) | 2.256.13             | UG                     | 
 (1 row)
 
 ROLLBACK TO before_loading_units;
@@ -370,7 +365,7 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | pending   |     6
+ analytics | pending   |     5
  import    | completed |    44
 (2 rows)
 
@@ -402,7 +397,7 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | pending   |     6
+ analytics | pending   |     5
  import    | completed |    88
 (2 rows)
 
@@ -423,7 +418,7 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |     8
+ analytics | completed |     7
  import    | completed |    88
 (2 rows)
 
@@ -442,7 +437,6 @@ SELECT
 "Checking timeline_legal_unit data after Scenario 2 (Day 1 & 3) load"
 SELECT unit_type
      , public.get_external_idents(unit_type, unit_id)->>'tax_ident' AS tax_ident
-     , valid_after
      , valid_from
      , valid_to
      , name
@@ -461,10 +455,10 @@ SELECT unit_type
      , physical_country_iso_2
      , invalid_codes
 FROM public.timeline_legal_unit
-ORDER BY unit_type, unit_id, valid_after, valid_to;
- unit_type  | tax_ident  | valid_after | valid_from | valid_to |       name       | birth_date | death_date |            search            | primary_activity_category_path | activity_category_paths |   sector_path   | sector_code |    sector_name     | data_source_codes | legal_form_code |       legal_form_name       | physical_region_path | physical_country_iso_2 | invalid_codes 
-------------+------------+-------------+------------+----------+------------------+------------+------------+------------------------------+--------------------------------+-------------------------+-----------------+-------------+--------------------+-------------------+-----------------+-----------------------------+----------------------+------------------------+---------------
- legal_unit | 3212760144 | 2025-02-28  | 2025-03-01 | infinity | NILE PEARL WATER | 2016-10-01 |            | 'nile':1 'pearl':2 'water':3 | G.47.5.2                       | {G.47.5.2}              | DOMESTIC.C.6100 | 6100        | Central government | {nlr}             | 1               | Public limited company (SA) | 2.256.13             | UG                     | 
+ORDER BY unit_type, unit_id, valid_from, valid_to;
+ unit_type  | tax_ident  | valid_from | valid_to |       name       | birth_date | death_date |            search            | primary_activity_category_path | activity_category_paths |   sector_path   | sector_code |    sector_name     | data_source_codes | legal_form_code |       legal_form_name       | physical_region_path | physical_country_iso_2 | invalid_codes 
+------------+------------+------------+----------+------------------+------------+------------+------------------------------+--------------------------------+-------------------------+-----------------+-------------+--------------------+-------------------+-----------------+-----------------------------+----------------------+------------------------+---------------
+ legal_unit | 3212760144 | 2025-03-01 | infinity | NILE PEARL WATER | 2016-10-01 |            | 'nile':1 'pearl':2 'water':3 | G.47.5.2                       | {G.47.5.2}              | DOMESTIC.C.6100 | 6100        | Central government | {nlr}             | 1               | Public limited company (SA) | 2.256.13             | UG                     | 
 (1 row)
 
 -- Create Import Job for Legal Units (Scenario 2 - Day 4)
@@ -484,8 +478,8 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | pending   |     5
- analytics | completed |     8
+ analytics | pending   |     4
+ analytics | completed |     7
  import    | completed |   132
 (3 rows)
 
@@ -506,7 +500,7 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |    15
+ analytics | completed |    13
  import    | completed |   132
 (2 rows)
 
@@ -525,7 +519,6 @@ SELECT
 "Checking timeline_legal_unit data after Scenario 2 (Day 1, 3 & 4) load"
 SELECT unit_type
      , public.get_external_idents(unit_type, unit_id)->>'tax_ident' AS tax_ident
-     , valid_after
      , valid_from
      , valid_to
      , name
@@ -544,10 +537,10 @@ SELECT unit_type
      , physical_country_iso_2
      , invalid_codes
 FROM public.timeline_legal_unit
-ORDER BY unit_type, unit_id, valid_after, valid_to;
- unit_type  | tax_ident  | valid_after | valid_from | valid_to |       name       | birth_date | death_date |            search            | primary_activity_category_path | activity_category_paths |   sector_path   | sector_code |    sector_name     | data_source_codes | legal_form_code |       legal_form_name       | physical_region_path | physical_country_iso_2 | invalid_codes 
-------------+------------+-------------+------------+----------+------------------+------------+------------+------------------------------+--------------------------------+-------------------------+-----------------+-------------+--------------------+-------------------+-----------------+-----------------------------+----------------------+------------------------+---------------
- legal_unit | 3212760144 | 2025-02-28  | 2025-03-01 | infinity | NILE PEARL WATER | 2016-10-01 |            | 'nile':1 'pearl':2 'water':3 | G.47.5.2                       | {G.47.5.2}              | DOMESTIC.C.6100 | 6100        | Central government | {nlr}             | 1               | Public limited company (SA) | 2.256.13             | UG                     | 
+ORDER BY unit_type, unit_id, valid_from, valid_to;
+ unit_type  | tax_ident  | valid_from | valid_to |       name       | birth_date | death_date |            search            | primary_activity_category_path | activity_category_paths |   sector_path   | sector_code |    sector_name     | data_source_codes | legal_form_code |       legal_form_name       | physical_region_path | physical_country_iso_2 | invalid_codes 
+------------+------------+------------+----------+------------------+------------+------------+------------------------------+--------------------------------+-------------------------+-----------------+-------------+--------------------+-------------------+-----------------+-----------------------------+----------------------+------------------------+---------------
+ legal_unit | 3212760144 | 2025-03-01 | infinity | NILE PEARL WATER | 2016-10-01 |            | 'nile':1 'pearl':2 'water':3 | G.47.5.2                       | {G.47.5.2}              | DOMESTIC.C.6100 | 6100        | Central government | {nlr}             | 1               | Public limited company (SA) | 2.256.13             | UG                     | 
 (1 row)
 
 ROLLBACK;

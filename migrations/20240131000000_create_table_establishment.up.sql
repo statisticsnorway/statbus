@@ -5,7 +5,6 @@ CREATE TABLE public.establishment (
     valid_from date NOT NULL,
     valid_to date NOT NULL,
     valid_until date NOT NULL,
-    active boolean NOT NULL DEFAULT true,
     short_name character varying(16),
     name character varying(256) NOT NULL,
     birth_date date,
@@ -39,7 +38,6 @@ CREATE TABLE public.establishment (
     CHECK( CASE WHEN enterprise_id IS NULL THEN sector_id IS NULL END)
 );
 
-CREATE INDEX establishment_active_idx ON public.establishment(active);
 CREATE INDEX ix_establishment_data_source_id ON public.establishment USING btree (data_source_id);
 CREATE INDEX ix_establishment_sector_id ON public.establishment USING btree (sector_id);
 CREATE INDEX ix_establishment_status_id ON public.establishment USING btree (status_id);
@@ -57,9 +55,10 @@ CREATE OR REPLACE FUNCTION admin.establishment_id_exists(fk_id integer) RETURNS 
 $$;
 
 -- Activate era handling
-SELECT sql_saga.add_era('public.establishment', p_synchronize_valid_to_column := 'valid_to');
+SELECT sql_saga.add_era('public.establishment', synchronize_valid_to_column => 'valid_to');
 SELECT sql_saga.add_unique_key(
     table_oid => 'public.establishment',
+    key_type => 'primary',
     column_names => ARRAY['id'],
     unique_key_name => 'establishment_id_valid'
 );
@@ -67,6 +66,7 @@ SELECT sql_saga.add_unique_key(
 SELECT sql_saga.add_unique_key(
     table_oid => 'public.establishment',
     column_names => ARRAY['enterprise_id'],
+    key_type => 'predicated',
     predicate => 'primary_for_enterprise IS TRUE',
     unique_key_name => 'establishment_enterprise_id_primary_valid'
 );
@@ -74,6 +74,7 @@ SELECT sql_saga.add_unique_key(
 SELECT sql_saga.add_unique_key(
     table_oid => 'public.establishment',
     column_names => ARRAY['legal_unit_id'],
+    key_type => 'predicated',
     predicate => 'primary_for_legal_unit IS TRUE',
     unique_key_name => 'establishment_legal_unit_id_primary_valid'
 );

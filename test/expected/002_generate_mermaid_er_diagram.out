@@ -176,7 +176,6 @@ erDiagram
 		date valid_from
 		date valid_to
 		date valid_until
-		boolean active
 		character_varying(16) short_name
 		character_varying(256) name
 		integer enterprise_group_type_id
@@ -214,7 +213,6 @@ erDiagram
 		date valid_from
 		date valid_to
 		date valid_until
-		boolean active
 		character_varying(16) short_name
 		character_varying(256) name
 		date birth_date
@@ -392,7 +390,6 @@ erDiagram
 		date valid_from
 		date valid_to
 		date valid_until
-		boolean active
 		character_varying(16) short_name
 		character_varying(256) name
 		date birth_date
@@ -699,6 +696,7 @@ erDiagram
 	}
 	statistical_unit_facet["statistical_unit_facet"] {
 		date valid_from
+		date valid_to
 		date valid_until
 		statistical_unit_type unit_type
 		ltree physical_region_path
@@ -827,6 +825,9 @@ erDiagram
 		integer[] related_legal_unit_ids
 		integer[] excluded_legal_unit_ids
 		integer[] included_legal_unit_ids
+		integer[] related_enterprise_ids
+		integer[] excluded_enterprise_ids
+		integer[] included_enterprise_ids
 		integer enterprise_id
 		integer primary_establishment_id
 		integer primary_legal_unit_id
@@ -906,6 +907,15 @@ erDiagram
 		boolean primary_for_enterprise
 		boolean primary_for_legal_unit
 		jsonb stats
+		integer[] related_establishment_ids
+		integer[] excluded_establishment_ids
+		integer[] included_establishment_ids
+		integer[] related_legal_unit_ids
+		integer[] excluded_legal_unit_ids
+		integer[] included_legal_unit_ids
+		integer[] related_enterprise_ids
+		integer[] excluded_enterprise_ids
+		integer[] included_enterprise_ids
 	}
 	timeline_legal_unit["timeline_legal_unit"] {
 		statistical_unit_type unit_type
@@ -978,6 +988,12 @@ erDiagram
 		integer[] related_establishment_ids
 		integer[] excluded_establishment_ids
 		integer[] included_establishment_ids
+		integer[] related_legal_unit_ids
+		integer[] excluded_legal_unit_ids
+		integer[] included_legal_unit_ids
+		integer[] related_enterprise_ids
+		integer[] excluded_enterprise_ids
+		integer[] included_enterprise_ids
 		integer legal_unit_id
 		integer enterprise_id
 		boolean primary_for_enterprise
@@ -1081,6 +1097,7 @@ erDiagram
 		name unique_key_name
 		name table_schema
 		name table_name
+		sql_saga_unique_key_type key_type
 		name[] column_names
 		name era_name
 		name unique_constraint
@@ -1112,7 +1129,6 @@ erDiagram
 	}
 	worker_queue_registry["worker.queue_registry"] {
 		text queue
-		boolean concurrent
 		text description
 	}
 	worker_tasks["worker.tasks"] {

@@ -337,42 +337,42 @@ BEGIN
 
     -- 1. Legal Units (Job Provided Time)
     INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id, custom)
-    VALUES ('legal_unit_job_provided', 'Legal Units (Job Provided Time)', 'Import legal units. Validity is determined by a time context or explicit dates provided when the job is created.', 'insert_or_replace', 'legal_unit', 'job_provided', false, nlr_data_source_id, FALSE)
+    VALUES ('legal_unit_job_provided', 'Legal Units (Job Provided Time)', 'Import legal units. Validity is determined by a time context or explicit dates provided when the job is created.', 'insert_or_update', 'legal_unit', 'job_provided', false, nlr_data_source_id, FALSE)
     RETURNING id INTO def_id;
     PERFORM import.link_steps_to_definition(def_id, lu_steps);
     PERFORM import.create_source_and_mappings_for_definition(def_id, lu_source_cols);
 
     -- 2. Legal Units (via Source File Dates)
     INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id, custom)
-    VALUES ('legal_unit_source_dates', 'Legal Units (Source Dates)', 'Import legal units. Validity period is determined by explicit valid_from and valid_to columns in the source file.', 'insert_or_replace', 'legal_unit', 'source_columns', false, nlr_data_source_id, FALSE)
+    VALUES ('legal_unit_source_dates', 'Legal Units (Source Dates)', 'Import legal units. Validity period is determined by explicit valid_from and valid_to columns in the source file.', 'insert_or_update', 'legal_unit', 'source_columns', false, nlr_data_source_id, FALSE)
     RETURNING id INTO def_id;
     PERFORM import.link_steps_to_definition(def_id, lu_steps);
     PERFORM import.create_source_and_mappings_for_definition(def_id, lu_explicit_source_cols);
 
     -- 3. Establishments for Legal Unit (Job Provided Time)
     INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id, custom)
-    VALUES ('establishment_for_lu_job_provided', 'Establishments for LU (Job Provided Time)', 'Import establishments for LUs. Validity is determined by a time context or explicit dates provided on the job.', 'insert_or_replace', 'establishment_formal', 'job_provided', false, nlr_data_source_id, FALSE)
+    VALUES ('establishment_for_lu_job_provided', 'Establishments for LU (Job Provided Time)', 'Import establishments for LUs. Validity is determined by a time context or explicit dates provided on the job.', 'insert_or_update', 'establishment_formal', 'job_provided', false, nlr_data_source_id, FALSE)
     RETURNING id INTO def_id;
     PERFORM import.link_steps_to_definition(def_id, es_steps);
     PERFORM import.create_source_and_mappings_for_definition(def_id, es_source_cols);
 
     -- 4. Establishments for Legal Unit (via Source File Dates)
     INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id, custom)
-    VALUES ('establishment_for_lu_source_dates', 'Establishments for LU (Source Dates)', 'Import establishments linked to legal units. Validity is determined by explicit valid_from and valid_to columns in the source file.', 'insert_or_replace', 'establishment_formal', 'source_columns', false, nlr_data_source_id, FALSE)
+    VALUES ('establishment_for_lu_source_dates', 'Establishments for LU (Source Dates)', 'Import establishments linked to legal units. Validity is determined by explicit valid_from and valid_to columns in the source file.', 'insert_or_update', 'establishment_formal', 'source_columns', false, nlr_data_source_id, FALSE)
     RETURNING id INTO def_id;
     PERFORM import.link_steps_to_definition(def_id, es_steps);
     PERFORM import.create_source_and_mappings_for_definition(def_id, es_explicit_source_cols);
 
     -- 5. Establishments without Legal Unit (Job Provided Time)
     INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id, custom)
-    VALUES ('establishment_without_lu_job_provided', 'Establishments w/o LU (Job Provided Time)', 'Import standalone establishments. Validity is determined by a time context or explicit dates on the job.', 'insert_or_replace', 'establishment_informal', 'job_provided', false, census_data_source_id, FALSE)
+    VALUES ('establishment_without_lu_job_provided', 'Establishments w/o LU (Job Provided Time)', 'Import standalone establishments. Validity is determined by a time context or explicit dates on the job.', 'insert_or_update', 'establishment_informal', 'job_provided', false, census_data_source_id, FALSE)
     RETURNING id INTO def_id;
     PERFORM import.link_steps_to_definition(def_id, es_no_lu_steps);
     PERFORM import.create_source_and_mappings_for_definition(def_id, es_no_lu_source_cols);
 
     -- 6. Establishments without Legal Unit (via Source File Dates)
     INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id, custom)
-    VALUES ('establishment_without_lu_source_dates', 'Establishments w/o LU (Source Dates)', 'Import standalone establishments. Validity is determined by explicit valid_from and valid_to columns in the source file.', 'insert_or_replace', 'establishment_informal', 'source_columns', false, census_data_source_id, FALSE)
+    VALUES ('establishment_without_lu_source_dates', 'Establishments w/o LU (Source Dates)', 'Import standalone establishments. Validity is determined by explicit valid_from and valid_to columns in the source file.', 'insert_or_update', 'establishment_informal', 'source_columns', false, census_data_source_id, FALSE)
     RETURNING id INTO def_id;
     PERFORM import.link_steps_to_definition(def_id, es_no_lu_steps);
     PERFORM import.create_source_and_mappings_for_definition(def_id, es_no_lu_explicit_source_cols);

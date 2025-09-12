@@ -2890,24 +2890,24 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | pending   |     7
+ analytics | pending   |     6
  import    | completed |    89
 (2 rows)
 
 -- SET client_min_messages TO NOTICE;
 \echo "Inspecting first 5 rows of legal unit import job data (import_lu_web_example_current_data)"
 "Inspecting first 5 rows of legal unit import job data (import_lu_web_example_current_data)"
-SELECT row_id, state, errors, tax_ident, name, birth_date, physical_address_part1, primary_activity_category_code, merge_statuses
+SELECT row_id, state, errors, invalid_codes, tax_ident, name, birth_date, physical_address_part1, primary_activity_category_code, merge_status
 FROM public.import_lu_web_example_current_data
 ORDER BY row_id
 LIMIT 5;
- row_id |   state   | error | tax_ident |                name                 | birth_date |  physical_address_part1  | primary_activity_category_code 
---------+-----------+-------+-----------+-------------------------------------+------------+--------------------------+--------------------------------
-      1 | processed |       | 915737250 | HÅKON BJØRNHOLT                     |            | Sørbakkvegen 26          | 01.610
-      2 | processed |       | 991253777 | WOENSEL AS                          | 2007-03-20 | Gamleveien 120           | 70.220
-      3 | processed |       | 929766792 | PERSONALGRUPPE NESBYEN UNGDOMSSKOLE | 2022-08-10 | Beiavegen 6              | 94.991
-      4 | processed |       | 932433710 | STRYGER OPUS                        |            | Rødstoppen 37            | 59.120
-      5 | processed |       | 972417971 | HARSTAD KOMMUNE / HÁRSTTÁID SUOHKAN |            | Asbjørn Selsbanes gate 9 | 84.110
+ row_id |   state   | errors | invalid_codes | tax_ident |                name                 | birth_date |  physical_address_part1  | primary_activity_category_code |                                                      merge_status                                                      
+--------+-----------+--------+---------------+-----------+-------------------------------------+------------+--------------------------+--------------------------------+------------------------------------------------------------------------------------------------------------------------
+      1 | processed | {}     | {}            | 915737250 | HÅKON BJØRNHOLT                     |            | Sørbakkvegen 26          | 01.610                         | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+      2 | processed | {}     | {}            | 991253777 | WOENSEL AS                          | 2007-03-20 | Gamleveien 120           | 70.220                         | {"legal_unit": "APPLIED", "postal_location": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+      3 | processed | {}     | {}            | 929766792 | PERSONALGRUPPE NESBYEN UNGDOMSSKOLE | 2022-08-10 | Beiavegen 6              | 94.991                         | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+      4 | processed | {}     | {}            | 932433710 | STRYGER OPUS                        |            | Rødstoppen 37            | 59.120                         | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+      5 | processed | {}     | {}            | 972417971 | HARSTAD KOMMUNE / HÁRSTTÁID SUOHKAN |            | Asbjørn Selsbanes gate 9 | 84.110                         | {"legal_unit": "APPLIED", "postal_location": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
 (5 rows)
 
 \echo "Checking import job statuses"
@@ -2935,54 +2935,54 @@ WHERE ij.slug IN ('import_lu_web_example_current', 'import_es_web_example_curren
 
 \echo "Error rows in import_lu_web_example_current_data (if any):"
 "Error rows in import_lu_web_example_current_data (if any):"
-SELECT row_id, state, errors, tax_ident, name, merge_statuses
+SELECT row_id, state, errors, tax_ident, name, merge_status
 FROM public.import_lu_web_example_current_data
-WHERE error IS NOT NULL OR state = 'error'
+WHERE (errors IS NOT NULL AND errors IS DISTINCT FROM '{}'::JSONB) OR state = 'error'
 ORDER BY row_id;
- row_id | state | error | tax_ident | name 
---------+-------+-------+-----------+------
+ row_id | state | errors | tax_ident | name | merge_status 
+--------+-------+--------+-----------+------+--------------
 (0 rows)
 
 \echo "Legal unit import data with invalid_codes (if any):"
 "Legal unit import data with invalid_codes (if any):"
-SELECT row_id, state, error, invalid_codes, tax_ident, name
+SELECT row_id, state, errors, invalid_codes, merge_status, tax_ident, name
 FROM public.import_lu_web_example_current_data
-WHERE invalid_codes IS NOT NULL
+WHERE invalid_codes IS NOT NULL AND invalid_codes <> '{}'::JSONB
 ORDER BY row_id;
- row_id |   state   | error |                invalid_codes                 | tax_ident |           name           
---------+-----------+-------+----------------------------------------------+-----------+--------------------------
-     15 | processed |       | {"primary_activity_category_code": "00.000"} | 918143602 | HALVOR CELIUS HOLDING AS
-     36 | processed |       | {"primary_activity_category_code": "00.000"} | 923231129 | GRØNNVOLL HOLDING AS
-     46 | processed |       | {"primary_activity_category_code": "00.000"} | 931802607 | SYLLIÅSEN INVEST AS
-     51 | processed |       | {"primary_activity_category_code": "00.000"} | 911595397 | NONO HOLDING AS
-     72 | processed |       | {"primary_activity_category_code": "00.000"} | 930980501 | W11G HOLDING AS
-     74 | processed |       | {"primary_activity_category_code": "00.000"} | 932128144 | NYE EEGEBERG INVEST AS
+ row_id |   state   | errors |                invalid_codes                 |                                      merge_status                                       | tax_ident |           name           
+--------+-----------+--------+----------------------------------------------+-----------------------------------------------------------------------------------------+-----------+--------------------------
+     15 | processed | {}     | {"primary_activity_category_code": "00.000"} | {"legal_unit": "APPLIED", "physical_location": "APPLIED"}                               | 918143602 | HALVOR CELIUS HOLDING AS
+     36 | processed | {}     | {"primary_activity_category_code": "00.000"} | {"legal_unit": "APPLIED", "postal_location": "APPLIED", "physical_location": "APPLIED"} | 923231129 | GRØNNVOLL HOLDING AS
+     46 | processed | {}     | {"primary_activity_category_code": "00.000"} | {"legal_unit": "APPLIED", "physical_location": "APPLIED"}                               | 931802607 | SYLLIÅSEN INVEST AS
+     51 | processed | {}     | {"primary_activity_category_code": "00.000"} | {"legal_unit": "APPLIED", "physical_location": "APPLIED"}                               | 911595397 | NONO HOLDING AS
+     72 | processed | {}     | {"primary_activity_category_code": "00.000"} | {"legal_unit": "APPLIED", "physical_location": "APPLIED"}                               | 930980501 | W11G HOLDING AS
+     74 | processed | {}     | {"primary_activity_category_code": "00.000"} | {"legal_unit": "APPLIED", "postal_location": "APPLIED", "physical_location": "APPLIED"} | 932128144 | NYE EEGEBERG INVEST AS
 (6 rows)
 
 \echo "Error rows in import_es_web_example_current_data (if any):"
 "Error rows in import_es_web_example_current_data (if any):"
-SELECT row_id, state, errors, tax_ident, legal_unit_tax_ident, name, merge_statuses
+SELECT row_id, state, errors, tax_ident, legal_unit_tax_ident, name, merge_status
 FROM public.import_es_web_example_current_data
-WHERE error IS NOT NULL OR state = 'error'
+WHERE (errors IS NOT NULL AND errors IS DISTINCT FROM '{}'::JSONB) OR state = 'error'
 ORDER BY row_id;
- row_id | state | error | tax_ident | legal_unit_tax_ident | name 
---------+-------+-------+-----------+----------------------+------
+ row_id | state | errors | tax_ident | legal_unit_tax_ident | name | merge_status 
+--------+-------+--------+-----------+----------------------+------+--------------
 (0 rows)
 
 \echo "Establishment import data with invalid_codes (if any):"
 "Establishment import data with invalid_codes (if any):"
-SELECT row_id, state, error, invalid_codes, tax_ident, name
+SELECT row_id, state, errors, invalid_codes, merge_status, tax_ident, name
 FROM public.import_es_web_example_current_data
-WHERE invalid_codes IS NOT NULL
+WHERE invalid_codes IS NOT NULL AND invalid_codes <> '{}'::JSONB
 ORDER BY row_id;
- row_id |   state   | error |                invalid_codes                 | tax_ident |           name           
---------+-----------+-------+----------------------------------------------+-----------+--------------------------
-     70 | processed |       | {"primary_activity_category_code": "00.000"} | 823633742 | GRØNNVOLL HOLDING AS
-    661 | processed |       | {"primary_activity_category_code": "00.000"} | 920786464 | HALVOR CELIUS HOLDING AS
-    868 | processed |       | {"primary_activity_category_code": "00.000"} | 930991635 | W11G HOLDING AS
-    902 | processed |       | {"primary_activity_category_code": "00.000"} | 931805290 | SYLLIÅSEN INVEST AS
-    907 | processed |       | {"primary_activity_category_code": "00.000"} | 932180766 | NYE EEGEBERG INVEST AS
-    910 | processed |       | {"primary_activity_category_code": "00.000"} | 932421267 | NONO HOLDING AS
+ row_id |   state   | errors |                invalid_codes                 |                                        merge_status                                        | tax_ident |           name           
+--------+-----------+--------+----------------------------------------------+--------------------------------------------------------------------------------------------+-----------+--------------------------
+     70 | processed | {}     | {"primary_activity_category_code": "00.000"} | {"establishment": "APPLIED", "postal_location": "APPLIED", "physical_location": "APPLIED"} | 823633742 | GRØNNVOLL HOLDING AS
+    661 | processed | {}     | {"primary_activity_category_code": "00.000"} | {"establishment": "APPLIED", "physical_location": "APPLIED"}                               | 920786464 | HALVOR CELIUS HOLDING AS
+    868 | processed | {}     | {"primary_activity_category_code": "00.000"} | {"establishment": "APPLIED", "physical_location": "APPLIED"}                               | 930991635 | W11G HOLDING AS
+    902 | processed | {}     | {"primary_activity_category_code": "00.000"} | {"establishment": "APPLIED", "physical_location": "APPLIED"}                               | 931805290 | SYLLIÅSEN INVEST AS
+    907 | processed | {}     | {"primary_activity_category_code": "00.000"} | {"establishment": "APPLIED", "postal_location": "APPLIED", "physical_location": "APPLIED"} | 932180766 | NYE EEGEBERG INVEST AS
+    910 | processed | {}     | {"primary_activity_category_code": "00.000"} | {"establishment": "APPLIED", "physical_location": "APPLIED"}                               | 932421267 | NONO HOLDING AS
 (6 rows)
 
 \echo "Checking counts of imported units"
@@ -3001,7 +3001,7 @@ SELECT 'establishment' AS unit_type, COUNT(DISTINCT id) AS count FROM public.est
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | pending   |     7
+ analytics | pending   |     6
  import    | completed |    89
 (2 rows)
 
@@ -3011,7 +3011,7 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |     9
+ analytics | completed |     8
  import    | completed |    89
 (2 rows)
 
@@ -3020,10 +3020,10 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 \x
 SELECT unit_type
      , COUNT(DISTINCT unit_id)
-     , jsonb_agg(DISTINCT invalid_codes) FILTER (WHERE invalid_codes IS NOT NULL) AS invalid_codes
+     , jsonb_agg(DISTINCT invalid_codes) FILTER (WHERE invalid_codes IS NOT NULL AND invalid_codes <> '{}'::JSONB) AS invalid_codes
      , jsonb_pretty(jsonb_stats_summary_merge_agg(stats_summary)) AS stats_summary
  FROM statistical_unit
- WHERE valid_after < CURRENT_DATE AND CURRENT_DATE <= valid_to
+ WHERE valid_from <= CURRENT_DATE AND CURRENT_DATE < valid_until
  GROUP BY unit_type;
 -[ RECORD 1 ]-+-----------------------------------------------
 unit_type     | establishment
@@ -3086,6 +3086,14 @@ SAVEPOINT before_reset;
 \echo "Checking that reset works"
 "Checking that reset works"
 SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'data'::public.reset_scope)) AS reset_data;
+NOTICE:  drop cascades to 7 other objects
+DETAIL:  drop cascades to view temp_loc_source_view_physical_location
+drop cascades to view temp_loc_source_view_postal_location
+drop cascades to view temp_act_source_view_primary_activity
+drop cascades to view temp_act_source_view_secondary_activity
+drop cascades to view temp_contact_source_view
+drop cascades to view temp_stat_source_view_employees
+drop cascades to view temp_stat_source_view_turnover
 reset_data
 {
     "person": {

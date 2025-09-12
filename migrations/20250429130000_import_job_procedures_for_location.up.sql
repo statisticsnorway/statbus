@@ -246,7 +246,7 @@ BEGIN
             LEFT JOIN LATERAL import.try_cast_to_numeric_specific(dt_sub.postal_latitude, 'NUMERIC(9,6)') AS lat_post(p_value, p_error_message) ON TRUE
             LEFT JOIN LATERAL import.try_cast_to_numeric_specific(dt_sub.postal_longitude, 'NUMERIC(9,6)') AS lon_post(p_value, p_error_message) ON TRUE
             LEFT JOIN LATERAL import.try_cast_to_numeric_specific(dt_sub.postal_altitude, 'NUMERIC(6,1)') AS alt_post(p_value, p_error_message) ON TRUE
-            WHERE dt_sub.row_id = ANY($1) AND dt_sub.action IS DISTINCT FROM 'skip'
+            WHERE dt_sub.row_id = ANY($1) AND dt_sub.action = 'use'
         )
         UPDATE public.%1$I dt SET
             physical_region_id = l.resolved_physical_region_id,
@@ -268,14 +268,14 @@ BEGIN
                         ELSE 'analysing'::public.import_data_state
                     END,
             errors = jsonb_strip_nulls(
-                        COALESCE(dt.errors, '{}'::jsonb) -- Start with existing errors
+                        dt.errors -- Start with existing errors
                         || CASE WHEN (%6$s) THEN (%7$s) ELSE '{}'::jsonb END -- Add Fatal country error message
                         || (%11$s) -- Add Coordinate cast error messages
                         || (%12$s) -- Add Coordinate range error messages
                         || (%13$s) -- Add Postal coordinate present error message
                     ),
             invalid_codes = jsonb_strip_nulls(
-                        COALESCE(dt.invalid_codes, '{}'::jsonb) -- Start with existing invalid codes
+                        dt.invalid_codes -- Start with existing invalid codes
                         || CASE WHEN (%4$s) AND NOT ((%6$s) OR (%10$s)) THEN (%5$s) ELSE '{}'::jsonb END -- Add Non-fatal region/country codes (if no fatal/coord error)
                         || CASE WHEN (%10$s) THEN (%14$s) ELSE '{}'::jsonb END -- Add Original invalid coordinate values
                     ),
@@ -296,7 +296,9 @@ BEGIN
         v_coord_cast_error_json_expr_sql,       /* %11$s (coordinate cast error JSON) */
         v_coord_range_error_json_expr_sql,      /* %12$s (coordinate range error JSON) */
         v_postal_coord_present_error_json_expr_sql, /* %13$s (postal has coords error JSON) */
-        v_coord_invalid_value_json_expr_sql     /* %14$s (original invalid coordinate values JSON) */
+        v_coord_invalid_value_json_expr_sql,    /* %14$s (original invalid coordinate values JSON) */
+        REPLACE(p_step_code, '_location', ''),  /* %15$L (location type: 'physical' or 'postal') */
+        p_step_code                             /* %16$L (step code: 'physical_location' or 'postal_location') */
     );
 
     RAISE DEBUG '[Job %] analyse_location: Single-pass batch update for non-skipped rows for step %: %', p_job_id, p_step_code, v_sql;
@@ -329,7 +331,7 @@ BEGIN
             RAISE WARNING '[Job %] analyse_location: Program limit exceeded during single-pass batch update for step %: %. SQLSTATE: %', p_job_id, p_step_code, error_message, SQLSTATE;
             -- Fallback or simplified error marking might be needed here if the main query is too complex
             UPDATE public.import_job
-            SET error = jsonb_build_object('analyse_location_error', format($$Program limit error for step %s: %s$$, p_step_code, error_message)),
+            SET error = jsonb_build_object('analyse_location_error', format($$Program limit error for step %1$s: %2$s$$, p_step_code /* %1$s */, error_message /* %2$s */)),
                 state = 'finished'
             WHERE id = p_job_id;
             RAISE; -- Re-throw
@@ -341,7 +343,7 @@ BEGIN
                 v_sql := format($$
                     UPDATE public.%1$I dt SET
                         state = %2$L,
-                        errors = COALESCE(dt.errors, '{}'::jsonb) || jsonb_build_object('location_batch_error', 'Unexpected error during update for step %3$s: ' || %4$L),
+                        errors = dt.errors || jsonb_build_object('location_batch_error', 'Unexpected error during update for step %3$s: ' || %4$L),
                         last_completed_priority = dt.last_completed_priority -- Do not advance priority on unexpected error, use existing LCP
                     WHERE dt.row_id = ANY($1);
                 $$, v_data_table_name /* %1$I */, 'error'::public.import_data_state /* %2$L */, p_step_code /* %3$s */, error_message /* %4$L */);
@@ -351,7 +353,7 @@ BEGIN
             END;
             -- Mark the job as failed
             UPDATE public.import_job
-            SET error = jsonb_build_object('analyse_location_error', format($$Unexpected error for step %s: %s$$, p_step_code, error_message)),
+            SET error = jsonb_build_object('analyse_location_error', format($$Unexpected error for step %1$s: %2$s$$, p_step_code /* %1$s */, error_message /* %2$s */)),
                 state = 'finished'
             WHERE id = p_job_id;
             RAISE DEBUG '[Job %] analyse_location: Marked job as failed due to unexpected error for step %: %', p_job_id, p_step_code, error_message;
@@ -403,7 +405,7 @@ BEGIN
         v_select_lu_id_expr := 'dt.legal_unit_id';
         v_select_est_id_expr := 'NULL::INTEGER';
     ELSIF v_job_mode = 'establishment_formal' THEN
-        v_select_lu_id_expr := 'dt.legal_unit_id';
+        v_select_lu_id_expr := 'NULL::INTEGER';
         v_select_est_id_expr := 'dt.establishment_id';
     ELSIF v_job_mode = 'establishment_informal' THEN
         v_select_lu_id_expr := 'NULL::INTEGER';
@@ -433,13 +435,19 @@ BEGIN
                 dt.typed_physical_latitude AS latitude, dt.typed_physical_longitude AS longitude, dt.typed_physical_altitude AS altitude,
                 dt.data_source_id,
                 dt.edit_by_user_id, dt.edit_at, dt.edit_comment,
-                dt.errors, dt.merge_statuses
+                dt.errors, dt.merge_status
             FROM public.%4$I dt
             WHERE dt.row_id = ANY(%5$L)
               AND dt.action = 'use'
-              AND dt.state != 'error'
-              AND (dt.physical_region_id IS NOT NULL OR dt.physical_country_id IS NOT NULL OR dt.physical_address_part1 IS NOT NULL OR dt.physical_postcode IS NOT NULL);
-        $$, v_source_view_name, v_select_lu_id_expr, v_select_est_id_expr, v_data_table_name, p_batch_row_ids);
+              AND dt.physical_country_id IS NOT NULL
+              AND (NULLIF(dt.physical_region_code, '') IS NOT NULL OR NULLIF(dt.physical_country_iso_2, '') IS NOT NULL OR NULLIF(dt.physical_address_part1, '') IS NOT NULL OR NULLIF(dt.physical_postcode, '') IS NOT NULL);
+        $$,
+            v_source_view_name,   /* %1$I */
+            v_select_lu_id_expr,  /* %2$s */
+            v_select_est_id_expr, /* %3$s */
+            v_data_table_name,    /* %4$I */
+            p_batch_row_ids       /* %5$L */
+        );
 
     ELSIF p_step_code = 'postal_location' THEN
         v_sql := format($$
@@ -460,13 +468,19 @@ BEGIN
                 dt.typed_postal_latitude AS latitude, dt.typed_postal_longitude AS longitude, dt.typed_postal_altitude AS altitude,
                 dt.data_source_id,
                 dt.edit_by_user_id, dt.edit_at, dt.edit_comment,
-                dt.errors, dt.merge_statuses
+                dt.errors, dt.merge_status
             FROM public.%4$I dt
             WHERE dt.row_id = ANY(%5$L)
               AND dt.action = 'use'
-              AND dt.state != 'error'
-              AND (dt.postal_region_id IS NOT NULL OR dt.postal_country_id IS NOT NULL OR dt.postal_address_part1 IS NOT NULL OR dt.postal_postcode IS NOT NULL);
-        $$, v_source_view_name, v_select_lu_id_expr, v_select_est_id_expr, v_data_table_name, p_batch_row_ids);
+              AND dt.postal_country_id IS NOT NULL
+              AND (NULLIF(dt.postal_region_code, '') IS NOT NULL OR NULLIF(dt.postal_country_iso_2, '') IS NOT NULL OR NULLIF(dt.postal_address_part1, '') IS NOT NULL OR NULLIF(dt.postal_postcode, '') IS NOT NULL);
+        $$,
+            v_source_view_name,   /* %1$I */
+            v_select_lu_id_expr,  /* %2$s */
+            v_select_est_id_expr, /* %3$s */
+            v_data_table_name,    /* %4$I */
+            p_batch_row_ids       /* %5$L */
+        );
     ELSE
         RAISE EXCEPTION '[Job %] process_location: Invalid step_code %.', p_job_id, p_step_code;
     END IF;
@@ -483,30 +497,37 @@ BEGIN
 
     BEGIN
         CALL sql_saga.temporal_merge(
-            p_target_table => 'public.location'::regclass,
-            p_source_table => v_source_view_name::regclass,
-            p_identity_columns => ARRAY['id'],
-            p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
-            p_mode => 'MERGE_ENTITY_REPLACE',
-            p_identity_correlation_column => 'founding_row_id',
-            p_update_source_with_identity => true,
-            p_update_source_with_feedback => true,
-            p_feedback_status_column => 'merge_statuses',
-            p_feedback_status_key => p_step_code,
-            p_feedback_error_column => 'errors',
-            p_feedback_error_key => p_step_code,
-            p_source_row_id_column => 'row_id'
+            target_table => 'public.location'::regclass,
+            source_table => v_source_view_name::regclass,
+            identity_columns => ARRAY['id'],
+            natural_identity_columns => ARRAY['legal_unit_id', 'establishment_id', 'type'],
+            ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
+            mode => 'MERGE_ENTITY_PATCH',
+            identity_correlation_column => 'founding_row_id',
+            update_source_with_identity => true,
+            update_source_with_feedback => true,
+            feedback_status_column => 'merge_status',
+            feedback_status_key => p_step_code,
+            feedback_error_column => 'errors',
+            feedback_error_key => p_step_code,
+            source_row_id_column => 'row_id'
         );
 
-        EXECUTE format($$ SELECT count(*) FROM public.%1$I WHERE row_id = ANY($1) AND errors->%2$L IS NOT NULL $$, v_data_table_name, p_step_code)
-            INTO v_error_count USING p_batch_row_ids;
+        EXECUTE format($$ SELECT count(*) FROM public.%1$I WHERE row_id = ANY($1) AND errors->%2$L IS NOT NULL $$,
+            v_data_table_name, /* %1$I */
+            p_step_code        /* %2$L */
+        ) INTO v_error_count USING p_batch_row_ids;
 
         EXECUTE format($$
             UPDATE public.%1$I dt SET
-                state = CASE WHEN dt.errors IS NULL THEN 'processing' ELSE 'error' END
+                state = (CASE WHEN dt.errors ? %3$L THEN 'error' ELSE 'processing' END)::public.import_data_state
             FROM %2$I v
             WHERE dt.row_id = v.row_id;
-        $$, v_data_table_name, v_source_view_name);
+        $$,
+            v_data_table_name,  /* %1$I */
+            v_source_view_name, /* %2$I */
+            p_step_code         /* %3$L */
+        );
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
         v_update_count := v_update_count - v_error_count;
 
@@ -515,8 +536,10 @@ BEGIN
     EXCEPTION WHEN OTHERS THEN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
         RAISE WARNING '[Job %] process_location: Error during temporal_merge for step %: %. SQLSTATE: %', p_job_id, p_step_code, error_message, SQLSTATE;
-        v_sql := format($$UPDATE public.%1$I SET state = 'error', errors = COALESCE(errors, '{}'::jsonb) || jsonb_build_object('batch_error_process_location', %2$L) WHERE row_id = ANY($1)$$,
-                        v_data_table_name, error_message);
+        v_sql := format($$UPDATE public.%1$I SET state = 'error'::public.import_data_state, errors = errors || jsonb_build_object('batch_error_process_location', %2$L) WHERE row_id = ANY($1)$$,
+                        v_data_table_name, /* %1$I */
+                        error_message      /* %2$L */
+        );
         EXECUTE v_sql USING p_batch_row_ids;
         RAISE; -- Re-throw
     END;
