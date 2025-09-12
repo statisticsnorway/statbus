@@ -106,6 +106,33 @@ const formatDiffToString = (diff: any, path: string = ''): string => {
 };
 
 // Helper component to visually render the diff.
+const StateDiff = ({ diff, path = '' }: { diff: any, path?: string }) => {
+  if (!diff) return null;
+
+  return (
+    <div className="pl-2 border-l border-gray-600 font-mono">
+      {Object.entries(diff).map(([key, value]: [string, any]) => {
+        const newPath = path ? `${path}.${key}` : key;
+        const hasNestedDiff = typeof value === 'object' && value !== null && !value.hasOwnProperty('oldValue');
+
+        return (
+          <div key={newPath}>
+            <span className="text-gray-400">{key}:</span>
+            {hasNestedDiff ? (
+              <StateDiff diff={value} path={newPath} />
+            ) : (
+              <div className="pl-2">
+                <div className="text-red-400 whitespace-pre-wrap break-all">- {JSON.stringify(value.oldValue)}</div>
+                <div className="text-green-400 whitespace-pre-wrap break-all">+ {JSON.stringify(value.newValue)}</div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 export const DebugInspector = () => {
   const [isVisible, setIsVisible] = useAtom(debugInspectorVisibleAtom);
   const [isExpanded, setIsExpanded] = useAtom(debugInspectorExpandedAtom);
@@ -129,6 +156,10 @@ export const DebugInspector = () => {
   const [mountCopyStatus, setMountCopyStatus] = React.useState('');
   const [stateCopyStatus, setStateCopyStatus] = React.useState('');
   const [eventJournalCopyStatus, setEventJournalCopyStatus] = React.useState('');
+  const [diffsCopyStatus, setDiffsCopyStatus] = React.useState('');
+  const [isStateDiffVisible, setIsStateDiffVisible] = React.useState(false);
+  const [stateHistory, setStateHistory] = React.useState<any[]>([]);
+  const [diffs, setDiffs] = React.useState<any[]>([]);
   const [isTokenManuallyExpired, setIsTokenManuallyExpired] = useAtom(isTokenManuallyExpiredAtom);
   const journal = useAtomValue(combinedJournalViewAtom);
   const addJournalEntry = useSetAtom(addEventJournalEntryAtom);
@@ -279,6 +310,30 @@ export const DebugInspector = () => {
     authApiResponseLog: authState.context.authApiResponseLog,
   };
 
+  // Effect to track state changes and compute diffs
+  useGuardedEffect(() => {
+    // A stable serialization is important for the dependency array.
+    const currentStateJson = JSON.stringify(fullState);
+    
+    setStateHistory(prevHistory => {
+      // Avoid adding duplicate states to history if nothing changed.
+      if (prevHistory.length > 0 && JSON.stringify(prevHistory[0]) === currentStateJson) {
+        return prevHistory;
+      }
+
+      const newState = JSON.parse(currentStateJson); // Deep copy
+      const newHistory = [newState, ...prevHistory].slice(0, 5); // Keep last 5 states
+
+      if (newHistory.length > 1) {
+        const newDiff = objectDiff(newHistory[1], newHistory[0]);
+        if (newDiff) {
+          setDiffs(prevDiffs => [{ diff: newDiff, timestamp: new Date() }, ...prevDiffs].slice(0, 5));
+        }
+      }
+      return newHistory;
+    });
+  }, [JSON.stringify(fullState)], 'DebugInspector.tsx:trackStateHistory');
+
   const handleCopyState = () => {
     const reportString = JSON.stringify(fullState, null, 2);
     navigator.clipboard.writeText(reportString).then(() => {
@@ -287,6 +342,20 @@ export const DebugInspector = () => {
     }).catch(err => {
       console.error('Failed to copy state:', err);
       setStateCopyStatus('Failed');
+    });
+  };
+
+  const handleCopyDiffs = () => {
+    const reportString = diffs.map(entry => 
+      `--- ${entry.timestamp.toISOString()} ---\n${formatDiffToString(entry.diff)}`
+    ).join('\n');
+
+    navigator.clipboard.writeText(reportString).then(() => {
+      setDiffsCopyStatus('Copied!');
+      setTimeout(() => setDiffsCopyStatus(''), 2000);
+    }).catch(err => {
+      console.error('Failed to copy diffs:', err);
+      setDiffsCopyStatus('Failed');
     });
   };
 
@@ -305,6 +374,7 @@ export const DebugInspector = () => {
     // This now copies EVERYTHING for a complete debug report.
     const report = {
       currentState: fullState,
+      stateDiffs: diffs,
       eventJournal: journal,
       effectJournal: {
         halted: Array.from(haltedEffects),
@@ -376,6 +446,8 @@ export const DebugInspector = () => {
 
   const handleClearJournal = () => {
     clearAndMarkJournal();
+    setDiffs([]);
+    setStateHistory([]);
   };
 
   const getSimpleStatus = (s: any) => s.state === 'loading' ? 'Loading' : s.state === 'hasError' ? 'Error' : 'OK';
@@ -449,6 +521,25 @@ export const DebugInspector = () => {
             >
               {authState.matches('checking') || authState.matches({ idle_authenticated: 'revalidating' }) ? 'Checking...' : 'Check Auth'}
             </button>
+          </div>
+
+          <div>
+            <div className="flex items-center space-x-2">
+              <strong onClick={() => setIsStateDiffVisible(v => !v)} className="cursor-pointer">State Diffs (last 5) {isStateDiffVisible ? '▼' : '▶'}</strong>
+              <button onClick={handleCopyDiffs} className="px-2 py-0.5 bg-gray-700 hover:bg-gray-600 rounded text-xs">
+                {diffsCopyStatus || 'Copy'}
+              </button>
+            </div>
+            {isStateDiffVisible && (
+              <div className="pl-4 mt-1 space-y-2 max-h-96 overflow-y-auto border border-gray-600 rounded p-1 bg-black/20">
+                {diffs.length > 0 ? diffs.map((entry, index) => (
+                  <div key={index} className="border-b border-gray-700 pb-2 mb-2 last:border-b-0">
+                    <div className="text-gray-400 font-bold mb-1">{entry.timestamp.toLocaleTimeString()}.{String(entry.timestamp.getMilliseconds()).padStart(3, '0')}</div>
+                    <StateDiff diff={entry.diff} />
+                  </div>
+                )) : <div className="text-gray-500 italic">No state changes detected yet.</div>}
+              </div>
+            )}
           </div>
 
           <div>
