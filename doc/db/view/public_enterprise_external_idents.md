@@ -5,7 +5,8 @@
  unit_type       | statistical_unit_type |           |          | 
  unit_id         | integer               |           |          | 
  external_idents | jsonb                 |           |          | 
- valid_after     | date                  |           |          | 
+ valid_from      | date                  |           |          | 
  valid_to        | date                  |           |          | 
+ valid_until     | date                  |           |          | 
 
 ```

@@ -25,14 +25,15 @@ BEGIN
     END IF;
 
     -- Single-pass update to populate audit info and advance priority for all rows.
-    -- State is only advanced for non-skipped rows.
+    -- This step does not generate errors. It preserves the 'error' state if it was set by a previous step.
+    -- The job's edit_comment is used as a default if a row-specific one is not provided.
     v_sql := format($$
         UPDATE public.%1$I dt SET
             edit_by_user_id = %2$L,
             edit_at = statement_timestamp(),
-            edit_comment = %3$L, -- Set edit_comment from job's default
+            edit_comment = COALESCE(dt.edit_comment, %3$L),
             last_completed_priority = %4$L,
-            state = 'analysing'::public.import_data_state
+            state = CASE WHEN dt.state = 'error' THEN 'error'::public.import_data_state ELSE 'analysing'::public.import_data_state END
         WHERE dt.row_id = ANY($1);
     $$, v_data_table_name /* %1$I */, v_job.user_id /* %2$L */, v_job.edit_comment /* %3$L */, v_step.priority /* %4$L */);
     RAISE DEBUG '[Job %] analyse_edit_info: Updating all rows in batch: %', p_job_id, v_sql;

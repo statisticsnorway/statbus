@@ -12,7 +12,7 @@ CREATE OR REPLACE FUNCTION public.location_hierarchy(
         || (SELECT public.data_source_hierarchy(l.data_source_id))
         AS data
       FROM public.location AS l
-     WHERE l.valid_after < valid_on AND valid_on <= l.valid_to
+     WHERE l.valid_from <= valid_on AND valid_on < l.valid_until
        AND (  parent_establishment_id IS NOT NULL AND l.establishment_id = parent_establishment_id
            OR parent_legal_unit_id    IS NOT NULL AND l.legal_unit_id    = parent_legal_unit_id
            )

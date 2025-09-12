@@ -76,9 +76,9 @@ FROM public.import_job
 WHERE slug IN ('import_31_lu_era_b1', 'import_31_esflu_era_b1') ORDER BY slug;
 
 \echo "Error rows in import_31_esflu_era_b1_data (if any):"
-SELECT row_id, state, error, tax_ident, stat_ident, name
+SELECT row_id, state, errors, tax_ident, stat_ident, name, merge_status
 FROM public.import_31_esflu_era_b1_data
-WHERE error IS NOT NULL OR state = 'error'
+WHERE (errors IS NOT NULL AND errors IS DISTINCT FROM '{}'::JSONB) OR state = 'error'
 ORDER BY row_id;
 
 \echo Run worker processing for analytics tasks - Block 1 (errors primarily tested on import queue)
@@ -151,9 +151,9 @@ FROM public.import_job
 WHERE slug IN ('import_31_lu_era_b2', 'import_31_esflu_era_b2', 'import_31_eswlu_era_b2_errors') ORDER BY slug;
 
 \echo "Error rows in import_31_eswlu_era_b2_errors_data (if any):"
-SELECT row_id, state, error, tax_ident, stat_ident, name
+SELECT row_id, state, errors, tax_ident, stat_ident, name, merge_status
 FROM public.import_31_eswlu_era_b2_errors_data
-WHERE error IS NOT NULL OR state = 'error'
+WHERE (errors IS NOT NULL AND errors IS DISTINCT FROM '{}'::JSONB) OR state = 'error'
 ORDER BY row_id;
 
 \echo Run worker processing for analytics tasks - Block 2 (errors primarily tested on import queue)
@@ -205,9 +205,9 @@ WHERE slug = 'import_31_lu_era_b3_coord_errors'
 ORDER BY slug;
 
 \echo "Error rows in import_31_lu_era_b3_coord_errors_data (if any):"
-SELECT row_id, state, error, tax_ident, name, physical_latitude
+SELECT row_id, state, errors, tax_ident, name, physical_latitude, merge_status
 FROM public.import_31_lu_era_b3_coord_errors_data
-WHERE error IS NOT NULL OR state = 'error'
+WHERE (errors IS NOT NULL AND errors IS DISTINCT FROM '{}'::JSONB) OR state = 'error'
 ORDER BY row_id;
 
 ROLLBACK TO before_loading_units;

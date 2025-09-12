@@ -4,20 +4,15 @@ CREATE TABLE public.statistical_unit (LIKE public.statistical_unit_def INCLUDING
 
 CREATE UNIQUE INDEX "statistical_unit_upsert_pkey"
     ON public.statistical_unit
-    (unit_type, unit_id, valid_after);
+    (unit_type, unit_id, valid_from);
 
+-- This index enforces uniqueness for each time segment. It uses `valid_until` as this is the canonical
+-- column for the exclusive end of the validity period `[valid_from, valid_until)`, whereas `valid_to` is
+-- a derived column for UI convenience.
 CREATE UNIQUE INDEX "statistical_unit_from_key"
     ON public.statistical_unit
     (valid_from
-    ,valid_to
-    ,unit_type
-    ,unit_id
-    );
-
-CREATE UNIQUE INDEX "statistical_unit_after_key"
-    ON public.statistical_unit
-    (valid_after
-    ,valid_to
+    ,valid_until
     ,unit_type
     ,unit_id
     );
@@ -28,7 +23,7 @@ ALTER TABLE public.statistical_unit ADD
     EXCLUDE USING gist (
         unit_type WITH =,
         unit_id WITH =,
-        daterange(valid_after, valid_to, '(]'::text) WITH &&
+        daterange(valid_from, valid_until, '[)'::text) WITH &&
     ) DEFERRABLE;
 
 
@@ -74,49 +69,66 @@ CREATE INDEX IF NOT EXISTS idx_statistical_unit_related_enterprise_ids ON public
 
 
 CREATE OR REPLACE PROCEDURE public.statistical_unit_refresh(
-    p_establishment_ids int[] DEFAULT NULL,
-    p_legal_unit_ids int[] DEFAULT NULL,
-    p_enterprise_ids int[] DEFAULT NULL
+    p_establishment_id_ranges int4multirange DEFAULT NULL,
+    p_legal_unit_id_ranges int4multirange DEFAULT NULL,
+    p_enterprise_id_ranges int4multirange DEFAULT NULL
 )
 LANGUAGE plpgsql AS $procedure$
 DECLARE
-    v_batch_size INT := 50000; v_unit_type public.statistical_unit_type;
+    v_batch_size INT := 50000;
     v_min_id int; v_max_id int; v_start_id int; v_end_id int;
 BEGIN
-    IF p_establishment_ids IS NULL AND p_legal_unit_ids IS NULL AND p_enterprise_ids IS NULL THEN
-        -- Full refresh
-        FOREACH v_unit_type IN ARRAY ARRAY['establishment', 'legal_unit', 'enterprise']::public.statistical_unit_type[] LOOP
-            SELECT MIN(unit_id), MAX(unit_id) INTO v_min_id, v_max_id FROM public.timesegments WHERE unit_type = v_unit_type;
-            IF v_min_id IS NULL THEN CONTINUE; END IF;
+    ANALYZE public.timeline_establishment, public.timeline_legal_unit, public.timeline_enterprise;
 
-            FOR i IN v_min_id..v_max_id BY v_batch_size LOOP
-                v_start_id := i;
-                v_end_id := i + v_batch_size - 1;
+    IF p_establishment_id_ranges IS NULL AND p_legal_unit_id_ranges IS NULL AND p_enterprise_id_ranges IS NULL THEN
+        -- Full refresh: Use a staging table for performance and to minimize lock duration.
+        CREATE TEMP TABLE statistical_unit_new (LIKE public.statistical_unit) ON COMMIT DROP;
 
-                -- Batched DELETE is used instead of TRUNCATE to avoid taking an ACCESS EXCLUSIVE lock,
-                -- which would block concurrent reads on the table. This is more MVCC-friendly.
-                DELETE FROM public.statistical_unit
-                WHERE unit_type = v_unit_type AND unit_id BETWEEN v_start_id AND v_end_id;
+        -- Establishments
+        SELECT MIN(unit_id), MAX(unit_id) INTO v_min_id, v_max_id FROM public.timesegments WHERE unit_type = 'establishment';
+        IF v_min_id IS NOT NULL THEN FOR i IN v_min_id..v_max_id BY v_batch_size LOOP
+            v_start_id := i; v_end_id := i + v_batch_size - 1;
+            INSERT INTO statistical_unit_new SELECT * FROM public.statistical_unit_def
+            WHERE unit_type = 'establishment' AND unit_id BETWEEN v_start_id AND v_end_id;
+        END LOOP; END IF;
 
-                INSERT INTO public.statistical_unit SELECT * FROM public.statistical_unit_def
-                WHERE unit_type = v_unit_type AND unit_id BETWEEN v_start_id AND v_end_id;
-            END LOOP;
-        END LOOP;
+        -- Legal Units
+        SELECT MIN(unit_id), MAX(unit_id) INTO v_min_id, v_max_id FROM public.timesegments WHERE unit_type = 'legal_unit';
+        IF v_min_id IS NOT NULL THEN FOR i IN v_min_id..v_max_id BY v_batch_size LOOP
+            v_start_id := i; v_end_id := i + v_batch_size - 1;
+            INSERT INTO statistical_unit_new SELECT * FROM public.statistical_unit_def
+            WHERE unit_type = 'legal_unit' AND unit_id BETWEEN v_start_id AND v_end_id;
+        END LOOP; END IF;
+
+        -- Enterprises
+        SELECT MIN(unit_id), MAX(unit_id) INTO v_min_id, v_max_id FROM public.timesegments WHERE unit_type = 'enterprise';
+        IF v_min_id IS NOT NULL THEN FOR i IN v_min_id..v_max_id BY v_batch_size LOOP
+            v_start_id := i; v_end_id := i + v_batch_size - 1;
+            INSERT INTO statistical_unit_new SELECT * FROM public.statistical_unit_def
+            WHERE unit_type = 'enterprise' AND unit_id BETWEEN v_start_id AND v_end_id;
+        END LOOP; END IF;
+
+        -- Atomically swap the data
+        TRUNCATE public.statistical_unit;
+        INSERT INTO public.statistical_unit SELECT * FROM statistical_unit_new;
+
     ELSE
         -- Partial refresh
-        IF p_establishment_ids IS NOT NULL AND cardinality(p_establishment_ids) > 0 THEN
-            DELETE FROM public.statistical_unit WHERE unit_type = 'establishment' AND unit_id = ANY(p_establishment_ids);
-            INSERT INTO public.statistical_unit SELECT * FROM public.statistical_unit_def WHERE unit_type = 'establishment' AND unit_id = ANY(p_establishment_ids);
+        IF p_establishment_id_ranges IS NOT NULL THEN
+            DELETE FROM public.statistical_unit WHERE unit_type = 'establishment' AND unit_id <@ p_establishment_id_ranges;
+            INSERT INTO public.statistical_unit SELECT * FROM public.statistical_unit_def WHERE unit_type = 'establishment' AND unit_id <@ p_establishment_id_ranges;
         END IF;
-        IF p_legal_unit_ids IS NOT NULL AND cardinality(p_legal_unit_ids) > 0 THEN
-            DELETE FROM public.statistical_unit WHERE unit_type = 'legal_unit' AND unit_id = ANY(p_legal_unit_ids);
-            INSERT INTO public.statistical_unit SELECT * FROM public.statistical_unit_def WHERE unit_type = 'legal_unit' AND unit_id = ANY(p_legal_unit_ids);
+        IF p_legal_unit_id_ranges IS NOT NULL THEN
+            DELETE FROM public.statistical_unit WHERE unit_type = 'legal_unit' AND unit_id <@ p_legal_unit_id_ranges;
+            INSERT INTO public.statistical_unit SELECT * FROM public.statistical_unit_def WHERE unit_type = 'legal_unit' AND unit_id <@ p_legal_unit_id_ranges;
         END IF;
-        IF p_enterprise_ids IS NOT NULL AND cardinality(p_enterprise_ids) > 0 THEN
-            DELETE FROM public.statistical_unit WHERE unit_type = 'enterprise' AND unit_id = ANY(p_enterprise_ids);
-            INSERT INTO public.statistical_unit SELECT * FROM public.statistical_unit_def WHERE unit_type = 'enterprise' AND unit_id = ANY(p_enterprise_ids);
+        IF p_enterprise_id_ranges IS NOT NULL THEN
+            DELETE FROM public.statistical_unit WHERE unit_type = 'enterprise' AND unit_id <@ p_enterprise_id_ranges;
+            INSERT INTO public.statistical_unit SELECT * FROM public.statistical_unit_def WHERE unit_type = 'enterprise' AND unit_id <@ p_enterprise_id_ranges;
         END IF;
     END IF;
+
+    ANALYZE public.statistical_unit;
 END;
 $procedure$;
 

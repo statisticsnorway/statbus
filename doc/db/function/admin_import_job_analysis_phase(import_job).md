@@ -76,12 +76,30 @@ BEGIN
                     END IF;
                 ELSE
                     -- BATCHED: find and process one batch.
+                    -- This logic ensures that all rows belonging to the same new entity (sharing a founding_row_id) are always processed in the same batch.
                     EXECUTE format(
-                        $$SELECT array_agg(row_id) FROM (
-                            SELECT row_id FROM public.%I WHERE state = %L AND last_completed_priority < %L
-                            ORDER BY row_id LIMIT %L FOR UPDATE SKIP LOCKED
-                        ) AS batch$$,
-                        job.data_table_name, v_current_phase_data_state, v_step_rec.priority, job.analysis_batch_size
+                        $$
+                        WITH entity_batch AS (
+                            SELECT DISTINCT COALESCE(founding_row_id, row_id) AS entity_root_id
+                            FROM public.%1$I
+                            WHERE state = %2$L AND last_completed_priority < %3$L
+                            ORDER BY entity_root_id
+                            LIMIT %4$L
+                        )
+                        SELECT array_agg(t.row_id)
+                        FROM (
+                            SELECT dt.row_id
+                            FROM public.%1$I dt
+                            JOIN entity_batch eb ON COALESCE(dt.founding_row_id, dt.row_id) = eb.entity_root_id
+                            WHERE dt.state = %2$L AND dt.last_completed_priority < %3$L
+                            ORDER BY dt.row_id
+                            FOR UPDATE SKIP LOCKED
+                        ) t
+                        $$,
+                        job.data_table_name,        /* %1$I */
+                        v_current_phase_data_state, /* %2$L */
+                        v_step_rec.priority,        /* %3$L */
+                        job.analysis_batch_size     /* %4$L */
                     ) INTO v_batch_row_ids;
 
                     IF v_batch_row_ids IS NOT NULL AND array_length(v_batch_row_ids, 1) > 0 THEN

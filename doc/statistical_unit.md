@@ -17,20 +17,20 @@ This layered approach ensures that complex calculations are performed once at th
 ### 2.1. Base Tables
 
 -   **Purpose**: The source of all primary data (e.g., `public.establishment`, `public.legal_unit`, `public.activity`, `public.location`).
--   **Temporality**: Most base tables are temporal, containing `valid_from` and `valid_to` columns to track when a particular record is valid.
+-   **Temporality**: Most base tables are temporal, containing `valid_from` and `valid_until` columns to track the `[)` validity period. For convenience, a synchronized `valid_to` column is also present to store the inclusive end date.
 -   **Responsibility**: To store the raw, normalized data as accurately as possible.
 
 ### 2.2. `public.timepoints` (View)
 
 -   **Purpose**: To identify every single date that represents a significant change for a statistical unit or any of its direct child entities.
--   **Logic**: It performs a **global** `UNION` across all relevant base tables (`legal_unit`, `establishment`, `activity`, `location`, `contact`, etc.) to collect every `valid_from` and `valid_to` date.
+-   **Logic**: It performs a **global** `UNION` across all relevant base tables (`legal_unit`, `establishment`, `activity`, `location`, `contact`, etc.) to collect every `valid_from` and `valid_until` date.
 -   **Responsibility**: **Correctness**. The accuracy of this view is the absolute foundation of the system. If any date of change is missed here, it leads to overly broad time segments, which is the direct cause of the "fan-out" data duplication bug.
 
 ### 2.3. `public.timesegments` (Table)
 
 -   **Purpose**: To transform the global list of change-dates from `timepoints` into **atomic**, non-overlapping historical periods for each unit.
 -   **Atomicity**: An atomic segment is the smallest possible slice of time during which the state of a unit and all its directly related child entities is constant. Any change to any related entity must create a new `timepoint`, which in turn creates new segment boundaries. This is the core principle that prevents fan-out.
--   **Logic**: It uses `lead()` window functions over the `timepoints` data to create distinct time-slices, each with a `valid_after` and `valid_to` boundary.
+-   **Logic**: It uses `lead()` window functions over the `timepoints` data to create distinct time-slices, each with a `valid_from` and `valid_until` boundary.
 -   **Responsibility**: **Performance and Atomicity**. This table materializes the atomic time-slices, which is a relatively expensive calculation. The `timesegments_refresh` function keeps this table up-to-date.
 
 ### 2.4. `timeline_*` Tables (Custom Materialization)
@@ -40,7 +40,7 @@ This layered approach ensures that complex calculations are performed once at th
     1.  `public.timeline_establishment_def` (View): Contains the complex `SELECT` query that joins `timesegments` with all relevant base tables (`activity`, `location`, etc.) to calculate the fully denormalized state of an establishment for every one of its time-slices.
     2.  `public.timeline_establishment` (Table): The destination table that stores the materialized results from the `_def` view. This table is the direct source for the final `statistical_unit` view.
     3.  `public.timeline_establishment_refresh()` (Function): The procedure that populates the table. It calculates the new state using the `_def` view, diffs it against the existing data in the `timeline_establishment` table, and then performs the necessary `INSERT`s, `UPDATE`s, and `DELETE`s.
--   **Efficiency**: The key advantage of this pattern is that the `_refresh` functions accept parameters (e.g., `p_unit_ids`, `p_valid_after`). This allows the system to perform partial, targeted refreshes on small subsets of data, which is far more efficient than a full `REFRESH MATERIALIZED VIEW`.
+-   **Efficiency**: The key advantage of this pattern is that the `_refresh` functions accept parameters (e.g., `p_unit_ids`, `p_valid_from`). This allows the system to perform partial, targeted refreshes on small subsets of data, which is far more efficient than a full `REFRESH MATERIALIZED VIEW`.
 -   **Responsibility**: **Data Aggregation, Denormalization, and Performance**. This layer is responsible for the heavy lifting of joining many tables and storing the results efficiently.
 
 #### Key Column Flow Example (`primary_activity_category_path`):

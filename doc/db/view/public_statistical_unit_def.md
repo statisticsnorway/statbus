@@ -4,9 +4,9 @@
 ----------------------------------+--------------------------+-----------+----------+---------
  unit_type                        | statistical_unit_type    |           |          | 
  unit_id                          | integer                  |           |          | 
- valid_after                      | date                     |           |          | 
  valid_from                       | date                     |           |          | 
  valid_to                         | date                     |           |          | 
+ valid_until                      | date                     |           |          | 
  external_idents                  | jsonb                    |           |          | 
  name                             | character varying(256)   |           |          | 
  birth_date                       | date                     |           |          | 

@@ -1,12 +1,12 @@
 BEGIN;
 
--- Drop the physical table first
+-- Drop the refresh procedure
+DROP PROCEDURE IF EXISTS public.timeline_enterprise_refresh(int[]);
+
+-- Drop the physical table
 DROP TABLE IF EXISTS public.timeline_enterprise;
 
 -- Drop the view definition
 DROP VIEW IF EXISTS public.timeline_enterprise_def;
-
--- Drop the refresh function
-DROP FUNCTION IF EXISTS public.timeline_enterprise_refresh;
 
 END;

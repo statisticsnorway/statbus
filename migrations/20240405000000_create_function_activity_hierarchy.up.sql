@@ -11,7 +11,7 @@ CREATE OR REPLACE FUNCTION public.activity_hierarchy(
                || (SELECT public.data_source_hierarchy(a.data_source_id))
                AS data
           FROM public.activity AS a
-         WHERE a.valid_after < valid_on AND valid_on <= a.valid_to
+         WHERE a.valid_from <= valid_on AND valid_on < a.valid_until
            AND (  parent_establishment_id IS NOT NULL AND a.establishment_id = parent_establishment_id
                OR parent_legal_unit_id    IS NOT NULL AND a.legal_unit_id    = parent_legal_unit_id
                )

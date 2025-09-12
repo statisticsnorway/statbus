@@ -98,69 +98,69 @@ CALL public.statistical_unit_refresh();
 SELECT
     e.id AS enterprise_id,
     lu1.id AS lu1_id,
-    lu1.valid_after AS lu1_valid_after,
+    lu1.valid_from AS lu1_valid_from,
     lu1.valid_to AS lu1_valid_to,
     lu1.name AS lu1_name,
     lu2.id AS lu2_id,
-    lu2.valid_after AS lu2_valid_after,
+    lu2.valid_from AS lu2_valid_from,
     lu2.valid_to AS lu2_valid_to,
     lu2.name AS lu2_name,
-    public.after_to_overlaps(lu1.valid_after, lu1.valid_to, lu2.valid_after, lu2.valid_to) AS overlap_period
+    (lu1.valid_from, lu1.valid_until) OVERLAPS (lu2.valid_from, lu2.valid_until) AS overlap_period
 FROM public.enterprise e
 JOIN public.legal_unit lu1 ON lu1.enterprise_id = e.id AND lu1.primary_for_enterprise = TRUE
 JOIN public.legal_unit lu2 ON lu2.enterprise_id = e.id AND lu2.primary_for_enterprise = TRUE AND lu1.id < lu2.id -- lu1.id < lu2.id to avoid self-join and duplicate pairs
-WHERE public.after_to_overlaps(lu1.valid_after, lu1.valid_to, lu2.valid_after, lu2.valid_to)
-ORDER BY 
-    (SELECT xei.ident FROM public.external_ident xei WHERE xei.legal_unit_id = lu1.id AND xei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident') LIMIT 1), 
-    lu1.valid_after, 
-    lu1.name, 
-    (SELECT xei.ident FROM public.external_ident xei WHERE xei.legal_unit_id = lu2.id AND xei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident') LIMIT 1), 
-    lu2.valid_after,
+WHERE (lu1.valid_from, lu1.valid_until) OVERLAPS (lu2.valid_from, lu2.valid_until)
+ORDER BY
+    (SELECT xei.ident FROM public.external_ident xei WHERE xei.legal_unit_id = lu1.id AND xei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident') LIMIT 1),
+    lu1.valid_from,
+    lu1.name,
+    (SELECT xei.ident FROM public.external_ident xei WHERE xei.legal_unit_id = lu2.id AND xei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident') LIMIT 1),
+    lu2.valid_from,
     lu2.name;
 
 \echo "Checking for multiple primary establishments for the same enterprise and overlapping time"
 SELECT
     e.id AS enterprise_id,
     est1.id AS est1_id,
-    est1.valid_after AS est1_valid_after,
+    est1.valid_from AS est1_valid_from,
     est1.valid_to AS est1_valid_to,
     est1.name AS est1_name,
     est2.id AS est2_id,
-    est2.valid_after AS est2_valid_after,
+    est2.valid_from AS est2_valid_from,
     est2.valid_to AS est2_valid_to,
     est2.name AS est2_name,
-    public.after_to_overlaps(est1.valid_after, est1.valid_to, est2.valid_after, est2.valid_to) AS overlap_period
+    (est1.valid_from, est1.valid_until) OVERLAPS (est2.valid_from, est2.valid_until) AS overlap_period
 FROM public.enterprise e
 JOIN public.establishment est1 ON est1.enterprise_id = e.id AND est1.primary_for_enterprise = TRUE
 JOIN public.establishment est2 ON est2.enterprise_id = e.id AND est2.primary_for_enterprise = TRUE AND est1.id < est2.id -- est1.id < est2.id to avoid self-join and duplicate pairs
-WHERE public.after_to_overlaps(est1.valid_after, est1.valid_to, est2.valid_after, est2.valid_to)
-ORDER BY 
-    (SELECT xei.ident FROM public.external_ident xei WHERE xei.establishment_id = est1.id AND xei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident') LIMIT 1), 
-    est1.valid_after, 
-    est1.name, 
-    (SELECT xei.ident FROM public.external_ident xei WHERE xei.establishment_id = est2.id AND xei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident') LIMIT 1), 
-    est2.valid_after,
+WHERE (est1.valid_from, est1.valid_until) OVERLAPS (est2.valid_from, est2.valid_until)
+ORDER BY
+    (SELECT xei.ident FROM public.external_ident xei WHERE xei.establishment_id = est1.id AND xei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident') LIMIT 1),
+    est1.valid_from,
+    est1.name,
+    (SELECT xei.ident FROM public.external_ident xei WHERE xei.establishment_id = est2.id AND xei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident') LIMIT 1),
+    est2.valid_from,
     est2.name;
 
 \echo "Checking for duplicates in timeline_enterprise_def before running analytics"
-\echo "Duplicate (unit_type, unit_id, valid_after) in timeline_enterprise_def that would cause ON CONFLICT error:"
-SELECT unit_type, unit_id, valid_after, COUNT(*)
+\echo "Duplicate (unit_type, unit_id, valid_from) in timeline_enterprise_def that would cause ON CONFLICT error:"
+SELECT unit_type, unit_id, valid_from, COUNT(*)
 FROM public.timeline_enterprise_def
-GROUP BY unit_type, unit_id, valid_after
+GROUP BY unit_type, unit_id, valid_from
 HAVING COUNT(*) > 1
-ORDER BY 
-    unit_type, 
+ORDER BY
+    unit_type,
     (SELECT xei.ident FROM public.external_ident xei WHERE xei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident') AND CASE unit_type WHEN 'enterprise' THEN xei.enterprise_id = unit_id WHEN 'legal_unit' THEN xei.legal_unit_id = unit_id WHEN 'establishment' THEN xei.establishment_id = unit_id ELSE FALSE END ORDER BY xei.ident LIMIT 1),
-    valid_after;
+    valid_from;
 
 \echo "Detailed duplicate rows from timeline_enterprise_def causing ON CONFLICT errors:"
 WITH DuplicatedKeys AS (
-    SELECT unit_type, unit_id, valid_after
+    SELECT unit_type, unit_id, valid_from
     FROM public.timeline_enterprise_def
-    GROUP BY unit_type, unit_id, valid_after
+    GROUP BY unit_type, unit_id, valid_from
     HAVING COUNT(*) > 1
 )
-SELECT ted.unit_id, ted.valid_after, ted.valid_from, ted.valid_to,
+SELECT ted.unit_id, ted.valid_from, ted.valid_to,
        ted.name,
        ted.primary_activity_category_code,
        ted.sector_code,
@@ -170,14 +170,13 @@ SELECT ted.unit_id, ted.valid_after, ted.valid_from, ted.valid_to,
        ted.primary_legal_unit_id,
        ted.primary_establishment_id
 FROM public.timeline_enterprise_def ted
-JOIN DuplicatedKeys dk ON ted.unit_type = dk.unit_type AND ted.unit_id = dk.unit_id AND ted.valid_after = dk.valid_after
-ORDER BY 
-    ted.unit_type, 
+JOIN DuplicatedKeys dk ON ted.unit_type = dk.unit_type AND ted.unit_id = dk.unit_id AND ted.valid_from = dk.valid_from
+ORDER BY
+    ted.unit_type,
     (SELECT xei.ident FROM public.external_ident xei WHERE xei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident') AND CASE ted.unit_type WHEN 'enterprise' THEN xei.enterprise_id = ted.unit_id WHEN 'legal_unit' THEN xei.legal_unit_id = ted.unit_id WHEN 'establishment' THEN xei.establishment_id = ted.unit_id ELSE FALSE END ORDER BY xei.ident LIMIT 1),
-    ted.valid_after, 
-    ted.valid_from NULLS FIRST, 
-    ted.valid_to NULLS FIRST, 
-    ted.name NULLS FIRST, 
+    ted.valid_from,
+    ted.valid_to NULLS FIRST,
+    ted.name NULLS FIRST,
     ted.last_edit_at NULLS FIRST;
 
 \echo Run worker processing for analytics tasks before EXPLAIN ANALYZE
@@ -193,13 +192,13 @@ SELECT type, ident, name_when_query, name_when_input
 FROM public.time_context;
 
 SELECT test.sudo_exec($sql$
-  CREATE INDEX IF NOT EXISTS tidx_establishment_valid_after_valid_to ON establishment (valid_after, valid_to);
+  CREATE INDEX IF NOT EXISTS tidx_establishment_valid_from_valid_to ON establishment (valid_from, valid_to);
   CREATE INDEX IF NOT EXISTS tidx_stat_for_unit_establishment_id ON stat_for_unit (establishment_id);
   CREATE INDEX IF NOT EXISTS tidx_activity_establishment_id ON activity (establishment_id);
-  CREATE INDEX IF NOT EXISTS tidx_legal_unit_valid_after_valid_to ON legal_unit (valid_after, valid_to);
+  CREATE INDEX IF NOT EXISTS tidx_legal_unit_valid_from_valid_to ON legal_unit (valid_from, valid_to);
   CREATE INDEX IF NOT EXISTS tidx_stat_for_unit_legal_unit_id ON stat_for_unit (legal_unit_id);
   CREATE INDEX IF NOT EXISTS tidx_location_legal_unit_id ON location (legal_unit_id);
-  CREATE INDEX IF NOT EXISTS tidx_legal_activity_date ON legal_unit (id, valid_after, valid_to);
+  CREATE INDEX IF NOT EXISTS tidx_legal_activity_date ON legal_unit (id, valid_from, valid_to);
 $sql$);
 
 SELECT test.sudo_exec($sql$
@@ -299,9 +298,9 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 
 \echo "High-level check of statistical units after import"
 \x
-SELECT valid_after
-     , valid_from
+SELECT valid_from
      , valid_to
+     , valid_until
      , unit_type
      , external_idents
      , jsonb_pretty(
@@ -309,7 +308,6 @@ SELECT valid_after
           to_jsonb(statistical_unit.*)
           -'stats'
           -'stats_summary'
-          -'valid_after'
           -'valid_from'
           -'valid_to'
           -'unit_type'

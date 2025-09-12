@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE INDEX statistical_unit_facet_valid_from ON public.statistical_unit_facet(valid_from);
-CREATE INDEX statistical_unit_facet_valid_to ON public.statistical_unit_facet(valid_to);
+CREATE INDEX statistical_unit_facet_valid_until ON public.statistical_unit_facet(valid_until);
 CREATE INDEX statistical_unit_facet_unit_type ON public.statistical_unit_facet(unit_type);
 
 CREATE INDEX statistical_unit_facet_physical_region_path_btree ON public.statistical_unit_facet USING BTREE (physical_region_path);

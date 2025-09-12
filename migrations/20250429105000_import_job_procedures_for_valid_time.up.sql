@@ -69,25 +69,26 @@ BEGIN
         WITH casted_dates_cte AS ( -- Renamed CTE
             SELECT
                 dt_sub.row_id,
-                vf.p_value as casted_vf,
-                vf.p_error_message as vf_error_msg,
-                vt.p_value as casted_vt,
-                vt.p_error_message as vt_error_msg,
-                dt_sub.valid_from as original_vf, -- Keep original for error messages
-                dt_sub.valid_to as original_vt   -- Keep original for error messages
+                vf.p_value AS casted_vf,
+                vf.p_error_message AS vf_error_msg,
+                vt.p_value AS casted_vt,
+                vt.p_error_message AS vt_error_msg,
+                (CASE WHEN vt.p_value = 'infinity'::date THEN 'infinity'::date ELSE vt.p_value + INTERVAL '1 day' END) AS casted_vu,
+                dt_sub.valid_from AS original_vf, -- Keep original for error messages
+                dt_sub.valid_to AS original_vt   -- Keep original for error messages
             FROM public.%1$I dt_sub
             LEFT JOIN LATERAL import.safe_cast_to_date(dt_sub.valid_from) AS vf(p_value, p_error_message) ON TRUE
             LEFT JOIN LATERAL import.safe_cast_to_date(dt_sub.valid_to) AS vt(p_value, p_error_message) ON TRUE
             WHERE dt_sub.row_id = ANY($1)
         )
         UPDATE public.%2$I dt SET
-            derived_valid_from = cdc.casted_vf, -- Use cdc alias
-            derived_valid_after = cdc.casted_vf - INTERVAL '1 day',
+            derived_valid_from = cdc.casted_vf,
             derived_valid_to = cdc.casted_vt,
+            derived_valid_until = cdc.casted_vu,
             state = CASE
-                        WHEN NULLIF(cdc.original_vf, '') IS NULL OR cdc.vf_error_msg IS NOT NULL OR 
-                             NULLIF(cdc.original_vt, '') IS NULL OR cdc.vt_error_msg IS NOT NULL OR 
-                             (cdc.casted_vf IS NOT NULL AND cdc.casted_vt IS NOT NULL AND (cdc.casted_vf - INTERVAL '1 day' >= cdc.casted_vt))
+                        WHEN NULLIF(cdc.original_vf, '') IS NULL OR cdc.vf_error_msg IS NOT NULL OR
+                             NULLIF(cdc.original_vt, '') IS NULL OR cdc.vt_error_msg IS NOT NULL OR
+                             (cdc.casted_vf IS NOT NULL AND cdc.casted_vu IS NOT NULL AND cdc.casted_vf >= cdc.casted_vu)
                         THEN 'error'::public.import_data_state
                         ELSE -- No error in this step
                             CASE
@@ -96,28 +97,28 @@ BEGIN
                             END
                     END,
             action = CASE
-                        WHEN NULLIF(cdc.original_vf, '') IS NULL OR cdc.vf_error_msg IS NOT NULL OR 
-                             NULLIF(cdc.original_vt, '') IS NULL OR cdc.vt_error_msg IS NOT NULL OR 
-                             (cdc.casted_vf IS NOT NULL AND cdc.casted_vt IS NOT NULL AND (cdc.casted_vf - INTERVAL '1 day' >= cdc.casted_vt))
+                        WHEN NULLIF(cdc.original_vf, '') IS NULL OR cdc.vf_error_msg IS NOT NULL OR
+                             NULLIF(cdc.original_vt, '') IS NULL OR cdc.vt_error_msg IS NOT NULL OR
+                             (cdc.casted_vf IS NOT NULL AND cdc.casted_vu IS NOT NULL AND cdc.casted_vf >= cdc.casted_vu)
                         THEN 'skip'::public.import_row_action_type -- Error implies skip
                         ELSE dt.action -- Preserve action from previous steps if no new fatal error here
                      END,
-            error = CASE
+            errors = CASE
                         WHEN NULLIF(cdc.original_vf, '') IS NULL THEN -- Mandatory value missing
-                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('valid_from', 'Missing mandatory value')
+                            dt.errors || jsonb_build_object('valid_from', 'Missing mandatory value')
                         WHEN cdc.vf_error_msg IS NOT NULL THEN -- Cast error for valid_from
-                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('valid_from', cdc.vf_error_msg)
+                            dt.errors || jsonb_build_object('valid_from', cdc.vf_error_msg)
                         WHEN NULLIF(cdc.original_vt, '') IS NULL THEN -- Mandatory value missing
-                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('valid_to', 'Missing mandatory value')
+                            dt.errors || jsonb_build_object('valid_to', 'Missing mandatory value')
                         WHEN cdc.vt_error_msg IS NOT NULL THEN -- Cast error for valid_to
-                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('valid_to', cdc.vt_error_msg)
-                        WHEN cdc.casted_vf IS NOT NULL AND cdc.casted_vt IS NOT NULL AND (cdc.casted_vf - INTERVAL '1 day' >= cdc.casted_vt) THEN -- Invalid period
-                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object(
-                                'valid_from', 'Resulting period is invalid: derived_valid_after (' || (cdc.casted_vf - INTERVAL '1 day')::TEXT || ') is not before valid_to (' || cdc.casted_vt::TEXT || ')',
-                                'valid_to',   'Resulting period is invalid: derived_valid_after (' || (cdc.casted_vf - INTERVAL '1 day')::TEXT || ') is not before valid_to (' || cdc.casted_vt::TEXT || ')'
+                            dt.errors || jsonb_build_object('valid_to', cdc.vt_error_msg)
+                        WHEN cdc.casted_vf IS NOT NULL AND cdc.casted_vu IS NOT NULL AND (cdc.casted_vf >= cdc.casted_vu) THEN -- Invalid period
+                            dt.errors || jsonb_build_object(
+                                'valid_from', 'Resulting period is invalid: derived_valid_from (' || cdc.casted_vf::TEXT || ') must be before derived_valid_until (' || cdc.casted_vu::TEXT || ')',
+                                'valid_to',   'Resulting period is invalid: derived_valid_from (' || cdc.casted_vf::TEXT || ') must be before derived_valid_until (' || cdc.casted_vu::TEXT || ')'
                             )
                         ELSE -- No error from this step, clear specific keys
-                            CASE WHEN (dt.error - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %3$L::TEXT[]) END
+                            dt.errors - %3$L::TEXT[]
                     END,
             last_completed_priority = %4$L -- Always v_step.priority
         FROM casted_dates_cte cdc -- Use cdc alias
@@ -147,7 +148,7 @@ BEGIN
         v_update_count := v_update_count + v_skipped_update_count; -- Total rows affected
 
         -- Estimate error count
-        EXECUTE format($$SELECT COUNT(*) FROM public.%1$I WHERE row_id = ANY($1) AND state = 'error' AND (error ?| %2$L::text[])$$,
+        EXECUTE format($$SELECT COUNT(*) FROM public.%1$I WHERE row_id = ANY($1) AND state = 'error' AND (errors ?| %2$L::text[])$$,
                        v_data_table_name /* %1$I */, v_error_keys_to_clear_arr /* %2$L */)
         INTO v_error_count
         USING p_batch_row_ids;

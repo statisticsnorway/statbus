@@ -111,7 +111,7 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | pending   |     6
+ analytics | pending   |     5
  import    | completed |    44
 (2 rows)
 
@@ -128,17 +128,17 @@ SELECT
 
 \echo "Inspecting import job data for import_32_lu_tc_ds"
 "Inspecting import job data for import_32_lu_tc_ds"
-SELECT row_id, state, error, tax_ident, name, data_source_code
+SELECT row_id, state, errors, tax_ident, name, data_source_code, merge_status
 FROM public.import_32_lu_tc_ds_data
 ORDER BY row_id
 LIMIT 5;
- row_id |   state   | error | tax_ident  |            name             | data_source_code 
---------+-----------+-------+------------+-----------------------------+------------------
-      1 | processed |       | 2212760144 | NILE PEARL WATER            | nlr
-      2 | processed |       | 2812760140 | EQUATOR GLOBE SOLUTIONS     | nlr
-      3 | processed |       | 2212760084 | EQUATOR CIRCLE CONSTRUCTION | nlr
-      4 | processed |       | 2612760138 | LIRA FRESH FRUIT EXPORTERS  | nlr
-      5 | processed |       | 2812760130 | ENTEBBE FUEL ENTERPRISES    | nlr
+ row_id |   state   | errors | tax_ident  |            name             | data_source_code |                                                                   merge_status                                                                    
+--------+-----------+--------+------------+-----------------------------+------------------+---------------------------------------------------------------------------------------------------------------------------------------------------
+      1 | processed | {}     | 2212760144 | NILE PEARL WATER            | nlr              | {"legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+      2 | processed | {}     | 2812760140 | EQUATOR GLOBE SOLUTIONS     | nlr              | {"legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+      3 | processed | {}     | 2212760084 | EQUATOR CIRCLE CONSTRUCTION | nlr              | {"legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+      4 | processed | {}     | 2612760138 | LIRA FRESH FRUIT EXPORTERS  | nlr              | {"legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+      5 | processed | {}     | 2812760130 | ENTEBBE FUEL ENTERPRISES    | nlr              | {"legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
 (5 rows)
 
 \echo "Checking import job status for import_32_lu_tc_ds"
@@ -159,64 +159,64 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |     8
+ analytics | completed |     7
  import    | completed |    44
 (2 rows)
 
 \echo "Checking statistics"
 "Checking statistics"
-SELECT name, external_idents, unit_type, data_source_codes, invalid_codes
+SELECT name, external_idents, unit_type, data_source_codes, invalid_codes, primary_activity_category_path, web_address, stats_summary->'employees'->>'value_int' AS employees, stats_summary->'turnover'->>'value_int' AS turnover
  FROM statistical_unit
- WHERE valid_after < CURRENT_DATE AND CURRENT_DATE <= valid_to
+ WHERE valid_from <= CURRENT_DATE AND CURRENT_DATE < valid_until
  ORDER BY name, external_idents->>'tax_ident', unit_type, valid_from, unit_id;
-            name             |                 external_idents                 | unit_type  | data_source_codes | invalid_codes 
------------------------------+-------------------------------------------------+------------+-------------------+---------------
- Amman RIAD 13-14            | {"tax_ident": "3300598", "stat_ident": "22"}    | legal_unit | {nlr}             | 
- Amman RIAD 13-14            | {"tax_ident": "3300598", "stat_ident": "22"}    | enterprise | {nlr}             | 
- ENTEBBE FUEL ENTERPRISES    | {"tax_ident": "2812760130", "stat_ident": "5"}  | legal_unit | {nlr}             | 
- ENTEBBE FUEL ENTERPRISES    | {"tax_ident": "2812760130", "stat_ident": "5"}  | enterprise | {nlr}             | 
- EQUATOR CIRCLE CONSTRUCTION | {"tax_ident": "2212760084", "stat_ident": "3"}  | legal_unit | {nlr}             | 
- EQUATOR CIRCLE CONSTRUCTION | {"tax_ident": "2212760084", "stat_ident": "3"}  | enterprise | {nlr}             | 
- EQUATOR GLOBE SOLUTIONS     | {"tax_ident": "2812760140", "stat_ident": "2"}  | legal_unit | {nlr}             | 
- EQUATOR GLOBE SOLUTIONS     | {"tax_ident": "2812760140", "stat_ident": "2"}  | enterprise | {nlr}             | 
- Erdenes Tavan Tolgoi JSC    | {"tax_ident": "397611", "stat_ident": "19"}     | legal_unit | {nlr}             | 
- Erdenes Tavan Tolgoi JSC    | {"tax_ident": "397611", "stat_ident": "19"}     | enterprise | {nlr}             | 
- KAMPALA Cofffe SUPPLIERS    | {"tax_ident": "2815384160", "stat_ident": "11"} | legal_unit | {nlr}             | 
- KAMPALA Cofffe SUPPLIERS    | {"tax_ident": "2815384160", "stat_ident": "11"} | enterprise | {nlr}             | 
- KAMPALA DIGITAL CHARTS      | {"tax_ident": "2407020166", "stat_ident": "7"}  | legal_unit | {nlr}             | 
- KAMPALA DIGITAL CHARTS      | {"tax_ident": "2407020166", "stat_ident": "7"}  | enterprise | {nlr}             | 
- LIRA FRESH FRUIT EXPORTERS  | {"tax_ident": "2612760138", "stat_ident": "4"}  | legal_unit | {nlr}             | 
- LIRA FRESH FRUIT EXPORTERS  | {"tax_ident": "2612760138", "stat_ident": "4"}  | enterprise | {nlr}             | 
- MANUAL Auto Uzbekistan      | {"tax_ident": "3998011", "stat_ident": "231"}   | legal_unit | {nlr}             | 
- MANUAL Auto Uzbekistan      | {"tax_ident": "3998011", "stat_ident": "231"}   | enterprise | {nlr}             | 
- MARINE SERVICES             | {"tax_ident": "2602025168", "stat_ident": "8"}  | legal_unit | {nlr}             | 
- MARINE SERVICES             | {"tax_ident": "2602025168", "stat_ident": "8"}  | enterprise | {nlr}             | 
- Morocco Trade               | {"tax_ident": "5340521", "stat_ident": "16"}    | legal_unit | {nlr}             | 
- Morocco Trade               | {"tax_ident": "5340521", "stat_ident": "16"}    | enterprise | {nlr}             | 
- NILE PEARL WATER            | {"tax_ident": "2212760144", "stat_ident": "1"}  | legal_unit | {nlr}             | 
- NILE PEARL WATER            | {"tax_ident": "2212760144", "stat_ident": "1"}  | enterprise | {nlr}             | 
- NILE TEXTILES               | {"tax_ident": "2612760118", "stat_ident": "9"}  | legal_unit | {nlr}             | 
- NILE TEXTILES               | {"tax_ident": "2612760118", "stat_ident": "9"}  | enterprise | {nlr}             | 
- Office Picture Corp         | {"tax_ident": "2220794", "stat_ident": "17"}    | legal_unit | {nlr}             | 
- Office Picture Corp         | {"tax_ident": "2220794", "stat_ident": "17"}    | enterprise | {nlr}             | 
- Oyu Tolgoi LLC              | {"tax_ident": "397622", "stat_ident": "20"}     | legal_unit | {nlr}             | 
- Oyu Tolgoi LLC              | {"tax_ident": "397622", "stat_ident": "20"}     | enterprise | {nlr}             | 
- Rainbow shopping            | {"tax_ident": "2200019", "stat_ident": "21"}    | legal_unit | {nlr}             | 
- Rainbow shopping            | {"tax_ident": "2200019", "stat_ident": "21"}    | enterprise | {nlr}             | 
- Statistics Denmark          | {"tax_ident": "45000", "stat_ident": "13"}      | legal_unit | {nlr}             | 
- Statistics Denmark          | {"tax_ident": "45000", "stat_ident": "13"}      | enterprise | {nlr}             | 
- Statistics Ethiopia         | {"tax_ident": "22501", "stat_ident": "18"}      | legal_unit | {nlr}             | 
- Statistics Ethiopia         | {"tax_ident": "22501", "stat_ident": "18"}      | enterprise | {nlr}             | 
- Statistics Finland          | {"tax_ident": "358000", "stat_ident": "14"}     | legal_unit | {nlr}             | 
- Statistics Finland          | {"tax_ident": "358000", "stat_ident": "14"}     | enterprise | {nlr}             | 
- Statistics Norway           | {"tax_ident": "4711111", "stat_ident": "230"}   | legal_unit | {nlr}             | 
- Statistics Norway           | {"tax_ident": "4711111", "stat_ident": "230"}   | enterprise | {nlr}             | 
- Statistics Sweeden          | {"tax_ident": "46001", "stat_ident": "15"}      | legal_unit | {nlr}             | 
- Statistics Sweeden          | {"tax_ident": "46001", "stat_ident": "15"}      | enterprise | {nlr}             | 
- VICTORIA FRESH FARMS        | {"tax_ident": "2507020167", "stat_ident": "12"} | legal_unit | {nlr}             | 
- VICTORIA FRESH FARMS        | {"tax_ident": "2507020167", "stat_ident": "12"} | enterprise | {nlr}             | 
- ZEBRA HAVEN SAFARIS         | {"tax_ident": "2312760075", "stat_ident": "6"}  | legal_unit | {nlr}             | 
- ZEBRA HAVEN SAFARIS         | {"tax_ident": "2312760075", "stat_ident": "6"}  | enterprise | {nlr}             | 
+            name             |                 external_idents                 | unit_type  | data_source_codes | invalid_codes | primary_activity_category_path | web_address | employees | turnover 
+-----------------------------+-------------------------------------------------+------------+-------------------+---------------+--------------------------------+-------------+-----------+----------
+ Amman RIAD 13-14            | {"tax_ident": "3300598", "stat_ident": "22"}    | legal_unit | {nlr}             |               | A.01.2.3                       |             |           | 
+ Amman RIAD 13-14            | {"tax_ident": "3300598", "stat_ident": "22"}    | enterprise | {nlr}             |               | A.01.2.3                       |             |           | 
+ ENTEBBE FUEL ENTERPRISES    | {"tax_ident": "2812760130", "stat_ident": "5"}  | legal_unit | {nlr}             |               | I.56.3.0                       |             |           | 
+ ENTEBBE FUEL ENTERPRISES    | {"tax_ident": "2812760130", "stat_ident": "5"}  | enterprise | {nlr}             |               | I.56.3.0                       |             |           | 
+ EQUATOR CIRCLE CONSTRUCTION | {"tax_ident": "2212760084", "stat_ident": "3"}  | legal_unit | {nlr}             |               | I.56.3.0                       |             |           | 
+ EQUATOR CIRCLE CONSTRUCTION | {"tax_ident": "2212760084", "stat_ident": "3"}  | enterprise | {nlr}             |               | I.56.3.0                       |             |           | 
+ EQUATOR GLOBE SOLUTIONS     | {"tax_ident": "2812760140", "stat_ident": "2"}  | legal_unit | {nlr}             |               | I.56.1.0                       |             |           | 
+ EQUATOR GLOBE SOLUTIONS     | {"tax_ident": "2812760140", "stat_ident": "2"}  | enterprise | {nlr}             |               | I.56.1.0                       |             |           | 
+ Erdenes Tavan Tolgoi JSC    | {"tax_ident": "397611", "stat_ident": "19"}     | legal_unit | {nlr}             |               | J.63.1.2                       |             |           | 
+ Erdenes Tavan Tolgoi JSC    | {"tax_ident": "397611", "stat_ident": "19"}     | enterprise | {nlr}             |               | J.63.1.2                       |             |           | 
+ KAMPALA Cofffe SUPPLIERS    | {"tax_ident": "2815384160", "stat_ident": "11"} | legal_unit | {nlr}             |               | G.46.2                         |             |           | 
+ KAMPALA Cofffe SUPPLIERS    | {"tax_ident": "2815384160", "stat_ident": "11"} | enterprise | {nlr}             |               | G.46.2                         |             |           | 
+ KAMPALA DIGITAL CHARTS      | {"tax_ident": "2407020166", "stat_ident": "7"}  | legal_unit | {nlr}             |               | R.92.0.0                       |             |           | 
+ KAMPALA DIGITAL CHARTS      | {"tax_ident": "2407020166", "stat_ident": "7"}  | enterprise | {nlr}             |               | R.92.0.0                       |             |           | 
+ LIRA FRESH FRUIT EXPORTERS  | {"tax_ident": "2612760138", "stat_ident": "4"}  | legal_unit | {nlr}             |               | A.01.2.2                       |             |           | 
+ LIRA FRESH FRUIT EXPORTERS  | {"tax_ident": "2612760138", "stat_ident": "4"}  | enterprise | {nlr}             |               | A.01.2.2                       |             |           | 
+ MANUAL Auto Uzbekistan      | {"tax_ident": "3998011", "stat_ident": "231"}   | legal_unit | {nlr}             |               | G.47.3.0                       |             |           | 
+ MANUAL Auto Uzbekistan      | {"tax_ident": "3998011", "stat_ident": "231"}   | enterprise | {nlr}             |               | G.47.3.0                       |             |           | 
+ MARINE SERVICES             | {"tax_ident": "2602025168", "stat_ident": "8"}  | legal_unit | {nlr}             |               | C.33.1.4                       |             |           | 
+ MARINE SERVICES             | {"tax_ident": "2602025168", "stat_ident": "8"}  | enterprise | {nlr}             |               | C.33.1.4                       |             |           | 
+ Morocco Trade               | {"tax_ident": "5340521", "stat_ident": "16"}    | legal_unit | {nlr}             |               | M.74.1.0                       |             |           | 
+ Morocco Trade               | {"tax_ident": "5340521", "stat_ident": "16"}    | enterprise | {nlr}             |               | M.74.1.0                       |             |           | 
+ NILE PEARL WATER            | {"tax_ident": "2212760144", "stat_ident": "1"}  | legal_unit | {nlr}             |               | G.47.5.2                       |             |           | 
+ NILE PEARL WATER            | {"tax_ident": "2212760144", "stat_ident": "1"}  | enterprise | {nlr}             |               | G.47.5.2                       |             |           | 
+ NILE TEXTILES               | {"tax_ident": "2612760118", "stat_ident": "9"}  | legal_unit | {nlr}             |               | C.13.1.1                       |             |           | 
+ NILE TEXTILES               | {"tax_ident": "2612760118", "stat_ident": "9"}  | enterprise | {nlr}             |               | C.13.1.1                       |             |           | 
+ Office Picture Corp         | {"tax_ident": "2220794", "stat_ident": "17"}    | legal_unit | {nlr}             |               | N.82.1.1                       |             |           | 
+ Office Picture Corp         | {"tax_ident": "2220794", "stat_ident": "17"}    | enterprise | {nlr}             |               | N.82.1.1                       |             |           | 
+ Oyu Tolgoi LLC              | {"tax_ident": "397622", "stat_ident": "20"}     | legal_unit | {nlr}             |               | C.13.1.1                       |             |           | 
+ Oyu Tolgoi LLC              | {"tax_ident": "397622", "stat_ident": "20"}     | enterprise | {nlr}             |               | C.13.1.1                       |             |           | 
+ Rainbow shopping            | {"tax_ident": "2200019", "stat_ident": "21"}    | legal_unit | {nlr}             |               | A.01.2.3                       |             |           | 
+ Rainbow shopping            | {"tax_ident": "2200019", "stat_ident": "21"}    | enterprise | {nlr}             |               | A.01.2.3                       |             |           | 
+ Statistics Denmark          | {"tax_ident": "45000", "stat_ident": "13"}      | legal_unit | {nlr}             |               | J.58.2.0                       |             |           | 
+ Statistics Denmark          | {"tax_ident": "45000", "stat_ident": "13"}      | enterprise | {nlr}             |               | J.58.2.0                       |             |           | 
+ Statistics Ethiopia         | {"tax_ident": "22501", "stat_ident": "18"}      | legal_unit | {nlr}             |               | M.71.2                         |             |           | 
+ Statistics Ethiopia         | {"tax_ident": "22501", "stat_ident": "18"}      | enterprise | {nlr}             |               | M.71.2                         |             |           | 
+ Statistics Finland          | {"tax_ident": "358000", "stat_ident": "14"}     | legal_unit | {nlr}             |               | J.58.2.0                       |             |           | 
+ Statistics Finland          | {"tax_ident": "358000", "stat_ident": "14"}     | enterprise | {nlr}             |               | J.58.2.0                       |             |           | 
+ Statistics Norway           | {"tax_ident": "4711111", "stat_ident": "230"}   | legal_unit | {nlr}             |               | J.63.1.2.1                     |             |           | 
+ Statistics Norway           | {"tax_ident": "4711111", "stat_ident": "230"}   | enterprise | {nlr}             |               | J.63.1.2.1                     |             |           | 
+ Statistics Sweeden          | {"tax_ident": "46001", "stat_ident": "15"}      | legal_unit | {nlr}             |               | M.74.1.0                       |             |           | 
+ Statistics Sweeden          | {"tax_ident": "46001", "stat_ident": "15"}      | enterprise | {nlr}             |               | M.74.1.0                       |             |           | 
+ VICTORIA FRESH FARMS        | {"tax_ident": "2507020167", "stat_ident": "12"} | legal_unit | {nlr}             |               | A.01.2.3                       |             |           | 
+ VICTORIA FRESH FARMS        | {"tax_ident": "2507020167", "stat_ident": "12"} | enterprise | {nlr}             |               | A.01.2.3                       |             |           | 
+ ZEBRA HAVEN SAFARIS         | {"tax_ident": "2312760075", "stat_ident": "6"}  | legal_unit | {nlr}             |               | C.14.1.0                       |             |           | 
+ ZEBRA HAVEN SAFARIS         | {"tax_ident": "2312760075", "stat_ident": "6"}  | enterprise | {nlr}             |               | C.14.1.0                       |             |           | 
 (46 rows)
 
 ROLLBACK;

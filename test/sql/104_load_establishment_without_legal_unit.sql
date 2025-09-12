@@ -65,7 +65,7 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Inspecting import job data for import_02_eswlu_tc"
-SELECT row_id, state, error, tax_ident, name, data_source_code
+SELECT row_id, state, errors, tax_ident, name, data_source_code, merge_status
 FROM public.import_02_eswlu_tc_data
 ORDER BY row_id
 LIMIT 5;

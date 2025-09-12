@@ -1,7 +1,7 @@
 BEGIN;
 
 -- Drop the refresh function
-DROP FUNCTION IF EXISTS public.timesegments_refresh(date, date);
+DROP PROCEDURE IF EXISTS public.timesegments_refresh(p_unit_ids int[], p_unit_type public.statistical_unit_type);
 
 -- Drop the physical table
 DROP TABLE IF EXISTS public.timesegments;

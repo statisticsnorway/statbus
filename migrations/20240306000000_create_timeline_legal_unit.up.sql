@@ -3,9 +3,9 @@ BEGIN;
 CREATE OR REPLACE VIEW public.timeline_legal_unit_def
     ( unit_type
     , unit_id
-    , valid_after
     , valid_from
     , valid_to
+    , valid_until
     , name
     , birth_date
     , death_date
@@ -82,6 +82,12 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
     , related_establishment_ids
     , excluded_establishment_ids
     , included_establishment_ids
+    , related_legal_unit_ids
+    , excluded_legal_unit_ids
+    , included_legal_unit_ids
+    , related_enterprise_ids
+    , excluded_enterprise_ids
+    , included_enterprise_ids
     , legal_unit_id
     , enterprise_id
     --
@@ -94,7 +100,7 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
       WITH legal_unit_stats AS (
         SELECT
             t.unit_id,
-            t.valid_after,
+            t.valid_from,
             jsonb_object_agg(
                 sd.code,
                 CASE
@@ -107,18 +113,18 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
         FROM public.timesegments AS t
         JOIN public.stat_for_unit AS sfu
             ON sfu.legal_unit_id = t.unit_id
-            AND after_to_overlaps(t.valid_after, t.valid_to, sfu.valid_after, sfu.valid_to)
+            AND from_until_overlaps(t.valid_from, t.valid_until, sfu.valid_from, sfu.valid_until)
         JOIN public.stat_definition AS sd
             ON sfu.stat_definition_id = sd.id
         WHERE t.unit_type = 'legal_unit'
-        GROUP BY t.unit_id, t.valid_after
+        GROUP BY t.unit_id, t.valid_from
       ),
       basis AS (
       SELECT t.unit_type
            , t.unit_id
-           , t.valid_after
-           , (t.valid_after + '1 day'::INTERVAL)::DATE AS valid_from
-           , t.valid_to
+           , t.valid_from
+           , (t.valid_until - '1 day'::INTERVAL)::DATE AS valid_to
+           , t.valid_until
            , lu.name AS name
            , lu.birth_date AS birth_date
            , lu.death_date AS death_date
@@ -207,17 +213,17 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
       FROM public.timesegments AS t
       JOIN LATERAL (
           SELECT * FROM public.legal_unit lu_1
-          WHERE lu_1.id = t.unit_id AND after_to_overlaps(t.valid_after, t.valid_to, lu_1.valid_after, lu_1.valid_to)
-          ORDER BY lu_1.id DESC, lu_1.valid_after DESC LIMIT 1
+          WHERE lu_1.id = t.unit_id AND from_until_overlaps(t.valid_from, t.valid_until, lu_1.valid_from, lu_1.valid_until)
+          ORDER BY lu_1.id DESC, lu_1.valid_from DESC LIMIT 1
       ) lu ON true
       LEFT JOIN legal_unit_stats AS lu_stats
-        ON lu_stats.unit_id = t.unit_id AND lu_stats.valid_after = t.valid_after
+        ON lu_stats.unit_id = t.unit_id AND lu_stats.valid_from = t.valid_from
       --
-      LEFT JOIN LATERAL (SELECT a.* FROM public.activity a WHERE a.legal_unit_id = lu.id AND a.type = 'primary' AND after_to_overlaps(t.valid_after, t.valid_to, a.valid_after, a.valid_to) ORDER BY a.id DESC LIMIT 1) pa ON true
+      LEFT JOIN LATERAL (SELECT a.* FROM public.activity a WHERE a.legal_unit_id = lu.id AND a.type = 'primary' AND from_until_overlaps(t.valid_from, t.valid_until, a.valid_from, a.valid_until) ORDER BY a.id DESC LIMIT 1) pa ON true
       LEFT JOIN public.activity_category AS pac
               ON pa.category_id = pac.id
       --
-      LEFT JOIN LATERAL (SELECT a.* FROM public.activity a WHERE a.legal_unit_id = lu.id AND a.type = 'secondary' AND after_to_overlaps(t.valid_after, t.valid_to, a.valid_after, a.valid_to) ORDER BY a.id DESC LIMIT 1) sa ON true
+      LEFT JOIN LATERAL (SELECT a.* FROM public.activity a WHERE a.legal_unit_id = lu.id AND a.type = 'secondary' AND from_until_overlaps(t.valid_from, t.valid_until, a.valid_from, a.valid_until) ORDER BY a.id DESC LIMIT 1) sa ON true
       LEFT JOIN public.activity_category AS sac
               ON sa.category_id = sac.id
       --
@@ -227,18 +233,18 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
       LEFT OUTER JOIN public.legal_form AS lf
               ON lu.legal_form_id = lf.id
       --
-      LEFT JOIN LATERAL (SELECT l.* FROM public.location l WHERE l.legal_unit_id = lu.id AND l.type = 'physical' AND after_to_overlaps(t.valid_after, t.valid_to, l.valid_after, l.valid_to) ORDER BY l.id DESC LIMIT 1) phl ON true
+      LEFT JOIN LATERAL (SELECT l.* FROM public.location l WHERE l.legal_unit_id = lu.id AND l.type = 'physical' AND from_until_overlaps(t.valid_from, t.valid_until, l.valid_from, l.valid_until) ORDER BY l.id DESC LIMIT 1) phl ON true
       LEFT JOIN public.region AS phr
               ON phl.region_id = phr.id
       LEFT JOIN public.country AS phc
               ON phl.country_id = phc.id
       --
-      LEFT JOIN LATERAL (SELECT l.* FROM public.location l WHERE l.legal_unit_id = lu.id AND l.type = 'postal' AND after_to_overlaps(t.valid_after, t.valid_to, l.valid_after, l.valid_to) ORDER BY l.id DESC LIMIT 1) pol ON true
+      LEFT JOIN LATERAL (SELECT l.* FROM public.location l WHERE l.legal_unit_id = lu.id AND l.type = 'postal' AND from_until_overlaps(t.valid_from, t.valid_until, l.valid_from, l.valid_until) ORDER BY l.id DESC LIMIT 1) pol ON true
       LEFT JOIN public.region AS por
               ON pol.region_id = por.id
       LEFT JOIN public.country AS poc
               ON pol.country_id = poc.id
-      LEFT JOIN LATERAL (SELECT c_1.* FROM public.contact c_1 WHERE c_1.legal_unit_id = lu.id AND after_to_overlaps(t.valid_after, t.valid_to, c_1.valid_after, c_1.valid_to) ORDER BY c_1.id DESC LIMIT 1) c ON true
+      LEFT JOIN LATERAL (SELECT c_1.* FROM public.contact c_1 WHERE c_1.legal_unit_id = lu.id AND from_until_overlaps(t.valid_from, t.valid_until, c_1.valid_from, c_1.valid_until) ORDER BY c_1.id DESC LIMIT 1) c ON true
       LEFT JOIN public.unit_size AS us
               ON lu.unit_size_id = us.id
       LEFT JOIN public.status AS st
@@ -247,7 +253,7 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
               SELECT array_agg(DISTINCT sfu.data_source_id) FILTER (WHERE sfu.data_source_id IS NOT NULL) AS data_source_ids
               FROM public.stat_for_unit AS sfu
               WHERE sfu.legal_unit_id = lu.id
-                AND after_to_overlaps(t.valid_after, t.valid_to, sfu.valid_after, sfu.valid_to)
+                AND from_until_overlaps(t.valid_from, t.valid_until, sfu.valid_from, sfu.valid_until)
         ) AS sfu ON TRUE
       LEFT JOIN LATERAL (
           SELECT array_agg(ds.id) AS ids
@@ -278,9 +284,9 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
       )
       SELECT basis.unit_type
            , basis.unit_id
-           , basis.valid_after
            , basis.valid_from
            , basis.valid_to
+           , basis.valid_until
            , basis.name
            , basis.birth_date
            , basis.death_date
@@ -367,6 +373,16 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
            , COALESCE(esa.related_establishment_ids, ARRAY[]::INT[]) AS related_establishment_ids
            , COALESCE(esa.excluded_establishment_ids, ARRAY[]::INT[]) AS excluded_establishment_ids
            , COALESCE(esa.included_establishment_ids, ARRAY[]::INT[]) AS included_establishment_ids
+           , ARRAY[basis.unit_id] AS related_legal_unit_ids
+           , ARRAY[]::INT[] AS excluded_legal_unit_ids
+           , CASE WHEN basis.include_unit_in_reports THEN ARRAY[basis.unit_id] ELSE '{}'::INT[] END AS included_legal_unit_ids
+           , CASE WHEN basis.enterprise_id IS NOT NULL THEN ARRAY[basis.enterprise_id] ELSE ARRAY[]::INT[] END AS related_enterprise_ids
+           , ARRAY[]::INT[] AS excluded_enterprise_ids
+           -- 'included_*' arrays form a directed acyclic graph (DAG) for statistical roll-ups.
+           -- A unit includes IDs of units below it in the hierarchy, plus itself.
+           -- E.g., a legal_unit includes its establishments' IDs; an establishment includes its own ID.
+           -- A child NEVER includes its parent's ID in this array. This prevents double-counting stats during roll-ups.
+           , ARRAY[]::INT[] AS included_enterprise_ids
            , basis.legal_unit_id
            , basis.enterprise_id
            --
@@ -388,11 +404,11 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
                  array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL AND tes.include_unit_in_reports) AS included_establishment_ids,
                  public.jsonb_stats_to_summary_agg(tes.stats) FILTER (WHERE tes.include_unit_in_reports) AS stats_summary
           FROM public.timeline_establishment tes
-          WHERE tes.legal_unit_id = basis.legal_unit_id AND after_to_overlaps(basis.valid_after, basis.valid_to, tes.valid_after, tes.valid_to)
+          WHERE tes.legal_unit_id = basis.legal_unit_id AND from_until_overlaps(basis.valid_from, basis.valid_until, tes.valid_from, tes.valid_until)
           GROUP BY tes.legal_unit_id
       ) esa ON true
       --
-      ORDER BY unit_type, unit_id, valid_after
+      ORDER BY unit_type, unit_id, valid_from
 ;
 
 DROP TABLE IF EXISTS public.timeline_legal_unit;
@@ -404,17 +420,18 @@ WHERE FALSE;
 
 -- Add constraints to the physical table
 ALTER TABLE public.timeline_legal_unit
-    ADD PRIMARY KEY (unit_type, unit_id, valid_after),
+    ADD PRIMARY KEY (unit_type, unit_id, valid_from),
     ALTER COLUMN unit_type SET NOT NULL,
     ALTER COLUMN unit_id SET NOT NULL,
-    ALTER COLUMN valid_after SET NOT NULL,
-    ALTER COLUMN valid_from SET NOT NULL;
+    ALTER COLUMN valid_from SET NOT NULL,
+    ALTER COLUMN valid_to SET NOT NULL,
+    ALTER COLUMN valid_until SET NOT NULL;
 
 -- Create indices to optimize queries
 CREATE INDEX IF NOT EXISTS idx_timeline_legal_unit_daterange ON public.timeline_legal_unit
-    USING gist (daterange(valid_after, valid_to, '(]'));
+    USING gist (daterange(valid_from, valid_until, '[)'));
 CREATE INDEX IF NOT EXISTS idx_timeline_legal_unit_valid_period ON public.timeline_legal_unit
-    (valid_after, valid_to);
+    (valid_from, valid_until);
 CREATE INDEX IF NOT EXISTS idx_timeline_legal_unit_related_establishment_ids ON public.timeline_legal_unit
     USING gin (related_establishment_ids);
 CREATE INDEX IF NOT EXISTS idx_timeline_legal_unit_primary_for_enterprise ON public.timeline_legal_unit
@@ -426,9 +443,10 @@ CREATE INDEX IF NOT EXISTS idx_timeline_legal_unit_enterprise_id ON public.timel
 
 
 -- Create a function to refresh the timeline_legal_unit table
-CREATE OR REPLACE PROCEDURE public.timeline_legal_unit_refresh(p_unit_ids int[] DEFAULT NULL) LANGUAGE plpgsql AS $$
+CREATE OR REPLACE PROCEDURE public.timeline_legal_unit_refresh(p_unit_id_ranges int4multirange DEFAULT NULL) LANGUAGE plpgsql AS $$
 BEGIN
-    CALL public.timeline_refresh('timeline_legal_unit', 'legal_unit', p_unit_ids);
+    ANALYZE public.timesegments, public.legal_unit, public.activity, public.location, public.contact, public.stat_for_unit, public.timeline_establishment;
+    CALL public.timeline_refresh('timeline_legal_unit', 'legal_unit', p_unit_id_ranges);
 END;
 $$;
 

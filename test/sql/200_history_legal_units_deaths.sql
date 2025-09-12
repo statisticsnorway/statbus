@@ -80,7 +80,7 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
 \echo "Check statistical units"
-SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_after, valid_from, valid_to, birth_date, death_date
+SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_from, valid_to, birth_date, death_date
 FROM public.statistical_unit
 WHERE unit_type = 'legal_unit'
 ORDER BY external_idents ->> 'tax_ident', valid_from;
@@ -146,7 +146,7 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
 \echo "Check statistical units"
-SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_after, valid_from, valid_to, birth_date, death_date
+SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_from, valid_to, birth_date, death_date
 FROM public.statistical_unit
 WHERE unit_type = 'legal_unit'
 ORDER BY external_idents ->> 'tax_ident', valid_from;
@@ -211,7 +211,7 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
 \echo "Check statistical units"
-SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_after, valid_from, valid_to, birth_date, death_date
+SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_from, valid_to, birth_date, death_date
 FROM public.statistical_unit
 WHERE unit_type = 'legal_unit'
 ORDER BY external_idents ->> 'tax_ident', valid_from;

@@ -20,7 +20,7 @@ BEGIN
 
     -- 1. Create the definition record (initially invalid)
     INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id)
-    VALUES ('brreg_underenhet_2025', 'Import of BRREG Underenhet using 2025 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_replace', 'establishment_formal', 'job_provided', false, (SELECT id FROM public.data_source WHERE code = 'brreg'))
+    VALUES ('brreg_underenhet_2025', 'Import of BRREG Underenhet using 2025 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_update', 'establishment_formal', 'job_provided', false, (SELECT id FROM public.data_source WHERE code = 'brreg'))
     RETURNING id INTO def_id;
 
     -- 2. Link the required steps to the definition

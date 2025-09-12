@@ -53,27 +53,91 @@ The import system is built around several key database tables and concepts:
             *   Reads `source_input` columns.
             *   Performs lookups (e.g., finding `sector_id` from `sector_code`), type casting (e.g., `import.safe_cast_to_date`), and validations.
             *   Stores results in `internal` columns (e.g., `sector_id`, `typed_birth_date`).
-            *   **Error Handling (JSONB Columns `error` and `invalid_codes`)**:
-                *   Each `analyse_procedure` is authoritative for specific keys within the `error` and `invalid_codes` JSONB columns. A key typically corresponds to an input data column name (e.g., `sector_code`, `physical_latitude`) or a specific validation type (e.g., `inconsistent_legal_unit`, `invalid_period_source`).
-                *   **Hard Errors (`error` column)**: Critical issues (e.g., malformed mandatory dates, missing essential identifiers for `external_idents` step) that prevent further processing.
-                    *   **Error Key Requirement (CRITICAL FOR UI)**: Keys within the `error` JSONB object **MUST** correspond to the `column_name` of an actual `source_input` `import_data_column` that is relevant to the error. This is essential for the UI to highlight the problematic input field(s) to the user.
+            *   **Error Handling (JSONB Columns `errors` and `invalid_codes`)**:
+                *   Each `analyse_procedure` is authoritative for specific keys within the `errors` and `invalid_codes` JSONB columns. A key typically corresponds to an input data column name (e.g., `sector_code`, `physical_latitude`) or a specific validation type (e.g., `inconsistent_legal_unit`, `invalid_period_source`).
+                *   **Hard Errors (`errors` column)**: Critical issues (e.g., malformed mandatory dates, missing essential identifiers for `external_idents` step) that prevent further processing. The `errors`, `invalid_codes`, and `merge_status` columns are defined as `NOT NULL` with a `DEFAULT '{}'::jsonb` to simplify programming logic by removing the need to handle `NULL` values.
+                    *   **Error Key Requirement (CRITICAL FOR UI)**: Keys within the `errors` JSONB object **MUST** correspond to the `column_name` of an actual `source_input` `import_data_column` that is relevant to the error. This is essential for the UI to highlight the problematic input field(s) to the user.
                         *   If an error pertains to a single input (e.g., `tax_ident` has an invalid format), the key should be that column's name (e.g., `{"tax_ident": "Invalid format"}`).
                         *   If an error pertains to multiple input columns (e.g., an inconsistency between `tax_ident` and `stat_ident`), the error message **MUST** be repeated under each relevant `source_input` column name (e.g., `{"tax_ident": "Inconsistent identifiers", "stat_ident": "Inconsistent identifiers"}`).
                         *   Generic keys (not matching a `source_input` column) are only permissible if the error is truly systemic and cannot be attributed to any specific input column (e.g., a failure to connect to a required external service during analysis, or if *no* identifiers were provided at all, a key like `external_idents_error` might be used, though associating it with all potential identifier input columns is preferred if possible).
-                    *   These populate the `error` JSONB column with key-value pairs as described above.
+                    *   These populate the `errors` JSONB column with key-value pairs as described above.
                     *   The procedure sets `state = 'error'` and `action = 'skip'`.
-                    *   When adding a new hard error, a step should merge its error JSONB object with the existing `dt.error` (e.g., `COALESCE(dt.error, '{}'::jsonb) || new_error_details_jsonb`).
-                    *   If a step resolves a hard error it previously reported (or if the condition for the error no longer applies after re-evaluation), it should clear *only its specific key(s)* from the `error` column (e.g., `dt.error - 'my_error_key'`). It must not clear keys reported by other steps.
+                    *   When adding a new hard error, a step should merge its error JSONB object with the existing `dt.errors` (e.g., `dt.errors || new_error_details_jsonb`). `COALESCE` is not needed.
+                    *   If a step resolves a hard error it previously reported (or if the condition for the error no longer applies after re-evaluation), it should clear *only its specific key(s)* from the `errors` column (e.g., `dt.errors - 'my_error_key'`). It must not clear keys reported by other steps.
                 *   **Soft Errors / Invalid Codes (`invalid_codes` column)**: Non-critical issues where specific input codes (e.g., `sector_code`) are not found, or optional data is malformed but doesn't halt further analysis by other steps.
                     *   These populate the `invalid_codes` JSONB column, typically storing the original problematic value. Keys in `invalid_codes` should also correspond to `source_input` column names (e.g., `{"sector_code": "INVALID_XYZ"}`).
                     *   They do *not* directly set `state = 'error'` or `action = 'skip'`. The row continues analysis.
-                    *   `invalid_codes` should be treated as additive. A step appends its new soft errors by merging its `invalid_codes` JSONB object with the existing `dt.invalid_codes` (e.g., `COALESCE(dt.invalid_codes, '{}'::jsonb) || new_invalid_codes_jsonb`).
+                    *   `invalid_codes` should be treated as additive. A step appends its new soft errors by merging its `invalid_codes` JSONB object with the existing `dt.invalid_codes` (e.g., `dt.invalid_codes || new_invalid_codes_jsonb`). `COALESCE` is not needed.
                     *   If a step resolves a soft error it previously reported (e.g., an invalid code becomes valid upon re-evaluation or data correction), it should clear *only its specific key(s)* from the `invalid_codes` column (e.g., `dt.invalid_codes - 'my_invalid_code_key'`).
                     *   If a `process_` step relies on a resolved ID that couldn't be derived due to an invalid code, that specific attribute might not be set, or the `process_` step might skip that part of the operation for the row.
-            *   The `external_idents` step specifically determines the potential `operation` (`insert`, `replace`, `update`) based on identifier lookups, and the final `action` (`insert`, `replace`, `update`, or `skip`) based on the `operation`, job's `strategy`, and any hard errors.
+            *   The `external_idents` step specifically determines the potential `operation` (`insert`, `replace`, `update`) based on identifier lookups. It then determines the final `action` based on this `operation`, the job's `strategy`, and any hard errors. A row that passes all analysis steps will have its `action` set to `'use'`, while a row with a hard error will have its `action` set to `'skip'`.
             *   Updates the row's `state` (to `analysing`, or `error` for hard errors), `error` (for hard errors), `invalid_codes` (for soft errors), and `last_completed_priority`.
-        *   **Operation (`process_procedure`):** Reads `source_input` and `internal` columns, including the `action` column. Performs the final `INSERT` (for `action='insert'`), `REPLACE` (for `action='replace'`), or `UPDATE` (for `action='update'`) into the target Statbus tables, respecting the job's `strategy`. Skips rows where `action='skip'`. Stores the resulting primary key(s) in the corresponding `pk_id` column. Updates the row's `state` (to `processing` or `error` if the DML fails), `error`, and `last_completed_priority`. *Note: Some steps like `external_idents` only perform analysis and do not have a process procedure.*
-    *   **Temporal Slicing Principle**: A new temporal slice (i.e., a new row with adjusted `valid_after`/`valid_to`) is created in a specific target table (e.g., `public.legal_unit`, `public.location`) *only* when "core" data fields *within that specific table* change. The system uses an **exclusive start date (`valid_after`)** and an **inclusive end date (`valid_to`)** for all temporal tables, representing the period `(valid_after, valid_to]`. Source data, however, is expected to provide an **inclusive start date (`valid_from`)**. The `analyse_valid_time` step automatically converts the source `valid_from` to the internal `derived_valid_after` by subtracting one day. This convention ensures consistency across all temporal tables. Changes in related tables (e.g., a `location` change for a `legal_unit`) create new slices in the related table (`public.location`) but not necessarily in the parent table (`public.legal_unit`) unless the parent table's own core data also changes. The `public.statistical_unit` view then joins these tables to present a consolidated timeline.
+        *   **Operation (`process_procedure`):** Filters the batch for rows where `action = 'use'`. It then performs the final data synchronization using the `sql_saga.temporal_merge` engine. It does not need to know whether to insert or update; this is determined automatically by `temporal_merge` based on `founding_row_id`. It stores the resulting primary key(s) in the corresponding `pk_id` column and updates the row's `state` (to `processing` or `error` if the DML fails). Rows where `action = 'skip'` are ignored. *Note: Some steps like `external_idents` only perform analysis and do not have a process procedure.*
+
+    *   **Interaction with `sql_saga.temporal_merge`: Two Key Patterns**
+
+        The `temporal_merge` engine is powerful, but its usage within the import system follows two distinct patterns depending on the type of entity being processed. Understanding this distinction is critical.
+
+        1.  **Pattern 1: Top-Level Entities (`legal_unit`, `establishment`)**
+            *   **Context**: Top-level entities are identified by natural keys (e.g., `tax_ident`) that are stored in a separate `external_ident` table, not on the `legal_unit` or `establishment` table itself.
+            *   **Workflow**: Because the natural key is not directly on the target table, `sql_saga` cannot perform the lookup. Therefore, the lookup **must** happen beforehand.
+                *   The `analyse_external_idents` procedure is responsible for querying the `external_ident` table to find the existing surrogate `id` (`legal_unit_id` or `establishment_id`).
+                *   This resolved `id` is stored in an internal `_data` table column (e.g., `legal_unit_id`). If no `id` is found, this column remains `NULL`, signaling a new entity.
+                *   The `process_legal_unit` (or `process_establishment`) procedure then calls `temporal_merge`, passing the pre-resolved `id` in its source view. The call uses `p_identity_columns => ARRAY['id']` and does **not** use `p_natural_identity_columns`.
+
+        2.  **Pattern 2: Sub-Entities (`stat_for_unit`, `location`, `activity`, `contact`)**
+            *   **Context**: Sub-entities are identified by natural keys composed of columns that exist directly on the target table. For example, a `stat_for_unit` record is uniquely identified by its owner (`legal_unit_id` or `establishment_id`) and the type of statistic (`stat_definition_id`).
+            *   **Workflow**: This is the preferred and more modern pattern. The `analyse_*` step does **not** look up the existing surrogate ID.
+                *   The `analyse_statistical_variables` procedure only validates and casts the incoming stat values. It does not populate a `stat_for_unit_..._id` column.
+                *   The `process_statistical_variables` procedure calls `temporal_merge` and provides both the surrogate key (`p_identity_columns => ARRAY['id']`) and the natural key (`p_natural_identity_columns => ARRAY['legal_unit_id', 'establishment_id', 'stat_definition_id']`).
+                *   `temporal_merge` uses the natural key to perform the lookup internally, correctly identifying whether to `INSERT` a new sub-entity or `UPDATE` an existing one. This is simpler and more robust.
+
+    *   **Sub-Entity Processing and the Role of `founding_row_id`**:
+        The `operation` column (`insert`, `replace`, `update`) correctly describes the intended operation for the *core entity* (e.g., the `legal_unit`), but it is a monolithic flag for the entire `founding_row_id` group. It is too coarse for related sub-entities like `contact` or `location`, which have their own independent timelines and may need to be inserted even when the main unit is being replaced.
+
+        Therefore, the `operation` column's only purpose is to be used by the `analyse_external_idents` step to determine the final `action` (`use` or `skip`) based on the job's `strategy`. **All sub-entity processing procedures MUST ignore the `operation` column.** Instead, they follow a more nuanced, two-step logic:
+
+        1.  **Filter for Relevance**: The procedure must first filter the batch for rows where `action = 'use'` AND at least one of its domain-specific columns has data (e.g., at least one non-NULL `email` or `phone` field for `process_contact`). Rows with no relevant data or where `action = 'skip'` are ignored by this step.
+        2.  **Delegate to `temporal_merge`**: The filtered, relevant rows are passed to `sql_saga.temporal_merge`. The procedure does **not** need to tell `temporal_merge` whether to `INSERT` or `UPDATE`. This is determined automatically by `temporal_merge`'s internal planner, which uses `p_founding_id_column`.
+
+        The `founding_row_id` is the critical signal. When `temporal_merge` sees a `founding_row_id` for the first time in a batch, it knows to perform an `INSERT`. For any subsequent rows in the batch with the same `founding_row_id`, it knows to perform a temporal `PATCH` or `REPLACE`. This works correctly even if intermediate rows (that had no data for this sub-entity) were filtered out.
+
+        **Concrete Example: A New Legal Unit with Delayed Contact Info**
+        Consider a new legal unit imported with two rows. The first establishes the unit, and the second adds contact information while also changing the unit's name.
+
+        **1. Input Data:**
+        | row_id | tax_ident | name | valid_from | email |
+        | :--- | :--- | :--- | :--- | :--- |
+        | 101 | 999888777 | StatBus AS | 2023-01-01 | NULL |
+        | 102 | 999888777 | StatBus ASA | 2024-01-01 | 'contact@statbus.no' |
+
+        **2. `analyse_external_idents` -> `_data` table:**
+        This step correctly sets the monolithic action for the core legal unit and links the rows.
+        | row_id | action | founding_row_id | ... | email |
+        | :--- | :--- | :--- | :--- | :--- |
+        | 101 | `use` | 101 | ... | NULL |
+        | 102 | `use` | 101 | ... | 'contact@statbus.no' |
+
+        **3. `process_legal_unit`:**
+        This procedure uses both rows. `temporal_merge` (with `MERGE_ENTITY_REPLACE`) sees the `founding_row_id` and correctly creates a single new legal unit with a two-part history for its `name`. `sql_saga`'s `p_update_source_with_assigned_entity_ids` feature automatically back-fills the new `legal_unit.id` into the `id` column of the procedure's source table.
+
+        **4. `process_contact` (The Nuanced Logic):**
+        *   **Filter**: It filters the batch for rows where `action = 'use'` and at least one contact field is not NULL. Row 101 is discarded. Only Row 102 remains.
+        *   **Delegate**: It prepares a source table for `temporal_merge` containing only the data from Row 102.
+            | legal_unit_id | email | valid_from | valid_until | founding_row_id |
+            | :--- | :--- | :--- | :--- | :--- |
+            | (new ID) | 'contact@statbus.no'| 2024-01-01 | infinity | 101 |
+        *   **`temporal_merge` Executes**: `temporal_merge` receives this single row. It sees `founding_row_id = 101` for the first time *for a contact*. It therefore performs an `INSERT`, creating a new `contact` record that correctly begins its existence on `2024-01-01`.
+
+        This pattern ensures that sub-entities are created only when they have data, and their timelines are managed correctly and independently of the core entity's timeline, all driven by the powerful combination of batch filtering and `temporal_merge`'s `founding_row_id` logic.
+
+    *   **Temporal Slicing Principle**: The system uses a `[valid_from, valid_until)` temporal model, which is inclusive of the start date and exclusive of the end date. This aligns with PostgreSQL's native range types and is managed by the `sql_saga` extension. For human readability and easier interaction with external tools, a synchronized `valid_to` column (representing the inclusive end date) is maintained on all temporal tables by `sql_saga`'s triggers. The `analyse_valid_time` step is responsible for parsing source date columns (`valid_from`, `valid_to`) and populating the internal `derived_valid_from` and `derived_valid_until` columns, which are then used by the `process_*` procedures. A new temporal slice is created in a target table only when core data fields within that specific table change.
+
+        It is critical to distinguish between the validity of the *information* about a unit and the *lifespan* of the unit itself. The `[valid_from, valid_until)` interval defines when a particular row of data is considered true. In contrast, attributes like `birth_date` and `death_date` describe the semantic lifespan of the business entity.
+
+        The import system's primary responsibility is to preserve the source's `[valid_from, valid_until)` timeline exactly as provided. A `death_date` from the source file is treated as just another attribute of the unit for that time slice; it **must not** be used to alter or truncate the `valid_until` value. For example, a unit might have a `death_date` in June 2024, but the information about its final state may be considered valid until December 31, 2024 (i.e., `valid_until = '2025-01-01'`).
+
+        The reporting layer is responsible for interpreting these two distinct concepts. For statistical analysis, a unit's effective end-of-life might be calculated using `COALESCE(death_date, valid_to)` when `valid_to` is not infinity. This allows reporting to infer a death when one isn't explicitly stated, but it correctly respects the `valid_until` period even when a `death_date` is present.
     *   These procedures operate on batches of rows identified by an array of their `row_id` values (e.g., `INTEGER[]`). The `row_id` is a stable, dedicated identifier within the job-specific `_data` table, used instead of PostgreSQL's system column `ctid` because `ctid` can change during row updates or table maintenance, making it unreliable for this multi-stage process. When these `row_id`s are temporarily stored (e.g., in a `TEMP TABLE` for batch processing), the column holding them in the temporary table is typically named `data_row_id` for clarity. They use `FOR UPDATE SKIP LOCKED` when selecting batches to handle concurrency.
 
 8.  **Import Job (`import_job`)**:
@@ -117,7 +181,7 @@ The import system is built around several key database tables and concepts:
         *   `analysed`: The row has successfully completed all analysis steps and is awaiting user review (if `job.review=true`). If `job.review=false`, rows transition directly from `analysing` to `processing` (or `error`).
         *   `processing`: The row is currently being processed by one of the `process_procedure`s for an import step (after analysis is complete and, if applicable, approved).
         *   `processed`: The row has been successfully imported into the final target Statbus table(s).
-        *   `error`: A hard, unrecoverable error occurred for this row during either the analysis or processing phase. The row's `action` column is typically set to `skip`, and details are logged in its `error` JSONB column.
+        *   `error`: A hard, unrecoverable error occurred for this row during either the analysis or processing phase. The row's `action` column is typically set to `skip`, and details are logged in its `errors` JSONB column.
     *   `generic_unit`: Used for operations that apply to any pre-existing unit type, such as updating statistical variables. These definitions typically do not create new units but modify existing ones identified by external identifiers.
     *   `definition_snapshot` (JSONB column in `public.import_job`): Captures the complete state of an `import_definition` and its related entities at job creation. This ensures immutable processing. The structure is a JSONB object with keys corresponding to the source tables/views:
         *   `import_definition`: A JSON representation of the `public.import_definition` row.
@@ -154,17 +218,17 @@ The import system is built around several key database tables and concepts:
             *   The procedure performs lookups/validations, updates `internal` columns, `error` (for hard errors), and `invalid_codes` (for soft errors).
             *   **Error Handling Rule for Analysis Procedures**:
                 *   **Hard Errors**: If an `analyse_procedure` detects a critical error that makes the row unprocessable for its specific domain (or subsequent domains that depend on its output), it *must*:
-                    *   Populate the `error` JSONB column with details, merging with existing errors (e.g., `COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('my_error_key', 'description')`).
+                    *   Populate the `errors` JSONB column with details, merging with existing errors (e.g., `dt.errors || jsonb_build_object('my_error_key', 'description')`).
                     *   Set the row's `state` to `'error'`.
                     *   Set the row's `action` to `'skip'::public.import_row_action_type`.
                     *   The `last_completed_priority` should be advanced to the current step's priority, even on error, to indicate which step identified the issue.
                 *   **Soft Errors / Invalid Codes**: If an `analyse_procedure` detects a non-critical issue (e.g., an unresolvable `sector_code`), it should:
-                    *   Populate the `invalid_codes` JSONB column, merging with existing invalid codes (e.g., `COALESCE(dt.invalid_codes, '{}'::jsonb) || jsonb_build_object('my_code_key', 'original_value')`).
+                    *   Populate the `invalid_codes` JSONB column, merging with existing invalid codes (e.g., `dt.invalid_codes || jsonb_build_object('my_code_key', 'original_value')`).
                     *   It should *not* set `state = 'error'` or `action = 'skip'` solely for this reason.
                     *   The row's `state` remains `'analysing'` (or proceeds as normal).
                     *   `last_completed_priority` is advanced.
             *   If no hard error is found by the current step, it updates `last_completed_priority = step.priority`. The `state` remains `'analysing'` (or advances if this is the last analysis step for the row). The `action` (e.g., 'insert', 'replace', 'update') determined by `analyse_external_idents` (or potentially modified to 'skip' by a prior analysis step that found a hard error) is preserved if no new hard error is found by the current step.
-            *   When a step successfully processes data or resolves a previously reported issue, it should clear *only its specific keys* from the `error` and `invalid_codes` columns (e.g., `dt.error - 'my_error_key'`, `dt.invalid_codes - 'my_code_key'`). This ensures that errors or invalid codes reported by other steps are preserved.
+            *   When a step successfully processes data or resolves a previously reported issue, it should clear *only its specific keys* from the `errors` and `invalid_codes` columns (e.g., `dt.errors - 'my_error_key'`, `dt.invalid_codes - 'my_code_key'`). This ensures that errors or invalid codes reported by other steps are preserved.
             *   *Note: The `edit_info` step populates `edit_by_user_id` and `edit_at`. The `analyse_external_idents` step is primarily responsible for determining the initial `operation` and `action` based on identifier lookups and job strategy. It also identifies hard errors related to identifiers, including "unstable identifiers." An unstable identifier error occurs if an input row identifies an existing unit but attempts to *change the value* of one of its existing external identifiers of a specific type; this results in `action = 'skip'`. Adding a new identifier type to an existing unit, or omitting an identifier type (which might imply removal by a `process_` step), are not considered unstable identifier errors by this specific check.*
     *   **Process (`admin.import_job_processing_phase`)**:
         *   The orchestrator calls this procedure, which is in its **batch-driven** mode.
@@ -195,11 +259,11 @@ Creating a new import type involves defining the metadata in the database:
     *   Determine the job-specific `_data` table name.
     *   Read from/write to the `_data` table using dynamic SQL and `p_batch_row_ids` (e.g., `WHERE row_id = ANY(p_batch_row_ids)`).
     *   Perform logic (lookups, validation, casting for analysis; final DML using audit info and `action` from `_data` for processing).
-    *   Correctly update `last_completed_priority`, `state`, `action` (for hard errors), `error` (for hard errors), and `invalid_codes` (for soft errors) columns in `_data`, adhering to the key management principles (each step manages its own keys, `invalid_codes` is additive, `error` is merged, and specific keys are cleared upon resolution).
+    *   Correctly update `last_completed_priority`, `state`, `action` (for hard errors), `errors` (for hard errors), and `invalid_codes` (for soft errors) columns in `_data`, adhering to the key management principles (each step manages its own keys, `invalid_codes` is additive, `errors` is merged, and specific keys are cleared upon resolution).
     *   **Error Handling Rule for Analysis Procedures (reiteration)**:
-        *   **Hard Errors**: Set `state = 'error'`, `action = 'skip'`, populate `error` JSONB (merging with existing errors). `last_completed_priority` is advanced to the current step's priority. (Note: The `analyse_external_idents` step specifically flags attempts to *change an existing identifier's value* for an identified unit as a hard error, setting `action='skip'`. Adding new identifier types or omitting existing ones are not flagged by this specific "unstable identifier" check.)
+        *   **Hard Errors**: Set `state = 'error'`, `action = 'skip'`, populate `errors` JSONB (merging with existing errors). `last_completed_priority` is advanced to the current step's priority. (Note: The `analyse_external_idents` step specifically flags attempts to *change an existing identifier's value* for an identified unit as a hard error, setting `action='skip'`. Adding new identifier types or omitting existing ones are not flagged by this specific "unstable identifier" check.)
         *   **Soft Errors**: Populate `invalid_codes` JSONB (merging with existing invalid codes). Do *not* set `state = 'error'` or `action = 'skip'` solely for this. `last_completed_priority` advances.
-        *   **Clearing Errors**: If a condition is resolved, clear only the step-specific keys from `error` and/or `invalid_codes`.
+        *   **Clearing Errors**: If a condition is resolved, clear only the step-specific keys from `errors` and/or `invalid_codes`.
     *   Handle batch-wide errors (e.g., constraint violation during a batch DML in a `process_procedure`) by marking all rows identified by `p_batch_row_ids` as error (and action='skip') in the `_data` table and potentially failing the job.
 4.  **Create Definition (`import_definition`)**: Create a record defining the overall import (e.g., slug='legal_unit_import', name='Legal Unit Import', strategy='insert_or_replace'). Set `valid=false` initially.
 5.  **Link Steps to Definition (`import_definition_step`)**: Insert records into `import_definition_step` linking the new `definition_id` to the `step_id`s of the chosen `import_step` records defined in step 1.
@@ -309,7 +373,9 @@ Let's illustrate how to define an import for `legal_unit` data using the system.
         *   `tag_for_unit_id` (purpose: `pk_id`, type: `INTEGER`)
     *   **`metadata` columns (implicitly added):**
         *   `state` (purpose: `metadata`, type: `public.import_data_state`)
-        *   `error` (purpose: `metadata`, type: `JSONB`)
+        *   `errors` (purpose: `metadata`, type: `JSONB NOT NULL DEFAULT '{}'`)
+        *   `invalid_codes` (purpose: `metadata`, type: `JSONB NOT NULL DEFAULT '{}'`)
+        *   `merge_status` (purpose: `metadata`, type: `JSONB NOT NULL DEFAULT '{}'`)
         *   `last_completed_priority` (purpose: `metadata`, type: `INT`)
     *   **And the `row_id` column (implicitly added):**
         *   `row_id` (e.g., `INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY`)

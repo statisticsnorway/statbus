@@ -116,7 +116,7 @@ BEGIN
           ) INTO v_has_founding_row_id_col;
 
           -- Add processing phase index
-          EXECUTE format($$ CREATE INDEX ON public.%1$I (action, row_id) WHERE state = 'processing' AND error IS NULL $$, job.data_table_name);
+          EXECUTE format($$ CREATE INDEX ON public.%1$I (action, row_id) WHERE state = 'processing' AND errors IS NULL $$, job.data_table_name);
           RAISE DEBUG '[Job %] Added processing phase index to data table %.', job.id, job.data_table_name;
 
           -- Add founding_row_id index if the column exists

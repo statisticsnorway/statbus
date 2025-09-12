@@ -4,6 +4,7 @@
 --------------------------------+-----------------------+-----------+----------+---------+----------+-------------+--------------+-------------
  valid_from                     | date                  |           |          |         | plain    |             |              | 
  valid_to                       | date                  |           |          |         | plain    |             |              | 
+ valid_until                    | date                  |           |          |         | plain    |             |              | 
  unit_type                      | statistical_unit_type |           |          |         | plain    |             |              | 
  physical_region_path           | ltree                 |           |          |         | extended |             |              | 
  primary_activity_category_path | ltree                 |           |          |         | extended |             |              | 
@@ -24,7 +25,7 @@ Indexes:
     "statistical_unit_facet_sector_path_gist" gist (sector_path)
     "statistical_unit_facet_unit_type" btree (unit_type)
     "statistical_unit_facet_valid_from" btree (valid_from)
-    "statistical_unit_facet_valid_to" btree (valid_to)
+    "statistical_unit_facet_valid_until" btree (valid_until)
 Policies:
     POLICY "statistical_unit_facet_admin_user_manage"
       TO admin_user

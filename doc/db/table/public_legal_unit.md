@@ -4,9 +4,8 @@
 --------------------------+--------------------------+-----------+----------+----------------------------------------
  id                       | integer                  |           | not null | nextval('legal_unit_id_seq'::regclass)
  valid_from               | date                     |           | not null | 
- valid_after              | date                     |           | not null | 
- valid_to                 | date                     |           | not null | 'infinity'::date
- active                   | boolean                  |           | not null | true
+ valid_to                 | date                     |           | not null | 
+ valid_until              | date                     |           | not null | 
  short_name               | character varying(16)    |           |          | 
  name                     | character varying(256)   |           | not null | 
  birth_date               | date                     |           |          | 
@@ -25,6 +24,7 @@
  primary_for_enterprise   | boolean                  |           | not null | 
  invalid_codes            | jsonb                    |           |          | 
 Indexes:
+    "legal_unit_pkey" PRIMARY KEY, btree (id, valid_from, valid_until) DEFERRABLE
     "ix_legal_unit_data_source_id" btree (data_source_id)
     "ix_legal_unit_edit_by_user_id" btree (edit_by_user_id)
     "ix_legal_unit_enterprise_id" btree (enterprise_id)
@@ -34,11 +34,12 @@ Indexes:
     "ix_legal_unit_sector_id" btree (sector_id)
     "ix_legal_unit_size_id" btree (unit_size_id)
     "ix_legal_unit_status_id" btree (status_id)
-    "legal_unit_active_idx" btree (active)
-    "legal_unit_id_daterange_excl" EXCLUDE USING gist (id WITH =, daterange(valid_after, valid_to, '(]'::text) WITH &&) DEFERRABLE
-    "legal_unit_id_valid_after_valid_to_key" UNIQUE CONSTRAINT, btree (id, valid_after, valid_to) DEFERRABLE
+    "legal_unit_enterprise_id_primary_valid_excl" EXCLUDE USING gist (enterprise_id WITH =, daterange(valid_from, valid_until) WITH &&) WHERE (primary_for_enterprise IS TRUE) DEFERRABLE
+    "legal_unit_enterprise_id_primary_valid_idx" UNIQUE, btree (enterprise_id, valid_from, valid_until) WHERE primary_for_enterprise IS TRUE
+    "legal_unit_id_idx" btree (id)
+    "legal_unit_id_valid_excl" EXCLUDE USING gist (id WITH =, daterange(valid_from, valid_until) WITH &&) DEFERRABLE
 Check constraints:
-    "legal_unit_valid_check" CHECK (valid_after < valid_to)
+    "legal_unit_valid_check" CHECK (valid_from < valid_until AND valid_from > '-infinity'::date)
 Foreign-key constraints:
     "legal_unit_data_source_id_fkey" FOREIGN KEY (data_source_id) REFERENCES data_source(id) ON DELETE RESTRICT
     "legal_unit_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT
@@ -61,21 +62,21 @@ Policies:
       USING (true)
       WITH CHECK (true)
 Triggers:
-    activity_legal_unit_id_valid_uk_delete AFTER DELETE ON legal_unit FROM activity DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_delete_check_c('activity_legal_unit_id_valid', 'public', 'activity', '{{legal_unit_id}}', 'valid', 'valid_after', 'valid_to', 'public', 'legal_unit', '{{id}}', 'valid', 'valid_after', 'valid_to', 'SIMPLE', 'NO ACTION', 'NO ACTION')
-    activity_legal_unit_id_valid_uk_update AFTER UPDATE OF id, valid_after, valid_to ON legal_unit FROM activity DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_update_check_c('activity_legal_unit_id_valid', 'public', 'activity', '{{legal_unit_id}}', 'valid', 'valid_after', 'valid_to', 'public', 'legal_unit', '{{id}}', 'valid', 'valid_after', 'valid_to', 'SIMPLE', 'NO ACTION', 'NO ACTION')
-    contact_legal_unit_id_valid_uk_delete AFTER DELETE ON legal_unit FROM contact DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_delete_check_c('contact_legal_unit_id_valid', 'public', 'contact', '{{legal_unit_id}}', 'valid', 'valid_after', 'valid_to', 'public', 'legal_unit', '{{id}}', 'valid', 'valid_after', 'valid_to', 'SIMPLE', 'NO ACTION', 'NO ACTION')
-    contact_legal_unit_id_valid_uk_update AFTER UPDATE OF id, valid_after, valid_to ON legal_unit FROM contact DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_update_check_c('contact_legal_unit_id_valid', 'public', 'contact', '{{legal_unit_id}}', 'valid', 'valid_after', 'valid_to', 'public', 'legal_unit', '{{id}}', 'valid', 'valid_after', 'valid_to', 'SIMPLE', 'NO ACTION', 'NO ACTION')
-    establishment_legal_unit_id_valid_uk_delete AFTER DELETE ON legal_unit FROM establishment DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_delete_check_c('establishment_legal_unit_id_valid', 'public', 'establishment', '{{legal_unit_id}}', 'valid', 'valid_after', 'valid_to', 'public', 'legal_unit', '{{id}}', 'valid', 'valid_after', 'valid_to', 'SIMPLE', 'NO ACTION', 'NO ACTION')
-    establishment_legal_unit_id_valid_uk_update AFTER UPDATE OF id, valid_after, valid_to ON legal_unit FROM establishment DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_update_check_c('establishment_legal_unit_id_valid', 'public', 'establishment', '{{legal_unit_id}}', 'valid', 'valid_after', 'valid_to', 'public', 'legal_unit', '{{id}}', 'valid', 'valid_after', 'valid_to', 'SIMPLE', 'NO ACTION', 'NO ACTION')
+    activity_legal_unit_id_valid_uk_delete AFTER DELETE ON legal_unit FROM activity DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_delete_check_c('activity_legal_unit_id_valid', 'public', 'activity', '{legal_unit_id}', 'valid', 'valid_from', 'valid_until', 'public', 'legal_unit', '{id}', 'valid', 'valid_from', 'valid_until', 'SIMPLE', 'NO ACTION', 'NO ACTION', 'temporal_to_temporal')
+    activity_legal_unit_id_valid_uk_update AFTER UPDATE OF id, valid_from, valid_until ON legal_unit FROM activity DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_update_check_c('activity_legal_unit_id_valid', 'public', 'activity', '{legal_unit_id}', 'valid', 'valid_from', 'valid_until', 'public', 'legal_unit', '{id}', 'valid', 'valid_from', 'valid_until', 'SIMPLE', 'NO ACTION', 'NO ACTION', 'temporal_to_temporal')
+    contact_legal_unit_id_valid_uk_delete AFTER DELETE ON legal_unit FROM contact DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_delete_check_c('contact_legal_unit_id_valid', 'public', 'contact', '{legal_unit_id}', 'valid', 'valid_from', 'valid_until', 'public', 'legal_unit', '{id}', 'valid', 'valid_from', 'valid_until', 'SIMPLE', 'NO ACTION', 'NO ACTION', 'temporal_to_temporal')
+    contact_legal_unit_id_valid_uk_update AFTER UPDATE OF id, valid_from, valid_until ON legal_unit FROM contact DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_update_check_c('contact_legal_unit_id_valid', 'public', 'contact', '{legal_unit_id}', 'valid', 'valid_from', 'valid_until', 'public', 'legal_unit', '{id}', 'valid', 'valid_from', 'valid_until', 'SIMPLE', 'NO ACTION', 'NO ACTION', 'temporal_to_temporal')
+    establishment_legal_unit_id_valid_uk_delete AFTER DELETE ON legal_unit FROM establishment DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_delete_check_c('establishment_legal_unit_id_valid', 'public', 'establishment', '{legal_unit_id}', 'valid', 'valid_from', 'valid_until', 'public', 'legal_unit', '{id}', 'valid', 'valid_from', 'valid_until', 'SIMPLE', 'NO ACTION', 'NO ACTION', 'temporal_to_temporal')
+    establishment_legal_unit_id_valid_uk_update AFTER UPDATE OF id, valid_from, valid_until ON legal_unit FROM establishment DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_update_check_c('establishment_legal_unit_id_valid', 'public', 'establishment', '{legal_unit_id}', 'valid', 'valid_from', 'valid_until', 'public', 'legal_unit', '{id}', 'valid', 'valid_from', 'valid_until', 'SIMPLE', 'NO ACTION', 'NO ACTION', 'temporal_to_temporal')
     legal_unit_changes_trigger AFTER INSERT OR UPDATE ON legal_unit FOR EACH STATEMENT EXECUTE FUNCTION worker.notify_worker_about_changes()
     legal_unit_deletes_trigger BEFORE DELETE ON legal_unit FOR EACH ROW EXECUTE FUNCTION worker.notify_worker_about_deletes()
-    location_legal_unit_id_valid_uk_delete AFTER DELETE ON legal_unit FROM location DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_delete_check_c('location_legal_unit_id_valid', 'public', 'location', '{{legal_unit_id}}', 'valid', 'valid_after', 'valid_to', 'public', 'legal_unit', '{{id}}', 'valid', 'valid_after', 'valid_to', 'SIMPLE', 'NO ACTION', 'NO ACTION')
-    location_legal_unit_id_valid_uk_update AFTER UPDATE OF id, valid_after, valid_to ON legal_unit FROM location DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_update_check_c('location_legal_unit_id_valid', 'public', 'location', '{{legal_unit_id}}', 'valid', 'valid_after', 'valid_to', 'public', 'legal_unit', '{{id}}', 'valid', 'valid_after', 'valid_to', 'SIMPLE', 'NO ACTION', 'NO ACTION')
-    person_for_unit_legal_unit_id_valid_uk_delete AFTER DELETE ON legal_unit FROM person_for_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_delete_check_c('person_for_unit_legal_unit_id_valid', 'public', 'person_for_unit', '{{legal_unit_id}}', 'valid', 'valid_after', 'valid_to', 'public', 'legal_unit', '{{id}}', 'valid', 'valid_after', 'valid_to', 'SIMPLE', 'NO ACTION', 'NO ACTION')
-    person_for_unit_legal_unit_id_valid_uk_update AFTER UPDATE OF id, valid_after, valid_to ON legal_unit FROM person_for_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_update_check_c('person_for_unit_legal_unit_id_valid', 'public', 'person_for_unit', '{{legal_unit_id}}', 'valid', 'valid_after', 'valid_to', 'public', 'legal_unit', '{{id}}', 'valid', 'valid_after', 'valid_to', 'SIMPLE', 'NO ACTION', 'NO ACTION')
-    stat_for_unit_legal_unit_id_valid_uk_delete AFTER DELETE ON legal_unit FROM stat_for_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_delete_check_c('stat_for_unit_legal_unit_id_valid', 'public', 'stat_for_unit', '{{legal_unit_id}}', 'valid', 'valid_after', 'valid_to', 'public', 'legal_unit', '{{id}}', 'valid', 'valid_after', 'valid_to', 'SIMPLE', 'NO ACTION', 'NO ACTION')
-    stat_for_unit_legal_unit_id_valid_uk_update AFTER UPDATE OF id, valid_after, valid_to ON legal_unit FROM stat_for_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_update_check_c('stat_for_unit_legal_unit_id_valid', 'public', 'stat_for_unit', '{{legal_unit_id}}', 'valid', 'valid_after', 'valid_to', 'public', 'legal_unit', '{{id}}', 'valid', 'valid_after', 'valid_to', 'SIMPLE', 'NO ACTION', 'NO ACTION')
-    trg_legal_unit_synchronize_valid_from_after BEFORE INSERT OR UPDATE ON legal_unit FOR EACH ROW EXECUTE FUNCTION synchronize_valid_from_after()
+    legal_unit_synchronize_temporal_columns_trigger BEFORE INSERT OR UPDATE OF valid_from, valid_until, valid_to ON legal_unit FOR EACH ROW EXECUTE FUNCTION sql_saga.synchronize_temporal_columns('valid_from', 'valid_until', 'valid_to', 'null', 'date', 't')
+    location_legal_unit_id_valid_uk_delete AFTER DELETE ON legal_unit FROM location DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_delete_check_c('location_legal_unit_id_valid', 'public', 'location', '{legal_unit_id}', 'valid', 'valid_from', 'valid_until', 'public', 'legal_unit', '{id}', 'valid', 'valid_from', 'valid_until', 'SIMPLE', 'NO ACTION', 'NO ACTION', 'temporal_to_temporal')
+    location_legal_unit_id_valid_uk_update AFTER UPDATE OF id, valid_from, valid_until ON legal_unit FROM location DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_update_check_c('location_legal_unit_id_valid', 'public', 'location', '{legal_unit_id}', 'valid', 'valid_from', 'valid_until', 'public', 'legal_unit', '{id}', 'valid', 'valid_from', 'valid_until', 'SIMPLE', 'NO ACTION', 'NO ACTION', 'temporal_to_temporal')
+    person_for_unit_legal_unit_id_valid_uk_delete AFTER DELETE ON legal_unit FROM person_for_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_delete_check_c('person_for_unit_legal_unit_id_valid', 'public', 'person_for_unit', '{legal_unit_id}', 'valid', 'valid_from', 'valid_until', 'public', 'legal_unit', '{id}', 'valid', 'valid_from', 'valid_until', 'SIMPLE', 'NO ACTION', 'NO ACTION', 'temporal_to_temporal')
+    person_for_unit_legal_unit_id_valid_uk_update AFTER UPDATE OF id, valid_from, valid_until ON legal_unit FROM person_for_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_update_check_c('person_for_unit_legal_unit_id_valid', 'public', 'person_for_unit', '{legal_unit_id}', 'valid', 'valid_from', 'valid_until', 'public', 'legal_unit', '{id}', 'valid', 'valid_from', 'valid_until', 'SIMPLE', 'NO ACTION', 'NO ACTION', 'temporal_to_temporal')
+    stat_for_unit_legal_unit_id_valid_uk_delete AFTER DELETE ON legal_unit FROM stat_for_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_delete_check_c('stat_for_unit_legal_unit_id_valid', 'public', 'stat_for_unit', '{legal_unit_id}', 'valid', 'valid_from', 'valid_until', 'public', 'legal_unit', '{id}', 'valid', 'valid_from', 'valid_until', 'SIMPLE', 'NO ACTION', 'NO ACTION', 'temporal_to_temporal')
+    stat_for_unit_legal_unit_id_valid_uk_update AFTER UPDATE OF id, valid_from, valid_until ON legal_unit FROM stat_for_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_update_check_c('stat_for_unit_legal_unit_id_valid', 'public', 'stat_for_unit', '{legal_unit_id}', 'valid', 'valid_from', 'valid_until', 'public', 'legal_unit', '{id}', 'valid', 'valid_from', 'valid_until', 'SIMPLE', 'NO ACTION', 'NO ACTION', 'temporal_to_temporal')
     trigger_prevent_legal_unit_id_update BEFORE UPDATE OF id ON legal_unit FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 
 ```

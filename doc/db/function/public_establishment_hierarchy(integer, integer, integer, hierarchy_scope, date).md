@@ -23,7 +23,7 @@ AS $function$
          OR (parent_legal_unit_id IS NOT NULL AND es.legal_unit_id = parent_legal_unit_id)
          OR (parent_enterprise_id IS NOT NULL AND es.enterprise_id = parent_enterprise_id)
          )
-     AND es.valid_after < valid_on AND valid_on <= es.valid_to
+     AND es.valid_from <= valid_on AND valid_on < es.valid_until
    ORDER BY es.primary_for_legal_unit DESC, es.name
   ), data_list AS (
       SELECT jsonb_agg(data) AS data FROM ordered_data

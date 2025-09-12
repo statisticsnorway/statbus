@@ -37,7 +37,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
         FROM public.statistical_unit_facet AS suf
            , params
         WHERE
-            suf.valid_from <= param_valid_on AND param_valid_on <= suf.valid_to
+            suf.valid_from <= param_valid_on AND param_valid_on < suf.valid_until
             AND (param_unit_type IS NULL OR suf.unit_type = param_unit_type)
             AND (
                 param_region_path IS NULL
