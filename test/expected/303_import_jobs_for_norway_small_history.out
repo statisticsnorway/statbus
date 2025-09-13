@@ -87,7 +87,7 @@ DECLARE
     def_id INT;
     -- Define the steps needed for a legal unit import with a time context
     lu_steps TEXT[] := ARRAY[
-        'external_idents', 'enterprise_link_for_legal_unit', 'valid_time', 'status', 'legal_unit',
+        'external_idents', 'data_source', 'enterprise_link_for_legal_unit', 'valid_time', 'status', 'legal_unit',
         'physical_location', 'postal_location', 'primary_activity', 'secondary_activity',
         'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'
     ];
@@ -272,7 +272,7 @@ DECLARE
     def_id INT;
     -- Define the steps needed for an establishment linked to a legal unit import with a time context
     es_steps TEXT[] := ARRAY[
-        'external_idents', 'link_establishment_to_legal_unit', 'valid_time', 'status', 'establishment',
+        'external_idents', 'data_source', 'link_establishment_to_legal_unit', 'valid_time', 'status', 'establishment',
         'physical_location', 'postal_location', 'primary_activity', 'secondary_activity',
         'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'
     ];
@@ -596,6 +596,8 @@ Triggers:
  establishment_id                 | integer                   |           |          | 
  tax_ident                        | text                      |           |          | 
  stat_ident                       | text                      |           |          | 
+ data_source_code                 | text                      |           |          | 
+ data_source_id                   | integer                   |           |          | 
  status_code                      | text                      |           |          | 
  status_id                        | integer                   |           |          | 
  enterprise_id                    | integer                   |           |          | 
@@ -606,11 +608,9 @@ Triggers:
  sector_code                      | text                      |           |          | 
  unit_size_code                   | text                      |           |          | 
  legal_form_code                  | text                      |           |          | 
- data_source_code                 | text                      |           |          | 
  sector_id                        | integer                   |           |          | 
  unit_size_id                     | integer                   |           |          | 
  legal_form_id                    | integer                   |           |          | 
- data_source_id                   | integer                   |           |          | 
  typed_birth_date                 | date                      |           |          | 
  typed_death_date                 | date                      |           |          | 
  physical_address_part1           | text                      |           |          | 
@@ -716,6 +716,14 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "priority": 15,                                                      +
              "is_holistic": true,                                                 +
              "analyse_procedure": "import.analyse_external_idents",               +
+             "process_procedure": null                                            +
+         },                                                                       +
+         {                                                                        +
+             "code": "data_source",                                               +
+             "name": "Data Source Resolution",                                    +
+             "priority": 16,                                                      +
+             "is_holistic": false,                                                +
+             "analyse_procedure": "import.analyse_data_source",                   +
              "process_procedure": null                                            +
          },                                                                       +
          {                                                                        +
@@ -1367,6 +1375,24 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          {                                                                        +
              "purpose": "source_input",                                           +
              "priority": 1,                                                       +
+             "column_name": "data_source_code",                                   +
+             "column_type": "TEXT",                                               +
+             "is_nullable": true,                                                 +
+             "default_value": null,                                               +
+             "is_uniquely_identifying": false                                     +
+         },                                                                       +
+         {                                                                        +
+             "purpose": "internal",                                               +
+             "priority": 2,                                                       +
+             "column_name": "data_source_id",                                     +
+             "column_type": "INTEGER",                                            +
+             "is_nullable": true,                                                 +
+             "default_value": null,                                               +
+             "is_uniquely_identifying": false                                     +
+         },                                                                       +
+         {                                                                        +
+             "purpose": "source_input",                                           +
+             "priority": 1,                                                       +
              "column_name": "status_code",                                        +
              "column_type": "TEXT",                                               +
              "is_nullable": true,                                                 +
@@ -1455,17 +1481,8 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "is_uniquely_identifying": false                                     +
          },                                                                       +
          {                                                                        +
-             "purpose": "source_input",                                           +
-             "priority": 7,                                                       +
-             "column_name": "data_source_code",                                   +
-             "column_type": "TEXT",                                               +
-             "is_nullable": true,                                                 +
-             "default_value": null,                                               +
-             "is_uniquely_identifying": false                                     +
-         },                                                                       +
-         {                                                                        +
              "purpose": "internal",                                               +
-             "priority": 8,                                                       +
+             "priority": 7,                                                       +
              "column_name": "sector_id",                                          +
              "column_type": "INTEGER",                                            +
              "is_nullable": true,                                                 +
@@ -1474,7 +1491,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          },                                                                       +
          {                                                                        +
              "purpose": "internal",                                               +
-             "priority": 9,                                                       +
+             "priority": 8,                                                       +
              "column_name": "unit_size_id",                                       +
              "column_type": "INTEGER",                                            +
              "is_nullable": true,                                                 +
@@ -1483,7 +1500,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          },                                                                       +
          {                                                                        +
              "purpose": "internal",                                               +
-             "priority": 10,                                                      +
+             "priority": 9,                                                       +
              "column_name": "legal_form_id",                                      +
              "column_type": "INTEGER",                                            +
              "is_nullable": true,                                                 +
@@ -1492,16 +1509,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          },                                                                       +
          {                                                                        +
              "purpose": "internal",                                               +
-             "priority": 11,                                                      +
-             "column_name": "data_source_id",                                     +
-             "column_type": "INTEGER",                                            +
-             "is_nullable": true,                                                 +
-             "default_value": null,                                               +
-             "is_uniquely_identifying": false                                     +
-         },                                                                       +
-         {                                                                        +
-             "purpose": "internal",                                               +
-             "priority": 12,                                                      +
+             "priority": 10,                                                      +
              "column_name": "typed_birth_date",                                   +
              "column_type": "DATE",                                               +
              "is_nullable": true,                                                 +
@@ -1510,7 +1518,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          },                                                                       +
          {                                                                        +
              "purpose": "internal",                                               +
-             "priority": 13,                                                      +
+             "priority": 11,                                                      +
              "column_name": "typed_death_date",                                   +
              "column_type": "DATE",                                               +
              "is_nullable": true,                                                 +
@@ -2357,6 +2365,8 @@ Triggers:
  establishment_id                 | integer                   |           |          | 
  tax_ident                        | text                      |           |          | 
  stat_ident                       | text                      |           |          | 
+ data_source_code                 | text                      |           |          | 
+ data_source_id                   | integer                   |           |          | 
  status_code                      | text                      |           |          | 
  status_id                        | integer                   |           |          | 
  primary_for_legal_unit           | boolean                   |           |          | 
@@ -2367,10 +2377,8 @@ Triggers:
  death_date                       | text                      |           |          | 
  sector_code                      | text                      |           |          | 
  unit_size_code                   | text                      |           |          | 
- data_source_code                 | text                      |           |          | 
  sector_id                        | integer                   |           |          | 
  unit_size_id                     | integer                   |           |          | 
- data_source_id                   | integer                   |           |          | 
  typed_birth_date                 | date                      |           |          | 
  typed_death_date                 | date                      |           |          | 
  physical_address_part1           | text                      |           |          | 
@@ -2476,6 +2484,14 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "priority": 15,                                                        +
              "is_holistic": true,                                                   +
              "analyse_procedure": "import.analyse_external_idents",                 +
+             "process_procedure": null                                              +
+         },                                                                         +
+         {                                                                          +
+             "code": "data_source",                                                 +
+             "name": "Data Source Resolution",                                      +
+             "priority": 16,                                                        +
+             "is_holistic": false,                                                  +
+             "analyse_procedure": "import.analyse_data_source",                     +
              "process_procedure": null                                              +
          },                                                                         +
          {                                                                          +
@@ -3127,6 +3143,24 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          {                                                                          +
              "purpose": "source_input",                                             +
              "priority": 1,                                                         +
+             "column_name": "data_source_code",                                     +
+             "column_type": "TEXT",                                                 +
+             "is_nullable": true,                                                   +
+             "default_value": null,                                                 +
+             "is_uniquely_identifying": false                                       +
+         },                                                                         +
+         {                                                                          +
+             "purpose": "internal",                                                 +
+             "priority": 2,                                                         +
+             "column_name": "data_source_id",                                       +
+             "column_type": "INTEGER",                                              +
+             "is_nullable": true,                                                   +
+             "default_value": null,                                                 +
+             "is_uniquely_identifying": false                                       +
+         },                                                                         +
+         {                                                                          +
+             "purpose": "source_input",                                             +
+             "priority": 1,                                                         +
              "column_name": "status_code",                                          +
              "column_type": "TEXT",                                                 +
              "is_nullable": true,                                                   +
@@ -3215,17 +3249,8 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "is_uniquely_identifying": false                                       +
          },                                                                         +
          {                                                                          +
-             "purpose": "source_input",                                             +
-             "priority": 6,                                                         +
-             "column_name": "data_source_code",                                     +
-             "column_type": "TEXT",                                                 +
-             "is_nullable": true,                                                   +
-             "default_value": null,                                                 +
-             "is_uniquely_identifying": false                                       +
-         },                                                                         +
-         {                                                                          +
              "purpose": "internal",                                                 +
-             "priority": 7,                                                         +
+             "priority": 6,                                                         +
              "column_name": "sector_id",                                            +
              "column_type": "INTEGER",                                              +
              "is_nullable": true,                                                   +
@@ -3234,7 +3259,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          },                                                                         +
          {                                                                          +
              "purpose": "internal",                                                 +
-             "priority": 8,                                                         +
+             "priority": 7,                                                         +
              "column_name": "unit_size_id",                                         +
              "column_type": "INTEGER",                                              +
              "is_nullable": true,                                                   +
@@ -3243,16 +3268,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          },                                                                         +
          {                                                                          +
              "purpose": "internal",                                                 +
-             "priority": 9,                                                         +
-             "column_name": "data_source_id",                                       +
-             "column_type": "INTEGER",                                              +
-             "is_nullable": true,                                                   +
-             "default_value": null,                                                 +
-             "is_uniquely_identifying": false                                       +
-         },                                                                         +
-         {                                                                          +
-             "purpose": "internal",                                                 +
-             "priority": 10,                                                        +
+             "priority": 8,                                                         +
              "column_name": "typed_birth_date",                                     +
              "column_type": "DATE",                                                 +
              "is_nullable": true,                                                   +
@@ -3261,7 +3277,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          },                                                                         +
          {                                                                          +
              "purpose": "internal",                                                 +
-             "priority": 11,                                                        +
+             "priority": 9,                                                         +
              "column_name": "typed_death_date",                                     +
              "column_type": "DATE",                                                 +
              "is_nullable": true,                                                   +
@@ -4409,7 +4425,31 @@ select queue,t.command,state,error from worker.tasks as t join worker.command_re
  import | import_job_process | completed | 
  import | import_job_process | completed | 
  import | import_job_process | completed | 
-(352 rows)
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+(376 rows)
 
 select slug, state, error is not null as failed,total_rows,imported_rows, import_completed_pct from public.import_job ORDER BY slug;
         slug        |  state   | failed | total_rows | imported_rows | import_completed_pct 
@@ -4663,7 +4703,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     6
- import    | completed |   352
+ import    | completed |   376
 (2 rows)
 
 -- Once the Imports are finished, then all the analytics can be processed, but only once.
@@ -4674,7 +4714,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |     8
- import    | completed |   352
+ import    | completed |   376
 (2 rows)
 
 \echo Run any remaining tasks, there should be none.
@@ -4686,7 +4726,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |     8
- import    | completed |   352
+ import    | completed |   376
 (2 rows)
 
 \echo Overview of statistical units, but not details, there are too many units.
