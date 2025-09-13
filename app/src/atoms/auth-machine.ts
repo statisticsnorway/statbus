@@ -135,7 +135,27 @@ const authMachine = setup({
       if (!response.ok || (responseData && responseData.is_authenticated === false)) {
         throw responseData; // Throw the error response data to be caught by onError
       }
-      return _parseAuthStatusRpcResponseToAuthStatus(responseData);
+
+      // NEMESIS BUG FIX: After a successful login, force cookie synchronization
+      // with a canary request before proceeding. See `refreshToken` actor for details.
+      let canaryData = null;
+      try {
+        const { data, error: canaryError } = await input.client.rpc('auth_test');
+        if (canaryError) {
+          console.error('login actor: Canary request to auth_test failed after login.', canaryError);
+          throw new Error('Canary request failed after login.');
+        }
+        canaryData = data;
+      } catch (e) {
+        console.error('login actor: Exception during canary request.', e);
+        throw new Error('Exception during canary request.');
+      }
+
+      const status = _parseAuthStatusRpcResponseToAuthStatus(responseData);
+      const rawResponseWithTimestamp = { ...responseData, timestamp: new Date().toISOString() };
+      const canaryResponseWithTimestamp = canaryData ? { ...canaryData, timestamp: new Date().toISOString() } : null;
+
+      return { status, rawResponse: rawResponseWithTimestamp, canaryResponse: canaryResponseWithTimestamp };
     }),
     logout: fromPromise(async ({ input }: { input: { client: any }}) => {
       const apiUrl = process.env.NEXT_PUBLIC_BROWSER_REST_URL || '';
@@ -374,7 +394,16 @@ const authMachine = setup({
         onDone: {
           target: 'idle_authenticated',
           actions: [
-            assign(({ event, context }) => ({ ...event.output, client: context.client })),
+            assign(({ event, context }) => {
+              const now = Date.now();
+              let log = addAndPurgeLog(context.authApiResponseLog, 'login', event.output.rawResponse, now);
+              log = addAndPurgeLog(log, 'post_login_canary', event.output.canaryResponse, now + 1);
+              return {
+                ...event.output.status,
+                client: context.client,
+                authApiResponseLog: log,
+              };
+            }),
             // When login succeeds, clear any previous login error.
             assign({ error_code: null })
           ]

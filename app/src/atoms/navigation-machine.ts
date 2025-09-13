@@ -144,7 +144,7 @@ export const navigationMachine = setup({
       entry: assign({ sideEffect: { action: 'revalidateAuth' } }),
       on: {
         CONTEXT_UPDATED: {
-          target: 'redirectingFromLogin',
+          target: 'clearingLastKnownPathBeforeRedirect',
           // Guard: Wait only for the auth re-validation to complete. The `redirectingFromLogin`
           // state will then use the latest `setupPath` from the context to make its final
           // navigation decision. Waiting for `isSetupLoading` here can cause a deadlock.
@@ -222,6 +222,33 @@ export const navigationMachine = setup({
       ]
     },
     /**
+     * This state cleans up artifacts of the login/redirect process. It runs
+     * before any redirect away from the login page.
+     */
+    clearingLastKnownPathBeforeRedirect: {
+      entry: assign({
+        // BATTLE WISDOM: Conditionally dispatch the side-effect. If the path is
+        // already null, we do nothing. This prevents an unnecessary state update
+        // and allows the `always` transition below to handle the case immediately.
+        sideEffect: ({ context }) => context.lastKnownPath !== null ? { action: 'clearLastKnownPath' } : undefined
+      }),
+      // If lastKnownPath was already null, no side-effect was dispatched.
+      // We can immediately proceed to redirect, preventing a deadlock.
+      always: {
+        target: 'redirectingFromLogin',
+        guard: ({ context }) => context.lastKnownPath === null,
+      },
+      on: {
+        CONTEXT_UPDATED: {
+          target: 'redirectingFromLogin',
+          // If a side-effect was dispatched, we wait for the context update
+          // that confirms it has completed before we redirect.
+          guard: ({ event }) => event.value.lastKnownPath === null,
+          actions: assign(({ context, event }) => ({ ...context, ...event.value })),
+        }
+      }
+    },
+    /**
      * A state that triggers a 'navigate' side-effect to redirect the user away
      * from the login page after they have successfully authenticated. The destination
      * is prioritized: setup page, last known path, or dashboard.
@@ -251,38 +278,11 @@ export const navigationMachine = setup({
           guard: ({ context }) => context.isAuthenticated === false,
         },
         {
-          target: 'cleanupAfterRedirect',
+          target: 'idle',
           // Guard: Only transition once we are no longer on the login page.
           guard: ({ context }) => context.pathname !== '/login',
         },
       ]
-    },
-    /**
-     * This state cleans up artifacts of the login/redirect process. It runs
-     * after any redirect away from the login page.
-     */
-    cleanupAfterRedirect: {
-      entry: assign({
-        // BATTLE WISDOM: Conditionally dispatch the side-effect. If the path is
-        // already null, we do nothing. This prevents an unnecessary state update
-        // and allows the `always` transition below to handle the case immediately.
-        sideEffect: ({ context }) => context.lastKnownPath !== null ? { action: 'clearLastKnownPath' } : undefined
-      }),
-      // If lastKnownPath was already null, no side-effect was dispatched.
-      // We can immediately re-evaluate, preventing a deadlock.
-      always: {
-        target: 'evaluating',
-        guard: ({ context }) => context.lastKnownPath === null,
-      },
-      on: {
-        CONTEXT_UPDATED: {
-          target: 'evaluating',
-          // If a side-effect was dispatched, we wait for the context update
-          // that confirms it has completed.
-          guard: ({ event }) => event.value.lastKnownPath === null,
-          actions: assign(({ context, event }) => ({ ...context, ...event.value })),
-        }
-      }
     }
   },
 });
