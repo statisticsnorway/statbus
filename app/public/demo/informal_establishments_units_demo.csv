@@ -1,13 +1,26 @@
-tax_ident,stat_ident,name,physical_region_code,valid_from,valid_to,physical_country_iso_2,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,employees,turnover,data_source_code,physical_address_part1,physical_address_part2,physical_address_part3,postal_address_part1,postal_address_part2,postal_address_part3,phone_number,mobile_number,landline,fax_number,web_address,email_address,unit_size_code,status_code,physical_latitude,physical_longitude,physical_altitude
-1,1011,Steets of Denmark,104501,01-01-2024,infinity,DK,DK,5820,5820,2,1200,census,Nile street 123,Town,Nile,Nile street 123,PO Box 345 ,Nile,2 251 234 567,+47 111 222 333,1 234,123,www.address.com,contact@adress.ug,sml,active,59,11,30
-2,1012,Street Finland,135801,01-01-2024,infinity,FI,FI,5820,5820,3,4400,census,Statistical Ave 34,Helinki-North,Helsinki,Statistical Ave 34,PO Box 456,Helsinki,358 123 456 789,+47 111 222 345,358 123,345000000,www.stat.fi,contact@adress.co,sml,active,60,12,32
-3,1013,Globen Sweeden,104601,01-01-2024,infinity,SE,SE,7410,7410,4,3300,census,Statistical Blvd 56,City,Stockholm,Statistical Blvd 56,PO Box 789,Stockholm,46 123 456 789,+47 111 222 346,46 123,345,www.equatorcircle.com,contact@adress.co,sml,active,61,13,34
-4,1016,Ethiopia Cafe,225101,01-01-2024,infinity,ET,ET,712,5820,2,1200,census,Fruit Market Road 34,Tower,Lira,Fruit Market Road 34,PO Box 890,Lira,2 251 567 890,+47 111 222 336,1 567,456,www.lirafresh.com,contact@adress.co,tny,active,62,14,36
-5,1017,The Erdenes Strase,397601,01-01-2024,infinity,MN,MN,6312,6312,3,4400,census,Fuel Depot 45,North,Entebbe,Fuel Depot 45,PO Box 901,Entebbe,2 251 678 901,+47 111 222 337,1 678,567,www.entebbefuel.com,contact@adress.co,tny,active,63,15,38
-6,1018,Oyu Tolgoi Store,397601,01-01-2024,infinity,MN,MN,1311,1311,4,3300,census,Safari Park 67,Central,Kampala,Safari Park 67,PO Box 345,Kampala,2 251 789 012,+47 111 222 338,1 789,678456,www.zebrahaven.com,contact@adress.co,tny,active,64,16,40
-7,1019,Rainbow Corner shop,39621,01-01-2024,infinity,JO,JO,0123,0123,3,300,census,Tech Hub 89,Central,Kampala,Tech Hub 89,PO Box 456,Kampala,2 251 890 123,+47 111 222 339,1 890,7896666,www.kampaladigital.com,contact@adress.co,tny,active,65,17,42
-8,1020,Theater road shop,39621,01-01-2024,infinity,JO,JO,0123,0123,1,1200,census,Dockyard 34,Amman,Mombasa,Dockyard 34,PO Box 567,Mombasa,2 251 901 234,+47 111 222 340,1 901,8903333,www.marineservices.com,contact@adress.co,tny,active,66,18,44
-9,1021,Norway shop,10470301,01-01-2024,infinity,NO,NO,63122,63121,2,4444,census,Akersveien 2,Oslo-N,Oslo,Akersveien 26,PO Box 456,Oslo,47 9706 18 88,+47 111 222 357,47 9706 18 88,9013333,www.ssb.com,contact@adress.co,tny,active,67,19,46
-10,1022,Das MANUAL Autos,399801,01-01-2024,infinity,UZ,UZ,4730,4730,3,3300,census,Coffee Rd 90,South,Kampala,Coffee Rd 90,PO Box 789,Kampala,2 251 123 456,+47 111 222 342,1 123,23333,www.coffee.com,contact@adress.co,tny,active,68,20,48
-11,1023,Statbus Features,10473401,01-01-2024,infinity,NO,NO,63121,63122,4,300,census,Farm Lane 56,City,Jinja,Farm Lane 56,PO Box 890,Jinja,22 510 234 567,+47 111 222 343,10 234,12333333,www.victoriafresh.com,contact@adress.co,tny,passive,69,21,50
-12,1024,Mumie Drilling,104501,01-01-2024,infinity,DK,DK,63122,63121,5,100,census,Statistical St 12,Tower,Copenhagen,Statistical St 12,PO Box 123,Copenhagen,45 123 456 789,+47 111 222 344,45 123,23400000,www.dst.dk,contact@adress.dk,tny,passive,70,22,52
+tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code
+82212760144,2000,THE NILE PEARL WATER,225613,UG,4752,1,1200,nlr
+82812760140,2001,THE  EQUATOR GLOBE SOLUTIONS,225602,UG,5610,2,4400,nlr
+82212760084,2002,THE EQUATOR CIRCLE CONSTRUCTION,225613,UG,5630,3,3300,nlr
+82612760138,2003,THE LIRA FRESH FRUIT EXPORTERS,225613,UG,0122,4,300,nlr
+82812760130,2004,THE ENTEBBE FUEL ENTERPRISES,225613,UG,5630,5,1234,nlr
+82312760075,2005,THE ZEBRA HAVEN SAFARIS,225602,UG,1410,1,1234,nlr
+82407020166,2006,THE KAMPALA DIGITAL CHARTS,225602,UG,9200,2,1200,nlr
+82602025168,2007,THE MARINE SERVICES,225602,UG,3314,3,4400,nlr
+82612760118,2008,THE NILE TEXTILES,225602,UG,1311,4,3300,nlr
+82815384160,2009,THE KAMPALA Cofffe SUPPLIERS,225602,UG,462,5,300,nlr
+82507020167,2010,THE VICTORIA FRESH FARMS,225602,UG,0123,1,1234,nlr
+845000,2011,Stats Denmark,104501,DK,5820,2,1200,nlr
+8358000,2012,Stats Finland,135801,FI,5820,3,4400,nlr
+846001,2013,Stats Sweeden,104601,SE,7410,4,3300,nlr
+85340521,2014,Tanger Trade,22121,MA,7410,5,300,nlr
+82220784,2015,Main Office Picture Corp,22122,MA,8211,1,1234,nlr
+822501,2016,Stats Ethiopia,225101,ET,712,2,1200,nlr
+8387611,2017,The Erdenes Tavan Tolgoi JSC,397601,MN,6312,3,4400,nlr
+8387622,2018,Oyu Tolgoi Store,397601,MN,1311,4,3300,nlr
+82200018,2019,Rainbow Street shopping,39621,JO,0123,5,300,nlr
+83300588,2020,Main Amman RIAD 13-14,39621,JO,0123,1,1200,nlr
+84711111,2021,Stats Norway,10470301,NO,63121,2,4400,nlr
+83888011,2022,The MANUAL Auto Uzbekistan,399801,UZ,4730,3,3300,nlr
+847111112,2023,Statbus Drive,10473401,NO,63121,4,300,ntr
+847111113,2024,Mumie Drill Down,10473907,NO,63121,5,100,ntr
