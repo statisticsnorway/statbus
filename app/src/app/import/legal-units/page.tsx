@@ -21,7 +21,8 @@ import { PendingJobsList } from "../components/pending-jobs-list";
 
 export default function LegalUnitsPage() {
   const router = useRouter();
-  const { counts } = useImportManager();
+  const { counts, importState } = useImportManager();
+  const { selectedDefinition } = importState;
   // Use the generalized hook with the specific import mode for legal units
   const { jobs: pendingJobs, loading: isLoading, error, refreshJobs } = usePendingJobsByMode("legal_unit");
   const [isClient, setIsClient] = useState(false);
@@ -156,17 +157,35 @@ export default function LegalUnitsPage() {
             <p className="mb-3">
               A Legal Units file is a CSV file containing the Legal Units you
               want to use in your analysis. The file must conform to a specific
-              format in order to be processed correctly. Have a look at this
-              example CSV file to get an idea of how the file should be
-              structured:
+              format to be processed correctly. Download an example to see the
+              structure. The correct example to use depends on the &quot;Data
+              validity period&quot; selected above.
             </p>
-            <a
-              href="/demo/legal_units_demo.csv"
-              download="legal_units_demo.csv"
-              className="underline"
-            >
-              Download example CSV file
-            </a>
+            <div className="flex flex-col space-y-2 pl-4">
+              <a
+                href="/demo/legal_units_demo.csv"
+                download="legal_units_demo.csv"
+                className={`underline ${
+                  selectedDefinition?.valid_time_from === "job_provided"
+                    ? "font-bold"
+                    : ""
+                }`}
+              >
+                Example for jobs with a defined validity period
+              </a>
+              <a
+                href="/demo/legal_units_with_source_dates_demo.csv"
+                download="legal_units_with_source_dates_demo.csv"
+                className={`underline ${
+                  selectedDefinition?.valid_time_from === "source_columns"
+                    ? "font-bold"
+                    : ""
+                }`}
+              >
+                Example for jobs with validity from source file (valid_from,
+                valid_to)
+              </a>
+            </div>
           </AccordionContent>
         </AccordionItem>
       </Accordion>

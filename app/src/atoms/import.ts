@@ -301,11 +301,15 @@ export const loadImportDefinitionsAtom = atom(
       return;
     }
 
-    // Reset previous definitions to avoid showing stale data
+    // Reset previous definitions and user selections to avoid showing stale data from another import page.
     set(importStateAtom, (prev) => ({
       ...prev,
-      selectedDefinition: null,
-      availableDefinitions: [],
+      selectedDefinition: initialImportState.selectedDefinition,
+      availableDefinitions: initialImportState.availableDefinitions,
+      useExplicitDates: initialImportState.useExplicitDates,
+      selectedImportTimeContextIdent: initialImportState.selectedImportTimeContextIdent,
+      explicitStartDate: initialImportState.explicitStartDate,
+      explicitEndDate: initialImportState.explicitEndDate,
     }));
 
     try {
@@ -470,8 +474,7 @@ export const useImportManager = () => {
   const importTimeContextData = useMemo(() => ({
     availableContexts: availableImportTimeContexts,
     selectedContext: selectedImportTimeContextObject,
-    useExplicitDates: currentImportState.useExplicitDates,
-  }), [availableImportTimeContexts, selectedImportTimeContextObject, currentImportState.useExplicitDates]);
+  }), [availableImportTimeContexts, selectedImportTimeContextObject]);
 
   const setSelectedImportTimeContext = useCallback((timeContextIdent: string | null) => {
     doSetSelectedTimeContextIdent(timeContextIdent);

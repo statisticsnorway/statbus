@@ -21,7 +21,8 @@ import { PendingJobsList } from "../components/pending-jobs-list";
 
 export default function UploadEstablishmentsPage() {
   const router = useRouter();
-  const { counts: { establishmentsWithLegalUnit } } = useImportManager();
+  const { counts: { establishmentsWithLegalUnit }, importState } = useImportManager();
+  const { selectedDefinition } = importState;
   // Use the generalized hook with the specific import mode for formal establishments
   const { jobs: pendingJobs, loading: isLoading, error, refreshJobs } = usePendingJobsByMode("establishment_formal");
   const [isClient, setIsClient] = useState(false);
@@ -172,19 +173,37 @@ export default function UploadEstablishmentsPage() {
           </AccordionTrigger>
           <AccordionContent>
             <p className="mb-3">
-              A Formal Establishments file is a CSV file containing the
-              establishments with relationship to its legal unit. Ids for both
-              columns are required, and cannot contain any null values. Have a
-              look at this example CSV file to get an idea of how the file
-              should be structured:
+              A Formal Establishments file is a CSV file containing
+              establishments and their relationship to a legal unit. Ids for
+              both establishments and legal units are required. Download an
+              example to see the structure. The correct example to use depends
+              on the &quot;Data validity period&quot; selected above.
             </p>
-            <a
-              href="/demo/formal_establishments_units_demo.csv"
-              download="formal_establishments_units_demo.csv"
-              className="underline"
-            >
-              Download example CSV file
-            </a>
+            <div className="flex flex-col space-y-2 pl-4">
+              <a
+                href="/demo/formal_establishments_units_demo.csv"
+                download="formal_establishments_units_demo.csv"
+                className={`underline ${
+                  selectedDefinition?.valid_time_from === "job_provided"
+                    ? "font-bold"
+                    : ""
+                }`}
+              >
+                Example for jobs with a defined validity period
+              </a>
+              <a
+                href="/demo/formal_establishments_units_with_source_dates_demo.csv"
+                download="formal_establishments_units_with_source_dates_demo.csv"
+                className={`underline ${
+                  selectedDefinition?.valid_time_from === "source_columns"
+                    ? "font-bold"
+                    : ""
+                }`}
+              >
+                Example for jobs with validity from source file (valid_from,
+                valid_to)
+              </a>
+            </div>
           </AccordionContent>
         </AccordionItem>
       </Accordion>

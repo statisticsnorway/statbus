@@ -50,8 +50,6 @@ export function ImportJobCreator({ importMode, uploadPath, unitType, onJobCreate
     setError(null);
 
     try {
-      // The createImportJob atom now gets the definition from the state,
-      // so it no longer needs the mode to be passed.
       const job = await createImportJob();
       if (job) {
         onJobCreated?.();
