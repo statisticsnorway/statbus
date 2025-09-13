@@ -89,7 +89,7 @@ DECLARE
     def_id INT;
     -- Define the steps needed for a legal unit import with a time context
     lu_steps TEXT[] := ARRAY[
-        'external_idents', 'enterprise_link_for_legal_unit', 'valid_time', 'status', 'legal_unit',
+        'external_idents', 'data_source', 'enterprise_link_for_legal_unit', 'valid_time', 'status', 'legal_unit',
         'physical_location', 'postal_location', 'primary_activity', 'secondary_activity',
         'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'
     ];
@@ -274,7 +274,7 @@ DECLARE
     def_id INT;
     -- Define the steps needed for an establishment linked to a legal unit import with a time context
     es_steps TEXT[] := ARRAY[
-        'external_idents', 'link_establishment_to_legal_unit', 'valid_time', 'status', 'establishment',
+        'external_idents', 'data_source', 'link_establishment_to_legal_unit', 'valid_time', 'status', 'establishment',
         'physical_location', 'postal_location', 'primary_activity', 'secondary_activity',
         'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'
     ];
@@ -463,8 +463,12 @@ FROM def;
  derived_valid_until              | date                      |           |          |                              | plain    |              | 
  operation                        | import_row_operation_type |           |          |                              | plain    |              | 
  action                           | import_row_action_type    |           |          |                              | plain    |              | 
+ legal_unit_id                    | integer                   |           |          |                              | plain    |              | 
+ establishment_id                 | integer                   |           |          |                              | plain    |              | 
  tax_ident                        | text                      |           |          |                              | extended |              | 
  stat_ident                       | text                      |           |          |                              | extended |              | 
+ data_source_code                 | text                      |           |          |                              | extended |              | 
+ data_source_id                   | integer                   |           |          |                              | plain    |              | 
  status_code                      | text                      |           |          |                              | extended |              | 
  status_id                        | integer                   |           |          |                              | plain    |              | 
  enterprise_id                    | integer                   |           |          |                              | plain    |              | 
@@ -475,12 +479,9 @@ FROM def;
  sector_code                      | text                      |           |          |                              | extended |              | 
  unit_size_code                   | text                      |           |          |                              | extended |              | 
  legal_form_code                  | text                      |           |          |                              | extended |              | 
- data_source_code                 | text                      |           |          |                              | extended |              | 
- legal_unit_id                    | integer                   |           |          |                              | plain    |              | 
  sector_id                        | integer                   |           |          |                              | plain    |              | 
  unit_size_id                     | integer                   |           |          |                              | plain    |              | 
  legal_form_id                    | integer                   |           |          |                              | plain    |              | 
- data_source_id                   | integer                   |           |          |                              | plain    |              | 
  typed_birth_date                 | date                      |           |          |                              | plain    |              | 
  typed_death_date                 | date                      |           |          |                              | plain    |              | 
  physical_address_part1           | text                      |           |          |                              | extended |              | 
@@ -615,7 +616,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     6
- import    | completed |   352
+ import    | completed |   376
 (2 rows)
 
 \echo Check import job states after import
@@ -752,7 +753,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |     8
- import    | completed |   352
+ import    | completed |   376
 (2 rows)
 
 \echo "Checking time_context view for correct dynamic names and filtering"
@@ -887,7 +888,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |     8
- import    | completed |   352
+ import    | completed |   376
 (2 rows)
 
 \echo "High-level check of statistical units after import"

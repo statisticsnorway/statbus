@@ -260,9 +260,9 @@ $$;
 DO $$
 DECLARE
     def_id INT;
-    lu_steps TEXT[] := ARRAY['external_idents', 'valid_time', 'enterprise_link_for_legal_unit', 'status', 'legal_unit', 'physical_location', 'postal_location', 'primary_activity', 'secondary_activity', 'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'];
-    es_steps TEXT[] := ARRAY['external_idents', 'valid_time', 'link_establishment_to_legal_unit', 'status', 'establishment', 'physical_location', 'postal_location', 'primary_activity', 'secondary_activity', 'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'];
-    es_no_lu_steps TEXT[] := ARRAY['external_idents', 'valid_time', 'enterprise_link_for_establishment', 'status', 'establishment', 'physical_location', 'postal_location', 'primary_activity', 'secondary_activity', 'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'];
+    lu_steps TEXT[] := ARRAY['external_idents', 'data_source', 'valid_time', 'enterprise_link_for_legal_unit', 'status', 'legal_unit', 'physical_location', 'postal_location', 'primary_activity', 'secondary_activity', 'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'];
+    es_steps TEXT[] := ARRAY['external_idents', 'data_source', 'valid_time', 'link_establishment_to_legal_unit', 'status', 'establishment', 'physical_location', 'postal_location', 'primary_activity', 'secondary_activity', 'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'];
+    es_no_lu_steps TEXT[] := ARRAY['external_idents', 'data_source', 'valid_time', 'enterprise_link_for_establishment', 'status', 'establishment', 'physical_location', 'postal_location', 'primary_activity', 'secondary_activity', 'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'];
 
     lu_source_cols TEXT[] := ARRAY[
         'tax_ident','stat_ident',
@@ -381,14 +381,14 @@ BEGIN
     INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id, custom)
     VALUES ('generic_unit_stats_update_job_provided', 'Unit Stats Update (Job Provided Time)', 'Updates statistical variables for existing units. Validity is determined by a time context or explicit dates on the job.', 'replace_only', 'generic_unit', 'job_provided', false, survey_data_source_id, FALSE)
     RETURNING id INTO def_id;
-    PERFORM import.link_steps_to_definition(def_id, ARRAY['external_idents', 'valid_time', 'statistical_variables', 'edit_info', 'metadata']);
+    PERFORM import.link_steps_to_definition(def_id, ARRAY['external_idents', 'data_source', 'valid_time', 'statistical_variables', 'edit_info', 'metadata']);
     PERFORM import.create_source_and_mappings_for_definition(def_id, active_ext_ident_codes); -- Pass active external ident codes
 
     -- 8. Unit Stats Update (via Source File Dates)
     INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id, custom)
     VALUES ('generic_unit_stats_update_source_dates', 'Unit Stats Update (Source Dates)', 'Updates statistical variables for existing units using explicit valid_from/valid_to from the source file.', 'replace_only', 'generic_unit', 'source_columns', false, survey_data_source_id, FALSE)
     RETURNING id INTO def_id;
-    PERFORM import.link_steps_to_definition(def_id, ARRAY['external_idents', 'valid_time', 'statistical_variables', 'edit_info', 'metadata']);
+    PERFORM import.link_steps_to_definition(def_id, ARRAY['external_idents', 'data_source', 'valid_time', 'statistical_variables', 'edit_info', 'metadata']);
     PERFORM import.create_source_and_mappings_for_definition(def_id, ARRAY['valid_from', 'valid_to'] || active_ext_ident_codes); -- Pass valid_from, valid_to, and active external ident codes
 
 END $$;

@@ -13,8 +13,8 @@ DECLARE
     v_update_count INT := 0;
     v_skipped_update_count INT := 0;
     v_error_count INT := 0;
-    v_error_keys_to_clear_arr TEXT[] := ARRAY['name', 'data_source_code', 'legal_form_code', 'sector_code', 'unit_size_code', 'birth_date', 'death_date', 'status_id_missing', 'legal_unit'];
-    v_invalid_code_keys_arr TEXT[] := ARRAY['data_source_code', 'legal_form_code', 'sector_code', 'unit_size_code', 'birth_date', 'death_date']; -- Keys that go into invalid_codes
+    v_error_keys_to_clear_arr TEXT[] := ARRAY['name', 'legal_form_code', 'sector_code', 'unit_size_code', 'birth_date', 'death_date', 'status_id_missing', 'legal_unit'];
+    v_invalid_code_keys_arr TEXT[] := ARRAY['legal_form_code', 'sector_code', 'unit_size_code', 'birth_date', 'death_date']; -- Keys that go into invalid_codes
 BEGIN
     RAISE DEBUG '[Job %] analyse_legal_unit (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_row_ids, 1);
 
@@ -39,7 +39,6 @@ BEGIN
         WITH lookups AS (
             SELECT
                 dt_sub.row_id as data_row_id,
-                ds.id as resolved_data_source_id,
                 lf.id as resolved_legal_form_id,
                 -- s.id as resolved_status_id, -- Status is now resolved in a prior step
                 sec.id as resolved_sector_id,
@@ -49,7 +48,6 @@ BEGIN
                 (import.safe_cast_to_date(dt_sub.death_date)).p_value as resolved_typed_death_date,
                 (import.safe_cast_to_date(dt_sub.death_date)).p_error_message as death_date_error_msg
             FROM public.%1$I dt_sub
-            LEFT JOIN public.data_source_available ds ON NULLIF(dt_sub.data_source_code, '') IS NOT NULL AND ds.code = NULLIF(dt_sub.data_source_code, '')
             LEFT JOIN public.legal_form_available lf ON NULLIF(dt_sub.legal_form_code, '') IS NOT NULL AND lf.code = NULLIF(dt_sub.legal_form_code, '')
             -- LEFT JOIN public.status s ON NULLIF(dt_sub.status_code, '') IS NOT NULL AND s.code = NULLIF(dt_sub.status_code, '') AND s.active = true -- Removed
             LEFT JOIN public.sector_available sec ON NULLIF(dt_sub.sector_code, '') IS NOT NULL AND sec.code = NULLIF(dt_sub.sector_code, '')
@@ -57,7 +55,6 @@ BEGIN
             WHERE dt_sub.row_id = ANY($1) AND dt_sub.action IS DISTINCT FROM 'skip'
         )
         UPDATE public.%2$I dt SET
-            data_source_id = l.resolved_data_source_id,
             legal_form_id = l.resolved_legal_form_id,
             -- status_id = CASE ... END, -- Removed: status_id is now populated by 'status' step
             sector_id = l.resolved_sector_id,
@@ -86,7 +83,6 @@ BEGIN
                                 WHEN (NULLIF(trim(dt.name), '') IS NOT NULL) AND dt.status_id IS NOT NULL THEN -- Only populate invalid_codes if no fatal error in this step
                                     jsonb_strip_nulls(
                                      (dt.invalid_codes - %4$L::TEXT[]) ||
-                                     jsonb_build_object('data_source_code', CASE WHEN NULLIF(dt.data_source_code, '') IS NOT NULL AND l.resolved_data_source_id IS NULL THEN dt.data_source_code ELSE NULL END) ||
                                      jsonb_build_object('legal_form_code', CASE WHEN NULLIF(dt.legal_form_code, '') IS NOT NULL AND l.resolved_legal_form_id IS NULL THEN dt.legal_form_code ELSE NULL END) ||
                                      jsonb_build_object('sector_code', CASE WHEN NULLIF(dt.sector_code, '') IS NOT NULL AND l.resolved_sector_id IS NULL THEN dt.sector_code ELSE NULL END) ||
                                      jsonb_build_object('unit_size_code', CASE WHEN NULLIF(dt.unit_size_code, '') IS NOT NULL AND l.resolved_unit_size_id IS NULL THEN dt.unit_size_code ELSE NULL END) ||

@@ -277,7 +277,7 @@ BEGIN
     ELSIF v_job_mode = 'establishment_informal' THEN
         v_select_lu_id_expr := 'NULL::INTEGER';
         v_select_est_id_expr := 'dt.establishment_id';
-    ELSIF v_job_mode IS NULL THEN -- This is for stats_update jobs
+    ELSIF v_job_mode = 'generic_unit' THEN
         v_select_lu_id_expr := 'dt.legal_unit_id';
         v_select_est_id_expr := 'dt.establishment_id';
     ELSE

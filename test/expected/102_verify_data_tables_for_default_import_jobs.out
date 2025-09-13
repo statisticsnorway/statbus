@@ -218,8 +218,12 @@ Describing table for definition: legal_unit_job_provided (Job: t54_lu_tc, Data T
  derived_valid_until              | date                      |           |          | 
  operation                        | import_row_operation_type |           |          | 
  action                           | import_row_action_type    |           |          | 
+ legal_unit_id                    | integer                   |           |          | 
+ establishment_id                 | integer                   |           |          | 
  tax_ident                        | text                      |           |          | 
  stat_ident                       | text                      |           |          | 
+ data_source_code                 | text                      |           |          | 
+ data_source_id                   | integer                   |           |          | 
  status_code                      | text                      |           |          | 
  status_id                        | integer                   |           |          | 
  enterprise_id                    | integer                   |           |          | 
@@ -230,12 +234,9 @@ Describing table for definition: legal_unit_job_provided (Job: t54_lu_tc, Data T
  sector_code                      | text                      |           |          | 
  unit_size_code                   | text                      |           |          | 
  legal_form_code                  | text                      |           |          | 
- data_source_code                 | text                      |           |          | 
- legal_unit_id                    | integer                   |           |          | 
  sector_id                        | integer                   |           |          | 
  unit_size_id                     | integer                   |           |          | 
  legal_form_id                    | integer                   |           |          | 
- data_source_id                   | integer                   |           |          | 
  typed_birth_date                 | date                      |           |          | 
  typed_death_date                 | date                      |           |          | 
  physical_address_part1           | text                      |           |          | 
@@ -337,8 +338,12 @@ Describing table for definition: legal_unit_source_dates (Job: t54_lu_sd, Data T
  derived_valid_until              | date                      |           |          | 
  operation                        | import_row_operation_type |           |          | 
  action                           | import_row_action_type    |           |          | 
+ legal_unit_id                    | integer                   |           |          | 
+ establishment_id                 | integer                   |           |          | 
  tax_ident                        | text                      |           |          | 
  stat_ident                       | text                      |           |          | 
+ data_source_code                 | text                      |           |          | 
+ data_source_id                   | integer                   |           |          | 
  status_code                      | text                      |           |          | 
  status_id                        | integer                   |           |          | 
  enterprise_id                    | integer                   |           |          | 
@@ -349,12 +354,9 @@ Describing table for definition: legal_unit_source_dates (Job: t54_lu_sd, Data T
  sector_code                      | text                      |           |          | 
  unit_size_code                   | text                      |           |          | 
  legal_form_code                  | text                      |           |          | 
- data_source_code                 | text                      |           |          | 
- legal_unit_id                    | integer                   |           |          | 
  sector_id                        | integer                   |           |          | 
  unit_size_id                     | integer                   |           |          | 
  legal_form_id                    | integer                   |           |          | 
- data_source_id                   | integer                   |           |          | 
  typed_birth_date                 | date                      |           |          | 
  typed_death_date                 | date                      |           |          | 
  physical_address_part1           | text                      |           |          | 
@@ -456,11 +458,14 @@ Describing table for definition: establishment_for_lu_job_provided (Job: t54_est
  derived_valid_until              | date                      |           |          | 
  operation                        | import_row_operation_type |           |          | 
  action                           | import_row_action_type    |           |          | 
+ legal_unit_id                    | integer                   |           |          | 
+ establishment_id                 | integer                   |           |          | 
  tax_ident                        | text                      |           |          | 
  stat_ident                       | text                      |           |          | 
+ data_source_code                 | text                      |           |          | 
+ data_source_id                   | integer                   |           |          | 
  status_code                      | text                      |           |          | 
  status_id                        | integer                   |           |          | 
- legal_unit_id                    | integer                   |           |          | 
  primary_for_legal_unit           | boolean                   |           |          | 
  legal_unit_tax_ident             | text                      |           |          | 
  legal_unit_stat_ident            | text                      |           |          | 
@@ -469,11 +474,8 @@ Describing table for definition: establishment_for_lu_job_provided (Job: t54_est
  death_date                       | text                      |           |          | 
  sector_code                      | text                      |           |          | 
  unit_size_code                   | text                      |           |          | 
- data_source_code                 | text                      |           |          | 
- establishment_id                 | integer                   |           |          | 
  sector_id                        | integer                   |           |          | 
  unit_size_id                     | integer                   |           |          | 
- data_source_id                   | integer                   |           |          | 
  typed_birth_date                 | date                      |           |          | 
  typed_death_date                 | date                      |           |          | 
  physical_address_part1           | text                      |           |          | 
@@ -575,11 +577,14 @@ Describing table for definition: establishment_for_lu_source_dates (Job: t54_est
  derived_valid_until              | date                      |           |          | 
  operation                        | import_row_operation_type |           |          | 
  action                           | import_row_action_type    |           |          | 
+ legal_unit_id                    | integer                   |           |          | 
+ establishment_id                 | integer                   |           |          | 
  tax_ident                        | text                      |           |          | 
  stat_ident                       | text                      |           |          | 
+ data_source_code                 | text                      |           |          | 
+ data_source_id                   | integer                   |           |          | 
  status_code                      | text                      |           |          | 
  status_id                        | integer                   |           |          | 
- legal_unit_id                    | integer                   |           |          | 
  primary_for_legal_unit           | boolean                   |           |          | 
  legal_unit_tax_ident             | text                      |           |          | 
  legal_unit_stat_ident            | text                      |           |          | 
@@ -588,11 +593,8 @@ Describing table for definition: establishment_for_lu_source_dates (Job: t54_est
  death_date                       | text                      |           |          | 
  sector_code                      | text                      |           |          | 
  unit_size_code                   | text                      |           |          | 
- data_source_code                 | text                      |           |          | 
- establishment_id                 | integer                   |           |          | 
  sector_id                        | integer                   |           |          | 
  unit_size_id                     | integer                   |           |          | 
- data_source_id                   | integer                   |           |          | 
  typed_birth_date                 | date                      |           |          | 
  typed_death_date                 | date                      |           |          | 
  physical_address_part1           | text                      |           |          | 
@@ -694,8 +696,12 @@ Describing table for definition: establishment_without_lu_job_provided (Job: t54
  derived_valid_until              | date                      |           |          | 
  operation                        | import_row_operation_type |           |          | 
  action                           | import_row_action_type    |           |          | 
+ legal_unit_id                    | integer                   |           |          | 
+ establishment_id                 | integer                   |           |          | 
  tax_ident                        | text                      |           |          | 
  stat_ident                       | text                      |           |          | 
+ data_source_code                 | text                      |           |          | 
+ data_source_id                   | integer                   |           |          | 
  status_code                      | text                      |           |          | 
  status_id                        | integer                   |           |          | 
  enterprise_id                    | integer                   |           |          | 
@@ -705,11 +711,8 @@ Describing table for definition: establishment_without_lu_job_provided (Job: t54
  death_date                       | text                      |           |          | 
  sector_code                      | text                      |           |          | 
  unit_size_code                   | text                      |           |          | 
- data_source_code                 | text                      |           |          | 
- establishment_id                 | integer                   |           |          | 
  sector_id                        | integer                   |           |          | 
  unit_size_id                     | integer                   |           |          | 
- data_source_id                   | integer                   |           |          | 
  typed_birth_date                 | date                      |           |          | 
  typed_death_date                 | date                      |           |          | 
  physical_address_part1           | text                      |           |          | 
@@ -811,8 +814,12 @@ Describing table for definition: establishment_without_lu_source_dates (Job: t54
  derived_valid_until              | date                      |           |          | 
  operation                        | import_row_operation_type |           |          | 
  action                           | import_row_action_type    |           |          | 
+ legal_unit_id                    | integer                   |           |          | 
+ establishment_id                 | integer                   |           |          | 
  tax_ident                        | text                      |           |          | 
  stat_ident                       | text                      |           |          | 
+ data_source_code                 | text                      |           |          | 
+ data_source_id                   | integer                   |           |          | 
  status_code                      | text                      |           |          | 
  status_id                        | integer                   |           |          | 
  enterprise_id                    | integer                   |           |          | 
@@ -822,11 +829,8 @@ Describing table for definition: establishment_without_lu_source_dates (Job: t54
  death_date                       | text                      |           |          | 
  sector_code                      | text                      |           |          | 
  unit_size_code                   | text                      |           |          | 
- data_source_code                 | text                      |           |          | 
- establishment_id                 | integer                   |           |          | 
  sector_id                        | integer                   |           |          | 
  unit_size_id                     | integer                   |           |          | 
- data_source_id                   | integer                   |           |          | 
  typed_birth_date                 | date                      |           |          | 
  typed_death_date                 | date                      |           |          | 
  physical_address_part1           | text                      |           |          | 
@@ -928,8 +932,12 @@ Describing table for definition: generic_unit_stats_update_job_provided (Job: t5
  derived_valid_until        | date                      |           |          | 
  operation                  | import_row_operation_type |           |          | 
  action                     | import_row_action_type    |           |          | 
+ legal_unit_id              | integer                   |           |          | 
+ establishment_id           | integer                   |           |          | 
  tax_ident                  | text                      |           |          | 
  stat_ident                 | text                      |           |          | 
+ data_source_code           | text                      |           |          | 
+ data_source_id             | integer                   |           |          | 
  employees                  | text                      |           |          | 
  turnover                   | text                      |           |          | 
  stat_for_unit_employees_id | integer                   |           |          | 
@@ -980,8 +988,12 @@ Describing table for definition: generic_unit_stats_update_source_dates (Job: t5
  derived_valid_until        | date                      |           |          | 
  operation                  | import_row_operation_type |           |          | 
  action                     | import_row_action_type    |           |          | 
+ legal_unit_id              | integer                   |           |          | 
+ establishment_id           | integer                   |           |          | 
  tax_ident                  | text                      |           |          | 
  stat_ident                 | text                      |           |          | 
+ data_source_code           | text                      |           |          | 
+ data_source_id             | integer                   |           |          | 
  employees                  | text                      |           |          | 
  turnover                   | text                      |           |          | 
  stat_for_unit_employees_id | integer                   |           |          | 

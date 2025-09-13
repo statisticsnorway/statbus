@@ -87,7 +87,7 @@ BEGIN
     SELECT array_agg(s.id) INTO v_lu_step_ids
     FROM public.import_step s
     WHERE s.code IN (
-        'external_idents', 'enterprise_link_for_legal_unit', 'valid_time', 'status', 'legal_unit',
+        'external_idents', 'data_source', 'enterprise_link_for_legal_unit', 'valid_time', 'status', 'legal_unit',
         'physical_location', 'postal_location', 'primary_activity', 'secondary_activity',
         'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'
     );
@@ -95,7 +95,7 @@ BEGIN
     SELECT array_agg(s.id) INTO v_es_formal_step_ids
     FROM public.import_step s
     WHERE s.code IN (
-        'external_idents', 'link_establishment_to_legal_unit', 'enterprise_link_for_establishment', 'valid_time', 'status', 'establishment',
+        'external_idents', 'data_source', 'link_establishment_to_legal_unit', 'enterprise_link_for_establishment', 'valid_time', 'status', 'establishment',
         'physical_location', 'postal_location', 'primary_activity', 'secondary_activity',
         'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'
     );
@@ -103,7 +103,7 @@ BEGIN
     SELECT array_agg(s.id) INTO v_es_informal_step_ids
     FROM public.import_step s
     WHERE s.code IN (
-        'external_idents', 'enterprise_link_for_establishment', 'valid_time', 'status', 'establishment',
+        'external_idents', 'data_source', 'enterprise_link_for_establishment', 'valid_time', 'status', 'establishment',
         'physical_location', 'postal_location', 'primary_activity', 'secondary_activity',
         'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'
     );

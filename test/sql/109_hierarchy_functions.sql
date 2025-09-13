@@ -78,13 +78,13 @@ FROM public.import_job
 WHERE slug LIKE 'import_34_%' ORDER BY slug;
 
 \echo "Checking for data processing issues in import_34_lu_era_data"
-SELECT row_id, errors, invalid_codes, merge_status FROM public.import_34_lu_era_data WHERE errors IS NOT NULL OR invalid_codes IS NOT NULL;
+SELECT row_id, errors, invalid_codes, merge_status FROM public.import_34_lu_era_data WHERE errors IS NOT NULL OR invalid_codes IS NOT NULL ORDER BY row_id;
 
 \echo "Checking for data processing issues in import_34_esflu_era_data"
-SELECT row_id, errors, invalid_codes, merge_status FROM public.import_34_esflu_era_data WHERE errors IS NOT NULL OR invalid_codes IS NOT NULL;
+SELECT row_id, errors, invalid_codes, merge_status FROM public.import_34_esflu_era_data WHERE errors IS NOT NULL OR invalid_codes IS NOT NULL ORDER BY row_id;
 
 \echo "Checking for data processing issues in import_34_eswlu_era_data"
-SELECT row_id, errors, invalid_codes, merge_status FROM public.import_34_eswlu_era_data WHERE errors IS NOT NULL OR invalid_codes IS NOT NULL;
+SELECT row_id, errors, invalid_codes, merge_status FROM public.import_34_eswlu_era_data WHERE errors IS NOT NULL OR invalid_codes IS NOT NULL ORDER BY row_id;
 
 \echo Run worker processing for analytics tasks
 CALL worker.process_tasks(p_queue => 'analytics');

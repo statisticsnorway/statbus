@@ -139,7 +139,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     6
- import    | completed |   132
+ import    | completed |   141
 (2 rows)
 
 \echo "Checking import job statuses"
@@ -188,7 +188,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |     8
- import    | completed |   132
+ import    | completed |   141
 (2 rows)
 
 SELECT
@@ -805,7 +805,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |    12
- import    | completed |   132
+ import    | completed |   141
 (2 rows)
 
 SELECT

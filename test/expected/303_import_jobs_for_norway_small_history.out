@@ -592,6 +592,8 @@ Triggers:
  derived_valid_until              | date                      |           |          | 
  operation                        | import_row_operation_type |           |          | 
  action                           | import_row_action_type    |           |          | 
+ legal_unit_id                    | integer                   |           |          | 
+ establishment_id                 | integer                   |           |          | 
  tax_ident                        | text                      |           |          | 
  stat_ident                       | text                      |           |          | 
  status_code                      | text                      |           |          | 
@@ -605,7 +607,6 @@ Triggers:
  unit_size_code                   | text                      |           |          | 
  legal_form_code                  | text                      |           |          | 
  data_source_code                 | text                      |           |          | 
- legal_unit_id                    | integer                   |           |          | 
  sector_id                        | integer                   |           |          | 
  unit_size_id                     | integer                   |           |          | 
  legal_form_id                    | integer                   |           |          | 
@@ -876,7 +877,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              },                                                                   +
              "target_data_column": {                                              +
                  "purpose": "source_input",                                       +
-                 "priority": 5,                                                   +
+                 "priority": 7,                                                   +
                  "column_name": "tax_ident",                                      +
                  "column_type": "TEXT",                                           +
                  "is_nullable": true,                                             +
@@ -1328,8 +1329,26 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "is_uniquely_identifying": false                                     +
          },                                                                       +
          {                                                                        +
+             "purpose": "pk_id",                                                  +
+             "priority": 3,                                                       +
+             "column_name": "legal_unit_id",                                      +
+             "column_type": "INTEGER",                                            +
+             "is_nullable": true,                                                 +
+             "default_value": null,                                               +
+             "is_uniquely_identifying": false                                     +
+         },                                                                       +
+         {                                                                        +
+             "purpose": "pk_id",                                                  +
+             "priority": 4,                                                       +
+             "column_name": "establishment_id",                                   +
+             "column_type": "INTEGER",                                            +
+             "is_nullable": true,                                                 +
+             "default_value": null,                                               +
+             "is_uniquely_identifying": false                                     +
+         },                                                                       +
+         {                                                                        +
              "purpose": "source_input",                                           +
-             "priority": 5,                                                       +
+             "priority": 7,                                                       +
              "column_name": "tax_ident",                                          +
              "column_type": "TEXT",                                               +
              "is_nullable": true,                                                 +
@@ -1338,7 +1357,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          },                                                                       +
          {                                                                        +
              "purpose": "source_input",                                           +
-             "priority": 6,                                                       +
+             "priority": 8,                                                       +
              "column_name": "stat_ident",                                         +
              "column_type": "TEXT",                                               +
              "is_nullable": true,                                                 +
@@ -1445,17 +1464,8 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "is_uniquely_identifying": false                                     +
          },                                                                       +
          {                                                                        +
-             "purpose": "pk_id",                                                  +
-             "priority": 8,                                                       +
-             "column_name": "legal_unit_id",                                      +
-             "column_type": "INTEGER",                                            +
-             "is_nullable": true,                                                 +
-             "default_value": null,                                               +
-             "is_uniquely_identifying": false                                     +
-         },                                                                       +
-         {                                                                        +
              "purpose": "internal",                                               +
-             "priority": 9,                                                       +
+             "priority": 8,                                                       +
              "column_name": "sector_id",                                          +
              "column_type": "INTEGER",                                            +
              "is_nullable": true,                                                 +
@@ -1464,7 +1474,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          },                                                                       +
          {                                                                        +
              "purpose": "internal",                                               +
-             "priority": 10,                                                      +
+             "priority": 9,                                                       +
              "column_name": "unit_size_id",                                       +
              "column_type": "INTEGER",                                            +
              "is_nullable": true,                                                 +
@@ -1473,7 +1483,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          },                                                                       +
          {                                                                        +
              "purpose": "internal",                                               +
-             "priority": 11,                                                      +
+             "priority": 10,                                                      +
              "column_name": "legal_form_id",                                      +
              "column_type": "INTEGER",                                            +
              "is_nullable": true,                                                 +
@@ -1482,7 +1492,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          },                                                                       +
          {                                                                        +
              "purpose": "internal",                                               +
-             "priority": 12,                                                      +
+             "priority": 11,                                                      +
              "column_name": "data_source_id",                                     +
              "column_type": "INTEGER",                                            +
              "is_nullable": true,                                                 +
@@ -1491,7 +1501,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          },                                                                       +
          {                                                                        +
              "purpose": "internal",                                               +
-             "priority": 13,                                                      +
+             "priority": 12,                                                      +
              "column_name": "typed_birth_date",                                   +
              "column_type": "DATE",                                               +
              "is_nullable": true,                                                 +
@@ -1500,7 +1510,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          },                                                                       +
          {                                                                        +
              "purpose": "internal",                                               +
-             "priority": 14,                                                      +
+             "priority": 13,                                                      +
              "column_name": "typed_death_date",                                   +
              "column_type": "DATE",                                               +
              "is_nullable": true,                                                 +
@@ -2343,11 +2353,12 @@ Triggers:
  derived_valid_until              | date                      |           |          | 
  operation                        | import_row_operation_type |           |          | 
  action                           | import_row_action_type    |           |          | 
+ legal_unit_id                    | integer                   |           |          | 
+ establishment_id                 | integer                   |           |          | 
  tax_ident                        | text                      |           |          | 
  stat_ident                       | text                      |           |          | 
  status_code                      | text                      |           |          | 
  status_id                        | integer                   |           |          | 
- legal_unit_id                    | integer                   |           |          | 
  primary_for_legal_unit           | boolean                   |           |          | 
  legal_unit_tax_ident             | text                      |           |          | 
  legal_unit_stat_ident            | text                      |           |          | 
@@ -2357,7 +2368,6 @@ Triggers:
  sector_code                      | text                      |           |          | 
  unit_size_code                   | text                      |           |          | 
  data_source_code                 | text                      |           |          | 
- establishment_id                 | integer                   |           |          | 
  sector_id                        | integer                   |           |          | 
  unit_size_id                     | integer                   |           |          | 
  data_source_id                   | integer                   |           |          | 
@@ -2627,7 +2637,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              },                                                                     +
              "target_data_column": {                                                +
                  "purpose": "source_input",                                         +
-                 "priority": 5,                                                     +
+                 "priority": 7,                                                     +
                  "column_name": "tax_ident",                                        +
                  "column_type": "TEXT",                                             +
                  "is_nullable": true,                                               +
@@ -2648,7 +2658,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              },                                                                     +
              "target_data_column": {                                                +
                  "purpose": "source_input",                                         +
-                 "priority": 3,                                                     +
+                 "priority": 2,                                                     +
                  "column_name": "legal_unit_tax_ident",                             +
                  "column_type": "TEXT",                                             +
                  "is_nullable": true,                                               +
@@ -3079,8 +3089,26 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "is_uniquely_identifying": false                                       +
          },                                                                         +
          {                                                                          +
+             "purpose": "pk_id",                                                    +
+             "priority": 3,                                                         +
+             "column_name": "legal_unit_id",                                        +
+             "column_type": "INTEGER",                                              +
+             "is_nullable": true,                                                   +
+             "default_value": null,                                                 +
+             "is_uniquely_identifying": false                                       +
+         },                                                                         +
+         {                                                                          +
+             "purpose": "pk_id",                                                    +
+             "priority": 4,                                                         +
+             "column_name": "establishment_id",                                     +
+             "column_type": "INTEGER",                                              +
+             "is_nullable": true,                                                   +
+             "default_value": null,                                                 +
+             "is_uniquely_identifying": false                                       +
+         },                                                                         +
+         {                                                                          +
              "purpose": "source_input",                                             +
-             "priority": 5,                                                         +
+             "priority": 7,                                                         +
              "column_name": "tax_ident",                                            +
              "column_type": "TEXT",                                                 +
              "is_nullable": true,                                                   +
@@ -3089,7 +3117,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          },                                                                         +
          {                                                                          +
              "purpose": "source_input",                                             +
-             "priority": 6,                                                         +
+             "priority": 8,                                                         +
              "column_name": "stat_ident",                                           +
              "column_type": "TEXT",                                                 +
              "is_nullable": true,                                                   +
@@ -3115,17 +3143,8 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "is_uniquely_identifying": false                                       +
          },                                                                         +
          {                                                                          +
-             "purpose": "pk_id",                                                    +
-             "priority": 1,                                                         +
-             "column_name": "legal_unit_id",                                        +
-             "column_type": "INTEGER",                                              +
-             "is_nullable": true,                                                   +
-             "default_value": null,                                                 +
-             "is_uniquely_identifying": false                                       +
-         },                                                                         +
-         {                                                                          +
              "purpose": "internal",                                                 +
-             "priority": 2,                                                         +
+             "priority": 1,                                                         +
              "column_name": "primary_for_legal_unit",                               +
              "column_type": "BOOLEAN",                                              +
              "is_nullable": true,                                                   +
@@ -3134,7 +3153,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          },                                                                         +
          {                                                                          +
              "purpose": "source_input",                                             +
-             "priority": 3,                                                         +
+             "priority": 2,                                                         +
              "column_name": "legal_unit_tax_ident",                                 +
              "column_type": "TEXT",                                                 +
              "is_nullable": true,                                                   +
@@ -3143,7 +3162,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          },                                                                         +
          {                                                                          +
              "purpose": "source_input",                                             +
-             "priority": 4,                                                         +
+             "priority": 3,                                                         +
              "column_name": "legal_unit_stat_ident",                                +
              "column_type": "TEXT",                                                 +
              "is_nullable": true,                                                   +
@@ -3205,17 +3224,8 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "is_uniquely_identifying": false                                       +
          },                                                                         +
          {                                                                          +
-             "purpose": "pk_id",                                                    +
-             "priority": 7,                                                         +
-             "column_name": "establishment_id",                                     +
-             "column_type": "INTEGER",                                              +
-             "is_nullable": true,                                                   +
-             "default_value": null,                                                 +
-             "is_uniquely_identifying": false                                       +
-         },                                                                         +
-         {                                                                          +
              "purpose": "internal",                                                 +
-             "priority": 8,                                                         +
+             "priority": 7,                                                         +
              "column_name": "sector_id",                                            +
              "column_type": "INTEGER",                                              +
              "is_nullable": true,                                                   +
@@ -3224,7 +3234,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          },                                                                         +
          {                                                                          +
              "purpose": "internal",                                                 +
-             "priority": 9,                                                         +
+             "priority": 8,                                                         +
              "column_name": "unit_size_id",                                         +
              "column_type": "INTEGER",                                              +
              "is_nullable": true,                                                   +
@@ -3233,7 +3243,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          },                                                                         +
          {                                                                          +
              "purpose": "internal",                                                 +
-             "priority": 10,                                                        +
+             "priority": 9,                                                         +
              "column_name": "data_source_id",                                       +
              "column_type": "INTEGER",                                              +
              "is_nullable": true,                                                   +
@@ -3242,7 +3252,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          },                                                                         +
          {                                                                          +
              "purpose": "internal",                                                 +
-             "priority": 11,                                                        +
+             "priority": 10,                                                        +
              "column_name": "typed_birth_date",                                     +
              "column_type": "DATE",                                                 +
              "is_nullable": true,                                                   +
@@ -3251,7 +3261,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          },                                                                         +
          {                                                                          +
              "purpose": "internal",                                                 +
-             "priority": 12,                                                        +
+             "priority": 11,                                                        +
              "column_name": "typed_death_date",                                     +
              "column_type": "DATE",                                                 +
              "is_nullable": true,                                                   +
