@@ -1,10 +1,10 @@
-                                                                                                            QUERY PLAN                                                                                                            
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- Nested Loop Left Join  (cost=76.70..126.52 rows=6 width=7473)
-   ->  Nested Loop Left Join  (cost=76.64..104.97 rows=6 width=7168)
-         ->  Nested Loop Left Join  (cost=74.36..91.18 rows=6 width=3771)
-               ->  Merge Left Join  (cost=71.06..71.19 rows=6 width=348)
-                     Merge Cond: ((en.id = aggregation.enterprise_id) AND (t.valid_from = aggregation.valid_from) AND (t.valid_until = aggregation.valid_until))
+                                                                                                                                                                         QUERY PLAN                                                                                                                                                                         
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Nested Loop Left Join  (cost=41.55..199.17 rows=6 width=7473)
+   ->  Nested Loop Left Join  (cost=41.49..177.61 rows=6 width=7168)
+         ->  Nested Loop Left Join  (cost=35.22..139.83 rows=6 width=3771)
+               ->  Merge Left Join  (cost=29.91..107.83 rows=6 width=348)
+                     Merge Cond: ((en.id = en_1.id) AND (t.valid_from = t_1.valid_from) AND (t.valid_until = t_1.valid_until))
                      ->  Sort  (cost=2.88..2.90 rows=6 width=60)
                            Sort Key: t.unit_id, t.valid_from, t.valid_until
                            ->  Hash Join  (cost=1.14..2.80 rows=6 width=60)
@@ -13,38 +13,41 @@
                                        Filter: (unit_type = 'enterprise'::statistical_unit_type)
                                  ->  Hash  (cost=1.06..1.06 rows=6 width=44)
                                        ->  Seq Scan on enterprise en  (cost=0.00..1.06 rows=6 width=44)
-                     ->  Sort  (cost=68.18..68.19 rows=6 width=300)
-                           Sort Key: aggregation.enterprise_id, aggregation.valid_from, aggregation.valid_until
-                           ->  Subquery Scan on aggregation  (cost=55.23..68.10 rows=6 width=300)
-                                 ->  HashAggregate  (cost=55.23..68.04 rows=6 width=300)
-                                       Group Key: en_1.id, t_1.valid_from, t_1.valid_until
-                                       ->  Nested Loop Left Join  (cost=6.71..51.99 rows=6 width=492)
-                                             ->  Nested Loop Left Join  (cost=4.44..32.77 rows=6 width=300)
-                                                   ->  Hash Join  (cost=1.14..2.80 rows=6 width=12)
-                                                         Hash Cond: (t_1.unit_id = en_1.id)
+                     ->  GroupAggregate  (cost=27.03..104.78 rows=6 width=300)
+                           Group Key: en_1.id, t_1.valid_from, t_1.valid_until
+                           ->  Incremental Sort  (cost=27.03..88.73 rows=6 width=492)
+                                 Sort Key: en_1.id, t_1.valid_from, t_1.valid_until
+                                 Presorted Key: en_1.id
+                                 ->  Nested Loop Left Join  (cost=14.73..88.46 rows=6 width=492)
+                                       ->  Nested Loop Left Join  (cost=8.46..45.24 rows=6 width=300)
+                                             ->  Merge Join  (cost=3.15..3.27 rows=6 width=12)
+                                                   Merge Cond: (t_1.unit_id = en_1.id)
+                                                   ->  Sort  (cost=1.96..2.00 rows=17 width=12)
+                                                         Sort Key: t_1.unit_id
                                                          ->  Seq Scan on timesegments t_1  (cost=0.00..1.61 rows=17 width=12)
                                                                Filter: (unit_type = 'enterprise'::statistical_unit_type)
-                                                         ->  Hash  (cost=1.06..1.06 rows=6 width=4)
-                                                               ->  Seq Scan on enterprise en_1  (cost=0.00..1.06 rows=6 width=4)
-                                                   ->  GroupAggregate  (cost=3.31..4.97 rows=1 width=300)
-                                                         ->  Sort  (cost=3.31..3.31 rows=1 width=281)
-                                                               Sort Key: timeline_legal_unit.legal_unit_id
-                                                               ->  Seq Scan on timeline_legal_unit  (cost=0.00..3.30 rows=1 width=281)
-                                                                     Filter: ((t_1.valid_from < valid_until) AND (valid_from < t_1.valid_until) AND (enterprise_id = en_1.id))
-                                             ->  GroupAggregate  (cost=2.27..3.18 rows=1 width=204)
-                                                   ->  Sort  (cost=2.27..2.28 rows=1 width=53)
-                                                         Sort Key: timeline_establishment.establishment_id
-                                                         ->  Seq Scan on timeline_establishment  (cost=0.00..2.26 rows=1 width=53)
+                                                   ->  Sort  (cost=1.14..1.15 rows=6 width=4)
+                                                         Sort Key: en_1.id
+                                                         ->  Seq Scan on enterprise en_1  (cost=0.00..1.06 rows=6 width=4)
+                                             ->  GroupAggregate  (cost=5.31..6.97 rows=1 width=300)
+                                                   ->  Sort  (cost=5.31..5.31 rows=1 width=281)
+                                                         Sort Key: timeline_legal_unit.legal_unit_id
+                                                         ->  Seq Scan on timeline_legal_unit  (cost=0.00..5.30 rows=1 width=281)
                                                                Filter: ((t_1.valid_from < valid_until) AND (valid_from < t_1.valid_until) AND (enterprise_id = en_1.id))
-               ->  Limit  (cost=3.31..3.31 rows=1 width=3864)
-                     ->  Sort  (cost=3.31..3.31 rows=1 width=3864)
+                                       ->  GroupAggregate  (cost=6.27..7.18 rows=1 width=204)
+                                             ->  Sort  (cost=6.27..6.28 rows=1 width=53)
+                                                   Sort Key: timeline_establishment.establishment_id
+                                                   ->  Seq Scan on timeline_establishment  (cost=0.00..6.26 rows=1 width=53)
+                                                         Filter: ((t_1.valid_from < valid_until) AND (valid_from < t_1.valid_until) AND (enterprise_id = en_1.id))
+               ->  Limit  (cost=5.31..5.31 rows=1 width=3864)
+                     ->  Sort  (cost=5.31..5.31 rows=1 width=3864)
                            Sort Key: enplu_1.valid_from DESC, enplu_1.legal_unit_id DESC
-                           ->  Seq Scan on timeline_legal_unit enplu_1  (cost=0.00..3.30 rows=1 width=3864)
+                           ->  Seq Scan on timeline_legal_unit enplu_1  (cost=0.00..5.30 rows=1 width=3864)
                                  Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (enterprise_id = en.id))
-         ->  Limit  (cost=2.27..2.28 rows=1 width=3879)
-               ->  Sort  (cost=2.27..2.28 rows=1 width=3879)
+         ->  Limit  (cost=6.27..6.28 rows=1 width=3879)
+               ->  Sort  (cost=6.27..6.28 rows=1 width=3879)
                      Sort Key: enpes_1.valid_from DESC, enpes_1.establishment_id DESC
-                     ->  Seq Scan on timeline_establishment enpes_1  (cost=0.00..2.26 rows=1 width=3879)
+                     ->  Seq Scan on timeline_establishment enpes_1  (cost=0.00..6.26 rows=1 width=3879)
                            Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (enterprise_id = en.id))
    ->  Memoize  (cost=0.06..0.07 rows=1 width=528)
          Cache Key: en.edit_comment, en.edit_by_user_id, en.edit_at, enplu_1.last_edit_comment, enplu_1.last_edit_by_user_id, enplu_1.last_edit_at, enpes_1.last_edit_comment, enpes_1.last_edit_by_user_id, enpes_1.last_edit_at
@@ -74,7 +77,7 @@
                              ->  ProjectSet  (cost=0.83..0.90 rows=10 width=4)
                                    ->  Result  (cost=0.00..0.01 rows=1 width=0)
                        ->  Sort  (cost=0.23..0.26 rows=10 width=4)
-                             Sort Key: (unnest(aggregation.data_source_ids))
+                             Sort Key: (unnest((array_distinct_concat(COALESCE(array_cat((array_distinct_concat(timeline_legal_unit.data_source_ids)), (array_distinct_concat(timeline_establishment.data_source_ids))), (array_distinct_concat(timeline_legal_unit.data_source_ids)), (array_distinct_concat(timeline_establishment.data_source_ids)))))))
                              ->  ProjectSet  (cost=0.00..0.07 rows=10 width=4)
                                    ->  Result  (cost=0.00..0.01 rows=1 width=0)
    SubPlan 4
@@ -96,5 +99,5 @@
                              ->  Result  (cost=0.00..0.01 rows=1 width=0)
                        ->  ProjectSet  (cost=0.00..0.07 rows=10 width=32)
                              ->  Result  (cost=0.00..0.01 rows=1 width=0)
-(96 rows)
+(99 rows)
 
