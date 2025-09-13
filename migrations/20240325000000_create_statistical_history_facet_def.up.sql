@@ -1,358 +1,226 @@
 BEGIN;
 
 SELECT pg_catalog.set_config('search_path', 'public', false);
-CREATE VIEW public.statistical_history_facet_def AS
-WITH year_with_unit_basis AS (
-    SELECT range.resolution AS resolution
-         , range.year AS year
-         , NULL::INTEGER AS month
-         , su_curr.unit_type AS unit_type
-         --
-         , su_curr.unit_id AS unit_id
-         , su_prev.unit_id IS NOT NULL AND su_curr.unit_id IS NOT NULL AS track_changes
-         --
-         , su_curr.birth_date AS birth_date
-         , su_curr.death_date AS death_date
-         --
-         , COALESCE(
-             -- Unit is born in this period.
-             su_curr.birth_date BETWEEN range.curr_start AND range.curr_stop,
-             -- TODO: birth_date IS NULL and Unit started to exist in this period.
-             -- su_prev.unit_id IS NULL
-             false
-           ) AS born
-         , COALESCE(
-             -- Unit died in this period.
-             su_curr.death_date BETWEEN range.curr_start AND range.curr_stop,
-             -- TODO: death_date IS NULL and Unit ceased to exist in this period.
-             -- su_next.unit_id IS NULL
-             false
-           ) AS died
-         --
-         , su_prev.name                             AS prev_name
-         , su_prev.primary_activity_category_path   AS prev_primary_activity_category_path
-         , su_prev.secondary_activity_category_path AS prev_secondary_activity_category_path
-         , su_prev.sector_path                      AS prev_sector_path
-         , su_prev.legal_form_id                    AS prev_legal_form_id
-         , su_prev.physical_region_path             AS prev_physical_region_path
-         , su_prev.physical_country_id              AS prev_physical_country_id
-         , su_prev.physical_address_part1           AS prev_physical_address_part1
-         , su_prev.physical_address_part2           AS prev_physical_address_part2
-         , su_prev.physical_address_part3           AS prev_physical_address_part3
-         --
-         , su_prev.status_id                        AS prev_status_id
-         , su_prev.status_code                      AS prev_status_code
-         --
-         , su_curr.name                             AS curr_name
-         , su_curr.primary_activity_category_path   AS curr_primary_activity_category_path
-         , su_curr.secondary_activity_category_path AS curr_secondary_activity_category_path
-         , su_curr.sector_path                      AS curr_sector_path
-         , su_curr.legal_form_id                    AS curr_legal_form_id
-         , su_curr.physical_region_path             AS curr_physical_region_path
-         , su_curr.physical_country_id              AS curr_physical_country_id
-         , su_curr.physical_address_part1           AS curr_physical_address_part1
-         , su_curr.physical_address_part2           AS curr_physical_address_part2
-         , su_curr.physical_address_part3           AS curr_physical_address_part3
-         --
-         , su_prev.unit_size_id                     AS prev_unit_size_id
-         , su_prev.unit_size_code                   AS prev_unit_size_code
-         --
-         , su_curr.unit_size_id                     AS curr_unit_size_id
-         , su_curr.unit_size_code                   AS curr_unit_size_code
-         --
-         , su_curr.status_id                        AS curr_status_id
-         , su_curr.status_code                      AS curr_status_code
-         --
-         , su_prev.stats AS prev_stats
-         , su_curr.stats AS curr_stats
-         --
-         , su_curr.stats AS stats
-         , su_curr.stats_summary AS stats_summary
-         --
-    FROM public.get_statistical_history_periods('year'::public.history_resolution) AS range
-    JOIN LATERAL (
-      -- Within a range find the last row of each timeline
-      SELECT *
-      FROM (
-        SELECT su_range.*
-             , ROW_NUMBER() OVER (PARTITION BY su_range.unit_type, su_range.unit_id ORDER BY su_range.valid_from DESC) = 1 AS last_in_range
-        FROM public.statistical_unit AS su_range
-        WHERE from_to_overlaps(su_range.valid_from, su_range.valid_to, range.curr_start, range.curr_stop)
-          -- Entries already dead entries are not relevant.
-          AND (su_range.death_date IS NULL OR range.curr_start <= su_range.death_date)
-          -- Entries not yet born are not relevant.
-          AND (su_range.birth_date IS NULL OR su_range.birth_date <= range.curr_stop)
-          AND su_range.include_unit_in_reports
-      ) AS range_units
-      WHERE last_in_range
-    ) AS su_curr ON true
-    LEFT JOIN LATERAL (
-      -- Find the first entry after the current range
-      SELECT *
-      FROM public.statistical_unit AS su_range
-      WHERE su_range.unit_type = su_curr.unit_type AND su_range.unit_id = su_curr.unit_id
-        AND from_to_overlaps(su_range.valid_from, su_range.valid_to, range.curr_stop, range.curr_stop)
-        -- Entries already dead are not relevant.
-        AND (su_range.death_date IS NULL OR range.curr_start <= su_range.death_date)
-        -- Entries not yet born are not relevant.
-        AND (su_range.birth_date IS NULL OR su_range.birth_date <= range.curr_stop)
-        AND su_range.include_unit_in_reports
-      ORDER BY su_range.valid_from ASC
-      LIMIT 1
-    ) AS su_next ON true
-    LEFT JOIN public.statistical_unit AS su_prev
-      -- There may be a previous entry to compare with.
-      ON su_prev.unit_type = su_curr.unit_type AND su_prev.unit_id = su_curr.unit_id
-      AND from_to_overlaps(su_prev.valid_from, su_prev.valid_to, range.prev_stop, range.prev_stop)
-      -- Entries already dead are not relevant.
-      AND (su_prev.death_date IS NULL OR range.curr_start <= su_prev.death_date)
-      -- Entries not yet born are not relevant.
-      AND (su_prev.birth_date IS NULL OR su_prev.birth_date <= range.curr_stop)
-      AND su_prev.include_unit_in_reports
-), year_with_unit_derived AS (
-    SELECT basis.*
-         --
-         , track_changes AND NOT born AND not died AND prev_name                             IS DISTINCT FROM curr_name                             AS name_changed
-         , track_changes AND NOT born AND not died AND prev_primary_activity_category_path   IS DISTINCT FROM curr_primary_activity_category_path   AS primary_activity_category_changed
-         , track_changes AND NOT born AND not died AND prev_secondary_activity_category_path IS DISTINCT FROM curr_secondary_activity_category_path AS secondary_activity_category_changed
-         , track_changes AND NOT born AND not died AND prev_sector_path                      IS DISTINCT FROM curr_sector_path                      AS sector_changed
-         , track_changes AND NOT born AND not died AND prev_legal_form_id                    IS DISTINCT FROM curr_legal_form_id                    AS legal_form_changed
-         , track_changes AND NOT born AND not died AND prev_physical_region_path             IS DISTINCT FROM curr_physical_region_path             AS physical_region_changed
-         , track_changes AND NOT born AND not died AND prev_physical_country_id              IS DISTINCT FROM curr_physical_country_id              AS physical_country_changed
-         , track_changes AND NOT born AND not died AND (
-                 prev_physical_address_part1 IS DISTINCT FROM curr_physical_address_part1
-              OR prev_physical_address_part2 IS DISTINCT FROM curr_physical_address_part2
-              OR prev_physical_address_part3 IS DISTINCT FROM curr_physical_address_part3
-         ) AS physical_address_changed
-         , track_changes AND NOT born AND not died AND prev_unit_size_code IS DISTINCT FROM curr_unit_size_code AS unit_size_code_changed
-         , track_changes AND NOT born AND not died AND prev_status_code IS DISTINCT FROM curr_status_code AS status_code_changed
-         --
-         -- TODO: Track the change in `stats` and put that into `stats_change` using `public.stats_change`.
-         --, CASE WHEN track_changes THEN public.stats_change(start_stats,stop_stats) ELSE NULL END AS stats_change
-         --
-    FROM year_with_unit_basis AS basis
-), year_and_month_with_unit_basis AS (
-    SELECT range.resolution AS resolution
-         , range.year AS year
-         , range.month AS month
-         , COALESCE(su_prev.unit_type, su_curr.unit_type) AS unit_type
-         --
-         , su_curr.unit_id AS unit_id
-         , su_prev.unit_id IS NOT NULL AND su_curr.unit_id IS NOT NULL AS track_changes
-         --
-         , su_curr.birth_date AS birth_date
-         , su_curr.death_date AS death_date
-         --
-         , COALESCE(
-             -- Unit is born in this period.
-             su_curr.birth_date BETWEEN range.curr_start AND range.curr_stop,
-             -- TODO: birth_date IS NULL and Unit started to exist in this period.
-             -- su_prev.unit_id IS NULL
-             false
-           ) AS born
-         , COALESCE(
-             -- Unit died in this period.
-             su_curr.death_date BETWEEN range.curr_start AND range.curr_stop,
-             -- TODO: death_date IS NULL and Unit ceased to exist in this period.
-             -- su_next.unit_id IS NULL
-             false
-           ) AS died
-         --
-         , su_prev.name                             AS prev_name
-         , su_prev.primary_activity_category_path   AS prev_primary_activity_category_path
-         , su_prev.secondary_activity_category_path AS prev_secondary_activity_category_path
-         , su_prev.sector_path                      AS prev_sector_path
-         , su_prev.legal_form_id                    AS prev_legal_form_id
-         , su_prev.physical_region_path             AS prev_physical_region_path
-         , su_prev.physical_country_id              AS prev_physical_country_id
-         , su_prev.physical_address_part1           AS prev_physical_address_part1
-         , su_prev.physical_address_part2           AS prev_physical_address_part2
-         , su_prev.physical_address_part3           AS prev_physical_address_part3
-         --
-         , su_prev.unit_size_id                     AS prev_unit_size_id
-         , su_prev.unit_size_code                   AS prev_unit_size_code
-         --
-         , su_prev.status_id                        AS prev_status_id
-         , su_prev.status_code                      AS prev_status_code
-         --
-         , su_curr.name                             AS curr_name
-         , su_curr.primary_activity_category_path   AS curr_primary_activity_category_path
-         , su_curr.secondary_activity_category_path AS curr_secondary_activity_category_path
-         , su_curr.sector_path                      AS curr_sector_path
-         , su_curr.legal_form_id                    AS curr_legal_form_id
-         , su_curr.physical_region_path             AS curr_physical_region_path
-         , su_curr.physical_country_id              AS curr_physical_country_id
-         , su_curr.physical_address_part1           AS curr_physical_address_part1
-         , su_curr.physical_address_part2           AS curr_physical_address_part2
-         , su_curr.physical_address_part3           AS curr_physical_address_part3
-         --
-         , su_curr.unit_size_id                     AS curr_unit_size_id
-         , su_curr.unit_size_code                   AS curr_unit_size_code
-         --
-         , su_curr.status_id                        AS curr_status_id
-         , su_curr.status_code                      AS curr_status_code
-         --
-         , su_prev.stats AS prev_stats
-         , su_curr.stats AS curr_stats
-         --
-         , su_curr.stats AS stats
-         , su_curr.stats_summary AS stats_summary
-         --
-    FROM public.get_statistical_history_periods('year-month'::public.history_resolution) AS range
-    JOIN LATERAL (
-      -- Within a range find the last row of each timeline
-      SELECT *
-      FROM (
-        SELECT su_range.*
-             , ROW_NUMBER() OVER (PARTITION BY su_range.unit_type, su_range.unit_id ORDER BY su_range.valid_from DESC) = 1 AS last_in_range
-        FROM public.statistical_unit AS su_range
-        WHERE from_to_overlaps(su_range.valid_from, su_range.valid_to, range.curr_start, range.curr_stop)
-          -- Entries already dead entries are not relevant.
-          AND (su_range.death_date IS NULL OR range.curr_start <= su_range.death_date)
-          -- Entries not yet born are not relevant.
-          AND (su_range.birth_date IS NULL OR su_range.birth_date <= range.curr_stop)
-          AND su_range.include_unit_in_reports
-      ) AS range_units
-      WHERE last_in_range
-    ) AS su_curr ON true
-    LEFT JOIN LATERAL (
-      -- Find the first entry after the current range
-      SELECT *
-      FROM public.statistical_unit AS su_range
-      WHERE su_range.unit_type = su_curr.unit_type AND su_range.unit_id = su_curr.unit_id
-        AND from_to_overlaps(su_range.valid_from, su_range.valid_to, range.curr_stop, range.curr_stop)
-        -- Entries already dead are not relevant.
-        AND (su_range.death_date IS NULL OR range.curr_start <= su_range.death_date)
-        -- Entries not yet born are not relevant.
-        AND (su_range.birth_date IS NULL OR su_range.birth_date <= range.curr_stop)
-        AND su_range.include_unit_in_reports
-      ORDER BY su_range.valid_from ASC
-      LIMIT 1
-    ) AS su_next ON true
-    LEFT JOIN public.statistical_unit AS su_prev
-      -- There may be a previous entry to compare with.
-      ON su_prev.unit_type = su_curr.unit_type AND su_prev.unit_id = su_curr.unit_id
-      AND from_to_overlaps(su_prev.valid_from, su_prev.valid_to, range.prev_stop, range.prev_stop)
-      -- Entries already dead are not relevant.
-      AND (su_prev.death_date IS NULL OR range.curr_start <= su_prev.death_date)
-      -- Entries not yet born are not relevant.
-      AND (su_prev.birth_date IS NULL OR su_prev.birth_date <= range.curr_stop)
-      AND su_prev.include_unit_in_reports
-), year_and_month_with_unit_derived AS (
-    SELECT basis.*
-         --
-         , track_changes AND NOT born AND not died AND prev_name                             IS DISTINCT FROM curr_name                             AS name_changed
-         , track_changes AND NOT born AND not died AND prev_primary_activity_category_path   IS DISTINCT FROM curr_primary_activity_category_path   AS primary_activity_category_changed
-         , track_changes AND NOT born AND not died AND prev_secondary_activity_category_path IS DISTINCT FROM curr_secondary_activity_category_path AS secondary_activity_category_changed
-         , track_changes AND NOT born AND not died AND prev_sector_path                      IS DISTINCT FROM curr_sector_path                      AS sector_changed
-         , track_changes AND NOT born AND not died AND prev_legal_form_id                    IS DISTINCT FROM curr_legal_form_id                    AS legal_form_changed
-         , track_changes AND NOT born AND not died AND prev_physical_region_path             IS DISTINCT FROM curr_physical_region_path             AS physical_region_changed
-         , track_changes AND NOT born AND not died AND prev_physical_country_id              IS DISTINCT FROM curr_physical_country_id              AS physical_country_changed
-         , track_changes AND NOT born AND not died AND (
-                 prev_physical_address_part1 IS DISTINCT FROM curr_physical_address_part1
-              OR prev_physical_address_part2 IS DISTINCT FROM curr_physical_address_part2
-              OR prev_physical_address_part3 IS DISTINCT FROM curr_physical_address_part3
-         ) AS physical_address_changed
-         , track_changes AND NOT born AND not died AND prev_unit_size_code IS DISTINCT FROM curr_unit_size_code AS unit_size_code_changed
-         , track_changes AND NOT born AND not died AND prev_status_code IS DISTINCT FROM curr_status_code AS status_code_changed
-         --
-         -- TODO: Track the change in `stats` and put that into `stats_change` using `public.stats_change`.
-         --, CASE WHEN track_changes THEN stop_stats - start_stats ELSE NULL END AS stats_change
-         --
-    FROM year_and_month_with_unit_basis AS basis
-), year_with_unit_per_facet AS (
-    SELECT source.resolution                       AS resolution
-         , source.year                             AS year
-         , NULL::INTEGER                           AS month
-         , source.unit_type                        AS unit_type
-         --
-         , source.curr_primary_activity_category_path   AS primary_activity_category_path
-         , source.curr_secondary_activity_category_path AS secondary_activity_category_path
-         , source.curr_sector_path                      AS sector_path
-         , source.curr_legal_form_id                    AS legal_form_id
-         , source.curr_physical_region_path             AS physical_region_path
-         , source.curr_physical_country_id              AS physical_country_id
-         --
-         , source.curr_unit_size_id                     AS unit_size_id
-         , source.curr_status_id                        AS status_id
-         --
-         , COUNT(source.*) FILTER (WHERE NOT source.died) AS count
-         --
-         , COUNT(source.*) FILTER (WHERE source.born) AS births
-         , COUNT(source.*) FILTER (WHERE source.died) AS deaths
-         --
-         , COUNT(source.*) FILTER (WHERE source.name_changed)                        AS name_change_count
-         , COUNT(source.*) FILTER (WHERE source.primary_activity_category_changed)   AS primary_activity_category_change_count
-         , COUNT(source.*) FILTER (WHERE source.secondary_activity_category_changed) AS secondary_activity_category_change_count
-         , COUNT(source.*) FILTER (WHERE source.sector_changed)                      AS sector_change_count
-         , COUNT(source.*) FILTER (WHERE source.legal_form_changed)                  AS legal_form_change_count
-         , COUNT(source.*) FILTER (WHERE source.physical_region_changed)             AS physical_region_change_count
-         , COUNT(source.*) FILTER (WHERE source.physical_country_changed)            AS physical_country_change_count
-         , COUNT(source.*) FILTER (WHERE source.physical_address_changed)            AS physical_address_change_count
-         --
-         , COUNT(source.*) FILTER (WHERE source.unit_size_code_changed)              AS unit_size_change_count
-         , COUNT(source.*) FILTER (WHERE source.status_code_changed)                 AS status_change_count
-         --
-         , public.jsonb_stats_summary_merge_agg(source.stats_summary) AS stats_summary
-    FROM year_with_unit_derived AS source
-    GROUP BY resolution, year, unit_type
-           , primary_activity_category_path
-           , secondary_activity_category_path
-           , sector_path
-           , legal_form_id
-           , physical_region_path
-           , physical_country_id
-           , unit_size_id
-           , status_id
-), year_and_month_with_unit_per_facet AS (
-    SELECT source.resolution                       AS resolution
-         , source.year                             AS year
-         , source.month                            AS month
-         , source.unit_type                        AS unit_type
-         --
-         , source.curr_primary_activity_category_path   AS primary_activity_category_path
-         , source.curr_secondary_activity_category_path AS secondary_activity_category_path
-         , source.curr_sector_path                      AS sector_path
-         , source.curr_legal_form_id                    AS legal_form_id
-         , source.curr_physical_region_path             AS physical_region_path
-         , source.curr_physical_country_id              AS physical_country_id
-         --
-         , source.curr_unit_size_id                     AS unit_size_id
-         , source.curr_status_id                        AS status_id
-         --
-         , COUNT(source.*) FILTER (WHERE NOT source.died) AS count
-         --
-         , COUNT(source.*) FILTER (WHERE source.born) AS births
-         , COUNT(source.*) FILTER (WHERE source.died) AS deaths
-         --
-         , COUNT(source.*) FILTER (WHERE source.name_changed)                        AS name_change_count
-         , COUNT(source.*) FILTER (WHERE source.primary_activity_category_changed)   AS primary_activity_category_change_count
-         , COUNT(source.*) FILTER (WHERE source.secondary_activity_category_changed) AS secondary_activity_category_change_count
-         , COUNT(source.*) FILTER (WHERE source.sector_changed)                      AS sector_change_count
-         , COUNT(source.*) FILTER (WHERE source.legal_form_changed)                  AS legal_form_change_count
-         , COUNT(source.*) FILTER (WHERE source.physical_region_changed)             AS physical_region_change_count
-         , COUNT(source.*) FILTER (WHERE source.physical_country_changed)            AS physical_country_change_count
-         , COUNT(source.*) FILTER (WHERE source.physical_address_changed)            AS physical_address_change_count
-         --
-         , COUNT(source.*) FILTER (WHERE source.unit_size_code_changed)         AS unit_size_change_count
-         , COUNT(source.*) FILTER (WHERE source.status_code_changed)            AS status_change_count
-         --
-         , public.jsonb_stats_summary_merge_agg(source.stats_summary) AS stats_summary
-    FROM year_and_month_with_unit_derived AS source
-    GROUP BY resolution, year, month, unit_type
-           , primary_activity_category_path
-           , secondary_activity_category_path
-           , sector_path
-           , legal_form_id
-           , physical_region_path
-           , physical_country_id
-           , unit_size_id
-           , status_id
+
+DROP VIEW IF EXISTS public.statistical_history_facet_def;
+DROP FUNCTION IF EXISTS public.statistical_history_facet_def(public.history_resolution, integer, integer);
+DROP TYPE IF EXISTS public.statistical_history_facet_type;
+
+-- This type defines the SCHEMA for the `statistical_history_facet` table.
+CREATE TYPE public.statistical_history_facet_type AS (
+    resolution public.history_resolution,
+    year integer,
+    month integer,
+    unit_type public.statistical_unit_type,
+    primary_activity_category_path ltree,
+    secondary_activity_category_path ltree,
+    sector_path ltree,
+    legal_form_id integer,
+    physical_region_path ltree,
+    physical_country_id integer,
+    unit_size_id integer,
+    status_id integer,
+    count bigint,
+    births integer,
+    deaths integer,
+    name_change_count integer,
+    primary_activity_category_change_count integer,
+    secondary_activity_category_change_count integer,
+    sector_change_count integer,
+    legal_form_change_count integer,
+    physical_region_change_count integer,
+    physical_country_change_count integer,
+    physical_address_change_count integer,
+    unit_size_change_count integer,
+    status_change_count integer,
+    stats_summary jsonb
+);
+
+-- This function is the single source of truth for calculating faceted history metrics for a single period.
+CREATE FUNCTION public.statistical_history_facet_def(
+  p_resolution public.history_resolution,
+  p_year integer,
+  p_month integer
 )
-SELECT * FROM year_with_unit_per_facet
-UNION ALL
-SELECT * FROM year_and_month_with_unit_per_facet
-;
+RETURNS SETOF public.statistical_history_facet_type
+LANGUAGE plpgsql
+AS $statistical_history_facet_def$
+DECLARE
+    v_curr_start date;
+    v_curr_stop date;
+    v_prev_start date;
+    v_prev_stop date;
+BEGIN
+    -- Manually calculate the date ranges for the current and previous periods.
+    IF p_resolution = 'year'::public.history_resolution THEN
+        v_curr_start := make_date(p_year, 1, 1);
+        v_curr_stop  := make_date(p_year, 12, 31);
+        v_prev_start := make_date(p_year - 1, 1, 1);
+        v_prev_stop  := make_date(p_year - 1, 12, 31);
+    ELSE -- 'year-month'
+        v_curr_start := make_date(p_year, p_month, 1);
+        v_curr_stop  := (v_curr_start + interval '1 month') - interval '1 day';
+        v_prev_stop  := v_curr_start - interval '1 day';
+        v_prev_start := date_trunc('month', v_prev_stop)::date;
+    END IF;
+
+    RETURN QUERY
+    WITH
+    units_in_period AS (
+        -- Get a broad candidate pool of all unit versions that were valid at any point
+        -- during the previous or current periods, using inclusive date ranges.
+        SELECT *
+        FROM public.statistical_unit su
+        WHERE from_to_overlaps(su.valid_from, su.valid_to, v_prev_start, v_curr_stop)
+    ),
+    latest_versions_curr AS (
+        -- FINESSE: This CTE is the heart of the statistical summary logic. It finds the
+        -- single, most recent version of each unit that was active at any point during
+        -- the *current* period. This set of units represents all entities that had
+        -- economic activity and must be included in the `stats_summary`.
+        --
+        -- CRITICAL: An explicit inclusive-range overlap check (`valid_to >= period_start
+        -- AND valid_from <= period_end`) is used. The custom `from_to_overlaps`
+        -- function has different semantics that incorrectly included units that had
+        -- already died before the current period began, which was a primary source of
+        -- the regression. This explicit check is the beacon of correctness.
+        SELECT DISTINCT ON (uip.unit_id, uip.unit_type) uip.*
+        FROM units_in_period AS uip
+        WHERE uip.valid_from <= v_curr_stop AND uip.valid_to >= v_curr_start
+        ORDER BY uip.unit_id, uip.unit_type, uip.valid_from DESC, uip.valid_until DESC
+    ),
+    units_at_end_of_curr AS (
+        -- FINESSE: This CTE defines the "stock" of units for demographic counts (births, deaths, changes).
+        -- It filters `latest_versions_curr` to only those units that survived past the end of the current period.
+        --
+        -- CRITICAL: The temporal logic here uses an "end of day" semantic. A unit is counted
+        -- in the stock if its `valid_until` is *after* the period's stop date (`> v_curr_stop`).
+        -- A unit dying *on* the last day of the period is therefore correctly excluded from the final stock count.
+        SELECT * FROM latest_versions_curr lvc
+        WHERE lvc.valid_until > v_curr_stop
+          AND lvc.include_unit_in_reports
+          AND COALESCE(lvc.birth_date, lvc.valid_from) <= v_curr_stop
+          AND (lvc.death_date IS NULL OR lvc.death_date > v_curr_stop)
+    ),
+    latest_versions_prev AS (
+        SELECT DISTINCT ON (uip.unit_id, uip.unit_type) uip.*
+        FROM units_in_period AS uip
+        WHERE uip.valid_from <= v_prev_stop
+        ORDER BY uip.unit_id, uip.unit_type, uip.valid_from DESC, uip.valid_until DESC
+    ),
+    units_at_end_of_prev AS (
+        SELECT * FROM latest_versions_prev lvp
+        WHERE lvp.valid_until > v_prev_stop
+          AND lvp.include_unit_in_reports
+          AND COALESCE(lvp.birth_date, lvp.valid_from) <= v_prev_stop
+          AND (lvp.death_date IS NULL OR lvp.death_date > v_prev_stop)
+    ),
+    -- The Statbus Demographic Model ("End of Day" Stock)
+    -- A unit's `death_date` is the last full day it was alive. Its first day of being dead is the next day.
+    -- The "stock" at a period's end (e.g., at `v_curr_stop`) is measured based on the state at the *end* of that day.
+    -- Therefore, a unit dying on the last day of the period is EXCLUDED from that period's final stock.
+    --
+    -- BIRTHS: Any unit that enters the reportable stock.
+    -- DEATHS: Any unit that exits the reportable stock.
+    --
+    changed_units AS (
+        SELECT
+            COALESCE(c.unit_id, p.unit_id) AS unit_id,
+            COALESCE(c.unit_type, p.unit_type) AS unit_type,
+            c AS curr,
+            p AS prev,
+            lvc AS last_version_in_curr,
+            -- A true "death" event is defined by the death_date falling within the period.
+            -- The death_date MUST be sourced from the latest version of the unit in the
+            -- current period (lvc), because the previous period's version (p) will not
+            -- have the death_date if the unit died during the current period.
+            (lvc.death_date IS NOT NULL AND lvc.death_date BETWEEN v_curr_start AND v_curr_stop) AS is_demographic_death
+        FROM units_at_end_of_curr c
+        FULL JOIN units_at_end_of_prev p ON c.unit_id = p.unit_id AND c.unit_type = p.unit_type
+        LEFT JOIN latest_versions_curr lvc ON lvc.unit_id = COALESCE(p.unit_id, c.unit_id) AND lvc.unit_type = COALESCE(p.unit_type, c.unit_type)
+    ),
+    demographics AS (
+        SELECT
+            p_resolution, p_year, p_month,
+            unit_type,
+            COALESCE((curr).primary_activity_category_path, (prev).primary_activity_category_path) AS primary_activity_category_path,
+            COALESCE((curr).secondary_activity_category_path, (prev).secondary_activity_category_path) AS secondary_activity_category_path,
+            COALESCE((curr).sector_path, (prev).sector_path) AS sector_path,
+            COALESCE((curr).legal_form_id, (prev).legal_form_id) AS legal_form_id,
+            COALESCE((curr).physical_region_path, (prev).physical_region_path) AS physical_region_path,
+            COALESCE((curr).physical_country_id, (prev).physical_country_id) AS physical_country_id,
+            COALESCE((curr).unit_size_id, (prev).unit_size_id) AS unit_size_id,
+            COALESCE((curr).status_id, (prev).status_id) AS status_id,
+            count((curr).unit_id) AS count,
+            count((curr).unit_id) FILTER (WHERE (prev).unit_id IS NULL)::integer AS births,
+            count((prev).unit_id) FILTER (WHERE (curr).unit_id IS NULL AND is_demographic_death)::integer AS deaths,
+            count(*) FILTER (WHERE (prev).unit_id IS NOT NULL AND (curr).unit_id IS NOT NULL AND (curr).name IS DISTINCT FROM (prev).name)::integer AS name_change_count,
+            count(*) FILTER (WHERE (prev).unit_id IS NOT NULL AND (curr).unit_id IS NOT NULL AND (curr).primary_activity_category_path IS DISTINCT FROM (prev).primary_activity_category_path)::integer AS primary_activity_category_change_count,
+            count(*) FILTER (WHERE (prev).unit_id IS NOT NULL AND (curr).unit_id IS NOT NULL AND (curr).secondary_activity_category_path IS DISTINCT FROM (prev).secondary_activity_category_path)::integer AS secondary_activity_category_change_count,
+            count(*) FILTER (WHERE (prev).unit_id IS NOT NULL AND (curr).unit_id IS NOT NULL AND (curr).sector_path IS DISTINCT FROM (prev).sector_path)::integer AS sector_change_count,
+            count(*) FILTER (WHERE (prev).unit_id IS NOT NULL AND (curr).unit_id IS NOT NULL AND (curr).legal_form_id IS DISTINCT FROM (prev).legal_form_id)::integer AS legal_form_change_count,
+            count(*) FILTER (WHERE (prev).unit_id IS NOT NULL AND (curr).unit_id IS NOT NULL AND (curr).physical_region_path IS DISTINCT FROM (prev).physical_region_path)::integer AS physical_region_change_count,
+            count(*) FILTER (WHERE (prev).unit_id IS NOT NULL AND (curr).unit_id IS NOT NULL AND (curr).physical_country_id IS DISTINCT FROM (prev).physical_country_id)::integer AS physical_country_change_count,
+            count(*) FILTER (WHERE (prev).unit_id IS NOT NULL AND (curr).unit_id IS NOT NULL AND ((curr).physical_address_part1, (curr).physical_address_part2, (curr).physical_address_part3, (curr).physical_postcode, (curr).physical_postplace) IS DISTINCT FROM ((prev).physical_address_part1, (prev).physical_address_part2, (prev).physical_address_part3, (prev).physical_postcode, (prev).physical_postplace))::integer AS physical_address_change_count,
+            count(*) FILTER (WHERE (prev).unit_id IS NOT NULL AND (curr).unit_id IS NOT NULL AND (curr).unit_size_id IS DISTINCT FROM (prev).unit_size_id)::integer AS unit_size_change_count,
+            count(*) FILTER (WHERE (prev).unit_id IS NOT NULL AND (curr).unit_id IS NOT NULL AND (curr).status_id IS DISTINCT FROM (prev).status_id)::integer AS status_change_count
+        FROM changed_units
+        GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+    )
+    SELECT
+        d.p_resolution AS resolution,
+        d.p_year AS year,
+        d.p_month AS month,
+        d.unit_type,
+        d.primary_activity_category_path,
+        d.secondary_activity_category_path,
+        d.sector_path,
+        d.legal_form_id,
+        d.physical_region_path,
+        d.physical_country_id,
+        d.unit_size_id,
+        d.status_id,
+        d.count,
+        d.births,
+        d.deaths,
+        d.name_change_count,
+        d.primary_activity_category_change_count,
+        d.secondary_activity_category_change_count,
+        d.sector_change_count,
+        d.legal_form_change_count,
+        d.physical_region_change_count,
+        d.physical_country_change_count,
+        d.physical_address_change_count,
+        d.unit_size_change_count,
+        d.status_change_count,
+        ss.stats_summary
+    FROM demographics d
+    LEFT JOIN LATERAL (
+        -- FINESSE: The `stats_summary` is calculated here, separately from the demographic counts.
+        --
+        -- CRITICAL: This subquery aggregates summaries from `latest_versions_curr`, which represents
+        -- all units active *during* the period. This correctly includes the economic activity of units
+        -- that died before the period ended. This is semantically different from the `demographics`
+        -- CTE, which is concerned only with the final "stock" of units. This separation is the
+        -- key to fixing the statistical regression. The JOIN conditions ensure the summary is
+        -- calculated for the correct facet group.
+        SELECT COALESCE(public.jsonb_stats_summary_merge_agg(lvc.stats_summary), '{}'::jsonb) AS stats_summary
+         FROM latest_versions_curr lvc
+         WHERE lvc.unit_type = d.unit_type
+           AND lvc.include_unit_in_reports
+           AND lvc.primary_activity_category_path IS NOT DISTINCT FROM d.primary_activity_category_path
+           AND lvc.secondary_activity_category_path IS NOT DISTINCT FROM d.secondary_activity_category_path
+           AND lvc.sector_path IS NOT DISTINCT FROM d.sector_path
+           AND lvc.legal_form_id IS NOT DISTINCT FROM d.legal_form_id
+           AND lvc.physical_region_path IS NOT DISTINCT FROM d.physical_region_path
+           AND lvc.physical_country_id IS NOT DISTINCT FROM d.physical_country_id
+           AND lvc.unit_size_id IS NOT DISTINCT FROM d.unit_size_id
+           AND lvc.status_id IS NOT DISTINCT FROM d.status_id
+    ) ss ON true;
+
+END;
+$statistical_history_facet_def$;
+
 SELECT pg_catalog.set_config('search_path', '', false);
 
 END;

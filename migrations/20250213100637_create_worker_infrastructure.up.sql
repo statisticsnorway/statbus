@@ -243,6 +243,12 @@ BEGIN
   PERFORM public.data_source_used_derive();
   PERFORM public.legal_form_used_derive();
   PERFORM public.country_used_derive();
+
+  -- After the core units are refreshed, enqueue the follow-up task to derive reports.
+  PERFORM worker.enqueue_derive_reports(
+    p_valid_from => derive_statistical_unit.p_valid_from,
+    p_valid_until => derive_statistical_unit.p_valid_until
+  );
 END;
 $derive_statistical_unit$;
 
@@ -299,9 +305,9 @@ LANGUAGE plpgsql
 AS $derive_reports$
 BEGIN
   -- Refresh derived data (facets and history)
-  PERFORM public.statistical_history_derive(valid_from => p_valid_from,valid_until => p_valid_until);
-  PERFORM public.statistical_unit_facet_derive(valid_from => p_valid_from,valid_until => p_valid_until);
-  PERFORM public.statistical_history_facet_derive(valid_from => p_valid_from,valid_until => p_valid_until);
+  PERFORM public.statistical_history_derive(p_valid_from => p_valid_from, p_valid_until => p_valid_until);
+  PERFORM public.statistical_unit_facet_derive(p_valid_from => p_valid_from, p_valid_until => p_valid_until);
+  PERFORM public.statistical_history_facet_derive(p_valid_from => p_valid_from, p_valid_until => p_valid_until);
 END;
 $derive_reports$;
 
@@ -431,11 +437,6 @@ BEGIN
       p_valid_from := v_valid_from,
       p_valid_until := v_valid_until
     );
-    -- Schedule report refresh
-    PERFORM worker.enqueue_derive_reports(
-      p_valid_from := v_valid_from,
-      p_valid_until := v_valid_until
-    );
   END IF;
 
   -- Record the check request in last_processed
@@ -492,12 +493,6 @@ BEGIN
     p_establishment_id_ranges := public.array_to_int4multirange(v_establishment_ids),
     p_legal_unit_id_ranges := public.array_to_int4multirange(v_legal_unit_ids),
     p_enterprise_id_ranges := public.array_to_int4multirange(v_enterprise_ids),
-    p_valid_from := v_valid_from,
-    p_valid_until := v_valid_until
-  );
-
-  -- Schedule report refresh
-  PERFORM worker.enqueue_derive_reports(
     p_valid_from := v_valid_from,
     p_valid_until := v_valid_until
   );

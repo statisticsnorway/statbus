@@ -209,6 +209,7 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
            , lu.primary_for_enterprise AS primary_for_enterprise
            --
            , COALESCE(lu_stats.stats, '{}'::JSONB) AS stats
+           , public.jsonb_stats_to_summary('{}'::jsonb, COALESCE(lu_stats.stats, '{}'::JSONB)) AS stats_summary
       --
       FROM public.timesegments AS t
       JOIN LATERAL (
@@ -389,10 +390,13 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
            , basis.primary_for_enterprise
            -- Expose the stats for just this entry.
            , basis.stats AS stats
-           -- Continue one more aggregation iteration adding the stats for this unit
-           -- to the aggregated stats for establishments, by using the internal
-           -- aggregation function for one more step.
-           , public.jsonb_stats_to_summary(COALESCE(esa.stats_summary,'{}'::JSONB), basis.stats) AS stats_summary
+           -- FINESSE: The `stats_summary` for a legal unit is a two-step process that forms the core
+           -- of the hierarchical roll-up logic.
+           -- 1. `basis.stats_summary`: The legal unit's *own* `stats` are summarized. This was calculated in the `basis` CTE.
+           -- 2. `esa.stats_summary`: The pre-calculated summaries from all child establishments (`esa`) are aggregated.
+           -- 3. `jsonb_stats_summary_merge`: The legal unit's own summary is then merged with the aggregated summary
+           --    of its children. This ensures a complete and correct roll-up.
+           , COALESCE(public.jsonb_stats_summary_merge(esa.stats_summary, basis.stats_summary), basis.stats_summary, esa.stats_summary, '{}'::jsonb) AS stats_summary
       FROM basis
       LEFT JOIN LATERAL (
           SELECT
@@ -402,7 +406,7 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
                  array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL) AS related_establishment_ids,
                  array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL AND NOT tes.include_unit_in_reports) AS excluded_establishment_ids,
                  array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL AND tes.include_unit_in_reports) AS included_establishment_ids,
-                 public.jsonb_stats_to_summary_agg(tes.stats) FILTER (WHERE tes.include_unit_in_reports) AS stats_summary
+                 public.jsonb_stats_summary_merge_agg(tes.stats_summary) FILTER (WHERE tes.include_unit_in_reports) AS stats_summary
           FROM public.timeline_establishment tes
           WHERE tes.legal_unit_id = basis.legal_unit_id AND from_until_overlaps(basis.valid_from, basis.valid_until, tes.valid_from, tes.valid_until)
           GROUP BY tes.legal_unit_id

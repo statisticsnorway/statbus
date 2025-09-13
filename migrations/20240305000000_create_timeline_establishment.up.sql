@@ -83,6 +83,7 @@ CREATE OR REPLACE VIEW public.timeline_establishment_def
     , primary_for_legal_unit
     --
     , stats
+    , stats_summary
     , related_establishment_ids
     , excluded_establishment_ids
     , included_establishment_ids
@@ -207,6 +208,10 @@ CREATE OR REPLACE VIEW public.timeline_establishment_def
            , es.primary_for_legal_unit AS primary_for_legal_unit
            --
            , COALESCE(es_stats.stats, '{}'::JSONB) AS stats
+           -- FINESSE: An establishment is the lowest-level unit. Its `stats_summary` is generated
+           -- directly from its own `stats`. This pre-calculation is critical for enabling
+           -- consistent, incremental roll-ups at higher levels of the hierarchy (legal unit, enterprise).
+           , public.jsonb_stats_to_summary('{}'::jsonb, COALESCE(es_stats.stats, '{}'::JSONB)) AS stats_summary
            -- 'included_*' arrays form a directed acyclic graph (DAG) for statistical roll-ups.
            -- A unit includes IDs of units below it in the hierarchy, plus itself.
            -- E.g., a legal_unit includes its establishments' IDs; an establishment includes its own ID.

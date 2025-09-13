@@ -667,10 +667,10 @@ ORDER BY tsti.unit_type, tsti.tax_ident, tsti.valid_from;
 
 \echo "Checking timesegments_years."
 "Checking timesegments_years."
--- This test will include the current year and may change over time.
--- The historical years are derived from the loaded test data.
+-- This test checks historical years derived from all loaded test data.
+-- Years after 2025 are exlucded, to make the test deterministic as time passes.
 SELECT year FROM public.timesegments_years
-WHERE year <= EXTRACT(YEAR FROM current_date)
+WHERE year <= 2025
 ORDER BY year;
  year 
 ------

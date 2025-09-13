@@ -1,7 +1,7 @@
 BEGIN;
 
 -- Drop the refresh procedure
-DROP PROCEDURE IF EXISTS public.timeline_enterprise_refresh(int[]);
+DROP PROCEDURE IF EXISTS public.timeline_enterprise_refresh(int4multirange);
 
 -- Drop the physical table
 DROP TABLE IF EXISTS public.timeline_enterprise;

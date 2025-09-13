@@ -1,7 +1,8 @@
 BEGIN;
 
-DROP TABLE public.timepoints;
-DROP FUNCTION public.timepoints_calculate(p_establishment_ids int[], p_legal_unit_ids int[], p_enterprise_ids int[]);
-DROP PROCEDURE public.timepoints_refresh(p_unit_ids int[], p_unit_type public.statistical_unit_type);
+DROP PROCEDURE IF EXISTS public.timepoints_refresh(int4multirange, int4multirange, int4multirange);
+DROP FUNCTION IF EXISTS public.timepoints_calculate(int4multirange, int4multirange, int4multirange);
+DROP TABLE IF EXISTS public.timepoints;
+DROP FUNCTION IF EXISTS public.array_to_int4multirange(int[]);
 
 END;

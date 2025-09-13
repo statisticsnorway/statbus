@@ -241,7 +241,7 @@ CREATE OR REPLACE VIEW public.statistical_unit_def
            , excluded_enterprise_ids
            , included_enterprise_ids
            , stats
-           , COALESCE(public.jsonb_stats_to_summary('{}'::jsonb, stats), '{}'::jsonb) AS stats_summary
+           , stats_summary
            , NULL::INT AS primary_establishment_id
            , NULL::INT AS primary_legal_unit_id
       FROM public.timeline_establishment
@@ -431,10 +431,15 @@ CREATE OR REPLACE VIEW public.statistical_unit_def
          , data.valid_from
          , data.valid_to
          , data.valid_until
+         -- FINESSE: External identifiers are a critical business concept, but are not always
+         -- directly present on every unit type (e.g., an enterprise's identifier is often
+         -- defined by its primary legal unit). This COALESCE chain establishes a clear,
+         -- prioritized fallback logic to ensure that an identifier is always found if it
+         -- exists anywhere in the unit's immediate hierarchy.
          , COALESCE(
-             eia1.external_idents, -- Direct idents for unit
-             eia2.external_idents, -- Fallback to primary establishment
-             eia3.external_idents, -- Fallback to primary legal unit
+             eia1.external_idents, -- 1. Direct idents for the unit itself.
+             eia2.external_idents, -- 2. Fallback to its primary establishment.
+             eia3.external_idents, -- 3. Fallback to its primary legal unit.
              '{}'::jsonb
            ) AS external_idents
          , data.name

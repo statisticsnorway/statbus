@@ -106,6 +106,14 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
              , public.array_distinct_concat(tlu.related_legal_unit_ids) AS related_legal_unit_ids
              , public.array_distinct_concat(tlu.excluded_legal_unit_ids) AS excluded_legal_unit_ids
              , public.array_distinct_concat(tlu.included_legal_unit_ids) AS included_legal_unit_ids
+             -- FINESSE: An enterprise's `stats_summary` is the aggregation of summaries from all its
+             -- descendant units. This is handled by two parallel aggregations which are then merged:
+             -- 1. `tlu.stats_summary`: Aggregates summaries from all child legal units. This is a multi-level
+             --    rollup, as the legal units have already rolled up their own children's stats.
+             -- 2. `tes.stats_summary`: Aggregates summaries from any establishments that are *directly*
+             --    linked to the enterprise, bypassing a legal unit.
+             -- 3. `jsonb_stats_summary_merge`: The results of these two aggregations are then merged
+             --    to create the complete summary for the enterprise.
              , COALESCE(public.jsonb_stats_summary_merge_agg(COALESCE(public.jsonb_stats_summary_merge(tlu.stats_summary, tes.stats_summary), tlu.stats_summary, tes.stats_summary)), '{}'::jsonb) AS stats_summary
           FROM (
             SELECT *, en.id AS enterprise_id
@@ -120,7 +128,7 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
           ) AS tlu ON true
           LEFT JOIN LATERAL (
               SELECT enterprise_id, ten.valid_from, ten.valid_until
-                   , public.array_distinct_concat(data_source_ids) AS data_source_ids, public.array_distinct_concat(data_source_codes) AS data_source_codes, array_agg(DISTINCT establishment_id) AS related_establishment_ids, array_agg(DISTINCT establishment_id) FILTER (WHERE NOT include_unit_in_reports) AS excluded_establishment_ids, array_agg(DISTINCT establishment_id) FILTER (WHERE include_unit_in_reports) AS included_establishment_ids, public.jsonb_stats_to_summary_agg(stats) FILTER (WHERE include_unit_in_reports) AS stats_summary
+                   , public.array_distinct_concat(data_source_ids) AS data_source_ids, public.array_distinct_concat(data_source_codes) AS data_source_codes, array_agg(DISTINCT establishment_id) AS related_establishment_ids, array_agg(DISTINCT establishment_id) FILTER (WHERE NOT include_unit_in_reports) AS excluded_establishment_ids, array_agg(DISTINCT establishment_id) FILTER (WHERE include_unit_in_reports) AS included_establishment_ids, public.jsonb_stats_summary_merge_agg(stats_summary) FILTER (WHERE include_unit_in_reports) AS stats_summary
               FROM public.timeline_establishment
               WHERE enterprise_id = ten.enterprise_id AND from_until_overlaps(ten.valid_from, ten.valid_until, valid_from, valid_until) GROUP BY enterprise_id, ten.valid_from, ten.valid_until
           ) AS tes ON true
