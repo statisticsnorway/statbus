@@ -100,7 +100,7 @@ export default function UploadCustomActivityCategoryCodesPage() {
             </p>
             <a
               href="/demo/activity_custom_isic_demo.csv"
-              download="custom_activity_categories.example.csv"
+              download="activity_custom_isic_demo.csv"
               className="underline"
             >
               Download example CSV file

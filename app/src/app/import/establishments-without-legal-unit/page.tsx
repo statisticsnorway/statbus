@@ -179,7 +179,7 @@ export default function UploadEstablishmentsWithoutLegalUnitPage() {
             </p>
             <a
               href="/demo/informal_establishments_units_demo.csv"
-              download="informal_establishments.example.csv"
+              download="informal_establishments_units_demo.csv"
               className="underline"
             >
               Download example CSV file

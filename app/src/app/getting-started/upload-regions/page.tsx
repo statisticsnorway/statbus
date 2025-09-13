@@ -82,7 +82,7 @@ export default function UploadRegionsPage() {
             </p>
             <a
               href="/demo/regions_demo.csv"
-              download="regions.example.csv"
+              download="regions_demo.csv"
               className="underline"
             >
               Download example CSV file

@@ -180,7 +180,7 @@ export default function UploadEstablishmentsPage() {
             </p>
             <a
               href="/demo/formal_establishments_units_demo.csv"
-              download="formal_establishments.example.csv"
+              download="formal_establishments_units_demo.csv"
               className="underline"
             >
               Download example CSV file

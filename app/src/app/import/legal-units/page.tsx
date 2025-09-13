@@ -162,7 +162,7 @@ export default function LegalUnitsPage() {
             </p>
             <a
               href="/demo/legal_units_demo.csv"
-              download="legal_units.example.csv"
+              download="legal_units_demo.csv"
               className="underline"
             >
               Download example CSV file

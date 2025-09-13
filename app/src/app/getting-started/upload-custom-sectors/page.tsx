@@ -104,7 +104,7 @@ export default function UploadCustomSectorsPage() {
             </p>
             <a
               href="/demo/sectors_demo.csv"
-              download="sectors.example.csv"
+              download="sectors_demo.csv"
               className="underline"
             >
               Download example CSV file
