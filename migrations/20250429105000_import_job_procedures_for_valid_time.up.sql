@@ -65,30 +65,55 @@ BEGIN
     END IF;
 
     -- Single-pass batch update for casting, state, error, and priority
-    v_sql := format($$
-        WITH casted_dates_cte AS ( -- Renamed CTE
+    v_sql := format($SQL$
+        WITH
+        -- Step 1: Get the raw text dates for the current batch of rows.
+        batch_data_cte AS (
+            SELECT row_id, valid_from, valid_to FROM public.%1$I WHERE row_id = ANY($1)
+        ),
+        -- Step 2: Find all unique non-empty date strings within the batch.
+        distinct_dates_cte AS (
+            SELECT valid_from AS date_string FROM batch_data_cte WHERE NULLIF(valid_from, '') IS NOT NULL
+            UNION
+            SELECT valid_to AS date_string FROM batch_data_cte WHERE NULLIF(valid_to, '') IS NOT NULL
+        ),
+        -- Step 3: Call the casting function ONLY for the unique date strings.
+        casted_distinct_dates_cte AS (
             SELECT
-                dt_sub.row_id,
+                dd.date_string,
+                sc.p_value,
+                sc.p_error_message
+            FROM distinct_dates_cte dd
+            LEFT JOIN LATERAL import.safe_cast_to_date(dd.date_string) AS sc ON TRUE
+        ),
+        -- Step 4: Re-assemble the casted values for each row by joining back to the batch data.
+        -- This serves as the main source for the final UPDATE statement.
+        final_cast_cte AS (
+            SELECT
+                bd.row_id,
+                -- Casted values for 'valid_from'
                 vf.p_value AS casted_vf,
                 vf.p_error_message AS vf_error_msg,
+                -- Casted values for 'valid_to'
                 vt.p_value AS casted_vt,
                 vt.p_error_message AS vt_error_msg,
+                -- The 'valid_until' is derived from the casted 'valid_to'
                 (CASE WHEN vt.p_value = 'infinity'::date THEN 'infinity'::date ELSE vt.p_value + INTERVAL '1 day' END) AS casted_vu,
-                dt_sub.valid_from AS original_vf, -- Keep original for error messages
-                dt_sub.valid_to AS original_vt   -- Keep original for error messages
-            FROM public.%1$I dt_sub
-            LEFT JOIN LATERAL import.safe_cast_to_date(dt_sub.valid_from) AS vf(p_value, p_error_message) ON TRUE
-            LEFT JOIN LATERAL import.safe_cast_to_date(dt_sub.valid_to) AS vt(p_value, p_error_message) ON TRUE
-            WHERE dt_sub.row_id = ANY($1)
+                -- Keep original string values for use in error messages
+                bd.valid_from AS original_vf,
+                bd.valid_to AS original_vt
+            FROM batch_data_cte bd
+            LEFT JOIN casted_distinct_dates_cte vf ON bd.valid_from = vf.date_string
+            LEFT JOIN casted_distinct_dates_cte vt ON bd.valid_to = vt.date_string
         )
         UPDATE public.%2$I dt SET
-            derived_valid_from = cdc.casted_vf,
-            derived_valid_to = cdc.casted_vt,
-            derived_valid_until = cdc.casted_vu,
+            derived_valid_from = fcc.casted_vf,
+            derived_valid_to = fcc.casted_vt,
+            derived_valid_until = fcc.casted_vu,
             state = CASE
-                        WHEN NULLIF(cdc.original_vf, '') IS NULL OR cdc.vf_error_msg IS NOT NULL OR
-                             NULLIF(cdc.original_vt, '') IS NULL OR cdc.vt_error_msg IS NOT NULL OR
-                             (cdc.casted_vf IS NOT NULL AND cdc.casted_vu IS NOT NULL AND cdc.casted_vf >= cdc.casted_vu)
+                        WHEN NULLIF(fcc.original_vf, '') IS NULL OR fcc.vf_error_msg IS NOT NULL OR
+                             NULLIF(fcc.original_vt, '') IS NULL OR fcc.vt_error_msg IS NOT NULL OR
+                             (fcc.casted_vf IS NOT NULL AND fcc.casted_vu IS NOT NULL AND fcc.casted_vf >= fcc.casted_vu)
                         THEN 'error'::public.import_data_state
                         ELSE -- No error in this step
                             CASE
@@ -97,33 +122,33 @@ BEGIN
                             END
                     END,
             action = CASE
-                        WHEN NULLIF(cdc.original_vf, '') IS NULL OR cdc.vf_error_msg IS NOT NULL OR
-                             NULLIF(cdc.original_vt, '') IS NULL OR cdc.vt_error_msg IS NOT NULL OR
-                             (cdc.casted_vf IS NOT NULL AND cdc.casted_vu IS NOT NULL AND cdc.casted_vf >= cdc.casted_vu)
+                        WHEN NULLIF(fcc.original_vf, '') IS NULL OR fcc.vf_error_msg IS NOT NULL OR
+                             NULLIF(fcc.original_vt, '') IS NULL OR fcc.vt_error_msg IS NOT NULL OR
+                             (fcc.casted_vf IS NOT NULL AND fcc.casted_vu IS NOT NULL AND fcc.casted_vf >= fcc.casted_vu)
                         THEN 'skip'::public.import_row_action_type -- Error implies skip
                         ELSE dt.action -- Preserve action from previous steps if no new fatal error here
                      END,
             errors = CASE
-                        WHEN NULLIF(cdc.original_vf, '') IS NULL THEN -- Mandatory value missing
+                        WHEN NULLIF(fcc.original_vf, '') IS NULL THEN -- Mandatory value missing
                             dt.errors || jsonb_build_object('valid_from', 'Missing mandatory value')
-                        WHEN cdc.vf_error_msg IS NOT NULL THEN -- Cast error for valid_from
-                            dt.errors || jsonb_build_object('valid_from', cdc.vf_error_msg)
-                        WHEN NULLIF(cdc.original_vt, '') IS NULL THEN -- Mandatory value missing
+                        WHEN fcc.vf_error_msg IS NOT NULL THEN -- Cast error for valid_from
+                            dt.errors || jsonb_build_object('valid_from', fcc.vf_error_msg)
+                        WHEN NULLIF(fcc.original_vt, '') IS NULL THEN -- Mandatory value missing
                             dt.errors || jsonb_build_object('valid_to', 'Missing mandatory value')
-                        WHEN cdc.vt_error_msg IS NOT NULL THEN -- Cast error for valid_to
-                            dt.errors || jsonb_build_object('valid_to', cdc.vt_error_msg)
-                        WHEN cdc.casted_vf IS NOT NULL AND cdc.casted_vu IS NOT NULL AND (cdc.casted_vf >= cdc.casted_vu) THEN -- Invalid period
+                        WHEN fcc.vt_error_msg IS NOT NULL THEN -- Cast error for valid_to
+                            dt.errors || jsonb_build_object('valid_to', fcc.vt_error_msg)
+                        WHEN fcc.casted_vf IS NOT NULL AND fcc.casted_vu IS NOT NULL AND (fcc.casted_vf >= fcc.casted_vu) THEN -- Invalid period
                             dt.errors || jsonb_build_object(
-                                'valid_from', 'Resulting period is invalid: derived_valid_from (' || cdc.casted_vf::TEXT || ') must be before derived_valid_until (' || cdc.casted_vu::TEXT || ')',
-                                'valid_to',   'Resulting period is invalid: derived_valid_from (' || cdc.casted_vf::TEXT || ') must be before derived_valid_until (' || cdc.casted_vu::TEXT || ')'
+                                'valid_from', 'Resulting period is invalid: derived_valid_from (' || fcc.casted_vf::TEXT || ') must be before derived_valid_until (' || fcc.casted_vu::TEXT || ')',
+                                'valid_to',   'Resulting period is invalid: derived_valid_from (' || fcc.casted_vf::TEXT || ') must be before derived_valid_until (' || fcc.casted_vu::TEXT || ')'
                             )
                         ELSE -- No error from this step, clear specific keys
                             dt.errors - %3$L::TEXT[]
                     END,
             last_completed_priority = %4$L -- Always v_step.priority
-        FROM casted_dates_cte cdc -- Use cdc alias
-        WHERE dt.row_id = cdc.row_id AND dt.action IS DISTINCT FROM 'skip'; -- Process if action was not already 'skip' from a prior step.
-    $$,
+        FROM final_cast_cte fcc
+        WHERE dt.row_id = fcc.row_id AND dt.action IS DISTINCT FROM 'skip'; -- Process if action was not already 'skip' from a prior step.
+    $SQL$,
         v_data_table_name /* %1$I */,                           -- %1$I (CTE source table)
         v_data_table_name /* %2$I */,                           -- %2$I (main UPDATE target)
         v_error_keys_to_clear_arr /* %3$L */,                    -- For error CASE (clear)
