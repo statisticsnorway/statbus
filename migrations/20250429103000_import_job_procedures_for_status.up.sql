@@ -32,13 +32,31 @@ BEGIN
     RAISE DEBUG '[Job %] analyse_status: Default status_id found: %', p_job_id, v_default_status_id;
 
     v_sql := format($$
-        WITH status_lookup AS (
+        WITH
+        batch_data AS (
+            SELECT row_id, status_code
+            FROM public.%1$I
+            WHERE row_id = ANY($1) AND action IS DISTINCT FROM 'skip'
+        ),
+        distinct_codes AS (
+            SELECT status_code AS code
+            FROM batch_data
+            WHERE NULLIF(status_code, '') IS NOT NULL
+            GROUP BY 1
+        ),
+        resolved_codes AS (
             SELECT
-                dt_sub.row_id as data_row_id,
-                s.id as resolved_status_id_by_code
-            FROM public.%1$I dt_sub
-            LEFT JOIN public.status s ON NULLIF(dt_sub.status_code, '') IS NOT NULL AND s.code = dt_sub.status_code AND s.active = true
-            WHERE dt_sub.row_id = ANY($1) AND dt_sub.action IS DISTINCT FROM 'skip' -- Process rows not yet skipped
+                dc.code,
+                s.id as resolved_id
+            FROM distinct_codes dc
+            LEFT JOIN public.status s ON s.code = dc.code AND s.active = true
+        ),
+        status_lookup AS (
+            SELECT
+                bd.row_id as data_row_id,
+                rc.resolved_id as resolved_status_id_by_code
+            FROM batch_data bd
+            LEFT JOIN resolved_codes rc ON bd.status_code = rc.code
         )
         UPDATE public.%1$I dt SET
             status_id = CASE
@@ -78,7 +96,7 @@ BEGIN
                 END,
             last_completed_priority = %4$L::INTEGER -- Always v_step.priority
         FROM status_lookup sl
-        WHERE dt.row_id = sl.data_row_id AND dt.row_id = ANY($1) AND dt.action IS DISTINCT FROM 'skip';
+        WHERE dt.row_id = sl.data_row_id;
     $$,
         v_data_table_name /* %1$I */,            -- Table used in both CTE and UPDATE
         v_default_status_id /* %2$L */,          -- Default status_id (reused in many places)

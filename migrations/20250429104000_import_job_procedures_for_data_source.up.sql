@@ -18,13 +18,31 @@ BEGIN
     IF NOT FOUND THEN RAISE EXCEPTION '[Job %] Step % not found in snapshot', p_job_id, p_step_code; END IF;
 
     v_sql := format($SQL$
-        WITH lookups AS (
+        WITH
+        batch_data AS (
+            SELECT row_id, data_source_code
+            FROM public.%1$I
+            WHERE row_id = ANY($1) AND action IS DISTINCT FROM 'skip'
+        ),
+        distinct_codes AS (
+            SELECT data_source_code AS code
+            FROM batch_data
+            WHERE NULLIF(data_source_code, '') IS NOT NULL
+            GROUP BY 1
+        ),
+        resolved_codes AS (
             SELECT
-                dt_sub.row_id,
-                ds.id as resolved_data_source_id
-            FROM public.%1$I dt_sub
-            LEFT JOIN public.data_source_available ds ON NULLIF(dt_sub.data_source_code, '') IS NOT NULL AND ds.code = NULLIF(dt_sub.data_source_code, '')
-            WHERE dt_sub.row_id = ANY($1) AND dt_sub.action IS DISTINCT FROM 'skip'
+                dc.code,
+                ds.id as resolved_id
+            FROM distinct_codes dc
+            LEFT JOIN public.data_source_available ds ON ds.code = dc.code
+        ),
+        lookups AS (
+            SELECT
+                bd.row_id,
+                rc.resolved_id as resolved_data_source_id
+            FROM batch_data bd
+            LEFT JOIN resolved_codes rc ON bd.data_source_code = rc.code
         )
         UPDATE public.%1$I dt SET
             data_source_id = COALESCE(l.resolved_data_source_id, dt.data_source_id), -- Only update if resolved, don't nullify
@@ -39,7 +57,7 @@ BEGIN
             ),
             last_completed_priority = %2$L
         FROM lookups l
-        WHERE dt.row_id = l.row_id AND dt.row_id = ANY($1) AND dt.action IS DISTINCT FROM 'skip';
+        WHERE dt.row_id = l.row_id;
     $SQL$, v_job.data_table_name, v_step.priority);
 
     EXECUTE v_sql USING p_batch_row_ids;

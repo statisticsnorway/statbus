@@ -32,54 +32,66 @@ BEGIN
 
     -- Single-pass batch update for casting, lookup, state, error, and priority
     v_sql := format($$
-        WITH casted_tags_cte AS ( -- Renamed CTE
+        WITH
+        batch_data AS (
+            SELECT row_id, tag_path
+            FROM public.%1$I
+            WHERE row_id = ANY($1) AND tag_path IS NOT NULL AND action IS DISTINCT FROM 'skip'
+        ),
+        distinct_paths AS (
+            SELECT tag_path
+            FROM batch_data
+            GROUP BY 1
+        ),
+        casted_paths AS (
             SELECT
-                dt.row_id,
-                (import.safe_cast_to_ltree(dt.tag_path)).p_value AS casted_ltree_path,
-                (import.safe_cast_to_ltree(dt.tag_path)).p_error_message AS ltree_error_msg
-            FROM public.%1$I dt -- v_data_table_name
-            WHERE dt.row_id = ANY($1) AND dt.tag_path IS NOT NULL AND dt.action IS DISTINCT FROM 'skip' -- p_batch_row_ids
+                dp.tag_path,
+                (import.safe_cast_to_ltree(dp.tag_path)).p_value AS casted_ltree_path,
+                (import.safe_cast_to_ltree(dp.tag_path)).p_error_message AS ltree_error_msg
+            FROM distinct_paths dp
         ),
         resolved_tags AS (
             SELECT
-                ctc.row_id, -- Use ctc alias
-                ctc.casted_ltree_path,
-                ctc.ltree_error_msg,
+                cp.tag_path,
+                cp.casted_ltree_path,
+                cp.ltree_error_msg,
                 t.id as resolved_tag_id
-            FROM casted_tags_cte ctc -- Use ctc alias
-            LEFT JOIN public.tag t ON t.path = ctc.casted_ltree_path -- Join on casted_ltree_path
+            FROM casted_paths cp
+            LEFT JOIN public.tag t ON t.path = cp.casted_ltree_path
+        ),
+        lookups AS (
+            SELECT
+                bd.row_id,
+                rt.casted_ltree_path,
+                rt.ltree_error_msg,
+                rt.resolved_tag_id
+            FROM batch_data bd
+            LEFT JOIN resolved_tags rt ON bd.tag_path = rt.tag_path
         )
-        UPDATE public.%1$I dt SET -- v_data_table_name
-            tag_path_ltree = rt.casted_ltree_path, -- Use casted_ltree_path from resolved_tags
-            tag_id = rt.resolved_tag_id,
-            -- A malformed tag path or a tag that is not found are both treated as hard errors.
-            -- Unlike other soft-errors (e.g. invalid sector codes), a missing tag is a hard error because
-            -- tags are critical for identifying and managing import sets post-processing.
+        UPDATE public.%1$I dt SET
+            tag_path_ltree = l.casted_ltree_path,
+            tag_id = l.resolved_tag_id,
             state = CASE
-                        WHEN dt.tag_path IS NOT NULL AND rt.ltree_error_msg IS NOT NULL THEN 'error'::public.import_data_state
-                        WHEN dt.tag_path IS NOT NULL AND rt.ltree_error_msg IS NULL AND rt.resolved_tag_id IS NULL THEN 'error'::public.import_data_state
+                        WHEN dt.tag_path IS NOT NULL AND l.ltree_error_msg IS NOT NULL THEN 'error'::public.import_data_state
+                        WHEN dt.tag_path IS NOT NULL AND l.ltree_error_msg IS NULL AND l.resolved_tag_id IS NULL THEN 'error'::public.import_data_state
                         ELSE 'analysing'::public.import_data_state
                     END,
             action = CASE
-                        WHEN (dt.tag_path IS NOT NULL AND rt.ltree_error_msg IS NOT NULL) OR (dt.tag_path IS NOT NULL AND rt.ltree_error_msg IS NULL AND rt.resolved_tag_id IS NULL) THEN 'skip'::public.import_row_action_type
+                        WHEN (dt.tag_path IS NOT NULL AND l.ltree_error_msg IS NOT NULL) OR (dt.tag_path IS NOT NULL AND l.ltree_error_msg IS NULL AND l.resolved_tag_id IS NULL) THEN 'skip'::public.import_row_action_type
                         ELSE dt.action
                     END,
             errors = CASE
-                        WHEN dt.tag_path IS NOT NULL AND rt.ltree_error_msg IS NOT NULL THEN
-                            dt.errors || jsonb_build_object('tag_path', rt.ltree_error_msg)
-                        WHEN dt.tag_path IS NOT NULL AND rt.ltree_error_msg IS NULL AND rt.resolved_tag_id IS NULL THEN
+                        WHEN dt.tag_path IS NOT NULL AND l.ltree_error_msg IS NOT NULL THEN
+                            dt.errors || jsonb_build_object('tag_path', l.ltree_error_msg)
+                        WHEN dt.tag_path IS NOT NULL AND l.ltree_error_msg IS NULL AND l.resolved_tag_id IS NULL THEN
                             dt.errors || jsonb_build_object('tag_path', 'Tag not found for path: ' || dt.tag_path)
                         ELSE
                             dt.errors - %2$L::TEXT[]
                     END,
-            -- This step does not produce soft errors; it preserves any from prior steps.
             invalid_codes = dt.invalid_codes,
-            last_completed_priority = %3$L -- v_step.priority
-        FROM (
-            SELECT row_id FROM public.%1$I WHERE row_id = ANY($1) AND action IS DISTINCT FROM 'skip' -- v_data_table_name, p_batch_row_ids
-        ) base
-        LEFT JOIN resolved_tags rt ON base.row_id = rt.row_id
-        WHERE dt.row_id = base.row_id;
+            last_completed_priority = %3$L
+        FROM lookups l
+        WHERE dt.row_id = l.row_id;
     $$,
         v_data_table_name,          /* %1$I */
         v_error_keys_to_clear_arr,  /* %2$L */
@@ -89,18 +101,17 @@ BEGIN
     BEGIN
         EXECUTE v_sql USING p_batch_row_ids;
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] analyse_tags: Updated % non-skipped rows in single pass.', p_job_id, v_update_count;
+        RAISE DEBUG '[Job %] analyse_tags: Logic update affected % rows.', p_job_id, v_update_count;
 
-        -- Update priority for skipped rows
+        -- Unconditionally advance the priority for all rows in the batch that have not yet completed this step.
+        -- This is crucial to ensure progress, as it covers rows that were skipped OR had no data for this step.
         EXECUTE format($$
             UPDATE public.%1$I dt SET
                 last_completed_priority = %2$L
-            WHERE dt.row_id = ANY($1) AND dt.action = 'skip';
+            WHERE dt.row_id = ANY($1) AND dt.last_completed_priority < %2$L;
         $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */) USING p_batch_row_ids;
         GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] analyse_tags: Updated last_completed_priority for % skipped rows.', p_job_id, v_skipped_update_count;
-        
-        v_update_count := v_update_count + v_skipped_update_count; -- Total rows affected
+        RAISE DEBUG '[Job %] analyse_tags: Advanced last_completed_priority for % total rows in batch.', p_job_id, v_skipped_update_count;
 
         -- Estimate error count
         EXECUTE format($$SELECT COUNT(*) FROM public.%1$I WHERE row_id = ANY($1) AND state = 'error' AND (errors ?| %2$L::text[])$$,

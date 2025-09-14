@@ -75,39 +75,44 @@ BEGIN
     -- This handles potential fan-out if dt.legal_unit_id is a conceptual ID that maps to multiple
     -- temporal slices in public.legal_unit. It selects the latest temporally overlapping slice.
     v_sql := format($$
+        WITH
+        BatchLUs AS (
+            SELECT row_id, legal_unit_id
+            FROM public.%1$I
+            WHERE row_id = ANY($1) AND action = 'use' AND operation = 'replace' AND legal_unit_id IS NOT NULL
+        ),
+        DistinctLUIDs AS (
+            SELECT DISTINCT legal_unit_id FROM BatchLUs
+        ),
+        LatestSlices AS (
+            SELECT DISTINCT ON (id)
+                id AS ref_lu_id_check,
+                enterprise_id,
+                COALESCE(primary_for_enterprise, FALSE) AS primary_for_enterprise_resolved
+            FROM public.legal_unit
+            WHERE id IN (SELECT legal_unit_id FROM DistinctLUIDs)
+            ORDER BY id, valid_from DESC, valid_until DESC
+        )
         INSERT INTO temp_enterprise_analysis_results (row_id, resolved_enterprise_id, resolved_primary_for_enterprise, is_error, error_details)
         SELECT
             dt.row_id,
-            olu.enterprise_id, -- Enterprise ID from the latest LU slice
-            olu.primary_for_enterprise_resolved, -- primary_for_enterprise from the latest LU slice
-            CASE 
-                WHEN dt.legal_unit_id IS NOT NULL AND olu.ref_lu_id_check IS NULL THEN TRUE -- legal_unit.id provided by external_idents, but no LU data row found for it in public.legal_unit
-                ELSE FALSE 
+            olu.enterprise_id,
+            olu.primary_for_enterprise_resolved,
+            CASE
+                WHEN dt.legal_unit_id IS NOT NULL AND olu.ref_lu_id_check IS NULL THEN TRUE
+                ELSE FALSE
             END AS is_error,
             CASE
-                WHEN dt.legal_unit_id IS NOT NULL AND olu.ref_lu_id_check IS NULL THEN 
+                WHEN dt.legal_unit_id IS NOT NULL AND olu.ref_lu_id_check IS NULL THEN
                     (SELECT jsonb_object_agg(col_name, jsonb_build_object(
                         'error_code', 'LU_DATA_MISSING_FOR_ID',
                         'message', 'Legal Unit was identified by an external identifier (resolving to internal ID ' || dt.legal_unit_id::TEXT || '), but no corresponding data row was found in public.legal_unit using this internal ID.',
                         'internal_lu_id', dt.legal_unit_id
-                    )) FROM unnest($2) AS col_name) -- $2 is v_external_ident_source_columns
+                    )) FROM unnest($2) AS col_name)
                 ELSE NULL
             END AS error_details
-        FROM public.%I dt -- This is v_data_table_name
-        LEFT JOIN LATERAL (
-            SELECT
-                ref_lu.id AS ref_lu_id_check, -- To confirm a legal_unit row was actually found
-                ref_lu.enterprise_id,
-                COALESCE(ref_lu.primary_for_enterprise, FALSE) AS primary_for_enterprise_resolved
-            FROM public.legal_unit ref_lu
-            WHERE ref_lu.id = dt.legal_unit_id -- Match conceptual LU ID stored in dt.legal_unit_id
-            ORDER BY ref_lu.valid_from DESC, ref_lu.valid_until DESC -- Get the latest slice
-            LIMIT 1
-        ) olu ON TRUE -- olu will have 0 or 1 row
-        WHERE dt.row_id = ANY($1) -- Process only rows in the current batch
-          AND dt.action = 'use'
-          AND dt.operation = 'replace'
-          AND dt.legal_unit_id IS NOT NULL; -- Only attempt this for rows that have a legal_unit_id (identified by external_idents)
+        FROM BatchLUs dt
+        LEFT JOIN LatestSlices olu ON dt.legal_unit_id = olu.ref_lu_id_check;
     $$, v_data_table_name /* %1$I */);
 
     RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Populating temp_enterprise_analysis_results for "replace" actions (using placeholder for batch_row_ids and external_ident_cols): %', p_job_id, v_sql;

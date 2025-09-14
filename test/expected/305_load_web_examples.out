@@ -3086,14 +3086,12 @@ SAVEPOINT before_reset;
 \echo "Checking that reset works"
 "Checking that reset works"
 SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'data'::public.reset_scope)) AS reset_data;
-NOTICE:  drop cascades to 7 other objects
+NOTICE:  drop cascades to 5 other objects
 DETAIL:  drop cascades to view temp_loc_source_view_physical_location
 drop cascades to view temp_loc_source_view_postal_location
 drop cascades to view temp_act_source_view_primary_activity
 drop cascades to view temp_act_source_view_secondary_activity
 drop cascades to view temp_contact_source_view
-drop cascades to view temp_stat_source_view_employees
-drop cascades to view temp_stat_source_view_turnover
 reset_data
 {
     "person": {

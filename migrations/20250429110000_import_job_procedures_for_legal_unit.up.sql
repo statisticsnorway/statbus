@@ -35,67 +35,103 @@ BEGIN
         RAISE EXCEPTION '[Job %] legal_unit target step not found in snapshot', p_job_id;
     END IF;
 
-    v_sql := format($$
-        WITH lookups AS (
+    v_sql := format($SQL$
+        WITH
+        batch_data AS (
             SELECT
-                dt_sub.row_id as data_row_id,
-                lf.id as resolved_legal_form_id,
-                -- s.id as resolved_status_id, -- Status is now resolved in a prior step
-                sec.id as resolved_sector_id,
-                us.id as resolved_unit_size_id,
-                (import.safe_cast_to_date(dt_sub.birth_date)).p_value as resolved_typed_birth_date,
-                (import.safe_cast_to_date(dt_sub.birth_date)).p_error_message as birth_date_error_msg,
-                (import.safe_cast_to_date(dt_sub.death_date)).p_value as resolved_typed_death_date,
-                (import.safe_cast_to_date(dt_sub.death_date)).p_error_message as death_date_error_msg
-            FROM public.%1$I dt_sub
-            LEFT JOIN public.legal_form_available lf ON NULLIF(dt_sub.legal_form_code, '') IS NOT NULL AND lf.code = NULLIF(dt_sub.legal_form_code, '')
-            -- LEFT JOIN public.status s ON NULLIF(dt_sub.status_code, '') IS NOT NULL AND s.code = NULLIF(dt_sub.status_code, '') AND s.active = true -- Removed
-            LEFT JOIN public.sector_available sec ON NULLIF(dt_sub.sector_code, '') IS NOT NULL AND sec.code = NULLIF(dt_sub.sector_code, '')
-            LEFT JOIN public.unit_size_available us ON NULLIF(dt_sub.unit_size_code, '') IS NOT NULL AND us.code = NULLIF(dt_sub.unit_size_code, '')
-            WHERE dt_sub.row_id = ANY($1) AND dt_sub.action IS DISTINCT FROM 'skip'
+                row_id, operation, name, status_id,
+                legal_form_code, sector_code, unit_size_code,
+                birth_date, death_date
+            FROM public.%1$I
+            WHERE row_id = ANY($1) AND action IS DISTINCT FROM 'skip'
+        ),
+        distinct_codes AS (
+            SELECT legal_form_code AS code, 'legal_form' AS type FROM batch_data WHERE NULLIF(legal_form_code, '') IS NOT NULL
+            UNION SELECT sector_code AS code, 'sector' AS type FROM batch_data WHERE NULLIF(sector_code, '') IS NOT NULL
+            UNION SELECT unit_size_code AS code, 'unit_size' AS type FROM batch_data WHERE NULLIF(unit_size_code, '') IS NOT NULL
+        ),
+        resolved_codes AS (
+            SELECT
+                dc.code,
+                dc.type,
+                COALESCE(lf.id, s.id, us.id) AS resolved_id
+            FROM distinct_codes dc
+            LEFT JOIN public.legal_form_available lf ON dc.type = 'legal_form' AND dc.code = lf.code
+            LEFT JOIN public.sector_available s ON dc.type = 'sector' AND dc.code = s.code
+            LEFT JOIN public.unit_size_available us ON dc.type = 'unit_size' AND dc.code = us.code
+        ),
+        distinct_dates AS (
+            SELECT birth_date AS date_string FROM batch_data WHERE NULLIF(birth_date, '') IS NOT NULL
+            UNION SELECT death_date AS date_string FROM batch_data WHERE NULLIF(death_date, '') IS NOT NULL
+        ),
+        resolved_dates AS (
+            SELECT
+                dd.date_string,
+                sc.p_value,
+                sc.p_error_message
+            FROM distinct_dates dd
+            LEFT JOIN LATERAL import.safe_cast_to_date(dd.date_string) AS sc ON TRUE
+        ),
+        lookups AS (
+            SELECT
+                bd.row_id as data_row_id,
+                bd.operation, bd.name, bd.status_id,
+                bd.legal_form_code, bd.sector_code, bd.unit_size_code,
+                bd.birth_date, bd.death_date,
+                lf.resolved_id as resolved_legal_form_id,
+                s.resolved_id as resolved_sector_id,
+                us.resolved_id as resolved_unit_size_id,
+                b_date.p_value as resolved_typed_birth_date,
+                b_date.p_error_message as birth_date_error_msg,
+                d_date.p_value as resolved_typed_death_date,
+                d_date.p_error_message as death_date_error_msg
+            FROM batch_data bd
+            LEFT JOIN resolved_codes lf ON bd.legal_form_code = lf.code AND lf.type = 'legal_form'
+            LEFT JOIN resolved_codes s ON bd.sector_code = s.code AND s.type = 'sector'
+            LEFT JOIN resolved_codes us ON bd.unit_size_code = us.code AND us.type = 'unit_size'
+            LEFT JOIN resolved_dates b_date ON bd.birth_date = b_date.date_string
+            LEFT JOIN resolved_dates d_date ON bd.death_date = d_date.date_string
         )
         UPDATE public.%2$I dt SET
             legal_form_id = l.resolved_legal_form_id,
-            -- status_id = CASE ... END, -- Removed: status_id is now populated by 'status' step
             sector_id = l.resolved_sector_id,
             unit_size_id = l.resolved_unit_size_id,
             typed_birth_date = l.resolved_typed_birth_date,
             typed_death_date = l.resolved_typed_death_date,
             state = CASE
-                        -- For inserts, name is required. For updates, it is not.
-                        WHEN dt.operation != 'update' AND NULLIF(trim(dt.name), '') IS NULL THEN 'error'::public.import_data_state
-                        WHEN dt.status_id IS NULL THEN 'error'::public.import_data_state
+                        WHEN l.operation != 'update' AND NULLIF(trim(l.name), '') IS NULL THEN 'error'::public.import_data_state
+                        WHEN l.status_id IS NULL THEN 'error'::public.import_data_state
                         ELSE 'analysing'::public.import_data_state
                     END,
             action = CASE
-                        WHEN dt.operation != 'update' AND NULLIF(trim(dt.name), '') IS NULL THEN 'skip'::public.import_row_action_type
-                        WHEN dt.status_id IS NULL THEN 'skip'::public.import_row_action_type
+                        WHEN l.operation != 'update' AND NULLIF(trim(l.name), '') IS NULL THEN 'skip'::public.import_row_action_type
+                        WHEN l.status_id IS NULL THEN 'skip'::public.import_row_action_type
                         ELSE dt.action
                      END,
             errors = CASE
-                        WHEN dt.operation != 'update' AND NULLIF(trim(dt.name), '') IS NULL THEN
+                        WHEN l.operation != 'update' AND NULLIF(trim(l.name), '') IS NULL THEN
                             dt.errors || jsonb_build_object('name', 'Missing required name')
-                        WHEN dt.status_id IS NULL THEN
+                        WHEN l.status_id IS NULL THEN
                             dt.errors || jsonb_build_object('status_code', 'Status code could not be resolved and is required for this operation.')
                         ELSE
                             dt.errors - %3$L::TEXT[]
                     END,
             invalid_codes = CASE
-                                WHEN (dt.operation = 'update' OR NULLIF(trim(dt.name), '') IS NOT NULL) AND dt.status_id IS NOT NULL THEN -- Only populate invalid_codes if no fatal error in this step
+                                WHEN (l.operation = 'update' OR NULLIF(trim(l.name), '') IS NOT NULL) AND l.status_id IS NOT NULL THEN
                                     jsonb_strip_nulls(
                                      (dt.invalid_codes - %4$L::TEXT[]) ||
-                                     jsonb_build_object('legal_form_code', CASE WHEN NULLIF(dt.legal_form_code, '') IS NOT NULL AND l.resolved_legal_form_id IS NULL THEN dt.legal_form_code ELSE NULL END) ||
-                                     jsonb_build_object('sector_code', CASE WHEN NULLIF(dt.sector_code, '') IS NOT NULL AND l.resolved_sector_id IS NULL THEN dt.sector_code ELSE NULL END) ||
-                                     jsonb_build_object('unit_size_code', CASE WHEN NULLIF(dt.unit_size_code, '') IS NOT NULL AND l.resolved_unit_size_id IS NULL THEN dt.unit_size_code ELSE NULL END) ||
-                                     jsonb_build_object('birth_date', CASE WHEN NULLIF(dt.birth_date, '') IS NOT NULL AND l.birth_date_error_msg IS NOT NULL THEN dt.birth_date ELSE NULL END) ||
-                                     jsonb_build_object('death_date', CASE WHEN NULLIF(dt.death_date, '') IS NOT NULL AND l.death_date_error_msg IS NOT NULL THEN dt.death_date ELSE NULL END)
+                                     jsonb_build_object('legal_form_code', CASE WHEN NULLIF(l.legal_form_code, '') IS NOT NULL AND l.resolved_legal_form_id IS NULL THEN l.legal_form_code ELSE NULL END) ||
+                                     jsonb_build_object('sector_code', CASE WHEN NULLIF(l.sector_code, '') IS NOT NULL AND l.resolved_sector_id IS NULL THEN l.sector_code ELSE NULL END) ||
+                                     jsonb_build_object('unit_size_code', CASE WHEN NULLIF(l.unit_size_code, '') IS NOT NULL AND l.resolved_unit_size_id IS NULL THEN l.unit_size_code ELSE NULL END) ||
+                                     jsonb_build_object('birth_date', CASE WHEN NULLIF(l.birth_date, '') IS NOT NULL AND l.birth_date_error_msg IS NOT NULL THEN l.birth_date ELSE NULL END) ||
+                                     jsonb_build_object('death_date', CASE WHEN NULLIF(l.death_date, '') IS NOT NULL AND l.death_date_error_msg IS NOT NULL THEN l.death_date ELSE NULL END)
                                     )
-                                ELSE dt.invalid_codes -- Keep existing invalid_codes if it's a fatal status_id error (action will be skip anyway)
+                                ELSE dt.invalid_codes
                             END,
-            last_completed_priority = %5$L -- Always v_step.priority
+            last_completed_priority = %5$L
         FROM lookups l
-        WHERE dt.row_id = l.data_row_id; -- Join is sufficient, lookups CTE is already filtered
-    $$,
+        WHERE dt.row_id = l.data_row_id;
+    $SQL$,
         v_job.data_table_name /* %1$I */,                           -- For lookups CTE
         v_job.data_table_name /* %2$I */,                           -- For main UPDATE target
         v_error_keys_to_clear_arr /* %3$L */,                       -- For error CASE (clear)

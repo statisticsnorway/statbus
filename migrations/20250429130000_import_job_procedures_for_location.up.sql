@@ -215,38 +215,80 @@ BEGIN
         RAISE EXCEPTION '[Job %] analyse_location: Invalid p_step_code provided: %. Expected ''physical_location'' or ''postal_location''.', p_job_id, p_step_code;
     END IF;
 
-    v_sql := format($$
-        WITH lookups AS (
+    v_sql := format($SQL$
+        WITH
+        batch_data AS (
             SELECT
-                dt_sub.row_id AS data_row_id,
-                pr.id as resolved_physical_region_id,
-                pc.id as resolved_physical_country_id,
-                psr.id as resolved_postal_region_id,
-                psc.id as resolved_postal_country_id,
-                lat_phys.p_value as resolved_typed_physical_latitude,
-                lat_phys.p_error_message as physical_latitude_error_msg,
-                lon_phys.p_value as resolved_typed_physical_longitude,
-                lon_phys.p_error_message as physical_longitude_error_msg,
-                alt_phys.p_value as resolved_typed_physical_altitude,
-                alt_phys.p_error_message as physical_altitude_error_msg,
-                lat_post.p_value as resolved_typed_postal_latitude,
-                lat_post.p_error_message as postal_latitude_error_msg,
-                lon_post.p_value as resolved_typed_postal_longitude,
-                lon_post.p_error_message as postal_longitude_error_msg,
-                alt_post.p_value as resolved_typed_postal_altitude,
-                alt_post.p_error_message as postal_altitude_error_msg
-            FROM public.%1$I dt_sub
-            LEFT JOIN public.region pr ON dt_sub.physical_region_code IS NOT NULL AND pr.code = dt_sub.physical_region_code
-            LEFT JOIN public.country pc ON dt_sub.physical_country_iso_2 IS NOT NULL AND pc.iso_2 = dt_sub.physical_country_iso_2
-            LEFT JOIN public.region psr ON dt_sub.postal_region_code IS NOT NULL AND psr.code = dt_sub.postal_region_code
-            LEFT JOIN public.country psc ON dt_sub.postal_country_iso_2 IS NOT NULL AND psc.iso_2 = dt_sub.postal_country_iso_2
-            LEFT JOIN LATERAL import.try_cast_to_numeric_specific(dt_sub.physical_latitude, 'NUMERIC(9,6)') AS lat_phys(p_value, p_error_message) ON TRUE
-            LEFT JOIN LATERAL import.try_cast_to_numeric_specific(dt_sub.physical_longitude, 'NUMERIC(9,6)') AS lon_phys(p_value, p_error_message) ON TRUE
-            LEFT JOIN LATERAL import.try_cast_to_numeric_specific(dt_sub.physical_altitude, 'NUMERIC(6,1)') AS alt_phys(p_value, p_error_message) ON TRUE
-            LEFT JOIN LATERAL import.try_cast_to_numeric_specific(dt_sub.postal_latitude, 'NUMERIC(9,6)') AS lat_post(p_value, p_error_message) ON TRUE
-            LEFT JOIN LATERAL import.try_cast_to_numeric_specific(dt_sub.postal_longitude, 'NUMERIC(9,6)') AS lon_post(p_value, p_error_message) ON TRUE
-            LEFT JOIN LATERAL import.try_cast_to_numeric_specific(dt_sub.postal_altitude, 'NUMERIC(6,1)') AS alt_post(p_value, p_error_message) ON TRUE
-            WHERE dt_sub.row_id = ANY($1) AND dt_sub.action = 'use'
+                row_id,
+                physical_region_code, physical_country_iso_2,
+                postal_region_code, postal_country_iso_2,
+                physical_latitude, physical_longitude, physical_altitude,
+                postal_latitude, postal_longitude, postal_altitude
+            FROM public.%1$I
+            WHERE row_id = ANY($1) AND action = 'use'
+        ),
+        distinct_codes AS (
+            SELECT physical_region_code AS code, 'region' AS type FROM batch_data WHERE NULLIF(physical_region_code, '') IS NOT NULL
+            UNION SELECT physical_country_iso_2 AS code, 'country' AS type FROM batch_data WHERE NULLIF(physical_country_iso_2, '') IS NOT NULL
+            UNION SELECT postal_region_code AS code, 'region' AS type FROM batch_data WHERE NULLIF(postal_region_code, '') IS NOT NULL
+            UNION SELECT postal_country_iso_2 AS code, 'country' AS type FROM batch_data WHERE NULLIF(postal_country_iso_2, '') IS NOT NULL
+        ),
+        resolved_codes AS (
+            SELECT
+                dc.code,
+                dc.type,
+                COALESCE(r.id, c.id) as resolved_id
+            FROM distinct_codes dc
+            LEFT JOIN public.region r ON dc.type = 'region' AND dc.code = r.code
+            LEFT JOIN public.country c ON dc.type = 'country' AND dc.code = c.iso_2
+        ),
+        distinct_numerics AS (
+            SELECT physical_latitude AS num_string, 'NUMERIC(9,6)' AS num_type FROM batch_data WHERE NULLIF(physical_latitude, '') IS NOT NULL
+            UNION SELECT physical_longitude AS num_string, 'NUMERIC(9,6)' AS num_type FROM batch_data WHERE NULLIF(physical_longitude, '') IS NOT NULL
+            UNION SELECT physical_altitude AS num_string, 'NUMERIC(6,1)' AS num_type FROM batch_data WHERE NULLIF(physical_altitude, '') IS NOT NULL
+            UNION SELECT postal_latitude AS num_string, 'NUMERIC(9,6)' AS num_type FROM batch_data WHERE NULLIF(postal_latitude, '') IS NOT NULL
+            UNION SELECT postal_longitude AS num_string, 'NUMERIC(9,6)' AS num_type FROM batch_data WHERE NULLIF(postal_longitude, '') IS NOT NULL
+            UNION SELECT postal_altitude AS num_string, 'NUMERIC(6,1)' AS num_type FROM batch_data WHERE NULLIF(postal_altitude, '') IS NOT NULL
+        ),
+        resolved_numerics AS (
+            SELECT
+                dn.num_string,
+                dn.num_type,
+                cast_result.p_value,
+                cast_result.p_error_message
+            FROM distinct_numerics dn
+            LEFT JOIN LATERAL import.try_cast_to_numeric_specific(dn.num_string, dn.num_type) AS cast_result ON TRUE
+        ),
+        lookups AS (
+            SELECT
+                bd.row_id AS data_row_id,
+                phys_r.resolved_id as resolved_physical_region_id,
+                phys_c.resolved_id as resolved_physical_country_id,
+                post_r.resolved_id as resolved_postal_region_id,
+                post_c.resolved_id as resolved_postal_country_id,
+                phys_lat.p_value as resolved_typed_physical_latitude,
+                phys_lat.p_error_message as physical_latitude_error_msg,
+                phys_lon.p_value as resolved_typed_physical_longitude,
+                phys_lon.p_error_message as physical_longitude_error_msg,
+                phys_alt.p_value as resolved_typed_physical_altitude,
+                phys_alt.p_error_message as physical_altitude_error_msg,
+                post_lat.p_value as resolved_typed_postal_latitude,
+                post_lat.p_error_message as postal_latitude_error_msg,
+                post_lon.p_value as resolved_typed_postal_longitude,
+                post_lon.p_error_message as postal_longitude_error_msg,
+                post_alt.p_value as resolved_typed_postal_altitude,
+                post_alt.p_error_message as postal_altitude_error_msg
+            FROM batch_data bd
+            LEFT JOIN resolved_codes phys_r ON bd.physical_region_code = phys_r.code AND phys_r.type = 'region'
+            LEFT JOIN resolved_codes phys_c ON bd.physical_country_iso_2 = phys_c.code AND phys_c.type = 'country'
+            LEFT JOIN resolved_codes post_r ON bd.postal_region_code = post_r.code AND post_r.type = 'region'
+            LEFT JOIN resolved_codes post_c ON bd.postal_country_iso_2 = post_c.code AND post_c.type = 'country'
+            LEFT JOIN resolved_numerics phys_lat ON bd.physical_latitude = phys_lat.num_string AND phys_lat.num_type = 'NUMERIC(9,6)'
+            LEFT JOIN resolved_numerics phys_lon ON bd.physical_longitude = phys_lon.num_string AND phys_lon.num_type = 'NUMERIC(9,6)'
+            LEFT JOIN resolved_numerics phys_alt ON bd.physical_altitude = phys_alt.num_string AND phys_alt.num_type = 'NUMERIC(6,1)'
+            LEFT JOIN resolved_numerics post_lat ON bd.postal_latitude = post_lat.num_string AND post_lat.num_type = 'NUMERIC(9,6)'
+            LEFT JOIN resolved_numerics post_lon ON bd.postal_longitude = post_lon.num_string AND post_lon.num_type = 'NUMERIC(9,6)'
+            LEFT JOIN resolved_numerics post_alt ON bd.postal_altitude = post_alt.num_string AND post_alt.num_type = 'NUMERIC(6,1)'
         )
         UPDATE public.%1$I dt SET
             physical_region_id = l.resolved_physical_region_id,
@@ -282,7 +324,7 @@ BEGIN
             last_completed_priority = %9$L::INTEGER -- Always v_step.priority
         FROM lookups l
         WHERE dt.row_id = l.data_row_id; -- Join is sufficient, lookups CTE is already filtered
-    $$,
+    $SQL$,
         v_data_table_name,                      /* %1$I (target table) */
         p_batch_row_ids,                        /* %2$L (kept for numbering alignment) */
         v_error_keys_to_clear_arr,              /* %3$L (for clearing error keys) */

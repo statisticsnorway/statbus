@@ -101,11 +101,31 @@ BEGIN
     -- This large CTE performs all lookups and logic holistically.
     v_sql := format($$
         WITH Unpivoted AS ( %1$s ),
-        ResolvedIdents AS (
-            SELECT up.data_row_id, up.ident_code, up.ident_value, xi.legal_unit_id
+        DistinctIdents AS (
+            SELECT DISTINCT
+                substring(up.ident_code from 'legal_unit_(.*)') as ident_type_code,
+                up.ident_value
             FROM Unpivoted up
-            JOIN public.external_ident_type xit ON xit.code = substring(up.ident_code from 'legal_unit_(.*)')
-            LEFT JOIN public.external_ident xi ON xi.type_id = xit.id AND xi.ident = up.ident_value AND xi.legal_unit_id IS NOT NULL
+        ),
+        ResolvedDistinctIdents AS (
+            SELECT
+                di.ident_type_code,
+                di.ident_value,
+                xi.legal_unit_id
+            FROM DistinctIdents di
+            JOIN public.external_ident_type xit ON xit.code = di.ident_type_code
+            LEFT JOIN public.external_ident xi ON xi.type_id = xit.id AND xi.ident = di.ident_value AND xi.legal_unit_id IS NOT NULL
+        ),
+        ResolvedIdents AS (
+            SELECT
+                up.data_row_id,
+                up.ident_code,
+                up.ident_value,
+                rdi.legal_unit_id
+            FROM Unpivoted up
+            LEFT JOIN ResolvedDistinctIdents rdi ON
+                substring(up.ident_code from 'legal_unit_(.*)') = rdi.ident_type_code AND
+                up.ident_value = rdi.ident_value
         ),
         RowChecks AS (
             SELECT
