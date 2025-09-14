@@ -62,17 +62,18 @@ BEGIN
             typed_birth_date = l.resolved_typed_birth_date,
             typed_death_date = l.resolved_typed_death_date,
             state = CASE
-                        WHEN NULLIF(trim(dt.name), '') IS NULL THEN 'error'::public.import_data_state
+                        -- For inserts, name is required. For updates, it is not.
+                        WHEN dt.operation != 'update' AND NULLIF(trim(dt.name), '') IS NULL THEN 'error'::public.import_data_state
                         WHEN dt.status_id IS NULL THEN 'error'::public.import_data_state
                         ELSE 'analysing'::public.import_data_state
                     END,
             action = CASE
-                        WHEN NULLIF(trim(dt.name), '') IS NULL THEN 'skip'::public.import_row_action_type
+                        WHEN dt.operation != 'update' AND NULLIF(trim(dt.name), '') IS NULL THEN 'skip'::public.import_row_action_type
                         WHEN dt.status_id IS NULL THEN 'skip'::public.import_row_action_type
                         ELSE dt.action
                      END,
             errors = CASE
-                        WHEN NULLIF(trim(dt.name), '') IS NULL THEN
+                        WHEN dt.operation != 'update' AND NULLIF(trim(dt.name), '') IS NULL THEN
                             dt.errors || jsonb_build_object('name', 'Missing required name')
                         WHEN dt.status_id IS NULL THEN
                             dt.errors || jsonb_build_object('status_code', 'Status code could not be resolved and is required for this operation.')
@@ -80,7 +81,7 @@ BEGIN
                             dt.errors - %3$L::TEXT[]
                     END,
             invalid_codes = CASE
-                                WHEN (NULLIF(trim(dt.name), '') IS NOT NULL) AND dt.status_id IS NOT NULL THEN -- Only populate invalid_codes if no fatal error in this step
+                                WHEN (dt.operation = 'update' OR NULLIF(trim(dt.name), '') IS NOT NULL) AND dt.status_id IS NOT NULL THEN -- Only populate invalid_codes if no fatal error in this step
                                     jsonb_strip_nulls(
                                      (dt.invalid_codes - %4$L::TEXT[]) ||
                                      jsonb_build_object('legal_form_code', CASE WHEN NULLIF(dt.legal_form_code, '') IS NOT NULL AND l.resolved_legal_form_id IS NULL THEN dt.legal_form_code ELSE NULL END) ||

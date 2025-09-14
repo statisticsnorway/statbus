@@ -110,6 +110,7 @@ BEGIN
         RowChecks AS (
             SELECT
                 tr.data_row_id,
+                dt.operation,
                 jsonb_build_object(
                     'num_idents_provided', COUNT(ri.data_row_id),
                     'distinct_lu_ids', COUNT(DISTINCT ri.legal_unit_id),
@@ -119,13 +120,14 @@ BEGIN
                 (array_agg(ri.legal_unit_id) FILTER (WHERE ri.legal_unit_id IS NOT NULL))[1] AS resolved_lu_id
             FROM temp_relevant_rows tr
             LEFT JOIN ResolvedIdents ri ON tr.data_row_id = ri.data_row_id
-            GROUP BY tr.data_row_id
+            JOIN public.%4$I dt ON dt.row_id = tr.data_row_id
+            GROUP BY tr.data_row_id, dt.operation
         ),
         Errors AS (
             SELECT
                 rc.data_row_id,
                 CASE
-                    WHEN (rc.checks->>'num_idents_provided')::int = 0 THEN (SELECT jsonb_object_agg(key, 'Missing legal unit identifier.') FROM unnest(%3$L::TEXT[] || ARRAY[%2$L]) AS key)
+                    WHEN rc.operation != 'update' AND (rc.checks->>'num_idents_provided')::int = 0 THEN (SELECT jsonb_object_agg(key, 'Missing legal unit identifier.') FROM unnest(%3$L::TEXT[] || ARRAY[%2$L]) AS key)
                     WHEN (rc.checks->>'num_idents_provided')::int > 0 AND (rc.checks->>'found_lu')::int = 0 THEN (SELECT jsonb_object_agg(key, 'Legal unit not found with provided identifiers.') FROM jsonb_array_elements_text(COALESCE(rc.checks->'provided_input_ident_codes', '["%2$s"]'::jsonb)) AS key)
                     WHEN (rc.checks->>'distinct_lu_ids')::int > 1 THEN (SELECT jsonb_object_agg(key, 'Provided identifiers resolve to different Legal Units.') FROM jsonb_array_elements_text(COALESCE(rc.checks->'provided_input_ident_codes', '["%2$s"]'::jsonb)) AS key)
                     ELSE NULL

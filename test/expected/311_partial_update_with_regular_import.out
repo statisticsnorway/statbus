@@ -1,0 +1,398 @@
+BEGIN;
+\x auto
+\i test/setup.sql
+-- While the datestyle is set for the database, the pg_regress tool sets the MDY format
+-- to ensure consistent date formatting, so we must manually override this
+SET datestyle TO 'ISO, DMY';
+\if :{?DEBUG}
+SET client_min_messages TO debug1;
+\else
+SET client_min_messages TO NOTICE;
+\endif
+-- Create temporary function to execute queries as system user
+CREATE OR REPLACE FUNCTION test.sudo_exec(
+    sql text,
+    OUT results jsonb
+) RETURNS jsonb
+SECURITY DEFINER LANGUAGE plpgsql AS $sudo_exec$
+DECLARE
+    result_rows jsonb;
+BEGIN
+    -- Check if the SQL starts with common DDL keywords
+    IF sql ~* '^\s*(CREATE|DROP|ALTER|TRUNCATE|GRANT|REVOKE|ANALYZE)' THEN
+        -- For DDL statements, execute directly
+        EXECUTE sql;
+        results := '[]'::jsonb;
+    ELSE
+        -- For DML/queries, wrap in a SELECT to capture results
+        EXECUTE format('
+            SELECT COALESCE(
+                jsonb_agg(row_to_json(t)),
+                ''[]''::jsonb
+            )
+            FROM (%s) t',
+            sql
+        ) INTO result_rows;
+        results := result_rows;
+    END IF;
+END;
+$sudo_exec$;
+-- Grant execute to public since this is for testing
+GRANT EXECUTE ON FUNCTION test.sudo_exec(text) TO PUBLIC;
+\echo Add users for testing purposes
+Add users for testing purposes
+SELECT * FROM public.user_create('test.admin@statbus.org', 'admin_user'::statbus_role, 'Admin#123!');
+         email          |  password  
+------------------------+------------
+ test.admin@statbus.org | Admin#123!
+(1 row)
+
+SELECT * FROM public.user_create('test.regular@statbus.org', 'regular_user'::statbus_role, 'Regular#123!');
+          email           |   password   
+--------------------------+--------------
+ test.regular@statbus.org | Regular#123!
+(1 row)
+
+SELECT * FROM public.user_create('test.restricted@statbus.org', 'restricted_user'::statbus_role, 'Restricted#123!');
+            email            |    password     
+-----------------------------+-----------------
+ test.restricted@statbus.org | Restricted#123!
+(1 row)
+
+\echo "Setting up Statbus using the web provided examples"
+"Setting up Statbus using the web provided examples"
+-- A Super User configures statbus.
+CALL test.set_user_from_email('test.admin@statbus.org');
+\echo "User selected the Activity Category Standard"
+"User selected the Activity Category Standard"
+INSERT INTO settings(activity_category_standard_id,only_one_setting)
+SELECT id, true FROM activity_category_standard WHERE code = 'isic_v4'
+ON CONFLICT (only_one_setting)
+DO UPDATE SET
+   activity_category_standard_id =(SELECT id FROM activity_category_standard WHERE code = 'isic_v4')
+   WHERE settings.id = EXCLUDED.id;
+;
+\echo "User uploads the sample activity categories"
+"User uploads the sample activity categories"
+\copy public.activity_category_available_custom(path,name) FROM 'app/public/demo/activity_custom_isic_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo "User uploads the sample regions"
+"User uploads the sample regions"
+\copy public.region_upload(path, name) FROM 'app/public/demo/regions_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo "User uploads the sample legal forms"
+"User uploads the sample legal forms"
+\copy public.legal_form_custom_only(code,name) FROM 'app/public/demo/legal_forms_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo "User uploads the sample sectors"
+"User uploads the sample sectors"
+\copy public.sector_custom_only(path,name,description) FROM 'app/public/demo/sectors_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+-- Create Import Job for Legal Units (Demo CSV with source dates)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
+    'import_311_lu_wsd',
+    'Import LU Demo CSV w/ dates (311_partial_update_with_regular_import.sql)',
+    'Import job for app/public/demo/legal_units_with_source_dates_demo.csv using legal_unit_source_dates definition.',
+    'Test data load (311_partial_update_with_regular_import.sql)';
+\echo "User uploads the sample legal units with source dates (via import job: import_311_lu_wsd)"
+"User uploads the sample legal units with source dates (via import job: import_311_lu_wsd)"
+\copy public.import_311_lu_wsd_upload(tax_ident,stat_ident,name,valid_from,physical_address_part1,valid_to,postal_address_part1,postal_address_part2,physical_address_part2,physical_postcode,postal_postcode,physical_address_part3,physical_postplace,postal_address_part3,postal_postplace,phone_number,landline,mobile_number,fax_number,web_address,email_address,secondary_activity_category_code,physical_latitude,physical_longitude,physical_altitude,birth_date,physical_region_code,postal_country_iso_2,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code,status_code,unit_size_code) FROM 'app/public/demo/legal_units_with_source_dates_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo "Run worker processing for import jobs - Initial Load"
+"Run worker processing for import jobs - Initial Load"
+CALL worker.process_tasks(p_queue => 'import');
+\echo "Checking import job statuses for Initial Load"
+"Checking import job statuses for Initial Load"
+SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug = 'import_311_lu_wsd' ORDER BY slug;
+       slug        |  state   | time_context_ident | total_rows | imported_rows | has_error 
+-------------------+----------+--------------------+------------+---------------+-----------
+ import_311_lu_wsd | finished |                    |         75 |            72 | f
+(1 row)
+
+\echo "Run worker processing for analytics tasks - Initial Load"
+"Run worker processing for analytics tasks - Initial Load"
+CALL worker.process_tasks(p_queue => 'analytics');
+\echo "Taking snapshot of statistics before partial update (for the historical period being changed)"
+"Taking snapshot of statistics before partial update (for the historical period being changed)"
+CREATE TEMP TABLE stats_before_update AS
+SELECT unit_type
+     , jsonb_stats_summary_merge_agg(stats_summary) AS stats_summary
+ FROM statistical_unit
+ WHERE valid_from <= '2023-07-01'::date AND '2023-07-01'::date < valid_until
+   AND unit_type = 'legal_unit'
+ GROUP BY unit_type;
+CREATE TEMP TABLE temp_source_for_update (tax_ident text, stat_ident text, turnover text, valid_from text, valid_to text);
+\copy temp_source_for_update FROM 'app/public/demo/legal_units_turnover_update_with_source_dates.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo "Checking raw stat_for_unit data BEFORE partial update"
+"Checking raw stat_for_unit data BEFORE partial update"
+\x off
+WITH lu_map AS (
+    SELECT DISTINCT lu.id as legal_unit_id, src.stat_ident
+    FROM temp_source_for_update src
+    JOIN public.external_ident ei ON ei.ident = src.stat_ident AND ei.type_id = (SELECT id FROM external_ident_type WHERE code = 'stat_ident')
+    JOIN public.legal_unit lu ON ei.legal_unit_id = lu.id
+    WHERE daterange(lu.valid_from, lu.valid_until) @> CURRENT_DATE
+)
+SELECT
+    lu_map.stat_ident,
+    sfu.valid_from, sfu.valid_to,
+    sd.code AS stat_code,
+    sfu.value_int, sfu.value_float, sfu.value_string, sfu.value_bool
+FROM public.stat_for_unit sfu
+JOIN public.stat_definition sd ON sfu.stat_definition_id = sd.id
+JOIN lu_map ON sfu.legal_unit_id = lu_map.legal_unit_id
+WHERE daterange(sfu.valid_from, sfu.valid_until) && daterange('2023-01-01', '2024-01-01', '[)')
+ORDER BY lu_map.stat_ident::int, sd.code, sfu.valid_from;
+ stat_ident | valid_from |  valid_to  | stat_code | value_int | value_float | value_string | value_bool 
+------------+------------+------------+-----------+-----------+-------------+--------------+------------
+ 1          | 2023-01-01 | 2023-12-31 | employees |        23 |             |              | 
+ 1          | 2023-01-01 | 2023-12-31 | turnover  |           |       20023 |              | 
+ 11         | 2023-01-01 | 2023-12-31 | employees |        23 |             |              | 
+ 11         | 2023-01-01 | 2023-12-31 | turnover  |           |       20023 |              | 
+ 12         | 2023-01-01 | 2023-12-31 | employees |        23 |             |              | 
+ 12         | 2023-01-01 | 2023-12-31 | turnover  |           |       20023 |              | 
+ 13         | 2023-01-01 | 2023-12-31 | employees |        23 |             |              | 
+ 13         | 2023-01-01 | 2023-12-31 | turnover  |           |       20023 |              | 
+ 14         | 2023-01-01 | 2023-12-31 | employees |        23 |             |              | 
+ 14         | 2023-01-01 | 2023-12-31 | turnover  |           |       20023 |              | 
+ 15         | 2023-01-01 | 2023-12-31 | employees |        23 |             |              | 
+ 15         | 2023-01-01 | 2023-12-31 | turnover  |           |       20023 |              | 
+ 16         | 2023-01-01 | 2023-12-31 | employees |        23 |             |              | 
+ 16         | 2023-01-01 | 2023-12-31 | turnover  |           |       20023 |              | 
+ 17         | 2023-01-01 | 2023-12-31 | employees |        23 |             |              | 
+ 17         | 2023-01-01 | 2023-12-31 | turnover  |           |       20023 |              | 
+(16 rows)
+
+\x auto
+\echo "Create Import Job for Partial Legal Unit Update using a REGULAR import definition"
+"Create Import Job for Partial Legal Unit Update using a REGULAR import definition"
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
+    'import_311_lu_partial_update',
+    'Import LU Partial Update (311_partial_update_with_regular_import.sql)',
+    'Import job for app/public/demo/legal_units_turnover_update.csv using a REGULAR definition (legal_unit_source_dates), not a stats update one.',
+    'Test data load (311_partial_update_with_regular_import.sql)';
+\echo "User uploads the legal units turnover update file to a regular import job (import_311_lu_partial_update)"
+"User uploads the legal units turnover update file to a regular import job (import_311_lu_partial_update)"
+\copy public.import_311_lu_partial_update_upload(tax_ident,stat_ident,turnover,valid_from,valid_to) FROM 'app/public/demo/legal_units_turnover_update_with_source_dates.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo "Run worker processing for import jobs - Partial Update"
+"Run worker processing for import jobs - Partial Update"
+CALL worker.process_tasks(p_queue => 'import');
+\echo "Checking import job status for Partial Update"
+"Checking import job status for Partial Update"
+SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug = 'import_311_lu_partial_update' ORDER BY slug;
+             slug             |  state   | time_context_ident | total_rows | imported_rows | has_error 
+------------------------------+----------+--------------------+------------+---------------+-----------
+ import_311_lu_partial_update | finished |                    |          9 |             8 | f
+(1 row)
+
+\echo "Run worker processing for analytics tasks - Partial Update"
+"Run worker processing for analytics tasks - Partial Update"
+CALL worker.process_tasks(p_queue => 'analytics');
+\echo "Checking import data for partial update. Expecting one error, and 8 successful updates with merge_status showing what was applied."
+"Checking import data for partial update. Expecting one error, and 8 successful updates with merge_status showing what was applied."
+\x on
+SELECT
+    row_id,
+    operation,
+    state,
+    jsonb_pretty(errors) AS errors,
+    jsonb_pretty(merge_status) as merge_status
+FROM public.import_311_lu_partial_update_data
+ORDER BY row_id;
+-[ RECORD 1 ]+---------------------------------------------------------------------------------------------------------------------
+row_id       | 1
+operation    | update
+state        | error
+errors       | {                                                                                                                   +
+             |     "tax_ident": "Identifier tax_ident value '2212760166' from input attempts to change existing value '2212760144'"+
+             | }
+merge_status | {                                                                                                                   +
+             | }
+-[ RECORD 2 ]+---------------------------------------------------------------------------------------------------------------------
+row_id       | 2
+operation    | update
+state        | processed
+errors       | {                                                                                                                   +
+             | }
+merge_status | {                                                                                                                   +
+             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                              +
+             |     "stat_turnover": "APPLIED"                                                                                      +
+             | }
+-[ RECORD 3 ]+---------------------------------------------------------------------------------------------------------------------
+row_id       | 3
+operation    | update
+state        | processed
+errors       | {                                                                                                                   +
+             | }
+merge_status | {                                                                                                                   +
+             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                              +
+             |     "stat_turnover": "APPLIED"                                                                                      +
+             | }
+-[ RECORD 4 ]+---------------------------------------------------------------------------------------------------------------------
+row_id       | 4
+operation    | update
+state        | processed
+errors       | {                                                                                                                   +
+             | }
+merge_status | {                                                                                                                   +
+             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                              +
+             |     "stat_turnover": "APPLIED"                                                                                      +
+             | }
+-[ RECORD 5 ]+---------------------------------------------------------------------------------------------------------------------
+row_id       | 5
+operation    | update
+state        | processed
+errors       | {                                                                                                                   +
+             | }
+merge_status | {                                                                                                                   +
+             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                              +
+             |     "stat_turnover": "APPLIED"                                                                                      +
+             | }
+-[ RECORD 6 ]+---------------------------------------------------------------------------------------------------------------------
+row_id       | 6
+operation    | update
+state        | processed
+errors       | {                                                                                                                   +
+             | }
+merge_status | {                                                                                                                   +
+             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                              +
+             |     "stat_turnover": "APPLIED"                                                                                      +
+             | }
+-[ RECORD 7 ]+---------------------------------------------------------------------------------------------------------------------
+row_id       | 7
+operation    | update
+state        | processed
+errors       | {                                                                                                                   +
+             | }
+merge_status | {                                                                                                                   +
+             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                              +
+             |     "stat_turnover": "APPLIED"                                                                                      +
+             | }
+-[ RECORD 8 ]+---------------------------------------------------------------------------------------------------------------------
+row_id       | 8
+operation    | update
+state        | processed
+errors       | {                                                                                                                   +
+             | }
+merge_status | {                                                                                                                   +
+             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                              +
+             |     "stat_turnover": "APPLIED"                                                                                      +
+             | }
+-[ RECORD 9 ]+---------------------------------------------------------------------------------------------------------------------
+row_id       | 9
+operation    | update
+state        | processed
+errors       | {                                                                                                                   +
+             | }
+merge_status | {                                                                                                                   +
+             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                              +
+             |     "stat_turnover": "APPLIED"                                                                                      +
+             | }
+
+\x auto
+\echo "Checking raw stat_for_unit data AFTER partial update to verify the merge"
+"Checking raw stat_for_unit data AFTER partial update to verify the merge"
+\x off
+SELECT
+    idt.stat_ident,
+    sfu.valid_from, sfu.valid_to,
+    sd.code AS stat_code,
+    sfu.value_int, sfu.value_float, sfu.value_string, sfu.value_bool
+FROM public.stat_for_unit sfu
+JOIN public.stat_definition sd ON sfu.stat_definition_id = sd.id
+-- Use a subquery to get a unique legal_unit_id to stat_ident mapping from the import table for reporting
+JOIN (
+    SELECT DISTINCT legal_unit_id, stat_ident
+    FROM public.import_311_lu_partial_update_data
+    WHERE state = 'processed' AND legal_unit_id IS NOT NULL
+) idt ON sfu.legal_unit_id = idt.legal_unit_id
+WHERE daterange(sfu.valid_from, sfu.valid_until) && daterange('2023-01-01', '2024-01-01', '[)')
+ORDER BY idt.stat_ident::int, sd.code, sfu.valid_from;
+ stat_ident | valid_from |  valid_to  | stat_code | value_int | value_float | value_string | value_bool 
+------------+------------+------------+-----------+-----------+-------------+--------------+------------
+ 1          | 2023-01-01 | 2023-12-31 | employees |        23 |             |              | 
+ 1          | 2023-01-01 | 2023-05-31 | turnover  |           |       20023 |              | 
+ 1          | 2023-06-01 | 2023-08-31 | turnover  |           |        2525 |              | 
+ 1          | 2023-09-01 | 2023-12-31 | turnover  |           |       20023 |              | 
+ 11         | 2023-01-01 | 2023-12-31 | employees |        23 |             |              | 
+ 11         | 2023-01-01 | 2023-05-31 | turnover  |           |       20023 |              | 
+ 11         | 2023-06-01 | 2023-08-31 | turnover  |           |        2525 |              | 
+ 11         | 2023-09-01 | 2023-12-31 | turnover  |           |       20023 |              | 
+ 12         | 2023-01-01 | 2023-12-31 | employees |        23 |             |              | 
+ 12         | 2023-01-01 | 2023-05-31 | turnover  |           |       20023 |              | 
+ 12         | 2023-06-01 | 2023-08-31 | turnover  |           |        2525 |              | 
+ 12         | 2023-09-01 | 2023-12-31 | turnover  |           |       20023 |              | 
+ 13         | 2023-01-01 | 2023-12-31 | employees |        23 |             |              | 
+ 13         | 2023-01-01 | 2023-05-31 | turnover  |           |       20023 |              | 
+ 13         | 2023-06-01 | 2023-08-31 | turnover  |           |        2525 |              | 
+ 13         | 2023-09-01 | 2023-12-31 | turnover  |           |       20023 |              | 
+ 14         | 2023-01-01 | 2023-12-31 | employees |        23 |             |              | 
+ 14         | 2023-01-01 | 2023-05-31 | turnover  |           |       20023 |              | 
+ 14         | 2023-06-01 | 2023-08-31 | turnover  |           |        2525 |              | 
+ 14         | 2023-09-01 | 2023-12-31 | turnover  |           |       20023 |              | 
+ 15         | 2023-01-01 | 2023-12-31 | employees |        23 |             |              | 
+ 15         | 2023-01-01 | 2023-05-31 | turnover  |           |       20023 |              | 
+ 15         | 2023-06-01 | 2023-08-31 | turnover  |           |        2525 |              | 
+ 15         | 2023-09-01 | 2023-12-31 | turnover  |           |       20023 |              | 
+ 16         | 2023-01-01 | 2023-12-31 | employees |        23 |             |              | 
+ 16         | 2023-01-01 | 2023-05-31 | turnover  |           |       20023 |              | 
+ 16         | 2023-06-01 | 2023-08-31 | turnover  |           |        2525 |              | 
+ 16         | 2023-09-01 | 2023-12-31 | turnover  |           |       20023 |              | 
+ 17         | 2023-01-01 | 2023-12-31 | employees |        23 |             |              | 
+ 17         | 2023-01-01 | 2023-05-31 | turnover  |           |       20023 |              | 
+ 17         | 2023-06-01 | 2023-08-31 | turnover  |           |        2525 |              | 
+ 17         | 2023-09-01 | 2023-12-31 | turnover  |           |       20023 |              | 
+(32 rows)
+
+\x auto
+\echo "Checking resulting statistics after Partial Update. Should show turnover updated, and employees unchanged."
+"Checking resulting statistics after Partial Update. Should show turnover updated, and employees unchanged."
+\x off
+WITH stats_after AS (
+    SELECT unit_type, jsonb_stats_summary_merge_agg(stats_summary) AS stats_summary
+    FROM statistical_unit
+    WHERE valid_from <= '2023-07-01'::date AND '2023-07-01'::date < valid_until AND unit_type = 'legal_unit'
+    GROUP BY unit_type
+)
+SELECT
+    'turnover' as statistic,
+    sb.stats_summary->'turnover' = sa.stats_summary->'turnover' as are_identical,
+    jsonb_pretty(sb.stats_summary->'turnover') AS before,
+    jsonb_pretty(sa.stats_summary->'turnover') AS after
+FROM stats_after sa JOIN stats_before_update sb ON sa.unit_type = sb.unit_type
+UNION ALL
+SELECT
+    'employees' as statistic,
+    sb.stats_summary->'employees' = sa.stats_summary->'employees' as are_identical,
+    jsonb_pretty(sb.stats_summary->'employees') AS before,
+    jsonb_pretty(sa.stats_summary->'employees') AS after
+FROM stats_after sa JOIN stats_before_update sb ON sa.unit_type = sb.unit_type;
+ statistic | are_identical |                  before                  |                   after                   
+-----------+---------------+------------------------------------------+-------------------------------------------
+ turnover  | f             | {                                       +| {                                        +
+           |               |     "max": 20023,                       +|     "max": 20023,                        +
+           |               |     "min": 20023,                       +|     "min": 2525,                         +
+           |               |     "sum": 480552,                      +|     "sum": 340568,                       +
+           |               |     "mean": 20023.00,                   +|     "mean": 14190.33,                    +
+           |               |     "type": "number",                   +|     "type": "number",                    +
+           |               |     "count": 24,                        +|     "count": 24,                         +
+           |               |     "stddev": 0.00,                     +|     "stddev": 8426.05,                   +
+           |               |     "variance": 0.00,                   +|     "variance": 70998261.80,             +
+           |               |     "sum_sq_diff": 0.00,                +|     "sum_sq_diff": 1632960021.33,        +
+           |               |     "coefficient_of_variation_pct": 0.00+|     "coefficient_of_variation_pct": 59.38+
+           |               | }                                        | }
+ employees | t             | {                                       +| {                                        +
+           |               |     "max": 23,                          +|     "max": 23,                           +
+           |               |     "min": 23,                          +|     "min": 23,                           +
+           |               |     "sum": 552,                         +|     "sum": 552,                          +
+           |               |     "mean": 23.00,                      +|     "mean": 23.00,                       +
+           |               |     "type": "number",                   +|     "type": "number",                    +
+           |               |     "count": 24,                        +|     "count": 24,                         +
+           |               |     "stddev": 0.00,                     +|     "stddev": 0.00,                      +
+           |               |     "variance": 0.00,                   +|     "variance": 0.00,                    +
+           |               |     "sum_sq_diff": 0.00,                +|     "sum_sq_diff": 0.00,                 +
+           |               |     "coefficient_of_variation_pct": 0.00+|     "coefficient_of_variation_pct": 0.00 +
+           |               | }                                        | }
+(2 rows)
+
+\x auto
+ROLLBACK;
