@@ -1,5 +1,0 @@
-                        QUERY PLAN                         
------------------------------------------------------------
- Seq Scan on timepoints  (cost=0.00..1.00 rows=1 width=12)
-(1 row)
-
