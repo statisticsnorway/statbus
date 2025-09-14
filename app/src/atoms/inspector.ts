@@ -3,6 +3,7 @@
 import { atom, useSetAtom, useAtomValue } from 'jotai';
 import { useEffect } from 'react';
 import { type InspectionEvent, type AnyActorRef, type AnyMachineSnapshot } from 'xstate';
+import { logger } from '@/lib/client-logger';
 
 import { addEventJournalEntryAtom, debugInspectorVisibleAtom, type EventJournalEntry, MachineID } from './app';
 
@@ -17,7 +18,7 @@ const flattenStateValue = (value: any): string => {
 
 // This is a global "side-channel" to get the Jotai setter function into our inspector.
 let jotaiJournalSetter: ((entry: Omit<EventJournalEntry, 'timestamp_epoch' | 'timestamp_iso'>) => void) | null = null;
-let isDebugInspectorUIVisible = false;
+export let isDebugInspectorUIVisible = false;
 
 // An atom to receive the setter function from a React component.
 const journalSetterAtom = atom(null, (_, set, setter: (entry: Omit<EventJournalEntry, 'timestamp_epoch' | 'timestamp_iso'>) => void) => {
@@ -102,8 +103,11 @@ function handleInspectionEvent(inspectionEvent: InspectionEvent) {
     }
   }
 
-  // Always log to console in development. This is the most reliable output.
-  console.log(`[Journal:${machineId}]`, reason, { from: fromState, to: toState, event: eventForLog, context: snapshot.context });
+  // Log to console if the inspector UI is visible. This keeps the console clean otherwise.
+  if (isDebugInspectorUIVisible) {
+    // eslint-disable-next-line no-console
+    console.log(`[Journal:${machineId}]`, reason, { from: fromState, to: toState, event: eventForLog, context: snapshot.context });
+  }
 
   // And if the UI is visible, send to the Jotai atom.
   if (isDebugInspectorUIVisible && jotaiJournalSetter) {
@@ -140,6 +144,9 @@ export const JotaiInspectorInitializer = () => {
     useEffect(() => {
         setJournalSetter(addJournalEntry);
         setInspectorVisibility(isVisible);
+        // Initialize the logger now that we have the final visibility state from storage.
+        // This will flush any debug messages that were buffered during startup.
+        logger.initialize();
     }, [setJournalSetter, addJournalEntry, setInspectorVisibility, isVisible]);
 
     return null;

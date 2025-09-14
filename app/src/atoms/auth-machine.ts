@@ -26,6 +26,7 @@ import { createMachine, assign, setup, fromPromise, type SnapshotFrom } from 'xs
 import { atomWithMachine } from 'jotai-xstate'
 
 import { type User, type AuthStatus as CoreAuthStatus, _parseAuthStatusRpcResponseToAuthStatus } from '@/lib/auth.types';
+import { logger } from '@/lib/client-logger';
 import { inspector } from './inspector';
 
 const addAndPurgeLog = (log: Record<number, any> | undefined, type: string, response: any, timestamp: number): Record<number, any> => {
@@ -59,23 +60,23 @@ const authMachine = setup({
   },
   actors: {
     checkAuthStatus: fromPromise(async ({ input }: { input: { client: any }}) => {
-      console.log("[auth-machine:checkAuthStatus] Actor invoked.");
+      logger.debug("auth-machine:checkAuthStatus", "Actor invoked.");
       const { data, error } = await input.client.rpc("auth_status");
       if (error) {
-        console.error("[auth-machine:checkAuthStatus] Error from auth_status RPC:", error);
+        logger.error("auth-machine:checkAuthStatus", "Error from auth_status RPC:", error);
         throw error;
       }
-      console.log("[auth-machine:checkAuthStatus] Raw response from auth_status:", data);
+      logger.debug("auth-machine:checkAuthStatus", "Raw response from auth_status:", data);
 
       const status = _parseAuthStatusRpcResponseToAuthStatus(data);
       const outcome = status.expired_access_token_call_refresh ? 'refresh_needed' : 'ok';
-      console.log(`[auth-machine:checkAuthStatus] Final outcome determined: '${outcome}'.`);
+      logger.debug("auth-machine:checkAuthStatus", `Final outcome determined: '${outcome}'.`);
 
       const rawResponseWithTimestamp = { ...data, timestamp: new Date().toISOString() };
       return { outcome, status, rawResponse: rawResponseWithTimestamp };
     }),
     refreshToken: fromPromise(async ({ input }: { input: { client: any }}) => {
-      console.log("[auth-machine:refreshToken] Actor invoked.");
+      logger.debug("auth-machine:refreshToken", "Actor invoked.");
       // Re-implement the core logic of _performClientSideRefresh here for the actor.
       const apiUrl = process.env.NEXT_PUBLIC_BROWSER_REST_URL || '';
       const refreshUrl = `${apiUrl}/rest/rpc/refresh`;
@@ -85,9 +86,9 @@ const authMachine = setup({
         credentials: 'include'
       });
       const responseData = await response.json();
-      console.log("[auth-machine:refreshToken] Raw response from refresh:", responseData);
+      logger.debug("auth-machine:refreshToken", "Raw response from refresh:", responseData);
       if (!response.ok) {
-        console.error('refreshToken actor: Refresh API call failed.', responseData);
+        logger.error('refreshToken actor', 'Refresh API call failed.', responseData);
         // We must throw here to trigger the onError handler of the invoke.
         // BATTLE WISDOM: Throw the actual response data. This allows the onError
         // handler to parse it and transition the machine to a consistent state
@@ -107,14 +108,14 @@ const authMachine = setup({
       try {
         const { data, error: canaryError } = await input.client.rpc('auth_test');
         if (canaryError) {
-          console.error('refreshToken actor: Canary request to auth_test failed after refresh.', canaryError);
+          logger.error('refreshToken actor', 'Canary request to auth_test failed after refresh.', canaryError);
           // If the canary fails, something is fundamentally wrong with the API. Treat as a failed refresh.
           throw new Error('Canary request failed after refresh.');
         }
         canaryData = data;
-        console.log("[auth-machine:refreshToken] Raw response from auth_test canary:", canaryData);
+        logger.debug("auth-machine:refreshToken", "Raw response from auth_test canary:", canaryData);
       } catch (e) {
-        console.error('refreshToken actor: Exception during canary request.', e);
+        logger.error('refreshToken actor', 'Exception during canary request.', e);
         throw new Error('Exception during canary request.');
       }
 
@@ -122,7 +123,7 @@ const authMachine = setup({
       const rawResponseWithTimestamp = { ...responseData, timestamp: new Date().toISOString() };
       const canaryResponseWithTimestamp = canaryData ? { ...canaryData, timestamp: new Date().toISOString() } : null;
       
-      console.log("[auth-machine:refreshToken] Refresh and canary successful. Returning data.");
+      logger.debug("auth-machine:refreshToken", "Refresh and canary successful. Returning data.");
       return { parsedStatus, rawResponse: rawResponseWithTimestamp, canaryResponse: canaryResponseWithTimestamp };
     }),
     login: fromPromise(async ({ input }: { input: { client: any, credentials: { email: string; password: string } } }) => {
@@ -145,12 +146,12 @@ const authMachine = setup({
       try {
         const { data, error: canaryError } = await input.client.rpc('auth_test');
         if (canaryError) {
-          console.error('login actor: Canary request to auth_test failed after login.', canaryError);
+          logger.error('login actor', 'Canary request to auth_test failed after login.', canaryError);
           throw new Error('Canary request failed after login.');
         }
         canaryData = data;
       } catch (e) {
-        console.error('login actor: Exception during canary request.', e);
+        logger.error('login actor', 'Exception during canary request.', e);
         throw new Error('Exception during canary request.');
       }
 

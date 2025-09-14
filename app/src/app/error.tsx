@@ -1,6 +1,6 @@
 "use client";
 
-import logger from "@/lib/client-logger";
+import { logger } from "@/lib/client-logger";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 
 export default function ErrorPage({
@@ -9,7 +9,7 @@ export default function ErrorPage({
   readonly error: Error & { digest?: string };
 }) {
   useGuardedEffect(() => {
-    logger.error(error, error.message);
+    logger.error('ErrorPage', error.message, { error });
   }, [error], 'ErrorPage:logError');
 
   return (

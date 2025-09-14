@@ -1,17 +1,18 @@
 "use client";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
-import logger from "@/lib/client-logger";
+import { logger } from "@/lib/client-logger";
 
 export default function GlobalErrorReporter() {
   const onError = function (e: ErrorEvent) {
-    logger.error(e.error, `${e.message}`);
+    logger.error("GlobalErrorReporter:onError", e.message, { error: e.error });
   };
 
   const onUnhandledRejection = function (e: PromiseRejectionEvent) {
     e.preventDefault();
     logger.error(
-      { ...e },
-      `An unhandled promise rejection occurred: ${e.reason}`
+      "GlobalErrorReporter:onUnhandledRejection",
+      "An unhandled promise rejection occurred",
+      { reason: e.reason }
     );
   };
 

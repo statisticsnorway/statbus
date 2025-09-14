@@ -13,6 +13,7 @@ import { useAtomValue, useSetAtom } from 'jotai'
 import { atomEffect } from 'jotai-effect'
 
 import { type User, type AuthStatus as CoreAuthStatus, _parseAuthStatusRpcResponseToAuthStatus } from '@/lib/auth.types';
+import { logger } from '@/lib/client-logger';
 import { authMachineAtom } from './auth-machine';
 import { loginUiMachineAtom } from './login-ui-machine';
 import {
@@ -229,7 +230,7 @@ export const loginErrorAtom = atom(get => {
     const code = errorCode.replace('LOGIN_', '');
     const message = `Login failed: ${code}`;
     // Log the error to the console for better debugging.
-    console.error(`[loginErrorAtom] ${message}`, { code, context: machine.context });
+    logger.error('loginErrorAtom', message, { code, context: machine.context });
     return { code, message };
   }
   return null;
