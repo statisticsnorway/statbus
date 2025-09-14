@@ -1883,6 +1883,10 @@ BEGIN
 
                 RAISE DEBUG '[Job %] Recounted total_rows to % and updated total_analysis_steps_weighted.', job.id, job.total_rows;
 
+                -- PERFORMANCE FIX: Analyze the data table after populating it to ensure the query planner has statistics for the analysis phase.
+                RAISE DEBUG '[Job %] Running ANALYZE on data table %', job_id, job.data_table_name;
+                EXECUTE format('ANALYZE public.%I', job.data_table_name);
+
                 -- Transition rows in _data table from 'pending' to 'analysing'
                 RAISE DEBUG '[Job %] Updating data rows from pending to analysing in table %', job_id, job.data_table_name;
                 EXECUTE format($$UPDATE public.%I SET state = %L WHERE state = %L$$, job.data_table_name, 'analysing'::public.import_data_state, 'pending'::public.import_data_state);
