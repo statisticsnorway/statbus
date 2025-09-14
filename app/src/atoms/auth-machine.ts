@@ -89,7 +89,10 @@ const authMachine = setup({
       if (!response.ok) {
         console.error('refreshToken actor: Refresh API call failed.', responseData);
         // We must throw here to trigger the onError handler of the invoke.
-        throw new Error('Refresh API call failed');
+        // BATTLE WISDOM: Throw the actual response data. This allows the onError
+        // handler to parse it and transition the machine to a consistent state
+        // that reflects the server's view, rather than a generic error state.
+        throw responseData;
       }
 
       let canaryData = null;
@@ -260,7 +263,18 @@ const authMachine = setup({
         },
         onError: {
           target: 'idle_unauthenticated',
-          actions: assign({ isAuthenticated: false, user: null, expired_access_token_call_refresh: false, error_code: 'REFRESH_FETCH_ERROR' })
+          actions: assign(({ event, context }) => {
+            const now = Date.now();
+            // The actor throws the raw response on failure, so we parse it here.
+            const parsedStatus = _parseAuthStatusRpcResponseToAuthStatus(event.error);
+            const rawResponseWithTimestamp = { ...(event.error as object), timestamp: new Date().toISOString() };
+            return {
+              ...parsedStatus,
+              client: context.client,
+              authApiResponseLog: addAndPurgeLog(context.authApiResponseLog, 'refresh_error', rawResponseWithTimestamp, now),
+              error_code: 'INITIAL_REFRESH_FAILED'
+            };
+          })
         }
       }
     },
@@ -362,7 +376,18 @@ const authMachine = setup({
             ],
             onError: {
               target: '#auth.idle_unauthenticated',
-              actions: assign({ isAuthenticated: false, user: null, expired_access_token_call_refresh: false, error_code: 'REFRESH_FETCH_ERROR' })
+              actions: assign(({ event, context }) => {
+                const now = Date.now();
+                // The actor throws the raw response on failure, so we parse it here.
+                const parsedStatus = _parseAuthStatusRpcResponseToAuthStatus(event.error);
+                const rawResponseWithTimestamp = { ...(event.error as object), timestamp: new Date().toISOString() };
+                return {
+                  ...parsedStatus,
+                  client: context.client,
+                  authApiResponseLog: addAndPurgeLog(context.authApiResponseLog, 'background_refresh_error', rawResponseWithTimestamp, now),
+                  error_code: 'BACKGROUND_REFRESH_FAILED'
+                };
+              })
             }
           }
         }
