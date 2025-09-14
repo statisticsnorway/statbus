@@ -87,7 +87,7 @@ DECLARE
     def_id INT;
     -- Define the steps needed for a legal unit import with a time context
     lu_steps TEXT[] := ARRAY[
-        'external_idents', 'enterprise_link_for_legal_unit', 'valid_time', 'status', 'legal_unit',
+        'external_idents', 'data_source', 'enterprise_link_for_legal_unit', 'valid_time', 'status', 'legal_unit',
         'physical_location', 'postal_location', 'primary_activity', 'secondary_activity',
         'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'
     ];
@@ -97,7 +97,7 @@ DECLARE
 BEGIN
     -- 1. Create the definition record (initially invalid)
     INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id)
-    VALUES ('brreg_hovedenhet_2024', 'Import of BRREG Hovedenhet using 2024 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_replace', 'legal_unit', 'job_provided', false, (SELECT id FROM public.data_source WHERE code = 'brreg'))
+    VALUES ('brreg_hovedenhet_2024', 'Import of BRREG Hovedenhet using 2024 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_update', 'legal_unit', 'job_provided', false, (SELECT id FROM public.data_source WHERE code = 'brreg'))
     RETURNING id INTO def_id;
 
     -- 2. Link the required steps to the definition
@@ -255,9 +255,9 @@ SELECT d.slug,
 FROM public.import_definition d
 LEFT JOIN public.data_source ds ON ds.id = d.data_source_id
 WHERE d.slug = 'brreg_hovedenhet_2024';
-         slug          |                     name                      |                    note                     | data_source | valid_time_from |     strategy      | valid | validation_error 
------------------------+-----------------------------------------------+---------------------------------------------+-------------+-----------------+-------------------+-------+------------------
- brreg_hovedenhet_2024 | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | brreg       | job_provided    | insert_or_replace | t     | 
+         slug          |                     name                      |                    note                     | data_source | valid_time_from |     strategy     | valid | validation_error 
+-----------------------+-----------------------------------------------+---------------------------------------------+-------------+-----------------+------------------+-------+------------------
+ brreg_hovedenhet_2024 | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | brreg       | job_provided    | insert_or_update | t     | 
 (1 row)
 
 -- Set the definition to valid (can now be used to create jobs)
@@ -272,7 +272,7 @@ DECLARE
     def_id INT;
     -- Define the steps needed for an establishment linked to a legal unit import with a time context
     es_steps TEXT[] := ARRAY[
-        'external_idents', 'link_establishment_to_legal_unit', 'valid_time', 'status', 'establishment',
+        'external_idents', 'data_source', 'link_establishment_to_legal_unit', 'valid_time', 'status', 'establishment',
         'physical_location', 'postal_location', 'primary_activity', 'secondary_activity',
         'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'
     ];
@@ -282,7 +282,7 @@ DECLARE
 BEGIN
     -- 1. Create the definition record (initially invalid)
     INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id)
-    VALUES ('brreg_underenhet_2024', 'Import of BRREG Underenhet using 2024 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_replace', 'establishment_formal', 'job_provided', false, (SELECT id FROM public.data_source WHERE code = 'brreg'))
+    VALUES ('brreg_underenhet_2024', 'Import of BRREG Underenhet using 2024 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_update', 'establishment_formal', 'job_provided', false, (SELECT id FROM public.data_source WHERE code = 'brreg'))
     RETURNING id INTO def_id;
 
     -- 2. Link the required steps to the definition
@@ -422,9 +422,9 @@ SELECT d.slug,
 FROM public.import_definition d
 LEFT JOIN public.data_source ds ON ds.id = d.data_source_id
 WHERE d.slug = 'brreg_underenhet_2024';
-         slug          |                     name                      |                    note                     | data_source | valid_time_from |     strategy      | valid | validation_error 
------------------------+-----------------------------------------------+---------------------------------------------+-------------+-----------------+-------------------+-------+------------------
- brreg_underenhet_2024 | Import of BRREG Underenhet using 2024 columns | Easy upload of the CSV file found at brreg. | brreg       | job_provided    | insert_or_replace | t     | 
+         slug          |                     name                      |                    note                     | data_source | valid_time_from |     strategy     | valid | validation_error 
+-----------------------+-----------------------------------------------+---------------------------------------------+-------------+-----------------+------------------+-------+------------------
+ brreg_underenhet_2024 | Import of BRREG Underenhet using 2024 columns | Easy upload of the CSV file found at brreg. | brreg       | job_provided    | insert_or_update | t     | 
 (1 row)
 
 -- Set the definition to valid (can now be used to create jobs)
@@ -436,10 +436,10 @@ SELECT slug, name, note, valid_time_from, strategy, valid, validation_error
 FROM public.import_definition
 WHERE slug LIKE 'brreg_%_2024'
 ORDER BY slug;
-         slug          |                     name                      |                    note                     | valid_time_from |     strategy      | valid | validation_error 
------------------------+-----------------------------------------------+---------------------------------------------+-----------------+-------------------+-------+------------------
- brreg_hovedenhet_2024 | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | job_provided    | insert_or_replace | t     | 
- brreg_underenhet_2024 | Import of BRREG Underenhet using 2024 columns | Easy upload of the CSV file found at brreg. | job_provided    | insert_or_replace | t     | 
+         slug          |                     name                      |                    note                     | valid_time_from |     strategy     | valid | validation_error 
+-----------------------+-----------------------------------------------+---------------------------------------------+-----------------+------------------+-------+------------------
+ brreg_hovedenhet_2024 | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | job_provided    | insert_or_update | t     | 
+ brreg_underenhet_2024 | Import of BRREG Underenhet using 2024 columns | Easy upload of the CSV file found at brreg. | job_provided    | insert_or_update | t     | 
 (2 rows)
 
 -- Per year jobs for hovedenhet
@@ -587,13 +587,17 @@ Triggers:
  row_id                           | integer                   |           | not null | generated always as identity
  valid_from                       | text                      |           |          | 
  valid_to                         | text                      |           |          | 
- derived_valid_after              | date                      |           |          | 
  derived_valid_from               | date                      |           |          | 
  derived_valid_to                 | date                      |           |          | 
+ derived_valid_until              | date                      |           |          | 
  operation                        | import_row_operation_type |           |          | 
  action                           | import_row_action_type    |           |          | 
+ legal_unit_id                    | integer                   |           |          | 
+ establishment_id                 | integer                   |           |          | 
  tax_ident                        | text                      |           |          | 
  stat_ident                       | text                      |           |          | 
+ data_source_code                 | text                      |           |          | 
+ data_source_id                   | integer                   |           |          | 
  status_code                      | text                      |           |          | 
  status_id                        | integer                   |           |          | 
  enterprise_id                    | integer                   |           |          | 
@@ -604,12 +608,9 @@ Triggers:
  sector_code                      | text                      |           |          | 
  unit_size_code                   | text                      |           |          | 
  legal_form_code                  | text                      |           |          | 
- data_source_code                 | text                      |           |          | 
- legal_unit_id                    | integer                   |           |          | 
  sector_id                        | integer                   |           |          | 
  unit_size_id                     | integer                   |           |          | 
  legal_form_id                    | integer                   |           |          | 
- data_source_id                   | integer                   |           |          | 
  typed_birth_date                 | date                      |           |          | 
  typed_death_date                 | date                      |           |          | 
  physical_address_part1           | text                      |           |          | 
@@ -671,12 +672,13 @@ Triggers:
  founding_row_id                  | integer                   |           |          | 
  state                            | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority          | integer                   |           | not null | 0
- error                            | jsonb                     |           |          | 
- invalid_codes                    | jsonb                     |           |          | 
+ errors                           | jsonb                     |           | not null | '{}'::jsonb
+ merge_status                     | jsonb                     |           | not null | '{}'::jsonb
+ invalid_codes                    | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "import_lu_2015_h_data_pkey" PRIMARY KEY, btree (row_id)
-    "import_lu_2015_h_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND error IS NULL
     "import_lu_2015_h_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
+    "import_lu_2015_h_data_processing_batch_idx" btree (COALESCE(founding_row_id, row_id)) WHERE state = 'processing'::import_data_state AND action = 'use'::import_row_action_type
     "import_lu_2015_h_data_stat_ident_idx" btree (stat_ident)
     "import_lu_2015_h_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
     "import_lu_2015_h_data_tax_ident_idx" btree (tax_ident)
@@ -744,16 +746,19 @@ Triggers:
  row_id                           | integer                   |           | not null | generated always as identity
  valid_from                       | text                      |           |          | 
  valid_to                         | text                      |           |          | 
- derived_valid_after              | date                      |           |          | 
  derived_valid_from               | date                      |           |          | 
  derived_valid_to                 | date                      |           |          | 
+ derived_valid_until              | date                      |           |          | 
  operation                        | import_row_operation_type |           |          | 
  action                           | import_row_action_type    |           |          | 
+ legal_unit_id                    | integer                   |           |          | 
+ establishment_id                 | integer                   |           |          | 
  tax_ident                        | text                      |           |          | 
  stat_ident                       | text                      |           |          | 
+ data_source_code                 | text                      |           |          | 
+ data_source_id                   | integer                   |           |          | 
  status_code                      | text                      |           |          | 
  status_id                        | integer                   |           |          | 
- legal_unit_id                    | integer                   |           |          | 
  primary_for_legal_unit           | boolean                   |           |          | 
  legal_unit_tax_ident             | text                      |           |          | 
  legal_unit_stat_ident            | text                      |           |          | 
@@ -762,11 +767,8 @@ Triggers:
  death_date                       | text                      |           |          | 
  sector_code                      | text                      |           |          | 
  unit_size_code                   | text                      |           |          | 
- data_source_code                 | text                      |           |          | 
- establishment_id                 | integer                   |           |          | 
  sector_id                        | integer                   |           |          | 
  unit_size_id                     | integer                   |           |          | 
- data_source_id                   | integer                   |           |          | 
  typed_birth_date                 | date                      |           |          | 
  typed_death_date                 | date                      |           |          | 
  physical_address_part1           | text                      |           |          | 
@@ -828,12 +830,13 @@ Triggers:
  founding_row_id                  | integer                   |           |          | 
  state                            | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority          | integer                   |           | not null | 0
- error                            | jsonb                     |           |          | 
- invalid_codes                    | jsonb                     |           |          | 
+ errors                           | jsonb                     |           | not null | '{}'::jsonb
+ merge_status                     | jsonb                     |           | not null | '{}'::jsonb
+ invalid_codes                    | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "import_es_2015_h_data_pkey" PRIMARY KEY, btree (row_id)
-    "import_es_2015_h_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND error IS NULL
     "import_es_2015_h_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
+    "import_es_2015_h_data_processing_batch_idx" btree (COALESCE(founding_row_id, row_id)) WHERE state = 'processing'::import_data_state AND action = 'use'::import_row_action_type
     "import_es_2015_h_data_stat_ident_idx" btree (stat_ident)
     "import_es_2015_h_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
     "import_es_2015_h_data_tax_ident_idx" btree (tax_ident)
@@ -1271,7 +1274,31 @@ select queue,t.command,state,error from worker.tasks as t join worker.command_re
  import | import_job_process | completed | 
  import | import_job_process | completed | 
  import | import_job_process | completed | 
-(359 rows)
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+(383 rows)
 
 select slug, state, error is not null as failed, time_context_ident, default_valid_from, default_valid_to, total_rows, imported_rows, import_completed_pct from public.import_job WHERE slug LIKE 'import_%_h' ORDER BY slug;
        slug       |  state   | failed | time_context_ident | default_valid_from | default_valid_to | total_rows | imported_rows | import_completed_pct 
@@ -1350,7 +1377,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     7
- import    | completed |   359
+ import    | completed |   383
 (2 rows)
 
 -- Once the Imports are finished, then all the analytics can be processed, but only once.
@@ -1361,7 +1388,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |     9
- import    | completed |   359
+ import    | completed |   383
 (2 rows)
 
 \echo Run any remaining tasks, there should be none.
@@ -1373,7 +1400,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |     9
- import    | completed |   359
+ import    | completed |   383
 (2 rows)
 
 \echo Overview of statistical units, but not details, there are too many units.
