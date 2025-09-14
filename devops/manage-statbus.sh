@@ -245,24 +245,15 @@ case "$action" in
             # Get all tests
             ALL_TESTS=$(basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql)
 
-            # Define slow tests to exclude
-            SLOW_TESTS=(
-                "309_import_jobs_for_norway_history"
-                "310_import_jobs_for_brreg_selection"
-                "311_import_jobs_for_brreg_downloads"
-            )
-
             # Process exclusions
             TEST_BASENAMES=""
             for test in $ALL_TESTS; do
                 exclude=false
-                # Check against hardcoded slow tests
-                for slow_test in "${SLOW_TESTS[@]}"; do
-                    if [ "$test" = "$slow_test" ]; then
-                        exclude=true
-                        break
-                    fi
-                done
+
+                # Exclude slow tests (4xx series are large data imports)
+                if [[ "$test" == 4* ]]; then
+                    exclude=true
+                fi
 
                 # Check against additional user-provided exclusions, if any
                 if [ "$exclude" = "false" ]; then
