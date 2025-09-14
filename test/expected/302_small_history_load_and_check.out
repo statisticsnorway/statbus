@@ -548,8 +548,8 @@ FROM def;
  invalid_codes                    | jsonb                     |           | not null | '{}'::jsonb                  | extended |              | 
 Indexes:
     "import_10_lu_2015_sht_data_pkey" PRIMARY KEY, btree (row_id)
-    "import_10_lu_2015_sht_data_action_row_id_idx" btree (action, row_id) WHERE state = 'processing'::import_data_state AND errors IS NULL
     "import_10_lu_2015_sht_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
+    "import_10_lu_2015_sht_data_processing_batch_idx" btree (COALESCE(founding_row_id, row_id)) WHERE state = 'processing'::import_data_state AND action = 'use'::import_row_action_type
     "import_10_lu_2015_sht_data_stat_ident_idx" btree (stat_ident)
     "import_10_lu_2015_sht_data_state_last_completed_priority_ro_idx" btree (state, last_completed_priority, row_id)
     "import_10_lu_2015_sht_data_tax_ident_idx" btree (tax_ident)
