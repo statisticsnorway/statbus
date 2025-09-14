@@ -8510,17 +8510,17 @@ stats_summary         | {                                                       
 \x
 \echo '--- Generating query plans for review ---'
 --- Generating query plans for review ---
-\o test/expected/303_import_jobs_for_norway_small_history-timepoints.explain.txt
+\o test/expected/explain/303_import_jobs_for_norway_small_history-timepoints.txt
 EXPLAIN SELECT * FROM public.timepoints;
-\o test/expected/303_import_jobs_for_norway_small_history-timesegments_def.explain.txt
+\o test/expected/explain/303_import_jobs_for_norway_small_history-timesegments_def.txt
 EXPLAIN SELECT * FROM public.timesegments_def;
-\o test/expected/303_import_jobs_for_norway_small_history-timeline_establishment_def.explain.txt
+\o test/expected/explain/303_import_jobs_for_norway_small_history-timeline_establishment_def.txt
 EXPLAIN SELECT * FROM public.timeline_establishment_def;
-\o test/expected/303_import_jobs_for_norway_small_history-timeline_legal_unit_def.explain.txt
+\o test/expected/explain/303_import_jobs_for_norway_small_history-timeline_legal_unit_def.txt
 EXPLAIN SELECT * FROM public.timeline_legal_unit_def;
-\o test/expected/303_import_jobs_for_norway_small_history-timeline_enterprise_def.explain.txt
+\o test/expected/explain/303_import_jobs_for_norway_small_history-timeline_enterprise_def.txt
 EXPLAIN SELECT * FROM public.timeline_enterprise_def;
-\o test/expected/303_import_jobs_for_norway_small_history-statistical_unit_def.explain.txt
+\o test/expected/explain/303_import_jobs_for_norway_small_history-statistical_unit_def.txt
 EXPLAIN SELECT * FROM public.statistical_unit_def;
 \o
 RESET client_min_messages;
