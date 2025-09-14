@@ -358,7 +358,6 @@ case "$action" in
                   vim -d $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
                   ;;
               'pipe')
-                  line_limit=${1:-}
                   echo "Running diff for test: $test"
                   # Note the pipe from /dev/tty to avoid the diff alias running an interactive program.
                   if [[ "$line_limit" =~ ^[0-9]+$ ]]; then
