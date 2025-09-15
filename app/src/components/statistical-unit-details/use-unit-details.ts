@@ -8,7 +8,7 @@ import {
   getStatisticalUnitHierarchy,
   getStatisticalUnitStats,
 } from "@/components/statistical-unit-details/requests";
-import { useTimeContext } from "@/atoms/app";
+import { useTimeContext } from "@/atoms/app-derived";
 
 export function useStatisticalUnitDetails(id: string, unitType: UnitType) {
   const { selectedTimeContext } = useTimeContext();

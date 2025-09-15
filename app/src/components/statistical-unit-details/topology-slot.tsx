@@ -1,6 +1,6 @@
 "use client";
 import { Topology } from "@/components/statistical-unit-hierarchy/topology";
-import logger from "@/lib/client-logger";
+import { logger } from "@/lib/client-logger";
 import { useStatisticalUnitHierarchy } from "@/components/statistical-unit-details/use-unit-details";
 import UnitNotFound from "./unit-not-found";
 
@@ -19,13 +19,17 @@ export default function TopologySlot({ unitId, unitType }: TopologySlotProps) {
     unitType
   );
   if (error) {
-    logger.error(error, "failed to fetch statistical unit hierarchy");
+    logger.error(
+      "TopologySlot",
+      "failed to fetch statistical unit hierarchy",
+      { error }
+    );
     return null;
   }
 
   if (!hierarchy) {
     if (!isLoading) {
-      logger.warn(`no hierarchy found for ${unitType} ${unitId}`);
+      logger.warn("TopologySlot", `no hierarchy found for ${unitType} ${unitId}`);
       return <UnitNotFound />;
     }
     return null;
