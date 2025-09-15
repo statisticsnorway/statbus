@@ -1,10 +1,11 @@
+"use client";
 import { Topology } from "@/components/statistical-unit-hierarchy/topology";
-import { getStatisticalUnitHierarchy } from "@/components/statistical-unit-details/requests";
-
-import { createServerLogger } from "@/lib/server-logger";
+import { logger } from "@/lib/client-logger";
+import { useStatisticalUnitHierarchy } from "@/components/statistical-unit-details/use-unit-details";
+import UnitNotFound from "./unit-not-found";
 
 interface TopologySlotProps {
-  readonly unitId: number;
+  readonly unitId: string;
   readonly unitType:
     | "establishment"
     | "legal_unit"
@@ -12,23 +13,25 @@ interface TopologySlotProps {
     | "enterprise_group";
 }
 
-export default async function TopologySlot({
-  unitId,
-  unitType,
-}: TopologySlotProps) {
-  const logger = await createServerLogger();
-  const { hierarchy, error } = await getStatisticalUnitHierarchy(
+export default function TopologySlot({ unitId, unitType }: TopologySlotProps) {
+  const { hierarchy, isLoading, error } = useStatisticalUnitHierarchy(
     unitId,
     unitType
   );
-
   if (error) {
-    logger.error(error, "failed to fetch statistical unit hierarchy");
+    logger.error(
+      "TopologySlot",
+      "failed to fetch statistical unit hierarchy",
+      { error }
+    );
     return null;
   }
 
   if (!hierarchy) {
-    logger.warn(`no hierarchy found for ${unitType} ${unitId}`);
+    if (!isLoading) {
+      logger.warn("TopologySlot", `no hierarchy found for ${unitType} ${unitId}`);
+      return <UnitNotFound />;
+    }
     return null;
   }
 

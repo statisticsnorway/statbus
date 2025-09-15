@@ -1,11 +1,17 @@
 "use client";
+import { useStatisticalUnitDetails } from "@/components/statistical-unit-details/use-unit-details";
 import { FormField } from "@/components/form/form-field";
+import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
 
-export default function DemographicInfoForm({
-  establishment,
-}: {
-  readonly establishment: Establishment;
-}) {
+export default function DemographicInfoForm({ id }: { readonly id: string }) {
+  const { data, isLoading, error } = useStatisticalUnitDetails(
+    id,
+    "establishment"
+  );
+  if (error || (!isLoading && !data)) {
+    return <UnitNotFound />;
+  }
+  const establishment = data?.establishment?.[0];
   return (
     <form className="space-y-4">
       <FormField

@@ -17,7 +17,7 @@ export default async function EnterpriseLinksPage(
       title="Links and external references"
       subtitle="Relationships (links) between units of different types within the SBR"
     >
-      <TopologySlot unitId={parseInt(id)} unitType="enterprise" />
+      <TopologySlot unitId={id} unitType="enterprise" />
     </DetailsPage>
   );
 }
