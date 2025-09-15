@@ -223,4 +223,6 @@ SELECT unit_type
  GROUP BY unit_type;
 \x
 
-ROLLBACK;
+RESET client_min_messages;
+
+\i test/rollback_unless_persist_is_specified.sql
