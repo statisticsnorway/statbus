@@ -40,4 +40,7 @@ SELECT sql_saga.add_unique_key(
     unique_key_name => 'enterprise_group_id_valid'
 );
 
+-- Add a view for portion-of updates
+SELECT sql_saga.add_for_portion_of_view('public.enterprise_group');
+
 END;

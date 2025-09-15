@@ -1,6 +1,7 @@
 BEGIN;
 
 -- Drop constraints and era in reverse order of creation.
+SELECT sql_saga.drop_for_portion_of_view('public.legal_unit');
 SELECT sql_saga.drop_unique_key_by_name(
     table_oid => 'public.legal_unit',
     key_name => 'legal_unit_enterprise_id_primary_valid'

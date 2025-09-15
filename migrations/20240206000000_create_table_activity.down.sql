@@ -1,6 +1,7 @@
 BEGIN;
 
 -- Drop constraints and era in reverse order of creation.
+SELECT sql_saga.drop_for_portion_of_view('public.activity');
 SELECT sql_saga.drop_foreign_key(
     table_oid => 'public.activity',
     column_names => ARRAY['legal_unit_id'],

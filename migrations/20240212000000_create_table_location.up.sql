@@ -113,4 +113,7 @@ SELECT sql_saga.add_foreign_key(
     unique_key_name => 'legal_unit_id_valid'
 );
 
+-- Add a view for portion-of updates
+SELECT sql_saga.add_for_portion_of_view('public.location');
+
 END;

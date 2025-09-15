@@ -189,6 +189,7 @@ BEGIN
         JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
         WHERE n.nspname = 'public' 
         AND c.relkind = 'v'
+        AND c.relname NOT LIKE '%__for_portion_of_valid'
     LOOP
         -- Grant SELECT to authenticated, regular_user, and admin_user
         EXECUTE format('GRANT SELECT ON public.%I TO authenticated, regular_user, admin_user', view_record.view_name);
@@ -248,6 +249,7 @@ BEGIN
         JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
         WHERE n.nspname = 'public' 
         AND c.relkind = 'v'
+        AND c.relname NOT LIKE '%__for_portion_of_valid'
     LOOP
         -- For each view, check privileges for each required role
         FOREACH role_name IN ARRAY required_roles
