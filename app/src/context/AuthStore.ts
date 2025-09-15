@@ -145,6 +145,35 @@ class AuthStore {
   }
 
   /**
+   * Handle post-login state synchronization.
+   * Updates auth status and clears related data caches.
+   */
+  public handleLogin(status: AuthStatus): void {
+    this.updateAuthStatus(status);
+
+    // Clear data caches that may contain stale, pre-login data.
+    // This is a subset of clearAllCaches, intentionally omitting clearCache().
+    if (typeof window !== "undefined") {
+      // Only run this in the browser
+      import("@/context/BaseDataStore")
+        .then(({ baseDataStore }) => {
+          baseDataStore.clearCache();
+        })
+        .catch((err) => {
+          console.error("Failed to clear base data cache:", err);
+        });
+
+      import("@/context/RestClientStore")
+        .then(({ clientStore }) => {
+          clientStore.clearCache();
+        })
+        .catch((err) => {
+          console.error("Failed to clear client cache:", err);
+        });
+    }
+  }
+
+  /**
    * Check if the user is authenticated
    * This is a convenience method that uses getAuthStatus
    */

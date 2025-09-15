@@ -27,6 +27,7 @@ import { atomWithMachine } from 'jotai-xstate'
 
 import { type User, type AuthStatus as CoreAuthStatus, _parseAuthStatusRpcResponseToAuthStatus } from '@/lib/auth.types';
 import { logger } from '@/lib/client-logger';
+import { authStore } from '@/context/AuthStore';
 import { inspector } from './inspector';
 
 const addAndPurgeLog = (log: Record<number, any> | undefined, type: string, response: any, timestamp: number): Record<number, any> => {
@@ -431,7 +432,14 @@ const authMachine = setup({
               };
             }),
             // When login succeeds, clear any previous login error.
-            assign({ error_code: null })
+            assign({ error_code: null }),
+            // BATTLE WISDOM: Synchronize the legacy AuthStore with the new state.
+            // This ensures that any part of the application still relying on AuthStore
+            // (e.g., RestClientStore for decorating API requests) has the correct
+            // authentication status, preventing 401 errors on subsequent API calls.
+            ({ event }) => {
+              authStore.handleLogin(event.output.status);
+            },
           ]
         },
         onError: {
