@@ -71,7 +71,7 @@ SELECT queue, t.command, state, error
  ORDER BY priority;
 
 \echo "Check import job state after calling worker"
-SELECT slug, state, error IS NOT NULL AS failed, total_rows, imported_rows, import_completed_pct
+SELECT slug, state, error IS NOT NULL AS failed, total_rows, imported_rows, import_completed_pct, error as error_details
   FROM public.import_job
  WHERE slug IN ('import_hovedenhet_2025', 'import_underenhet_2025')
  ORDER BY slug;
@@ -79,5 +79,9 @@ SELECT slug, state, error IS NOT NULL AS failed, total_rows, imported_rows, impo
 \echo "Check data row states after import"
 SELECT state, count(*) FROM public.import_hovedenhet_2025_data GROUP BY state;
 SELECT state, count(*) FROM public.import_underenhet_2025_data GROUP BY state;
+
+\echo "Show any error rows from import data tables"
+SELECT row_id, errors, merge_status FROM public.import_hovedenhet_2025_data WHERE state = 'error' ORDER BY row_id;
+SELECT row_id, errors, merge_status FROM public.import_underenhet_2025_data WHERE state = 'error' ORDER BY row_id;
 
 \i test/rollback_unless_persist_is_specified.sql

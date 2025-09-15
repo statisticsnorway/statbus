@@ -108,7 +108,7 @@ CALL worker.process_tasks(p_queue => 'import');
 
 \echo Check the states of the import job tasks.
 select queue,t.command,state,error from worker.tasks as t join worker.command_registry as c on t.command = c.command where t.command = 'import_job_process' order by priority;
-select slug, state, error is not null as failed, time_context_ident, default_valid_from, default_valid_to, total_rows, imported_rows, import_completed_pct from public.import_job WHERE slug LIKE 'import_%_h' ORDER BY slug;
+select slug, state, error is not null as failed, time_context_ident, default_valid_from, default_valid_to, total_rows, imported_rows, import_completed_pct, error as error_details from public.import_job WHERE slug LIKE 'import_%_h' ORDER BY slug;
 
 \echo Check import job state after import
 SELECT state, count(*) FROM import_job GROUP BY state;
@@ -123,6 +123,16 @@ SELECT state, count(*) FROM public.import_es_2015_h_data GROUP BY state;
 SELECT state, count(*) FROM public.import_es_2016_h_data GROUP BY state;
 SELECT state, count(*) FROM public.import_es_2017_h_data GROUP BY state;
 SELECT state, count(*) FROM public.import_es_2018_h_data GROUP BY state;
+
+\echo "Show any error rows from import data tables"
+SELECT row_id, errors, merge_status FROM public.import_lu_2015_h_data WHERE state = 'error' ORDER BY row_id;
+SELECT row_id, errors, merge_status FROM public.import_lu_2016_h_data WHERE state = 'error' ORDER BY row_id;
+SELECT row_id, errors, merge_status FROM public.import_lu_2017_h_data WHERE state = 'error' ORDER BY row_id;
+SELECT row_id, errors, merge_status FROM public.import_lu_2018_h_data WHERE state = 'error' ORDER BY row_id;
+SELECT row_id, errors, merge_status FROM public.import_es_2015_h_data WHERE state = 'error' ORDER BY row_id;
+SELECT row_id, errors, merge_status FROM public.import_es_2016_h_data WHERE state = 'error' ORDER BY row_id;
+SELECT row_id, errors, merge_status FROM public.import_es_2017_h_data WHERE state = 'error' ORDER BY row_id;
+SELECT row_id, errors, merge_status FROM public.import_es_2018_h_data WHERE state = 'error' ORDER BY row_id;
 
 \echo Check the state of all tasks before running analytics.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;

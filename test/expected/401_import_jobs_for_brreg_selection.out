@@ -86,7 +86,7 @@ DECLARE
     def_id INT;
     -- Define the steps needed for a legal unit import with a time context
     lu_steps TEXT[] := ARRAY[
-        'external_idents', 'enterprise_link_for_legal_unit', 'valid_time', 'status', 'legal_unit',
+        'external_idents', 'data_source', 'enterprise_link_for_legal_unit', 'valid_time', 'status', 'legal_unit',
         'physical_location', 'postal_location', 'primary_activity', 'secondary_activity',
         'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'
     ];
@@ -96,7 +96,7 @@ DECLARE
 BEGIN
     -- 1. Create the definition record (initially invalid)
     INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id)
-    VALUES ('brreg_hovedenhet_2024', 'Import of BRREG Hovedenhet using 2024 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_replace', 'legal_unit', 'job_provided', false, (SELECT id FROM public.data_source WHERE code = 'brreg'))
+    VALUES ('brreg_hovedenhet_2024', 'Import of BRREG Hovedenhet using 2024 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_update', 'legal_unit', 'job_provided', false, (SELECT id FROM public.data_source WHERE code = 'brreg'))
     RETURNING id INTO def_id;
 
     -- 2. Link the required steps to the definition
@@ -254,9 +254,9 @@ SELECT d.slug,
 FROM public.import_definition d
 LEFT JOIN public.data_source ds ON ds.id = d.data_source_id
 WHERE d.slug = 'brreg_hovedenhet_2024';
-         slug          |                     name                      |                    note                     | data_source | valid_time_from |     strategy      | valid | validation_error 
------------------------+-----------------------------------------------+---------------------------------------------+-------------+-----------------+-------------------+-------+------------------
- brreg_hovedenhet_2024 | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | brreg       | job_provided    | insert_or_replace | t     | 
+         slug          |                     name                      |                    note                     | data_source | valid_time_from |     strategy     | valid | validation_error 
+-----------------------+-----------------------------------------------+---------------------------------------------+-------------+-----------------+------------------+-------+------------------
+ brreg_hovedenhet_2024 | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | brreg       | job_provided    | insert_or_update | t     | 
 (1 row)
 
 -- Set the definition to valid (can now be used to create jobs)
@@ -271,7 +271,7 @@ DECLARE
     def_id INT;
     -- Define the steps needed for an establishment linked to a legal unit import with a time context
     es_steps TEXT[] := ARRAY[
-        'external_idents', 'link_establishment_to_legal_unit', 'valid_time', 'status', 'establishment',
+        'external_idents', 'data_source', 'link_establishment_to_legal_unit', 'valid_time', 'status', 'establishment',
         'physical_location', 'postal_location', 'primary_activity', 'secondary_activity',
         'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'
     ];
@@ -281,7 +281,7 @@ DECLARE
 BEGIN
     -- 1. Create the definition record (initially invalid)
     INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id)
-    VALUES ('brreg_underenhet_2024', 'Import of BRREG Underenhet using 2024 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_replace', 'establishment_formal', 'job_provided', false, (SELECT id FROM public.data_source WHERE code = 'brreg'))
+    VALUES ('brreg_underenhet_2024', 'Import of BRREG Underenhet using 2024 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_update', 'establishment_formal', 'job_provided', false, (SELECT id FROM public.data_source WHERE code = 'brreg'))
     RETURNING id INTO def_id;
 
     -- 2. Link the required steps to the definition
@@ -421,9 +421,9 @@ SELECT d.slug,
 FROM public.import_definition d
 LEFT JOIN public.data_source ds ON ds.id = d.data_source_id
 WHERE d.slug = 'brreg_underenhet_2024';
-         slug          |                     name                      |                    note                     | data_source | valid_time_from |     strategy      | valid | validation_error 
------------------------+-----------------------------------------------+---------------------------------------------+-------------+-----------------+-------------------+-------+------------------
- brreg_underenhet_2024 | Import of BRREG Underenhet using 2024 columns | Easy upload of the CSV file found at brreg. | brreg       | job_provided    | insert_or_replace | t     | 
+         slug          |                     name                      |                    note                     | data_source | valid_time_from |     strategy     | valid | validation_error 
+-----------------------+-----------------------------------------------+---------------------------------------------+-------------+-----------------+------------------+-------+------------------
+ brreg_underenhet_2024 | Import of BRREG Underenhet using 2024 columns | Easy upload of the CSV file found at brreg. | brreg       | job_provided    | insert_or_update | t     | 
 (1 row)
 
 -- Set the definition to valid (can now be used to create jobs)
@@ -673,7 +673,15 @@ SELECT queue, t.command, state, error
  import | import_job_process | completed | 
  import | import_job_process | completed | 
  import | import_job_process | completed | 
-(138 rows)
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+ import | import_job_process | completed | 
+(146 rows)
 
 \echo "Check import job state after calling worker"
 "Check import job state after calling worker"
@@ -689,17 +697,17 @@ SELECT slug, state, error IS NOT NULL AS failed, total_rows, imported_rows, impo
 
 \echo "Check data row states after import"
 "Check data row states after import"
-SELECT state, count(*) FROM public.import_hovedenhet_2025_selection_data ORDER BY state GROUP BY state;
+SELECT state, count(*) FROM public.import_hovedenhet_2025_selection_data GROUP BY state ORDER BY state;
    state   | count 
 -----------+-------
  processed |  4924
 (1 row)
 
-SELECT state, count(*) FROM public.import_underenhet_2025_selection_data ORDER BY state GROUP BY state;
+SELECT state, count(*) FROM public.import_underenhet_2025_selection_data GROUP BY state ORDER BY state;
    state   | count 
 -----------+-------
- error     |     1
  processed | 24026
+ error     |     1
 (2 rows)
 
 \echo "Show any error rows from import data tables"
