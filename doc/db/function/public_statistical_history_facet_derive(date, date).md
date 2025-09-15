@@ -1,38 +1,38 @@
 ```sql
-CREATE OR REPLACE FUNCTION public.statistical_history_facet_derive(valid_from date DEFAULT '-infinity'::date, valid_until date DEFAULT 'infinity'::date)
+CREATE OR REPLACE FUNCTION public.statistical_history_facet_derive(p_valid_from date DEFAULT '-infinity'::date, p_valid_until date DEFAULT 'infinity'::date)
  RETURNS void
  LANGUAGE plpgsql
 AS $function$
 DECLARE
-    v_year int;
-    v_month int;
+    v_period RECORD;
 BEGIN
-    RAISE DEBUG 'Running statistical_history_facet_derive(valid_from=%, valid_until=%)', valid_from, valid_until;
+    RAISE DEBUG 'Running statistical_history_facet_derive(p_valid_from=%, p_valid_until=%)', p_valid_from, p_valid_until;
 
-    -- Get relevant periods using the get_statistical_history_periods function
-    -- and store them in a temporary table
+    -- Get relevant periods and store them in a temporary table
     CREATE TEMPORARY TABLE temp_periods ON COMMIT DROP AS
-    SELECT year, month
+    SELECT *
     FROM public.get_statistical_history_periods(
-        p_resolution := null::public.history_resolution, -- Get both year and year-month in the same table
-        p_valid_from := statistical_history_facet_derive.valid_from,
-        p_valid_until := statistical_history_facet_derive.valid_until
+        p_resolution := null::public.history_resolution,
+        p_valid_from := p_valid_from,
+        p_valid_until := p_valid_until
     );
 
     -- Delete existing records for the affected periods
     DELETE FROM public.statistical_history_facet shf
     USING temp_periods tp
     WHERE shf.year = tp.year
-    AND shf.month IS NOT DISTINCT FROM tp.month;
+      AND shf.month IS NOT DISTINCT FROM tp.month
+      AND shf.resolution = tp.resolution;
 
-    -- Insert new records for the affected periods
-    INSERT INTO public.statistical_history_facet
-    SELECT shfd.*
-    FROM public.statistical_history_facet_def shfd
-    JOIN temp_periods p ON
-        shfd.year = p.year AND
-        shfd.month IS NOT DISTINCT FROM p.month
-    ORDER BY shfd.year, shfd.month;
+    -- Loop through each period and insert the new data by calling the _def function.
+    FOR v_period IN SELECT * FROM temp_periods LOOP
+        IF COALESCE(current_setting('statbus.statistical_history_facet_derive.log', true), 'f')::boolean THEN
+            RAISE NOTICE 'Processing facets for period: resolution=%, year=%, month=%', v_period.resolution, v_period.year, v_period.month;
+        END IF;
+
+        INSERT INTO public.statistical_history_facet
+        SELECT * FROM public.statistical_history_facet_def(v_period.resolution, v_period.year, v_period.month);
+    END LOOP;
 
     -- Clean up
     IF to_regclass('pg_temp.temp_periods') IS NOT NULL THEN DROP TABLE temp_periods; END IF;

@@ -75,6 +75,7 @@
  primary_for_enterprise           | boolean                  |           |          | 
  primary_for_legal_unit           | boolean                  |           |          | 
  stats                            | jsonb                    |           |          | 
+ stats_summary                    | jsonb                    |           |          | 
  related_establishment_ids        | integer[]                |           |          | 
  excluded_establishment_ids       | integer[]                |           |          | 
  included_establishment_ids       | integer[]                |           |          | 

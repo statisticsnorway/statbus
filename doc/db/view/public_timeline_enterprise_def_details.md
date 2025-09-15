@@ -132,7 +132,7 @@ View definition:
                     array_agg(DISTINCT timeline_establishment.establishment_id) AS related_establishment_ids,
                     array_agg(DISTINCT timeline_establishment.establishment_id) FILTER (WHERE NOT timeline_establishment.include_unit_in_reports) AS excluded_establishment_ids,
                     array_agg(DISTINCT timeline_establishment.establishment_id) FILTER (WHERE timeline_establishment.include_unit_in_reports) AS included_establishment_ids,
-                    jsonb_stats_to_summary_agg(timeline_establishment.stats) FILTER (WHERE timeline_establishment.include_unit_in_reports) AS stats_summary
+                    jsonb_stats_summary_merge_agg(timeline_establishment.stats_summary) FILTER (WHERE timeline_establishment.include_unit_in_reports) AS stats_summary
                    FROM timeline_establishment
                   WHERE timeline_establishment.enterprise_id = ten.enterprise_id AND from_until_overlaps(ten.valid_from, ten.valid_until, timeline_establishment.valid_from, timeline_establishment.valid_until)
                   GROUP BY timeline_establishment.enterprise_id, ten.valid_from, ten.valid_until) tes ON true
@@ -462,6 +462,7 @@ View definition:
                             enpes_1.primary_for_enterprise,
                             enpes_1.primary_for_legal_unit,
                             enpes_1.stats,
+                            enpes_1.stats_summary,
                             enpes_1.related_establishment_ids,
                             enpes_1.excluded_establishment_ids,
                             enpes_1.included_establishment_ids,

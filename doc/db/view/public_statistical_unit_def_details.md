@@ -232,7 +232,7 @@ View definition:
             timeline_establishment.excluded_enterprise_ids,
             timeline_establishment.included_enterprise_ids,
             timeline_establishment.stats,
-            COALESCE(jsonb_stats_to_summary('{}'::jsonb, timeline_establishment.stats), '{}'::jsonb) AS stats_summary,
+            timeline_establishment.stats_summary,
             NULL::integer AS primary_establishment_id,
             NULL::integer AS primary_legal_unit_id
            FROM timeline_establishment

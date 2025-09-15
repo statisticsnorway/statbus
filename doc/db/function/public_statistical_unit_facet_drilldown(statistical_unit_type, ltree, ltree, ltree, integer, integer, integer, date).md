@@ -18,6 +18,11 @@ AS $function$
     ), settings_activity_category_standard AS (
         SELECT activity_category_standard_id AS id FROM public.settings
     ),
+    -- FINESSE: This function queries the pre-aggregated `statistical_unit_facet` table for a
+    -- specific point in time (`valid_on`) to build a snapshot for UI drilldowns.
+    -- The core temporal logic `suf.valid_from <= param_valid_on AND param_valid_on < suf.valid_until`
+    -- correctly selects the single valid timeslice for the requested date, using the
+    -- standard `[start, end)` interval convention.
     available_facet AS (
         SELECT suf.physical_region_path
              , suf.primary_activity_category_path

@@ -75,6 +75,7 @@
  primary_for_enterprise           | boolean                  |           |          |         | plain    | 
  primary_for_legal_unit           | boolean                  |           |          |         | plain    | 
  stats                            | jsonb                    |           |          |         | extended | 
+ stats_summary                    | jsonb                    |           |          |         | extended | 
  related_establishment_ids        | integer[]                |           |          |         | extended | 
  excluded_establishment_ids       | integer[]                |           |          |         | extended | 
  included_establishment_ids       | integer[]                |           |          |         | extended | 
@@ -175,6 +176,7 @@ View definition:
     es.primary_for_enterprise,
     es.primary_for_legal_unit,
     COALESCE(es_stats.stats, '{}'::jsonb) AS stats,
+    jsonb_stats_to_summary('{}'::jsonb, COALESCE(es_stats.stats, '{}'::jsonb)) AS stats_summary,
     ARRAY[t.unit_id] AS related_establishment_ids,
     ARRAY[]::integer[] AS excluded_establishment_ids,
         CASE

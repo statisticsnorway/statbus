@@ -7,15 +7,27 @@ DECLARE
     target_rec RECORD;
     proc_to_call REGPROC;
     error_message TEXT;
+    v_should_disable_triggers BOOLEAN;
 BEGIN
     RAISE DEBUG '[Job %] Processing batch of % rows through all process steps.', job.id, array_length(batch_row_ids, 1);
     targets := job.definition_snapshot->'import_step_list';
 
-    -- Temporarily disable all relevant foreign key triggers for the duration of the batch transaction.
-    -- This allows the transaction to reach a temporarily inconsistent state between procedure calls
-    -- (e.g., a child record being created before its parent), with the guarantee that the final state
-    -- will be consistent when triggers are re-enabled at the end of the transaction.
-    CALL admin.disable_temporal_triggers();
+    -- Check if the batch contains any operations that are not simple inserts.
+    -- If so, we need to disable FK triggers to allow for temporary inconsistencies.
+    EXECUTE format(
+        'SELECT EXISTS(SELECT 1 FROM public.%I WHERE row_id = ANY($1) AND operation IS DISTINCT FROM %L)',
+        job.data_table_name,
+        'insert'
+    )
+    INTO v_should_disable_triggers
+    USING batch_row_ids;
+
+    IF v_should_disable_triggers THEN
+        RAISE DEBUG '[Job %] Batch contains updates/replaces. Disabling FK triggers.', job.id;
+        CALL admin.disable_temporal_triggers();
+    ELSE
+        RAISE DEBUG '[Job %] Batch is insert-only. Skipping trigger disable/enable.', job.id;
+    END IF;
 
     FOR target_rec IN SELECT * FROM jsonb_populate_recordset(NULL::public.import_step, targets) ORDER BY priority
     LOOP
@@ -30,8 +42,11 @@ BEGIN
         EXECUTE format('CALL %s($1, $2, $3)', proc_to_call) USING job.id, batch_row_ids, target_rec.code;
     END LOOP;
 
-    -- Re-enable triggers. They will be checked for the entire transaction at this point.
-    CALL admin.enable_temporal_triggers();
+    -- Re-enable triggers if they were disabled.
+    IF v_should_disable_triggers THEN
+        RAISE DEBUG '[Job %] Re-enabling FK triggers.', job.id;
+        CALL admin.enable_temporal_triggers();
+    END IF;
 
     RAISE DEBUG '[Job %] Batch processing complete.', job.id;
 END;

@@ -171,7 +171,8 @@ View definition:
             lu.id AS legal_unit_id,
             lu.enterprise_id,
             lu.primary_for_enterprise,
-            COALESCE(lu_stats.stats, '{}'::jsonb) AS stats
+            COALESCE(lu_stats.stats, '{}'::jsonb) AS stats,
+            jsonb_stats_to_summary('{}'::jsonb, COALESCE(lu_stats.stats, '{}'::jsonb)) AS stats_summary
            FROM timesegments t
              JOIN LATERAL ( SELECT lu_1.id,
                     lu_1.valid_from,
@@ -418,7 +419,7 @@ View definition:
     basis.enterprise_id,
     basis.primary_for_enterprise,
     basis.stats,
-    jsonb_stats_to_summary(COALESCE(esa.stats_summary, '{}'::jsonb), basis.stats) AS stats_summary
+    COALESCE(jsonb_stats_summary_merge(esa.stats_summary, basis.stats_summary), basis.stats_summary, esa.stats_summary, '{}'::jsonb) AS stats_summary
    FROM basis
      LEFT JOIN LATERAL ( SELECT tes.legal_unit_id,
             array_distinct_concat(tes.data_source_ids) AS data_source_ids,
@@ -426,7 +427,7 @@ View definition:
             array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL) AS related_establishment_ids,
             array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL AND NOT tes.include_unit_in_reports) AS excluded_establishment_ids,
             array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL AND tes.include_unit_in_reports) AS included_establishment_ids,
-            jsonb_stats_to_summary_agg(tes.stats) FILTER (WHERE tes.include_unit_in_reports) AS stats_summary
+            jsonb_stats_summary_merge_agg(tes.stats_summary) FILTER (WHERE tes.include_unit_in_reports) AS stats_summary
            FROM timeline_establishment tes
           WHERE tes.legal_unit_id = basis.legal_unit_id AND from_until_overlaps(basis.valid_from, basis.valid_until, tes.valid_from, tes.valid_until)
           GROUP BY tes.legal_unit_id) esa ON true

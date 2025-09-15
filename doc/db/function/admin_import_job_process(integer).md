@@ -62,6 +62,10 @@ BEGIN
 
                 RAISE DEBUG '[Job %] Recounted total_rows to % and updated total_analysis_steps_weighted.', job.id, job.total_rows;
 
+                -- PERFORMANCE FIX: Analyze the data table after populating it to ensure the query planner has statistics for the analysis phase.
+                RAISE DEBUG '[Job %] Running ANALYZE on data table %', job_id, job.data_table_name;
+                EXECUTE format('ANALYZE public.%I', job.data_table_name);
+
                 -- Transition rows in _data table from 'pending' to 'analysing'
                 RAISE DEBUG '[Job %] Updating data rows from pending to analysing in table %', job_id, job.data_table_name;
                 EXECUTE format($$UPDATE public.%I SET state = %L WHERE state = %L$$, job.data_table_name, 'analysing'::public.import_data_state, 'pending'::public.import_data_state);
@@ -109,6 +113,12 @@ BEGIN
                         -- Transition rows from 'analysing' to 'processing' if no review
                         RAISE DEBUG '[Job %] Updating data rows from analysing to processing and resetting LCP in table %', job_id, job.data_table_name;
                         EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L AND action = 'use'$$, job.data_table_name, 'processing'::public.import_data_state, 'analysing'::public.import_data_state);
+
+                        -- The performance index is now created when the job is generated.
+                        -- We still need to ANALYZE to update statistics after the analysis phase.
+                        RAISE DEBUG '[Job %] Running ANALYZE on data table %', job_id, job.data_table_name;
+                        EXECUTE format('ANALYZE public.%I', job.data_table_name);
+
                         job := admin.import_job_set_state(job, 'processing_data');
                         RAISE DEBUG '[Job %] Analysis complete, proceeding to processing.', job_id;
                         should_reschedule := TRUE; -- Reschedule to start processing
@@ -127,6 +137,12 @@ BEGIN
                 -- Transition rows in _data table from 'analysed' to 'processing' and reset LCP
                 RAISE DEBUG '[Job %] Updating data rows from analysed to processing and resetting LCP in table % after approval', job_id, job.data_table_name;
                 EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L AND action = 'use'$$, job.data_table_name, 'processing'::public.import_data_state, 'analysed'::public.import_data_state);
+
+                -- The performance index is now created when the job is generated.
+                -- We still need to ANALYZE to update statistics after the analysis phase.
+                RAISE DEBUG '[Job %] Running ANALYZE on data table %', job_id, job.data_table_name;
+                EXECUTE format('ANALYZE public.%I', job.data_table_name);
+
                 job := admin.import_job_set_state(job, 'processing_data');
                 should_reschedule := TRUE; -- Reschedule immediately to start import
             END;

@@ -104,29 +104,24 @@ BEGIN
       EXECUTE format('CREATE INDEX ON public.%I (%I)', job.data_table_name, col_rec.column_name);
   END LOOP;
 
-  -- Add recommended performance indexes for processing phase and founding_row_id lookups.
+  -- Add recommended performance indexes.
   BEGIN
-      DECLARE
-          v_has_founding_row_id_col BOOLEAN;
-      BEGIN
-          -- Check if the 'founding_row_id' column is defined for this job's data table
-          SELECT EXISTS (
-              SELECT 1 FROM jsonb_array_elements(job.definition_snapshot->'import_data_column_list') elem
-              WHERE elem->>'column_name' = 'founding_row_id'
-          ) INTO v_has_founding_row_id_col;
+      -- Add index on founding_row_id. This helps with error propagation and is now a standard column.
+      EXECUTE format(
+          $$ CREATE INDEX ON public.%1$I (founding_row_id) WHERE founding_row_id IS NOT NULL $$,
+          job.data_table_name
+      );
+      RAISE DEBUG '[Job %] Added founding_row_id index to data table %.', job.id, job.data_table_name;
 
-          -- Add processing phase index
-          EXECUTE format($$ CREATE INDEX ON public.%1$I (action, row_id) WHERE state = 'processing' AND errors IS NULL $$, job.data_table_name);
-          RAISE DEBUG '[Job %] Added processing phase index to data table %.', job.id, job.data_table_name;
-
-          -- Add founding_row_id index if the column exists
-          IF v_has_founding_row_id_col THEN
-              EXECUTE format($$ CREATE INDEX ON public.%1$I (founding_row_id) WHERE founding_row_id IS NOT NULL $$, job.data_table_name);
-              RAISE DEBUG '[Job %] Added founding_row_id index to data table %.', job.id, job.data_table_name;
-          ELSE
-              RAISE DEBUG '[Job %] Skipping founding_row_id index as column is not present in data table %.', job.id, job.data_table_name;
-          END IF;
-      END;
+      -- CRITICAL PERFORMANCE FIX: Create a partial index on the entity root ID.
+      -- This index is specifically designed to make the batch selection query in the processing phase nearly instantaneous.
+      -- The query seeks distinct entity roots (`COALESCE(founding_row_id, row_id)`), so an index on that expression is optimal.
+      EXECUTE format(
+          $$ CREATE INDEX %1$I ON public.%2$I ( (COALESCE(founding_row_id, row_id)) ) WHERE state = 'processing' AND action = 'use' $$,
+          job.data_table_name || '_processing_batch_idx', /* %1$I: index name */
+          job.data_table_name                             /* %2$I: table name */
+      );
+      RAISE DEBUG '[Job %] Added processing phase performance index to data table %.', job.id, job.data_table_name;
   END;
 
   -- Grant direct permissions to the job owner on the upload table to allow COPY FROM
