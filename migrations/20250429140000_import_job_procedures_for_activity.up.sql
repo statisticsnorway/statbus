@@ -47,13 +47,13 @@ BEGIN
 
     -- Determine column names and JSON key based on the step being processed
     IF p_step_code = 'primary_activity' THEN
-        v_source_code_col_name := 'primary_activity_category_code';
+        v_source_code_col_name := 'primary_activity_category_code_raw';
         v_resolved_id_col_name_in_lookup_cte := 'resolved_primary_activity_category_id';
-        v_json_key := 'primary_activity_category_code';
+        v_json_key := 'primary_activity_category_code_raw';
     ELSIF p_step_code = 'secondary_activity' THEN
-        v_source_code_col_name := 'secondary_activity_category_code';
+        v_source_code_col_name := 'secondary_activity_category_code_raw';
         v_resolved_id_col_name_in_lookup_cte := 'resolved_secondary_activity_category_id';
-        v_json_key := 'secondary_activity_category_code';
+        v_json_key := 'secondary_activity_category_code_raw';
     ELSE
         RAISE EXCEPTION '[Job %] analyse_activity: Invalid p_step_code provided: %. Expected ''primary_activity'' or ''secondary_activity''.', p_job_id, p_step_code;
     END IF;
@@ -79,8 +79,8 @@ BEGIN
                 pac.id as resolved_primary_activity_category_id,
                 sac.id as resolved_secondary_activity_category_id
             FROM public.%1$I dt_sub -- Target data table
-            LEFT JOIN public.activity_category pac ON dt_sub.primary_activity_category_code IS NOT NULL AND pac.code = dt_sub.primary_activity_category_code
-            LEFT JOIN public.activity_category sac ON dt_sub.secondary_activity_category_code IS NOT NULL AND sac.code = dt_sub.secondary_activity_category_code
+            LEFT JOIN public.activity_category pac ON dt_sub.primary_activity_category_code_raw IS NOT NULL AND pac.code = dt_sub.primary_activity_category_code_raw
+            LEFT JOIN public.activity_category sac ON dt_sub.secondary_activity_category_code_raw IS NOT NULL AND sac.code = dt_sub.secondary_activity_category_code_raw
             WHERE dt_sub.row_id = ANY($1) AND dt_sub.action = 'use'
         )
         UPDATE public.%1$I dt SET -- Target data table
@@ -211,9 +211,9 @@ BEGIN
                 %3$s AS establishment_id,
                 'primary'::public.activity_type AS type,
                 dt.primary_activity_category_id AS category_id,
-                dt.derived_valid_from AS valid_from,
-                dt.derived_valid_to AS valid_to,
-                dt.derived_valid_until AS valid_until,
+                dt.valid_from,
+                dt.valid_to,
+                dt.valid_until,
                 dt.data_source_id,
                 dt.edit_by_user_id, dt.edit_at, dt.edit_comment,
                 dt.errors, dt.merge_status
@@ -221,7 +221,7 @@ BEGIN
             WHERE dt.row_id = ANY(%5$L)
               AND dt.action = 'use'
               AND dt.primary_activity_category_id IS NOT NULL
-              AND NULLIF(dt.primary_activity_category_code, '') IS NOT NULL;
+              AND NULLIF(dt.primary_activity_category_code_raw, '') IS NOT NULL;
         $$,
             v_source_view_name,   /* %1$I */
             v_select_lu_id_expr,  /* %2$s */
@@ -241,9 +241,9 @@ BEGIN
                 %3$s AS establishment_id,
                 'secondary'::public.activity_type AS type,
                 dt.secondary_activity_category_id AS category_id,
-                dt.derived_valid_from AS valid_from,
-                dt.derived_valid_to AS valid_to,
-                dt.derived_valid_until AS valid_until,
+                dt.valid_from,
+                dt.valid_to,
+                dt.valid_until,
                 dt.data_source_id,
                 dt.edit_by_user_id, dt.edit_at, dt.edit_comment,
                 dt.errors, dt.merge_status
@@ -251,7 +251,7 @@ BEGIN
             WHERE dt.row_id = ANY(%5$L)
               AND dt.action = 'use'
               AND dt.secondary_activity_category_id IS NOT NULL
-              AND NULLIF(dt.secondary_activity_category_code, '') IS NOT NULL;
+              AND NULLIF(dt.secondary_activity_category_code_raw, '') IS NOT NULL;
         $$,
             v_source_view_name,   /* %1$I */
             v_select_lu_id_expr,  /* %2$s */

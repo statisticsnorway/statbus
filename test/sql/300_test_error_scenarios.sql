@@ -95,11 +95,11 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, e
 \echo "Data table for import_70_01_01_lu_analysis_errors (expect various errors and invalid_codes):"
 SELECT
     row_id,
-    name,
+    name_raw as name,
     state,
     action,
-    derived_valid_from,
-    derived_valid_to,
+    valid_from,
+    valid_to,
     errors,
     invalid_codes,
     merge_status,
@@ -131,7 +131,7 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo "Job status for import_70_01_01_lu_status_errors:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_70_01_01_lu_status_errors' ORDER BY slug;
 \echo "Data table for import_70_01_01_lu_status_errors (expect status_code errors):"
-SELECT row_id, name, state, action, status_id, errors, invalid_codes, merge_status FROM public.import_70_01_01_lu_status_errors_data ORDER BY row_id;
+SELECT row_id, name_raw as name, state, action, status_id, errors, invalid_codes, merge_status FROM public.import_70_01_01_lu_status_errors_data ORDER BY row_id;
 
 \echo "Restoring default status..."
 ROLLBACK TO before_no_default_status_test_70_1_1;
@@ -158,7 +158,7 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo "Job status for import_70_01_02_es_invalid:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug = 'import_70_01_02_es_invalid' ORDER BY slug;
 \echo "Data table for import_70_01_02_es_invalid (expect errors):"
-SELECT row_id, state, action, derived_valid_from, derived_valid_to, errors, invalid_codes, merge_status FROM public.import_70_01_02_es_invalid_data ORDER BY row_id;
+SELECT row_id, state, action, valid_from, valid_to, errors, invalid_codes, merge_status FROM public.import_70_01_02_es_invalid_data ORDER BY row_id;
 
 -- Sub-Scenario 70.1.3: Informal ES Import with Invalid Codes
 \echo "Sub-Scenario 70.1.3: Informal ES Import with Invalid Codes"
@@ -176,7 +176,7 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo "Job status for import_70_01_03_es_inf_invalid:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug = 'import_70_01_03_es_inf_invalid' ORDER BY slug;
 \echo "Data table for import_70_01_03_es_inf_invalid (expect errors):"
-SELECT row_id, state, action, derived_valid_from, derived_valid_to, errors, invalid_codes, merge_status FROM public.import_70_01_03_es_inf_invalid_data ORDER BY row_id;
+SELECT row_id, state, action, valid_from, valid_to, errors, invalid_codes, merge_status FROM public.import_70_01_03_es_inf_invalid_data ORDER BY row_id;
 ROLLBACK TO scenario_70_1_invalid_codes;
 
 
@@ -201,7 +201,7 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo "Job status for import_70_02_01_lu_missing:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug = 'import_70_02_01_lu_missing' ORDER BY slug;
 \echo "Data table for import_70_02_01_lu_missing (expect errors, e.g., in analyse_external_idents):"
-SELECT row_id, state, action, derived_valid_from, derived_valid_to, errors, invalid_codes, merge_status FROM public.import_70_02_01_lu_missing_data ORDER BY row_id;
+SELECT row_id, state, action, valid_from, valid_to, errors, invalid_codes, merge_status FROM public.import_70_02_01_lu_missing_data ORDER BY row_id;
 
 -- Sub-Scenario 70.2.2: Formal ES Import - Missing Link
 \echo "Sub-Scenario 70.2.2: Formal ES Import - Missing Link to LU"
@@ -224,7 +224,7 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo "Job status for import_70_02_02_es_missing_link:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug = 'import_70_02_02_es_missing_link' ORDER BY slug;
 \echo "Data table for import_70_02_02_es_missing_link (expect errors in analyse_establishment_legal_unit_link):"
-SELECT row_id, state, action, derived_valid_from, derived_valid_to, errors, invalid_codes, merge_status FROM public.import_70_02_02_es_missing_link_data ORDER BY row_id;
+SELECT row_id, state, action, valid_from, valid_to, errors, invalid_codes, merge_status FROM public.import_70_02_02_es_missing_link_data ORDER BY row_id;
 ROLLBACK TO scenario_70_2_missing_data;
 
 
@@ -248,7 +248,7 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo "Job status for import_70_03_01_es_bad_lu_link:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug = 'import_70_03_01_es_bad_lu_link' ORDER BY slug;
 \echo "Data table for import_70_03_01_es_bad_lu_link (expect errors in process_establishment or analyse_establishment_legal_unit_link):"
-SELECT row_id, state, action, derived_valid_from, derived_valid_to, errors, invalid_codes, merge_status FROM public.import_70_03_01_es_bad_lu_link_data ORDER BY row_id;
+SELECT row_id, state, action, valid_from, valid_to, errors, invalid_codes, merge_status FROM public.import_70_03_01_es_bad_lu_link_data ORDER BY row_id;
 ROLLBACK TO scenario_70_3_referential_integrity;
 
 
@@ -288,7 +288,7 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo "Job status for import_70_06_01_lu_empty_name:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug = 'import_70_06_01_lu_empty_name' ORDER BY slug;
 \echo "Data table for import_70_06_01_lu_empty_name (expect errors in process_legal_unit from batch_replace):"
-SELECT row_id, state, action, derived_valid_from, derived_valid_to, errors, invalid_codes, merge_status FROM public.import_70_06_01_lu_empty_name_data ORDER BY row_id;
+SELECT row_id, state, action, valid_from, valid_to, errors, invalid_codes, merge_status FROM public.import_70_06_01_lu_empty_name_data ORDER BY row_id;
 ROLLBACK TO scenario_70_6_batch_replace_errors;
 
 -- Scenario 70.7: analyse_external_idents Errors
@@ -388,7 +388,7 @@ INSERT INTO public.import_70_07_01_lu_idents_upload(tax_ident, stat_ident, name,
 -- rather than testing the import logic for unknown identifier type codes.
 CALL worker.process_tasks(p_queue => 'import');
 \echo "Data table for import_70_07_01_lu_idents (expect external_idents errors):"
-SELECT row_id, name, state, action, operation, errors, invalid_codes, merge_status, legal_unit_id FROM public.import_70_07_01_lu_idents_data ORDER BY row_id;
+SELECT row_id, name_raw as name, state, action, operation, errors, invalid_codes, merge_status, legal_unit_id FROM public.import_70_07_01_lu_idents_data ORDER BY row_id;
 
 -- Sub-Scenario 70.7.2: Mode 'establishment_formal' (using 'establishment_for_lu_source_dates')
 \echo "Sub-Scenario 70.7.2: analyse_external_idents - Mode 'establishment_formal'"
@@ -404,7 +404,7 @@ INSERT INTO public.import_70_07_02_est_f_idents_upload(tax_ident, name, valid_fr
 ('LU7071_TAX','ESTF CrossType LU','2023-01-01','2023-12-31','01.110','LU7071_TAX'); -- Error: cross-type conflict (tax_ident used by LU1)
 CALL worker.process_tasks(p_queue => 'import');
 \echo "Data table for import_70_07_02_est_f_idents (expect external_idents errors):"
-SELECT row_id, name, state, action, operation, errors, invalid_codes, merge_status, establishment_id FROM public.import_70_07_02_est_f_idents_data ORDER BY row_id;
+SELECT row_id, name_raw as name, state, action, operation, errors, invalid_codes, merge_status, establishment_id FROM public.import_70_07_02_est_f_idents_data ORDER BY row_id;
 
 -- Sub-Scenario 70.7.3: Mode 'establishment_informal' (using 'establishment_without_lu_source_dates')
 \echo "Sub-Scenario 70.7.3: analyse_external_idents - Mode 'establishment_informal'"
@@ -420,7 +420,7 @@ INSERT INTO public.import_70_07_03_est_inf_idents_upload(tax_ident, name, valid_
 ('EST707F_TAX','ESTINF CrossType FormalEST','2023-01-01','2023-12-31','01.110'); -- Error: cross-type conflict (tax_ident used by EST_FORMAL)
 CALL worker.process_tasks(p_queue => 'import');
 \echo "Data table for import_70_07_03_est_inf_idents (expect external_idents errors):"
-SELECT row_id, name, state, action, operation, errors, invalid_codes, merge_status, establishment_id FROM public.import_70_07_03_est_inf_idents_data ORDER BY row_id;
+SELECT row_id, name_raw as name, state, action, operation, errors, invalid_codes, merge_status, establishment_id FROM public.import_70_07_03_est_inf_idents_data ORDER BY row_id;
 
 ROLLBACK TO scenario_70_7_external_idents_errors;
 
@@ -463,7 +463,7 @@ INSERT INTO public.import_70_08_link_est_lu_upload(tax_ident, name, valid_from, 
 ('E7083', 'EST LU Inconsistent', '2023-01-01', '2023-12-31', '01.110', 'LU7071_TAX', 'LU7072_STAT'); -- Error: inconsistent_legal_unit
 CALL worker.process_tasks(p_queue => 'import');
 \echo "Data table for import_70_08_link_est_lu (expect link_establishment_to_legal_unit errors):"
-SELECT row_id, name, state, action, errors, invalid_codes, merge_status, legal_unit_id FROM public.import_70_08_link_est_lu_data ORDER BY row_id;
+SELECT row_id, name_raw as name, state, action, errors, invalid_codes, merge_status, legal_unit_id FROM public.import_70_08_link_est_lu_data ORDER BY row_id;
 ROLLBACK TO scenario_70_8_link_est_lu_errors;
 
 

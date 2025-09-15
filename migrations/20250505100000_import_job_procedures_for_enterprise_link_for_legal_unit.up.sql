@@ -43,12 +43,12 @@ BEGIN
     END IF;
 
     -- Determine relevant source column names for external identifiers from the definition snapshot
-    SELECT COALESCE(jsonb_agg(idc_element->>'column_name'), '[]'::jsonb)
+    SELECT COALESCE(jsonb_agg(idc_elem.value->>'column_name'), '[]'::jsonb)
     INTO v_external_ident_source_column_names_json
-    FROM jsonb_array_elements(v_job.definition_snapshot->'import_data_column_list') AS idc_element
-    JOIN jsonb_array_elements(v_job.definition_snapshot->'import_step_list') AS isl_element
-      ON (isl_element->>'code') = 'external_idents' AND (idc_element->>'step_id')::INT = (isl_element->>'id')::INT
-    WHERE idc_element->>'purpose' = 'source_input';
+    FROM jsonb_array_elements(v_job.definition_snapshot->'import_data_column_list') AS idc_elem
+    JOIN jsonb_array_elements(v_job.definition_snapshot->'import_step_list') AS step_elem
+      ON (step_elem.value->>'code') = 'external_idents' AND (idc_elem.value->>'step_id')::INT = (step_elem.value->>'id')::INT
+    WHERE idc_elem.value->>'purpose' = 'source_input';
 
     SELECT ARRAY(SELECT jsonb_array_elements_text(v_external_ident_source_column_names_json))
     INTO v_external_ident_source_columns;
@@ -218,15 +218,14 @@ BEGIN
     IF to_regclass('pg_temp.temp_new_lu_for_enterprise_creation') IS NOT NULL THEN DROP TABLE temp_new_lu_for_enterprise_creation; END IF;
     CREATE TEMP TABLE temp_new_lu_for_enterprise_creation (
         data_row_id INTEGER PRIMARY KEY, -- This will be the founding_row_id for the new LU entity
-        lu_name TEXT,
         edit_by_user_id INT,
         edit_at TIMESTAMPTZ,
         edit_comment TEXT
     ) ON COMMIT DROP;
 
     v_sql := format($$
-        INSERT INTO temp_new_lu_for_enterprise_creation (data_row_id, lu_name, edit_by_user_id, edit_at, edit_comment)
-        SELECT dt.row_id, dt.name, dt.edit_by_user_id, dt.edit_at, dt.edit_comment
+        INSERT INTO temp_new_lu_for_enterprise_creation (data_row_id, edit_by_user_id, edit_at, edit_comment)
+        SELECT dt.row_id, dt.edit_by_user_id, dt.edit_at, dt.edit_comment
         FROM public.%1$I dt
         WHERE dt.row_id = ANY($1) AND dt.action = 'use' AND dt.operation = 'insert' AND dt.founding_row_id = dt.row_id; -- Only process founding rows for new LUs
     $$, v_data_table_name /* %1$I */);
@@ -242,15 +241,31 @@ BEGIN
 
     v_created_enterprise_count := 0;
     BEGIN
-        FOR rec_new_lu IN SELECT * FROM temp_new_lu_for_enterprise_creation LOOP
+        WITH new_enterprises AS (
             INSERT INTO public.enterprise (short_name, edit_by_user_id, edit_at, edit_comment)
-            VALUES (NULL, rec_new_lu.edit_by_user_id, rec_new_lu.edit_at, rec_new_lu.edit_comment) -- Set short_name to NULL
-            RETURNING id INTO new_enterprise_id;
+            SELECT
+                NULL, -- short_name is set to NULL, will be derived by trigger later
+                t.edit_by_user_id,
+                t.edit_at,
+                t.edit_comment
+            FROM temp_new_lu_for_enterprise_creation t
+            RETURNING id
+        ),
+        -- This mapping is tricky because INSERT...RETURNING doesn't give us back the source rows.
+        -- We rely on the fact that the order should be preserved and join by row_number.
+        -- This is safe as we are in a single transaction and not using parallel workers.
+        source_with_rn AS (
+            SELECT *, ROW_NUMBER() OVER () as rn FROM temp_new_lu_for_enterprise_creation
+        ),
+        created_with_rn AS (
+            SELECT id, ROW_NUMBER() OVER () as rn FROM new_enterprises
+        )
+        INSERT INTO temp_created_enterprises (data_row_id, enterprise_id)
+        SELECT s.data_row_id, c.id
+        FROM source_with_rn s
+        JOIN created_with_rn c ON s.rn = c.rn;
 
-            INSERT INTO temp_created_enterprises (data_row_id, enterprise_id)
-            VALUES (rec_new_lu.data_row_id, new_enterprise_id);
-            v_created_enterprise_count := v_created_enterprise_count + 1;
-        END LOOP;
+        GET DIAGNOSTICS v_created_enterprise_count = ROW_COUNT;
     EXCEPTION WHEN OTHERS THEN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
         RAISE WARNING '[Job %] process_enterprise_link_for_legal_unit: Programming error suspected during enterprise creation loop: %', p_job_id, replace(error_message, '%', '%%');

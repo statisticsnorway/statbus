@@ -13,8 +13,8 @@ DECLARE
     v_update_count INT := 0;
     v_skipped_update_count INT := 0;
     v_error_count INT := 0;
-    v_error_keys_to_clear_arr TEXT[] := ARRAY['name', 'legal_form_code', 'sector_code', 'unit_size_code', 'birth_date', 'death_date', 'status_id_missing', 'legal_unit'];
-    v_invalid_code_keys_arr TEXT[] := ARRAY['legal_form_code', 'sector_code', 'unit_size_code', 'birth_date', 'death_date']; -- Keys that go into invalid_codes
+    v_error_keys_to_clear_arr TEXT[] := ARRAY['name_raw', 'legal_form_code_raw', 'sector_code_raw', 'unit_size_code_raw', 'birth_date_raw', 'death_date_raw', 'status_code_raw', 'legal_unit'];
+    v_invalid_code_keys_arr TEXT[] := ARRAY['legal_form_code_raw', 'sector_code_raw', 'unit_size_code_raw', 'birth_date_raw', 'death_date_raw']; -- Keys that go into invalid_codes
 BEGIN
     RAISE DEBUG '[Job %] analyse_legal_unit (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_row_ids, 1);
 
@@ -39,9 +39,9 @@ BEGIN
         WITH
         batch_data AS (
             SELECT
-                row_id, operation, name, status_id,
-                legal_form_code, sector_code, unit_size_code,
-                birth_date, death_date
+                row_id, operation, name_raw AS name, status_id,
+                legal_form_code_raw AS legal_form_code, sector_code_raw AS sector_code, unit_size_code_raw AS unit_size_code,
+                birth_date_raw AS birth_date, death_date_raw AS death_date
             FROM public.%1$I
             WHERE row_id = ANY($1) AND action IS DISTINCT FROM 'skip'
         ),
@@ -93,11 +93,12 @@ BEGIN
             LEFT JOIN resolved_dates d_date ON bd.death_date = d_date.date_string
         )
         UPDATE public.%2$I dt SET
+            name = NULLIF(trim(l.name), ''),
             legal_form_id = l.resolved_legal_form_id,
             sector_id = l.resolved_sector_id,
             unit_size_id = l.resolved_unit_size_id,
-            typed_birth_date = l.resolved_typed_birth_date,
-            typed_death_date = l.resolved_typed_death_date,
+            birth_date = l.resolved_typed_birth_date,
+            death_date = l.resolved_typed_death_date,
             state = CASE
                         WHEN l.operation != 'update' AND NULLIF(trim(l.name), '') IS NULL THEN 'error'::public.import_data_state
                         WHEN l.status_id IS NULL THEN 'error'::public.import_data_state
@@ -110,9 +111,9 @@ BEGIN
                      END,
             errors = CASE
                         WHEN l.operation != 'update' AND NULLIF(trim(l.name), '') IS NULL THEN
-                            dt.errors || jsonb_build_object('name', 'Missing required name')
+                            dt.errors || jsonb_build_object('name_raw', 'Missing required name')
                         WHEN l.status_id IS NULL THEN
-                            dt.errors || jsonb_build_object('status_code', 'Status code could not be resolved and is required for this operation.')
+                            dt.errors || jsonb_build_object('status_code_raw', 'Status code could not be resolved and is required for this operation.')
                         ELSE
                             dt.errors - %3$L::TEXT[]
                     END,
@@ -120,11 +121,11 @@ BEGIN
                                 WHEN (l.operation = 'update' OR NULLIF(trim(l.name), '') IS NOT NULL) AND l.status_id IS NOT NULL THEN
                                     jsonb_strip_nulls(
                                      (dt.invalid_codes - %4$L::TEXT[]) ||
-                                     jsonb_build_object('legal_form_code', CASE WHEN NULLIF(l.legal_form_code, '') IS NOT NULL AND l.resolved_legal_form_id IS NULL THEN l.legal_form_code ELSE NULL END) ||
-                                     jsonb_build_object('sector_code', CASE WHEN NULLIF(l.sector_code, '') IS NOT NULL AND l.resolved_sector_id IS NULL THEN l.sector_code ELSE NULL END) ||
-                                     jsonb_build_object('unit_size_code', CASE WHEN NULLIF(l.unit_size_code, '') IS NOT NULL AND l.resolved_unit_size_id IS NULL THEN l.unit_size_code ELSE NULL END) ||
-                                     jsonb_build_object('birth_date', CASE WHEN NULLIF(l.birth_date, '') IS NOT NULL AND l.birth_date_error_msg IS NOT NULL THEN l.birth_date ELSE NULL END) ||
-                                     jsonb_build_object('death_date', CASE WHEN NULLIF(l.death_date, '') IS NOT NULL AND l.death_date_error_msg IS NOT NULL THEN l.death_date ELSE NULL END)
+                                     jsonb_build_object('legal_form_code_raw', CASE WHEN NULLIF(l.legal_form_code, '') IS NOT NULL AND l.resolved_legal_form_id IS NULL THEN l.legal_form_code ELSE NULL END) ||
+                                     jsonb_build_object('sector_code_raw', CASE WHEN NULLIF(l.sector_code, '') IS NOT NULL AND l.resolved_sector_id IS NULL THEN l.sector_code ELSE NULL END) ||
+                                     jsonb_build_object('unit_size_code_raw', CASE WHEN NULLIF(l.unit_size_code, '') IS NOT NULL AND l.resolved_unit_size_id IS NULL THEN l.unit_size_code ELSE NULL END) ||
+                                     jsonb_build_object('birth_date_raw', CASE WHEN NULLIF(l.birth_date, '') IS NOT NULL AND l.birth_date_error_msg IS NOT NULL THEN l.birth_date ELSE NULL END) ||
+                                     jsonb_build_object('death_date_raw', CASE WHEN NULLIF(l.death_date, '') IS NOT NULL AND l.death_date_error_msg IS NOT NULL THEN l.death_date ELSE NULL END)
                                     )
                                 ELSE dt.invalid_codes
                             END,
@@ -178,14 +179,14 @@ BEGIN
     CREATE TEMP TABLE debug_lu_analysis_after (
         row_id INT PRIMARY KEY,
         name TEXT,
-        typed_death_date DATE,
-        derived_valid_to DATE,
-        derived_valid_until DATE
+        death_date DATE,
+        valid_to DATE,
+        valid_until DATE
     ) ON COMMIT DROP;
 
     v_sql := format($$
-        INSERT INTO debug_lu_analysis_after (row_id, name, typed_death_date, derived_valid_to, derived_valid_until)
-        SELECT row_id, name, typed_death_date, derived_valid_to, derived_valid_until
+        INSERT INTO debug_lu_analysis_after (row_id, name, death_date, valid_to, valid_until)
+        SELECT row_id, name, death_date, valid_to, valid_until
         FROM public.%1$I WHERE row_id = ANY($1)
     $$, v_job.data_table_name);
     EXECUTE v_sql USING p_batch_row_ids;
@@ -196,7 +197,7 @@ BEGIN
             r RECORD;
         BEGIN
             FOR r IN SELECT * FROM debug_lu_analysis_after ORDER BY row_id LOOP
-                RAISE DEBUG '[Job %][Row %] analyse_legal_unit AFTER: name="%", typed_death_date="%", derived_valid_to="%", derived_valid_until="%"', p_job_id, r.row_id, r.name, r.typed_death_date, r.derived_valid_to, r.derived_valid_until;
+                RAISE DEBUG '[Job %][Row %] analyse_legal_unit AFTER: name="%", death_date="%", valid_to="%", valid_until="%"', p_job_id, r.row_id, r.name, r.death_date, r.valid_to, r.valid_until;
             END LOOP;
         END;
     END IF;
@@ -212,7 +213,7 @@ BEGIN
             SELECT
                 row_id,
                 FIRST_VALUE(row_id) OVER (
-                    PARTITION BY enterprise_id, daterange(derived_valid_from, derived_valid_until, '[)')
+                    PARTITION BY enterprise_id, daterange(valid_from, valid_until, '[)')
                     ORDER BY legal_unit_id ASC NULLS LAST, row_id ASC
                 ) as winner_row_id
             FROM public.%1$I
@@ -284,11 +285,11 @@ BEGIN
             founding_row_id,
             legal_unit_id AS id,
             name,
-            typed_birth_date AS birth_date,
-            typed_death_date AS death_date,
-            derived_valid_from AS valid_from,
-            derived_valid_to AS valid_to,
-            derived_valid_until AS valid_until,
+            birth_date,
+            death_date,
+            valid_from,
+            valid_to,
+            valid_until,
             sector_id,
             unit_size_id,
             status_id,
@@ -343,7 +344,7 @@ BEGIN
             FROM public.legal_unit ex_lu
             JOIN (
                 SELECT dt.legal_unit_id AS incoming_lu_id, dt.enterprise_id AS target_enterprise_id,
-                       dt.derived_valid_from AS new_primary_valid_from, dt.derived_valid_until AS new_primary_valid_until,
+                       dt.valid_from AS new_primary_valid_from, dt.valid_until AS new_primary_valid_until,
                        dt.edit_by_user_id AS demotion_edit_by_user_id, dt.edit_at AS demotion_edit_at
                 FROM public.%I dt
                 WHERE dt.row_id = ANY($1) AND dt.primary_for_enterprise = true AND dt.enterprise_id IS NOT NULL

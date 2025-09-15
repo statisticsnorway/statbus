@@ -45,18 +45,17 @@ SELECT sql_saga.add_unique_key(
     column_names => ARRAY['id'],
     unique_key_name => 'stat_for_unit_id_valid'
 );
+-- A stat is uniquely defined by its type and the unit it belongs to. Since a stat can belong
+-- to either a legal unit or an establishment (but not both), the true natural key is the
+-- combination of all three columns. The CHECK constraint on the table ensures that one of the
+-- unit ID columns is always NULL. By defining a single natural key with all three columns,
+-- we provide the exact metadata signature that sql_saga's temporal_merge function needs to
+-- correctly identify and coalesce adjacent, identical records.
 SELECT sql_saga.add_unique_key(
     table_oid => 'public.stat_for_unit',
     key_type => 'natural',
-    column_names => ARRAY['stat_definition_id', 'establishment_id'],
-    unique_key_name => 'stat_for_unit_stat_definition_id_establishment_id_valid'
-);
--- Add the corresponding unique key for legal_unit_id for symmetry.
-SELECT sql_saga.add_unique_key(
-    table_oid => 'public.stat_for_unit',
-    key_type => 'natural', 
-    column_names => ARRAY['stat_definition_id', 'legal_unit_id'],
-    unique_key_name => 'stat_for_unit_stat_definition_id_legal_unit_id_valid'
+    column_names => ARRAY['stat_definition_id', 'legal_unit_id', 'establishment_id'],
+    unique_key_name => 'stat_for_unit_natural_key_valid'
 );
 SELECT sql_saga.add_foreign_key(
     fk_table_oid => 'public.stat_for_unit',

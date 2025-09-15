@@ -12,8 +12,8 @@ DECLARE
     v_update_count INT := 0;
     v_skipped_update_count INT := 0;
     v_sql TEXT;
-    v_error_keys_to_clear_arr TEXT[] := ARRAY['name', 'sector_code', 'unit_size_code', 'birth_date', 'death_date', 'status_id_missing', 'establishment'];
-    v_invalid_code_keys_arr TEXT[] := ARRAY['sector_code', 'unit_size_code', 'birth_date', 'death_date'];
+    v_error_keys_to_clear_arr TEXT[] := ARRAY['name_raw', 'sector_code_raw', 'unit_size_code_raw', 'birth_date_raw', 'death_date_raw', 'status_code_raw', 'establishment'];
+    v_invalid_code_keys_arr TEXT[] := ARRAY['sector_code_raw', 'unit_size_code_raw', 'birth_date_raw', 'death_date_raw'];
 BEGIN
     RAISE DEBUG '[Job %] analyse_establishment (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_row_ids, 1);
 
@@ -35,9 +35,9 @@ BEGIN
         WITH
         batch_data AS (
             SELECT
-                row_id, operation, name, status_id,
-                sector_code, unit_size_code,
-                birth_date, death_date
+                row_id, operation, name_raw as name, status_id,
+                sector_code_raw as sector_code, unit_size_code_raw as unit_size_code,
+                birth_date_raw as birth_date, death_date_raw as death_date
             FROM public.%1$I
             WHERE row_id = ANY($1) AND action IS DISTINCT FROM 'skip'
         ),
@@ -85,10 +85,11 @@ BEGIN
             LEFT JOIN resolved_dates d_date ON bd.death_date = d_date.date_string
         )
         UPDATE public.%2$I dt SET
+            name = NULLIF(trim(l.name), ''),
             sector_id = l.resolved_sector_id,
             unit_size_id = l.resolved_unit_size_id,
-            typed_birth_date = l.resolved_typed_birth_date,
-            typed_death_date = l.resolved_typed_death_date,
+            birth_date = l.resolved_typed_birth_date,
+            death_date = l.resolved_typed_death_date,
             state = CASE
                         WHEN l.operation != 'update' AND NULLIF(trim(l.name), '') IS NULL THEN 'error'::public.import_data_state
                         WHEN l.status_id IS NULL THEN 'error'::public.import_data_state
@@ -101,9 +102,9 @@ BEGIN
                      END,
             errors = CASE
                         WHEN l.operation != 'update' AND NULLIF(trim(l.name), '') IS NULL THEN
-                            dt.errors || jsonb_build_object('name', 'Missing required name')
+                            dt.errors || jsonb_build_object('name_raw', 'Missing required name')
                         WHEN l.status_id IS NULL THEN
-                            dt.errors || jsonb_build_object('status_code', 'Status code could not be resolved and is required for this operation.')
+                            dt.errors || jsonb_build_object('status_code_raw', 'Status code could not be resolved and is required for this operation.')
                         ELSE
                             dt.errors - %3$L::TEXT[]
                     END,
@@ -111,10 +112,10 @@ BEGIN
                                 WHEN (l.operation = 'update' OR NULLIF(trim(l.name), '') IS NOT NULL) AND l.status_id IS NOT NULL THEN
                                     jsonb_strip_nulls(
                                      (dt.invalid_codes - %4$L::TEXT[]) ||
-                                     jsonb_build_object('sector_code', CASE WHEN NULLIF(l.sector_code, '') IS NOT NULL AND l.resolved_sector_id IS NULL THEN l.sector_code ELSE NULL END) ||
-                                     jsonb_build_object('unit_size_code', CASE WHEN NULLIF(l.unit_size_code, '') IS NOT NULL AND l.resolved_unit_size_id IS NULL THEN l.unit_size_code ELSE NULL END) ||
-                                     jsonb_build_object('birth_date', CASE WHEN NULLIF(l.birth_date, '') IS NOT NULL AND l.birth_date_error_msg IS NOT NULL THEN l.birth_date ELSE NULL END) ||
-                                     jsonb_build_object('death_date', CASE WHEN NULLIF(l.death_date, '') IS NOT NULL AND l.death_date_error_msg IS NOT NULL THEN l.death_date ELSE NULL END)
+                                     jsonb_build_object('sector_code_raw', CASE WHEN NULLIF(l.sector_code, '') IS NOT NULL AND l.resolved_sector_id IS NULL THEN l.sector_code ELSE NULL END) ||
+                                     jsonb_build_object('unit_size_code_raw', CASE WHEN NULLIF(l.unit_size_code, '') IS NOT NULL AND l.resolved_unit_size_id IS NULL THEN l.unit_size_code ELSE NULL END) ||
+                                     jsonb_build_object('birth_date_raw', CASE WHEN NULLIF(l.birth_date, '') IS NOT NULL AND l.birth_date_error_msg IS NOT NULL THEN l.birth_date ELSE NULL END) ||
+                                     jsonb_build_object('death_date_raw', CASE WHEN NULLIF(l.death_date, '') IS NOT NULL AND l.death_date_error_msg IS NOT NULL THEN l.death_date ELSE NULL END)
                                     )
                                 ELSE dt.invalid_codes
                             END,
@@ -171,7 +172,7 @@ BEGIN
     IF v_job.definition_snapshot->'import_definition'->>'mode' = 'establishment_formal' THEN
         v_sql := format($$
             WITH BatchPrimaries AS (
-                SELECT row_id, FIRST_VALUE(row_id) OVER (PARTITION BY legal_unit_id, daterange(derived_valid_from, derived_valid_until, '[)') ORDER BY establishment_id ASC NULLS LAST, row_id ASC) as winner_row_id
+                SELECT row_id, FIRST_VALUE(row_id) OVER (PARTITION BY legal_unit_id, daterange(valid_from, valid_until, '[)') ORDER BY establishment_id ASC NULLS LAST, row_id ASC) as winner_row_id
                 FROM public.%1$I WHERE row_id = ANY($1) AND primary_for_legal_unit = true AND legal_unit_id IS NOT NULL
             )
             UPDATE public.%1$I dt SET primary_for_legal_unit = false FROM BatchPrimaries bp
@@ -181,7 +182,7 @@ BEGIN
     ELSIF v_job.definition_snapshot->'import_definition'->>'mode' = 'establishment_informal' THEN
         v_sql := format($$
             WITH BatchPrimaries AS (
-                SELECT row_id, FIRST_VALUE(row_id) OVER (PARTITION BY enterprise_id, daterange(derived_valid_from, derived_valid_until, '[)') ORDER BY establishment_id ASC NULLS LAST, row_id ASC) as winner_row_id
+                SELECT row_id, FIRST_VALUE(row_id) OVER (PARTITION BY enterprise_id, daterange(valid_from, valid_until, '[)') ORDER BY establishment_id ASC NULLS LAST, row_id ASC) as winner_row_id
                 FROM public.%1$I WHERE row_id = ANY($1) AND primary_for_enterprise = true AND enterprise_id IS NOT NULL
             )
             UPDATE public.%1$I dt SET primary_for_enterprise = false FROM BatchPrimaries bp
@@ -254,13 +255,13 @@ BEGIN
     -- Create an updatable view over the batch data. This avoids copying data to a temp table
     -- and allows sql_saga to write feedback and generated IDs directly back to the main data table.
     v_select_list := format($$
-        row_id AS data_row_id, founding_row_id, tax_ident,
+        row_id AS data_row_id, founding_row_id,
         %1$s AS legal_unit_id,
         %2$s AS primary_for_legal_unit,
         %3$s AS enterprise_id,
         %4$s AS primary_for_enterprise,
-        name, typed_birth_date AS birth_date, typed_death_date AS death_date,
-        derived_valid_from AS valid_from, derived_valid_to AS valid_to, derived_valid_until AS valid_until,
+        name, birth_date, death_date,
+        valid_from, valid_to, valid_until,
         sector_id, unit_size_id, status_id, data_source_id,
         establishment_id AS id,
         NULLIF(invalid_codes, '{}'::jsonb) as invalid_codes,
@@ -303,7 +304,7 @@ BEGIN
                        COALESCE(ipes.incoming_est_id::TEXT, 'NEW') || ' for LU ' || ipes.target_legal_unit_id ||
                        ' during [' || ipes.new_primary_valid_from || ', ' || ipes.new_primary_valid_until || ')'
                 FROM public.establishment ex_es
-                JOIN (SELECT dt.establishment_id AS incoming_est_id, dt.legal_unit_id AS target_legal_unit_id, dt.derived_valid_from AS new_primary_valid_from, dt.derived_valid_until AS new_primary_valid_until, dt.edit_by_user_id AS demotion_edit_by_user_id, dt.edit_at AS demotion_edit_at FROM public.%I dt WHERE dt.row_id = ANY($1) AND dt.primary_for_legal_unit = true AND dt.legal_unit_id IS NOT NULL) AS ipes
+                JOIN (SELECT dt.establishment_id AS incoming_est_id, dt.legal_unit_id AS target_legal_unit_id, dt.valid_from AS new_primary_valid_from, dt.valid_until AS new_primary_valid_until, dt.edit_by_user_id AS demotion_edit_by_user_id, dt.edit_at AS demotion_edit_at FROM public.%I dt WHERE dt.row_id = ANY($1) AND dt.primary_for_legal_unit = true AND dt.legal_unit_id IS NOT NULL) AS ipes
                 ON ex_es.legal_unit_id = ipes.target_legal_unit_id
                 WHERE ex_es.id IS DISTINCT FROM ipes.incoming_est_id AND ex_es.primary_for_legal_unit = true AND public.from_until_overlaps(ex_es.valid_from, ex_es.valid_until, ipes.new_primary_valid_from, ipes.new_primary_valid_until);
             $$, p_job_id, v_data_table_name);
@@ -329,7 +330,7 @@ BEGIN
                        COALESCE(ipes.incoming_est_id::TEXT, 'NEW') || ' for EN ' || ipes.target_enterprise_id ||
                        ' during [' || ipes.new_primary_valid_from || ', ' || ipes.new_primary_valid_until || ')'
                 FROM public.establishment ex_es
-                JOIN (SELECT dt.establishment_id AS incoming_est_id, dt.enterprise_id AS target_enterprise_id, dt.derived_valid_from AS new_primary_valid_from, dt.derived_valid_until AS new_primary_valid_until, dt.edit_by_user_id AS demotion_edit_by_user_id, dt.edit_at AS demotion_edit_at FROM public.%I dt WHERE dt.row_id = ANY($1) AND dt.primary_for_enterprise = true AND dt.enterprise_id IS NOT NULL) AS ipes
+                JOIN (SELECT dt.establishment_id AS incoming_est_id, dt.enterprise_id AS target_enterprise_id, dt.valid_from AS new_primary_valid_from, dt.valid_until AS new_primary_valid_until, dt.edit_by_user_id AS demotion_edit_by_user_id, dt.edit_at AS demotion_edit_at FROM public.%I dt WHERE dt.row_id = ANY($1) AND dt.primary_for_enterprise = true AND dt.enterprise_id IS NOT NULL) AS ipes
                 ON ex_es.enterprise_id = ipes.target_enterprise_id
                 WHERE ex_es.id IS DISTINCT FROM ipes.incoming_est_id AND ex_es.primary_for_enterprise = true AND public.from_until_overlaps(ex_es.valid_from, ex_es.valid_until, ipes.new_primary_valid_from, ipes.new_primary_valid_until);
             $$, p_job_id, v_data_table_name);
@@ -468,7 +469,7 @@ BEGIN
             WITH new_enterprises AS (
                 INSERT INTO public.enterprise (short_name, edit_by_user_id, edit_at, edit_comment)
                 SELECT
-                    LEFT(dt.name, 16) as short_name,
+                    LEFT(dt.name, 16) as short_name, -- Reads from the typed 'name' column, populated by analyse_establishment
                     dt.edit_by_user_id,
                     dt.edit_at,
                     'Created for informal establishment import job ' || %L

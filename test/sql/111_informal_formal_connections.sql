@@ -86,13 +86,13 @@ FROM public.import_job
 WHERE slug LIKE 'import_33_%' ORDER BY slug;
 
 \echo "Data table for Legal Units (import_33_lu_era):"
-SELECT row_id, state, errors, merge_status, action, operation, tax_ident, name FROM public.import_33_lu_era_data ORDER BY row_id;
+SELECT row_id, state, errors, merge_status, action, operation, tax_ident_raw, name_raw FROM public.import_33_lu_era_data ORDER BY row_id;
 
 \echo "Data table for Formal Establishments (import_33_esflu_era):"
-SELECT row_id, state, errors, merge_status, action, operation, tax_ident, legal_unit_tax_ident, name FROM public.import_33_esflu_era_data ORDER BY row_id;
+SELECT row_id, state, errors, merge_status, action, operation, tax_ident_raw, legal_unit_tax_ident_raw, name_raw FROM public.import_33_esflu_era_data ORDER BY row_id;
 
 \echo "Data table for Informal Establishments (import_33_eswlu_era):"
-SELECT row_id, state, errors, merge_status, action, operation, tax_ident, name FROM public.import_33_eswlu_era_data ORDER BY row_id;
+SELECT row_id, state, errors, merge_status, action, operation, tax_ident_raw, name_raw FROM public.import_33_eswlu_era_data ORDER BY row_id;
 
 \echo Run worker processing for initial analytics tasks
 CALL worker.process_tasks(p_queue => 'analytics');

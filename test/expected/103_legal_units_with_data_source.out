@@ -128,17 +128,17 @@ SELECT
 
 \echo "Inspecting import job data for import_32_lu_tc_ds"
 "Inspecting import job data for import_32_lu_tc_ds"
-SELECT row_id, state, errors, tax_ident, name, data_source_code, merge_status
+SELECT row_id, state, errors, tax_ident_raw, name_raw, data_source_code_raw, merge_status
 FROM public.import_32_lu_tc_ds_data
 ORDER BY row_id
 LIMIT 5;
- row_id |   state   | errors | tax_ident  |            name             | data_source_code |                                                                   merge_status                                                                    
---------+-----------+--------+------------+-----------------------------+------------------+---------------------------------------------------------------------------------------------------------------------------------------------------
-      1 | processed | {}     | 2212760144 | NILE PEARL WATER            | nlr              | {"legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
-      2 | processed | {}     | 2812760140 | EQUATOR GLOBE SOLUTIONS     | nlr              | {"legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
-      3 | processed | {}     | 2212760084 | EQUATOR CIRCLE CONSTRUCTION | nlr              | {"legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
-      4 | processed | {}     | 2612760138 | LIRA FRESH FRUIT EXPORTERS  | nlr              | {"legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
-      5 | processed | {}     | 2812760130 | ENTEBBE FUEL ENTERPRISES    | nlr              | {"legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+ row_id |   state   | errors | tax_ident_raw |          name_raw           | data_source_code_raw |                                                                   merge_status                                                                    
+--------+-----------+--------+---------------+-----------------------------+----------------------+---------------------------------------------------------------------------------------------------------------------------------------------------
+      1 | processed | {}     | 2212760144    | NILE PEARL WATER            | nlr                  | {"legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+      2 | processed | {}     | 2812760140    | EQUATOR GLOBE SOLUTIONS     | nlr                  | {"legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+      3 | processed | {}     | 2212760084    | EQUATOR CIRCLE CONSTRUCTION | nlr                  | {"legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+      4 | processed | {}     | 2612760138    | LIRA FRESH FRUIT EXPORTERS  | nlr                  | {"legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+      5 | processed | {}     | 2812760130    | ENTEBBE FUEL ENTERPRISES    | nlr                  | {"legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
 (5 rows)
 
 \echo "Checking import job status for import_32_lu_tc_ds"

@@ -123,7 +123,7 @@ FROM public.stat_for_unit sfu
 JOIN public.stat_definition sd ON sfu.stat_definition_id = sd.id
 -- Use a subquery to get a unique legal_unit_id to stat_ident mapping from the import table for reporting
 JOIN (
-    SELECT DISTINCT legal_unit_id, stat_ident
+    SELECT DISTINCT legal_unit_id, stat_ident_raw AS stat_ident
     FROM public.import_311_lu_partial_update_data
     WHERE state = 'processed' AND legal_unit_id IS NOT NULL
 ) idt ON sfu.legal_unit_id = idt.legal_unit_id

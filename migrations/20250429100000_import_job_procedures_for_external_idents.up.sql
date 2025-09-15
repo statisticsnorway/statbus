@@ -119,6 +119,7 @@ BEGIN
     -- Step 1: Unpivot provided identifiers and lookup existing units
     CREATE TEMP TABLE temp_unpivoted_idents (
         data_row_id INTEGER,
+        ident_type_code TEXT,
         source_ident_code TEXT, -- The code/column name from the _data table e.g. 'tax_ident'
         ident_value TEXT,
         ident_type_id INT,      -- Resolved ID from external_ident_type, NULL if source_ident_code is unknown
@@ -132,12 +133,14 @@ BEGIN
 
     v_unpivot_sql := '';
     v_add_separator := FALSE;
-    -- For external_idents step, the import_data_column.column_name *is* the external_ident_type.code
-    FOR v_col_rec IN SELECT value->>'column_name' as idc_column_name -- This is the actual external_ident_type.code
+    -- For external_idents step, the import_data_column.column_name is the raw source column (e.g., tax_ident_raw).
+    FOR v_col_rec IN SELECT
+                         value->>'column_name' as raw_column_name,
+                         replace(value->>'column_name', '_raw', '') as ident_code
                      FROM jsonb_array_elements(v_ident_data_cols) value
     LOOP
-        -- idc_column_name itself will be used to join with external_ident_type.code
-        IF v_col_rec.idc_column_name IS NULL THEN
+        -- The ident_code is used to join with external_ident_type.code
+        IF v_col_rec.raw_column_name IS NULL THEN
              RAISE DEBUG '[Job %] analyse_external_idents: Skipping column as its name is null in import_data_column_list for step external_idents.', p_job_id;
              CONTINUE;
         END IF;
@@ -145,17 +148,17 @@ BEGIN
         IF v_add_separator THEN v_unpivot_sql := v_unpivot_sql || ' UNION ALL '; END IF;
         v_unpivot_sql := v_unpivot_sql || format(
             $$SELECT dt.row_id,
-                     %1$L AS source_column_name_in_data_table, -- This is the name of the column in _data table (e.g., 'tax_ident')
-                     %2$L AS ident_type_code_to_join_on,     -- This is also the external_ident_type.code (e.g., 'tax_ident')
+                     %1$L AS source_column_name_in_data_table, -- This is the name of the column in _data table (e.g., 'tax_ident_raw')
+                     %2$L AS ident_type_code_to_join_on,     -- This is the external_ident_type.code (e.g., 'tax_ident')
                      NULLIF(dt.%3$I, '') AS ident_value
              FROM public.%4$I dt
              JOIN temp_relevant_rows tr ON tr.data_row_id = dt.row_id
              WHERE NULLIF(dt.%5$I, '') IS NOT NULL AND dt.action IS DISTINCT FROM 'skip'$$,
-             v_col_rec.idc_column_name, -- %1$L Name of column in _data table
-             v_col_rec.idc_column_name, -- %2$L Code to join with external_ident_type
-             v_col_rec.idc_column_name, -- %3$I Column to select value from in _data table
+             v_col_rec.raw_column_name, -- %1$L Name of column in _data table
+             v_col_rec.ident_code,      -- %2$L Code to join with external_ident_type
+             v_col_rec.raw_column_name, -- %3$I Column to select value from in _data table
              v_data_table_name,         -- %4$I
-             v_col_rec.idc_column_name  -- %5$I
+             v_col_rec.raw_column_name  -- %5$I
         );
         v_add_separator := TRUE;
     END LOOP;
@@ -212,9 +215,10 @@ BEGIN
             LEFT JOIN public.external_ident xi ON xi.type_id = xit.id AND xi.ident = di.ident_value
             LEFT JOIN public.establishment conflicting_est_table ON conflicting_est_table.id = xi.establishment_id
         )
-        INSERT INTO temp_unpivoted_idents (data_row_id, source_ident_code, ident_value, ident_type_id, resolved_lu_id, resolved_est_id, is_cross_type_conflict, conflicting_unit_jsonb, conflicting_est_is_formal)
+        INSERT INTO temp_unpivoted_idents (data_row_id, ident_type_code, source_ident_code, ident_value, ident_type_id, resolved_lu_id, resolved_est_id, is_cross_type_conflict, conflicting_unit_jsonb, conflicting_est_is_formal)
         SELECT
             up.data_row_id,
+            up.ident_type_code,
             up.source_ident_code,
             up.ident_value,
             rdi.ident_type_id,
@@ -228,17 +232,17 @@ BEGIN
             END AS is_cross_type_conflict,
             CASE %1$L -- v_job_mode
                 WHEN 'legal_unit' THEN
-                    CASE WHEN rdi.resolved_est_id IS NOT NULL THEN jsonb_build_object(up.ident_type_code, up.ident_value) ELSE NULL END
+                    CASE WHEN rdi.resolved_est_id IS NOT NULL THEN jsonb_build_object(up.source_ident_code, up.ident_value) ELSE NULL END
                 WHEN 'establishment_formal' THEN
                     CASE
-                        WHEN rdi.resolved_lu_id IS NOT NULL THEN jsonb_build_object(up.ident_type_code, up.ident_value)
-                        WHEN rdi.resolved_est_id IS NOT NULL AND NOT rdi.conflicting_est_is_formal THEN jsonb_build_object(up.ident_type_code, up.ident_value)
+                        WHEN rdi.resolved_lu_id IS NOT NULL THEN jsonb_build_object(up.source_ident_code, up.ident_value)
+                        WHEN rdi.resolved_est_id IS NOT NULL AND NOT rdi.conflicting_est_is_formal THEN jsonb_build_object(up.source_ident_code, up.ident_value)
                         ELSE NULL
                     END
                 WHEN 'establishment_informal' THEN
                     CASE
-                        WHEN rdi.resolved_lu_id IS NOT NULL THEN jsonb_build_object(up.ident_type_code, up.ident_value)
-                        WHEN rdi.resolved_est_id IS NOT NULL AND rdi.conflicting_est_is_formal THEN jsonb_build_object(up.ident_type_code, up.ident_value)
+                        WHEN rdi.resolved_lu_id IS NOT NULL THEN jsonb_build_object(up.source_ident_code, up.ident_value)
+                        WHEN rdi.resolved_est_id IS NOT NULL AND rdi.conflicting_est_is_formal THEN jsonb_build_object(up.source_ident_code, up.ident_value)
                         ELSE NULL
                     END
                 ELSE NULL
@@ -294,7 +298,7 @@ BEGIN
                 COUNT(DISTINCT tui.resolved_est_id) FILTER (WHERE tui.resolved_est_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS distinct_est_ids,
                 MAX(tui.resolved_lu_id) FILTER (WHERE tui.resolved_lu_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS final_lu_id,
                 MAX(tui.resolved_est_id) FILTER (WHERE tui.resolved_est_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS final_est_id,
-                jsonb_object_agg(tui.source_ident_code, tui.ident_value) FILTER (WHERE tui.ident_type_id IS NOT NULL AND tui.ident_value IS NOT NULL) AS entity_signature,
+                jsonb_object_agg(tui.ident_type_code, tui.ident_value) FILTER (WHERE tui.ident_type_id IS NOT NULL AND tui.ident_value IS NOT NULL) AS entity_signature,
                 -- Aggregate cross-type conflicts: key is source_ident_code, value is conflict message
                 jsonb_object_agg(
                     tui.source_ident_code,
@@ -322,7 +326,7 @@ BEGIN
         RowChecks AS ( -- Stage 2: Join original rows with the safe, pre-aggregated identifier data.
             SELECT
                 orig.data_row_id,
-                dt.derived_valid_from,
+                dt.valid_from,
                 -- Explicitly list columns from AggregatedIdents to avoid pulling in its data_row_id,
                 -- which would create an ambiguous column reference in later CTEs.
                 ai.num_raw_idents_with_value,
@@ -344,8 +348,8 @@ BEGIN
         OrderedBatchEntities AS ( -- Orders rows within the batch that share the same entity signature
             SELECT
                 rc.*, -- Select all columns from RowChecks
-                ROW_NUMBER() OVER (PARTITION BY rc.entity_signature ORDER BY rc.derived_valid_from NULLS LAST, rc.data_row_id) as rn_in_batch_for_entity,
-                FIRST_VALUE(rc.data_row_id) OVER (PARTITION BY rc.entity_signature ORDER BY rc.derived_valid_from NULLS LAST, rc.data_row_id) as actual_founding_row_id
+                ROW_NUMBER() OVER (PARTITION BY rc.entity_signature ORDER BY rc.valid_from NULLS LAST, rc.data_row_id) as rn_in_batch_for_entity,
+                FIRST_VALUE(rc.data_row_id) OVER (PARTITION BY rc.entity_signature ORDER BY rc.valid_from NULLS LAST, rc.data_row_id) as actual_founding_row_id
             FROM RowChecks rc
         ),
         -- OPTIMIZED: Pre-calculates existing identifiers for all entities found in the batch.
@@ -379,7 +383,7 @@ BEGIN
                 -- OPTIMIZED: Replaced correlated subquery with a join to the pre-aggregated ExistingIdents CTE
                 (
                     SELECT jsonb_object_agg(
-                        input_data.ident_code,
+                        input_data.ident_code || '_raw',
                         'Identifier ' || input_data.ident_code || ' value ''' || input_data.input_value || ''' from input attempts to change existing value ''' || (existing.idents->>input_data.ident_code) || ''''
                     )
                     FROM (SELECT key AS ident_code, value#>>'{}' AS input_value FROM jsonb_each(obe.entity_signature)) AS input_data
@@ -622,20 +626,22 @@ BEGIN
     END IF;
 
     -- Loop through each identifier type found in the data columns for this step
-    FOR v_col_rec IN 
-        SELECT 
-            value->>'column_name' as source_column_name 
-        FROM jsonb_array_elements(v_ident_data_cols) value 
+    FOR v_col_rec IN
+        SELECT
+            value->>'column_name' as raw_column_name,
+            replace(value->>'column_name', '_raw', '') as ident_code
+        FROM jsonb_array_elements(v_ident_data_cols) value
     LOOP
         -- Find the corresponding external_ident_type record
-        SELECT * INTO v_ident_type_rec FROM public.external_ident_type_active WHERE code = v_col_rec.source_column_name;
+        SELECT * INTO v_ident_type_rec FROM public.external_ident_type_active WHERE code = v_col_rec.ident_code;
         IF NOT FOUND THEN
-            RAISE DEBUG '[Job %] helper_process_external_idents: Skipping source column ''%'' as it does not correspond to an active external_ident_type.', p_job_id, v_col_rec.source_column_name;
+            RAISE DEBUG '[Job %] helper_process_external_idents: Skipping source column ''%'' as its base code ''%'' does not correspond to an active external_ident_type.', p_job_id, v_col_rec.raw_column_name, v_col_rec.ident_code;
             CONTINUE;
         END IF;
+
+        RAISE DEBUG '[Job %] helper_process_external_idents: Processing identifier type: % (column: %)', p_job_id, v_ident_type_rec.code, v_col_rec.raw_column_name;
         
-        RAISE DEBUG '[Job %] helper_process_external_idents: Processing identifier type: % (column: %)', p_job_id, v_ident_type_rec.code, v_col_rec.source_column_name;
-        
+        -- Dynamically build and execute the MERGE statement for this identifier type.
         -- Dynamically build and execute the MERGE statement for this identifier type.
         v_sql := format(
             $SQL$
@@ -685,12 +691,12 @@ BEGIN
                     s.edit_comment
                 );
             $SQL$,
-            v_unit_id_col_name,         -- %1$I
-            v_ident_type_rec.id,        -- %2$L
-            v_col_rec.source_column_name, -- %3$I
-            v_data_table_name,          -- %4$I
-            p_batch_row_ids,            -- %5$L
-            v_unit_type                 -- %6$L
+            v_unit_id_col_name,           -- %1$I
+            v_ident_type_rec.id,          -- %2$L
+            v_col_rec.raw_column_name,    -- %3$I
+            v_data_table_name,            -- %4$I
+            p_batch_row_ids,              -- %5$L
+            v_unit_type                   -- %6$L
         );
         
         EXECUTE v_sql;

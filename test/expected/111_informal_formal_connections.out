@@ -156,29 +156,29 @@ WHERE slug LIKE 'import_33_%' ORDER BY slug;
 
 \echo "Data table for Legal Units (import_33_lu_era):"
 "Data table for Legal Units (import_33_lu_era):"
-SELECT row_id, state, errors, merge_status, action, operation, tax_ident, name FROM public.import_33_lu_era_data ORDER BY row_id;
- row_id |   state   | errors |                                                                   merge_status                                                                    | action | operation | tax_ident  |          name           
---------+-----------+--------+---------------------------------------------------------------------------------------------------------------------------------------------------+--------+-----------+------------+-------------------------
-      1 | processed | {}     | {"legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | use    | insert    | 2212760144 | NILE PEARL WATER
-      2 | processed | {}     | {"legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | use    | insert    | 2812760140 | EQUATOR GLOBE SOLUTIONS
+SELECT row_id, state, errors, merge_status, action, operation, tax_ident_raw, name_raw FROM public.import_33_lu_era_data ORDER BY row_id;
+ row_id |   state   | errors |                                                                   merge_status                                                                    | action | operation | tax_ident_raw |        name_raw         
+--------+-----------+--------+---------------------------------------------------------------------------------------------------------------------------------------------------+--------+-----------+---------------+-------------------------
+      1 | processed | {}     | {"legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | use    | insert    | 2212760144    | NILE PEARL WATER
+      2 | processed | {}     | {"legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | use    | insert    | 2812760140    | EQUATOR GLOBE SOLUTIONS
 (2 rows)
 
 \echo "Data table for Formal Establishments (import_33_esflu_era):"
 "Data table for Formal Establishments (import_33_esflu_era):"
-SELECT row_id, state, errors, merge_status, action, operation, tax_ident, legal_unit_tax_ident, name FROM public.import_33_esflu_era_data ORDER BY row_id;
- row_id |   state   | errors |                                                                     merge_status                                                                     | action | operation |  tax_ident  | legal_unit_tax_ident |          name           
---------+-----------+--------+------------------------------------------------------------------------------------------------------------------------------------------------------+--------+-----------+-------------+----------------------+-------------------------
-      1 | processed | {}     | {"establishment": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | use    | insert    | 92212760144 | 2212760144           | NILE PEARL WATER
-      2 | processed | {}     | {"establishment": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | use    | insert    | 92812760140 | 2812760140           | EQUATOR GLOBE SOLUTIONS
+SELECT row_id, state, errors, merge_status, action, operation, tax_ident_raw, legal_unit_tax_ident_raw, name_raw FROM public.import_33_esflu_era_data ORDER BY row_id;
+ row_id |   state   | errors |                                                                     merge_status                                                                     | action | operation | tax_ident_raw | legal_unit_tax_ident_raw |        name_raw         
+--------+-----------+--------+------------------------------------------------------------------------------------------------------------------------------------------------------+--------+-----------+---------------+--------------------------+-------------------------
+      1 | processed | {}     | {"establishment": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | use    | insert    | 92212760144   | 2212760144               | NILE PEARL WATER
+      2 | processed | {}     | {"establishment": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | use    | insert    | 92812760140   | 2812760140               | EQUATOR GLOBE SOLUTIONS
 (2 rows)
 
 \echo "Data table for Informal Establishments (import_33_eswlu_era):"
 "Data table for Informal Establishments (import_33_eswlu_era):"
-SELECT row_id, state, errors, merge_status, action, operation, tax_ident, name FROM public.import_33_eswlu_era_data ORDER BY row_id;
- row_id |   state   | errors |                                                                     merge_status                                                                     | action | operation |  tax_ident  |             name              
---------+-----------+--------+------------------------------------------------------------------------------------------------------------------------------------------------------+--------+-----------+-------------+-------------------------------
-      1 | processed | {}     | {"establishment": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | use    | insert    | 82212760144 | THE INFORMAL NILE PEARL WATER
-      2 | processed | {}     | {"establishment": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | use    | insert    | 82812760140 | THE EQUATOR GLOBE SOLUTIONS
+SELECT row_id, state, errors, merge_status, action, operation, tax_ident_raw, name_raw FROM public.import_33_eswlu_era_data ORDER BY row_id;
+ row_id |   state   | errors |                                                                     merge_status                                                                     | action | operation | tax_ident_raw |           name_raw            
+--------+-----------+--------+------------------------------------------------------------------------------------------------------------------------------------------------------+--------+-----------+---------------+-------------------------------
+      1 | processed | {}     | {"establishment": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | use    | insert    | 82212760144   | THE INFORMAL NILE PEARL WATER
+      2 | processed | {}     | {"establishment": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | use    | insert    | 82812760140   | THE EQUATOR GLOBE SOLUTIONS
 (2 rows)
 
 \echo Run worker processing for initial analytics tasks

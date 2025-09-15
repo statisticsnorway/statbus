@@ -203,68 +203,68 @@ ORDER BY act.valid_from, act.type;
 
 \echo "Row-level errors for job import_es_2015_sht (table import_es_2015_sht_data):"
 SELECT row_id, state, errors, invalid_codes, merge_status,
-       tax_ident::TEXT AS tax_ident,
-       name::TEXT AS name,
-       legal_unit_tax_ident::TEXT AS legal_unit_tax_ident
+       tax_ident_raw::TEXT AS tax_ident,
+       name_raw::TEXT AS name,
+       legal_unit_tax_ident_raw::TEXT AS legal_unit_tax_ident
 FROM public.import_es_2015_sht_data
 WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;
 
 \echo "Row-level errors for job import_es_2016_sht (table import_es_2016_sht_data):"
 SELECT row_id, state, errors, invalid_codes, merge_status,
-       tax_ident::TEXT AS tax_ident,
-       name::TEXT AS name,
-       legal_unit_tax_ident::TEXT AS legal_unit_tax_ident
+       tax_ident_raw::TEXT AS tax_ident,
+       name_raw::TEXT AS name,
+       legal_unit_tax_ident_raw::TEXT AS legal_unit_tax_ident
 FROM public.import_es_2016_sht_data
 WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;
 
 \echo "Row-level errors for job import_es_2017_sht (table import_es_2017_sht_data):"
 SELECT row_id, state, errors, invalid_codes, merge_status,
-       tax_ident::TEXT AS tax_ident,
-       name::TEXT AS name,
-       legal_unit_tax_ident::TEXT AS legal_unit_tax_ident
+       tax_ident_raw::TEXT AS tax_ident,
+       name_raw::TEXT AS name,
+       legal_unit_tax_ident_raw::TEXT AS legal_unit_tax_ident
 FROM public.import_es_2017_sht_data
 WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;
 
 \echo "Row-level errors for job import_es_2018_sht (table import_es_2018_sht_data):"
 SELECT row_id, state, errors, invalid_codes, merge_status,
-       tax_ident::TEXT AS tax_ident,
-       name::TEXT AS name,
-       legal_unit_tax_ident::TEXT AS legal_unit_tax_ident
+       tax_ident_raw::TEXT AS tax_ident,
+       name_raw::TEXT AS name,
+       legal_unit_tax_ident_raw::TEXT AS legal_unit_tax_ident
 FROM public.import_es_2018_sht_data
 WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;
 
 \echo "Row-level errors for job import_lu_2015_sht (table import_lu_2015_sht_data):"
 SELECT row_id, state, errors, invalid_codes, merge_status,
-       tax_ident::TEXT AS tax_ident,
-       name::TEXT AS name
+       tax_ident_raw::TEXT AS tax_ident,
+       name_raw::TEXT AS name
 FROM public.import_lu_2015_sht_data
 WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;
 
 \echo "Row-level errors for job import_lu_2016_sht (table import_lu_2016_sht_data):"
 SELECT row_id, state, errors, invalid_codes, merge_status,
-       tax_ident::TEXT AS tax_ident,
-       name::TEXT AS name
+       tax_ident_raw::TEXT AS tax_ident,
+       name_raw::TEXT AS name
 FROM public.import_lu_2016_sht_data
 WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;
 
 \echo "Row-level errors for job import_lu_2017_sht (table import_lu_2017_sht_data):"
 SELECT row_id, state, errors, invalid_codes, merge_status,
-       tax_ident::TEXT AS tax_ident,
-       name::TEXT AS name
+       tax_ident_raw::TEXT AS tax_ident,
+       name_raw::TEXT AS name
 FROM public.import_lu_2017_sht_data
 WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;
 
 \echo "Row-level errors for job import_lu_2018_sht (table import_lu_2018_sht_data):"
 SELECT row_id, state, errors, invalid_codes, merge_status,
-       tax_ident::TEXT AS tax_ident,
-       name::TEXT AS name
+       tax_ident_raw::TEXT AS tax_ident,
+       name_raw::TEXT AS name
 FROM public.import_lu_2018_sht_data
 WHERE state = 'error' OR errors IS DISTINCT FROM '{}'::jsonb
 ORDER BY row_id;

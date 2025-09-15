@@ -190,7 +190,7 @@ BEGIN
             FROM public.import_definition_step ds
             JOIN public.import_data_column dc ON ds.step_id = dc.step_id
             WHERE ds.definition_id = def_id
-              AND dc.column_name = map_rec.target_name
+              AND dc.column_name = map_rec.target_name || '_raw'
               AND dc.purpose = 'source_input';
 
             IF v_data_col_id IS NOT NULL THEN
@@ -224,7 +224,7 @@ BEGIN
         SELECT def_id, 'default'::public.import_source_expression, dc.id
         FROM public.import_data_column dc
         WHERE dc.step_id = v_valid_time_step_id
-          AND dc.column_name IN ('valid_from', 'valid_to')
+          AND dc.column_name IN ('valid_from_raw', 'valid_to_raw')
           AND dc.purpose = 'source_input'
         ON CONFLICT DO NOTHING;
     END;
@@ -238,7 +238,7 @@ BEGIN
         UPDATE public.import_data_column
         SET is_uniquely_identifying = true
         WHERE step_id = v_idents_step_id -- Use step_id
-          AND column_name = 'tax_ident'
+          AND column_name = 'tax_ident_raw'
           AND purpose = 'source_input';
     END; -- End of the inner BEGIN/END block
     
@@ -357,7 +357,7 @@ BEGIN
             FROM public.import_definition_step ds
             JOIN public.import_data_column dc ON ds.step_id = dc.step_id
             WHERE ds.definition_id = def_id
-              AND dc.column_name = map_rec.target_name
+              AND dc.column_name = map_rec.target_name || '_raw'
               AND dc.purpose = 'source_input';
 
             IF v_data_col_id IS NOT NULL THEN
@@ -391,7 +391,7 @@ BEGIN
         SELECT def_id, 'default'::public.import_source_expression, dc.id
         FROM public.import_data_column dc
         WHERE dc.step_id = v_valid_time_step_id
-          AND dc.column_name IN ('valid_from', 'valid_to')
+          AND dc.column_name IN ('valid_from_raw', 'valid_to_raw')
           AND dc.purpose = 'source_input'
         ON CONFLICT DO NOTHING;
     END;
@@ -405,7 +405,7 @@ BEGIN
         UPDATE public.import_data_column
         SET is_uniquely_identifying = true
         WHERE step_id = v_idents_step_id -- Use step_id
-          AND column_name = 'tax_ident'
+          AND column_name = 'tax_ident_raw'
           AND purpose = 'source_input';
     END; -- End of the inner BEGIN/END block
 
@@ -452,107 +452,127 @@ FROM def;
 \echo '--- Debugging Schema for Job import_10_lu_2015_sht ---'
 --- Debugging Schema for Job import_10_lu_2015_sht ---
 \d+ public.import_10_lu_2015_sht_data
-                                                         Table "public.import_10_lu_2015_sht_data"
-              Column              |           Type            | Collation | Nullable |           Default            | Storage  | Stats target | Description 
-----------------------------------+---------------------------+-----------+----------+------------------------------+----------+--------------+-------------
- row_id                           | integer                   |           | not null | generated always as identity | plain    |              | 
- valid_from                       | text                      |           |          |                              | extended |              | 
- valid_to                         | text                      |           |          |                              | extended |              | 
- derived_valid_from               | date                      |           |          |                              | plain    |              | 
- derived_valid_to                 | date                      |           |          |                              | plain    |              | 
- derived_valid_until              | date                      |           |          |                              | plain    |              | 
- operation                        | import_row_operation_type |           |          |                              | plain    |              | 
- action                           | import_row_action_type    |           |          |                              | plain    |              | 
- legal_unit_id                    | integer                   |           |          |                              | plain    |              | 
- establishment_id                 | integer                   |           |          |                              | plain    |              | 
- tax_ident                        | text                      |           |          |                              | extended |              | 
- stat_ident                       | text                      |           |          |                              | extended |              | 
- data_source_code                 | text                      |           |          |                              | extended |              | 
- data_source_id                   | integer                   |           |          |                              | plain    |              | 
- status_code                      | text                      |           |          |                              | extended |              | 
- status_id                        | integer                   |           |          |                              | plain    |              | 
- enterprise_id                    | integer                   |           |          |                              | plain    |              | 
- primary_for_enterprise           | boolean                   |           |          |                              | plain    |              | 
- name                             | text                      |           |          |                              | extended |              | 
- birth_date                       | text                      |           |          |                              | extended |              | 
- death_date                       | text                      |           |          |                              | extended |              | 
- sector_code                      | text                      |           |          |                              | extended |              | 
- unit_size_code                   | text                      |           |          |                              | extended |              | 
- legal_form_code                  | text                      |           |          |                              | extended |              | 
- sector_id                        | integer                   |           |          |                              | plain    |              | 
- unit_size_id                     | integer                   |           |          |                              | plain    |              | 
- legal_form_id                    | integer                   |           |          |                              | plain    |              | 
- typed_birth_date                 | date                      |           |          |                              | plain    |              | 
- typed_death_date                 | date                      |           |          |                              | plain    |              | 
- physical_address_part1           | text                      |           |          |                              | extended |              | 
- physical_address_part2           | text                      |           |          |                              | extended |              | 
- physical_address_part3           | text                      |           |          |                              | extended |              | 
- physical_postcode                | text                      |           |          |                              | extended |              | 
- physical_postplace               | text                      |           |          |                              | extended |              | 
- physical_latitude                | text                      |           |          |                              | extended |              | 
- physical_longitude               | text                      |           |          |                              | extended |              | 
- physical_altitude                | text                      |           |          |                              | extended |              | 
- physical_region_code             | text                      |           |          |                              | extended |              | 
- physical_country_iso_2           | text                      |           |          |                              | extended |              | 
- physical_location_id             | integer                   |           |          |                              | plain    |              | 
- physical_region_id               | integer                   |           |          |                              | plain    |              | 
- physical_country_id              | integer                   |           |          |                              | plain    |              | 
- typed_physical_latitude          | numeric(9,6)              |           |          |                              | main     |              | 
- typed_physical_longitude         | numeric(9,6)              |           |          |                              | main     |              | 
- typed_physical_altitude          | numeric(6,1)              |           |          |                              | main     |              | 
- postal_address_part1             | text                      |           |          |                              | extended |              | 
- postal_address_part2             | text                      |           |          |                              | extended |              | 
- postal_address_part3             | text                      |           |          |                              | extended |              | 
- postal_postcode                  | text                      |           |          |                              | extended |              | 
- postal_postplace                 | text                      |           |          |                              | extended |              | 
- postal_region_code               | text                      |           |          |                              | extended |              | 
- postal_country_iso_2             | text                      |           |          |                              | extended |              | 
- postal_latitude                  | text                      |           |          |                              | extended |              | 
- postal_longitude                 | text                      |           |          |                              | extended |              | 
- postal_altitude                  | text                      |           |          |                              | extended |              | 
- postal_location_id               | integer                   |           |          |                              | plain    |              | 
- postal_region_id                 | integer                   |           |          |                              | plain    |              | 
- postal_country_id                | integer                   |           |          |                              | plain    |              | 
- typed_postal_latitude            | numeric(9,6)              |           |          |                              | main     |              | 
- typed_postal_longitude           | numeric(9,6)              |           |          |                              | main     |              | 
- typed_postal_altitude            | numeric(6,1)              |           |          |                              | main     |              | 
- primary_activity_category_code   | text                      |           |          |                              | extended |              | 
- primary_activity_id              | integer                   |           |          |                              | plain    |              | 
- primary_activity_category_id     | integer                   |           |          |                              | plain    |              | 
- secondary_activity_category_code | text                      |           |          |                              | extended |              | 
- secondary_activity_id            | integer                   |           |          |                              | plain    |              | 
- secondary_activity_category_id   | integer                   |           |          |                              | plain    |              | 
- web_address                      | text                      |           |          |                              | extended |              | 
- email_address                    | text                      |           |          |                              | extended |              | 
- phone_number                     | text                      |           |          |                              | extended |              | 
- landline                         | text                      |           |          |                              | extended |              | 
- mobile_number                    | text                      |           |          |                              | extended |              | 
- fax_number                       | text                      |           |          |                              | extended |              | 
- contact_id                       | integer                   |           |          |                              | plain    |              | 
- employees                        | text                      |           |          |                              | extended |              | 
- turnover                         | text                      |           |          |                              | extended |              | 
- stat_for_unit_employees_id       | integer                   |           |          |                              | plain    |              | 
- stat_for_unit_turnover_id        | integer                   |           |          |                              | plain    |              | 
- tag_path                         | text                      |           |          |                              | extended |              | 
- tag_path_ltree                   | ltree                     |           |          |                              | extended |              | 
- tag_id                           | integer                   |           |          |                              | plain    |              | 
- tag_for_unit_id                  | integer                   |           |          |                              | plain    |              | 
- edit_by_user_id                  | integer                   |           |          |                              | plain    |              | 
- edit_at                          | timestamp with time zone  |           |          |                              | plain    |              | 
- edit_comment                     | text                      |           |          |                              | extended |              | 
- founding_row_id                  | integer                   |           |          |                              | plain    |              | 
- state                            | import_data_state         |           | not null | 'pending'::import_data_state | plain    |              | 
- last_completed_priority          | integer                   |           | not null | 0                            | plain    |              | 
- errors                           | jsonb                     |           | not null | '{}'::jsonb                  | extended |              | 
- merge_status                     | jsonb                     |           | not null | '{}'::jsonb                  | extended |              | 
- invalid_codes                    | jsonb                     |           | not null | '{}'::jsonb                  | extended |              | 
+                                                           Table "public.import_10_lu_2015_sht_data"
+                Column                |           Type            | Collation | Nullable |           Default            | Storage  | Stats target | Description 
+--------------------------------------+---------------------------+-----------+----------+------------------------------+----------+--------------+-------------
+ row_id                               | integer                   |           | not null | generated always as identity | plain    |              | 
+ valid_from_raw                       | text                      |           |          |                              | extended |              | 
+ valid_to_raw                         | text                      |           |          |                              | extended |              | 
+ valid_from                           | date                      |           |          |                              | plain    |              | 
+ valid_to                             | date                      |           |          |                              | plain    |              | 
+ valid_until                          | date                      |           |          |                              | plain    |              | 
+ operation                            | import_row_operation_type |           |          |                              | plain    |              | 
+ action                               | import_row_action_type    |           |          |                              | plain    |              | 
+ legal_unit_id                        | integer                   |           |          |                              | plain    |              | 
+ establishment_id                     | integer                   |           |          |                              | plain    |              | 
+ tax_ident_raw                        | text                      |           |          |                              | extended |              | 
+ stat_ident_raw                       | text                      |           |          |                              | extended |              | 
+ data_source_code_raw                 | text                      |           |          |                              | extended |              | 
+ data_source_id                       | integer                   |           |          |                              | plain    |              | 
+ status_code_raw                      | text                      |           |          |                              | extended |              | 
+ status_id                            | integer                   |           |          |                              | plain    |              | 
+ enterprise_id                        | integer                   |           |          |                              | plain    |              | 
+ primary_for_enterprise               | boolean                   |           |          |                              | plain    |              | 
+ name_raw                             | text                      |           |          |                              | extended |              | 
+ name                                 | text                      |           |          |                              | extended |              | 
+ birth_date_raw                       | text                      |           |          |                              | extended |              | 
+ death_date_raw                       | text                      |           |          |                              | extended |              | 
+ sector_code_raw                      | text                      |           |          |                              | extended |              | 
+ unit_size_code_raw                   | text                      |           |          |                              | extended |              | 
+ legal_form_code_raw                  | text                      |           |          |                              | extended |              | 
+ sector_id                            | integer                   |           |          |                              | plain    |              | 
+ unit_size_id                         | integer                   |           |          |                              | plain    |              | 
+ legal_form_id                        | integer                   |           |          |                              | plain    |              | 
+ birth_date                           | date                      |           |          |                              | plain    |              | 
+ death_date                           | date                      |           |          |                              | plain    |              | 
+ physical_address_part1_raw           | text                      |           |          |                              | extended |              | 
+ physical_address_part1               | text                      |           |          |                              | extended |              | 
+ physical_address_part2_raw           | text                      |           |          |                              | extended |              | 
+ physical_address_part2               | text                      |           |          |                              | extended |              | 
+ physical_address_part3_raw           | text                      |           |          |                              | extended |              | 
+ physical_address_part3               | text                      |           |          |                              | extended |              | 
+ physical_postcode_raw                | text                      |           |          |                              | extended |              | 
+ physical_postcode                    | text                      |           |          |                              | extended |              | 
+ physical_postplace_raw               | text                      |           |          |                              | extended |              | 
+ physical_postplace                   | text                      |           |          |                              | extended |              | 
+ physical_latitude_raw                | text                      |           |          |                              | extended |              | 
+ physical_longitude_raw               | text                      |           |          |                              | extended |              | 
+ physical_altitude_raw                | text                      |           |          |                              | extended |              | 
+ physical_region_code_raw             | text                      |           |          |                              | extended |              | 
+ physical_country_iso_2_raw           | text                      |           |          |                              | extended |              | 
+ physical_location_id                 | integer                   |           |          |                              | plain    |              | 
+ physical_region_id                   | integer                   |           |          |                              | plain    |              | 
+ physical_country_id                  | integer                   |           |          |                              | plain    |              | 
+ physical_latitude                    | numeric(9,6)              |           |          |                              | main     |              | 
+ physical_longitude                   | numeric(9,6)              |           |          |                              | main     |              | 
+ physical_altitude                    | numeric(6,1)              |           |          |                              | main     |              | 
+ postal_address_part1_raw             | text                      |           |          |                              | extended |              | 
+ postal_address_part1                 | text                      |           |          |                              | extended |              | 
+ postal_address_part2_raw             | text                      |           |          |                              | extended |              | 
+ postal_address_part2                 | text                      |           |          |                              | extended |              | 
+ postal_address_part3_raw             | text                      |           |          |                              | extended |              | 
+ postal_address_part3                 | text                      |           |          |                              | extended |              | 
+ postal_postcode_raw                  | text                      |           |          |                              | extended |              | 
+ postal_postcode                      | text                      |           |          |                              | extended |              | 
+ postal_postplace_raw                 | text                      |           |          |                              | extended |              | 
+ postal_postplace                     | text                      |           |          |                              | extended |              | 
+ postal_region_code_raw               | text                      |           |          |                              | extended |              | 
+ postal_country_iso_2_raw             | text                      |           |          |                              | extended |              | 
+ postal_latitude_raw                  | text                      |           |          |                              | extended |              | 
+ postal_longitude_raw                 | text                      |           |          |                              | extended |              | 
+ postal_altitude_raw                  | text                      |           |          |                              | extended |              | 
+ postal_location_id                   | integer                   |           |          |                              | plain    |              | 
+ postal_region_id                     | integer                   |           |          |                              | plain    |              | 
+ postal_country_id                    | integer                   |           |          |                              | plain    |              | 
+ postal_latitude                      | numeric(9,6)              |           |          |                              | main     |              | 
+ postal_longitude                     | numeric(9,6)              |           |          |                              | main     |              | 
+ postal_altitude                      | numeric(6,1)              |           |          |                              | main     |              | 
+ primary_activity_category_code_raw   | text                      |           |          |                              | extended |              | 
+ primary_activity_id                  | integer                   |           |          |                              | plain    |              | 
+ primary_activity_category_id         | integer                   |           |          |                              | plain    |              | 
+ secondary_activity_category_code_raw | text                      |           |          |                              | extended |              | 
+ secondary_activity_id                | integer                   |           |          |                              | plain    |              | 
+ secondary_activity_category_id       | integer                   |           |          |                              | plain    |              | 
+ web_address_raw                      | text                      |           |          |                              | extended |              | 
+ web_address                          | text                      |           |          |                              | extended |              | 
+ email_address_raw                    | text                      |           |          |                              | extended |              | 
+ email_address                        | text                      |           |          |                              | extended |              | 
+ phone_number_raw                     | text                      |           |          |                              | extended |              | 
+ phone_number                         | text                      |           |          |                              | extended |              | 
+ landline_raw                         | text                      |           |          |                              | extended |              | 
+ landline                             | text                      |           |          |                              | extended |              | 
+ mobile_number_raw                    | text                      |           |          |                              | extended |              | 
+ mobile_number                        | text                      |           |          |                              | extended |              | 
+ fax_number_raw                       | text                      |           |          |                              | extended |              | 
+ fax_number                           | text                      |           |          |                              | extended |              | 
+ contact_id                           | integer                   |           |          |                              | plain    |              | 
+ employees_raw                        | text                      |           |          |                              | extended |              | 
+ turnover_raw                         | text                      |           |          |                              | extended |              | 
+ employees                            | integer                   |           |          |                              | plain    |              | 
+ turnover                             | numeric                   |           |          |                              | main     |              | 
+ stat_for_unit_employees_id           | integer                   |           |          |                              | plain    |              | 
+ stat_for_unit_turnover_id            | integer                   |           |          |                              | plain    |              | 
+ tag_path_raw                         | text                      |           |          |                              | extended |              | 
+ tag_path                             | ltree                     |           |          |                              | extended |              | 
+ tag_id                               | integer                   |           |          |                              | plain    |              | 
+ tag_for_unit_id                      | integer                   |           |          |                              | plain    |              | 
+ edit_comment_raw                     | text                      |           |          |                              | extended |              | 
+ edit_by_user_id                      | integer                   |           |          |                              | plain    |              | 
+ edit_at                              | timestamp with time zone  |           |          |                              | plain    |              | 
+ edit_comment                         | text                      |           |          |                              | extended |              | 
+ founding_row_id                      | integer                   |           |          |                              | plain    |              | 
+ state                                | import_data_state         |           | not null | 'pending'::import_data_state | plain    |              | 
+ last_completed_priority              | integer                   |           | not null | 0                            | plain    |              | 
+ errors                               | jsonb                     |           | not null | '{}'::jsonb                  | extended |              | 
+ merge_status                         | jsonb                     |           | not null | '{}'::jsonb                  | extended |              | 
+ invalid_codes                        | jsonb                     |           | not null | '{}'::jsonb                  | extended |              | 
 Indexes:
     "import_10_lu_2015_sht_data_pkey" PRIMARY KEY, btree (row_id)
     "import_10_lu_2015_sht_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "import_10_lu_2015_sht_data_processing_batch_idx" btree (COALESCE(founding_row_id, row_id)) WHERE state = 'processing'::import_data_state AND action = 'use'::import_row_action_type
-    "import_10_lu_2015_sht_data_stat_ident_idx" btree (stat_ident)
+    "import_10_lu_2015_sht_data_stat_ident_raw_idx" btree (stat_ident_raw)
     "import_10_lu_2015_sht_data_state_last_completed_priority_ro_idx" btree (state, last_completed_priority, row_id)
-    "import_10_lu_2015_sht_data_tax_ident_idx" btree (tax_ident)
+    "import_10_lu_2015_sht_data_tax_ident_raw_idx" btree (tax_ident_raw)
 Policies:
     POLICY "import_10_lu_2015_sht_data_admin_user_manage"
       TO admin_user

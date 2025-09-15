@@ -345,41 +345,41 @@ BEGIN
 
     -- The following checks ensure the mappings for 'valid_from' and 'valid_to' are consistent with the chosen time validity mode.
     IF v_definition.valid_time_from = 'source_columns' THEN
-        -- Check that 'valid_from' and 'valid_to' are mapped from source columns.
+        -- Check that 'valid_from_raw' and 'valid_to_raw' are mapped from source columns.
         SELECT EXISTS (
             SELECT 1 FROM public.import_mapping im
             JOIN public.import_data_column idc ON im.target_data_column_id = idc.id JOIN public.import_step s ON idc.step_id = s.id
-            WHERE im.definition_id = p_definition_id AND s.code = 'valid_time' AND idc.column_name = 'valid_from' AND im.source_column_id IS NOT NULL AND im.is_ignored = FALSE
+            WHERE im.definition_id = p_definition_id AND s.code = 'valid_time' AND idc.column_name = 'valid_from_raw' AND im.source_column_id IS NOT NULL AND im.is_ignored = FALSE
         ) INTO v_has_valid_from_mapping;
         SELECT EXISTS (
             SELECT 1 FROM public.import_mapping im
             JOIN public.import_data_column idc ON im.target_data_column_id = idc.id JOIN public.import_step s ON idc.step_id = s.id
-            WHERE im.definition_id = p_definition_id AND s.code = 'valid_time' AND idc.column_name = 'valid_to' AND im.source_column_id IS NOT NULL AND im.is_ignored = FALSE
+            WHERE im.definition_id = p_definition_id AND s.code = 'valid_time' AND idc.column_name = 'valid_to_raw' AND im.source_column_id IS NOT NULL AND im.is_ignored = FALSE
         ) INTO v_has_valid_to_mapping;
 
         IF NOT (v_has_valid_from_mapping AND v_has_valid_to_mapping) THEN
             v_is_valid := false;
-            v_error_messages := array_append(v_error_messages, 'When valid_time_from="source_columns", mappings for both "valid_from" and "valid_to" from source columns are required.');
+            v_error_messages := array_append(v_error_messages, 'When valid_time_from="source_columns", mappings for both "valid_from_raw" and "valid_to_raw" from source columns are required.');
         END IF;
 
     ELSIF v_definition.valid_time_from = 'job_provided' THEN
-        -- If validity is derived from job-level parameters, the definition must map 'valid_from'
-        -- and 'valid_to' to the 'default' source expression. This allows the `import_job_prepare`
+        -- If validity is derived from job-level parameters, the definition must map 'valid_from_raw'
+        -- and 'valid_to_raw' to the 'default' source expression. This allows the `import_job_prepare`
         -- function to populate these columns from the job's `default_valid_from`/`to` fields.
         SELECT EXISTS (
             SELECT 1 FROM public.import_mapping im
             JOIN public.import_data_column idc ON im.target_data_column_id = idc.id JOIN public.import_step s ON idc.step_id = s.id
-            WHERE im.definition_id = p_definition_id AND s.code = 'valid_time' AND idc.column_name = 'valid_from' AND im.source_expression = 'default' AND im.is_ignored = FALSE
+            WHERE im.definition_id = p_definition_id AND s.code = 'valid_time' AND idc.column_name = 'valid_from_raw' AND im.source_expression = 'default' AND im.is_ignored = FALSE
         ) INTO v_has_valid_from_mapping;
         SELECT EXISTS (
             SELECT 1 FROM public.import_mapping im
             JOIN public.import_data_column idc ON im.target_data_column_id = idc.id JOIN public.import_step s ON idc.step_id = s.id
-            WHERE im.definition_id = p_definition_id AND s.code = 'valid_time' AND idc.column_name = 'valid_to' AND im.source_expression = 'default' AND im.is_ignored = FALSE
+            WHERE im.definition_id = p_definition_id AND s.code = 'valid_time' AND idc.column_name = 'valid_to_raw' AND im.source_expression = 'default' AND im.is_ignored = FALSE
         ) INTO v_has_valid_to_mapping;
 
         IF NOT (v_has_valid_from_mapping AND v_has_valid_to_mapping) THEN
             v_is_valid := false;
-            v_error_messages := array_append(v_error_messages, 'When valid_time_from="job_provided", mappings for both "valid_from" and "valid_to" using source_expression="default" are required.');
+            v_error_messages := array_append(v_error_messages, 'When valid_time_from="job_provided", mappings for both "valid_from_raw" and "valid_to_raw" using source_expression="default" are required.');
         END IF;
 
     ELSE
@@ -491,20 +491,20 @@ BEGIN
     -- The analyse_status procedure will handle defaults, and analyse_legal_unit/_establishment
     -- will error if status_id is ultimately not resolved.
 
-    -- Conditional check for 'data_source_code' mapping:
-    -- If import_definition.data_source_id is NULL, a mapping for 'data_source_code' is required.
+    -- Conditional check for 'data_source_code_raw' mapping:
+    -- If import_definition.data_source_id is NULL, a mapping for 'data_source_code_raw' is required.
     IF v_definition.data_source_id IS NULL THEN
         DECLARE
             v_data_source_code_mapped BOOLEAN;
             v_data_source_code_data_column_exists BOOLEAN;
         BEGIN
-            -- Check if a data_source_code data column even exists for any of the definition's steps
+            -- Check if a data_source_code_raw data column even exists for any of the definition's steps
             SELECT EXISTS (
                 SELECT 1
                 FROM public.import_definition_step ids
                 JOIN public.import_data_column idc ON ids.step_id = idc.step_id
                 WHERE ids.definition_id = p_definition_id
-                  AND idc.column_name = 'data_source_code'
+                  AND idc.column_name = 'data_source_code_raw'
                   AND idc.purpose = 'source_input'
             ) INTO v_data_source_code_data_column_exists;
 
@@ -514,19 +514,19 @@ BEGIN
                     SELECT 1 FROM public.import_mapping im
                     JOIN public.import_data_column idc ON im.target_data_column_id = idc.id
                     WHERE im.definition_id = p_definition_id
-                      AND idc.column_name = 'data_source_code'
+                      AND idc.column_name = 'data_source_code_raw'
                       AND idc.purpose = 'source_input'
                       AND im.is_ignored = FALSE
                 ) INTO v_data_source_code_mapped;
 
                 IF NOT v_data_source_code_mapped THEN
                     v_is_valid := false;
-                    v_error_messages := array_append(v_error_messages, 'If import_definition.data_source_id is NULL and a "data_source_code" source_input data column is available for the definition''s steps, it must be mapped.');
+                    v_error_messages := array_append(v_error_messages, 'If import_definition.data_source_id is NULL and a "data_source_code_raw" source_input data column is available for the definition''s steps, it must be mapped.');
                 END IF;
             ELSE
-                -- If data_source_id is NULL and no data_source_code data column is available from steps, it's an error.
+                -- If data_source_id is NULL and no data_source_code_raw data column is available from steps, it's an error.
                 v_is_valid := false;
-                v_error_messages := array_append(v_error_messages, 'If import_definition.data_source_id is NULL, a "data_source_code" source_input data column must be available via one of the definition''s steps and mapped. None found.');
+                v_error_messages := array_append(v_error_messages, 'If import_definition.data_source_id is NULL, a "data_source_code_raw" source_input data column must be available via one of the definition''s steps and mapped. None found.');
             END IF;
         END;
     END IF;
@@ -2384,9 +2384,9 @@ BEGIN
                     WHEN 'now' THEN 'statement_timestamp()'
                     WHEN 'default' THEN
                         CASE current_target_data_column->>'column_name'
-                            WHEN 'valid_from' THEN format('%L', job.default_valid_from)
-                            WHEN 'valid_to' THEN format('%L', job.default_valid_to)
-                            WHEN 'data_source_code' THEN format('%L', job.default_data_source_code)
+                            WHEN 'valid_from_raw' THEN format('%L', job.default_valid_from)
+                            WHEN 'valid_to_raw' THEN format('%L', job.default_valid_to)
+                            WHEN 'data_source_code_raw' THEN format('%L', job.default_data_source_code)
                             ELSE 'NULL'
                         END
                     ELSE 'NULL'

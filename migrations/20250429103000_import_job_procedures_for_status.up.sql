@@ -14,7 +14,7 @@ DECLARE
     v_skipped_update_count INT := 0;
     v_error_count INT := 0;
     v_default_status_id INT;
-    v_error_keys_to_clear_arr TEXT[] := ARRAY['status_code'];
+    v_error_keys_to_clear_arr TEXT[] := ARRAY['status_code_raw'];
 BEGIN
     RAISE DEBUG '[Job %] analyse_status (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_row_ids, 1);
 
@@ -34,7 +34,7 @@ BEGIN
     v_sql := format($$
         WITH
         batch_data AS (
-            SELECT row_id, status_code
+            SELECT row_id, status_code_raw AS status_code
             FROM public.%1$I
             WHERE row_id = ANY($1) AND action IS DISTINCT FROM 'skip'
         ),
@@ -60,39 +60,39 @@ BEGIN
         )
         UPDATE public.%1$I dt SET
             status_id = CASE
-                            WHEN NULLIF(dt.status_code, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NOT NULL THEN sl.resolved_status_id_by_code
-                            WHEN NULLIF(dt.status_code, '') IS NULL THEN %2$L::INTEGER -- Use default if no code provided
-                            WHEN NULLIF(dt.status_code, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL THEN %2$L::INTEGER -- Use default if code provided but not found/inactive
+                            WHEN NULLIF(dt.status_code_raw, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NOT NULL THEN sl.resolved_status_id_by_code
+                            WHEN NULLIF(dt.status_code_raw, '') IS NULL THEN %2$L::INTEGER -- Use default if no code provided
+                            WHEN NULLIF(dt.status_code_raw, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL THEN %2$L::INTEGER -- Use default if code provided but not found/inactive
                             ELSE dt.status_id -- Keep existing if no condition met (should not happen if logic is complete)
                         END,
             action = CASE
-                        WHEN (NULLIF(dt.status_code, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL AND %2$L::INTEGER IS NULL) OR 
-                             (NULLIF(dt.status_code, '') IS NULL AND %2$L::INTEGER IS NULL)      
+                        WHEN (NULLIF(dt.status_code_raw, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL AND %2$L::INTEGER IS NULL) OR 
+                             (NULLIF(dt.status_code_raw, '') IS NULL AND %2$L::INTEGER IS NULL)      
                         THEN 'skip'::public.import_row_action_type
                         ELSE dt.action 
                      END,
             state = CASE
-                        WHEN (NULLIF(dt.status_code, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL AND %2$L::INTEGER IS NULL) OR
-                             (NULLIF(dt.status_code, '') IS NULL AND %2$L::INTEGER IS NULL)
+                        WHEN (NULLIF(dt.status_code_raw, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL AND %2$L::INTEGER IS NULL) OR
+                             (NULLIF(dt.status_code_raw, '') IS NULL AND %2$L::INTEGER IS NULL)
                         THEN 'error'::public.import_data_state
                         ELSE 'analysing'::public.import_data_state
                     END,
             errors = CASE
-                        WHEN NULLIF(dt.status_code, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL AND %2$L::INTEGER IS NULL THEN
-                            dt.errors || jsonb_build_object('status_code', 'Provided status_code ''' || dt.status_code || ''' not found/active and no default available')
-                        WHEN NULLIF(dt.status_code, '') IS NULL AND %2$L::INTEGER IS NULL THEN
-                            dt.errors || jsonb_build_object('status_code', 'Status code not provided and no active default status found')
+                        WHEN NULLIF(dt.status_code_raw, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL AND %2$L::INTEGER IS NULL THEN
+                            dt.errors || jsonb_build_object('status_code_raw', 'Provided status_code ''' || dt.status_code_raw || ''' not found/active and no default available')
+                        WHEN NULLIF(dt.status_code_raw, '') IS NULL AND %2$L::INTEGER IS NULL THEN
+                            dt.errors || jsonb_build_object('status_code_raw', 'Status code not provided and no active default status found')
                         ELSE
                             dt.errors - %3$L::TEXT[]
                     END,
             invalid_codes =
                 CASE
                     -- Soft error: Invalid code provided, but default is available and used.
-                    WHEN NULLIF(dt.status_code, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL AND %2$L::INTEGER IS NOT NULL THEN
-                        dt.invalid_codes || jsonb_build_object('status_code', dt.status_code)
-                    -- Default case: clear 'status_code' from invalid_codes if it exists (e.g. if code is valid or hard error occurs for status_code).
+                    WHEN NULLIF(dt.status_code_raw, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL AND %2$L::INTEGER IS NOT NULL THEN
+                        dt.invalid_codes || jsonb_build_object('status_code_raw', dt.status_code_raw)
+                    -- Default case: clear 'status_code_raw' from invalid_codes if it exists (e.g. if code is valid or hard error occurs for status_code).
                     ELSE
-                        dt.invalid_codes - 'status_code'
+                        dt.invalid_codes - 'status_code_raw'
                 END,
             last_completed_priority = %4$L::INTEGER -- Always v_step.priority
         FROM status_lookup sl

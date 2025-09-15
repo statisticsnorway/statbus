@@ -82,10 +82,10 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo 'SC1: Verifying _data table contents'
 SELECT
     row_id,
-    tax_ident,
-    name,
-    valid_from,
-    valid_to,
+    tax_ident_raw AS tax_ident,
+    name_raw AS name,
+    valid_from_raw AS valid_from,
+    valid_to_raw AS valid_to,
     action,
     founding_row_id,
     CASE WHEN legal_unit_id IS NOT NULL THEN 'LU_SET' ELSE 'LU_NULL' END AS data_lu_marker,
@@ -182,8 +182,8 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo 'SC2: Verifying _data table contents'
 SELECT
     row_id,
-    tax_ident,
-    name,
+    tax_ident_raw AS tax_ident,
+    name_raw AS name,
     action,
     CASE WHEN legal_unit_id IS NOT NULL THEN 'LU_SET' ELSE 'LU_NULL' END AS data_lu_marker,
     CASE WHEN enterprise_id IS NOT NULL THEN 'EN_SET' ELSE 'EN_NULL' END AS data_en_marker,
@@ -327,7 +327,7 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo 'SC3: Verifying _data table contents for LUs job (test72_sc3_lus)'
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, errors, invalid_codes, merge_status,
+SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, action, state, errors, invalid_codes, merge_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
        CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc3_lus_data -- Hardcoded based on sc3_job_lu_slug
@@ -407,7 +407,7 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo 'SC3: Verifying _data table contents for ESs job (test72_sc3_ests)'
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, legal_unit_tax_ident, action, state, errors, invalid_codes, merge_status,
+SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, legal_unit_tax_ident_raw AS legal_unit_tax_ident, action, state, errors, invalid_codes, merge_status,
        CASE WHEN establishment_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS establishment_id_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS lu_fk_id_status
 FROM public.test72_sc3_ests_data -- Hardcoded based on sc3_job_es_slug
@@ -554,7 +554,7 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo 'SC4: Verifying _data table contents for V1 job (test72_sc4_order_v1)'
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, errors, invalid_codes, merge_status,
+SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, action, state, errors, invalid_codes, merge_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
        CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc4_order_v1_data -- Hardcoded based on sc4_job_slug_v1
@@ -589,7 +589,7 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo 'SC4: Verifying _data table contents for V2 job (test72_sc4_order_v2)'
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, errors, invalid_codes, merge_status,
+SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, action, state, errors, invalid_codes, merge_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
        CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc4_order_v2_data -- Hardcoded based on sc4_job_slug_v2
@@ -656,7 +656,7 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo 'SC5.1: Verifying _data table contents for LUs job (test72_sc5_1_lus)'
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, errors, invalid_codes, merge_status,
+SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, action, state, errors, invalid_codes, merge_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
        CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc5_1_lus_data -- Hardcoded
@@ -679,7 +679,7 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo 'SC5.1: Verifying _data table contents for ESs job (test72_sc5_1_ests)'
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, legal_unit_tax_ident, action, state, errors, invalid_codes, merge_status,
+SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, legal_unit_tax_ident_raw AS legal_unit_tax_ident, action, state, errors, invalid_codes, merge_status,
        CASE WHEN establishment_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS establishment_id_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS lu_fk_id_status
 FROM public.test72_sc5_1_ests_data -- Hardcoded
@@ -736,7 +736,7 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo 'SC6: Verifying _data table contents for Baseline job (test72_sc6_baseline)'
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, errors, invalid_codes, merge_status,
+SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, action, state, errors, invalid_codes, merge_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
        CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc6_baseline_data -- Hardcoded
@@ -783,7 +783,7 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo 'SC6.1: Verifying _data table contents for Single Batch Update job (test72_sc6_1_single)'
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, errors, invalid_codes, merge_status,
+SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, action, state, errors, invalid_codes, merge_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
        CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc6_1_single_data -- Hardcoded
@@ -855,7 +855,7 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo 'SC7: Verifying _data table contents for Initial LUs job (test72_sc7_multi_lu_same_ent)'
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, errors, invalid_codes, merge_status,
+SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, action, state, errors, invalid_codes, merge_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
        CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc7_multi_lu_same_ent_data -- Hardcoded
@@ -982,7 +982,7 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo 'SC7: Verifying _data table contents for Update Batch job (test72_sc7_update_batch)'
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, errors, invalid_codes, merge_status,
+SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, action, state, errors, invalid_codes, merge_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
        CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc7_update_batch_data -- Hardcoded
@@ -1052,7 +1052,7 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo 'SC8: Verifying _data table contents for LU job (test72_sc8_lu)'
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, errors, invalid_codes, merge_status,
+SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, action, state, errors, invalid_codes, merge_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
        CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc8_lu_data -- Hardcoded
@@ -1079,7 +1079,7 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo 'SC8: Verifying _data table contents for ESs job (test72_sc8_multi_es)'
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, legal_unit_tax_ident, action, state, errors, invalid_codes, merge_status,
+SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, legal_unit_tax_ident_raw AS legal_unit_tax_ident, action, state, errors, invalid_codes, merge_status,
        CASE WHEN establishment_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS establishment_id_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS lu_fk_id_status
 FROM public.test72_sc8_multi_es_data -- Hardcoded
@@ -1160,7 +1160,7 @@ CALL worker.process_tasks(p_queue => 'import');
 
 -- SC9 Verifications
 \echo 'SC9: Verifying _data table contents'
-SELECT row_id, tax_ident, name, valid_from, valid_to, errors, invalid_codes, merge_status, state, action, operation
+SELECT row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, errors, invalid_codes, merge_status, state, action, operation
 FROM public.test72_sc9_lu_overlap_data -- Hardcoded based on sc9_job_slug
 ORDER BY row_id;
 
@@ -1287,7 +1287,7 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo 'SC10 (Two Batches) Batch 1: Verifying _data table contents for job (test72_sc10_tb_lu_b1)'
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, errors, invalid_codes, merge_status,
+SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, action, state, errors, invalid_codes, merge_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
        CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc10_tb_lu_b1_data -- Hardcoded based on sc10_tb_job_b1_slug
@@ -1339,7 +1339,7 @@ CALL worker.process_tasks(p_queue => 'import');
 -- SC10TB Batch 2: Verifications
 \echo 'SC10 (Two Batches) Batch 2: Verifying _data table contents after Batch 2 processing'
 SELECT
-    row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, errors, invalid_codes, merge_status,
+    row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, action, state, errors, invalid_codes, merge_status,
     CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
     CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc10_tb_lu_b2_data -- Hardcoded based on sc10_tb_job_b2_slug
@@ -1474,7 +1474,7 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo 'SC11 (Single Batch): Verifying _data table contents'
 -- Display relevant columns from the _data table
 SELECT
-    row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, operation, state, errors, invalid_codes, merge_status,
+    row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, action, operation, state, errors, invalid_codes, merge_status,
     CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
     CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc11_sb_lu_overlap_data -- Hardcoded based on sc11_sb_job_slug

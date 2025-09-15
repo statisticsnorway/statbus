@@ -13,7 +13,7 @@ DECLARE
     v_sql TEXT;
     v_update_count INT;
     v_job_mode public.import_mode;
-    v_error_keys_to_clear TEXT[];
+    v_external_ident_source_columns TEXT[];
 BEGIN
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
     v_data_table_name := v_job.data_table_name;
@@ -24,6 +24,13 @@ BEGIN
 
     -- This analysis is only for informal establishments. Other modes do nothing but advance priority.
     IF v_job_mode = 'establishment_informal' THEN
+        -- Get the list of external identifier source columns to correctly associate errors.
+        SELECT array_agg(idc_elem.value->>'column_name') INTO v_external_ident_source_columns
+        FROM jsonb_array_elements(v_job.definition_snapshot->'import_data_column_list') AS idc_elem
+        JOIN jsonb_array_elements(v_job.definition_snapshot->'import_step_list') AS step_elem
+            ON (step_elem.value->>'code') = 'external_idents' AND (idc_elem.value->>'step_id')::int = (step_elem.value->>'id')::int
+        WHERE idc_elem.value->>'purpose' = 'source_input';
+
         -- For 'replace' actions, validate that the existing establishment is informal and has an enterprise link.
         v_sql := format($$
             WITH validation AS (
@@ -51,13 +58,13 @@ BEGIN
                     ELSE dt.action
                 END,
                 errors = dt.errors || CASE
-                    WHEN v.found_est_id IS NULL THEN jsonb_build_object('tax_ident', 'Informal establishment for "replace" not found.')
-                    WHEN v.existing_enterprise_id IS NULL THEN jsonb_build_object('tax_ident', 'Informal establishment for "replace" is not linked to an enterprise.')
+                    WHEN v.found_est_id IS NULL THEN (SELECT jsonb_object_agg(col, 'Informal establishment for "replace" not found.') FROM unnest(%2$L::TEXT[]) col)
+                    WHEN v.existing_enterprise_id IS NULL THEN (SELECT jsonb_object_agg(col, 'Informal establishment for "replace" is not linked to an enterprise.') FROM unnest(%2$L::TEXT[]) col)
                     ELSE '{}'::jsonb
                 END
             FROM validation v
             WHERE dt.row_id = v.row_id;
-        $$, v_data_table_name);
+        $$, v_data_table_name, v_external_ident_source_columns);
         RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: Validating "replace" rows for informal establishments.', p_job_id;
         EXECUTE v_sql USING p_batch_row_ids;
     END IF;
@@ -107,15 +114,14 @@ BEGIN
     IF to_regclass('pg_temp.temp_new_est_for_enterprise_creation') IS NOT NULL THEN DROP TABLE temp_new_est_for_enterprise_creation; END IF;
     CREATE TEMP TABLE temp_new_est_for_enterprise_creation (
         data_row_id INTEGER PRIMARY KEY, -- This will be the founding_row_id for the new EST entity
-        est_name TEXT,
         edit_by_user_id INT,
         edit_at TIMESTAMPTZ,
         edit_comment TEXT
     ) ON COMMIT DROP;
 
     v_sql := format($$
-        INSERT INTO temp_new_est_for_enterprise_creation (data_row_id, est_name, edit_by_user_id, edit_at, edit_comment)
-        SELECT dt.row_id, dt.name, dt.edit_by_user_id, dt.edit_at, dt.edit_comment
+        INSERT INTO temp_new_est_for_enterprise_creation (data_row_id, edit_by_user_id, edit_at, edit_comment)
+        SELECT dt.row_id, dt.edit_by_user_id, dt.edit_at, dt.edit_comment
         FROM public.%1$I dt
         WHERE dt.row_id = ANY($1) AND dt.operation = 'insert' AND dt.founding_row_id = dt.row_id; -- Only process founding rows for new ESTs
     $$, v_data_table_name /* %1$I */);
@@ -131,15 +137,28 @@ BEGIN
 
     v_created_enterprise_count := 0;
     BEGIN
-        FOR rec_new_est IN SELECT * FROM temp_new_est_for_enterprise_creation LOOP
+        WITH new_enterprises AS (
             INSERT INTO public.enterprise (short_name, edit_by_user_id, edit_at, edit_comment)
-            VALUES (NULL, rec_new_est.edit_by_user_id, rec_new_est.edit_at, rec_new_est.edit_comment) -- Set short_name to NULL
-            RETURNING id INTO new_enterprise_id;
+            SELECT
+                NULL, -- short_name is set to NULL, will be derived by trigger later
+                t.edit_by_user_id,
+                t.edit_at,
+                t.edit_comment
+            FROM temp_new_est_for_enterprise_creation t
+            RETURNING id
+        ),
+        source_with_rn AS (
+            SELECT *, ROW_NUMBER() OVER () as rn FROM temp_new_est_for_enterprise_creation
+        ),
+        created_with_rn AS (
+            SELECT id, ROW_NUMBER() OVER () as rn FROM new_enterprises
+        )
+        INSERT INTO temp_created_enterprises (data_row_id, enterprise_id)
+        SELECT s.data_row_id, c.id
+        FROM source_with_rn s
+        JOIN created_with_rn c ON s.rn = c.rn;
 
-            INSERT INTO temp_created_enterprises (data_row_id, enterprise_id)
-            VALUES (rec_new_est.data_row_id, new_enterprise_id);
-            v_created_enterprise_count := v_created_enterprise_count + 1;
-        END LOOP;
+        GET DIAGNOSTICS v_created_enterprise_count = ROW_COUNT;
     EXCEPTION WHEN OTHERS THEN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
         RAISE WARNING '[Job %] process_enterprise_link_for_establishment: Programming error suspected during enterprise creation loop: %', p_job_id, replace(error_message, '%', '%%');

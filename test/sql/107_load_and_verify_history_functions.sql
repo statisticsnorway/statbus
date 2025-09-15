@@ -155,12 +155,12 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Inspecting import job data for import_03_lu_era (showing error rows first)"
-(SELECT row_id, state, errors, tax_ident, name, valid_from, valid_to, merge_status
+(SELECT row_id, state, errors, tax_ident_raw, name_raw, valid_from_raw, valid_to_raw, merge_status
 FROM public.import_03_lu_era_data
 WHERE state = 'error'
 ORDER BY row_id)
 UNION ALL
-(SELECT row_id, state, errors, tax_ident, name, valid_from, valid_to, merge_status
+(SELECT row_id, state, errors, tax_ident_raw, name_raw, valid_from_raw, valid_to_raw, merge_status
 FROM public.import_03_lu_era_data
 WHERE state != 'error'
 ORDER BY row_id
@@ -175,12 +175,12 @@ WHERE slug = 'import_03_lu_era'
 ORDER BY slug;
 
 \echo "Inspecting import job data for import_03_esflu_era (showing error rows first)"
-(SELECT row_id, state, errors, tax_ident, legal_unit_tax_ident, name, valid_from, valid_to, merge_status
+(SELECT row_id, state, errors, tax_ident_raw, legal_unit_tax_ident_raw, name_raw, valid_from_raw, valid_to_raw, merge_status
 FROM public.import_03_esflu_era_data
 WHERE state = 'error'
 ORDER BY row_id)
 UNION ALL
-(SELECT row_id, state, errors, tax_ident, legal_unit_tax_ident, name, valid_from, valid_to, merge_status
+(SELECT row_id, state, errors, tax_ident_raw, legal_unit_tax_ident_raw, name_raw, valid_from_raw, valid_to_raw, merge_status
 FROM public.import_03_esflu_era_data
 WHERE state != 'error'
 ORDER BY row_id

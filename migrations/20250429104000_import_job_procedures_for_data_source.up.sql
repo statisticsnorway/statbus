@@ -20,7 +20,7 @@ BEGIN
     v_sql := format($SQL$
         WITH
         batch_data AS (
-            SELECT row_id, data_source_code
+            SELECT row_id, data_source_code_raw AS data_source_code
             FROM public.%1$I
             WHERE row_id = ANY($1) AND action IS DISTINCT FROM 'skip'
         ),
@@ -47,10 +47,10 @@ BEGIN
         UPDATE public.%1$I dt SET
             data_source_id = COALESCE(l.resolved_data_source_id, dt.data_source_id), -- Only update if resolved, don't nullify
             invalid_codes = jsonb_strip_nulls(
-                (COALESCE(dt.invalid_codes, '{}'::jsonb) - 'data_source_code') ||
-                jsonb_build_object('data_source_code',
+                (COALESCE(dt.invalid_codes, '{}'::jsonb) - 'data_source_code_raw') ||
+                jsonb_build_object('data_source_code_raw',
                     CASE
-                        WHEN NULLIF(dt.data_source_code, '') IS NOT NULL AND l.resolved_data_source_id IS NULL THEN dt.data_source_code
+                        WHEN NULLIF(dt.data_source_code_raw, '') IS NOT NULL AND l.resolved_data_source_id IS NULL THEN dt.data_source_code_raw
                         ELSE NULL
                     END
                 )

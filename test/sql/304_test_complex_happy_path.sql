@@ -76,7 +76,7 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo "Job status for import_69_a1_lu:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_69_a1_lu';
 \echo "Data table for import_69_a1_lu:"
-SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident, name, valid_from, valid_to FROM public.import_69_a1_lu_data ORDER BY row_id;
+SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident_raw, name_raw, valid_from_raw, valid_to_raw FROM public.import_69_a1_lu_data ORDER BY row_id;
 
 \echo "Verification for LU-69A ('69A000001') after Sub-Scenario 69.A.1 (all segments shown):"
 \echo "Legal Unit:"
@@ -141,7 +141,7 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo "Job status for import_69_a2_lu:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_69_a2_lu';
 \echo "Data table for import_69_a2_lu:"
-SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident, name, valid_from, valid_to FROM public.import_69_a2_lu_data ORDER BY row_id;
+SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident_raw, name_raw, valid_from_raw, valid_to_raw FROM public.import_69_a2_lu_data ORDER BY row_id;
 
 \echo "Verification for LU-69A ('69A000001') after Sub-Scenario 69.A.2 (all segments shown):"
 \echo "Legal Unit:"
@@ -209,7 +209,7 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo "Job status for import_69_a3_lu:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_69_a3_lu';
 \echo "Data table for import_69_a3_lu:"
-SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident, name, valid_from, valid_to FROM public.import_69_a3_lu_data ORDER BY row_id;
+SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident_raw, name_raw, valid_from_raw, valid_to_raw FROM public.import_69_a3_lu_data ORDER BY row_id;
 
 \echo "Verification for LU-69A ('69A000001') after Sub-Scenario 69.A.3 (all segments shown):"
 \echo "Legal Unit (expect sector 2100 in latest segment):"
@@ -285,7 +285,7 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo "Job status for import_69_b_lu_for_es:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_69_b_lu_for_es';
 \echo "Data table for import_69_b_lu_for_es:"
-SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident, name FROM public.import_69_b_lu_for_es_data ORDER BY row_id;
+SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident_raw, name_raw FROM public.import_69_b_lu_for_es_data ORDER BY row_id;
 
 -- Sub-Scenario 69.B.1: Initial Formal ES Import
 \echo "Sub-Scenario 69.B.1: Initial Formal ES Import for ES-69B"
@@ -312,7 +312,7 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo "Job status for import_69_b1_es:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_69_b1_es';
 \echo "Data table for import_69_b1_es:"
-SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident, name, valid_from, valid_to FROM public.import_69_b1_es_data ORDER BY row_id;
+SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident_raw, name_raw, valid_from_raw, valid_to_raw FROM public.import_69_b1_es_data ORDER BY row_id;
 
 \echo "Verification for ES-69B ('E69B00001') after Sub-Scenario 69.B.1 (all segments shown):"
 \echo "Establishment:"
@@ -377,7 +377,7 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo "Job status for import_69_b2_es:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_69_b2_es';
 \echo "Data table for import_69_b2_es:"
-SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident, name, valid_from, valid_to FROM public.import_69_b2_es_data ORDER BY row_id;
+SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident_raw, name_raw, valid_from_raw, valid_to_raw FROM public.import_69_b2_es_data ORDER BY row_id;
 
 \echo "Verification for ES-69B ('E69B00001') after Sub-Scenario 69.B.2 (all segments shown):"
 \echo "Establishment (expect new name in latest segment):"
@@ -442,7 +442,7 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo "Job status for import_69_b3_es:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_69_b3_es';
 \echo "Data table for import_69_b3_es:"
-SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident, name, valid_from, valid_to FROM public.import_69_b3_es_data ORDER BY row_id;
+SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident_raw, name_raw, valid_from_raw, valid_to_raw FROM public.import_69_b3_es_data ORDER BY row_id;
 
 \echo "Verification for ES-69B ('E69B00001') after Sub-Scenario 69.B.3 (all segments shown):"
 \echo "Establishment (name unchanged from B.2 in latest segment):"
@@ -527,7 +527,7 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo "Job status for import_69_c1_es:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_69_c1_es';
 \echo "Data table for import_69_c1_es:"
-SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident, name, valid_from, valid_to FROM public.import_69_c1_es_data ORDER BY row_id;
+SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident_raw, name_raw, valid_from_raw, valid_to_raw FROM public.import_69_c1_es_data ORDER BY row_id;
 
 \echo "Verification for ES-69C ('E69C00001') after Sub-Scenario 69.C.1 (all segments shown):"
 \echo "Establishment:"
@@ -591,7 +591,7 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo "Job status for import_69_c2_es:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_69_c2_es';
 \echo "Data table for import_69_c2_es:"
-SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident, name, valid_from, valid_to FROM public.import_69_c2_es_data ORDER BY row_id;
+SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident_raw, name_raw, valid_from_raw, valid_to_raw FROM public.import_69_c2_es_data ORDER BY row_id;
 
 \echo "Verification for ES-69C ('E69C00001') after Sub-Scenario 69.C.2 (all segments shown):"
 \echo "Establishment (expect new name in latest segment):"
@@ -654,7 +654,7 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo "Job status for import_69_c3_es:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_69_c3_es';
 \echo "Data table for import_69_c3_es:"
-SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident, name, valid_from, valid_to FROM public.import_69_c3_es_data ORDER BY row_id;
+SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident_raw, name_raw, valid_from_raw, valid_to_raw FROM public.import_69_c3_es_data ORDER BY row_id;
 
 \echo "Verification for ES-69C ('E69C00001') after Sub-Scenario 69.C.3 (all segments shown):"
 \echo "Establishment (name unchanged from C.2 in latest segment):"

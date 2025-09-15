@@ -15,7 +15,7 @@ DECLARE
     v_update_count INT := 0;
     v_skipped_update_count INT := 0;
     v_sql TEXT;
-    v_error_keys_to_clear_arr TEXT[] := ARRAY['tag_path'];
+    v_error_keys_to_clear_arr TEXT[] := ARRAY['tag_path_raw'];
     -- v_invalid_code_keys_to_clear_arr is removed as tag errors are now fatal
 BEGIN
     RAISE DEBUG '[Job %] analyse_tags (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_row_ids, 1);
@@ -34,9 +34,9 @@ BEGIN
     v_sql := format($$
         WITH
         batch_data AS (
-            SELECT row_id, tag_path
+            SELECT row_id, tag_path_raw AS tag_path
             FROM public.%1$I
-            WHERE row_id = ANY($1) AND tag_path IS NOT NULL AND action IS DISTINCT FROM 'skip'
+            WHERE row_id = ANY($1) AND tag_path_raw IS NOT NULL AND action IS DISTINCT FROM 'skip'
         ),
         distinct_paths AS (
             SELECT tag_path
@@ -69,22 +69,22 @@ BEGIN
             LEFT JOIN resolved_tags rt ON bd.tag_path = rt.tag_path
         )
         UPDATE public.%1$I dt SET
-            tag_path_ltree = l.casted_ltree_path,
+            tag_path = l.casted_ltree_path,
             tag_id = l.resolved_tag_id,
             state = CASE
-                        WHEN dt.tag_path IS NOT NULL AND l.ltree_error_msg IS NOT NULL THEN 'error'::public.import_data_state
-                        WHEN dt.tag_path IS NOT NULL AND l.ltree_error_msg IS NULL AND l.resolved_tag_id IS NULL THEN 'error'::public.import_data_state
+                        WHEN dt.tag_path_raw IS NOT NULL AND l.ltree_error_msg IS NOT NULL THEN 'error'::public.import_data_state
+                        WHEN dt.tag_path_raw IS NOT NULL AND l.ltree_error_msg IS NULL AND l.resolved_tag_id IS NULL THEN 'error'::public.import_data_state
                         ELSE 'analysing'::public.import_data_state
                     END,
             action = CASE
-                        WHEN (dt.tag_path IS NOT NULL AND l.ltree_error_msg IS NOT NULL) OR (dt.tag_path IS NOT NULL AND l.ltree_error_msg IS NULL AND l.resolved_tag_id IS NULL) THEN 'skip'::public.import_row_action_type
+                        WHEN (dt.tag_path_raw IS NOT NULL AND l.ltree_error_msg IS NOT NULL) OR (dt.tag_path_raw IS NOT NULL AND l.ltree_error_msg IS NULL AND l.resolved_tag_id IS NULL) THEN 'skip'::public.import_row_action_type
                         ELSE dt.action
                     END,
             errors = CASE
-                        WHEN dt.tag_path IS NOT NULL AND l.ltree_error_msg IS NOT NULL THEN
-                            dt.errors || jsonb_build_object('tag_path', l.ltree_error_msg)
-                        WHEN dt.tag_path IS NOT NULL AND l.ltree_error_msg IS NULL AND l.resolved_tag_id IS NULL THEN
-                            dt.errors || jsonb_build_object('tag_path', 'Tag not found for path: ' || dt.tag_path)
+                        WHEN dt.tag_path_raw IS NOT NULL AND l.ltree_error_msg IS NOT NULL THEN
+                            dt.errors || jsonb_build_object('tag_path_raw', l.ltree_error_msg)
+                        WHEN dt.tag_path_raw IS NOT NULL AND l.ltree_error_msg IS NULL AND l.resolved_tag_id IS NULL THEN
+                            dt.errors || jsonb_build_object('tag_path_raw', 'Tag not found for path: ' || dt.tag_path_raw)
                         ELSE
                             dt.errors - %2$L::TEXT[]
                     END,

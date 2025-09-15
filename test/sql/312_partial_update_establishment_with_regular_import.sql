@@ -114,7 +114,7 @@ SELECT
 FROM public.stat_for_unit sfu
 JOIN public.stat_definition sd ON sfu.stat_definition_id = sd.id
 JOIN (
-    SELECT DISTINCT establishment_id, stat_ident
+    SELECT DISTINCT establishment_id, stat_ident_raw AS stat_ident
     FROM public.import_312_est_partial_update_data
     WHERE state = 'processed' AND establishment_id IS NOT NULL
 ) idt ON sfu.establishment_id = idt.establishment_id

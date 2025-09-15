@@ -25,11 +25,18 @@ BEGIN
         RAISE EXCEPTION '[Job %] contact step not found in snapshot', p_job_id;
     END IF;
 
-    -- This procedure now only advances the priority for all processed rows.
-    -- The lookup for existing contact_id has been removed, as the natural key
-    -- lookup will be handled by the process_contact step.
+    -- This procedure now copies raw contact fields to their typed internal counterparts
+    -- and advances the priority for all processed rows. The lookup for existing
+    -- contact_id has been removed, as the natural key lookup will be handled
+    -- by the process_contact step.
     v_sql := format($$
         UPDATE public.%1$I dt SET
+            web_address = NULLIF(dt.web_address_raw, ''),
+            email_address = NULLIF(dt.email_address_raw, ''),
+            phone_number = NULLIF(dt.phone_number_raw, ''),
+            landline = NULLIF(dt.landline_raw, ''),
+            mobile_number = NULLIF(dt.mobile_number_raw, ''),
+            fax_number = NULLIF(dt.fax_number_raw, ''),
             last_completed_priority = %2$L
         WHERE dt.row_id = ANY($1);
     $$,
@@ -115,9 +122,9 @@ BEGIN
             dt.contact_id AS id,
             %2$s AS legal_unit_id,
             %3$s AS establishment_id,
-            dt.derived_valid_from AS valid_from,
-            dt.derived_valid_to AS valid_to,
-            dt.derived_valid_until AS valid_until,
+            dt.valid_from,
+            dt.valid_to,
+            dt.valid_until,
             dt.web_address, dt.email_address, dt.phone_number, dt.landline, dt.mobile_number, dt.fax_number,
             dt.data_source_id,
             dt.edit_by_user_id, dt.edit_at, dt.edit_comment,

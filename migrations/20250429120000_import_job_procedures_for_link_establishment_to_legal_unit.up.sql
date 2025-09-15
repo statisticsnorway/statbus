@@ -103,7 +103,7 @@ BEGIN
         WITH Unpivoted AS ( %1$s ),
         DistinctIdents AS (
             SELECT DISTINCT
-                substring(up.ident_code from 'legal_unit_(.*)') as ident_type_code,
+                substring(up.ident_code from 'legal_unit_(.*)_raw') as ident_type_code,
                 up.ident_value
             FROM Unpivoted up
         ),
@@ -124,7 +124,7 @@ BEGIN
                 rdi.legal_unit_id
             FROM Unpivoted up
             LEFT JOIN ResolvedDistinctIdents rdi ON
-                substring(up.ident_code from 'legal_unit_(.*)') = rdi.ident_type_code AND
+                substring(up.ident_code from 'legal_unit_(.*)_raw') = rdi.ident_type_code AND
                 up.ident_value = rdi.ident_value
         ),
         RowChecks AS (
@@ -157,7 +157,7 @@ BEGIN
         ResolvedLinks AS (
             SELECT DISTINCT ON (rc.data_row_id)
                    rc.data_row_id, rc.resolved_lu_id, dt.establishment_id AS current_establishment_id,
-                   dt.row_id AS original_data_table_row_id, dt.derived_valid_from AS est_derived_valid_from, dt.derived_valid_until AS est_derived_valid_until
+                   dt.row_id AS original_data_table_row_id, dt.valid_from AS est_valid_from, dt.valid_until AS est_valid_until
             FROM RowChecks rc JOIN public.%4$I dt ON rc.data_row_id = dt.row_id
             WHERE rc.resolved_lu_id IS NOT NULL
         ),
@@ -172,7 +172,7 @@ BEGIN
                     SELECT 1 FROM public.establishment est
                     WHERE est.legal_unit_id = rl.resolved_lu_id AND est.primary_for_legal_unit = TRUE
                       AND est.id IS DISTINCT FROM rl.current_establishment_id
-                      AND public.from_until_overlaps(est.valid_from, est.valid_until, rl.est_derived_valid_from, rl.est_derived_valid_until)
+                      AND public.from_until_overlaps(est.valid_from, est.valid_until, rl.est_valid_from, rl.est_valid_until)
                 )) AS is_primary_candidate
             FROM ResolvedLinks rl
         ),
@@ -181,9 +181,9 @@ BEGIN
         TimeIslands AS (
             SELECT
                 *,
-                MAX(est_derived_valid_until) OVER (
+                MAX(est_valid_until) OVER (
                     PARTITION BY resolved_lu_id
-                    ORDER BY est_derived_valid_from, est_derived_valid_until, original_data_table_row_id
+                    ORDER BY est_valid_from, est_valid_until, original_data_table_row_id
                     ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
                 ) as max_prev_until
             FROM PrimaryCandidates
@@ -193,9 +193,9 @@ BEGIN
             SELECT
                 data_row_id,
                 -- A cumulative sum of the "is_island_start" flag creates a unique ID for each group.
-                SUM(CASE WHEN est_derived_valid_from >= COALESCE(max_prev_until, '-infinity'::date) THEN 1 ELSE 0 END) OVER (
+                SUM(CASE WHEN est_valid_from >= COALESCE(max_prev_until, '-infinity'::date) THEN 1 ELSE 0 END) OVER (
                     PARTITION BY resolved_lu_id
-                    ORDER BY est_derived_valid_from, est_derived_valid_until, original_data_table_row_id
+                    ORDER BY est_valid_from, est_valid_until, original_data_table_row_id
                 ) AS island_id
             FROM TimeIslands
         ),

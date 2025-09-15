@@ -75,113 +75,134 @@ ORDER BY step_id, priority NULLS FIRST, column_name;
 \echo "Initial import_data_column state (stable columns):"
 "Initial import_data_column state (stable columns):"
 SELECT * FROM import_data_column_baseline;
- step_id | priority |           column_name            |           column_type            |   purpose    | is_nullable | default_value | is_uniquely_identifying 
----------+----------+----------------------------------+----------------------------------+--------------+-------------+---------------+-------------------------
-       1 |        1 | valid_from                       | TEXT                             | source_input | t           |               | f
-       1 |        2 | valid_to                         | TEXT                             | source_input | t           |               | f
-       1 |        3 | derived_valid_from               | DATE                             | internal     | t           |               | f
-       1 |        4 | derived_valid_to                 | DATE                             | internal     | t           |               | f
-       1 |        5 | derived_valid_until              | DATE                             | internal     | t           |               | f
-       2 |        1 | operation                        | public.import_row_operation_type | internal     | t           |               | f
-       2 |        2 | action                           | public.import_row_action_type    | internal     | t           |               | f
-       2 |        3 | legal_unit_id                    | INTEGER                          | pk_id        | t           |               | f
-       2 |        4 | establishment_id                 | INTEGER                          | pk_id        | t           |               | f
-       2 |        7 | tax_ident                        | TEXT                             | source_input | t           |               | t
-       2 |        8 | stat_ident                       | TEXT                             | source_input | t           |               | t
-       3 |        1 | enterprise_id                    | INTEGER                          | internal     | t           |               | f
-       3 |        2 | primary_for_enterprise           | BOOLEAN                          | internal     | t           |               | f
-       4 |        1 | enterprise_id                    | INTEGER                          | internal     | t           |               | f
-       4 |        2 | primary_for_enterprise           | BOOLEAN                          | internal     | t           |               | f
-       5 |        1 | primary_for_legal_unit           | BOOLEAN                          | internal     | t           |               | f
-       5 |        2 | legal_unit_tax_ident             | TEXT                             | source_input | t           |               | f
-       5 |        3 | legal_unit_stat_ident            | TEXT                             | source_input | t           |               | f
-       6 |        1 | data_source_code                 | TEXT                             | source_input | t           |               | f
-       6 |        2 | data_source_id                   | INTEGER                          | internal     | t           |               | f
-       7 |        1 | status_code                      | TEXT                             | source_input | t           |               | f
-       7 |        2 | status_id                        | INTEGER                          | internal     | t           |               | f
-       8 |        1 | name                             | TEXT                             | source_input | t           |               | f
-       8 |        2 | birth_date                       | TEXT                             | source_input | t           |               | f
-       8 |        3 | death_date                       | TEXT                             | source_input | t           |               | f
-       8 |        4 | sector_code                      | TEXT                             | source_input | t           |               | f
-       8 |        5 | unit_size_code                   | TEXT                             | source_input | t           |               | f
-       8 |        6 | legal_form_code                  | TEXT                             | source_input | t           |               | f
-       8 |        7 | sector_id                        | INTEGER                          | internal     | t           |               | f
-       8 |        8 | unit_size_id                     | INTEGER                          | internal     | t           |               | f
-       8 |        9 | legal_form_id                    | INTEGER                          | internal     | t           |               | f
-       8 |       10 | typed_birth_date                 | DATE                             | internal     | t           |               | f
-       8 |       11 | typed_death_date                 | DATE                             | internal     | t           |               | f
-       9 |        1 | name                             | TEXT                             | source_input | t           |               | f
-       9 |        2 | birth_date                       | TEXT                             | source_input | t           |               | f
-       9 |        3 | death_date                       | TEXT                             | source_input | t           |               | f
-       9 |        4 | sector_code                      | TEXT                             | source_input | t           |               | f
-       9 |        5 | unit_size_code                   | TEXT                             | source_input | t           |               | f
-       9 |        6 | sector_id                        | INTEGER                          | internal     | t           |               | f
-       9 |        7 | unit_size_id                     | INTEGER                          | internal     | t           |               | f
-       9 |        8 | typed_birth_date                 | DATE                             | internal     | t           |               | f
-       9 |        9 | typed_death_date                 | DATE                             | internal     | t           |               | f
-      10 |        1 | physical_address_part1           | TEXT                             | source_input | t           |               | f
-      10 |        2 | physical_address_part2           | TEXT                             | source_input | t           |               | f
-      10 |        3 | physical_address_part3           | TEXT                             | source_input | t           |               | f
-      10 |        4 | physical_postcode                | TEXT                             | source_input | t           |               | f
-      10 |        5 | physical_postplace               | TEXT                             | source_input | t           |               | f
-      10 |        6 | physical_latitude                | TEXT                             | source_input | t           |               | f
-      10 |        7 | physical_longitude               | TEXT                             | source_input | t           |               | f
-      10 |        8 | physical_altitude                | TEXT                             | source_input | t           |               | f
-      10 |        9 | physical_region_code             | TEXT                             | source_input | t           |               | f
-      10 |       10 | physical_country_iso_2           | TEXT                             | source_input | t           |               | f
-      10 |       11 | physical_location_id             | INTEGER                          | pk_id        | t           |               | f
-      10 |       12 | physical_region_id               | INTEGER                          | internal     | t           |               | f
-      10 |       13 | physical_country_id              | INTEGER                          | internal     | t           |               | f
-      10 |       14 | typed_physical_latitude          | numeric(9,6)                     | internal     | t           |               | f
-      10 |       15 | typed_physical_longitude         | numeric(9,6)                     | internal     | t           |               | f
-      10 |       16 | typed_physical_altitude          | numeric(6,1)                     | internal     | t           |               | f
-      11 |        1 | postal_address_part1             | TEXT                             | source_input | t           |               | f
-      11 |        2 | postal_address_part2             | TEXT                             | source_input | t           |               | f
-      11 |        3 | postal_address_part3             | TEXT                             | source_input | t           |               | f
-      11 |        4 | postal_postcode                  | TEXT                             | source_input | t           |               | f
-      11 |        5 | postal_postplace                 | TEXT                             | source_input | t           |               | f
-      11 |        6 | postal_region_code               | TEXT                             | source_input | t           |               | f
-      11 |        7 | postal_country_iso_2             | TEXT                             | source_input | t           |               | f
-      11 |        8 | postal_latitude                  | TEXT                             | source_input | t           |               | f
-      11 |        9 | postal_longitude                 | TEXT                             | source_input | t           |               | f
-      11 |       10 | postal_altitude                  | TEXT                             | source_input | t           |               | f
-      11 |       11 | postal_location_id               | INTEGER                          | pk_id        | t           |               | f
-      11 |       12 | postal_region_id                 | INTEGER                          | internal     | t           |               | f
-      11 |       13 | postal_country_id                | INTEGER                          | internal     | t           |               | f
-      11 |       14 | typed_postal_latitude            | numeric(9,6)                     | internal     | t           |               | f
-      11 |       15 | typed_postal_longitude           | numeric(9,6)                     | internal     | t           |               | f
-      11 |       16 | typed_postal_altitude            | numeric(6,1)                     | internal     | t           |               | f
-      12 |        1 | primary_activity_category_code   | TEXT                             | source_input | t           |               | f
-      12 |        2 | primary_activity_id              | INTEGER                          | pk_id        | t           |               | f
-      12 |        3 | primary_activity_category_id     | INTEGER                          | internal     | t           |               | f
-      13 |        1 | secondary_activity_category_code | TEXT                             | source_input | t           |               | f
-      13 |        2 | secondary_activity_id            | INTEGER                          | pk_id        | t           |               | f
-      13 |        3 | secondary_activity_category_id   | INTEGER                          | internal     | t           |               | f
-      14 |        1 | web_address                      | TEXT                             | source_input | t           |               | f
-      14 |        2 | email_address                    | TEXT                             | source_input | t           |               | f
-      14 |        3 | phone_number                     | TEXT                             | source_input | t           |               | f
-      14 |        4 | landline                         | TEXT                             | source_input | t           |               | f
-      14 |        5 | mobile_number                    | TEXT                             | source_input | t           |               | f
-      14 |        6 | fax_number                       | TEXT                             | source_input | t           |               | f
-      14 |        7 | contact_id                       | INTEGER                          | pk_id        | t           |               | f
-      15 |        1 | employees                        | TEXT                             | source_input | t           |               | f
-      15 |        2 | turnover                         | TEXT                             | source_input | t           |               | f
-      15 |        3 | stat_for_unit_employees_id       | INTEGER                          | pk_id        | t           |               | f
-      15 |        4 | stat_for_unit_turnover_id        | INTEGER                          | pk_id        | t           |               | f
-      16 |        1 | tag_path                         | TEXT                             | source_input | t           |               | f
-      16 |        2 | tag_path_ltree                   | public.LTREE                     | internal     | t           |               | f
-      16 |        3 | tag_id                           | INTEGER                          | internal     | t           |               | f
-      16 |        4 | tag_for_unit_id                  | INTEGER                          | pk_id        | t           |               | f
-      17 |        1 | edit_by_user_id                  | INTEGER                          | internal     | t           |               | f
-      17 |        2 | edit_at                          | TIMESTAMPTZ                      | internal     | t           |               | f
-      17 |        3 | edit_comment                     | TEXT                             | internal     | t           |               | f
-      18 |        1 | founding_row_id                  | INTEGER                          | internal     | t           |               | f
-      18 |        2 | state                            | public.import_data_state         | metadata     | f           | 'pending'     | f
-      18 |        3 | last_completed_priority          | INTEGER                          | metadata     | f           | 0             | f
-      18 |        4 | errors                           | JSONB                            | metadata     | f           | '{}'::jsonb   | f
-      18 |        5 | merge_status                     | JSONB                            | metadata     | f           | '{}'::jsonb   | f
-      18 |        6 | invalid_codes                    | JSONB                            | metadata     | f           | '{}'::jsonb   | f
-(104 rows)
+ step_id | priority |             column_name              |           column_type            |   purpose    | is_nullable | default_value | is_uniquely_identifying 
+---------+----------+--------------------------------------+----------------------------------+--------------+-------------+---------------+-------------------------
+       1 |        1 | valid_from_raw                       | TEXT                             | source_input | t           |               | f
+       1 |        2 | valid_to_raw                         | TEXT                             | source_input | t           |               | f
+       1 |        3 | valid_from                           | DATE                             | internal     | t           |               | f
+       1 |        4 | valid_to                             | DATE                             | internal     | t           |               | f
+       1 |        5 | valid_until                          | DATE                             | internal     | t           |               | f
+       2 |        1 | operation                            | public.import_row_operation_type | internal     | t           |               | f
+       2 |        2 | action                               | public.import_row_action_type    | internal     | t           |               | f
+       2 |        3 | legal_unit_id                        | INTEGER                          | pk_id        | t           |               | f
+       2 |        4 | establishment_id                     | INTEGER                          | pk_id        | t           |               | f
+       2 |        7 | tax_ident_raw                        | TEXT                             | source_input | t           |               | t
+       2 |        8 | stat_ident_raw                       | TEXT                             | source_input | t           |               | t
+       3 |        1 | enterprise_id                        | INTEGER                          | internal     | t           |               | f
+       3 |        2 | primary_for_enterprise               | BOOLEAN                          | internal     | t           |               | f
+       4 |        1 | enterprise_id                        | INTEGER                          | internal     | t           |               | f
+       4 |        2 | primary_for_enterprise               | BOOLEAN                          | internal     | t           |               | f
+       5 |        1 | primary_for_legal_unit               | BOOLEAN                          | internal     | t           |               | f
+       5 |        2 | legal_unit_tax_ident_raw             | TEXT                             | source_input | t           |               | f
+       5 |        3 | legal_unit_stat_ident_raw            | TEXT                             | source_input | t           |               | f
+       6 |        1 | data_source_code_raw                 | TEXT                             | source_input | t           |               | f
+       6 |        2 | data_source_id                       | INTEGER                          | internal     | t           |               | f
+       7 |        1 | status_code_raw                      | TEXT                             | source_input | t           |               | f
+       7 |        2 | status_id                            | INTEGER                          | internal     | t           |               | f
+       8 |        1 | name_raw                             | TEXT                             | source_input | t           |               | f
+       8 |        2 | name                                 | TEXT                             | internal     | t           |               | f
+       8 |        3 | birth_date_raw                       | TEXT                             | source_input | t           |               | f
+       8 |        4 | death_date_raw                       | TEXT                             | source_input | t           |               | f
+       8 |        5 | sector_code_raw                      | TEXT                             | source_input | t           |               | f
+       8 |        6 | unit_size_code_raw                   | TEXT                             | source_input | t           |               | f
+       8 |        7 | legal_form_code_raw                  | TEXT                             | source_input | t           |               | f
+       8 |        8 | sector_id                            | INTEGER                          | internal     | t           |               | f
+       8 |        9 | unit_size_id                         | INTEGER                          | internal     | t           |               | f
+       8 |       10 | legal_form_id                        | INTEGER                          | internal     | t           |               | f
+       8 |       11 | birth_date                           | DATE                             | internal     | t           |               | f
+       8 |       12 | death_date                           | DATE                             | internal     | t           |               | f
+       9 |        1 | name_raw                             | TEXT                             | source_input | t           |               | f
+       9 |        2 | name                                 | TEXT                             | internal     | t           |               | f
+       9 |        3 | birth_date_raw                       | TEXT                             | source_input | t           |               | f
+       9 |        4 | death_date_raw                       | TEXT                             | source_input | t           |               | f
+       9 |        5 | sector_code_raw                      | TEXT                             | source_input | t           |               | f
+       9 |        6 | unit_size_code_raw                   | TEXT                             | source_input | t           |               | f
+       9 |        7 | sector_id                            | INTEGER                          | internal     | t           |               | f
+       9 |        8 | unit_size_id                         | INTEGER                          | internal     | t           |               | f
+       9 |        9 | birth_date                           | DATE                             | internal     | t           |               | f
+       9 |       10 | death_date                           | DATE                             | internal     | t           |               | f
+      10 |        1 | physical_address_part1_raw           | TEXT                             | source_input | t           |               | f
+      10 |        2 | physical_address_part1               | TEXT                             | internal     | t           |               | f
+      10 |        3 | physical_address_part2_raw           | TEXT                             | source_input | t           |               | f
+      10 |        4 | physical_address_part2               | TEXT                             | internal     | t           |               | f
+      10 |        5 | physical_address_part3_raw           | TEXT                             | source_input | t           |               | f
+      10 |        6 | physical_address_part3               | TEXT                             | internal     | t           |               | f
+      10 |        7 | physical_postcode_raw                | TEXT                             | source_input | t           |               | f
+      10 |        8 | physical_postcode                    | TEXT                             | internal     | t           |               | f
+      10 |        9 | physical_postplace_raw               | TEXT                             | source_input | t           |               | f
+      10 |       10 | physical_postplace                   | TEXT                             | internal     | t           |               | f
+      10 |       11 | physical_latitude_raw                | TEXT                             | source_input | t           |               | f
+      10 |       12 | physical_longitude_raw               | TEXT                             | source_input | t           |               | f
+      10 |       13 | physical_altitude_raw                | TEXT                             | source_input | t           |               | f
+      10 |       14 | physical_region_code_raw             | TEXT                             | source_input | t           |               | f
+      10 |       15 | physical_country_iso_2_raw           | TEXT                             | source_input | t           |               | f
+      10 |       16 | physical_location_id                 | INTEGER                          | pk_id        | t           |               | f
+      10 |       17 | physical_region_id                   | INTEGER                          | internal     | t           |               | f
+      10 |       18 | physical_country_id                  | INTEGER                          | internal     | t           |               | f
+      10 |       19 | physical_latitude                    | numeric(9,6)                     | internal     | t           |               | f
+      10 |       20 | physical_longitude                   | numeric(9,6)                     | internal     | t           |               | f
+      10 |       21 | physical_altitude                    | numeric(6,1)                     | internal     | t           |               | f
+      11 |        1 | postal_address_part1_raw             | TEXT                             | source_input | t           |               | f
+      11 |        2 | postal_address_part1                 | TEXT                             | internal     | t           |               | f
+      11 |        3 | postal_address_part2_raw             | TEXT                             | source_input | t           |               | f
+      11 |        4 | postal_address_part2                 | TEXT                             | internal     | t           |               | f
+      11 |        5 | postal_address_part3_raw             | TEXT                             | source_input | t           |               | f
+      11 |        6 | postal_address_part3                 | TEXT                             | internal     | t           |               | f
+      11 |        7 | postal_postcode_raw                  | TEXT                             | source_input | t           |               | f
+      11 |        8 | postal_postcode                      | TEXT                             | internal     | t           |               | f
+      11 |        9 | postal_postplace_raw                 | TEXT                             | source_input | t           |               | f
+      11 |       10 | postal_postplace                     | TEXT                             | internal     | t           |               | f
+      11 |       11 | postal_region_code_raw               | TEXT                             | source_input | t           |               | f
+      11 |       12 | postal_country_iso_2_raw             | TEXT                             | source_input | t           |               | f
+      11 |       13 | postal_latitude_raw                  | TEXT                             | source_input | t           |               | f
+      11 |       14 | postal_longitude_raw                 | TEXT                             | source_input | t           |               | f
+      11 |       15 | postal_altitude_raw                  | TEXT                             | source_input | t           |               | f
+      11 |       16 | postal_location_id                   | INTEGER                          | pk_id        | t           |               | f
+      11 |       17 | postal_region_id                     | INTEGER                          | internal     | t           |               | f
+      11 |       18 | postal_country_id                    | INTEGER                          | internal     | t           |               | f
+      11 |       19 | postal_latitude                      | numeric(9,6)                     | internal     | t           |               | f
+      11 |       20 | postal_longitude                     | numeric(9,6)                     | internal     | t           |               | f
+      11 |       21 | postal_altitude                      | numeric(6,1)                     | internal     | t           |               | f
+      12 |        1 | primary_activity_category_code_raw   | TEXT                             | source_input | t           |               | f
+      12 |        2 | primary_activity_id                  | INTEGER                          | pk_id        | t           |               | f
+      12 |        3 | primary_activity_category_id         | INTEGER                          | internal     | t           |               | f
+      13 |        1 | secondary_activity_category_code_raw | TEXT                             | source_input | t           |               | f
+      13 |        2 | secondary_activity_id                | INTEGER                          | pk_id        | t           |               | f
+      13 |        3 | secondary_activity_category_id       | INTEGER                          | internal     | t           |               | f
+      14 |        1 | web_address_raw                      | TEXT                             | source_input | t           |               | f
+      14 |        2 | web_address                          | TEXT                             | internal     | t           |               | f
+      14 |        3 | email_address_raw                    | TEXT                             | source_input | t           |               | f
+      14 |        4 | email_address                        | TEXT                             | internal     | t           |               | f
+      14 |        5 | phone_number_raw                     | TEXT                             | source_input | t           |               | f
+      14 |        6 | phone_number                         | TEXT                             | internal     | t           |               | f
+      14 |        7 | landline_raw                         | TEXT                             | source_input | t           |               | f
+      14 |        8 | landline                             | TEXT                             | internal     | t           |               | f
+      14 |        9 | mobile_number_raw                    | TEXT                             | source_input | t           |               | f
+      14 |       10 | mobile_number                        | TEXT                             | internal     | t           |               | f
+      14 |       11 | fax_number_raw                       | TEXT                             | source_input | t           |               | f
+      14 |       12 | fax_number                           | TEXT                             | internal     | t           |               | f
+      14 |       13 | contact_id                           | INTEGER                          | pk_id        | t           |               | f
+      15 |        1 | employees_raw                        | TEXT                             | source_input | t           |               | f
+      15 |        2 | turnover_raw                         | TEXT                             | source_input | t           |               | f
+      15 |        3 | employees                            | INTEGER                          | internal     | t           |               | f
+      15 |        4 | turnover                             | NUMERIC                          | internal     | t           |               | f
+      15 |        5 | stat_for_unit_employees_id           | INTEGER                          | pk_id        | t           |               | f
+      15 |        6 | stat_for_unit_turnover_id            | INTEGER                          | pk_id        | t           |               | f
+      16 |        1 | tag_path_raw                         | TEXT                             | source_input | t           |               | f
+      16 |        2 | tag_path                             | public.LTREE                     | internal     | t           |               | f
+      16 |        3 | tag_id                               | INTEGER                          | internal     | t           |               | f
+      16 |        4 | tag_for_unit_id                      | INTEGER                          | pk_id        | t           |               | f
+      17 |        1 | edit_comment_raw                     | TEXT                             | source_input | t           |               | f
+      17 |        2 | edit_by_user_id                      | INTEGER                          | internal     | t           |               | f
+      17 |        3 | edit_at                              | TIMESTAMPTZ                      | internal     | t           |               | f
+      17 |        4 | edit_comment                         | TEXT                             | internal     | t           |               | f
+      18 |        1 | founding_row_id                      | INTEGER                          | internal     | t           |               | f
+      18 |        2 | state                                | public.import_data_state         | metadata     | f           | 'pending'     | f
+      18 |        3 | last_completed_priority              | INTEGER                          | metadata     | f           | 0             | f
+      18 |        4 | errors                               | JSONB                            | metadata     | f           | '{}'::jsonb   | f
+      18 |        5 | merge_status                         | JSONB                            | metadata     | f           | '{}'::jsonb   | f
+      18 |        6 | invalid_codes                        | JSONB                            | metadata     | f           | '{}'::jsonb   | f
+(125 rows)
 
 \echo "Modify stat_definition"
 "Modify stat_definition"
@@ -401,15 +422,17 @@ FROM public.import_data_column
 ORDER BY step_id, priority NULLS FIRST, column_name;
  step_id | priority |        column_name         | column_type |   purpose    | is_nullable | default_value | is_uniquely_identifying 
 ---------+----------+----------------------------+-------------+--------------+-------------+---------------+-------------------------
-       2 |        7 | tax_ident                  | TEXT        | source_input | t           |               | t
-       2 |        8 | stat_ident                 | TEXT        | source_input | t           |               | t
-       5 |        2 | legal_unit_tax_ident       | TEXT        | source_input | t           |               | f
-       5 |        3 | legal_unit_stat_ident      | TEXT        | source_input | t           |               | f
-      15 |        1 | employees                  | TEXT        | source_input | t           |               | f
-      15 |        2 | turnover                   | TEXT        | source_input | t           |               | f
-      15 |        3 | stat_for_unit_employees_id | INTEGER     | pk_id        | t           |               | f
-      15 |        4 | stat_for_unit_turnover_id  | INTEGER     | pk_id        | t           |               | f
-(8 rows)
+       2 |        7 | tax_ident_raw              | TEXT        | source_input | t           |               | t
+       2 |        8 | stat_ident_raw             | TEXT        | source_input | t           |               | t
+       5 |        2 | legal_unit_tax_ident_raw   | TEXT        | source_input | t           |               | f
+       5 |        3 | legal_unit_stat_ident_raw  | TEXT        | source_input | t           |               | f
+      15 |        1 | employees_raw              | TEXT        | source_input | t           |               | f
+      15 |        2 | turnover_raw               | TEXT        | source_input | t           |               | f
+      15 |        3 | employees                  | INTEGER     | internal     | t           |               | f
+      15 |        4 | turnover                   | NUMERIC     | internal     | t           |               | f
+      15 |        5 | stat_for_unit_employees_id | INTEGER     | pk_id        | t           |               | f
+      15 |        6 | stat_for_unit_turnover_id  | INTEGER     | pk_id        | t           |               | f
+(10 rows)
 
 \echo "Added import_data_column rows (stable columns):"
 "Added import_data_column rows (stable columns):"
@@ -428,20 +451,25 @@ SELECT * FROM import_data_column_baseline
 ORDER BY step_id, priority NULLS FIRST, column_name;
  step_id | priority |           column_name            | column_type |   purpose    | is_nullable | default_value | is_uniquely_identifying 
 ---------+----------+----------------------------------+-------------+--------------+-------------+---------------+-------------------------
-       2 |       12 | tax_ident                        | TEXT        | source_input | t           |               | t
-       2 |       13 | pin                              | TEXT        | source_input | t           |               | t
-       5 |        7 | legal_unit_tax_ident             | TEXT        | source_input | t           |               | f
-       5 |        8 | legal_unit_pin                   | TEXT        | source_input | t           |               | f
-      15 |        1 | turnover                         | TEXT        | source_input | t           |               | f
-      15 |        2 | men_employees                    | TEXT        | source_input | t           |               | f
-      15 |        3 | women_employees                  | TEXT        | source_input | t           |               | f
-      15 |        4 | boy_employees                    | TEXT        | source_input | t           |               | f
-      15 |        5 | girl_employees                   | TEXT        | source_input | t           |               | f
-      15 |        6 | stat_for_unit_turnover_id        | INTEGER     | pk_id        | t           |               | f
-      15 |        7 | stat_for_unit_men_employees_id   | INTEGER     | pk_id        | t           |               | f
-      15 |        8 | stat_for_unit_women_employees_id | INTEGER     | pk_id        | t           |               | f
-      15 |        9 | stat_for_unit_boy_employees_id   | INTEGER     | pk_id        | t           |               | f
-      15 |       10 | stat_for_unit_girl_employees_id  | INTEGER     | pk_id        | t           |               | f
-(14 rows)
+       2 |       12 | tax_ident_raw                    | TEXT        | source_input | t           |               | t
+       2 |       13 | pin_raw                          | TEXT        | source_input | t           |               | t
+       5 |        7 | legal_unit_tax_ident_raw         | TEXT        | source_input | t           |               | f
+       5 |        8 | legal_unit_pin_raw               | TEXT        | source_input | t           |               | f
+      15 |       33 | turnover_raw                     | TEXT        | source_input | t           |               | f
+      15 |       34 | men_employees_raw                | TEXT        | source_input | t           |               | f
+      15 |       35 | women_employees_raw              | TEXT        | source_input | t           |               | f
+      15 |       36 | boy_employees_raw                | TEXT        | source_input | t           |               | f
+      15 |       37 | girl_employees_raw               | TEXT        | source_input | t           |               | f
+      15 |       38 | turnover                         | NUMERIC     | internal     | t           |               | f
+      15 |       39 | men_employees                    | INTEGER     | internal     | t           |               | f
+      15 |       40 | women_employees                  | INTEGER     | internal     | t           |               | f
+      15 |       41 | boy_employees                    | INTEGER     | internal     | t           |               | f
+      15 |       42 | girl_employees                   | INTEGER     | internal     | t           |               | f
+      15 |       43 | stat_for_unit_turnover_id        | INTEGER     | pk_id        | t           |               | f
+      15 |       44 | stat_for_unit_men_employees_id   | INTEGER     | pk_id        | t           |               | f
+      15 |       45 | stat_for_unit_women_employees_id | INTEGER     | pk_id        | t           |               | f
+      15 |       46 | stat_for_unit_boy_employees_id   | INTEGER     | pk_id        | t           |               | f
+      15 |       47 | stat_for_unit_girl_employees_id  | INTEGER     | pk_id        | t           |               | f
+(19 rows)
 
 ROLLBACK;

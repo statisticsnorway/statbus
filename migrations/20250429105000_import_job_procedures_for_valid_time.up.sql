@@ -50,7 +50,7 @@ DECLARE
     v_update_count INT := 0;
     v_skipped_update_count INT := 0;
     v_sql TEXT;
-    v_error_keys_to_clear_arr TEXT[] := ARRAY['valid_from', 'valid_to']; -- Adjusted to match source_input column names
+    v_error_keys_to_clear_arr TEXT[] := ARRAY['valid_from_raw', 'valid_to_raw'];
 BEGIN
     RAISE DEBUG '[Job %] analyse_valid_time (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_row_ids, 1);
 
@@ -69,7 +69,7 @@ BEGIN
         WITH
         -- Step 1: Get the raw text dates for the current batch of rows.
         batch_data_cte AS (
-            SELECT row_id, valid_from, valid_to FROM public.%1$I WHERE row_id = ANY($1)
+            SELECT row_id, valid_from_raw AS valid_from, valid_to_raw AS valid_to FROM public.%1$I WHERE row_id = ANY($1)
         ),
         -- Step 2: Find all unique non-empty date strings within the batch.
         distinct_dates_cte AS (
@@ -107,9 +107,9 @@ BEGIN
             LEFT JOIN casted_distinct_dates_cte vt ON bd.valid_to = vt.date_string
         )
         UPDATE public.%2$I dt SET
-            derived_valid_from = fcc.casted_vf,
-            derived_valid_to = fcc.casted_vt,
-            derived_valid_until = fcc.casted_vu,
+            valid_from = fcc.casted_vf,
+            valid_to = fcc.casted_vt,
+            valid_until = fcc.casted_vu,
             state = CASE
                         WHEN NULLIF(fcc.original_vf, '') IS NULL OR fcc.vf_error_msg IS NOT NULL OR
                              NULLIF(fcc.original_vt, '') IS NULL OR fcc.vt_error_msg IS NOT NULL OR
@@ -130,17 +130,17 @@ BEGIN
                      END,
             errors = CASE
                         WHEN NULLIF(fcc.original_vf, '') IS NULL THEN -- Mandatory value missing
-                            dt.errors || jsonb_build_object('valid_from', 'Missing mandatory value')
+                            dt.errors || jsonb_build_object('valid_from_raw', 'Missing mandatory value')
                         WHEN fcc.vf_error_msg IS NOT NULL THEN -- Cast error for valid_from
-                            dt.errors || jsonb_build_object('valid_from', fcc.vf_error_msg)
+                            dt.errors || jsonb_build_object('valid_from_raw', fcc.vf_error_msg)
                         WHEN NULLIF(fcc.original_vt, '') IS NULL THEN -- Mandatory value missing
-                            dt.errors || jsonb_build_object('valid_to', 'Missing mandatory value')
+                            dt.errors || jsonb_build_object('valid_to_raw', 'Missing mandatory value')
                         WHEN fcc.vt_error_msg IS NOT NULL THEN -- Cast error for valid_to
-                            dt.errors || jsonb_build_object('valid_to', fcc.vt_error_msg)
+                            dt.errors || jsonb_build_object('valid_to_raw', fcc.vt_error_msg)
                         WHEN fcc.casted_vf IS NOT NULL AND fcc.casted_vu IS NOT NULL AND (fcc.casted_vf >= fcc.casted_vu) THEN -- Invalid period
                             dt.errors || jsonb_build_object(
-                                'valid_from', 'Resulting period is invalid: derived_valid_from (' || fcc.casted_vf::TEXT || ') must be before derived_valid_until (' || fcc.casted_vu::TEXT || ')',
-                                'valid_to',   'Resulting period is invalid: derived_valid_from (' || fcc.casted_vf::TEXT || ') must be before derived_valid_until (' || fcc.casted_vu::TEXT || ')'
+                                'valid_from_raw', 'Resulting period is invalid: valid_from (' || fcc.casted_vf::TEXT || ') must be before valid_until (' || fcc.casted_vu::TEXT || ')',
+                                'valid_to_raw',   'Resulting period is invalid: valid_from (' || fcc.casted_vf::TEXT || ') must be before valid_until (' || fcc.casted_vu::TEXT || ')'
                             )
                         ELSE -- No error from this step, clear specific keys
                             dt.errors - %3$L::TEXT[]

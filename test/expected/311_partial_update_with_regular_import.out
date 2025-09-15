@@ -198,94 +198,94 @@ SELECT
     jsonb_pretty(merge_status) as merge_status
 FROM public.import_311_lu_partial_update_data
 ORDER BY row_id;
--[ RECORD 1 ]+---------------------------------------------------------------------------------------------------------------------
+-[ RECORD 1 ]+-------------------------------------------------------------------------------------------------------------------------
 row_id       | 1
 operation    | update
 state        | error
-errors       | {                                                                                                                   +
-             |     "tax_ident": "Identifier tax_ident value '2212760166' from input attempts to change existing value '2212760144'"+
+errors       | {                                                                                                                       +
+             |     "tax_ident_raw": "Identifier tax_ident value '2212760166' from input attempts to change existing value '2212760144'"+
              | }
-merge_status | {                                                                                                                   +
+merge_status | {                                                                                                                       +
              | }
--[ RECORD 2 ]+---------------------------------------------------------------------------------------------------------------------
+-[ RECORD 2 ]+-------------------------------------------------------------------------------------------------------------------------
 row_id       | 2
 operation    | update
 state        | processed
-errors       | {                                                                                                                   +
+errors       | {                                                                                                                       +
              | }
-merge_status | {                                                                                                                   +
-             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                              +
-             |     "stat_turnover": "APPLIED"                                                                                      +
+merge_status | {                                                                                                                       +
+             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                                  +
+             |     "stat_turnover": "APPLIED"                                                                                          +
              | }
--[ RECORD 3 ]+---------------------------------------------------------------------------------------------------------------------
+-[ RECORD 3 ]+-------------------------------------------------------------------------------------------------------------------------
 row_id       | 3
 operation    | update
 state        | processed
-errors       | {                                                                                                                   +
+errors       | {                                                                                                                       +
              | }
-merge_status | {                                                                                                                   +
-             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                              +
-             |     "stat_turnover": "APPLIED"                                                                                      +
+merge_status | {                                                                                                                       +
+             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                                  +
+             |     "stat_turnover": "APPLIED"                                                                                          +
              | }
--[ RECORD 4 ]+---------------------------------------------------------------------------------------------------------------------
+-[ RECORD 4 ]+-------------------------------------------------------------------------------------------------------------------------
 row_id       | 4
 operation    | update
 state        | processed
-errors       | {                                                                                                                   +
+errors       | {                                                                                                                       +
              | }
-merge_status | {                                                                                                                   +
-             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                              +
-             |     "stat_turnover": "APPLIED"                                                                                      +
+merge_status | {                                                                                                                       +
+             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                                  +
+             |     "stat_turnover": "APPLIED"                                                                                          +
              | }
--[ RECORD 5 ]+---------------------------------------------------------------------------------------------------------------------
+-[ RECORD 5 ]+-------------------------------------------------------------------------------------------------------------------------
 row_id       | 5
 operation    | update
 state        | processed
-errors       | {                                                                                                                   +
+errors       | {                                                                                                                       +
              | }
-merge_status | {                                                                                                                   +
-             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                              +
-             |     "stat_turnover": "APPLIED"                                                                                      +
+merge_status | {                                                                                                                       +
+             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                                  +
+             |     "stat_turnover": "APPLIED"                                                                                          +
              | }
--[ RECORD 6 ]+---------------------------------------------------------------------------------------------------------------------
+-[ RECORD 6 ]+-------------------------------------------------------------------------------------------------------------------------
 row_id       | 6
 operation    | update
 state        | processed
-errors       | {                                                                                                                   +
+errors       | {                                                                                                                       +
              | }
-merge_status | {                                                                                                                   +
-             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                              +
-             |     "stat_turnover": "APPLIED"                                                                                      +
+merge_status | {                                                                                                                       +
+             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                                  +
+             |     "stat_turnover": "APPLIED"                                                                                          +
              | }
--[ RECORD 7 ]+---------------------------------------------------------------------------------------------------------------------
+-[ RECORD 7 ]+-------------------------------------------------------------------------------------------------------------------------
 row_id       | 7
 operation    | update
 state        | processed
-errors       | {                                                                                                                   +
+errors       | {                                                                                                                       +
              | }
-merge_status | {                                                                                                                   +
-             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                              +
-             |     "stat_turnover": "APPLIED"                                                                                      +
+merge_status | {                                                                                                                       +
+             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                                  +
+             |     "stat_turnover": "APPLIED"                                                                                          +
              | }
--[ RECORD 8 ]+---------------------------------------------------------------------------------------------------------------------
+-[ RECORD 8 ]+-------------------------------------------------------------------------------------------------------------------------
 row_id       | 8
 operation    | update
 state        | processed
-errors       | {                                                                                                                   +
+errors       | {                                                                                                                       +
              | }
-merge_status | {                                                                                                                   +
-             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                              +
-             |     "stat_turnover": "APPLIED"                                                                                      +
+merge_status | {                                                                                                                       +
+             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                                  +
+             |     "stat_turnover": "APPLIED"                                                                                          +
              | }
--[ RECORD 9 ]+---------------------------------------------------------------------------------------------------------------------
+-[ RECORD 9 ]+-------------------------------------------------------------------------------------------------------------------------
 row_id       | 9
 operation    | update
 state        | processed
-errors       | {                                                                                                                   +
+errors       | {                                                                                                                       +
              | }
-merge_status | {                                                                                                                   +
-             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                              +
-             |     "stat_turnover": "APPLIED"                                                                                      +
+merge_status | {                                                                                                                       +
+             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                                  +
+             |     "stat_turnover": "APPLIED"                                                                                          +
              | }
 
 \x auto
@@ -301,7 +301,7 @@ FROM public.stat_for_unit sfu
 JOIN public.stat_definition sd ON sfu.stat_definition_id = sd.id
 -- Use a subquery to get a unique legal_unit_id to stat_ident mapping from the import table for reporting
 JOIN (
-    SELECT DISTINCT legal_unit_id, stat_ident
+    SELECT DISTINCT legal_unit_id, stat_ident_raw AS stat_ident
     FROM public.import_311_lu_partial_update_data
     WHERE state = 'processed' AND legal_unit_id IS NOT NULL
 ) idt ON sfu.legal_unit_id = idt.legal_unit_id

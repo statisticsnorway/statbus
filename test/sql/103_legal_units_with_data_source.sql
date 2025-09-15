@@ -59,7 +59,7 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
 \echo "Inspecting import job data for import_32_lu_tc_ds"
-SELECT row_id, state, errors, tax_ident, name, data_source_code, merge_status
+SELECT row_id, state, errors, tax_ident_raw, name_raw, data_source_code_raw, merge_status
 FROM public.import_32_lu_tc_ds_data
 ORDER BY row_id
 LIMIT 5;

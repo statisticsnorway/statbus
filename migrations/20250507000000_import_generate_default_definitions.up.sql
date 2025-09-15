@@ -20,7 +20,10 @@ BEGIN
     RAISE DEBUG '[Sync Mappings Def ID %] Synchronizing mappings for step % (Definition: active=%, custom=%).', p_definition_id, p_step_code, v_def.active, v_def.custom;
 
     FOR v_data_col IN
-        SELECT dc.id AS data_column_id, dc.column_name AS data_column_name
+        SELECT
+            dc.id AS data_column_id,
+            dc.column_name AS data_column_name,
+            regexp_replace(dc.column_name, '_raw$', '') AS source_column_name
         FROM public.import_data_column dc
         JOIN public.import_step s ON dc.step_id = s.id
         JOIN public.import_definition_step ids ON ids.step_id = s.id
@@ -31,16 +34,16 @@ BEGIN
         -- Ensure import_source_column exists
         SELECT id INTO v_source_col_id
         FROM public.import_source_column
-        WHERE definition_id = p_definition_id AND column_name = v_data_col.data_column_name;
+        WHERE definition_id = p_definition_id AND column_name = v_data_col.source_column_name;
 
         IF NOT FOUND THEN
             SELECT COALESCE(MAX(priority), 0) + 1 INTO v_max_priority
             FROM public.import_source_column WHERE definition_id = p_definition_id;
 
             INSERT INTO public.import_source_column (definition_id, column_name, priority)
-            VALUES (p_definition_id, v_data_col.data_column_name, v_max_priority)
+            VALUES (p_definition_id, v_data_col.source_column_name, v_max_priority)
             RETURNING id INTO v_source_col_id;
-            RAISE DEBUG '[Sync Mappings Def ID %] Created source column "%" (ID: %) for data column ID %.', p_definition_id, v_data_col.data_column_name, v_source_col_id, v_data_col.data_column_id;
+            RAISE DEBUG '[Sync Mappings Def ID %] Created source column "%" (ID: %) for data column ID %.', p_definition_id, v_data_col.source_column_name, v_source_col_id, v_data_col.data_column_id;
         END IF;
 
         -- Ensure import_mapping exists. If newly created by this sync, it should be a valid, non-ignored mapping.
@@ -127,7 +130,7 @@ BEGIN
                     FROM public.import_definition_step ids
                     JOIN public.import_data_column idc ON ids.step_id = idc.step_id
                     WHERE ids.definition_id = v_def.id
-                      AND idc.column_name = v_source_col.column_name
+                      AND idc.column_name = v_source_col.column_name || '_raw'
                       AND idc.purpose = 'source_input'
                 ) INTO v_data_column_exists;
             END IF;
@@ -193,7 +196,7 @@ BEGIN
     -- Handle validity date mappings based on definition mode
     IF v_def.valid_time_from = 'job_provided' THEN
         FOR v_col_name IN VALUES ('valid_from'), ('valid_to') LOOP
-            SELECT dc.id INTO v_data_col_id FROM public.import_data_column dc JOIN public.import_step s ON dc.step_id = s.id WHERE s.code = 'valid_time' AND dc.column_name = v_col_name;
+            SELECT dc.id INTO v_data_col_id FROM public.import_data_column dc JOIN public.import_step s ON dc.step_id = s.id WHERE s.code = 'valid_time' AND dc.column_name = v_col_name || '_raw';
             IF v_data_col_id IS NOT NULL THEN
                 INSERT INTO public.import_mapping (definition_id, source_expression, target_data_column_id, target_data_column_purpose)
                 VALUES (p_definition_id, 'default', v_data_col_id, 'source_input'::public.import_data_column_purpose)
@@ -213,7 +216,7 @@ BEGIN
             SELECT dc.id INTO v_data_col_id
             FROM public.import_definition_step ds
             JOIN public.import_data_column dc ON ds.step_id = dc.step_id
-            WHERE ds.definition_id = p_definition_id AND dc.column_name = v_col_name AND dc.purpose = 'source_input';
+            WHERE ds.definition_id = p_definition_id AND dc.column_name = v_col_name || '_raw' AND dc.purpose = 'source_input';
 
             IF v_data_col_id IS NOT NULL THEN
                 INSERT INTO public.import_mapping (definition_id, source_column_id, target_data_column_id, target_data_column_purpose)
@@ -243,7 +246,7 @@ BEGIN
         SELECT dc.id INTO v_data_col_id FROM public.import_definition_step ds
         JOIN public.import_step s ON ds.step_id = s.id
         JOIN public.import_data_column dc ON ds.step_id = dc.step_id
-        WHERE ds.definition_id = p_definition_id AND s.code = 'statistical_variables' AND dc.column_name = v_col_rec.stat_code AND dc.purpose = 'source_input';
+        WHERE ds.definition_id = p_definition_id AND s.code = 'statistical_variables' AND dc.column_name = v_col_rec.stat_code || '_raw' AND dc.purpose = 'source_input';
 
         IF v_data_col_id IS NOT NULL THEN
             INSERT INTO public.import_mapping (definition_id, source_column_id, target_data_column_id, target_data_column_purpose)
@@ -265,7 +268,6 @@ DECLARE
     es_no_lu_steps TEXT[] := ARRAY['external_idents', 'data_source', 'valid_time', 'enterprise_link_for_establishment', 'status', 'establishment', 'physical_location', 'postal_location', 'primary_activity', 'secondary_activity', 'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'];
 
     lu_source_cols TEXT[] := ARRAY[
-        'tax_ident','stat_ident',
         'name', 'birth_date', 'death_date',
         'physical_address_part1', 'physical_address_part2', 'physical_address_part3', 'physical_postcode', 'physical_postplace', 'physical_latitude', 'physical_longitude', 'physical_altitude', 'physical_region_code', 'physical_country_iso_2',
         'postal_address_part1', 'postal_address_part2', 'postal_address_part3', 'postal_postcode', 'postal_postplace', 'postal_region_code', 'postal_country_iso_2',
@@ -277,7 +279,6 @@ DECLARE
     lu_explicit_source_cols TEXT[] := lu_source_cols || ARRAY['valid_from', 'valid_to'];
 
     es_source_cols TEXT[] := ARRAY[
-        'tax_ident','stat_ident',
         'name', 'birth_date', 'death_date',
         'physical_address_part1', 'physical_address_part2', 'physical_address_part3', 'physical_postcode', 'physical_postplace', 'physical_latitude', 'physical_longitude', 'physical_altitude', 'physical_region_code', 'physical_country_iso_2',
         'postal_address_part1', 'postal_address_part2', 'postal_address_part3', 'postal_postcode', 'postal_postplace', 'postal_region_code', 'postal_country_iso_2',
@@ -290,7 +291,6 @@ DECLARE
     es_explicit_source_cols TEXT[] := es_source_cols || ARRAY['valid_from', 'valid_to'];
 
     es_no_lu_source_cols TEXT[] := ARRAY[
-        'tax_ident','stat_ident',
         'name', 'birth_date', 'death_date',
         'physical_address_part1', 'physical_address_part2', 'physical_address_part3', 'physical_postcode', 'physical_postplace', 'physical_latitude', 'physical_longitude', 'physical_altitude', 'physical_region_code', 'physical_country_iso_2',
         'postal_address_part1', 'postal_address_part2', 'postal_address_part3', 'postal_postcode', 'postal_postplace', 'postal_region_code', 'postal_country_iso_2',
