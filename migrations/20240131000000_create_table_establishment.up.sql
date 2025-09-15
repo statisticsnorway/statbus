@@ -47,6 +47,9 @@ CREATE INDEX ix_establishment_name ON public.establishment USING btree (name);
 CREATE INDEX ix_establishment_size_id ON public.establishment USING btree (unit_size_id);
 CREATE INDEX ix_establishment_edit_by_user_id ON public.establishment USING btree (edit_by_user_id);
 
+CREATE INDEX ix_establishment_legal_unit_id_valid_range ON public.establishment USING gist (legal_unit_id, daterange(valid_from, valid_until, '[)'));
+CREATE INDEX ix_establishment_enterprise_id_valid_range ON public.establishment USING gist (enterprise_id, daterange(valid_from, valid_until, '[)'));
+
 CREATE INDEX establishment_enterprise_id_primary_for_enterprise_idx ON public.establishment(enterprise_id, primary_for_enterprise) WHERE enterprise_id IS NOT NULL;
 CREATE INDEX establishment_legal_unit_id_primary_for_legal_unit_idx ON public.establishment(legal_unit_id, primary_for_legal_unit) WHERE legal_unit_id IS NOT NULL;
 
@@ -56,6 +59,9 @@ $$;
 
 -- Activate era handling
 SELECT sql_saga.add_era('public.establishment', synchronize_valid_to_column => 'valid_to');
+-- This creates a GIST exclusion constraint (`establishment_id_valid_excl`) to ensure that
+-- there are no overlapping time periods for the same establishment ID. This is backed by a
+-- GIST index, which also accelerates temporal queries on the primary key.
 SELECT sql_saga.add_unique_key(
     table_oid => 'public.establishment',
     key_type => 'primary',
@@ -63,6 +69,8 @@ SELECT sql_saga.add_unique_key(
     unique_key_name => 'establishment_id_valid'
 );
 -- Enforce that an enterprise can only have one primary establishment at any given time.
+-- This creates a GIST exclusion constraint (`establishment_enterprise_id_primary_valid_excl`)
+-- to prevent overlapping time periods for primary establishments within the same enterprise.
 SELECT sql_saga.add_unique_key(
     table_oid => 'public.establishment',
     column_names => ARRAY['enterprise_id'],
@@ -71,6 +79,8 @@ SELECT sql_saga.add_unique_key(
     unique_key_name => 'establishment_enterprise_id_primary_valid'
 );
 -- Enforce that a legal unit can only have one primary establishment at any given time.
+-- This creates a GIST exclusion constraint (`establishment_legal_unit_id_primary_valid_excl`)
+-- to prevent overlapping time periods for primary establishments within the same legal unit.
 SELECT sql_saga.add_unique_key(
     table_oid => 'public.establishment',
     column_names => ARRAY['legal_unit_id'],
@@ -78,7 +88,9 @@ SELECT sql_saga.add_unique_key(
     predicate => 'primary_for_legal_unit IS TRUE',
     unique_key_name => 'establishment_legal_unit_id_primary_valid'
 );
--- Add temporal foreign key to legal_unit.
+-- Add temporal foreign key to legal_unit. This creates triggers to enforce that an
+-- establishment's validity period is always contained within the validity period of its
+-- parent legal unit.
 SELECT sql_saga.add_foreign_key(
     fk_table_oid => 'public.establishment',
     fk_column_names => ARRAY['legal_unit_id'],
@@ -86,7 +98,7 @@ SELECT sql_saga.add_foreign_key(
     unique_key_name => 'legal_unit_id_valid'
 );
 
--- Add a view for portion-of updates
+-- Add a view for portion-of updates, allowing for easier updates to specific time slices.
 SELECT sql_saga.add_for_portion_of_view('public.establishment');
 
 END;

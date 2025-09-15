@@ -33,6 +33,9 @@ $$;
 
 -- Activate era handling
 SELECT sql_saga.add_era('public.enterprise_group', synchronize_valid_to_column => 'valid_to');
+-- This creates a GIST exclusion constraint (`enterprise_group_id_valid_excl`) to ensure
+-- that there are no overlapping time periods for the same enterprise_group ID. This constraint is
+-- backed by a GIST index, which also accelerates temporal queries on the primary key.
 SELECT sql_saga.add_unique_key(
     table_oid => 'public.enterprise_group',
     key_type => 'primary',
@@ -40,7 +43,7 @@ SELECT sql_saga.add_unique_key(
     unique_key_name => 'enterprise_group_id_valid'
 );
 
--- Add a view for portion-of updates
+-- Add a view for portion-of updates, allowing for easier updates to specific time slices.
 SELECT sql_saga.add_for_portion_of_view('public.enterprise_group');
 
 END;

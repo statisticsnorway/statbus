@@ -36,9 +36,12 @@ CREATE INDEX ix_stat_for_unit_data_source_id ON public.stat_for_unit USING btree
 CREATE INDEX ix_stat_for_unit_legal_unit_id ON public.stat_for_unit USING btree (legal_unit_id);
 CREATE INDEX ix_stat_for_unit_establishment_id ON public.stat_for_unit USING btree (establishment_id);
 CREATE INDEX ix_stat_for_unit_legal_unit_id_valid_range ON public.stat_for_unit USING gist (legal_unit_id, daterange(valid_from, valid_until, '[)'));
+CREATE INDEX ix_stat_for_unit_establishment_id_valid_range ON public.stat_for_unit USING gist (establishment_id, daterange(valid_from, valid_until, '[)'));
 
 -- Activate era handling
 SELECT sql_saga.add_era('public.stat_for_unit', synchronize_valid_to_column => 'valid_to');
+-- This creates a GIST exclusion constraint (`stat_for_unit_id_valid_excl`) to ensure that
+-- there are no overlapping time periods for the same stat_for_unit ID.
 SELECT sql_saga.add_unique_key(
     table_oid => 'public.stat_for_unit',
     key_type => 'primary',
@@ -50,19 +53,24 @@ SELECT sql_saga.add_unique_key(
 -- combination of all three columns. The CHECK constraint on the table ensures that one of the
 -- unit ID columns is always NULL. By defining a single natural key with all three columns,
 -- we provide the exact metadata signature that sql_saga's temporal_merge function needs to
--- correctly identify and coalesce adjacent, identical records.
+-- correctly identify and coalesce adjacent, identical records. This creates a GIST exclusion
+-- constraint (`stat_for_unit_natural_key_valid_excl`).
 SELECT sql_saga.add_unique_key(
     table_oid => 'public.stat_for_unit',
     key_type => 'natural',
     column_names => ARRAY['stat_definition_id', 'legal_unit_id', 'establishment_id'],
     unique_key_name => 'stat_for_unit_natural_key_valid'
 );
+-- This creates triggers to enforce that a stat_for_unit's validity period is always contained
+-- within the validity period of its parent establishment.
 SELECT sql_saga.add_foreign_key(
     fk_table_oid => 'public.stat_for_unit',
     fk_column_names => ARRAY['establishment_id'],
     fk_era_name => 'valid',
     unique_key_name => 'establishment_id_valid'
 );
+-- This creates triggers to enforce that a stat_for_unit's validity period is always contained
+-- within the validity period of its parent legal unit.
 SELECT sql_saga.add_foreign_key(
     fk_table_oid => 'public.stat_for_unit',
     fk_column_names => ARRAY['legal_unit_id'],
@@ -70,7 +78,7 @@ SELECT sql_saga.add_foreign_key(
     unique_key_name => 'legal_unit_id_valid'
 );
 
--- Add a view for portion-of updates
+-- Add a view for portion-of updates, allowing for easier updates to specific time slices.
 SELECT sql_saga.add_for_portion_of_view('public.stat_for_unit');
 
 END;

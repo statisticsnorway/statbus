@@ -41,6 +41,9 @@ $$;
 
 -- Activate era handling
 SELECT sql_saga.add_era('public.legal_unit', synchronize_valid_to_column => 'valid_to');
+-- This creates a GIST exclusion constraint (`legal_unit_id_valid_excl`) to ensure that
+-- there are no overlapping time periods for the same legal_unit ID. This is backed by a GIST
+-- index, which also accelerates temporal queries on the primary key.
 SELECT sql_saga.add_unique_key(
     table_oid => 'public.legal_unit',
     key_type => 'primary',
@@ -48,6 +51,8 @@ SELECT sql_saga.add_unique_key(
     unique_key_name => 'legal_unit_id_valid'
 );
 -- Enforce that an enterprise can only have one primary legal unit at any given time.
+-- This creates a GIST exclusion constraint (`legal_unit_enterprise_id_primary_valid_excl`)
+-- to prevent overlapping time periods for primary legal units within the same enterprise.
 SELECT sql_saga.add_unique_key(
     table_oid => 'public.legal_unit',
     column_names => ARRAY['enterprise_id'],
@@ -56,7 +61,7 @@ SELECT sql_saga.add_unique_key(
     unique_key_name => 'legal_unit_enterprise_id_primary_valid'
 );
 
--- Add a view for portion-of updates
+-- Add a view for portion-of updates, allowing for easier updates to specific time slices.
 SELECT sql_saga.add_for_portion_of_view('public.legal_unit');
 
 END;
