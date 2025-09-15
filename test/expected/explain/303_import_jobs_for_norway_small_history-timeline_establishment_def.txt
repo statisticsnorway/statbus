@@ -1,156 +1,154 @@
                                                                                                                                                                                                QUERY PLAN                                                                                                                                                                                                
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- Sort  (cost=374.86..374.98 rows=49 width=4499)
+ Sort
    Sort Key: t.unit_type, t.unit_id, t.valid_from
-   ->  Nested Loop Left Join  (cost=85.66..373.49 rows=49 width=4499)
-         ->  Nested Loop Left Join  (cost=85.55..347.06 rows=49 width=4242)
-               ->  Nested Loop Left Join  (cost=47.19..269.91 rows=49 width=4230)
-                     ->  Nested Loop Left Join  (cost=44.00..249.89 rows=49 width=4198)
-                           ->  Nested Loop Left Join  (cost=43.84..232.50 rows=49 width=4165)
-                                 ->  Nested Loop Left Join  (cost=43.68..215.11 rows=49 width=4133)
-                                       ->  Hash Left Join  (cost=42.66..207.84 rows=49 width=2499)
+   ->  Nested Loop Left Join
+         ->  Nested Loop Left Join
+               ->  Nested Loop Left Join
+                     ->  Nested Loop Left Join
+                           ->  Nested Loop Left Join
+                                 ->  Nested Loop Left Join
+                                       ->  Hash Left Join
                                              Hash Cond: (pol.country_id = poc.id)
-                                             ->  Nested Loop Left Join  (cost=34.03..199.09 rows=49 width=2496)
-                                                   Join Filter: (pol.region_id = por.id)
-                                                   ->  Nested Loop Left Join  (cost=33.78..190.09 rows=49 width=2432)
-                                                         ->  Hash Left Join  (cost=29.32..162.53 rows=49 width=1472)
+                                             ->  Hash Left Join
+                                                   Hash Cond: (pol.region_id = por.id)
+                                                   ->  Nested Loop Left Join
+                                                         ->  Hash Left Join
                                                                Hash Cond: (phl.country_id = phc.id)
-                                                               ->  Nested Loop Left Join  (cost=20.70..153.78 rows=49 width=1469)
-                                                                     Join Filter: (phl.region_id = phr.id)
-                                                                     ->  Nested Loop Left Join  (cost=20.45..144.78 rows=49 width=1405)
-                                                                           ->  Nested Loop Left Join  (cost=15.99..117.22 rows=49 width=445)
-                                                                                 ->  Nested Loop Left Join  (cost=15.84..99.85 rows=49 width=349)
-                                                                                       ->  Nested Loop Left Join  (cost=15.55..82.21 rows=49 width=313)
-                                                                                             ->  Nested Loop Left Join  (cost=13.11..66.57 rows=49 width=265)
-                                                                                                   ->  Nested Loop Left Join  (cost=12.82..48.93 rows=49 width=229)
-                                                                                                         ->  Hash Left Join  (cost=10.38..33.29 rows=49 width=181)
+                                                               ->  Hash Left Join
+                                                                     Hash Cond: (phl.region_id = phr.id)
+                                                                     ->  Nested Loop Left Join
+                                                                           ->  Hash Left Join
+                                                                                 Hash Cond: (es.sector_id = s.id)
+                                                                                 ->  Nested Loop Left Join
+                                                                                       ->  Nested Loop Left Join
+                                                                                             ->  Nested Loop Left Join
+                                                                                                   ->  Nested Loop Left Join
+                                                                                                         ->  Hash Left Join
                                                                                                                Hash Cond: ((t.unit_id = es_stats.unit_id) AND (t.valid_from = es_stats.valid_from))
-                                                                                                               ->  Nested Loop  (cost=1.12..23.76 rows=49 width=149)
-                                                                                                                     ->  Seq Scan on timesegments t  (cost=0.00..1.49 rows=49 width=16)
-                                                                                                                     ->  Memoize  (cost=1.12..1.14 rows=1 width=133)
+                                                                                                               ->  Nested Loop
+                                                                                                                     ->  Seq Scan on timesegments t
+                                                                                                                     ->  Memoize
                                                                                                                            Cache Key: t.unit_id, t.valid_from, t.valid_until
                                                                                                                            Cache Mode: binary
-                                                                                                                           ->  Subquery Scan on es  (cost=1.11..1.13 rows=1 width=133)
-                                                                                                                                 ->  Limit  (cost=1.11..1.12 rows=1 width=196)
-                                                                                                                                       ->  Sort  (cost=1.11..1.12 rows=1 width=196)
+                                                                                                                           ->  Subquery Scan on es
+                                                                                                                                 ->  Limit
+                                                                                                                                       ->  Sort
                                                                                                                                              Sort Key: es_1.valid_from DESC
-                                                                                                                                             ->  Seq Scan on establishment es_1  (cost=0.00..1.10 rows=1 width=196)
+                                                                                                                                             ->  Seq Scan on establishment es_1
                                                                                                                                                    Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (id = t.unit_id))
-                                                                                                               ->  Hash  (cost=9.24..9.24 rows=1 width=40)
-                                                                                                                     ->  Subquery Scan on es_stats  (cost=9.20..9.24 rows=1 width=40)
-                                                                                                                           ->  GroupAggregate  (cost=9.20..9.23 rows=1 width=40)
+                                                                                                               ->  Hash
+                                                                                                                     ->  Subquery Scan on es_stats
+                                                                                                                           ->  GroupAggregate
                                                                                                                                  Group Key: t_1.unit_id, t_1.valid_from
-                                                                                                                                 ->  Sort  (cost=9.20..9.20 rows=1 width=85)
+                                                                                                                                 ->  Sort
                                                                                                                                        Sort Key: t_1.unit_id, t_1.valid_from
-                                                                                                                                       ->  Nested Loop  (cost=1.95..9.19 rows=1 width=85)
-                                                                                                                                             ->  Hash Join  (cost=1.80..5.01 rows=1 width=57)
-                                                                                                                                                   Hash Cond: (sfu.establishment_id = t_1.unit_id)
+                                                                                                                                       ->  Nested Loop
+                                                                                                                                             ->  Hash Join
+                                                                                                                                                   Hash Cond: (t_1.unit_id = sfu.establishment_id)
                                                                                                                                                    Join Filter: ((t_1.valid_from < sfu.valid_until) AND (sfu.valid_from < t_1.valid_until))
-                                                                                                                                                   ->  Seq Scan on stat_for_unit sfu  (cost=0.00..3.09 rows=9 width=61)
-                                                                                                                                                   ->  Hash  (cost=1.61..1.61 rows=15 width=12)
-                                                                                                                                                         ->  Seq Scan on timesegments t_1  (cost=0.00..1.61 rows=15 width=12)
-                                                                                                                                                               Filter: (unit_type = 'establishment'::statistical_unit_type)
-                                                                                                                                             ->  Index Scan using stat_definition_pkey on stat_definition sd  (cost=0.15..4.17 rows=1 width=36)
+                                                                                                                                                   ->  Seq Scan on timesegments t_1
+                                                                                                                                                         Filter: (unit_type = 'establishment'::statistical_unit_type)
+                                                                                                                                                   ->  Hash
+                                                                                                                                                         ->  Seq Scan on stat_for_unit sfu
+                                                                                                                                             ->  Index Scan using stat_definition_pkey on stat_definition sd
                                                                                                                                                    Index Cond: (id = sfu.stat_definition_id)
-                                                                                                         ->  Memoize  (cost=2.44..2.45 rows=1 width=48)
+                                                                                                         ->  Memoize
                                                                                                                Cache Key: es.id, t.valid_from, t.valid_until
                                                                                                                Cache Mode: binary
-                                                                                                               ->  Subquery Scan on pa  (cost=2.43..2.44 rows=1 width=48)
-                                                                                                                     ->  Limit  (cost=2.43..2.43 rows=1 width=76)
-                                                                                                                           ->  Sort  (cost=2.43..2.43 rows=1 width=76)
+                                                                                                               ->  Subquery Scan on pa
+                                                                                                                     ->  Limit
+                                                                                                                           ->  Sort
                                                                                                                                  Sort Key: a.id DESC
-                                                                                                                                 ->  Seq Scan on activity a  (cost=0.00..2.42 rows=1 width=76)
+                                                                                                                                 ->  Seq Scan on activity a
                                                                                                                                        Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (establishment_id = es.id) AND (type = 'primary'::activity_type))
-                                                                                                   ->  Memoize  (cost=0.29..8.30 rows=1 width=40)
+                                                                                                   ->  Memoize
                                                                                                          Cache Key: pa.category_id
                                                                                                          Cache Mode: logical
-                                                                                                         ->  Index Scan using activity_category_pkey on activity_category pac  (cost=0.28..8.29 rows=1 width=40)
+                                                                                                         ->  Index Scan using activity_category_pkey on activity_category pac
                                                                                                                Index Cond: (id = pa.category_id)
-                                                                                             ->  Memoize  (cost=2.44..2.45 rows=1 width=48)
+                                                                                             ->  Memoize
                                                                                                    Cache Key: es.id, t.valid_from, t.valid_until
                                                                                                    Cache Mode: binary
-                                                                                                   ->  Subquery Scan on sa  (cost=2.43..2.44 rows=1 width=48)
-                                                                                                         ->  Limit  (cost=2.43..2.43 rows=1 width=76)
-                                                                                                               ->  Sort  (cost=2.43..2.43 rows=1 width=76)
+                                                                                                   ->  Subquery Scan on sa
+                                                                                                         ->  Limit
+                                                                                                               ->  Sort
                                                                                                                      Sort Key: a_1.id DESC
-                                                                                                                     ->  Seq Scan on activity a_1  (cost=0.00..2.42 rows=1 width=76)
+                                                                                                                     ->  Seq Scan on activity a_1
                                                                                                                            Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (establishment_id = es.id) AND (type = 'secondary'::activity_type))
-                                                                                       ->  Memoize  (cost=0.29..8.30 rows=1 width=40)
+                                                                                       ->  Memoize
                                                                                              Cache Key: sa.category_id
                                                                                              Cache Mode: logical
-                                                                                             ->  Index Scan using activity_category_pkey on activity_category sac  (cost=0.28..8.29 rows=1 width=40)
+                                                                                             ->  Index Scan using activity_category_pkey on activity_category sac
                                                                                                    Index Cond: (id = sa.category_id)
-                                                                                 ->  Memoize  (cost=0.15..8.17 rows=1 width=100)
-                                                                                       Cache Key: es.sector_id
-                                                                                       Cache Mode: logical
-                                                                                       ->  Index Scan using sector_pkey on sector s  (cost=0.14..8.16 rows=1 width=100)
-                                                                                             Index Cond: (id = es.sector_id)
-                                                                           ->  Memoize  (cost=4.46..4.47 rows=1 width=960)
+                                                                                 ->  Hash
+                                                                                       ->  Seq Scan on sector s
+                                                                           ->  Memoize
                                                                                  Cache Key: es.id, t.valid_from, t.valid_until
                                                                                  Cache Mode: binary
-                                                                                 ->  Subquery Scan on phl  (cost=4.45..4.46 rows=1 width=960)
-                                                                                       ->  Limit  (cost=4.45..4.46 rows=1 width=988)
-                                                                                             ->  Sort  (cost=4.45..4.46 rows=1 width=988)
+                                                                                 ->  Subquery Scan on phl
+                                                                                       ->  Limit
+                                                                                             ->  Sort
                                                                                                    Sort Key: l.id DESC
-                                                                                                   ->  Seq Scan on location l  (cost=0.00..4.44 rows=1 width=988)
+                                                                                                   ->  Seq Scan on location l
                                                                                                          Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (establishment_id = es.id) AND (type = 'physical'::location_type))
-                                                                     ->  Materialize  (cost=0.25..8.27 rows=1 width=68)
-                                                                           ->  Index Scan using region_pkey on region phr  (cost=0.25..8.26 rows=1 width=68)
-                                                               ->  Hash  (cost=5.50..5.50 rows=250 width=7)
-                                                                     ->  Seq Scan on country phc  (cost=0.00..5.50 rows=250 width=7)
-                                                         ->  Memoize  (cost=4.46..4.47 rows=1 width=960)
+                                                                     ->  Hash
+                                                                           ->  Seq Scan on region phr
+                                                               ->  Hash
+                                                                     ->  Seq Scan on country phc
+                                                         ->  Memoize
                                                                Cache Key: es.id, t.valid_from, t.valid_until
                                                                Cache Mode: binary
-                                                               ->  Subquery Scan on pol  (cost=4.45..4.46 rows=1 width=960)
-                                                                     ->  Limit  (cost=4.45..4.46 rows=1 width=988)
-                                                                           ->  Sort  (cost=4.45..4.46 rows=1 width=988)
+                                                               ->  Subquery Scan on pol
+                                                                     ->  Limit
+                                                                           ->  Sort
                                                                                  Sort Key: l_1.id DESC
-                                                                                 ->  Seq Scan on location l_1  (cost=0.00..4.44 rows=1 width=988)
+                                                                                 ->  Seq Scan on location l_1
                                                                                        Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (establishment_id = es.id) AND (type = 'postal'::location_type))
-                                                   ->  Materialize  (cost=0.25..8.27 rows=1 width=68)
-                                                         ->  Index Scan using region_pkey on region por  (cost=0.25..8.26 rows=1 width=68)
-                                             ->  Hash  (cost=5.50..5.50 rows=250 width=7)
-                                                   ->  Seq Scan on country poc  (cost=0.00..5.50 rows=250 width=7)
-                                       ->  Memoize  (cost=1.02..1.03 rows=1 width=1634)
+                                                   ->  Hash
+                                                         ->  Seq Scan on region por
+                                             ->  Hash
+                                                   ->  Seq Scan on country poc
+                                       ->  Memoize
                                              Cache Key: es.id, t.valid_from, t.valid_until
                                              Cache Mode: binary
-                                             ->  Subquery Scan on c  (cost=1.01..1.02 rows=1 width=1634)
-                                                   ->  Limit  (cost=1.01..1.01 rows=1 width=1662)
-                                                         ->  Sort  (cost=1.01..1.01 rows=1 width=1662)
+                                             ->  Subquery Scan on c
+                                                   ->  Limit
+                                                         ->  Sort
                                                                Sort Key: c_1.id DESC
-                                                               ->  Seq Scan on contact c_1  (cost=0.00..1.00 rows=1 width=1662)
+                                                               ->  Seq Scan on contact c_1
                                                                      Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (establishment_id = es.id))
-                                 ->  Memoize  (cost=0.16..8.18 rows=1 width=36)
+                                 ->  Memoize
                                        Cache Key: es.unit_size_id
                                        Cache Mode: logical
-                                       ->  Index Scan using unit_size_pkey on unit_size us  (cost=0.15..8.17 rows=1 width=36)
+                                       ->  Index Scan using unit_size_pkey on unit_size us
                                              Index Cond: (id = es.unit_size_id)
-                           ->  Memoize  (cost=0.16..8.18 rows=1 width=37)
+                           ->  Memoize
                                  Cache Key: es.status_id
                                  Cache Mode: logical
-                                 ->  Index Scan using status_pkey on status st  (cost=0.15..8.17 rows=1 width=37)
+                                 ->  Index Scan using status_pkey on status st
                                        Index Cond: (id = es.status_id)
-                     ->  Memoize  (cost=3.19..3.20 rows=1 width=32)
+                     ->  Memoize
                            Cache Key: es.id, t.valid_from, t.valid_until
                            Cache Mode: binary
-                           ->  Aggregate  (cost=3.18..3.19 rows=1 width=32)
-                                 ->  Sort  (cost=3.17..3.17 rows=1 width=4)
+                           ->  Aggregate
+                                 ->  Sort
                                        Sort Key: sfu_1.data_source_id
-                                       ->  Seq Scan on stat_for_unit sfu_1  (cost=0.00..3.16 rows=1 width=4)
+                                       ->  Seq Scan on stat_for_unit sfu_1
                                              Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (establishment_id = es.id))
-               ->  Memoize  (cost=38.36..38.37 rows=1 width=64)
+               ->  Memoize
                      Cache Key: es.data_source_id, pa.data_source_id, sa.data_source_id, phl.data_source_id, pol.data_source_id, (array_agg(DISTINCT sfu_1.data_source_id) FILTER (WHERE (sfu_1.data_source_id IS NOT NULL)))
                      Cache Mode: binary
-                     ->  Aggregate  (cost=38.35..38.36 rows=1 width=64)
-                           ->  Seq Scan on data_source ds  (cost=0.00..34.85 rows=699 width=36)
+                     ->  Aggregate
+                           ->  Seq Scan on data_source ds
                                  Filter: (COALESCE((id = es.data_source_id), false) OR COALESCE((id = pa.data_source_id), false) OR COALESCE((id = sa.data_source_id), false) OR COALESCE((id = phl.data_source_id), false) OR COALESCE((id = pol.data_source_id), false) OR COALESCE((id = ANY ((array_agg(DISTINCT sfu_1.data_source_id) FILTER (WHERE (sfu_1.data_source_id IS NOT NULL))))), false))
-         ->  Memoize  (cost=0.12..0.12 rows=1 width=528)
+         ->  Memoize
                Cache Key: es.edit_comment, es.edit_by_user_id, es.edit_at, pa.edit_comment, pa.edit_by_user_id, pa.edit_at, sa.edit_comment, sa.edit_by_user_id, sa.edit_at, phl.edit_comment, phl.edit_by_user_id, phl.edit_at, pol.edit_comment, pol.edit_by_user_id, pol.edit_at, c.edit_comment, c.edit_by_user_id, c.edit_at
                Cache Mode: binary
-               ->  Limit  (cost=0.11..0.11 rows=1 width=528)
-                     ->  Sort  (cost=0.11..0.12 rows=6 width=528)
+               ->  Limit
+                     ->  Sort
                            Sort Key: "*VALUES*".column3 DESC
-                           ->  Values Scan on "*VALUES*"  (cost=0.00..0.08 rows=6 width=528)
+                           ->  Values Scan on "*VALUES*"
                                  Filter: (column3 IS NOT NULL)
-(152 rows)
+(150 rows)
 

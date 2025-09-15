@@ -1,10 +1,10 @@
                                        QUERY PLAN                                       
 ----------------------------------------------------------------------------------------
- Subquery Scan on timesegments_with_trailing_point  (cost=4.72..6.88 rows=67 width=16)
+ Subquery Scan on timesegments_with_trailing_point
    Filter: (timesegments_with_trailing_point.valid_until IS NOT NULL)
-   ->  WindowAgg  (cost=4.72..6.21 rows=67 width=16)
-         ->  Sort  (cost=4.70..4.87 rows=67 width=12)
+   ->  WindowAgg
+         ->  Sort
                Sort Key: timepoints.unit_type, timepoints.unit_id, timepoints.timepoint
-               ->  Seq Scan on timepoints  (cost=0.00..2.67 rows=67 width=12)
+               ->  Seq Scan on timepoints
 (6 rows)
 
