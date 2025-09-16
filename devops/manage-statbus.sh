@@ -346,16 +346,20 @@ case "$action" in
           # Extract the full test name (e.g., "01_load_web_examples")
           test=$(echo "$test_line" | sed -E 's/not ok[[:space:]]+[0-9]+[[:space:]]+- ([^[:space:]]+).*/\1/')
           
-          ui_choice=${1:-tui}
+          ui_choice=${1:-pipe}
           line_limit=${2:-}
           case $ui_choice in
               'gui')
                   echo "Running opendiff for test: $test"
                   opendiff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out -merge $WORKSPACE/test/expected/$test.out
                   ;;
-              'tui')
-                  echo "Running vimdiff for test: $test"
+              'vim'|'tui')
+                  echo "Running vim -d for test: $test"
                   vim -d $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
+                  ;;
+              'vimo')
+                  echo "Running vim -d -o for test: $test"
+                  vim -d -o $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
                   ;;
               'pipe')
                   echo "Running diff for test: $test"
@@ -367,7 +371,7 @@ case "$action" in
                   fi
                   ;;
               *)
-                  echo "Error: Unknown UI option '$ui_choice'. Please use 'gui', 'tui', or 'pipe'."
+                  echo "Error: Unknown UI option '$ui_choice'. Please use 'gui', 'vim', 'vimo', or 'pipe'."
                   exit 1
               ;;
           esac
@@ -381,7 +385,7 @@ case "$action" in
           exit 1
       fi
 
-      ui_choice=${1:-tui} # Get UI choice from the first argument to diff-fail-all, default to tui
+      ui_choice=${1:-pipe} # Get UI choice from the first argument to diff-fail-all, default to pipe
       line_limit=${2:-}
 
       # Use process substitution to avoid running the loop in a subshell,
@@ -406,9 +410,13 @@ case "$action" in
                   echo "Running opendiff for test: $test"
                   opendiff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out -merge $WORKSPACE/test/expected/$test.out
                   ;;
-              'tui')
-                  echo "Running vimdiff for test: $test"
+              'vim'|'tui')
+                  echo "Running vim -d for test: $test"
                   vim -d $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
+                  ;;
+              'vimo')
+                  echo "Running vim -d -o for test: $test"
+                  vim -d -o $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
                   ;;
               'pipe')
                   echo "Running diff for test: $test"
@@ -420,7 +428,7 @@ case "$action" in
                   fi
                   ;;
               *)
-                  echo "Error: Unknown UI option '$ui_choice'. Please use 'gui', 'tui', or 'pipe'."
+                  echo "Error: Unknown UI option '$ui_choice'. Please use 'gui', 'vim', 'vimo', or 'pipe'."
                   exit 1
               ;;
           esac
