@@ -106,7 +106,7 @@ export const navigationMachine = setup({
             !isPublicPath(context.pathname),
         },
         {
-          target: 'revalidatingOnLoginPage',
+          target: 'clearingLastKnownPathBeforeRedirect',
           guard: ({ context }) => context.isAuthenticated && !context.isAuthLoading && context.pathname === '/login',
         },
         {
@@ -134,28 +134,6 @@ export const navigationMachine = setup({
       entry: assign({ sideEffect: undefined }),
       // This state is now stable. The cleanup logic has been moved to be part
       // of the `redirectingFromLogin` flow, making it more robust.
-    },
-    /**
-     * An intermediate state that commands an auth re-validation when an authenticated
-     * user lands on the login page. This is a crucial step to break redirect loops
-     * caused by server-side redirects with stale tokens.
-     */
-    revalidatingOnLoginPage: {
-      entry: assign({ sideEffect: { action: 'revalidateAuth' } }),
-      on: {
-        CONTEXT_UPDATED: {
-          target: 'clearingLastKnownPathBeforeRedirect',
-          // Guard: Wait only for the auth re-validation to complete. The `redirectingFromLogin`
-          // state will then use the latest `setupPath` from the context to make its final
-          // navigation decision. Waiting for `isSetupLoading` here can cause a deadlock.
-          // BATTLE WISDOM: The guard must inspect the incoming event's value, not the
-          // machine's current context. The context is not updated until after the guard
-          // passes, creating a race condition. This explicitly checks for the `false`
-          // signal from the event payload.
-          guard: ({ event }) => event.value.isAuthLoading === false,
-          actions: assign(({ context, event }) => ({ ...context, ...event.value })),
-        }
-      }
     },
     /**
      * An intermediate state that triggers the 'savePath' side-effect to store the
