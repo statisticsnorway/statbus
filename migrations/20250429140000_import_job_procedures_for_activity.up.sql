@@ -5,7 +5,7 @@
 BEGIN;
 
 -- Procedure to analyse activity data (handles both primary and secondary) (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.analyse_activity(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_activity(p_job_id INT, p_batch_row_id_ranges int4multirange, p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_activity$
 DECLARE
     v_job public.import_job;
@@ -30,7 +30,7 @@ DECLARE
     v_prelim_update_count INT := 0;
     v_parent_id_check_sql TEXT; -- For dynamically building the parent ID check condition
 BEGIN
-    RAISE DEBUG '[Job %] analyse_activity (Batch) for step_code %: Starting analysis for % rows', p_job_id, p_step_code, array_length(p_batch_row_ids, 1);
+    RAISE DEBUG '[Job %] analyse_activity (Batch) for step_code %: Starting analysis for range %s', p_job_id, p_step_code, p_batch_row_id_ranges::text;
 
     -- Get job details
     SELECT * INTO v_job FROM public.import_job ij WHERE id = p_job_id;
@@ -81,7 +81,7 @@ BEGIN
             FROM public.%1$I dt_sub -- Target data table
             LEFT JOIN public.activity_category pac ON dt_sub.primary_activity_category_code_raw IS NOT NULL AND pac.code = dt_sub.primary_activity_category_code_raw
             LEFT JOIN public.activity_category sac ON dt_sub.secondary_activity_category_code_raw IS NOT NULL AND sac.code = dt_sub.secondary_activity_category_code_raw
-            WHERE dt_sub.row_id = ANY($1) AND dt_sub.action = 'use'
+            WHERE dt_sub.row_id <@ $1 AND dt_sub.action = 'use'
         )
         UPDATE public.%1$I dt SET -- Target data table
             primary_activity_category_id = CASE
@@ -115,25 +115,29 @@ BEGIN
     RAISE DEBUG '[Job %] analyse_activity: Single-pass batch update for non-skipped rows for step % (activity issues now non-fatal for all modes): %', p_job_id, p_step_code, v_sql;
 
     BEGIN
-        EXECUTE v_sql USING p_batch_row_ids;
+        EXECUTE v_sql USING p_batch_row_id_ranges;
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_activity: Updated % non-skipped rows in single pass for step %.', p_job_id, v_update_count, p_step_code;
 
         -- Update priority for skipped rows
-        EXECUTE format($$
+        v_sql := format($$
             UPDATE public.%1$I dt SET
                 last_completed_priority = %2$L
-            WHERE dt.row_id = ANY($1) AND dt.action = 'skip';
-        $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */) USING p_batch_row_ids;
+            WHERE dt.row_id <@ $1 AND dt.action = 'skip';
+        $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */);
+        RAISE DEBUG '[Job %] analyse_activity: Updating priority for skipped rows with SQL: %', p_job_id, v_sql;
+        EXECUTE v_sql USING p_batch_row_id_ranges;
         GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_activity: Updated last_completed_priority for % skipped rows for step %.', p_job_id, v_skipped_update_count, p_step_code;
         
         v_update_count := v_update_count + v_skipped_update_count; -- Total rows affected
 
-        EXECUTE format($$SELECT COUNT(*) FROM public.%1$I WHERE row_id = ANY($1) AND state = 'error' AND (errors ?| %2$L::text[])$$,
-                       v_data_table_name /* %1$I */, v_error_keys_to_clear_arr /* %2$L */)
+        v_sql := format($$SELECT COUNT(*) FROM public.%1$I WHERE row_id <@ $1 AND state = 'error' AND (errors ?| %2$L::text[])$$,
+                       v_data_table_name /* %1$I */, v_error_keys_to_clear_arr /* %2$L */);
+        RAISE DEBUG '[Job %] analyse_activity: Counting errors with SQL: %', p_job_id, v_sql;
+        EXECUTE v_sql
         INTO v_error_count
-        USING p_batch_row_ids;
+        USING p_batch_row_id_ranges;
         RAISE DEBUG '[Job %] analyse_activity: Estimated errors in this step for batch: %', p_job_id, v_error_count;
 
     EXCEPTION WHEN others THEN
@@ -152,7 +156,7 @@ $analyse_activity$;
 
 
 -- Procedure to operate (insert/update/upsert) activity data (handles both primary and secondary) (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.process_activity(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.process_activity(p_job_id INT, p_batch_row_id_ranges int4multirange, p_step_code TEXT)
 LANGUAGE plpgsql AS $process_activity$
 DECLARE
     v_job public.import_job;
@@ -170,7 +174,7 @@ DECLARE
     v_relevant_rows_count INT;
     v_merge_mode sql_saga.temporal_merge_mode;
 BEGIN
-    RAISE DEBUG '[Job %] process_activity (Batch) for step_code %: Starting operation for % rows', p_job_id, p_step_code, array_length(p_batch_row_ids, 1);
+    RAISE DEBUG '[Job %] process_activity (Batch) for step_code %: Starting operation for range %s', p_job_id, p_step_code, p_batch_row_id_ranges::text;
 
     -- Get job details
     SELECT * INTO v_job FROM public.import_job ij WHERE id = p_job_id;
@@ -218,16 +222,16 @@ BEGIN
                 dt.edit_by_user_id, dt.edit_at, dt.edit_comment,
                 dt.errors, dt.merge_status
             FROM public.%4$I dt
-            WHERE dt.row_id = ANY(%5$L)
+            WHERE dt.row_id <@ %5$L::int4multirange
               AND dt.action = 'use'
               AND dt.primary_activity_category_id IS NOT NULL
               AND NULLIF(dt.primary_activity_category_code_raw, '') IS NOT NULL;
         $$,
-            v_source_view_name,   /* %1$I */
-            v_select_lu_id_expr,  /* %2$s */
-            v_select_est_id_expr, /* %3$s */
-            v_data_table_name,    /* %4$I */
-            p_batch_row_ids       /* %5$L */
+            v_source_view_name,    /* %1$I */
+            v_select_lu_id_expr,   /* %2$s */
+            v_select_est_id_expr,  /* %3$s */
+            v_data_table_name,     /* %4$I */
+            p_batch_row_id_ranges  /* %5$L */
         );
 
     ELSIF p_step_code = 'secondary_activity' THEN
@@ -248,24 +252,27 @@ BEGIN
                 dt.edit_by_user_id, dt.edit_at, dt.edit_comment,
                 dt.errors, dt.merge_status
             FROM public.%4$I dt
-            WHERE dt.row_id = ANY(%5$L)
+            WHERE dt.row_id <@ %5$L::int4multirange
               AND dt.action = 'use'
               AND dt.secondary_activity_category_id IS NOT NULL
               AND NULLIF(dt.secondary_activity_category_code_raw, '') IS NOT NULL;
         $$,
-            v_source_view_name,   /* %1$I */
-            v_select_lu_id_expr,  /* %2$s */
-            v_select_est_id_expr, /* %3$s */
-            v_data_table_name,    /* %4$I */
-            p_batch_row_ids       /* %5$L */
+            v_source_view_name,    /* %1$I */
+            v_select_lu_id_expr,   /* %2$s */
+            v_select_est_id_expr,  /* %3$s */
+            v_data_table_name,     /* %4$I */
+            p_batch_row_id_ranges  /* %5$L */
         );
     ELSE
         RAISE EXCEPTION '[Job %] process_activity: Invalid step_code %.', p_job_id, p_step_code;
     END IF;
 
+    RAISE DEBUG '[Job %] process_activity: Creating temp source view %s with SQL: %', p_job_id, v_source_view_name, v_sql;
     EXECUTE v_sql;
 
-    EXECUTE format('SELECT count(*) FROM %I', v_source_view_name) INTO v_relevant_rows_count;
+    v_sql := format('SELECT count(*) FROM %I', v_source_view_name);
+    RAISE DEBUG '[Job %] process_activity: Counting relevant rows with SQL: %', p_job_id, v_sql;
+    EXECUTE v_sql INTO v_relevant_rows_count;
     IF v_relevant_rows_count = 0 THEN
         RAISE DEBUG '[Job %] process_activity: No usable activity data in this batch for step %. Skipping.', p_job_id, p_step_code;
         RETURN;
@@ -301,12 +308,14 @@ BEGIN
             source_row_id_column => 'row_id'
         );
 
-        EXECUTE format($$ SELECT count(*) FROM public.%1$I WHERE row_id = ANY($1) AND errors->%2$L IS NOT NULL $$,
+        v_sql := format($$ SELECT count(*) FROM public.%1$I WHERE row_id <@ $1 AND errors->%2$L IS NOT NULL $$,
             v_data_table_name, /* %1$I */
             p_step_code        /* %2$L */
-        ) INTO v_error_count USING p_batch_row_ids;
+        );
+        RAISE DEBUG '[Job %] process_activity: Counting merge errors with SQL: %', p_job_id, v_sql;
+        EXECUTE v_sql INTO v_error_count USING p_batch_row_id_ranges;
 
-        EXECUTE format($$
+        v_sql := format($$
             UPDATE public.%1$I dt SET
                 state = (CASE WHEN dt.errors ? %3$L THEN 'error' ELSE 'processing' END)::public.import_data_state
             FROM %2$I v
@@ -316,6 +325,8 @@ BEGIN
             v_source_view_name, /* %2$I */
             p_step_code         /* %3$L */
         );
+        RAISE DEBUG '[Job %] process_activity: Updating state post-merge with SQL: %', p_job_id, v_sql;
+        EXECUTE v_sql;
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
         v_update_count := v_update_count - v_error_count;
 
@@ -324,11 +335,12 @@ BEGIN
     EXCEPTION WHEN OTHERS THEN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
         RAISE WARNING '[Job %] process_activity: Error during temporal_merge for step %: %. SQLSTATE: %', p_job_id, p_step_code, error_message, SQLSTATE;
-        v_sql := format($$UPDATE public.%1$I SET state = 'error'::public.import_data_state, errors = errors || jsonb_build_object('batch_error_process_activity', %2$L) WHERE row_id = ANY($1)$$,
+        v_sql := format($$UPDATE public.%1$I SET state = 'error'::public.import_data_state, errors = errors || jsonb_build_object('batch_error_process_activity', %2$L) WHERE row_id <@ $1$$,
                         v_data_table_name, /* %1$I */
                         error_message      /* %2$L */
         );
-        EXECUTE v_sql USING p_batch_row_ids;
+        RAISE DEBUG '[Job %] process_activity: Marking rows as error in exception handler with SQL: %', p_job_id, v_sql;
+        EXECUTE v_sql USING p_batch_row_id_ranges;
         RAISE; -- Re-throw
     END;
 

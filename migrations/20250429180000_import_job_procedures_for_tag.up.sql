@@ -4,7 +4,7 @@
 BEGIN;
 
 -- Procedure to analyse tag data (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.analyse_tags(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_tags(p_job_id INT, p_batch_row_id_ranges int4multirange, p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_tags$
 DECLARE
     v_job public.import_job;
@@ -18,7 +18,7 @@ DECLARE
     v_error_keys_to_clear_arr TEXT[] := ARRAY['tag_path_raw'];
     -- v_invalid_code_keys_to_clear_arr is removed as tag errors are now fatal
 BEGIN
-    RAISE DEBUG '[Job %] analyse_tags (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_row_ids, 1);
+    RAISE DEBUG '[Job %] analyse_tags (Batch): Starting analysis for range %s', p_job_id, p_batch_row_id_ranges::text;
 
     -- Get job details
     SELECT * INTO v_job FROM public.import_job ij WHERE id = p_job_id;
@@ -36,7 +36,7 @@ BEGIN
         batch_data AS (
             SELECT row_id, tag_path_raw AS tag_path
             FROM public.%1$I
-            WHERE row_id = ANY($1) AND tag_path_raw IS NOT NULL AND action IS DISTINCT FROM 'skip'
+            WHERE row_id <@ $1 AND tag_path_raw IS NOT NULL AND action IS DISTINCT FROM 'skip'
         ),
         distinct_paths AS (
             SELECT tag_path
@@ -99,25 +99,29 @@ BEGIN
     );
     RAISE DEBUG '[Job %] analyse_tags: Single-pass batch update for non-skipped rows (tag errors are fatal): %', p_job_id, v_sql;
     BEGIN
-        EXECUTE v_sql USING p_batch_row_ids;
+        EXECUTE v_sql USING p_batch_row_id_ranges;
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_tags: Logic update affected % rows.', p_job_id, v_update_count;
 
         -- Unconditionally advance the priority for all rows in the batch that have not yet completed this step.
         -- This is crucial to ensure progress, as it covers rows that were skipped OR had no data for this step.
-        EXECUTE format($$
+        v_sql := format($$
             UPDATE public.%1$I dt SET
                 last_completed_priority = %2$L
-            WHERE dt.row_id = ANY($1) AND dt.last_completed_priority < %2$L;
-        $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */) USING p_batch_row_ids;
+            WHERE dt.row_id <@ $1 AND dt.last_completed_priority < %2$L;
+        $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */);
+        RAISE DEBUG '[Job %] analyse_tags: Unconditionally advancing priority with SQL: %', p_job_id, v_sql;
+        EXECUTE v_sql USING p_batch_row_id_ranges;
         GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_tags: Advanced last_completed_priority for % total rows in batch.', p_job_id, v_skipped_update_count;
 
         -- Estimate error count
-        EXECUTE format($$SELECT COUNT(*) FROM public.%1$I WHERE row_id = ANY($1) AND state = 'error' AND (errors ?| %2$L::text[])$$,
-                       v_data_table_name /* %1$I */, v_error_keys_to_clear_arr /* %2$L */)
+        v_sql := format($$SELECT COUNT(*) FROM public.%1$I WHERE row_id <@ $1 AND state = 'error' AND (errors ?| %2$L::text[])$$,
+                       v_data_table_name /* %1$I */, v_error_keys_to_clear_arr /* %2$L */);
+        RAISE DEBUG '[Job %] analyse_tags: Counting errors with SQL: %', p_job_id, v_sql;
+        EXECUTE v_sql
         INTO v_error_count
-        USING p_batch_row_ids;
+        USING p_batch_row_id_ranges;
         RAISE DEBUG '[Job %] analyse_tags: Estimated errors in this step for batch: %', p_job_id, v_error_count;
     EXCEPTION WHEN others THEN
         RAISE WARNING '[Job %] analyse_tags: Error during single-pass batch update: %', p_job_id, SQLERRM;
@@ -131,7 +135,7 @@ BEGIN
     END;
 
     -- Propagate errors to all rows of a new entity if one fails
-    CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_row_ids, v_error_keys_to_clear_arr, 'analyse_tags');
+    CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_row_id_ranges, v_error_keys_to_clear_arr, 'analyse_tags');
 
     RAISE DEBUG '[Job %] analyse_tags (Batch): Finished analysis for batch.', p_job_id; -- Simplified final message
 END;
@@ -141,7 +145,7 @@ $analyse_tags$;
 
 
 -- Procedure to operate (insert/update/upsert) tag data (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.process_tags(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.process_tags(p_job_id INT, p_batch_row_id_ranges int4multirange, p_step_code TEXT)
 LANGUAGE plpgsql AS $process_tags$
 DECLARE
     v_job public.import_job;
@@ -156,7 +160,7 @@ DECLARE
     v_select_est_id_expr TEXT;
     v_relevant_rows_count INT;
 BEGIN
-    RAISE DEBUG '[Job %] process_tags (Batch): Starting operation for % rows', p_job_id, array_length(p_batch_row_ids, 1);
+    RAISE DEBUG '[Job %] process_tags (Batch): Starting operation for range %s', p_job_id, p_batch_row_id_ranges::text;
 
     -- Get job details
     SELECT * INTO v_job FROM public.import_job ij WHERE id = p_job_id;
@@ -180,12 +184,14 @@ BEGIN
     END IF;
 
     -- Check for relevant rows before proceeding
-    EXECUTE format($$
+    v_sql := format($$
         SELECT count(*)
         FROM public.%1$I dt
-        WHERE dt.row_id = ANY($1) AND dt.action = 'use' AND dt.tag_id IS NOT NULL;
-    $$, v_data_table_name)
-    INTO v_relevant_rows_count USING p_batch_row_ids;
+        WHERE dt.row_id <@ $1 AND dt.action = 'use' AND dt.tag_id IS NOT NULL;
+    $$, v_data_table_name);
+    RAISE DEBUG '[Job %] process_tags: Checking for relevant rows with SQL: %', p_job_id, v_sql;
+    EXECUTE v_sql
+    INTO v_relevant_rows_count USING p_batch_row_id_ranges;
 
     IF v_relevant_rows_count = 0 THEN
         RAISE DEBUG '[Job %] process_tags: No usable tag data in this batch for step %. Skipping.', p_job_id, p_step_code;
@@ -215,7 +221,7 @@ BEGIN
             dt.edit_at,
             dt.edit_comment
         FROM public.%1$I dt
-        WHERE dt.row_id = ANY($1)
+        WHERE dt.row_id <@ $1
           AND dt.action = 'use'
           AND dt.tag_id IS NOT NULL;
     $$,
@@ -225,7 +231,7 @@ BEGIN
     );
 
     RAISE DEBUG '[Job %] process_tags: Populating temp source table: %', p_job_id, v_sql;
-    EXECUTE v_sql USING p_batch_row_ids;
+    EXECUTE v_sql USING p_batch_row_id_ranges;
 
     -- Use two separate MERGE statements due to partial unique indexes on tag_for_unit
     BEGIN
@@ -260,7 +266,7 @@ BEGIN
         RAISE DEBUG '[Job %] process_tags: Merged % LU links and % EST links.', p_job_id, v_update_count_lu, v_update_count_est;
 
         -- Update _data table with the resulting tag_for_unit_id
-        EXECUTE format($$
+        v_sql := format($$
             UPDATE public.%1$I dt SET
                 tag_for_unit_id = tfu.id,
                 state = 'processing'
@@ -271,15 +277,18 @@ BEGIN
                AND tfu.establishment_id IS NOT DISTINCT FROM t.establishment_id
             WHERE dt.row_id = t.row_id;
         $$, v_data_table_name);
+        RAISE DEBUG '[Job %] process_tags: Updating data table with tag_for_unit_id with SQL: %', p_job_id, v_sql;
+        EXECUTE v_sql;
 
     EXCEPTION WHEN OTHERS THEN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
         RAISE WARNING '[Job %] process_tags: Error during batch operation: %. SQLSTATE: %', p_job_id, error_message, SQLSTATE;
-        v_sql := format($$UPDATE public.%1$I SET state = 'error', errors = errors || jsonb_build_object('batch_error_process_tags', %2$L) WHERE row_id = ANY($1)$$,
+        v_sql := format($$UPDATE public.%1$I SET state = 'error', errors = errors || jsonb_build_object('batch_error_process_tags', %2$L) WHERE row_id <@ $1$$,
                         v_data_table_name, /* %1$I */
                         error_message      /* %2$L */
         );
-        EXECUTE v_sql USING p_batch_row_ids;
+        RAISE DEBUG '[Job %] process_tags: Marking rows as error in exception handler with SQL: %', p_job_id, v_sql;
+        EXECUTE v_sql USING p_batch_row_id_ranges;
         RAISE;
     END;
 

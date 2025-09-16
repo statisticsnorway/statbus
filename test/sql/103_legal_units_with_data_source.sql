@@ -49,7 +49,9 @@ SELECT
 \copy public.import_32_lu_tc_ds_upload(tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'app/public/demo/legal_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 \echo Run worker processing for import jobs
+--SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
+--SET client_min_messages TO NOTICE;
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Checking unit counts after import processing"

@@ -4,7 +4,7 @@
 BEGIN;
 
 -- Procedure to analyse enterprise link for standalone establishments
-CREATE OR REPLACE PROCEDURE import.analyse_enterprise_link_for_establishment(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_enterprise_link_for_establishment(p_job_id INT, p_batch_row_ids_range int4multirange, p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_enterprise_link_for_establishment$
 DECLARE
     v_job public.import_job;
@@ -41,7 +41,7 @@ BEGIN
                     est.primary_for_enterprise AS existing_primary_for_enterprise
                 FROM public.%1$I dt
                 LEFT JOIN public.establishment est ON dt.establishment_id = est.id
-                WHERE dt.row_id = ANY($1)
+                WHERE dt.row_id <@ $1
                   AND dt.operation = 'replace'
                   AND dt.action IS DISTINCT FROM 'skip'
             )
@@ -66,12 +66,13 @@ BEGIN
             WHERE dt.row_id = v.row_id;
         $$, v_data_table_name, v_external_ident_source_columns);
         RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: Validating "replace" rows for informal establishments.', p_job_id;
-        EXECUTE v_sql USING p_batch_row_ids;
+        EXECUTE v_sql USING p_batch_row_ids_range;
     END IF;
 
     -- Always advance priority for all rows in the batch to prevent loops.
-    EXECUTE format('UPDATE public.%I SET last_completed_priority = %s WHERE row_id = ANY($1)', v_data_table_name, v_step.priority)
-    USING p_batch_row_ids;
+    v_sql := format('UPDATE public.%I SET last_completed_priority = %s WHERE row_id <@ $1', v_data_table_name, v_step.priority);
+    RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: Advancing priority for all rows with SQL: %', p_job_id, v_sql;
+    EXECUTE v_sql USING p_batch_row_ids_range;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
 
     RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment (Batch): Finished analysis. Updated priority for % rows.', p_job_id, v_update_count;
@@ -80,7 +81,7 @@ $analyse_enterprise_link_for_establishment$;
 
 
 -- Procedure to process enterprise link for standalone establishments (create enterprise for new ESTs)
-CREATE OR REPLACE PROCEDURE import.process_enterprise_link_for_establishment(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.process_enterprise_link_for_establishment(p_job_id INT, p_batch_row_ids_range int4multirange, p_step_code TEXT)
 LANGUAGE plpgsql AS $process_enterprise_link_for_establishment$
 DECLARE
     v_job public.import_job;
@@ -94,7 +95,7 @@ DECLARE
     new_enterprise_id INT;
     v_job_mode public.import_mode;
 BEGIN
-    RAISE DEBUG '[Job %] process_enterprise_link_for_establishment (Batch): Starting operation for % rows', p_job_id, array_length(p_batch_row_ids, 1);
+    RAISE DEBUG '[Job %] process_enterprise_link_for_establishment (Batch): Starting operation for range %s', p_job_id, p_batch_row_ids_range::text;
 
     -- Get job details
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
@@ -123,9 +124,10 @@ BEGIN
         INSERT INTO temp_new_est_for_enterprise_creation (data_row_id, edit_by_user_id, edit_at, edit_comment)
         SELECT dt.row_id, dt.edit_by_user_id, dt.edit_at, dt.edit_comment
         FROM public.%1$I dt
-        WHERE dt.row_id = ANY($1) AND dt.operation = 'insert' AND dt.founding_row_id = dt.row_id; -- Only process founding rows for new ESTs
+        WHERE dt.row_id <@ $1 AND dt.operation = 'insert' AND dt.founding_row_id = dt.row_id; -- Only process founding rows for new ESTs
     $$, v_data_table_name /* %1$I */);
-    EXECUTE v_sql USING p_batch_row_ids;
+    RAISE DEBUG '[Job %] process_enterprise_link_for_establishment: Populating temp table for new ESTs with SQL: %', p_job_id, v_sql;
+    EXECUTE v_sql USING p_batch_row_ids_range;
 
     -- Step 2: Create new enterprises for ESTs in temp_new_est_for_enterprise_creation and map them
     -- temp_created_enterprises.data_row_id will store the founding_row_id of the EST
@@ -178,23 +180,23 @@ BEGIN
             state = %2$L -- 'processing'
         FROM temp_created_enterprises tce -- tce.data_row_id is the founding_row_id
         WHERE dt.founding_row_id = tce.data_row_id -- Link all rows of the entity via founding_row_id
-          AND dt.row_id = ANY($1) -- p_batch_row_ids
+          AND dt.row_id <@ $1 -- p_batch_row_ids_range
           AND dt.action = 'use'; -- Only update usable rows
     $$, v_data_table_name, 'processing'::public.import_data_state);
     RAISE DEBUG '[Job %] process_enterprise_link_for_establishment: Updating _data for new enterprises and their related rows: %', p_job_id, v_sql;
-    EXECUTE v_sql USING p_batch_row_ids;
+    EXECUTE v_sql USING p_batch_row_ids_range;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
 
     -- Step 4: Update rows that were already processed by analyse step (existing ESTs, action = 'replace') - just advance priority
     v_sql := format($$
         UPDATE public.%1$I dt SET
             state = %2$L
-        WHERE dt.row_id = ANY($1)
+        WHERE dt.row_id <@ $1
           AND dt.operation = 'replace' -- Only update rows for existing ESTs (mode 'establishment_informal' implies no LU link in data)
           AND dt.action = 'use'; -- Only update usable rows
     $$, v_data_table_name /* %1$I */, 'processing' /* %2$L */, 'error' /* %3$L */);
      RAISE DEBUG '[Job %] process_enterprise_link_for_establishment: Updating existing ESTs (action=replace, priority only): %', p_job_id, v_sql;
-    EXECUTE v_sql USING p_batch_row_ids;
+    EXECUTE v_sql USING p_batch_row_ids_range;
 
     -- Step 5: Update skipped rows (action = 'skip') - no LCP update needed in processing phase.
     GET DIAGNOSTICS v_update_count = ROW_COUNT; -- Re-using v_update_count, fine for debug

@@ -7,7 +7,7 @@ BEGIN;
 -- of all links and primary statuses, stores the results in a temp table, and then applies
 -- these results to the main _data table using an internal batching loop to avoid a single
 -- large, long-running UPDATE transaction.
-CREATE OR REPLACE PROCEDURE import.analyse_link_establishment_to_legal_unit(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_link_establishment_to_legal_unit(p_job_id INT, p_batch_row_id_ranges int4multirange, p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_link_establishment_to_legal_unit$
 DECLARE
     v_job public.import_job;
@@ -43,10 +43,12 @@ BEGIN
 
     -- Materialize the set of rows to be processed for this step
     CREATE TEMP TABLE temp_relevant_rows (id SERIAL PRIMARY KEY, data_row_id INTEGER NOT NULL) ON COMMIT DROP;
-    EXECUTE format($$INSERT INTO temp_relevant_rows (data_row_id)
+    v_sql := format($$INSERT INTO temp_relevant_rows (data_row_id)
                      SELECT row_id FROM public.%1$I
                      WHERE action IS DISTINCT FROM 'skip' AND last_completed_priority < %2$L$$,
                      v_data_table_name, v_step.priority);
+    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Materializing relevant rows with SQL: %', p_job_id, v_sql;
+    EXECUTE v_sql;
     GET DIAGNOSTICS v_total_rows_to_process = ROW_COUNT;
     IF v_total_rows_to_process = 0 THEN RAISE DEBUG '[Job %] No rows to process for %.', p_job_id, p_step_code; RETURN; END IF;
     RAISE DEBUG '[Job %] Found % rows to process for %.', p_job_id, v_total_rows_to_process, p_step_code;
@@ -60,7 +62,9 @@ BEGIN
     
     IF v_link_data_cols IS NULL OR jsonb_array_length(v_link_data_cols) = 0 THEN
         RAISE DEBUG '[Job %] No legal_unit_* source columns defined for step. Skipping.', p_job_id;
-        EXECUTE format('UPDATE public.%1$I dt SET last_completed_priority = %2$L FROM temp_relevant_rows tr WHERE dt.row_id = tr.data_row_id', v_data_table_name, v_step.priority);
+        v_sql := format('UPDATE public.%1$I dt SET last_completed_priority = %2$L FROM temp_relevant_rows tr WHERE dt.row_id = tr.data_row_id', v_data_table_name, v_step.priority);
+        RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Advancing priority for skipped (no link columns) rows with SQL: %', p_job_id, v_sql;
+        EXECUTE v_sql;
         RETURN;
     END IF;
 
@@ -223,6 +227,7 @@ BEGIN
         LEFT JOIN ResolvedLinks rl ON tr.data_row_id = rl.data_row_id
         LEFT JOIN RankedForPrimary rfp ON tr.data_row_id = rfp.data_row_id;
     $$, v_unpivot_sql, v_fallback_error_key, v_error_keys_to_clear_arr, v_data_table_name);
+    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Populating pre-calculation table with SQL: %', p_job_id, v_sql;
     EXECUTE v_sql;
     RAISE DEBUG '[Job %] Holistic pre-calculation phase complete.', p_job_id;
 
@@ -240,6 +245,7 @@ BEGIN
         FROM temp_precalc pre
         WHERE dt.row_id = pre.data_row_id
     $$, v_data_table_name, v_error_keys_to_clear_arr, v_step.priority);
+    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Applying holistic updates with SQL: %', p_job_id, v_sql;
     EXECUTE v_sql;
     RAISE DEBUG '[Job %] Holistic update complete.', p_job_id;
 

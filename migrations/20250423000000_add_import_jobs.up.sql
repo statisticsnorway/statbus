@@ -1,6 +1,8 @@
 -- Migration 20250227115859: add import jobs
 BEGIN;
 
+-- Enable GIST indexes on base types for efficient multirange operations
+CREATE EXTENSION IF NOT EXISTS btree_gist;
 
 -- Create a separate schema for all the import related functions that are used internally
 -- by the import job system, but not available through the API.
@@ -1449,6 +1451,14 @@ BEGIN
   EXECUTE format($$CREATE INDEX ON public.%1$I (state, last_completed_priority, row_id)$$, job.data_table_name /* %1$I */);
   RAISE DEBUG '[Job %] Added composite index to data table %', job.id, job.data_table_name;
 
+  -- Add GIST index on row_id for efficient multirange operations (<@)
+  EXECUTE format('CREATE INDEX ON public.%I USING GIST (row_id)', job.data_table_name);
+  RAISE DEBUG '[Job %] Added GIST index on row_id to data table %', job.id, job.data_table_name;
+
+  -- Add GIST index on daterange(valid_from, valid_until) for efficient temporal_merge lookups.
+  EXECUTE format('CREATE INDEX ON public.%I USING GIST (daterange(valid_from, valid_until, ''[]''))', job.data_table_name);
+  RAISE DEBUG '[Job %] Added GIST index on validity daterange to data table %', job.id, job.data_table_name;
+
   -- Create indexes on uniquely identifying source_input columns to speed up lookups within analysis steps.
   FOR col_rec IN
       SELECT (x->>'column_name')::TEXT as column_name
@@ -1721,7 +1731,7 @@ $$;
 CREATE OR REPLACE PROCEDURE import.propagate_fatal_error_to_entity_batch(
     p_job_id INT,
     p_data_table_name TEXT,
-    p_batch_row_ids INTEGER[],
+    p_batch_row_id_ranges int4multirange,
     p_error_keys TEXT[],
     p_step_code TEXT
 )
@@ -1736,13 +1746,13 @@ BEGIN
     EXECUTE format($$
         SELECT array_agg(DISTINCT dt.founding_row_id)
         FROM public.%1$I dt
-        WHERE dt.row_id = ANY($1) -- from the current batch
+        WHERE dt.row_id <@ $1 -- from the current batch
           AND dt.state = 'error'
           AND dt.founding_row_id IS NOT NULL
           AND (dt.errors ?| %2$L::text[]); -- and the error is from this step
     $$, p_data_table_name, p_error_keys)
     INTO v_failed_entity_founding_rows
-    USING p_batch_row_ids;
+    USING p_batch_row_id_ranges;
 
     IF array_length(v_failed_entity_founding_rows, 1) > 0 THEN
         RAISE DEBUG '[Job %] %s: Propagating errors for % failed entities.', p_job_id, p_step_code, array_length(v_failed_entity_founding_rows, 1);
@@ -2048,7 +2058,7 @@ $procedure$;
 -- Helper procedure to process a single batch through all processing steps
 CREATE PROCEDURE admin.import_job_process_batch(
     job public.import_job,
-    batch_row_ids INTEGER[]
+    batch_row_id_ranges int4multirange
 )
 LANGUAGE plpgsql AS $import_job_process_batch$
 DECLARE
@@ -2058,18 +2068,18 @@ DECLARE
     error_message TEXT;
     v_should_disable_triggers BOOLEAN;
 BEGIN
-    RAISE DEBUG '[Job %] Processing batch of % rows through all process steps.', job.id, array_length(batch_row_ids, 1);
+    RAISE DEBUG '[Job %] Processing batch with ranges %s through all process steps.', job.id, batch_row_id_ranges::text;
     targets := job.definition_snapshot->'import_step_list';
 
     -- Check if the batch contains any operations that are not simple inserts.
     -- If so, we need to disable FK triggers to allow for temporary inconsistencies.
     EXECUTE format(
-        'SELECT EXISTS(SELECT 1 FROM public.%I WHERE row_id = ANY($1) AND operation IS DISTINCT FROM %L)',
+        'SELECT EXISTS(SELECT 1 FROM public.%I WHERE row_id <@ $1 AND operation IS DISTINCT FROM %L)',
         job.data_table_name,
         'insert'
     )
     INTO v_should_disable_triggers
-    USING batch_row_ids;
+    USING batch_row_id_ranges;
 
     IF v_should_disable_triggers THEN
         RAISE DEBUG '[Job %] Batch contains updates/replaces. Disabling FK triggers.', job.id;
@@ -2088,7 +2098,7 @@ BEGIN
         RAISE DEBUG '[Job %] Batch processing: Calling % for step %', job.id, proc_to_call, target_rec.code;
 
         -- Since this is one transaction, any error will roll back the entire batch.
-        EXECUTE format('CALL %s($1, $2, $3)', proc_to_call) USING job.id, batch_row_ids, target_rec.code;
+        EXECUTE format('CALL %s($1, $2, $3)', proc_to_call) USING job.id, batch_row_id_ranges, target_rec.code;
     END LOOP;
 
     -- Re-enable triggers if they were disabled.
@@ -2142,7 +2152,7 @@ DECLARE
     v_steps JSONB;
     v_step_rec RECORD;
     v_proc_to_call REGPROC;
-    v_batch_row_ids INTEGER[];
+    v_batch_row_id_ranges int4multirange;
     v_error_message TEXT;
     v_rows_exist BOOLEAN;
     v_rows_processed INT;
@@ -2179,7 +2189,7 @@ BEGIN
 
                     IF v_rows_exist THEN
                         RAISE DEBUG '[Job %] Executing HOLISTIC step % (priority %)', job.id, v_step_rec.code, v_step_rec.priority;
-                        EXECUTE format('CALL %s($1, $2, $3)', v_proc_to_call) USING job.id, NULL::INTEGER[], v_step_rec.code;
+                        EXECUTE format('CALL %s($1, $2, $3)', v_proc_to_call) USING job.id, NULL::int4multirange, v_step_rec.code;
                         v_rows_processed := 1; -- Mark as having done work.
                     END IF;
                 ELSE
@@ -2193,27 +2203,27 @@ BEGIN
                             WHERE state = %2$L AND last_completed_priority < %3$L
                             ORDER BY entity_root_id
                             LIMIT %4$L
-                        )
-                        SELECT array_agg(t.row_id)
-                        FROM (
+                        ),
+                        batch_rows AS (
                             SELECT dt.row_id
                             FROM public.%1$I dt
                             JOIN entity_batch eb ON COALESCE(dt.founding_row_id, dt.row_id) = eb.entity_root_id
                             WHERE dt.state = %2$L AND dt.last_completed_priority < %3$L
                             ORDER BY dt.row_id
                             FOR UPDATE SKIP LOCKED
-                        ) t
+                        )
+                        SELECT public.array_to_int4multirange(array_agg(row_id)) FROM batch_rows
                         $$,
                         job.data_table_name,        /* %1$I */
                         v_current_phase_data_state, /* %2$L */
                         v_step_rec.priority,        /* %3$L */
                         job.analysis_batch_size     /* %4$L */
-                    ) INTO v_batch_row_ids;
+                    ) INTO v_batch_row_id_ranges;
 
-                    IF v_batch_row_ids IS NOT NULL AND array_length(v_batch_row_ids, 1) > 0 THEN
-                        RAISE DEBUG '[Job %] Executing BATCHED step % (priority %), found % rows.', job.id, v_step_rec.code, v_step_rec.priority, array_length(v_batch_row_ids, 1);
-                        EXECUTE format('CALL %s($1, $2, $3)', v_proc_to_call) USING job.id, v_batch_row_ids, v_step_rec.code;
-                        v_rows_processed := array_length(v_batch_row_ids, 1);
+                    IF v_batch_row_id_ranges IS NOT NULL AND NOT isempty(v_batch_row_id_ranges) THEN
+                        RAISE DEBUG '[Job %] Executing BATCHED step % (priority %), found ranges: %s.', job.id, v_step_rec.code, v_step_rec.priority, v_batch_row_id_ranges::text;
+                        EXECUTE format('CALL %s($1, $2, $3)', v_proc_to_call) USING job.id, v_batch_row_id_ranges, v_step_rec.code;
+                        v_rows_processed := (SELECT count(*) FROM unnest(v_batch_row_id_ranges));
                     END IF;
                 END IF;
             EXCEPTION WHEN OTHERS THEN
@@ -2269,7 +2279,7 @@ CREATE FUNCTION admin.import_job_processing_phase(
 ) RETURNS BOOLEAN -- Returns TRUE if work was done and rescheduling is needed
 LANGUAGE plpgsql AS $import_job_processing_phase$
 DECLARE
-    v_batch_row_ids INTEGER[];
+    v_batch_row_id_ranges int4multirange;
 BEGIN
     RAISE DEBUG '[Job %] Processing phase: checking for a batch.', job.id;
 
@@ -2282,29 +2292,29 @@ BEGIN
             WHERE state = 'processing' AND action = 'use'
             ORDER BY entity_root_id
             LIMIT %2$L
-        )
-        SELECT array_agg(t.row_id)
-        FROM (
+        ),
+        batch_rows AS (
             SELECT dt.row_id
             FROM public.%1$I dt
             JOIN entity_batch eb ON COALESCE(dt.founding_row_id, dt.row_id) = eb.entity_root_id
             WHERE dt.state = 'processing' AND dt.action = 'use'
             ORDER BY dt.row_id
             FOR UPDATE SKIP LOCKED
-        ) t
+        )
+        SELECT public.array_to_int4multirange(array_agg(row_id)) FROM batch_rows
         $$,
         job.data_table_name,        /* %1$I */
         job.processing_batch_size   /* %2$L */
-    ) INTO v_batch_row_ids;
+    ) INTO v_batch_row_id_ranges;
 
-    IF v_batch_row_ids IS NOT NULL AND array_length(v_batch_row_ids, 1) > 0 THEN
-        RAISE DEBUG '[Job %] Found batch of % rows to process.', job.id, array_length(v_batch_row_ids, 1);
+    IF v_batch_row_id_ranges IS NOT NULL AND NOT isempty(v_batch_row_id_ranges) THEN
+        RAISE DEBUG '[Job %] Found batch of ranges to process: %s.', job.id, v_batch_row_id_ranges::text;
         BEGIN
-            CALL admin.import_job_process_batch(job, v_batch_row_ids);
+            CALL admin.import_job_process_batch(job, v_batch_row_id_ranges);
 
-            EXECUTE format($$UPDATE public.%1$I SET state = 'processed' WHERE row_id = ANY($1)$$,
-                           job.data_table_name /* %1$I */) USING v_batch_row_ids;
-            RAISE DEBUG '[Job %] Batch successfully processed. Marked % rows as processed.', job.id, array_length(v_batch_row_ids, 1);
+            EXECUTE format($$UPDATE public.%1$I SET state = 'processed' WHERE row_id <@ $1$$,
+                           job.data_table_name /* %1$I */) USING v_batch_row_id_ranges;
+            RAISE DEBUG '[Job %] Batch successfully processed. Marked rows in ranges %s as processed.', job.id, v_batch_row_id_ranges::text;
         EXCEPTION WHEN OTHERS THEN
             DECLARE
                 error_message TEXT;
@@ -2313,8 +2323,8 @@ BEGIN
                 GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT,
                                       error_context = PG_EXCEPTION_CONTEXT;
                 RAISE WARNING '[Job %] Error processing batch: %. Context: %. Marking batch rows as error and failing job.', job.id, error_message, error_context;
-                EXECUTE format($$UPDATE public.%1$I SET state = 'error', errors = COALESCE(errors, '{}'::jsonb) || %2$L WHERE row_id = ANY($1)$$,
-                               job.data_table_name /* %1$I */, jsonb_build_object('process_batch_error', error_message, 'context', error_context) /* %2$L */) USING v_batch_row_ids;
+                EXECUTE format($$UPDATE public.%1$I SET state = 'error', errors = COALESCE(errors, '{}'::jsonb) || %2$L WHERE row_id <@ $1$$,
+                               job.data_table_name /* %1$I */, jsonb_build_object('process_batch_error', error_message, 'context', error_context) /* %2$L */) USING v_batch_row_id_ranges;
                 UPDATE public.import_job SET error = jsonb_build_object('error_in_processing_batch', error_message, 'context', error_context), state = 'finished' WHERE id = job.id;
                 -- On error, do not reschedule.
                 RETURN FALSE;

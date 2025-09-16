@@ -4,7 +4,7 @@ BEGIN;
 
 
 -- Procedure to analyse external identifier data (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.analyse_external_idents(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_external_idents(p_job_id INT, p_batch_row_id_ranges int4multirange, p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_external_idents$
 DECLARE
     v_job public.import_job;
@@ -37,7 +37,7 @@ BEGIN
     IF to_regclass('pg_temp.temp_propagated_errors') IS NOT NULL THEN DROP TABLE temp_propagated_errors; END IF;
 
     -- This is a HOLISTIC procedure. It is called once and processes all relevant rows for this step.
-    -- The p_batch_row_ids parameter is ignored (it will be NULL).
+    -- The p_batch_row_id_ranges parameter is ignored (it will be NULL).
     RAISE DEBUG '[Job %] analyse_external_idents (Holistic): Starting analysis.', p_job_id;
 
     -- Get job details and snapshot
@@ -54,11 +54,15 @@ BEGIN
 
     -- Holistic execution: materialize relevant rows for this step to avoid giant in-memory arrays.
     CREATE TEMP TABLE temp_relevant_rows (data_row_id INTEGER PRIMARY KEY) ON COMMIT DROP;
-    EXECUTE format($$INSERT INTO temp_relevant_rows
+    v_sql := format($$INSERT INTO temp_relevant_rows
                     SELECT row_id FROM public.%1$I
                     WHERE state = %2$L AND last_completed_priority < %3$L$$,
                    v_data_table_name /* %1$I */, 'analysing'::public.import_data_state /* %2$L */, v_step.priority /* %3$L */);
-    EXECUTE 'SELECT COUNT(*) FROM temp_relevant_rows' INTO v_update_count;
+    RAISE DEBUG '[Job %] analyse_external_idents: Materializing relevant rows with SQL: %', p_job_id, v_sql;
+    EXECUTE v_sql;
+    v_sql := 'SELECT COUNT(*) FROM temp_relevant_rows';
+    RAISE DEBUG '[Job %] analyse_external_idents: Counting relevant rows with SQL: %', p_job_id, v_sql;
+    EXECUTE v_sql INTO v_update_count;
 
     RAISE DEBUG '[Job %] analyse_external_idents: Holistic execution. Found % rows to process for this step.',
         p_job_id, COALESCE(v_update_count, 0);
@@ -95,8 +99,10 @@ BEGIN
 
     IF v_ident_data_cols IS NULL OR jsonb_array_length(v_ident_data_cols) = 0 THEN
          RAISE DEBUG '[Job %] analyse_external_idents: No external ident source_input data columns found in snapshot for step %. Skipping analysis.', p_job_id, v_step.id;
-         EXECUTE format($$UPDATE public.%1$I dt SET last_completed_priority = %2$L WHERE EXISTS (SELECT 1 FROM temp_relevant_rows tr WHERE tr.data_row_id = dt.row_id)$$,
+         v_sql := format($$UPDATE public.%1$I dt SET last_completed_priority = %2$L WHERE EXISTS (SELECT 1 FROM temp_relevant_rows tr WHERE tr.data_row_id = dt.row_id)$$,
                         v_data_table_name /* %1$I */, v_step.priority /* %2$L */);
+         RAISE DEBUG '[Job %] analyse_external_idents: Updating last_completed_priority for skipped rows (no columns) with SQL: %', p_job_id, v_sql;
+         EXECUTE v_sql;
          RETURN;
     END IF;
 
@@ -174,6 +180,7 @@ BEGIN
                 last_completed_priority = %4$L
             WHERE EXISTS (SELECT 1 FROM temp_relevant_rows tr WHERE tr.data_row_id = dt.row_id);
         $$, v_data_table_name /* %1$I */, 'error' /* %2$L */, 'skip'::public.import_row_action_type /* %3$L */, v_step.priority /* %4$L */);
+        RAISE DEBUG '[Job %] analyse_external_idents: Marking rows as error (no identifiers) with SQL: %', p_job_id, v_sql;
         EXECUTE v_sql;
         GET DIAGNOSTICS v_error_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_external_idents (Batch): Finished analysis for batch. Errors: % (all rows missing identifiers or mappings for external_idents step)', p_job_id, v_error_count;
@@ -194,6 +201,7 @@ BEGIN
     ) ON COMMIT DROP;
 
     v_sql := format('INSERT INTO temp_raw_unpivoted_idents %s', v_unpivot_sql);
+    RAISE DEBUG '[Job %] analyse_external_idents: Populating temp_raw_unpivoted_idents with SQL: %', p_job_id, v_sql;
     EXECUTE v_sql;
 
     -- Now, perform the lookup on only the unique identifiers from the batch.
@@ -536,17 +544,20 @@ BEGIN
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
 
     -- Recalculate v_error_count for final logging
-    EXECUTE format($$SELECT COUNT(*) FROM public.%1$I WHERE (errors ?| %2$L::text[]) AND EXISTS (SELECT 1 FROM temp_relevant_rows tr WHERE tr.data_row_id = row_id)$$,
-                   v_data_table_name, v_error_keys_to_clear_arr)
-    INTO v_error_count;
+    v_sql := format($$SELECT COUNT(*) FROM public.%1$I WHERE (errors ?| %2$L::text[]) AND EXISTS (SELECT 1 FROM temp_relevant_rows tr WHERE tr.data_row_id = row_id)$$,
+                   v_data_table_name, v_error_keys_to_clear_arr);
+    RAISE DEBUG '[Job %] analyse_external_idents: Recalculating error count with SQL: %', p_job_id, v_sql;
+    EXECUTE v_sql INTO v_error_count;
     RAISE DEBUG '[Job %] analyse_external_idents: Updated % total rows. Current estimated errors for this step: %', p_job_id, v_update_count, v_error_count;
 
     -- Update priority for rows that were initially skipped
-    EXECUTE format($$
+    v_sql := format($$
         UPDATE public.%1$I dt SET
             last_completed_priority = %2$L
         WHERE EXISTS (SELECT 1 FROM temp_relevant_rows tr WHERE tr.data_row_id = dt.row_id) AND dt.action = 'skip';
     $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */);
+    RAISE DEBUG '[Job %] analyse_external_idents: Updating priority for pre-skipped rows with SQL: %', p_job_id, v_sql;
+    EXECUTE v_sql;
     GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
     RAISE DEBUG '[Job %] analyse_external_idents: Updated last_completed_priority for % pre-skipped rows.', p_job_id, v_skipped_update_count;
 
@@ -578,7 +589,7 @@ $analyse_external_idents$;
 -- This is called by other process_* procedures after the main unit ID has been assigned.
 CREATE OR REPLACE PROCEDURE import.helper_process_external_idents(
     p_job_id INT,
-    p_batch_row_ids INTEGER[],
+    p_batch_row_id_ranges int4multirange,
     p_step_code TEXT
 )
 LANGUAGE plpgsql AS $helper_process_external_idents$
@@ -595,7 +606,7 @@ DECLARE
     v_rows_affected INT;
     v_ident_type_rec RECORD;
 BEGIN
-    RAISE DEBUG '[Job %] helper_process_external_idents (Batch): Starting for % rows for step %', p_job_id, array_length(p_batch_row_ids, 1), p_step_code;
+    RAISE DEBUG '[Job %] helper_process_external_idents (Batch): Starting for range %s for step %', p_job_id, p_batch_row_id_ranges::text, p_step_code;
 
     -- Get job details
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
@@ -659,7 +670,7 @@ BEGIN
                     %2$L::integer AS type_id,
                     dt.%3$I AS ident
                 FROM public.%4$I dt
-                WHERE dt.row_id = ANY(%5$L)
+                WHERE dt.row_id <@ $1
                   AND dt.action = 'use'
                   AND dt.%1$I IS NOT NULL
                   AND NULLIF(dt.%3$I, '') IS NOT NULL
@@ -668,12 +679,12 @@ BEGIN
             ) AS s
             ON (t.type_id = s.type_id AND t.ident = s.ident)
             WHEN MATCHED AND (
-                t.legal_unit_id IS DISTINCT FROM (CASE WHEN %6$L = 'legal_unit' THEN s.unit_id ELSE NULL END) OR
-                t.establishment_id IS DISTINCT FROM (CASE WHEN %6$L = 'establishment' THEN s.unit_id ELSE NULL END)
+                t.legal_unit_id IS DISTINCT FROM (CASE WHEN %5$L = 'legal_unit' THEN s.unit_id ELSE NULL END) OR
+                t.establishment_id IS DISTINCT FROM (CASE WHEN %5$L = 'establishment' THEN s.unit_id ELSE NULL END)
             ) THEN
                 UPDATE SET
-                    legal_unit_id = CASE WHEN %6$L = 'legal_unit' THEN s.unit_id ELSE NULL END,
-                    establishment_id = CASE WHEN %6$L = 'establishment' THEN s.unit_id ELSE NULL END,
+                    legal_unit_id = CASE WHEN %5$L = 'legal_unit' THEN s.unit_id ELSE NULL END,
+                    establishment_id = CASE WHEN %5$L = 'establishment' THEN s.unit_id ELSE NULL END,
                     enterprise_id = NULL,
                     enterprise_group_id = NULL,
                     edit_by_user_id = s.edit_by_user_id,
@@ -682,8 +693,8 @@ BEGIN
             WHEN NOT MATCHED THEN
                 INSERT (legal_unit_id, establishment_id, type_id, ident, edit_by_user_id, edit_at, edit_comment)
                 VALUES (
-                    CASE WHEN %6$L = 'legal_unit' THEN s.unit_id ELSE NULL END,
-                    CASE WHEN %6$L = 'establishment' THEN s.unit_id ELSE NULL END,
+                    CASE WHEN %5$L = 'legal_unit' THEN s.unit_id ELSE NULL END,
+                    CASE WHEN %5$L = 'establishment' THEN s.unit_id ELSE NULL END,
                     s.type_id,
                     s.ident,
                     s.edit_by_user_id,
@@ -695,11 +706,11 @@ BEGIN
             v_ident_type_rec.id,          -- %2$L
             v_col_rec.raw_column_name,    -- %3$I
             v_data_table_name,            -- %4$I
-            p_batch_row_ids,              -- %5$L
-            v_unit_type                   -- %6$L
+            v_unit_type                   -- %5$L
         );
         
-        EXECUTE v_sql;
+        RAISE DEBUG '[Job %] helper_process_external_idents: Merging with SQL: %', p_job_id, v_sql;
+        EXECUTE v_sql USING p_batch_row_id_ranges;
         GET DIAGNOSTICS v_rows_affected = ROW_COUNT;
         RAISE DEBUG '[Job %] helper_process_external_idents: Merged % rows for identifier type %.', p_job_id, v_rows_affected, v_ident_type_rec.code;
     END LOOP;

@@ -1,7 +1,7 @@
 BEGIN;
 
 -- Procedure to analyse base establishment data (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.analyse_establishment(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_establishment(p_job_id INT, p_batch_row_id_ranges int4multirange, p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_establishment$
 DECLARE
     v_job public.import_job;
@@ -15,7 +15,7 @@ DECLARE
     v_error_keys_to_clear_arr TEXT[] := ARRAY['name_raw', 'sector_code_raw', 'unit_size_code_raw', 'birth_date_raw', 'death_date_raw', 'status_code_raw', 'establishment'];
     v_invalid_code_keys_arr TEXT[] := ARRAY['sector_code_raw', 'unit_size_code_raw', 'birth_date_raw', 'death_date_raw'];
 BEGIN
-    RAISE DEBUG '[Job %] analyse_establishment (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_row_ids, 1);
+    RAISE DEBUG '[Job %] analyse_establishment (Batch): Starting analysis for range %s', p_job_id, p_batch_row_id_ranges::text;
 
     -- Get default status_id -- Removed
     -- SELECT id INTO v_default_status_id FROM public.status WHERE assigned_by_default = true AND active = true LIMIT 1;
@@ -39,7 +39,7 @@ BEGIN
                 sector_code_raw as sector_code, unit_size_code_raw as unit_size_code,
                 birth_date_raw as birth_date, death_date_raw as death_date
             FROM public.%1$I
-            WHERE row_id = ANY($1) AND action IS DISTINCT FROM 'skip'
+            WHERE row_id <@ $1 AND action IS DISTINCT FROM 'skip'
         ),
         distinct_codes AS (
             SELECT sector_code AS code, 'sector' AS type FROM batch_data WHERE NULLIF(sector_code, '') IS NOT NULL
@@ -133,25 +133,29 @@ BEGIN
     RAISE DEBUG '[Job %] analyse_establishment: Single-pass batch update for non-skipped rows: %', p_job_id, v_sql;
 
     BEGIN
-        EXECUTE v_sql USING p_batch_row_ids;
+        EXECUTE v_sql USING p_batch_row_id_ranges;
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_establishment: Updated % non-skipped rows in single pass.', p_job_id, v_update_count;
 
         -- Update priority for skipped rows
-        EXECUTE format($$
+        v_sql := format($$
             UPDATE public.%1$I dt SET
                 last_completed_priority = %2$L
-            WHERE dt.row_id = ANY($1) AND dt.action = 'skip';
-        $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */) USING p_batch_row_ids;
+            WHERE dt.row_id <@ $1 AND dt.action = 'skip';
+        $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */);
+        RAISE DEBUG '[Job %] analyse_establishment: Updating priority for skipped rows with SQL: %', p_job_id, v_sql;
+        EXECUTE v_sql USING p_batch_row_id_ranges;
         GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_establishment: Updated last_completed_priority for % skipped rows.', p_job_id, v_skipped_update_count;
 
         v_update_count := v_update_count + v_skipped_update_count; -- Total rows affected
 
-        EXECUTE format($$SELECT COUNT(*) FROM public.%1$I WHERE row_id = ANY($1) AND state = 'error' AND (errors ?| %2$L::text[])$$,
-                       v_job.data_table_name /* %1$I */, v_error_keys_to_clear_arr /* %2$L */)
+        v_sql := format($$SELECT COUNT(*) FROM public.%1$I WHERE row_id <@ $1 AND state = 'error' AND (errors ?| %2$L::text[])$$,
+                       v_job.data_table_name /* %1$I */, v_error_keys_to_clear_arr /* %2$L */);
+        RAISE DEBUG '[Job %] analyse_establishment: Counting errors with SQL: %', p_job_id, v_sql;
+        EXECUTE v_sql
         INTO v_error_count
-        USING p_batch_row_ids;
+        USING p_batch_row_id_ranges;
         RAISE DEBUG '[Job %] analyse_establishment: Estimated errors in this step for batch: %', p_job_id, v_error_count;
 
     EXCEPTION WHEN others THEN
@@ -165,7 +169,7 @@ BEGIN
     END;
 
     -- Propagate errors to all rows of a new entity if one fails
-    CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_job.data_table_name, p_batch_row_ids, v_error_keys_to_clear_arr, 'analyse_establishment');
+    CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_job.data_table_name, p_batch_row_id_ranges, v_error_keys_to_clear_arr, 'analyse_establishment');
 
     -- Resolve primary conflicts within the current batch in the main data table
     -- This is done here because this step runs AFTER link steps have populated parent IDs and primary flags
@@ -173,22 +177,24 @@ BEGIN
         v_sql := format($$
             WITH BatchPrimaries AS (
                 SELECT row_id, FIRST_VALUE(row_id) OVER (PARTITION BY legal_unit_id, daterange(valid_from, valid_until, '[)') ORDER BY establishment_id ASC NULLS LAST, row_id ASC) as winner_row_id
-                FROM public.%1$I WHERE row_id = ANY($1) AND primary_for_legal_unit = true AND legal_unit_id IS NOT NULL
+                FROM public.%1$I WHERE row_id <@ $1 AND primary_for_legal_unit = true AND legal_unit_id IS NOT NULL
             )
             UPDATE public.%1$I dt SET primary_for_legal_unit = false FROM BatchPrimaries bp
             WHERE dt.row_id = bp.row_id AND dt.row_id != bp.winner_row_id AND dt.primary_for_legal_unit = true;
         $$, v_data_table_name);
-        EXECUTE v_sql USING p_batch_row_ids;
+        RAISE DEBUG '[Job %] analyse_establishment: Resolving primary conflicts (formal) with SQL: %', p_job_id, v_sql;
+        EXECUTE v_sql USING p_batch_row_id_ranges;
     ELSIF v_job.definition_snapshot->'import_definition'->>'mode' = 'establishment_informal' THEN
         v_sql := format($$
             WITH BatchPrimaries AS (
                 SELECT row_id, FIRST_VALUE(row_id) OVER (PARTITION BY enterprise_id, daterange(valid_from, valid_until, '[)') ORDER BY establishment_id ASC NULLS LAST, row_id ASC) as winner_row_id
-                FROM public.%1$I WHERE row_id = ANY($1) AND primary_for_enterprise = true AND enterprise_id IS NOT NULL
+                FROM public.%1$I WHERE row_id <@ $1 AND primary_for_enterprise = true AND enterprise_id IS NOT NULL
             )
             UPDATE public.%1$I dt SET primary_for_enterprise = false FROM BatchPrimaries bp
             WHERE dt.row_id = bp.row_id AND dt.row_id != bp.winner_row_id AND dt.primary_for_enterprise = true;
         $$, v_data_table_name);
-        EXECUTE v_sql USING p_batch_row_ids;
+        RAISE DEBUG '[Job %] analyse_establishment: Resolving primary conflicts (informal) with SQL: %', p_job_id, v_sql;
+        EXECUTE v_sql USING p_batch_row_id_ranges;
     END IF;
 
     RAISE DEBUG '[Job %] analyse_establishment (Batch): Finished analysis for batch. Total errors in batch: %', p_job_id, v_error_count;
@@ -197,7 +203,7 @@ $analyse_establishment$;
 
 
 -- Procedure to operate (insert/update/upsert) base establishment data (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.process_establishment(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.process_establishment(p_job_id INT, p_batch_row_id_ranges int4multirange, p_step_code TEXT)
 LANGUAGE plpgsql AS $process_establishment$
 DECLARE
     v_job public.import_job;
@@ -221,7 +227,7 @@ DECLARE
     v_merge_mode sql_saga.temporal_merge_mode;
 BEGIN
     v_start_time := clock_timestamp();
-    RAISE DEBUG '[Job %] process_establishment (Batch): Starting operation for % rows', p_job_id, array_length(p_batch_row_ids, 1);
+    RAISE DEBUG '[Job %] process_establishment (Batch): Starting operation for range %s', p_job_id, p_batch_row_id_ranges::text;
 
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
     v_data_table_name := v_job.data_table_name;
@@ -279,12 +285,13 @@ BEGIN
         CREATE OR REPLACE TEMP VIEW temp_es_source_view AS
         SELECT %1$s
         FROM public.%2$I dt
-        WHERE dt.row_id = ANY(%3$L) AND dt.action = 'use';
+        WHERE dt.row_id <@ %3$L::int4multirange AND dt.action = 'use';
     $$,
-        v_select_list,     /* %1$s */
-        v_data_table_name, /* %2$I */
-        p_batch_row_ids    /* %3$L */
+        v_select_list,        /* %1$s */
+        v_data_table_name,    /* %2$I */
+        p_batch_row_id_ranges /* %3$L */
     );
+    RAISE DEBUG '[Job %] process_establishment: Creating temp source view with SQL: %', p_job_id, v_sql;
     EXECUTE v_sql;
 
     BEGIN
@@ -300,15 +307,16 @@ BEGIN
             v_sql := format($$
                 INSERT INTO temp_es_demotion_source (id, valid_from, valid_until, primary_for_legal_unit, edit_by_user_id, edit_at, edit_comment)
                 SELECT ex_es.id, ipes.new_primary_valid_from, ipes.new_primary_valid_until, false, ipes.demotion_edit_by_user_id, ipes.demotion_edit_at,
-                       'Demoted from primary for LU by import job ' || %L || '; new primary is EST ' ||
+                       'Demoted from primary for LU by import job ' || %1$L || '; new primary is EST ' ||
                        COALESCE(ipes.incoming_est_id::TEXT, 'NEW') || ' for LU ' || ipes.target_legal_unit_id ||
                        ' during [' || ipes.new_primary_valid_from || ', ' || ipes.new_primary_valid_until || ')'
                 FROM public.establishment ex_es
-                JOIN (SELECT dt.establishment_id AS incoming_est_id, dt.legal_unit_id AS target_legal_unit_id, dt.valid_from AS new_primary_valid_from, dt.valid_until AS new_primary_valid_until, dt.edit_by_user_id AS demotion_edit_by_user_id, dt.edit_at AS demotion_edit_at FROM public.%I dt WHERE dt.row_id = ANY($1) AND dt.primary_for_legal_unit = true AND dt.legal_unit_id IS NOT NULL) AS ipes
+                JOIN (SELECT dt.establishment_id AS incoming_est_id, dt.legal_unit_id AS target_legal_unit_id, dt.valid_from AS new_primary_valid_from, dt.valid_until AS new_primary_valid_until, dt.edit_by_user_id AS demotion_edit_by_user_id, dt.edit_at AS demotion_edit_at FROM public.%2$I dt WHERE dt.row_id <@ $1 AND dt.primary_for_legal_unit = true AND dt.legal_unit_id IS NOT NULL) AS ipes
                 ON ex_es.legal_unit_id = ipes.target_legal_unit_id
                 WHERE ex_es.id IS DISTINCT FROM ipes.incoming_est_id AND ex_es.primary_for_legal_unit = true AND public.from_until_overlaps(ex_es.valid_from, ex_es.valid_until, ipes.new_primary_valid_from, ipes.new_primary_valid_until);
-            $$, p_job_id, v_data_table_name);
-            EXECUTE v_sql USING p_batch_row_ids;
+            $$, p_job_id /* %1$L */, v_data_table_name /* %2$I */);
+            RAISE DEBUG '[Job %] process_establishment: Populating demotion source (formal) with SQL: %', p_job_id, v_sql;
+            EXECUTE v_sql USING p_batch_row_id_ranges;
 
             IF FOUND THEN
                 CALL sql_saga.temporal_merge(
@@ -326,15 +334,16 @@ BEGIN
             v_sql := format($$
                 INSERT INTO temp_es_demotion_source (id, valid_from, valid_until, primary_for_enterprise, edit_by_user_id, edit_at, edit_comment)
                 SELECT ex_es.id, ipes.new_primary_valid_from, ipes.new_primary_valid_until, false, ipes.demotion_edit_by_user_id, ipes.demotion_edit_at,
-                       'Demoted from primary for EN by import job ' || %L || '; new primary is EST ' ||
+                       'Demoted from primary for EN by import job ' || %1$L || '; new primary is EST ' ||
                        COALESCE(ipes.incoming_est_id::TEXT, 'NEW') || ' for EN ' || ipes.target_enterprise_id ||
                        ' during [' || ipes.new_primary_valid_from || ', ' || ipes.new_primary_valid_until || ')'
                 FROM public.establishment ex_es
-                JOIN (SELECT dt.establishment_id AS incoming_est_id, dt.enterprise_id AS target_enterprise_id, dt.valid_from AS new_primary_valid_from, dt.valid_until AS new_primary_valid_until, dt.edit_by_user_id AS demotion_edit_by_user_id, dt.edit_at AS demotion_edit_at FROM public.%I dt WHERE dt.row_id = ANY($1) AND dt.primary_for_enterprise = true AND dt.enterprise_id IS NOT NULL) AS ipes
+                JOIN (SELECT dt.establishment_id AS incoming_est_id, dt.enterprise_id AS target_enterprise_id, dt.valid_from AS new_primary_valid_from, dt.valid_until AS new_primary_valid_until, dt.edit_by_user_id AS demotion_edit_by_user_id, dt.edit_at AS demotion_edit_at FROM public.%2$I dt WHERE dt.row_id <@ $1 AND dt.primary_for_enterprise = true AND dt.enterprise_id IS NOT NULL) AS ipes
                 ON ex_es.enterprise_id = ipes.target_enterprise_id
                 WHERE ex_es.id IS DISTINCT FROM ipes.incoming_est_id AND ex_es.primary_for_enterprise = true AND public.from_until_overlaps(ex_es.valid_from, ex_es.valid_until, ipes.new_primary_valid_from, ipes.new_primary_valid_until);
-            $$, p_job_id, v_data_table_name);
-            EXECUTE v_sql USING p_batch_row_ids;
+            $$, p_job_id /* %1$L */, v_data_table_name /* %2$I */);
+            RAISE DEBUG '[Job %] process_establishment: Populating demotion source (informal) with SQL: %', p_job_id, v_sql;
+            EXECUTE v_sql USING p_batch_row_id_ranges;
 
             IF FOUND THEN
                 CALL sql_saga.temporal_merge(
@@ -376,15 +385,17 @@ BEGIN
         );
 
         -- Process feedback
-        EXECUTE format($$ SELECT count(*) FROM public.%1$I WHERE row_id = ANY($1) AND errors->'establishment' IS NOT NULL $$, v_data_table_name)
-            INTO v_error_count USING p_batch_row_ids;
+        v_sql := format($$ SELECT count(*) FROM public.%1$I WHERE row_id <@ $1 AND errors->'establishment' IS NOT NULL $$, v_data_table_name);
+        RAISE DEBUG '[Job %] process_establishment: Counting merge errors with SQL: %', p_job_id, v_sql;
+        EXECUTE v_sql INTO v_error_count USING p_batch_row_id_ranges;
 
-        EXECUTE format($$
+        v_sql := format($$
             UPDATE public.%1$I dt SET
                 state = CASE WHEN dt.errors ? 'establishment' THEN 'error'::public.import_data_state ELSE 'processing'::public.import_data_state END
-            WHERE dt.row_id = ANY($1) AND dt.action = 'use';
-        $$, v_data_table_name)
-        USING p_batch_row_ids;
+            WHERE dt.row_id <@ $1 AND dt.action = 'use';
+        $$, v_data_table_name);
+        RAISE DEBUG '[Job %] process_establishment: Updating state post-merge with SQL: %', p_job_id, v_sql;
+        EXECUTE v_sql USING p_batch_row_id_ranges;
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
         v_update_count := v_update_count - v_error_count;
         RAISE DEBUG '[Job %] process_establishment: temporal_merge finished. Success: %, Errors: %', p_job_id, v_update_count, v_error_count;
@@ -395,30 +406,32 @@ BEGIN
             WITH id_source AS (
                 SELECT DISTINCT founding_row_id, establishment_id
                 FROM public.%1$I
-                WHERE row_id = ANY($1) AND establishment_id IS NOT NULL
+                WHERE row_id <@ $1 AND establishment_id IS NOT NULL
             )
             UPDATE public.%1$I dt
             SET establishment_id = id_source.establishment_id
             FROM id_source
-            WHERE dt.row_id = ANY($1)
+            WHERE dt.row_id <@ $1
               AND dt.founding_row_id = id_source.founding_row_id
               AND dt.establishment_id IS NULL;
         $$, v_data_table_name);
-        EXECUTE v_sql USING p_batch_row_ids;
+        RAISE DEBUG '[Job %] process_establishment: Propagating establishment_id with SQL: %', p_job_id, v_sql;
+        EXECUTE v_sql USING p_batch_row_id_ranges;
 
         -- Process external identifiers now that establishment_id is available for new units
-        CALL import.helper_process_external_idents(p_job_id, p_batch_row_ids, 'external_idents');
+        CALL import.helper_process_external_idents(p_job_id, p_batch_row_id_ranges, 'external_idents');
 
     EXCEPTION WHEN OTHERS THEN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
         RAISE WARNING '[Job %] process_establishment: Unhandled error during batch operation: %', p_job_id, replace(error_message, '%', '%%');
         -- Attempt to mark individual data rows as error (best effort)
         BEGIN
-            v_sql := format($$UPDATE public.%1$I SET state = 'error'::public.import_data_state, errors = errors || jsonb_build_object('unhandled_error_process_est', %2$L) WHERE row_id = ANY($1) AND state != 'error'::public.import_data_state$$,
+            v_sql := format($$UPDATE public.%1$I SET state = 'error'::public.import_data_state, errors = errors || jsonb_build_object('unhandled_error_process_est', %2$L) WHERE row_id <@ $1 AND state != 'error'::public.import_data_state$$,
                            v_data_table_name, /* %1$I */
                            error_message      /* %2$L */
             );
-            EXECUTE v_sql USING p_batch_row_ids;
+            RAISE DEBUG '[Job %] process_establishment: Marking rows as error in exception handler with SQL: %', p_job_id, v_sql;
+            EXECUTE v_sql USING p_batch_row_id_ranges;
         EXCEPTION WHEN OTHERS THEN
             RAISE WARNING '[Job %] process_establishment: Failed to mark batch rows as error after unhandled exception: %', p_job_id, SQLERRM;
         END;
@@ -439,110 +452,4 @@ BEGIN
 END;
 $process_establishment$;
 
--- Procedure to link establishments to enterprises or handle enterprise creation for informal establishments
-CREATE OR REPLACE PROCEDURE import.analyse_enterprise_link_for_establishment(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
-LANGUAGE plpgsql AS $analyse_enterprise_link_for_establishment$
-DECLARE
-    v_job public.import_job;
-    v_snapshot JSONB;
-    v_data_table_name TEXT;
-    v_step public.import_step;
-    v_job_mode public.import_mode;
-    v_update_count INT;
-    v_sql TEXT;
-    v_error_keys_to_clear_arr TEXT[];
-BEGIN
-    RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment (Batch): Starting analysis for % rows. Batch Row IDs: %', p_job_id, array_length(p_batch_row_ids, 1), p_batch_row_ids;
-
-    SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
-    v_data_table_name := v_job.data_table_name;
-    v_snapshot := v_job.definition_snapshot;
-    v_job_mode := v_snapshot->'import_definition'->>'mode';
-
-    SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_snapshot->'import_step_list') WHERE code = p_step_code;
-    IF NOT FOUND THEN RAISE EXCEPTION '[Job %] Step % not found in snapshot', p_job_id, p_step_code; END IF;
-
-    -- For informal establishments, enterprise link is created/handled here.
-    IF v_job_mode = 'establishment_informal' THEN
-        -- Handle INSERT operations: create a new enterprise for each new informal establishment.
-        v_sql := format($$
-            WITH new_enterprises AS (
-                INSERT INTO public.enterprise (short_name, edit_by_user_id, edit_at, edit_comment)
-                SELECT
-                    LEFT(dt.name, 16) as short_name, -- Reads from the typed 'name' column, populated by analyse_establishment
-                    dt.edit_by_user_id,
-                    dt.edit_at,
-                    'Created for informal establishment import job ' || %L
-                FROM public.%I dt
-                WHERE dt.row_id = ANY($1) AND dt.operation = 'insert' AND dt.action IS DISTINCT FROM 'skip'
-                RETURNING id, short_name
-            ),
-            mapped_rows AS (
-                SELECT dt.row_id, ne.id as new_enterprise_id
-                FROM public.%I dt
-                JOIN new_enterprises ne ON LEFT(dt.name, 16) = ne.short_name -- This join is imperfect but sufficient for batch context
-                WHERE dt.row_id = ANY($1) AND dt.operation = 'insert'
-            )
-            UPDATE public.%I dt SET
-                enterprise_id = mr.new_enterprise_id,
-                primary_for_enterprise = TRUE
-            FROM mapped_rows mr
-            WHERE dt.row_id = mr.row_id;
-        $$, p_job_id, v_data_table_name, v_data_table_name, v_data_table_name);
-        RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: Creating enterprises for new informal establishments: %', p_job_id, v_sql;
-        EXECUTE v_sql USING p_batch_row_ids;
-        GET DIAGNOSTICS v_update_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: Processed % "insert" rows for informal establishments.', p_job_id, v_update_count;
-
-        -- Handle REPLACE operations: find existing enterprise_id
-        v_error_keys_to_clear_arr := ARRAY(SELECT DISTINCT value->>'column_name' FROM jsonb_array_elements(v_snapshot->'import_data_column_list') AS value WHERE value->>'purpose' = 'source_input' AND value->>'step_id' = (SELECT id FROM public.import_step WHERE code='external_idents'));
-        RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: Identified external_idents source_input columns: %', p_job_id, v_error_keys_to_clear_arr;
-
-        v_sql := format($$
-            WITH est_data AS (
-                SELECT dt.row_id, est.enterprise_id AS existing_enterprise_id, est.primary_for_enterprise AS existing_primary_for_enterprise, est.id as found_est_id
-                FROM public.%I dt
-                LEFT JOIN public.establishment est ON dt.establishment_id = est.id
-                WHERE dt.row_id = ANY($1) AND dt.operation = 'replace' AND dt.establishment_id IS NOT NULL AND %L = 'establishment_informal'
-            )
-            UPDATE public.%I dt SET
-                enterprise_id = CASE
-                                    WHEN dt.operation = 'replace' AND dt.establishment_id IS NOT NULL AND %L = 'establishment_informal' AND ed.found_est_id IS NOT NULL THEN ed.existing_enterprise_id
-                                    ELSE dt.enterprise_id
-                                END,
-                primary_for_enterprise = CASE
-                                            WHEN dt.operation = 'replace' AND dt.establishment_id IS NOT NULL AND %L = 'establishment_informal' AND ed.found_est_id IS NOT NULL THEN ed.existing_primary_for_enterprise
-                                            ELSE dt.primary_for_enterprise
-                                         END,
-                state = CASE
-                            WHEN dt.operation = 'replace' AND dt.establishment_id IS NOT NULL AND %L = 'establishment_informal' AND ed.found_est_id IS NULL THEN 'error'::public.import_data_state -- EST not found
-                            WHEN dt.operation = 'replace' AND dt.establishment_id IS NOT NULL AND %L = 'establishment_informal' AND ed.found_est_id IS NOT NULL AND ed.existing_enterprise_id IS NULL THEN 'error'::public.import_data_state -- EST found but no enterprise_id (inconsistent for informal)
-                            ELSE dt.state
-                        END,
-                errors = CASE
-                            WHEN dt.operation = 'replace' AND dt.establishment_id IS NOT NULL AND %L = 'establishment_informal' AND ed.found_est_id IS NULL THEN
-                                dt.errors || (SELECT jsonb_object_agg(col_name, 'Establishment identified by external identifier was not found for ''replace'' action.') FROM unnest(%L::TEXT[]) as col_name)
-                            WHEN dt.operation = 'replace' AND dt.establishment_id IS NOT NULL AND %L = 'establishment_informal' AND ed.found_est_id IS NOT NULL AND ed.existing_enterprise_id IS NULL THEN
-                                dt.errors || (SELECT jsonb_object_agg(col_name, 'Informal establishment found for ''replace'' action, but it is not linked to an enterprise.') FROM unnest(%L::TEXT[]) as col_name)
-                            ELSE dt.errors - %L::TEXT[]
-                        END
-            FROM public.%I dt_main
-            LEFT JOIN est_data ed ON dt_main.row_id = ed.row_id
-            WHERE dt.row_id = dt_main.row_id
-              AND dt_main.row_id = ANY($1) AND dt_main.operation = 'replace' AND %L = 'establishment_informal';
-        $$, v_data_table_name, v_job_mode, v_data_table_name, v_job_mode, v_job_mode, v_job_mode, v_job_mode, v_error_keys_to_clear_arr, v_job_mode, v_error_keys_to_clear_arr, v_error_keys_to_clear_arr, v_data_table_name, v_job_mode);
-        RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: Updating "replace" rows for informal establishments: %', p_job_id, v_sql;
-        EXECUTE v_sql USING p_batch_row_ids;
-        GET DIAGNOSTICS v_update_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: Processed % "replace" rows for informal establishments (includes potential errors).', p_job_id, v_update_count;
-    END IF;
-
-    -- Always advance priority for all rows in the batch to prevent loops.
-    EXECUTE format('UPDATE public.%I SET last_completed_priority = %s WHERE row_id = ANY($1)', v_data_table_name, v_step.priority)
-    USING p_batch_row_ids;
-    GET DIAGNOSTICS v_update_count = ROW_COUNT;
-
-    RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment (Batch): Finished analysis successfully. Updated priority for % rows.', p_job_id, v_update_count;
-END;
-$analyse_enterprise_link_for_establishment$;
 END;
