@@ -190,6 +190,7 @@ const authMachine = setup({
   states: {
     re_initializing: {
       tags: 'ui-authenticated',
+      entry: () => logger.debug('auth-machine', 're_initializing: Waiting for client to become ready again...'),
       on: {
         CLIENT_READY: {
           target: 'checking',
@@ -198,6 +199,7 @@ const authMachine = setup({
       }
     },
     uninitialized: {
+      entry: () => logger.debug('auth-machine', 'uninitialized: Waiting for client to be ready.'),
       on: {
         CLIENT_READY: {
           target: 'checking',
@@ -211,6 +213,7 @@ const authMachine = setup({
     },
     checking: {
       tags: 'ui-authenticated',
+      entry: () => logger.debug('auth-machine', 'checking: Invoking auth_status check.'),
       invoke: {
         id: 'checkAuthStatus',
         src: 'checkAuthStatus',
@@ -234,6 +237,7 @@ const authMachine = setup({
     },
     evaluating_initial_session: {
       tags: 'ui-authenticated',
+      entry: ({ context }) => logger.debug('auth-machine', 'evaluating_initial_session', { isAuthenticated: context.isAuthenticated, expired_access_token_call_refresh: context.expired_access_token_call_refresh }),
       always: [
         {
           target: 'initial_refreshing',
@@ -245,6 +249,7 @@ const authMachine = setup({
     },
     initial_refreshing: {
       tags: 'ui-authenticated',
+      entry: () => logger.debug('auth-machine', 'initial_refreshing: Expired token on load, invoking refresh.'),
       invoke: {
         id: 'refreshToken',
         src: 'refreshToken',
@@ -283,6 +288,7 @@ const authMachine = setup({
     idle_authenticated: {
       tags: 'ui-authenticated',
       id: 'idle_authenticated',
+      entry: () => logger.debug('auth-machine', 'idle_authenticated: User is authenticated.'),
       on: {
         CHECK: '.revalidating',
         REFRESH: '.background_refreshing',
@@ -295,8 +301,10 @@ const authMachine = setup({
       states: {
         stable: {
           tags: 'auth-stable',
+          entry: () => logger.debug('auth-machine', 'idle_authenticated.stable: Auth state is stable.'),
         },
         revalidating: {
+          entry: () => logger.debug('auth-machine', 'idle_authenticated.revalidating: Revalidating auth status.'),
           invoke: {
             id: 'checkAuthStatus',
             src: 'checkAuthStatus',
@@ -342,6 +350,7 @@ const authMachine = setup({
           }
         },
         background_refreshing: {
+          entry: () => logger.debug('auth-machine', 'idle_authenticated.background_refreshing: Performing background token refresh.'),
           invoke: {
             id: 'refreshTokenInBackground',
             src: 'refreshToken',
@@ -397,6 +406,7 @@ const authMachine = setup({
     },
     idle_unauthenticated: {
       tags: 'auth-stable',
+      entry: () => logger.debug('auth-machine', 'idle_unauthenticated: User is not authenticated.'),
       on: {
         CHECK: 'checking',
         LOGIN: {
@@ -411,6 +421,7 @@ const authMachine = setup({
       }
     },
     loggingIn: {
+      entry: () => logger.debug('auth-machine', 'loggingIn: Attempting to log in...'),
       invoke: {
         id: 'login',
         src: 'login',
@@ -452,6 +463,7 @@ const authMachine = setup({
       }
     },
     loggingOut: {
+      entry: () => logger.debug('auth-machine', 'loggingOut: Attempting to log out...'),
       invoke: {
         id: 'logout',
         src: 'logout',

@@ -3,6 +3,7 @@ import { atomWithMachine } from 'jotai-xstate';
 import { createMachine, assign, setup, type SnapshotFrom } from 'xstate';
 import { atomEffect } from 'jotai-effect';
 import { inspector } from './inspector';
+import { logger } from '@/lib/client-logger';
 
 /**
  * Navigation State Machine (navigationMachine)
@@ -96,7 +97,14 @@ export const navigationMachine = setup({
      * (e.g., isAuthenticated, current path, setup requirements).
      */
     evaluating: {
-      entry: assign({ sideEffect: undefined }),
+      entry: [
+        assign({ sideEffect: undefined }),
+        ({ context }) => logger.debug('nav-machine:evaluating', `path: ${context.pathname}`, {
+          isAuthenticated: context.isAuthenticated,
+          isAuthLoading: context.isAuthLoading,
+          setupPath: context.setupPath,
+        }),
+      ],
       always: [
         {
           target: 'savingPathForLoginRedirect',
@@ -131,7 +139,10 @@ export const navigationMachine = setup({
       // This prevents a stale side-effect from a previous navigation flow (like
       // redirecting TO login) from blocking the machine from re-evaluating its
       // state when a new context update arrives (like a successful login).
-      entry: assign({ sideEffect: undefined }),
+      entry: [
+        assign({ sideEffect: undefined }),
+        () => logger.debug('nav-machine:idle', 'Reached stable state.'),
+      ],
       // This state is now stable. The cleanup logic has been moved to be part
       // of the `redirectingFromLogin` flow, making it more robust.
     },
@@ -140,16 +151,22 @@ export const navigationMachine = setup({
      * user's current location before redirecting them to the login page.
      */
     savingPathForLoginRedirect: {
-      entry: assign({ sideEffect: { action: 'savePath' } }),
+      entry: [
+        assign({ sideEffect: { action: 'savePath' } }),
+        ({ context }) => logger.debug('nav-machine:savingPathForLoginRedirect', `Saving path ${context.pathname} before redirect to /login`),
+      ],
       always: 'redirectingToLogin',
     },
     /**
      * A state that triggers a 'navigate' side-effect to send the user to /login.
      */
     redirectingToLogin: {
-      entry: assign({
-        sideEffect: { action: 'navigateAndSaveJournal', targetPath: '/login' },
-      }),
+      entry: [
+        assign({
+          sideEffect: { action: 'navigateAndSaveJournal', targetPath: '/login' },
+        }),
+        () => logger.debug('nav-machine:redirectingToLogin', 'Redirecting to /login'),
+      ],
       on: {
         CONTEXT_UPDATED: {
           actions: assign(( { context, event } ) => ({ ...context, ...event.value })),
@@ -174,12 +191,15 @@ export const navigationMachine = setup({
      * triggered when the user is at the root path ('/').
      */
     redirectingToSetup: {
-      entry: assign({
-        sideEffect: ({ context }) => ({
-          action: 'navigateAndSaveJournal',
-          targetPath: context.setupPath!,
+      entry: [
+        assign({
+          sideEffect: ({ context }) => ({
+            action: 'navigateAndSaveJournal',
+            targetPath: context.setupPath!,
+          }),
         }),
-      }),
+        ({ context }) => logger.debug('nav-machine:redirectingToSetup', `Redirecting to setup path: ${context.setupPath}`),
+      ],
       on: {
         CONTEXT_UPDATED: {
           actions: assign(( { context, event } ) => ({ ...context, ...event.value })),
@@ -204,12 +224,15 @@ export const navigationMachine = setup({
      * before any redirect away from the login page.
      */
     clearingLastKnownPathBeforeRedirect: {
-      entry: assign({
-        // BATTLE WISDOM: Conditionally dispatch the side-effect. If the path is
-        // already null, we do nothing. This prevents an unnecessary state update
-        // and allows the `always` transition below to handle the case immediately.
-        sideEffect: ({ context }) => context.lastKnownPath !== null ? { action: 'clearLastKnownPath' } : undefined
-      }),
+      entry: [
+        assign({
+          // BATTLE WISDOM: Conditionally dispatch the side-effect. If the path is
+          // already null, we do nothing. This prevents an unnecessary state update
+          // and allows the `always` transition below to handle the case immediately.
+          sideEffect: ({ context }) => context.lastKnownPath !== null ? { action: 'clearLastKnownPath' } : undefined
+        }),
+        ({ context }) => logger.debug('nav-machine:clearingLastKnownPathBeforeRedirect', `lastKnownPath: ${context.lastKnownPath}`),
+      ],
       // If lastKnownPath was already null, no side-effect was dispatched.
       // We can immediately proceed to redirect, preventing a deadlock.
       always: {
@@ -232,15 +255,21 @@ export const navigationMachine = setup({
      * is prioritized: setup page, last known path, or dashboard.
      */
     redirectingFromLogin: {
-      entry: assign({
-        sideEffect: ({ context }) => {
+      entry: [
+        assign({
+          sideEffect: ({ context }) => {
+            const targetPath = context.setupPath || context.lastKnownPath || '/';
+            return {
+              action: 'navigateAndSaveJournal',
+              targetPath: targetPath === '/login' ? '/' : targetPath,
+            };
+          }
+        }),
+        ({ context }) => {
           const targetPath = context.setupPath || context.lastKnownPath || '/';
-          return {
-            action: 'navigateAndSaveJournal',
-            targetPath: targetPath === '/login' ? '/' : targetPath,
-          };
-        }
-      }),
+          logger.debug('nav-machine:redirectingFromLogin', `Redirecting away from /login to ${targetPath === '/login' ? '/' : targetPath}`);
+        },
+      ],
       on: {
         // When a context update happens, just apply it. The `always` transition
         // will then re-evaluate the state based on the new context.
