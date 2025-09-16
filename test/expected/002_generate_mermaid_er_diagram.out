@@ -616,7 +616,7 @@ erDiagram
 		date valid_to
 		date valid_until
 		jsonb external_idents
-		character_varying(256) name
+		character_varying name
 		date birth_date
 		date death_date
 		tsvector search
@@ -757,7 +757,7 @@ erDiagram
 		date valid_from
 		date valid_to
 		date valid_until
-		character_varying(256) name
+		text name
 		date birth_date
 		date death_date
 		tsvector search

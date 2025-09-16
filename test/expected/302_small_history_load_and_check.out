@@ -637,7 +637,7 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | pending   |     6
+ analytics | pending   |     7
  import    | completed |   376
 (2 rows)
 
@@ -774,7 +774,7 @@ CALL worker.process_tasks(p_queue => 'analytics'); -- This will call all of the 
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |     8
+ analytics | completed |     9
  import    | completed |   376
 (2 rows)
 
@@ -909,7 +909,7 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |     8
+ analytics | completed |     9
  import    | completed |   376
 (2 rows)
 

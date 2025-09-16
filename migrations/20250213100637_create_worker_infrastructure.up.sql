@@ -385,13 +385,15 @@ BEGIN
       v_unit_id_columns := 'NULL::INT AS establishment_id, NULL::INT AS legal_unit_id, id AS enterprise_id';
     WHEN 'activity', 'location', 'contact', 'stat_for_unit' THEN
       v_unit_id_columns := 'establishment_id, legal_unit_id, NULL::INT AS enterprise_id';
+    WHEN 'external_ident' THEN
+      v_unit_id_columns := 'establishment_id, legal_unit_id, enterprise_id';
     ELSE
       RAISE EXCEPTION 'Unknown table: %', v_table_name;
   END CASE;
 
   -- Set up validity columns
   CASE v_table_name
-    WHEN 'enterprise' THEN
+    WHEN 'enterprise', 'external_ident' THEN
       v_valid_columns := 'NULL::DATE AS valid_from, NULL::DATE AS valid_to, NULL::DATE AS valid_until';
     WHEN 'establishment', 'legal_unit', 'activity', 'location', 'contact', 'stat_for_unit' THEN
       v_valid_columns := 'valid_from, valid_to, valid_until';
@@ -1279,6 +1281,12 @@ BEGIN
       enterprise_id_value := NULL;
       valid_from_value := OLD.valid_from;
       valid_until_value := OLD.valid_until;
+    WHEN 'external_ident' THEN
+      establishment_id_value := OLD.establishment_id;
+      legal_unit_id_value := OLD.legal_unit_id;
+      enterprise_id_value := OLD.enterprise_id;
+      valid_from_value := NULL;
+      valid_until_value := NULL;
     ELSE
       RAISE EXCEPTION 'Unexpected table name in delete trigger: %', TG_TABLE_NAME;
   END CASE;
@@ -1307,6 +1315,7 @@ BEGIN
   FOR table_name IN
     SELECT unnest(ARRAY[
       'enterprise',
+      'external_ident',
       'legal_unit',
       'establishment',
       'activity',
@@ -1364,6 +1373,7 @@ BEGIN
   FOR table_name IN
     SELECT unnest(ARRAY[
       'enterprise',
+      'external_ident',
       'legal_unit',
       'establishment',
       'activity',

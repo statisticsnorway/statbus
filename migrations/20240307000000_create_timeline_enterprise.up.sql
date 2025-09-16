@@ -192,7 +192,7 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
                aggregation.stats_summary
           FROM (
             SELECT ten.unit_type, ten.unit_id, ten.valid_from, ten.valid_until, ten.enterprise_id,
-                 COALESCE(enplu.name, enpes.name) AS name,
+                 COALESCE(NULLIF(ten.short_name, ''), enplu.name, enpes.name) AS name,
                  COALESCE(enplu.birth_date, enpes.birth_date) AS birth_date,
                  COALESCE(enplu.death_date, enpes.death_date) AS death_date,
                  COALESCE(enplu.primary_activity_category_id, enpes.primary_activity_category_id) AS primary_activity_category_id,

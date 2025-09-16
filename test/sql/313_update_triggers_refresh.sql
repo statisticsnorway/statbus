@@ -218,4 +218,55 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT email_address FROM public.statistical_unit WHERE name = 'Statistics Norway' AND unit_type = 'legal_unit';
 
 
+--------------------------------------------------------------------------------
+\echo "--- TEST 7: UPDATE on enterprise ---"
+--------------------------------------------------------------------------------
+\echo "Before: Checking name of enterprise for 'Statistics Norway'"
+-- Note: the enterprise is implicitly created and named after the first legal unit.
+SELECT name FROM public.statistical_unit
+WHERE unit_type = 'enterprise'
+  AND unit_id = (SELECT enterprise_id FROM public.legal_unit WHERE name = 'Statistics Norway');
+
+\echo "Action: Updating enterprise name directly"
+UPDATE public.enterprise
+SET short_name = 'SSB'
+WHERE id = (SELECT enterprise_id FROM public.legal_unit WHERE name = 'Statistics Norway');
+
+\echo "Check: Expect one 'check_table' task for 'enterprise'."
+SELECT command, payload->>'table_name' as table_name, state FROM worker.tasks WHERE command = 'check_table' AND state = 'pending';
+
+\echo "Run worker to process tasks..."
+CALL worker.process_tasks(p_queue => 'analytics');
+
+\echo "After: Checking name of enterprise. Expect 'SSB'."
+SELECT name FROM public.statistical_unit
+WHERE name = 'SSB' AND unit_type = 'enterprise'
+  AND unit_id = (SELECT enterprise_id FROM public.legal_unit WHERE name = 'Statistics Norway');
+
+--------------------------------------------------------------------------------
+\echo "--- TEST 8: UPDATE on external_ident ---"
+--------------------------------------------------------------------------------
+\echo "Before: Checking external_idents for 'Statistics Norway' legal unit"
+\x
+SELECT external_idents FROM public.statistical_unit WHERE name = 'Statistics Norway' AND unit_type = 'legal_unit';
+\x
+
+\echo "Action: Updating external_ident.ident for 'Statistics Norway' legal unit"
+UPDATE public.external_ident
+SET ident = '947111110'
+WHERE legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'Statistics Norway')
+  AND type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident');
+
+\echo "Check: Expect one 'check_table' task for 'external_ident'."
+SELECT command, payload->>'table_name' as table_name, state FROM worker.tasks WHERE command = 'check_table' AND state = 'pending';
+
+\echo "Run worker to process tasks..."
+CALL worker.process_tasks(p_queue => 'analytics');
+
+\echo "After: check external_idents for 'Statistics Norway'. Expect updated tax_ident."
+\x
+SELECT external_idents FROM public.statistical_unit WHERE name = 'Statistics Norway' AND unit_type = 'legal_unit';
+\x
+
+
 ROLLBACK;
