@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { cn } from "@/lib/utils";
 import { useTimeContext } from "@/atoms/app-derived";
 import { SubmissionFeedbackDebugInfo } from "./submission-feedback-debug-info";
-import { useGuardedEffect } from "@/hooks/use-guarded-effect";
+
 import {
   Command,
   CommandEmpty,
@@ -20,6 +20,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { EditMetadataControls } from "./edit-metadata-controls";
+import { useEditableFieldState } from "./use-editable-field-state";
 
 interface Option {
   value: string | number;
@@ -47,42 +48,23 @@ export const EditableSelectWithMetadata = ({
   formAction,
   response,
 }: EditableSelectWithMetadataProps) => {
-  const { user } = useAuth();
   const { selectedTimeContext } = useTimeContext();
-  const canEdit =
-    user?.statbus_role === "admin_user" ||
-    user?.statbus_role === "regular_user";
-  const [currentValue, setCurrentValue] = useState<string | number>(
-    value ?? ""
-  );
+
   const [open, setOpen] = useState(false);
-
   const formRef = useRef<HTMLFormElement>(null);
-
   const { currentEdit, setEditTarget, exitEditMode } = useEditManager();
 
   const isEditing = currentEdit?.fieldId === fieldId;
-  const hasUnsavedChanges = currentValue !== (value ?? "");
 
-  useEffect(() => {
-    if (!isEditing) {
-      setCurrentValue(value ?? "");
-    }
-  }, [value, isEditing]);
-
-  useGuardedEffect(
-    () => {
-      if (response?.status === "success" && isEditing) {
-        exitEditMode();
-      }
-    },
-    [response],
-    "EditableSelectWithMetadata:exitOnSuccess"
-  );
+  const {
+    currentValue,
+    setCurrentValue,
+    hasUnsavedChanges,
+    handleCancel: baseHandleCancel,
+  } = useEditableFieldState(value, response, isEditing, exitEditMode);
 
   const handleCancel = () => {
-    setCurrentValue(value ?? "");
-    exitEditMode();
+    baseHandleCancel();
   };
 
   const currentOption = options.find(
@@ -101,29 +83,27 @@ export const EditableSelectWithMetadata = ({
           <Label className="flex justify-between items-center space-y-2 h-10">
             <span className="text-xs uppercase text-gray-600">{label}</span>
           </Label>
-          {canEdit && (
-            <div className="flex space-x-2 mb-2">
-              {!isEditing && (
-                <Button
-                  className="h-8"
-                  variant="ghost"
-                  size="sm"
-                  type="button"
-                  onClick={() =>
-                    setEditTarget(fieldId, {
-                      validFrom: selectedTimeContext?.valid_from,
-                      validTo:
-                        selectedTimeContext?.valid_to === "infinity"
-                          ? null
-                          : selectedTimeContext?.valid_to,
-                    })
-                  }
-                >
-                  <Pencil className="text-zinc-700" />
-                </Button>
-              )}
-            </div>
-          )}
+          <div className="flex space-x-2 mb-2">
+            {!isEditing && (
+              <Button
+                className="h-8"
+                variant="ghost"
+                size="sm"
+                type="button"
+                onClick={() =>
+                  setEditTarget(fieldId, {
+                    validFrom: selectedTimeContext?.valid_from,
+                    validTo:
+                      selectedTimeContext?.valid_to === "infinity"
+                        ? null
+                        : selectedTimeContext?.valid_to,
+                  })
+                }
+              >
+                <Pencil className="text-zinc-700" />
+              </Button>
+            )}
+          </div>
         </div>
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>

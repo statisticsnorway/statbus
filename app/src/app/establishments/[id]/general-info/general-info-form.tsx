@@ -75,7 +75,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
       <EditableFieldWithMetadata
         label="Name"
         fieldId="name"
-        value={establishment?.name}
+        value={establishment?.name || ""}
         response={state}
         formAction={formAction}
       />

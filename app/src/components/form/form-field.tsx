@@ -1,6 +1,7 @@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 
 export function FormField({
   label,
@@ -17,9 +18,13 @@ export function FormField({
 }) {
   const [inputValue, setInputValue] = useState(value ?? "");
 
-  useEffect(() => {
-    setInputValue(value ?? "");
-  }, [value]);
+  useGuardedEffect(
+    () => {
+      setInputValue(value ?? "");
+    },
+    [value],
+    "FormField:syncvalue"
+  );
 
   const error =
     response?.status === "error"

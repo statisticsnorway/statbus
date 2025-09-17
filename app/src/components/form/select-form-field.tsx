@@ -18,7 +18,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Label } from "../ui/label";
-import { useEffect, useState } from "react";
+import {  useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 
 interface Option {
   value: number | string;
@@ -45,9 +46,13 @@ export function SelectFormField({
   const [open, setOpen] = useState(false);
   const [selectedValue, setSelectedValue] = useState(value ?? "");
 
-  useEffect(() => {
-    setSelectedValue(value ?? "");
-  }, [value]);
+  useGuardedEffect(
+    () => {
+      setSelectedValue(value ?? "");
+    },
+    [value],
+    "SelectFormField:syncvalue"
+  );
 
   const currentLabel =
     options.find((option) => option.value === selectedValue)?.label ??

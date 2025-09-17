@@ -49,7 +49,7 @@ export default function StatisticalVariablesForm({
               label={statDefinition.name ?? statDefinition.code!}
               fieldId={`${statDefinition.code}`}
               name="value"
-              value={value}
+              value={value || ""}
               response={statsState}
               formAction={statsAction}
               statType={statDefinition.type!}
