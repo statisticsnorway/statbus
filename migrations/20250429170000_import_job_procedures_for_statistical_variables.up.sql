@@ -178,9 +178,15 @@ BEGIN
     );
 
     RAISE DEBUG '[Job %] analyse_statistical_variables: Optimized batch update SQL: %', p_job_id, v_sql;
-    EXECUTE v_sql USING p_batch_row_ids_range;
-    GET DIAGNOSTICS v_update_count = ROW_COUNT;
-    RAISE DEBUG '[Job %] analyse_statistical_variables: Updated % non-skipped rows.', p_job_id, v_update_count;
+    BEGIN
+        EXECUTE v_sql USING p_batch_row_ids_range;
+        GET DIAGNOSTICS v_update_count = ROW_COUNT;
+        RAISE DEBUG '[Job %] analyse_statistical_variables: Updated % non-skipped rows.', p_job_id, v_update_count;
+    EXCEPTION WHEN OTHERS THEN
+        RAISE WARNING '[Job %] analyse_statistical_variables: Error during batch update: %', p_job_id, SQLERRM;
+        UPDATE public.import_job SET error = jsonb_build_object('analyse_statistical_variables_batch_error', SQLERRM), state = 'finished' WHERE id = p_job_id;
+        RAISE;
+    END;
 
     v_sql := format('UPDATE public.%I SET last_completed_priority = %L WHERE row_id <@ $1 AND last_completed_priority < %L',
                    v_data_table_name, v_step.priority, v_step.priority);
@@ -189,7 +195,11 @@ BEGIN
     GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
     RAISE DEBUG '[Job %] analyse_statistical_variables: Updated priority for % rows (including skipped/already updated).', p_job_id, v_skipped_update_count;
 
-    CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_row_ids_range, v_error_keys_to_clear_arr, 'analyse_statistical_variables');
+    BEGIN
+        CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_row_ids_range, v_error_keys_to_clear_arr, 'analyse_statistical_variables');
+    EXCEPTION WHEN OTHERS THEN
+        RAISE WARNING '[Job %] analyse_statistical_variables: Non-fatal error during error propagation: %', p_job_id, SQLERRM;
+    END;
 
     v_sql := format('SELECT COUNT(*) FROM public.%I WHERE row_id <@ $1 AND state = ''error'' AND (errors ?| %L::text[])',
                    v_data_table_name, v_error_keys_to_clear_arr);

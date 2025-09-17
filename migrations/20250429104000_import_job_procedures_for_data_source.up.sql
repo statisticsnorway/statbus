@@ -61,9 +61,15 @@ BEGIN
     $SQL$, v_job.data_table_name, v_step.priority);
 
     RAISE DEBUG '[Job %] analyse_data_source (Batch): Updating non-skipped rows with SQL: %', p_job_id, v_sql;
-    EXECUTE v_sql USING p_batch_row_id_ranges;
-    GET DIAGNOSTICS v_update_count = ROW_COUNT;
-    RAISE DEBUG '[Job %] analyse_data_source (Batch): Updated % non-skipped rows.', p_job_id, v_update_count;
+    BEGIN
+        EXECUTE v_sql USING p_batch_row_id_ranges;
+        GET DIAGNOSTICS v_update_count = ROW_COUNT;
+        RAISE DEBUG '[Job %] analyse_data_source (Batch): Updated % non-skipped rows.', p_job_id, v_update_count;
+    EXCEPTION WHEN OTHERS THEN
+        RAISE WARNING '[Job %] analyse_data_source: Error during batch update: %', p_job_id, SQLERRM;
+        UPDATE public.import_job SET error = jsonb_build_object('analyse_data_source_batch_error', SQLERRM), state = 'finished' WHERE id = p_job_id;
+        RAISE;
+    END;
 
     -- Unconditionally advance priority for all rows in batch to ensure progress
     v_sql := format('UPDATE public.%I SET last_completed_priority = %s WHERE row_id <@ $1 AND last_completed_priority < %s', v_job.data_table_name, v_step.priority, v_step.priority);

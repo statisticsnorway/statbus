@@ -37,7 +37,7 @@ BEGIN
 
     IF v_job_mode != 'legal_unit' THEN
         RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Skipping, job mode is %, not ''legal_unit''.', p_job_id, v_job_mode;
-        v_sql := format($$UPDATE public.%1$I SET last_completed_priority = %2$L WHERE row_id <@ $1$$, 
+        v_sql := format($$UPDATE public.%1$I SET last_completed_priority = %2$L WHERE row_id <@ $1 AND last_completed_priority < %2$L$$, 
                        v_data_table_name /* %1$I */, v_step.priority /* %2$L */);
         RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Advancing priority for skipped (wrong mode) batch with SQL: %', p_job_id, v_sql;
         EXECUTE v_sql USING p_batch_row_id_ranges;
@@ -79,9 +79,12 @@ BEGIN
     v_sql := format($$
         WITH
         BatchLUs AS (
+            -- This procedure should not depend on the `operation` column.
+            -- An action of 'use' on a row with a non-null legal_unit_id implies
+            -- that the operation is either 'replace' or 'update'.
             SELECT row_id, legal_unit_id
             FROM public.%1$I
-            WHERE row_id <@ $1 AND action = 'use' AND operation = 'replace' AND legal_unit_id IS NOT NULL
+            WHERE row_id <@ $1 AND action = 'use' AND legal_unit_id IS NOT NULL
         ),
         DistinctLUIDs AS (
             SELECT DISTINCT legal_unit_id FROM BatchLUs
@@ -177,14 +180,29 @@ BEGIN
         RAISE;
     END;
 
-    -- Propagate errors to all rows of a new entity if one fails
-    CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_row_id_ranges, v_error_keys_to_clear_arr, 'analyse_enterprise_link_for_legal_unit');
+    -- Propagate errors to all rows of a new entity if one fails (best-effort)
+    BEGIN
+        CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_row_id_ranges, v_error_keys_to_clear_arr, 'analyse_enterprise_link_for_legal_unit');
+    EXCEPTION WHEN OTHERS THEN
+        RAISE WARNING '[Job %] analyse_enterprise_link_for_legal_unit: Non-fatal error during error propagation: %', p_job_id, SQLERRM;
+    END;
 
     -- Unconditionally advance priority for all rows in batch to ensure progress
     v_sql := format('UPDATE public.%1$I SET last_completed_priority = %2$L WHERE row_id <@ $1 AND last_completed_priority < %2$L',
                    v_data_table_name, v_step.priority);
     RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit (Batch): Unconditionally advancing priority for all batch rows with SQL: %', p_job_id, v_sql;
     EXECUTE v_sql USING p_batch_row_id_ranges;
+
+    -- Debugging: Log state of enterprise_id for the batch after this step.
+    IF current_setting('client_min_messages') = 'debug' THEN
+        DECLARE r RECORD;
+        BEGIN
+            v_sql := format('SELECT row_id, legal_unit_id, enterprise_id FROM public.%s WHERE row_id <@ $1 ORDER BY row_id', v_data_table_name);
+            FOR r IN EXECUTE v_sql USING p_batch_row_id_ranges LOOP
+                RAISE DEBUG '[Job %][Row %] analyse_enterprise_link_for_legal_unit AFTER: lu_id=%, ent_id=%', p_job_id, r.row_id, r.legal_unit_id, r.enterprise_id;
+            END LOOP;
+        END;
+    END IF;
 
     RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit (Batch): Finished analysis successfully.', p_job_id;
 END;
@@ -235,7 +253,7 @@ BEGIN
         INSERT INTO temp_new_lu_for_enterprise_creation (data_row_id, edit_by_user_id, edit_at, edit_comment)
         SELECT dt.row_id, dt.edit_by_user_id, dt.edit_at, dt.edit_comment
         FROM public.%1$I dt
-        WHERE dt.row_id <@ $1 AND dt.action = 'use' AND dt.operation = 'insert' AND dt.founding_row_id = dt.row_id; -- Only process founding rows for new LUs
+        WHERE dt.row_id <@ $1 AND dt.action = 'use' AND dt.legal_unit_id IS NULL AND dt.founding_row_id = dt.row_id; -- Only process founding rows for new LUs
     $$, v_data_table_name /* %1$I */);
     RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit: Populating temp table for new LUs with SQL: %', p_job_id, v_sql;
     EXECUTE v_sql USING p_batch_row_id_ranges;
@@ -301,12 +319,12 @@ BEGIN
     EXECUTE v_sql USING p_batch_row_id_ranges;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
 
-    -- Step 4: Update rows that were already processed by analyse step (existing LUs, action = 'replace') - just advance priority
+    -- Step 4: Update rows that were already processed by analyse step (existing LUs) - just advance priority
     v_sql := format($$
         UPDATE public.%1$I dt SET
             state = %2$L::public.import_data_state
         WHERE dt.row_id <@ $1
-          AND dt.action = 'use' AND dt.operation = 'replace'; -- Only update rows for existing LUs
+          AND dt.action = 'use' AND dt.legal_unit_id IS NOT NULL; -- Only update rows for existing LUs
     $$, v_data_table_name /* %1$I */, 'processing' /* %2$L */, 'error' /* %3$L */);
      RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit: Updating existing LUs (action=replace, priority only): %', p_job_id, v_sql;
     EXECUTE v_sql USING p_batch_row_id_ranges;

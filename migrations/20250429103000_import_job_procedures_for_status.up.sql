@@ -111,17 +111,6 @@ BEGIN
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_status: Updated % non-skipped rows in single pass.', p_job_id, v_update_count;
 
-        -- Unconditionally advance priority for all rows in batch to ensure progress
-        v_sql := format($$
-            UPDATE public.%1$I dt SET
-                last_completed_priority = %2$L
-            WHERE dt.row_id <@ $1 AND dt.last_completed_priority < %2$L;
-        $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */);
-        RAISE DEBUG '[Job %] analyse_status: Unconditionally advancing priority for all batch rows with SQL: %', p_job_id, v_sql;
-        EXECUTE v_sql USING p_batch_row_id_ranges;
-        GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] analyse_status: Advanced last_completed_priority for % total rows in batch.', p_job_id, v_skipped_update_count;
-
         v_sql := format($$SELECT COUNT(*) FROM public.%1$I WHERE row_id <@ $1 AND state = 'error' AND (errors ?| %2$L::text[])$$,
                        v_data_table_name /* %1$I */, v_error_keys_to_clear_arr /* %2$L */);
         RAISE DEBUG '[Job %] analyse_status: Counting errors in batch with SQL: %', p_job_id, v_sql;
@@ -140,8 +129,23 @@ BEGIN
         RAISE;
     END;
 
-    -- Propagate errors to all rows of a new entity if one fails
-    CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_row_id_ranges, v_error_keys_to_clear_arr, 'analyse_status');
+    -- Unconditionally advance priority for all rows in batch to ensure progress
+    v_sql := format($$
+        UPDATE public.%1$I dt SET
+            last_completed_priority = %2$L
+        WHERE dt.row_id <@ $1 AND dt.last_completed_priority < %2$L;
+    $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */);
+    RAISE DEBUG '[Job %] analyse_status: Unconditionally advancing priority for all batch rows with SQL: %', p_job_id, v_sql;
+    EXECUTE v_sql USING p_batch_row_id_ranges;
+    GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
+    RAISE DEBUG '[Job %] analyse_status: Advanced last_completed_priority for % total rows in batch.', p_job_id, v_skipped_update_count;
+
+    -- Propagate errors to all rows of a new entity if one fails (best-effort)
+    BEGIN
+        CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_row_id_ranges, v_error_keys_to_clear_arr, 'analyse_status');
+    EXCEPTION WHEN OTHERS THEN
+        RAISE WARNING '[Job %] analyse_status: Non-fatal error during error propagation: %', p_job_id, SQLERRM;
+    END;
 
     RAISE DEBUG '[Job %] analyse_status (Batch): Finished analysis for batch. Errors newly marked: %', p_job_id, v_error_count;
 END;

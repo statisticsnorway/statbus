@@ -1,0 +1,737 @@
+BEGIN;
+\i test/setup.sql
+-- While the datestyle is set for the database, the pg_regress tool sets the MDY format
+-- to ensure consistent date formatting, so we must manually override this
+SET datestyle TO 'ISO, DMY';
+\if :{?DEBUG}
+SET client_min_messages TO debug1;
+\else
+SET client_min_messages TO NOTICE;
+\endif
+-- Create temporary function to execute queries as system user
+CREATE OR REPLACE FUNCTION test.sudo_exec(
+    sql text,
+    OUT results jsonb
+) RETURNS jsonb
+SECURITY DEFINER LANGUAGE plpgsql AS $sudo_exec$
+DECLARE
+    result_rows jsonb;
+BEGIN
+    -- Check if the SQL starts with common DDL keywords
+    IF sql ~* '^\s*(CREATE|DROP|ALTER|TRUNCATE|GRANT|REVOKE|ANALYZE)' THEN
+        -- For DDL statements, execute directly
+        EXECUTE sql;
+        results := '[]'::jsonb;
+    ELSE
+        -- For DML/queries, wrap in a SELECT to capture results
+        EXECUTE format('
+            SELECT COALESCE(
+                jsonb_agg(row_to_json(t)),
+                ''[]''::jsonb
+            )
+            FROM (%s) t',
+            sql
+        ) INTO result_rows;
+        results := result_rows;
+    END IF;
+END;
+$sudo_exec$;
+-- Grant execute to public since this is for testing
+GRANT EXECUTE ON FUNCTION test.sudo_exec(text) TO PUBLIC;
+\echo Add users for testing purposes
+Add users for testing purposes
+SELECT * FROM public.user_create('test.admin@statbus.org', 'admin_user'::statbus_role, 'Admin#123!');
+         email          |  password  
+------------------------+------------
+ test.admin@statbus.org | Admin#123!
+(1 row)
+
+SELECT * FROM public.user_create('test.regular@statbus.org', 'regular_user'::statbus_role, 'Regular#123!');
+          email           |   password   
+--------------------------+--------------
+ test.regular@statbus.org | Regular#123!
+(1 row)
+
+SELECT * FROM public.user_create('test.restricted@statbus.org', 'restricted_user'::statbus_role, 'Restricted#123!');
+            email            |    password     
+-----------------------------+-----------------
+ test.restricted@statbus.org | Restricted#123!
+(1 row)
+
+\echo "Setting up Statbus using the web provided examples"
+"Setting up Statbus using the web provided examples"
+-- A Super User configures statbus.
+CALL test.set_user_from_email('test.admin@statbus.org');
+\echo "User selected the Activity Category Standard"
+"User selected the Activity Category Standard"
+INSERT INTO settings(activity_category_standard_id,only_one_setting)
+SELECT id, true FROM activity_category_standard WHERE code = 'isic_v4'
+ON CONFLICT (only_one_setting)
+DO UPDATE SET
+   activity_category_standard_id =(SELECT id FROM activity_category_standard WHERE code = 'isic_v4')
+   WHERE settings.id = EXCLUDED.id;
+;
+\echo "User uploads the sample activity categories"
+"User uploads the sample activity categories"
+\copy public.activity_category_available_custom(path,name) FROM 'app/public/demo/activity_custom_isic_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo "User uploads the sample regions"
+"User uploads the sample regions"
+\copy public.region_upload(path, name) FROM 'app/public/demo/regions_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo "User uploads the sample legal forms"
+"User uploads the sample legal forms"
+\copy public.legal_form_custom_only(code,name) FROM 'app/public/demo/legal_forms_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo "User uploads the sample sectors"
+"User uploads the sample sectors"
+\copy public.sector_custom_only(path,name,description) FROM 'app/public/demo/sectors_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo ""
+""
+\echo "---"
+"---"
+\echo "Phase 1: Load initial demo data (simple, current time context)"
+"Phase 1: Load initial demo data (simple, current time context)"
+\echo "---"
+"---"
+-- Create Import Job for Legal Units (Demo CSV, Block 1)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_job_provided'),
+    'import_314_lu_curr_p1',
+    'Import LU Demo CSV B1 (314_consecutive_demo_loads.sql)',
+    'Import job for app/public/demo/legal_units_demo.csv using legal_unit_job_provided definition.',
+    'Test data load (314_consecutive_demo_loads.sql)',
+    'r_year_curr';
+\echo "User uploads the sample legal units (via import job: import_314_lu_curr_p1)"
+"User uploads the sample legal units (via import job: import_314_lu_curr_p1)"
+\copy public.import_314_lu_curr_p1_upload(tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'app/public/demo/legal_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+-- Create Import Job for Formal Establishments (Demo CSV, Block 1)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_job_provided'),
+    'import_314_esflu_curr_p1',
+    'Import Formal ES Demo CSV B1 (314_consecutive_demo_loads.sql)',
+    'Import job for app/public/demo/formal_establishments_units_demo.csv using establishment_for_lu_job_provided definition.',
+    'Test data load (314_consecutive_demo_loads.sql)',
+    'r_year_curr';
+\echo "User uploads the sample formal establishments (via import job: import_314_esflu_curr_p1)"
+"User uploads the sample formal establishments (via import job: import_314_esflu_curr_p1)"
+\copy public.import_314_esflu_curr_p1_upload(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code) FROM 'app/public/demo/formal_establishments_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+-- Create Import Job for Informal Establishments (Demo CSV, Block 1)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'establishment_without_lu_job_provided'),
+    'import_314_eswlu_curr_p1',
+    'Import Informal ES Demo CSV B1 (314_consecutive_demo_loads.sql)',
+    'Import job for app/public/demo/informal_establishments_units_demo.csv using establishment_without_lu_job_provided definition.',
+    'Test data load (314_consecutive_demo_loads.sql)',
+    'r_year_curr';
+\echo "User uploads the sample informal establishments (via import job: import_314_eswlu_curr_p1)"
+"User uploads the sample informal establishments (via import job: import_314_eswlu_curr_p1)"
+\copy public.import_314_eswlu_curr_p1_upload(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code) FROM 'app/public/demo/informal_establishments_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo "Run worker processing for import jobs - Phase 1"
+"Run worker processing for import jobs - Phase 1"
+CALL worker.process_tasks(p_queue => 'import');
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
+   queue   |   state   | count 
+-----------+-----------+-------
+ analytics | pending   |     7
+ import    | completed |   141
+(2 rows)
+
+\echo "Checking import job statuses for Phase 1"
+"Checking import job statuses for Phase 1"
+SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug LIKE 'import_314_%_p1' ORDER BY slug;
+           slug           |  state   | time_context_ident | total_rows | imported_rows | has_error 
+--------------------------+----------+--------------------+------------+---------------+-----------
+ import_314_esflu_curr_p1 | finished | r_year_curr        |         25 |            25 | f
+ import_314_eswlu_curr_p1 | finished | r_year_curr        |         25 |            25 | f
+ import_314_lu_curr_p1    | finished | r_year_curr        |         23 |            23 | f
+(3 rows)
+
+\echo "Unit counts after Phase 1"
+"Unit counts after Phase 1"
+SELECT
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
+ establishment_count | legal_unit_count | enterprise_count 
+---------------------+------------------+------------------
+                  50 |               23 |               48
+(1 row)
+
+\echo ""
+""
+\echo "---"
+"---"
+\echo "Phase 2: Load data with source dates, which will now trigger UPDATE operations"
+"Phase 2: Load data with source dates, which will now trigger UPDATE operations"
+\echo "---"
+"---"
+-- Create Import Job for Legal Units (Demo CSV with source dates)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
+    'import_314_lu_wsd_p2',
+    'Import LU Demo CSV w/ dates (314_consecutive_demo_loads.sql)',
+    'Import job for app/public/demo/legal_units_with_source_dates_demo.csv using legal_unit_source_dates definition.',
+    'Test data load (314_consecutive_demo_loads.sql)';
+\echo "User uploads the sample legal units with source dates (via import job: import_314_lu_wsd_p2)"
+"User uploads the sample legal units with source dates (via import job: import_314_lu_wsd_p2)"
+\copy public.import_314_lu_wsd_p2_upload(tax_ident,stat_ident,name,valid_from,physical_address_part1,valid_to,postal_address_part1,postal_address_part2,physical_address_part2,physical_postcode,postal_postcode,physical_address_part3,physical_postplace,postal_address_part3,postal_postplace,phone_number,landline,mobile_number,fax_number,web_address,email_address,secondary_activity_category_code,physical_latitude,physical_longitude,physical_altitude,birth_date,physical_region_code,postal_country_iso_2,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code,status_code,unit_size_code) FROM 'app/public/demo/legal_units_with_source_dates_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo "Run worker processing for LU source dates job"
+"Run worker processing for LU source dates job"
+CALL worker.process_tasks(p_queue => 'import');
+\echo "Checking LU source dates job status"
+"Checking LU source dates job status"
+\x
+SELECT
+    slug,
+    state,
+    analysis_completed_pct,
+    import_completed_pct,
+    total_rows,
+    imported_rows,
+    jsonb_pretty(error::jsonb) AS error
+FROM public.import_job WHERE slug = 'import_314_lu_wsd_p2';
+
+\x
+\echo "Inspecting LU source dates data table for skipped/error rows"
+"Inspecting LU source dates data table for skipped/error rows"
+\x
+SELECT row_id, state, action, operation, legal_unit_id, enterprise_id, errors, merge_status FROM public.import_314_lu_wsd_p2_data WHERE action = 'skip' OR state = 'error' ORDER BY row_id;
+-[ RECORD 1 ]-+-----------------------------------------------------------------------------------------------------------------------
+row_id        | 16
+state         | error
+action        | skip
+operation     | update
+legal_unit_id | 
+enterprise_id | 
+errors        | {"stat_ident_raw": "Identifier stat_ident value '232' from input attempts to change existing value '230'"}
+merge_status  | {}
+-[ RECORD 2 ]-+-----------------------------------------------------------------------------------------------------------------------
+row_id        | 17
+state         | error
+action        | skip
+operation     | update
+legal_unit_id | 
+enterprise_id | 
+errors        | {"tax_ident_raw": "Identifier tax_ident value '4711110' from input attempts to change existing value '4711111'"}
+merge_status  | {}
+-[ RECORD 3 ]-+-----------------------------------------------------------------------------------------------------------------------
+row_id        | 18
+state         | error
+action        | skip
+operation     | update
+legal_unit_id | 
+enterprise_id | 
+errors        | {"tax_ident_raw": "Identifier tax_ident value '4711110' from input attempts to change existing value '4711111'"}
+merge_status  | {}
+-[ RECORD 4 ]-+-----------------------------------------------------------------------------------------------------------------------
+row_id        | 19
+state         | error
+action        | skip
+operation     | update
+legal_unit_id | 
+enterprise_id | 
+errors        | {"tax_ident_raw": "Identifier tax_ident value '4711110' from input attempts to change existing value '4711111'"}
+merge_status  | {}
+-[ RECORD 5 ]-+-----------------------------------------------------------------------------------------------------------------------
+row_id        | 20
+state         | error
+action        | skip
+operation     | update
+legal_unit_id | 
+enterprise_id | 
+errors        | {"stat_ident_raw": "Identifier stat_ident value '232' from input attempts to change existing value '230'"}
+merge_status  | {}
+-[ RECORD 6 ]-+-----------------------------------------------------------------------------------------------------------------------
+row_id        | 21
+state         | error
+action        | skip
+operation     | update
+legal_unit_id | 
+enterprise_id | 
+errors        | {"stat_ident_raw": "Identifier stat_ident value '232' from input attempts to change existing value '230'"}
+merge_status  | {}
+-[ RECORD 7 ]-+-----------------------------------------------------------------------------------------------------------------------
+row_id        | 58
+state         | error
+action        | skip
+operation     | 
+legal_unit_id | 
+enterprise_id | 
+errors        | {"valid_from_raw": "Invalid date format: '2025M01'. SQLSTATE: 22007"}
+merge_status  | {}
+-[ RECORD 8 ]-+-----------------------------------------------------------------------------------------------------------------------
+row_id        | 59
+state         | error
+action        | skip
+operation     | update
+legal_unit_id | 
+enterprise_id | 
+errors        | {"tax_ident_raw": "Identifier tax_ident value '2212760166' from input attempts to change existing value '2212760144'"}
+merge_status  | {}
+-[ RECORD 9 ]-+-----------------------------------------------------------------------------------------------------------------------
+row_id        | 60
+state         | error
+action        | skip
+operation     | update
+legal_unit_id | 
+enterprise_id | 
+errors        | {"tax_ident_raw": "Identifier tax_ident value '2212760166' from input attempts to change existing value '2212760144'"}
+merge_status  | {}
+
+\x
+-- Create Import Job for Formal Establishments (Demo CSV with source dates)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_source_dates'),
+    'import_314_esflu_wsd_p2',
+    'Import Formal ES Demo CSV w/ dates (314_consecutive_demo_loads.sql)',
+    'Import job for app/public/demo/formal_establishments_units_with_source_dates_demo.csv using establishment_for_lu_source_dates definition.',
+    'Test data load (314_consecutive_demo_loads.sql)';
+\echo "User uploads the sample formal establishments with source dates (via import job: import_314_esflu_wsd_p2)"
+"User uploads the sample formal establishments with source dates (via import job: import_314_esflu_wsd_p2)"
+\copy public.import_314_esflu_wsd_p2_upload(tax_ident,stat_ident,name,physical_region_code,valid_from,valid_to,postal_country_iso_2,physical_country_iso_2,primary_activity_category_code,secondary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code,physical_address_part1,physical_address_part2,physical_address_part3,postal_address_part1,postal_address_part2,postal_address_part3,phone_number,mobile_number,landline,fax_number,web_address,email_address,physical_latitude,physical_longitude,physical_altitude,birth_date,unit_size_code,status_code) FROM 'app/public/demo/formal_establishments_units_with_source_dates_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo "Run worker processing for Formal ES source dates job"
+"Run worker processing for Formal ES source dates job"
+CALL worker.process_tasks(p_queue => 'import');
+\echo "Checking Formal ES source dates job status"
+"Checking Formal ES source dates job status"
+\x
+SELECT
+    slug,
+    state,
+    analysis_completed_pct,
+    import_completed_pct,
+    total_rows,
+    imported_rows,
+    jsonb_pretty(error::jsonb) AS error
+
+\x
+\echo "Inspecting Formal ES source dates data table for skipped/error rows"
+"Inspecting Formal ES source dates data table for skipped/error rows"
+\x
+SELECT row_id, state, action, operation, legal_unit_id, establishment_id, errors, merge_status FROM public.import_314_esflu_wsd_p2_data WHERE action = 'skip' OR state = 'error' ORDER BY row_id;
+-[ RECORD 1 ]----+--------------------------------------------------------------------------------------------------------------
+row_id           | 1
+state            | error
+action           | skip
+operation        | update
+legal_unit_id    | 
+establishment_id | 
+errors           | {"stat_ident_raw": "Identifier stat_ident value '91000' from input attempts to change existing value '1000'"}
+merge_status     | {}
+-[ RECORD 2 ]----+--------------------------------------------------------------------------------------------------------------
+row_id           | 2
+state            | error
+action           | skip
+operation        | update
+legal_unit_id    | 
+establishment_id | 
+errors           | {"stat_ident_raw": "Identifier stat_ident value '91001' from input attempts to change existing value '1001'"}
+merge_status     | {}
+-[ RECORD 3 ]----+--------------------------------------------------------------------------------------------------------------
+row_id           | 3
+state            | error
+action           | skip
+operation        | update
+legal_unit_id    | 
+establishment_id | 
+errors           | {"stat_ident_raw": "Identifier stat_ident value '91002' from input attempts to change existing value '1002'"}
+merge_status     | {}
+-[ RECORD 4 ]----+--------------------------------------------------------------------------------------------------------------
+row_id           | 4
+state            | error
+action           | skip
+operation        | update
+legal_unit_id    | 
+establishment_id | 
+errors           | {"stat_ident_raw": "Identifier stat_ident value '91003' from input attempts to change existing value '1003'"}
+merge_status     | {}
+-[ RECORD 5 ]----+--------------------------------------------------------------------------------------------------------------
+row_id           | 5
+state            | error
+action           | skip
+operation        | update
+legal_unit_id    | 
+establishment_id | 
+errors           | {"stat_ident_raw": "Identifier stat_ident value '91004' from input attempts to change existing value '1004'"}
+merge_status     | {}
+-[ RECORD 6 ]----+--------------------------------------------------------------------------------------------------------------
+row_id           | 6
+state            | error
+action           | skip
+operation        | update
+legal_unit_id    | 
+establishment_id | 
+errors           | {"stat_ident_raw": "Identifier stat_ident value '91005' from input attempts to change existing value '1005'"}
+merge_status     | {}
+-[ RECORD 7 ]----+--------------------------------------------------------------------------------------------------------------
+row_id           | 7
+state            | error
+action           | skip
+operation        | update
+legal_unit_id    | 
+establishment_id | 
+errors           | {"stat_ident_raw": "Identifier stat_ident value '91006' from input attempts to change existing value '1006'"}
+merge_status     | {}
+-[ RECORD 8 ]----+--------------------------------------------------------------------------------------------------------------
+row_id           | 8
+state            | error
+action           | skip
+operation        | update
+legal_unit_id    | 
+establishment_id | 
+errors           | {"stat_ident_raw": "Identifier stat_ident value '91007' from input attempts to change existing value '1007'"}
+merge_status     | {}
+-[ RECORD 9 ]----+--------------------------------------------------------------------------------------------------------------
+row_id           | 9
+state            | error
+action           | skip
+operation        | update
+legal_unit_id    | 
+establishment_id | 
+errors           | {"stat_ident_raw": "Identifier stat_ident value '91008' from input attempts to change existing value '1008'"}
+merge_status     | {}
+-[ RECORD 10 ]---+--------------------------------------------------------------------------------------------------------------
+row_id           | 10
+state            | error
+action           | skip
+operation        | update
+legal_unit_id    | 
+establishment_id | 
+errors           | {"stat_ident_raw": "Identifier stat_ident value '91009' from input attempts to change existing value '1009'"}
+merge_status     | {}
+-[ RECORD 11 ]---+--------------------------------------------------------------------------------------------------------------
+row_id           | 11
+state            | error
+action           | skip
+operation        | update
+legal_unit_id    | 
+establishment_id | 
+errors           | {"stat_ident_raw": "Identifier stat_ident value '91010' from input attempts to change existing value '1010'"}
+merge_status     | {}
+-[ RECORD 12 ]---+--------------------------------------------------------------------------------------------------------------
+row_id           | 12
+state            | error
+action           | skip
+operation        | update
+legal_unit_id    | 
+establishment_id | 
+errors           | {"stat_ident_raw": "Identifier stat_ident value '91011' from input attempts to change existing value '1011'"}
+merge_status     | {}
+-[ RECORD 13 ]---+--------------------------------------------------------------------------------------------------------------
+row_id           | 13
+state            | error
+action           | skip
+operation        | update
+legal_unit_id    | 
+establishment_id | 
+errors           | {"stat_ident_raw": "Identifier stat_ident value '91012' from input attempts to change existing value '1012'"}
+merge_status     | {}
+-[ RECORD 14 ]---+--------------------------------------------------------------------------------------------------------------
+row_id           | 14
+state            | error
+action           | skip
+operation        | update
+legal_unit_id    | 
+establishment_id | 
+errors           | {"stat_ident_raw": "Identifier stat_ident value '91013' from input attempts to change existing value '1013'"}
+merge_status     | {}
+-[ RECORD 15 ]---+--------------------------------------------------------------------------------------------------------------
+row_id           | 15
+state            | error
+action           | skip
+operation        | update
+legal_unit_id    | 
+establishment_id | 
+errors           | {"stat_ident_raw": "Identifier stat_ident value '91014' from input attempts to change existing value '1014'"}
+merge_status     | {}
+-[ RECORD 16 ]---+--------------------------------------------------------------------------------------------------------------
+row_id           | 16
+state            | error
+action           | skip
+operation        | update
+legal_unit_id    | 
+establishment_id | 
+errors           | {"stat_ident_raw": "Identifier stat_ident value '91015' from input attempts to change existing value '1015'"}
+merge_status     | {}
+-[ RECORD 17 ]---+--------------------------------------------------------------------------------------------------------------
+row_id           | 17
+state            | error
+action           | skip
+operation        | update
+legal_unit_id    | 
+establishment_id | 
+errors           | {"stat_ident_raw": "Identifier stat_ident value '91016' from input attempts to change existing value '1016'"}
+merge_status     | {}
+-[ RECORD 18 ]---+--------------------------------------------------------------------------------------------------------------
+row_id           | 18
+state            | error
+action           | skip
+operation        | update
+legal_unit_id    | 
+establishment_id | 
+errors           | {"stat_ident_raw": "Identifier stat_ident value '91017' from input attempts to change existing value '1017'"}
+merge_status     | {}
+-[ RECORD 19 ]---+--------------------------------------------------------------------------------------------------------------
+row_id           | 19
+state            | error
+action           | skip
+operation        | update
+legal_unit_id    | 
+establishment_id | 
+errors           | {"stat_ident_raw": "Identifier stat_ident value '91018' from input attempts to change existing value '1018'"}
+merge_status     | {}
+-[ RECORD 20 ]---+--------------------------------------------------------------------------------------------------------------
+row_id           | 20
+state            | error
+action           | skip
+operation        | update
+legal_unit_id    | 
+establishment_id | 
+errors           | {"stat_ident_raw": "Identifier stat_ident value '91019' from input attempts to change existing value '1019'"}
+merge_status     | {}
+-[ RECORD 21 ]---+--------------------------------------------------------------------------------------------------------------
+row_id           | 21
+state            | error
+action           | skip
+operation        | update
+legal_unit_id    | 
+establishment_id | 
+errors           | {"stat_ident_raw": "Identifier stat_ident value '91020' from input attempts to change existing value '1020'"}
+merge_status     | {}
+-[ RECORD 22 ]---+--------------------------------------------------------------------------------------------------------------
+row_id           | 22
+state            | error
+action           | skip
+operation        | update
+legal_unit_id    | 
+establishment_id | 
+errors           | {"stat_ident_raw": "Identifier stat_ident value '91021' from input attempts to change existing value '1021'"}
+merge_status     | {}
+-[ RECORD 23 ]---+--------------------------------------------------------------------------------------------------------------
+row_id           | 23
+state            | error
+action           | skip
+operation        | update
+legal_unit_id    | 
+establishment_id | 
+errors           | {"stat_ident_raw": "Identifier stat_ident value '91022' from input attempts to change existing value '1022'"}
+merge_status     | {}
+-[ RECORD 24 ]---+--------------------------------------------------------------------------------------------------------------
+row_id           | 24
+state            | error
+action           | skip
+operation        | update
+legal_unit_id    | 
+establishment_id | 
+errors           | {"stat_ident_raw": "Identifier stat_ident value '91023' from input attempts to change existing value '1023'"}
+merge_status     | {}
+-[ RECORD 25 ]---+--------------------------------------------------------------------------------------------------------------
+row_id           | 25
+state            | error
+action           | skip
+operation        | update
+legal_unit_id    | 
+establishment_id | 
+errors           | {"stat_ident_raw": "Identifier stat_ident value '91024' from input attempts to change existing value '1024'"}
+merge_status     | {}
+-[ RECORD 26 ]---+--------------------------------------------------------------------------------------------------------------
+row_id           | 26
+state            | error
+action           | skip
+operation        | update
+legal_unit_id    | 
+establishment_id | 
+errors           | {"stat_ident_raw": "Identifier stat_ident value '91024' from input attempts to change existing value '1024'"}
+merge_status     | {}
+
+\x
+-- Create Import Job for Informal Establishments (Demo CSV with source dates)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'establishment_without_lu_source_dates'),
+    'import_314_eswlu_wsd_p2',
+    'Import Informal ES Demo CSV w/ dates (314_consecutive_demo_loads.sql)',
+    'Import job for app/public/demo/informal_establishments_units_with_source_dates_demo.csv using establishment_without_lu_source_dates definition.',
+    'Test data load (314_consecutive_demo_loads.sql)';
+\echo "User uploads the sample informal establishments with source dates (via import job: import_314_eswlu_wsd_p2)"
+"User uploads the sample informal establishments with source dates (via import job: import_314_eswlu_wsd_p2)"
+\copy public.import_314_eswlu_wsd_p2_upload(tax_ident,stat_ident,name,physical_region_code,valid_from,valid_to,physical_country_iso_2,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,employees,turnover,data_source_code,physical_address_part1,physical_address_part2,physical_address_part3,postal_address_part1,postal_address_part2,postal_address_part3,phone_number,mobile_number,landline,fax_number,web_address,email_address,unit_size_code,status_code,physical_latitude,physical_longitude,physical_altitude) FROM 'app/public/demo/informal_establishments_units_with_source_dates_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo "Run worker processing for Informal ES source dates job"
+"Run worker processing for Informal ES source dates job"
+CALL worker.process_tasks(p_queue => 'import');
+\echo "Checking Informal ES source dates job status"
+"Checking Informal ES source dates job status"
+\x
+SELECT
+    slug,
+    state,
+    analysis_completed_pct,
+    import_completed_pct,
+    total_rows,
+    imported_rows,
+    error
+FROM public.import_job WHERE slug = 'import_314_eswlu_wsd_p2';
+
+\x
+\echo "Inspecting Informal ES source dates data table for skipped/error rows"
+"Inspecting Informal ES source dates data table for skipped/error rows"
+\x
+SELECT row_id, state, action, operation, establishment_id, errors, merge_status FROM public.import_314_eswlu_wsd_p2_data WHERE action = 'skip' OR state = 'error' ORDER BY row_id;
+-[ RECORD 1 ]----+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+row_id           | 1
+state            | error
+action           | skip
+operation        | update
+establishment_id | 
+errors           | {"tax_ident_raw": "Identifier tax_ident value '1' from input attempts to change existing value '945000'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1011\"}"}
+merge_status     | {}
+-[ RECORD 2 ]----+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+row_id           | 2
+state            | error
+action           | skip
+operation        | update
+establishment_id | 
+errors           | {"tax_ident_raw": "Identifier tax_ident value '2' from input attempts to change existing value '9358000'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1012\"}"}
+merge_status     | {}
+-[ RECORD 3 ]----+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+row_id           | 3
+state            | error
+action           | skip
+operation        | update
+establishment_id | 
+errors           | {"tax_ident_raw": "Identifier tax_ident value '3' from input attempts to change existing value '946001'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1013\"}"}
+merge_status     | {}
+-[ RECORD 4 ]----+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+row_id           | 4
+state            | error
+action           | skip
+operation        | update
+establishment_id | 
+errors           | {"tax_ident_raw": "Identifier tax_ident value '4' from input attempts to change existing value '922501'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1016\"}"}
+merge_status     | {}
+-[ RECORD 5 ]----+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+row_id           | 5
+state            | error
+action           | skip
+operation        | update
+establishment_id | 
+errors           | {"tax_ident_raw": "Identifier tax_ident value '5' from input attempts to change existing value '9397611'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1017\"}"}
+merge_status     | {}
+-[ RECORD 6 ]----+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+row_id           | 6
+state            | error
+action           | skip
+operation        | update
+establishment_id | 
+errors           | {"tax_ident_raw": "Identifier tax_ident value '6' from input attempts to change existing value '9397622'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1018\"}"}
+merge_status     | {}
+-[ RECORD 7 ]----+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+row_id           | 7
+state            | error
+action           | skip
+operation        | update
+establishment_id | 
+errors           | {"tax_ident_raw": "Identifier tax_ident value '7' from input attempts to change existing value '92200019'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1019\"}"}
+merge_status     | {}
+-[ RECORD 8 ]----+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+row_id           | 8
+state            | error
+action           | skip
+operation        | update
+establishment_id | 
+errors           | {"tax_ident_raw": "Identifier tax_ident value '8' from input attempts to change existing value '93300598'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1020\"}"}
+merge_status     | {}
+-[ RECORD 9 ]----+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+row_id           | 9
+state            | error
+action           | skip
+operation        | update
+establishment_id | 
+errors           | {"tax_ident_raw": "Identifier tax_ident value '9' from input attempts to change existing value '94711111'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1021\"}"}
+merge_status     | {}
+-[ RECORD 10 ]---+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+row_id           | 10
+state            | error
+action           | skip
+operation        | update
+establishment_id | 
+errors           | {"tax_ident_raw": "Identifier tax_ident value '10' from input attempts to change existing value '93998011'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1022\"}"}
+merge_status     | {}
+-[ RECORD 11 ]---+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+row_id           | 11
+state            | error
+action           | skip
+operation        | update
+establishment_id | 
+errors           | {"tax_ident_raw": "Identifier tax_ident value '11' from input attempts to change existing value '947111112'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1023\"}"}
+merge_status     | {}
+-[ RECORD 12 ]---+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+row_id           | 12
+state            | error
+action           | skip
+operation        | update
+establishment_id | 
+errors           | {"tax_ident_raw": "Identifier tax_ident value '12' from input attempts to change existing value '947111113'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1024\"}"}
+merge_status     | {}
+
+\x
+\echo "Unit counts after Phase 2"
+"Unit counts after Phase 2"
+SELECT
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
+ establishment_count | legal_unit_count | enterprise_count 
+---------------------+------------------+------------------
+                  50 |               23 |               48
+(1 row)
+
+\echo "Final check of worker queue to ensure no tasks are stuck"
+"Final check of worker queue to ensure no tasks are stuck"
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
+   queue   |   state   | count 
+-----------+-----------+-------
+ analytics | pending   |     8
+ import    | completed |   208
+(2 rows)
+
+\echo "Final check of import job progress and completion status"
+"Final check of import job progress and completion status"
+\x
+SELECT
+    slug,
+    state,
+    analysis_completed_pct,
+    completed_analysis_steps_weighted,
+    total_analysis_steps_weighted,
+    import_completed_pct,
+    total_rows,
+    imported_rows,
+    jsonb_pretty(error::jsonb) AS error
+FROM public.import_job
+WHERE slug LIKE 'import_314_%'
+ORDER BY slug;
+
+\x
+\i test/rollback_unless_persist_is_specified.sql
+---------------------------------------------------------------------------
+-- Support development loading of the data without rollback using
+--   ./devops/manage-statbus.sh psql --variable=PERSIST=true < test/sql/01_load_web_examples.sql
+-- Ref. https://stackoverflow.com/a/32597876/1023558
+\set PERSIST :PERSIST
+-- now PERSIST is set to the string ':PERSIST' if was not already set.
+-- Checking it using a CASE statement:
+SELECT CASE
+  WHEN :'PERSIST'= ':PERSIST'
+  THEN 'false'
+  ELSE :'PERSIST'
+END::BOOL AS "PERSIST" \gset
+-- < \gset call at end of the query to set variable.
+\if :PERSIST
+COMMIT;
+\else
+ROLLBACK;
+\endif

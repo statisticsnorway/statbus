@@ -103,18 +103,6 @@ BEGIN
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_tags: Logic update affected % rows.', p_job_id, v_update_count;
 
-        -- Unconditionally advance the priority for all rows in the batch that have not yet completed this step.
-        -- This is crucial to ensure progress, as it covers rows that were skipped OR had no data for this step.
-        v_sql := format($$
-            UPDATE public.%1$I dt SET
-                last_completed_priority = %2$L
-            WHERE dt.row_id <@ $1 AND dt.last_completed_priority < %2$L;
-        $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */);
-        RAISE DEBUG '[Job %] analyse_tags: Unconditionally advancing priority with SQL: %', p_job_id, v_sql;
-        EXECUTE v_sql USING p_batch_row_id_ranges;
-        GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] analyse_tags: Advanced last_completed_priority for % total rows in batch.', p_job_id, v_skipped_update_count;
-
         -- Estimate error count
         v_sql := format($$SELECT COUNT(*) FROM public.%1$I WHERE row_id <@ $1 AND state = 'error' AND (errors ?| %2$L::text[])$$,
                        v_data_table_name /* %1$I */, v_error_keys_to_clear_arr /* %2$L */);
@@ -134,8 +122,24 @@ BEGIN
         RAISE; -- Re-raise the original exception to halt processing
     END;
 
-    -- Propagate errors to all rows of a new entity if one fails
-    CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_row_id_ranges, v_error_keys_to_clear_arr, 'analyse_tags');
+    -- Unconditionally advance the priority for all rows in the batch that have not yet completed this step.
+    -- This is crucial to ensure progress, as it covers rows that were skipped OR had no data for this step.
+    v_sql := format($$
+        UPDATE public.%1$I dt SET
+            last_completed_priority = %2$L
+        WHERE dt.row_id <@ $1 AND dt.last_completed_priority < %2$L;
+    $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */);
+    RAISE DEBUG '[Job %] analyse_tags: Unconditionally advancing priority with SQL: %', p_job_id, v_sql;
+    EXECUTE v_sql USING p_batch_row_id_ranges;
+    GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
+    RAISE DEBUG '[Job %] analyse_tags: Advanced last_completed_priority for % total rows in batch.', p_job_id, v_skipped_update_count;
+
+    -- Propagate errors to all rows of a new entity if one fails (best-effort)
+    BEGIN
+        CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_row_id_ranges, v_error_keys_to_clear_arr, 'analyse_tags');
+    EXCEPTION WHEN OTHERS THEN
+        RAISE WARNING '[Job %] analyse_tags: Non-fatal error during error propagation: %', p_job_id, SQLERRM;
+    END;
 
     RAISE DEBUG '[Job %] analyse_tags (Batch): Finished analysis for batch.', p_job_id; -- Simplified final message
 END;

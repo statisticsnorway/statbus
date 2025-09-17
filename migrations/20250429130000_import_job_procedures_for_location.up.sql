@@ -416,8 +416,12 @@ BEGIN
             RAISE; -- Re-throw the exception
     END;
 
-    -- Propagate errors to all rows of a new entity if one fails
-    CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_row_id_ranges, v_error_keys_to_clear_arr, p_step_code);
+    -- Propagate errors to all rows of a new entity if one fails (best-effort)
+    BEGIN
+        CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_row_id_ranges, v_error_keys_to_clear_arr, p_step_code);
+    EXCEPTION WHEN OTHERS THEN
+        RAISE WARNING '[Job %] analyse_location: Non-fatal error during error propagation: %', p_job_id, SQLERRM;
+    END;
 
     RAISE DEBUG '[Job %] analyse_location (Batch): Finished analysis for batch for step %. Errors newly marked in this step: %', p_job_id, p_step_code, v_error_count;
 END;

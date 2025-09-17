@@ -119,17 +119,6 @@ BEGIN
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_activity: Updated % non-skipped rows in single pass for step %.', p_job_id, v_update_count, p_step_code;
 
-        -- Unconditionally advance priority for all rows in batch to ensure progress
-        v_sql := format($$
-            UPDATE public.%1$I dt SET
-                last_completed_priority = %2$L
-            WHERE dt.row_id <@ $1 AND dt.last_completed_priority < %2$L;
-        $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */);
-        RAISE DEBUG '[Job %] analyse_activity: Unconditionally advancing priority for all batch rows with SQL: %', p_job_id, v_sql;
-        EXECUTE v_sql USING p_batch_row_id_ranges;
-        GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] analyse_activity: Advanced last_completed_priority for % total rows in batch for step %.', p_job_id, v_skipped_update_count, p_step_code;
-
         v_sql := format($$SELECT COUNT(*) FROM public.%1$I WHERE row_id <@ $1 AND state = 'error' AND (errors ?| %2$L::text[])$$,
                        v_data_table_name /* %1$I */, v_error_keys_to_clear_arr /* %2$L */);
         RAISE DEBUG '[Job %] analyse_activity: Counting errors with SQL: %', p_job_id, v_sql;
@@ -147,6 +136,17 @@ BEGIN
         RAISE DEBUG '[Job %] analyse_activity: Marked job as failed due to error in step %: %', p_job_id, p_step_code, SQLERRM;
         RAISE;
     END;
+
+    -- Unconditionally advance priority for all rows in batch to ensure progress
+    v_sql := format($$
+        UPDATE public.%1$I dt SET
+            last_completed_priority = %2$L
+        WHERE dt.row_id <@ $1 AND dt.last_completed_priority < %2$L;
+    $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */);
+    RAISE DEBUG '[Job %] analyse_activity: Unconditionally advancing priority for all batch rows with SQL: %', p_job_id, v_sql;
+    EXECUTE v_sql USING p_batch_row_id_ranges;
+    GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
+    RAISE DEBUG '[Job %] analyse_activity: Advanced last_completed_priority for % total rows in batch for step %.', p_job_id, v_skipped_update_count, p_step_code;
 
     RAISE DEBUG '[Job %] analyse_activity (Batch): Finished analysis for batch for step %. Errors newly marked in this step: %', p_job_id, p_step_code, v_error_count;
 END;

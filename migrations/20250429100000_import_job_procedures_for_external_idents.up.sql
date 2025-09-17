@@ -52,24 +52,31 @@ BEGIN
         RAISE EXCEPTION '[Job %] external_idents target not found in snapshot', p_job_id;
     END IF;
 
-    -- Holistic execution: materialize relevant rows for this step to avoid giant in-memory arrays.
+    -- Holistic execution: materialize actionable rows for this step to avoid giant in-memory arrays.
     CREATE TEMP TABLE temp_relevant_rows (data_row_id INTEGER PRIMARY KEY) ON COMMIT DROP;
     v_sql := format($$INSERT INTO temp_relevant_rows
                     SELECT row_id FROM public.%1$I
-                    WHERE state = %2$L AND last_completed_priority < %3$L$$,
-                   v_data_table_name /* %1$I */, 'analysing'::public.import_data_state /* %2$L */, v_step.priority /* %3$L */);
-    RAISE DEBUG '[Job %] analyse_external_idents: Materializing relevant rows with SQL: %', p_job_id, v_sql;
+                    WHERE action IS DISTINCT FROM 'skip' AND last_completed_priority < %2$L$$,
+                   v_data_table_name /* %1$I */, v_step.priority /* %2$L */);
+    RAISE DEBUG '[Job %] analyse_external_idents: Materializing actionable rows with SQL: %', p_job_id, v_sql;
     EXECUTE v_sql;
     v_sql := 'SELECT COUNT(*) FROM temp_relevant_rows';
-    RAISE DEBUG '[Job %] analyse_external_idents: Counting relevant rows with SQL: %', p_job_id, v_sql;
+    RAISE DEBUG '[Job %] analyse_external_idents: Counting actionable rows with SQL: %', p_job_id, v_sql;
     EXECUTE v_sql INTO v_update_count;
 
-    RAISE DEBUG '[Job %] analyse_external_idents: Holistic execution. Found % rows to process for this step.',
+    RAISE DEBUG '[Job %] analyse_external_idents: Holistic execution. Found % actionable rows to process for this step.',
         p_job_id, COALESCE(v_update_count, 0);
 
     IF COALESCE(v_update_count, 0) = 0 THEN
-        RAISE DEBUG '[Job %] analyse_external_idents: No relevant rows to process.', p_job_id;
-        IF to_regclass('pg_temp.temp_relevant_rows') IS NOT NULL THEN DROP TABLE temp_relevant_rows; END IF;
+        RAISE DEBUG '[Job %] analyse_external_idents: No actionable rows to process.', p_job_id;
+        -- Even if no rows are actionable, we MUST advance the priority for all rows pending this step to prevent an infinite loop.
+        v_sql := format($$
+            UPDATE public.%1$I dt SET
+                last_completed_priority = %2$L
+            WHERE dt.last_completed_priority < %2$L;
+        $$, v_data_table_name, v_step.priority);
+        RAISE DEBUG '[Job %] analyse_external_idents: Advancing priority for all pending rows to prevent loop. SQL: %', p_job_id, v_sql;
+        EXECUTE v_sql;
         RETURN;
     END IF;
 
@@ -550,30 +557,20 @@ BEGIN
     EXECUTE v_sql INTO v_error_count;
     RAISE DEBUG '[Job %] analyse_external_idents: Updated % total rows. Current estimated errors for this step: %', p_job_id, v_update_count, v_error_count;
 
-    -- Unconditionally advance priority for all relevant rows to ensure progress.
+    -- Unconditionally advance priority for all rows that have not yet passed this step to ensure progress.
     v_sql := format($$
         UPDATE public.%1$I dt SET
             last_completed_priority = %2$L
-        WHERE EXISTS (SELECT 1 FROM temp_relevant_rows tr WHERE tr.data_row_id = dt.row_id) AND dt.last_completed_priority < %2$L;
+        WHERE dt.last_completed_priority < %2$L;
     $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */);
-    RAISE DEBUG '[Job %] analyse_external_idents: Unconditionally advancing priority for all relevant rows with SQL: %', p_job_id, v_sql;
+    RAISE DEBUG '[Job %] analyse_external_idents: Unconditionally advancing priority for all applicable rows with SQL: %', p_job_id, v_sql;
     EXECUTE v_sql;
     GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
-    RAISE DEBUG '[Job %] analyse_external_idents: Advanced last_completed_priority for % total relevant rows.', p_job_id, v_skipped_update_count;
-
-    IF to_regclass('pg_temp.temp_unpivoted_idents') IS NOT NULL THEN DROP TABLE temp_unpivoted_idents; END IF;
-    IF to_regclass('pg_temp.temp_batch_analysis') IS NOT NULL THEN DROP TABLE temp_batch_analysis; END IF;
-    IF to_regclass('pg_temp.temp_relevant_rows') IS NOT NULL THEN DROP TABLE temp_relevant_rows; END IF;
-    IF to_regclass('pg_temp.temp_propagated_errors') IS NOT NULL THEN DROP TABLE temp_propagated_errors; END IF;
+    RAISE DEBUG '[Job %] analyse_external_idents: Advanced last_completed_priority for % total applicable rows.', p_job_id, v_skipped_update_count;
 
     RAISE DEBUG '[Job %] analyse_external_idents (Batch): Finished analysis for batch. Total errors in batch: %', p_job_id, v_error_count;
-
 EXCEPTION WHEN OTHERS THEN
     RAISE WARNING '[Job %] analyse_external_idents: Error during analysis: %', p_job_id, SQLERRM;
-    -- Ensure cleanup even on error
-    IF to_regclass('pg_temp.temp_unpivoted_idents') IS NOT NULL THEN DROP TABLE temp_unpivoted_idents; END IF;
-    IF to_regclass('pg_temp.temp_batch_analysis') IS NOT NULL THEN DROP TABLE temp_batch_analysis; END IF;
-    IF to_regclass('pg_temp.temp_propagated_errors') IS NOT NULL THEN DROP TABLE temp_propagated_errors; END IF;
     -- Mark the job itself as failed
     UPDATE public.import_job
     SET error = jsonb_build_object('analyse_external_idents_error', SQLERRM),

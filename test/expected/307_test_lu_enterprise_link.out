@@ -823,12 +823,12 @@ FROM public.test72_sc4_order_v2_data -- Hardcoded based on sc4_job_slug_v2
 ORDER BY row_id;
  row_id | founding_row_id |  tax_ident  |           name            |  valid_from  |   valid_to   | action |   state   | errors | invalid_codes |                                                    merge_status                                                     | legal_unit_id_status | enterprise_id_status 
 --------+-----------------+-------------+---------------------------+--------------+--------------+--------+-----------+--------+---------------+---------------------------------------------------------------------------------------------------------------------+----------------------+----------------------
-      1 |      1000000006 | 'SC3LUA001' | LU SC4 Company A Changed  | '2023-07-01' | '2023-09-30' | use    | processed | {}     | {}            | {"legal_unit": "SKIPPED_FILTERED", "primary_activity": "SKIPPED_FILTERED", "physical_location": "SKIPPED_FILTERED"} | SET                  | NULL
-      2 |      1000000007 | 'SC3LUB001' | LU SC4 Company B Modified | '2023-07-01' | '2023-09-30' | use    | processed | {}     | {}            | {"legal_unit": "SKIPPED_FILTERED", "primary_activity": "SKIPPED_FILTERED", "physical_location": "SKIPPED_FILTERED"} | SET                  | NULL
-      3 |      1000000006 | 'SC3LUA001' | LU SC4 Company A          | '2023-04-01' | '2023-06-30' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}                            | SET                  | NULL
-      4 |      1000000007 | 'SC3LUB001' | LU SC4 Company B          | '2023-04-01' | '2023-06-30' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}                            | SET                  | NULL
-      5 |      1000000006 | 'SC3LUA001' | LU SC4 Company A          | '2023-01-01' | '2023-03-31' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}                            | SET                  | NULL
-      6 |      1000000007 | 'SC3LUB001' | LU SC4 Company B          | '2023-01-01' | '2023-03-31' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}                            | SET                  | NULL
+      1 |      1000000006 | 'SC3LUA001' | LU SC4 Company A Changed  | '2023-07-01' | '2023-09-30' | use    | processed | {}     | {}            | {"legal_unit": "SKIPPED_FILTERED", "primary_activity": "SKIPPED_FILTERED", "physical_location": "SKIPPED_FILTERED"} | SET                  | SET
+      2 |      1000000007 | 'SC3LUB001' | LU SC4 Company B Modified | '2023-07-01' | '2023-09-30' | use    | processed | {}     | {}            | {"legal_unit": "SKIPPED_FILTERED", "primary_activity": "SKIPPED_FILTERED", "physical_location": "SKIPPED_FILTERED"} | SET                  | SET
+      3 |      1000000006 | 'SC3LUA001' | LU SC4 Company A          | '2023-04-01' | '2023-06-30' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}                            | SET                  | SET
+      4 |      1000000007 | 'SC3LUB001' | LU SC4 Company B          | '2023-04-01' | '2023-06-30' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}                            | SET                  | SET
+      5 |      1000000006 | 'SC3LUA001' | LU SC4 Company A          | '2023-01-01' | '2023-03-31' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}                            | SET                  | SET
+      6 |      1000000007 | 'SC3LUB001' | LU SC4 Company B          | '2023-01-01' | '2023-03-31' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}                            | SET                  | SET
 (6 rows)
 
 -- SC4 Verification: Compare results
@@ -1067,8 +1067,8 @@ FROM public.test72_sc6_1_single_data -- Hardcoded
 ORDER BY row_id;
  row_id | founding_row_id | tax_ident |       name       | valid_from |  valid_to  | action |   state   | errors | invalid_codes |                                       merge_status                                       | legal_unit_id_status | enterprise_id_status 
 --------+-----------------+-----------+------------------+------------+------------+--------+-----------+--------+---------------+------------------------------------------------------------------------------------------+----------------------+----------------------
-      1 |      1000000010 | 'SC6LUA'  | LU SC6 Updated A | 2023-01-01 | 2023-12-31 | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | NULL
-      2 |      1000000011 | 'SC6LUB'  | LU SC6 Updated B | 2023-01-01 | 2023-12-31 | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | NULL
+      1 |      1000000010 | 'SC6LUA'  | LU SC6 Updated A | 2023-01-01 | 2023-12-31 | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | SET
+      2 |      1000000011 | 'SC6LUB'  | LU SC6 Updated B | 2023-01-01 | 2023-12-31 | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | SET
 (2 rows)
 
 \echo 'SC6.1: Verifying single batch update preserved enterprise links'
@@ -1303,7 +1303,7 @@ FROM public.test72_sc7_update_batch_data -- Hardcoded
 ORDER BY row_id;
  row_id | founding_row_id | tax_ident  |            name            |  valid_from  |   valid_to   | action |   state   | errors | invalid_codes |                                       merge_status                                       | legal_unit_id_status | enterprise_id_status 
 --------+-----------------+------------+----------------------------+--------------+--------------+--------+-----------+--------+---------------+------------------------------------------------------------------------------------------+----------------------+----------------------
-      1 |      1000000012 | 'SC7LU001' | LU SC7 Company One UPDATED | '2023-01-01' | '2023-12-31' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | NULL
+      1 |      1000000012 | 'SC7LU001' | LU SC7 Company One UPDATED | '2023-01-01' | '2023-12-31' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | SET
       2 |               2 | 'SC7LU003' | LU SC7 Company Three NEW   | '2023-01-01' | '2023-12-31' | use    | processed | {}     | {}            | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | SET                  | SET
 (2 rows)
 

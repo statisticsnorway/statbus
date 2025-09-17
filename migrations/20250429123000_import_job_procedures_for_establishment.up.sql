@@ -137,17 +137,6 @@ BEGIN
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_establishment: Updated % non-skipped rows in single pass.', p_job_id, v_update_count;
 
-        -- Unconditionally advance priority for all rows in batch to ensure progress
-        v_sql := format($$
-            UPDATE public.%1$I dt SET
-                last_completed_priority = %2$L
-            WHERE dt.row_id <@ $1 AND dt.last_completed_priority < %2$L;
-        $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */);
-        RAISE DEBUG '[Job %] analyse_establishment: Unconditionally advancing priority for all batch rows with SQL: %', p_job_id, v_sql;
-        EXECUTE v_sql USING p_batch_row_id_ranges;
-        GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] analyse_establishment: Advanced last_completed_priority for % total rows in batch.', p_job_id, v_skipped_update_count;
-
         v_sql := format($$SELECT COUNT(*) FROM public.%1$I WHERE row_id <@ $1 AND state = 'error' AND (errors ?| %2$L::text[])$$,
                        v_job.data_table_name /* %1$I */, v_error_keys_to_clear_arr /* %2$L */);
         RAISE DEBUG '[Job %] analyse_establishment: Counting errors with SQL: %', p_job_id, v_sql;
@@ -166,34 +155,50 @@ BEGIN
         RAISE;
     END;
 
-    -- Propagate errors to all rows of a new entity if one fails
-    CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_job.data_table_name, p_batch_row_id_ranges, v_error_keys_to_clear_arr, 'analyse_establishment');
+    -- Unconditionally advance priority for all rows in batch to ensure progress
+    v_sql := format($$
+        UPDATE public.%1$I dt SET
+            last_completed_priority = %2$L
+        WHERE dt.row_id <@ $1 AND dt.last_completed_priority < %2$L;
+    $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */);
+    RAISE DEBUG '[Job %] analyse_establishment: Unconditionally advancing priority for all batch rows with SQL: %', p_job_id, v_sql;
+    EXECUTE v_sql USING p_batch_row_id_ranges;
 
-    -- Resolve primary conflicts within the current batch in the main data table
-    -- This is done here because this step runs AFTER link steps have populated parent IDs and primary flags
-    IF v_job.definition_snapshot->'import_definition'->>'mode' = 'establishment_formal' THEN
-        v_sql := format($$
-            WITH BatchPrimaries AS (
-                SELECT row_id, FIRST_VALUE(row_id) OVER (PARTITION BY legal_unit_id, daterange(valid_from, valid_until, '[)') ORDER BY establishment_id ASC NULLS LAST, row_id ASC) as winner_row_id
-                FROM public.%1$I WHERE row_id <@ $1 AND primary_for_legal_unit = true AND legal_unit_id IS NOT NULL
-            )
-            UPDATE public.%1$I dt SET primary_for_legal_unit = false FROM BatchPrimaries bp
-            WHERE dt.row_id = bp.row_id AND dt.row_id != bp.winner_row_id AND dt.primary_for_legal_unit = true;
-        $$, v_data_table_name);
-        RAISE DEBUG '[Job %] analyse_establishment: Resolving primary conflicts (formal) with SQL: %', p_job_id, v_sql;
-        EXECUTE v_sql USING p_batch_row_id_ranges;
-    ELSIF v_job.definition_snapshot->'import_definition'->>'mode' = 'establishment_informal' THEN
-        v_sql := format($$
-            WITH BatchPrimaries AS (
-                SELECT row_id, FIRST_VALUE(row_id) OVER (PARTITION BY enterprise_id, daterange(valid_from, valid_until, '[)') ORDER BY establishment_id ASC NULLS LAST, row_id ASC) as winner_row_id
-                FROM public.%1$I WHERE row_id <@ $1 AND primary_for_enterprise = true AND enterprise_id IS NOT NULL
-            )
-            UPDATE public.%1$I dt SET primary_for_enterprise = false FROM BatchPrimaries bp
-            WHERE dt.row_id = bp.row_id AND dt.row_id != bp.winner_row_id AND dt.primary_for_enterprise = true;
-        $$, v_data_table_name);
-        RAISE DEBUG '[Job %] analyse_establishment: Resolving primary conflicts (informal) with SQL: %', p_job_id, v_sql;
-        EXECUTE v_sql USING p_batch_row_id_ranges;
-    END IF;
+    -- Propagate errors to all rows of a new entity if one fails (best-effort)
+    BEGIN
+        CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_job.data_table_name, p_batch_row_id_ranges, v_error_keys_to_clear_arr, 'analyse_establishment');
+    EXCEPTION WHEN OTHERS THEN
+        RAISE WARNING '[Job %] analyse_establishment: Non-fatal error during error propagation: %', p_job_id, SQLERRM;
+    END;
+
+    -- Resolve primary conflicts (best-effort)
+    BEGIN
+        IF v_job.definition_snapshot->'import_definition'->>'mode' = 'establishment_formal' THEN
+            v_sql := format($$
+                WITH BatchPrimaries AS (
+                    SELECT row_id, FIRST_VALUE(row_id) OVER (PARTITION BY legal_unit_id, daterange(valid_from, valid_until, '[)') ORDER BY establishment_id ASC NULLS LAST, row_id ASC) as winner_row_id
+                    FROM public.%1$I WHERE row_id <@ $1 AND primary_for_legal_unit = true AND legal_unit_id IS NOT NULL
+                )
+                UPDATE public.%1$I dt SET primary_for_legal_unit = false FROM BatchPrimaries bp
+                WHERE dt.row_id = bp.row_id AND dt.row_id != bp.winner_row_id AND dt.primary_for_legal_unit = true;
+            $$, v_data_table_name);
+            RAISE DEBUG '[Job %] analyse_establishment: Resolving primary conflicts (formal) with SQL: %', p_job_id, v_sql;
+            EXECUTE v_sql USING p_batch_row_id_ranges;
+        ELSIF v_job.definition_snapshot->'import_definition'->>'mode' = 'establishment_informal' THEN
+            v_sql := format($$
+                WITH BatchPrimaries AS (
+                    SELECT row_id, FIRST_VALUE(row_id) OVER (PARTITION BY enterprise_id, daterange(valid_from, valid_until, '[)') ORDER BY establishment_id ASC NULLS LAST, row_id ASC) as winner_row_id
+                    FROM public.%1$I WHERE row_id <@ $1 AND primary_for_enterprise = true AND enterprise_id IS NOT NULL
+                )
+                UPDATE public.%1$I dt SET primary_for_enterprise = false FROM BatchPrimaries bp
+                WHERE dt.row_id = bp.row_id AND dt.row_id != bp.winner_row_id AND dt.primary_for_enterprise = true;
+            $$, v_data_table_name);
+            RAISE DEBUG '[Job %] analyse_establishment: Resolving primary conflicts (informal) with SQL: %', p_job_id, v_sql;
+            EXECUTE v_sql USING p_batch_row_id_ranges;
+        END IF;
+    EXCEPTION WHEN OTHERS THEN
+        RAISE WARNING '[Job %] analyse_establishment: Non-fatal error during primary conflict resolution: %', p_job_id, SQLERRM;
+    END;
 
     RAISE DEBUG '[Job %] analyse_establishment (Batch): Finished analysis for batch. Total errors in batch: %', p_job_id, v_error_count;
 END;
@@ -443,8 +448,6 @@ BEGIN
     END;
 
     -- The framework now handles advancing priority for all rows.
-    IF to_regclass('pg_temp.temp_es_source_view') IS NOT NULL THEN DROP VIEW temp_es_source_view; END IF;
-    IF to_regclass('pg_temp.temp_es_demotion_source') IS NOT NULL THEN DROP TABLE temp_es_demotion_source; END IF;
     v_duration_ms := (EXTRACT(EPOCH FROM (clock_timestamp() - v_start_time)) * 1000);
     RAISE DEBUG '[Job %] process_establishment (Batch): Finished in % ms. Success: %, Errors: %', p_job_id, round(v_duration_ms, 2), v_update_count, v_error_count;
 END;

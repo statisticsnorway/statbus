@@ -50,8 +50,19 @@ BEGIN
     RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Materializing relevant rows with SQL: %', p_job_id, v_sql;
     EXECUTE v_sql;
     GET DIAGNOSTICS v_total_rows_to_process = ROW_COUNT;
-    IF v_total_rows_to_process = 0 THEN RAISE DEBUG '[Job %] No rows to process for %.', p_job_id, p_step_code; RETURN; END IF;
-    RAISE DEBUG '[Job %] Found % rows to process for %.', p_job_id, v_total_rows_to_process, p_step_code;
+    IF v_total_rows_to_process = 0 THEN
+        RAISE DEBUG '[Job %] No rows with action != ''skip'' found to process for %.', p_job_id, p_step_code;
+        -- Even if no rows are actionable, we MUST advance the priority for all rows pending this step to prevent an infinite loop.
+        v_sql := format($$
+            UPDATE public.%1$I dt SET
+                last_completed_priority = %2$L
+            WHERE dt.last_completed_priority < %2$L;
+        $$, v_data_table_name, v_step.priority);
+        RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Advancing priority for all pending rows to prevent loop. SQL: %', p_job_id, v_sql;
+        EXECUTE v_sql;
+        RETURN;
+    END IF;
+    RAISE DEBUG '[Job %] Found % relevant rows to process for %.', p_job_id, v_total_rows_to_process, p_step_code;
     CREATE INDEX ON temp_relevant_rows (data_row_id);
 
     -- STEP 1: HOLISTIC PRE-CALCULATION
@@ -249,18 +260,22 @@ BEGIN
     EXECUTE v_sql;
     RAISE DEBUG '[Job %] Holistic update complete.', p_job_id;
 
-    -- Propagate errors to related new entity rows (uses a temp table of errored rows)
-    CREATE TEMP TABLE temp_batch_errors (data_row_id INTEGER PRIMARY KEY) ON COMMIT DROP;
-    INSERT INTO temp_batch_errors (data_row_id) SELECT data_row_id FROM temp_precalc WHERE errors_jsonb IS NOT NULL;
-    CALL import.propagate_fatal_error_to_entity_holistic(p_job_id, v_data_table_name, 'temp_batch_errors', v_error_keys_to_clear_arr, p_step_code);
+    -- Propagate errors to related new entity rows (best-effort)
+    BEGIN
+        CREATE TEMP TABLE temp_batch_errors (data_row_id INTEGER PRIMARY KEY) ON COMMIT DROP;
+        INSERT INTO temp_batch_errors (data_row_id) SELECT data_row_id FROM temp_precalc WHERE errors_jsonb IS NOT NULL;
+        CALL import.propagate_fatal_error_to_entity_holistic(p_job_id, v_data_table_name, 'temp_batch_errors', v_error_keys_to_clear_arr, p_step_code);
+    EXCEPTION WHEN OTHERS THEN
+        RAISE WARNING '[Job %] analyse_link_establishment_to_legal_unit: Non-fatal error during error propagation: %', p_job_id, SQLERRM;
+    END;
 
-    -- Unconditionally advance priority for all relevant rows to ensure progress.
+    -- Unconditionally advance priority for all rows that have not yet passed this step to ensure progress.
     v_sql := format($$
         UPDATE public.%1$I dt SET
             last_completed_priority = %2$L
-        WHERE EXISTS (SELECT 1 FROM temp_relevant_rows tr WHERE tr.data_row_id = dt.row_id) AND dt.last_completed_priority < %2$L;
+        WHERE dt.last_completed_priority < %2$L;
     $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */);
-    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit (Hybrid): Unconditionally advancing priority for all relevant rows with SQL: %', p_job_id, v_sql;
+    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit (Hybrid): Unconditionally advancing priority for all applicable rows with SQL: %', p_job_id, v_sql;
     EXECUTE v_sql;
     
     v_duration_ms := (EXTRACT(EPOCH FROM (clock_timestamp() - v_start_time)) * 1000);

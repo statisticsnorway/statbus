@@ -2183,7 +2183,7 @@ BEGIN
             BEGIN
                 IF COALESCE(v_step_rec.is_holistic, false) THEN
                     -- HOLISTIC: check for work and run once.
-                    EXECUTE format($$SELECT EXISTS(SELECT 1 FROM public.%I WHERE state = %L AND last_completed_priority < %L LIMIT 1)$$,
+                    EXECUTE format($$SELECT EXISTS(SELECT 1 FROM public.%I WHERE state IN (%L, 'error') AND last_completed_priority < %L LIMIT 1)$$,
                         job.data_table_name, v_current_phase_data_state, v_step_rec.priority)
                     INTO v_rows_exist;
 
@@ -2200,7 +2200,7 @@ BEGIN
                         WITH entity_batch AS (
                             SELECT DISTINCT COALESCE(founding_row_id, row_id) AS entity_root_id
                             FROM public.%1$I
-                            WHERE state = %2$L AND last_completed_priority < %3$L
+                            WHERE state IN (%2$L, 'error') AND last_completed_priority < %3$L
                             ORDER BY entity_root_id
                             LIMIT %4$L
                         ),
@@ -2208,7 +2208,7 @@ BEGIN
                             SELECT dt.row_id
                             FROM public.%1$I dt
                             JOIN entity_batch eb ON COALESCE(dt.founding_row_id, dt.row_id) = eb.entity_root_id
-                            WHERE dt.state = %2$L AND dt.last_completed_priority < %3$L
+                            WHERE dt.state IN (%2$L, 'error') AND dt.last_completed_priority < %3$L
                             ORDER BY dt.row_id
                             FOR UPDATE SKIP LOCKED
                         )
@@ -2252,7 +2252,7 @@ BEGIN
         IF v_step_rec.analyse_procedure IS NULL THEN CONTINUE; END IF;
 
         -- Check if any rows need processing for this step.
-        EXECUTE format($$SELECT EXISTS(SELECT 1 FROM public.%I WHERE state = %L AND last_completed_priority < %L LIMIT 1)$$,
+        EXECUTE format($$SELECT EXISTS(SELECT 1 FROM public.%I WHERE state IN (%L, 'error') AND last_completed_priority < %L LIMIT 1)$$,
             job.data_table_name, v_current_phase_data_state, v_step_rec.priority)
         INTO v_rows_exist;
 

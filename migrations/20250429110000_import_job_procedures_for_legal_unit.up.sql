@@ -147,17 +147,26 @@ BEGIN
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_legal_unit: Updated % non-skipped rows in single pass.', p_job_id, v_update_count;
 
-        -- Unconditionally advance priority for all rows in batch to ensure progress
-        v_sql := format($$
-            UPDATE public.%1$I dt SET
-                last_completed_priority = %2$L
-            WHERE dt.row_id <@ $1 AND dt.last_completed_priority < %2$L;
-        $$, v_job.data_table_name /* %1$I */, v_step.priority /* %2$L */);
-        RAISE DEBUG '[Job %] analyse_legal_unit: Unconditionally advancing priority for all batch rows with SQL: %', p_job_id, v_sql;
-        EXECUTE v_sql USING p_batch_row_id_ranges;
-        GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] analyse_legal_unit: Advanced last_completed_priority for % total rows in batch.', p_job_id, v_skipped_update_count;
+    EXCEPTION WHEN others THEN
+        RAISE WARNING '[Job %] analyse_legal_unit: Error during single-pass batch update: %', p_job_id, SQLERRM;
+        UPDATE public.import_job
+        SET error = jsonb_build_object('analyse_legal_unit_batch_error', SQLERRM),
+            state = 'finished'
+        WHERE id = p_job_id;
+        RAISE DEBUG '[Job %] analyse_legal_unit: Marked job as failed due to error: %', p_job_id, SQLERRM;
+        RAISE;
+    END;
 
+    -- Unconditionally advance priority for all rows in batch to ensure progress
+    v_sql := format($$
+        UPDATE public.%1$I dt SET
+            last_completed_priority = %2$L
+        WHERE dt.row_id <@ $1 AND dt.last_completed_priority < %2$L;
+    $$, v_job.data_table_name, v_step.priority);
+    RAISE DEBUG '[Job %] analyse_legal_unit: Unconditionally advancing priority for all batch rows with SQL: %', p_job_id, v_sql;
+    EXECUTE v_sql USING p_batch_row_id_ranges;
+
+    BEGIN
         v_sql := format($$SELECT COUNT(*) FROM public.%1$I WHERE row_id <@ $1 AND state = 'error' AND (errors ?| %2$L::text[])$$,
                        v_job.data_table_name /* %1$I */, v_error_keys_to_clear_arr /* %2$L */);
         RAISE DEBUG '[Job %] analyse_legal_unit: Counting errors with SQL: %', p_job_id, v_sql;
@@ -205,32 +214,39 @@ BEGIN
         END;
     END IF;
 
-    -- Propagate errors to all rows of a new entity if one fails
-    CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_job.data_table_name, p_batch_row_id_ranges, v_error_keys_to_clear_arr, 'analyse_legal_unit');
+    -- Propagate errors to all rows of a new entity if one fails (best-effort)
+    BEGIN
+        CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_job.data_table_name, p_batch_row_id_ranges, v_error_keys_to_clear_arr, 'analyse_legal_unit');
+    EXCEPTION WHEN OTHERS THEN
+        RAISE WARNING '[Job %] analyse_legal_unit: Non-fatal error during error propagation: %', p_job_id, SQLERRM;
+    END;
 
-    -- Resolve primary_for_enterprise conflicts within the current batch in the main data table
-    -- This is done here because this analysis step runs AFTER the enterprise_link step has populated enterprise_id and primary_for_enterprise
-    RAISE DEBUG '[Job %] analyse_legal_unit: Resolving primary_for_enterprise conflicts within the batch in %s.', p_job_id, v_job.data_table_name;
-    v_sql := format($$
-        WITH BatchPrimaries AS (
-            SELECT
-                row_id,
-                FIRST_VALUE(row_id) OVER (
-                    PARTITION BY enterprise_id, daterange(valid_from, valid_until, '[)')
-                    ORDER BY legal_unit_id ASC NULLS LAST, row_id ASC
-                ) as winner_row_id
-            FROM public.%1$I
-            WHERE row_id <@ $1 AND primary_for_enterprise = true AND enterprise_id IS NOT NULL
-        )
-        UPDATE public.%1$I dt
-        SET primary_for_enterprise = false
-        FROM BatchPrimaries bp
-        WHERE dt.row_id = bp.row_id
-          AND dt.row_id != bp.winner_row_id
-          AND dt.primary_for_enterprise = true;
-    $$, v_job.data_table_name);
-    RAISE DEBUG '[Job %] analyse_legal_unit: Resolving primary conflicts with SQL: %', p_job_id, v_sql;
-    EXECUTE v_sql USING p_batch_row_id_ranges;
+    -- Resolve primary_for_enterprise conflicts (best-effort)
+    BEGIN
+        RAISE DEBUG '[Job %] analyse_legal_unit: Resolving primary_for_enterprise conflicts within the batch in %s.', p_job_id, v_job.data_table_name;
+        v_sql := format($$
+            WITH BatchPrimaries AS (
+                SELECT
+                    row_id,
+                    FIRST_VALUE(row_id) OVER (
+                        PARTITION BY enterprise_id, daterange(valid_from, valid_until, '[)')
+                        ORDER BY legal_unit_id ASC NULLS LAST, row_id ASC
+                    ) as winner_row_id
+                FROM public.%1$I
+                WHERE row_id <@ $1 AND primary_for_enterprise = true AND enterprise_id IS NOT NULL
+            )
+            UPDATE public.%1$I dt
+            SET primary_for_enterprise = false
+            FROM BatchPrimaries bp
+            WHERE dt.row_id = bp.row_id
+              AND dt.row_id != bp.winner_row_id
+              AND dt.primary_for_enterprise = true;
+        $$, v_job.data_table_name);
+        RAISE DEBUG '[Job %] analyse_legal_unit: Resolving primary conflicts with SQL: %', p_job_id, v_sql;
+        EXECUTE v_sql USING p_batch_row_id_ranges;
+    EXCEPTION WHEN OTHERS THEN
+        RAISE WARNING '[Job %] analyse_legal_unit: Non-fatal error during primary conflict resolution: %', p_job_id, SQLERRM;
+    END;
 
     RAISE DEBUG '[Job %] analyse_legal_unit (Batch): Finished analysis for batch. Total errors in batch: %', p_job_id, v_error_count;
 END;
@@ -314,13 +330,15 @@ BEGIN
     EXECUTE v_sql;
 
     -- Log the contents of the source view for debugging
-    DECLARE
-        r RECORD;
-    BEGIN
-        FOR r IN SELECT * FROM temp_lu_source_view LOOP
-            RAISE DEBUG '[Job %][Row %] process_legal_unit source_view: valid_to="%", valid_until="%", death_date="%"', p_job_id, r.data_row_id, r.valid_to, r.valid_until, r.death_date;
-        END LOOP;
-    END;
+    IF current_setting('client_min_messages') = 'debug' THEN
+        DECLARE
+            r RECORD;
+        BEGIN
+            FOR r IN SELECT * FROM temp_lu_source_view ORDER BY data_row_id LOOP
+                RAISE DEBUG '[Job %][Row %] process_legal_unit source_view: lu_id=%, ent_id=%, valid_to="%", valid_until="%", death_date="%"', p_job_id, r.data_row_id, r.id, r.enterprise_id, r.valid_to, r.valid_until, r.death_date;
+            END LOOP;
+        END;
+    END IF;
 
     BEGIN
         -- Demotion logic
@@ -472,9 +490,6 @@ BEGIN
     v_duration_ms := (EXTRACT(EPOCH FROM (clock_timestamp() - v_start_time)) * 1000);
     RAISE DEBUG '[Job %] process_legal_unit (Batch): Finished in % ms. Success: %, Errors: %',
         p_job_id, round(v_duration_ms, 2), v_update_count, v_error_count;
-
-    IF to_regclass('pg_temp.temp_lu_source_view') IS NOT NULL THEN DROP VIEW temp_lu_source_view; END IF;
-    IF to_regclass('pg_temp.temp_lu_demotion_source') IS NOT NULL THEN DROP TABLE temp_lu_demotion_source; END IF;
 END;
 $procedure$;
 
