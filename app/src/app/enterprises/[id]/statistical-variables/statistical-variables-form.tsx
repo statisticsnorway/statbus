@@ -1,10 +1,10 @@
 "use client";
 import { useBaseData } from "@/atoms/base-data";
 import { useStatisticalUnitStats } from "@/components/statistical-unit-details/use-unit-details";
-import { FormField } from "@/components/form/form-field";
 import Loading from "@/components/statistical-unit-details/loading";
 import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
 import { useEffect, useState } from "react";
+import { DisplayFormField } from "@/components/form/display-field";
 
 export default function StatisticalVariablesForm({
   id,
@@ -29,13 +29,11 @@ export default function StatisticalVariablesForm({
       {statDefinitions.map((statDefinition) => {
         const value = data?.stats_summary?.[statDefinition.code]?.sum;
         return (
-          <FormField
+          <DisplayFormField
             key={statDefinition.code}
             label={statDefinition.name ?? statDefinition.code!}
             name={`stats.${statDefinition.code}`}
             value={value}
-            response={null}
-            readonly
           />
         );
       })}

@@ -1,10 +1,10 @@
 "use client";
 import { useBaseData } from "@/atoms/base-data";
 import { useStatisticalUnitHierarchy } from "@/components/statistical-unit-details/use-unit-details";
-import { FormField } from "@/components/form/form-field";
 import Loading from "@/components/statistical-unit-details/loading";
 import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
 import { useEffect, useState } from "react";
+import { DisplayFormField } from "@/components/form/display-field";
 
 export default function GeneralInfoForm({ id }: { readonly id: string }) {
   const { externalIdentTypes } = useBaseData();
@@ -38,24 +38,16 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
   return (
     <div className="space-y-8">
       <form className="flex flex-col gap-4">
-        <FormField
-          readonly
-          label="Name"
-          name="name"
-          value={unit?.name}
-          response={null}
-        />
+        <DisplayFormField label="Name" name="name" value={unit?.name} />
         <div className={"grid gap-4 grid-cols-2"}>
           {externalIdentTypes.map((type) => {
             const value = unit?.external_idents[type.code];
             return (
-              <FormField
-                readonly
+              <DisplayFormField
                 key={type.code}
                 label={type.name ?? type.code!}
                 name={`external_idents.${type.code}`}
                 value={value}
-                response={null}
               />
             );
           })}
@@ -66,44 +58,34 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
           <span className="font-medium">Physical Location</span>
 
           <div className="grid lg:grid-cols-2 gap-4 *:col-start-1">
-            <FormField
+            <DisplayFormField
               name="address_part1"
               label="Address Part 1"
               value={physicalLocation?.address_part1}
-              response={null}
-              readonly
             />
-            <FormField
+            <DisplayFormField
               name="address_part2"
               label="Address Part 2"
               value={physicalLocation?.address_part2}
-              response={null}
-              readonly
             />
-            <FormField
+            <DisplayFormField
               name="address_part3"
               label="Address Part 3"
               value={physicalLocation?.address_part3}
-              response={null}
-              readonly
             />
           </div>
           <div className="grid lg:grid-cols-2 gap-4">
-            <FormField
+            <DisplayFormField
               name="postcode"
               label="Post Code"
               value={physicalLocation?.postcode}
-              response={null}
-              readonly
             />
-            <FormField
+            <DisplayFormField
               name="postplace"
               label="Post Place"
               value={physicalLocation?.postplace}
-              response={null}
-              readonly
             />
-            <FormField
+            <DisplayFormField
               name="region_id"
               label="Region"
               value={
@@ -111,38 +93,28 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
                   ? `${physicalLocation.region.code} ${physicalLocation.region.name}`
                   : null
               }
-              response={null}
-              readonly
             />
-            <FormField
+            <DisplayFormField
               name="country_id"
               label="Country"
               value={physicalLocation?.country?.name}
-              response={null}
-              readonly
             />
           </div>
           <div className="grid lg:grid-cols-3 gap-4">
-            <FormField
-              readonly
+            <DisplayFormField
               label="Latitude"
               name="latitude"
               value={physicalLocation?.latitude}
-              response={null}
             />
-            <FormField
-              readonly
+            <DisplayFormField
               label="Longitude"
               name="longitude"
               value={physicalLocation?.longitude}
-              response={null}
             />
-            <FormField
-              readonly
+            <DisplayFormField
               label="Altitude"
               name="altitude"
               value={physicalLocation?.altitude}
-              response={null}
             />
           </div>
         </div>

@@ -7,8 +7,9 @@ import { Pencil } from "lucide-react";
 import { Input } from "../ui/input";
 import { DeleteConfirmationDialog } from "./delete-confirmation-dialog";
 import { Label } from "../ui/label";
-import { useEditManager } from "@/atoms/search";
+import { useEditManager } from "@/atoms/edits";
 import { cn } from "@/lib/utils";
+import { useEditableFieldState } from "./use-editable-field-state";
 
 interface EditableFieldProps {
   fieldId: string;
@@ -28,34 +29,29 @@ export const EditableField = ({
   const { currentEdit, setEditTarget, exitEditMode } = useEditManager();
 
   const isEditing = currentEdit?.fieldId === fieldId;
-  const [currentValue, setCurrentValue] = useState(value ?? "");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const {
+    currentValue,
+    setCurrentValue,
+    hasUnsavedChanges,
+    handleCancel: baseHandleCancel,
+  } = useEditableFieldState(value, response, isEditing, exitEditMode);
 
-  useGuardedEffect(() => {
-    // Focus the input when entering edit mode
-    if (isEditing && inputRef.current) {
-      inputRef.current.focus();
-      const length = inputRef.current.value.length;
-      inputRef.current.setSelectionRange(length, length);
-    }
-  }, [isEditing], 'EditableField:focusOnEdit');
+  useGuardedEffect(
+    () => {
+      // Focus the input when entering edit mode
+      if (isEditing && inputRef.current) {
+        inputRef.current.focus();
+        const length = inputRef.current.value.length;
+        inputRef.current.setSelectionRange(length, length);
+      }
+    },
+    [isEditing],
+    "EditableField:focusOnEdit"
+  );
 
-  const hasUnsavedChanges = currentValue !== (value ?? "");
-
-  useGuardedEffect(() => {
-    if (!isEditing) {
-      setCurrentValue(value ?? "");
-    }
-  }, [value, isEditing], 'EditableField:syncValue');
-
-  // Handle successful save — exit edit mode
-  useGuardedEffect(() => {
-    if (response?.status === "success" && isEditing) {
-      exitEditMode();
-    }
-  }, [response, isEditing, exitEditMode], 'EditableField:exitOnSuccess');
 
   const triggerFormSubmit = () => {
     formRef.current?.requestSubmit();
@@ -71,8 +67,8 @@ export const EditableField = ({
   };
 
   const handleCancel = () => {
-    setCurrentValue(value ?? "");
-    exitEditMode();
+
+    baseHandleCancel()
     setShowDeleteDialog(false);
   };
 
@@ -89,7 +85,7 @@ export const EditableField = ({
               variant="ghost"
               size="sm"
               type="button"
-              onClick={() => setEditTarget({ fieldId })}
+              onClick={() => setEditTarget(fieldId)}
             >
               <Pencil className="text-zinc-700" />
             </Button>

@@ -1,7 +1,7 @@
 "use client";
 import { useStatisticalUnitHierarchy } from "@/components/statistical-unit-details/use-unit-details";
-import { FormField } from "@/components/form/form-field";
 import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
+import { DisplayFormField } from "@/components/form/display-field";
 
 export default function ContactInfoForm({ id }: { readonly id: string }) {
   const { hierarchy, isLoading, error } = useStatisticalUnitHierarchy(
@@ -26,96 +26,96 @@ export default function ContactInfoForm({ id }: { readonly id: string }) {
       <form className="flex flex-col gap-4">
         <span className="font-medium">Communication</span>
         <div className="grid lg:grid-cols-2 gap-4">
-          <FormField
-            readonly
+          <DisplayFormField
+            
             label="Email address"
             name="email_address"
             value={primaryUnit?.contact?.email_address}
-            response={null}
+            
           />
-          <FormField
-            readonly
+          <DisplayFormField
+            
             label="Web Address"
             name="web_address"
             value={primaryUnit?.contact?.web_address}
-            response={null}
+            
           />
-          <FormField
-            readonly
+          <DisplayFormField
+            
             label="Phone number"
             name="phone_number"
             value={primaryUnit?.contact?.phone_number}
-            response={null}
+            
           />
-          <FormField
-            readonly
+          <DisplayFormField
+            
             label="Landline"
             name="landline"
             value={primaryUnit?.contact?.landline}
-            response={null}
+            
           />
-          <FormField
-            readonly
+          <DisplayFormField
+            
             label="Mobile Number"
             name="mobile_number"
             value={primaryUnit?.contact?.mobile_number}
-            response={null}
+            
           />
-          <FormField
-            readonly
+          <DisplayFormField
+            
             label="Fax Number"
             name="fax_number"
             value={primaryUnit?.contact?.fax_number}
-            response={null}
+            
           />
         </div>
       </form>
       <form className="flex flex-col gap-4">
         <span className="font-medium">Postal Location</span>
         <div className="grid lg:grid-cols-2 gap-4 *:col-start-1">
-          <FormField
-            readonly
+          <DisplayFormField
+            
             label="Address part1"
             name="address_part1"
             value={postalLocation?.address_part1}
-            response={null}
+            
           />
-          <FormField
-            readonly
+          <DisplayFormField
+            
             label="Address part2"
             name="address_part2"
             value={postalLocation?.address_part2}
-            response={null}
+            
           />
-          <FormField
-            readonly
+          <DisplayFormField
+            
             label="Address part3"
             name="address_part3"
             value={postalLocation?.address_part3}
-            response={null}
+            
           />
         </div>
         <div className="grid lg:grid-cols-2 gap-4">
-          <FormField
-            readonly
+          <DisplayFormField
+            
             label="Post code"
             name="postcode"
             value={postalLocation?.postcode}
-            response={null}
+            
           />
-          <FormField
-            readonly
+          <DisplayFormField
+            
             label="Post place"
             name="postplace"
             value={postalLocation?.postplace}
-            response={null}
+            
           />
-          <FormField
-            readonly
+          <DisplayFormField
+            
             label="Country"
             name="country_id"
             value={postalLocation?.country?.name}
-            response={null}
+            
           />
         </div>
       </form>
