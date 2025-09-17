@@ -22,17 +22,15 @@ Indexes:
     "stat_for_unit_pkey" PRIMARY KEY, btree (id, valid_from, valid_until) DEFERRABLE
     "ix_stat_for_unit_data_source_id" btree (data_source_id)
     "ix_stat_for_unit_establishment_id" btree (establishment_id)
+    "ix_stat_for_unit_establishment_id_valid_range" gist (establishment_id, daterange(valid_from, valid_until, '[)'::text))
     "ix_stat_for_unit_legal_unit_id" btree (legal_unit_id)
     "ix_stat_for_unit_legal_unit_id_valid_range" gist (legal_unit_id, daterange(valid_from, valid_until, '[)'::text))
     "ix_stat_for_unit_stat_definition_id" btree (stat_definition_id)
     "stat_for_unit_id_idx" btree (id)
     "stat_for_unit_id_valid_excl" EXCLUDE USING gist (id WITH =, daterange(valid_from, valid_until) WITH &&) DEFERRABLE
-    "stat_for_unit_stat_definition_id_establishment_id_idx" btree (stat_definition_id, establishment_id)
-    "stat_for_unit_stat_definition_id_establishment_id_valid_excl" EXCLUDE USING gist (stat_definition_id WITH =, establishment_id WITH =, daterange(valid_from, valid_until) WITH &&) DEFERRABLE
-    "stat_for_unit_stat_definition_id_establishment_id_valid_uniq" UNIQUE CONSTRAINT, btree (stat_definition_id, establishment_id, valid_from, valid_until) DEFERRABLE
-    "stat_for_unit_stat_definition_id_legal_unit_id_idx" btree (stat_definition_id, legal_unit_id)
-    "stat_for_unit_stat_definition_id_legal_unit_id_valid_excl" EXCLUDE USING gist (stat_definition_id WITH =, legal_unit_id WITH =, daterange(valid_from, valid_until) WITH &&) DEFERRABLE
-    "stat_for_unit_stat_definition_id_legal_unit_id_valid_uniq" UNIQUE CONSTRAINT, btree (stat_definition_id, legal_unit_id, valid_from, valid_until) DEFERRABLE
+    "stat_for_unit_natural_key_valid_excl" EXCLUDE USING gist (stat_definition_id WITH =, legal_unit_id WITH =, establishment_id WITH =, daterange(valid_from, valid_until) WITH &&) DEFERRABLE
+    "stat_for_unit_natural_key_valid_uniq" UNIQUE CONSTRAINT, btree (stat_definition_id, legal_unit_id, establishment_id, valid_from, valid_until) DEFERRABLE
+    "stat_for_unit_stat_definitio_legal_unit_id_establishment__idx" btree (stat_definition_id, legal_unit_id, establishment_id)
 Check constraints:
     "One and only one statistical unit id must be set" CHECK (establishment_id IS NOT NULL AND legal_unit_id IS NULL OR establishment_id IS NULL AND legal_unit_id IS NOT NULL)
     "stat_for_unit_check" CHECK (value_int IS NOT NULL AND value_float IS NULL AND value_string IS NULL AND value_bool IS NULL OR value_int IS NULL AND value_float IS NOT NULL AND value_string IS NULL AND value_bool IS NULL OR value_int IS NULL AND value_float IS NULL AND value_string IS NOT NULL AND value_bool IS NULL OR value_int IS NULL AND value_float IS NULL AND value_string IS NULL AND value_bool IS NOT NULL)

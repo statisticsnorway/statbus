@@ -45,6 +45,8 @@ Policies:
       USING (true)
       WITH CHECK (true)
 Triggers:
+    external_ident_changes_trigger AFTER INSERT OR UPDATE ON external_ident FOR EACH STATEMENT EXECUTE FUNCTION worker.notify_worker_about_changes()
+    external_ident_deletes_trigger BEFORE DELETE ON external_ident FOR EACH ROW EXECUTE FUNCTION worker.notify_worker_about_deletes()
     trigger_prevent_external_ident_id_update BEFORE UPDATE OF id ON external_ident FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 
 ```

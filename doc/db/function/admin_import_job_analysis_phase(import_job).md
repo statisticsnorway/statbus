@@ -34,7 +34,7 @@ DECLARE
     v_steps JSONB;
     v_step_rec RECORD;
     v_proc_to_call REGPROC;
-    v_batch_row_ids INTEGER[];
+    v_batch_row_id_ranges int4multirange;
     v_error_message TEXT;
     v_rows_exist BOOLEAN;
     v_rows_processed INT;
@@ -71,7 +71,7 @@ BEGIN
 
                     IF v_rows_exist THEN
                         RAISE DEBUG '[Job %] Executing HOLISTIC step % (priority %)', job.id, v_step_rec.code, v_step_rec.priority;
-                        EXECUTE format('CALL %s($1, $2, $3)', v_proc_to_call) USING job.id, NULL::INTEGER[], v_step_rec.code;
+                        EXECUTE format('CALL %s($1, $2, $3)', v_proc_to_call) USING job.id, NULL::int4multirange, v_step_rec.code;
                         v_rows_processed := 1; -- Mark as having done work.
                     END IF;
                 ELSE
@@ -85,27 +85,27 @@ BEGIN
                             WHERE state = %2$L AND last_completed_priority < %3$L
                             ORDER BY entity_root_id
                             LIMIT %4$L
-                        )
-                        SELECT array_agg(t.row_id)
-                        FROM (
+                        ),
+                        batch_rows AS (
                             SELECT dt.row_id
                             FROM public.%1$I dt
                             JOIN entity_batch eb ON COALESCE(dt.founding_row_id, dt.row_id) = eb.entity_root_id
                             WHERE dt.state = %2$L AND dt.last_completed_priority < %3$L
                             ORDER BY dt.row_id
                             FOR UPDATE SKIP LOCKED
-                        ) t
+                        )
+                        SELECT public.array_to_int4multirange(array_agg(row_id)) FROM batch_rows
                         $$,
                         job.data_table_name,        /* %1$I */
                         v_current_phase_data_state, /* %2$L */
                         v_step_rec.priority,        /* %3$L */
                         job.analysis_batch_size     /* %4$L */
-                    ) INTO v_batch_row_ids;
+                    ) INTO v_batch_row_id_ranges;
 
-                    IF v_batch_row_ids IS NOT NULL AND array_length(v_batch_row_ids, 1) > 0 THEN
-                        RAISE DEBUG '[Job %] Executing BATCHED step % (priority %), found % rows.', job.id, v_step_rec.code, v_step_rec.priority, array_length(v_batch_row_ids, 1);
-                        EXECUTE format('CALL %s($1, $2, $3)', v_proc_to_call) USING job.id, v_batch_row_ids, v_step_rec.code;
-                        v_rows_processed := array_length(v_batch_row_ids, 1);
+                    IF v_batch_row_id_ranges IS NOT NULL AND NOT isempty(v_batch_row_id_ranges) THEN
+                        RAISE DEBUG '[Job %] Executing BATCHED step % (priority %), found ranges: %s.', job.id, v_step_rec.code, v_step_rec.priority, v_batch_row_id_ranges::text;
+                        EXECUTE format('CALL %s($1, $2, $3)', v_proc_to_call) USING job.id, v_batch_row_id_ranges, v_step_rec.code;
+                        v_rows_processed := (SELECT count(*) FROM unnest(v_batch_row_id_ranges));
                     END IF;
                 END IF;
             EXCEPTION WHEN OTHERS THEN

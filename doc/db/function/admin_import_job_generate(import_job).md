@@ -94,6 +94,14 @@ BEGIN
   EXECUTE format($$CREATE INDEX ON public.%1$I (state, last_completed_priority, row_id)$$, job.data_table_name /* %1$I */);
   RAISE DEBUG '[Job %] Added composite index to data table %', job.id, job.data_table_name;
 
+  -- Add GIST index on row_id for efficient multirange operations (<@)
+  EXECUTE format('CREATE INDEX ON public.%I USING GIST (row_id)', job.data_table_name);
+  RAISE DEBUG '[Job %] Added GIST index on row_id to data table %', job.id, job.data_table_name;
+
+  -- Add GIST index on daterange(valid_from, valid_until) for efficient temporal_merge lookups.
+  EXECUTE format('CREATE INDEX ON public.%I USING GIST (daterange(valid_from, valid_until, ''[]''))', job.data_table_name);
+  RAISE DEBUG '[Job %] Added GIST index on validity daterange to data table %', job.id, job.data_table_name;
+
   -- Create indexes on uniquely identifying source_input columns to speed up lookups within analysis steps.
   FOR col_rec IN
       SELECT (x->>'column_name')::TEXT as column_name

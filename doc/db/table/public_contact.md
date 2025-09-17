@@ -25,6 +25,7 @@ Indexes:
     "ix_contact_data_source_id" btree (data_source_id)
     "ix_contact_edit_by_user_id" btree (edit_by_user_id)
     "ix_contact_establishment_id" btree (establishment_id)
+    "ix_contact_establishment_id_valid_range" gist (establishment_id, daterange(valid_from, valid_until, '[)'::text))
     "ix_contact_legal_unit_id" btree (legal_unit_id)
     "ix_contact_legal_unit_id_valid_range" gist (legal_unit_id, daterange(valid_from, valid_until, '[)'::text))
 Check constraints:

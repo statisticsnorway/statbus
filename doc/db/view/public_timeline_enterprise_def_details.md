@@ -7,7 +7,7 @@
  valid_from                       | date                     |           |          |         | plain    | 
  valid_to                         | date                     |           |          |         | plain    | 
  valid_until                      | date                     |           |          |         | plain    | 
- name                             | character varying(256)   |           |          |         | extended | 
+ name                             | text                     |           |          |         | extended | 
  birth_date                       | date                     |           |          |         | plain    | 
  death_date                       | date                     |           |          |         | plain    | 
  search                           | tsvector                 |           |          |         | extended | 
@@ -223,7 +223,7 @@ View definition:
                     ten.valid_from,
                     ten.valid_until,
                     ten.enterprise_id,
-                    COALESCE(enplu.name, enpes.name) AS name,
+                    COALESCE(NULLIF(ten.short_name::text, ''::text), enplu.name::text, enpes.name::text) AS name,
                     COALESCE(enplu.birth_date, enpes.birth_date) AS birth_date,
                     COALESCE(enplu.death_date, enpes.death_date) AS death_date,
                     COALESCE(enplu.primary_activity_category_id, enpes.primary_activity_category_id) AS primary_activity_category_id,
@@ -493,7 +493,7 @@ View definition:
     name,
     birth_date,
     death_date,
-    to_tsvector('simple'::regconfig, name::text) AS search,
+    to_tsvector('simple'::regconfig, name) AS search,
     primary_activity_category_id,
     primary_activity_category_path,
     primary_activity_category_code,

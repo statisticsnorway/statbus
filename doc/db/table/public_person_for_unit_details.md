@@ -15,7 +15,9 @@ Indexes:
     "person_for_unit_pkey" PRIMARY KEY, btree (id, valid_from, valid_until) DEFERRABLE
     "ix_person_for_unit_data_source_id" btree (data_source_id)
     "ix_person_for_unit_establishment_id" btree (establishment_id)
+    "ix_person_for_unit_establishment_id_valid_range" gist (establishment_id, daterange(valid_from, valid_until, '[)'::text))
     "ix_person_for_unit_legal_unit_id" btree (legal_unit_id)
+    "ix_person_for_unit_legal_unit_id_valid_range" gist (legal_unit_id, daterange(valid_from, valid_until, '[)'::text))
     "ix_person_for_unit_person_id" btree (person_id)
     "ix_person_for_unit_person_role_id" btree (person_role_id)
     "person_for_unit_id_idx" btree (id)

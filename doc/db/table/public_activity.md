@@ -28,6 +28,7 @@ Indexes:
     "ix_activity_data_source_id" btree (data_source_id)
     "ix_activity_edit_by_user_id" btree (edit_by_user_id)
     "ix_activity_establishment_id" btree (establishment_id)
+    "ix_activity_establishment_id_valid_range" gist (establishment_id, daterange(valid_from, valid_until, '[)'::text))
     "ix_activity_establishment_valid_from_valid_until" btree (establishment_id, valid_from, valid_until)
     "ix_activity_legal_unit_id" btree (legal_unit_id)
     "ix_activity_legal_unit_id_valid_range" gist (legal_unit_id, daterange(valid_from, valid_until, '[)'::text))

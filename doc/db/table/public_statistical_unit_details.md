@@ -8,7 +8,7 @@
  valid_to                         | date                     |           |          |         | plain    |             |              | 
  valid_until                      | date                     |           |          |         | plain    |             |              | 
  external_idents                  | jsonb                    |           |          |         | extended |             |              | 
- name                             | character varying(256)   |           |          |         | extended |             |              | 
+ name                             | character varying        |           |          |         | extended |             |              | 
  birth_date                       | date                     |           |          |         | plain    |             |              | 
  death_date                       | date                     |           |          |         | plain    |             |              | 
  search                           | tsvector                 |           |          |         | extended |             |              | 

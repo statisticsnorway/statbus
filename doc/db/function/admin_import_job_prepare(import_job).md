@@ -55,9 +55,9 @@ BEGIN
                     WHEN 'now' THEN 'statement_timestamp()'
                     WHEN 'default' THEN
                         CASE current_target_data_column->>'column_name'
-                            WHEN 'valid_from' THEN format('%L', job.default_valid_from)
-                            WHEN 'valid_to' THEN format('%L', job.default_valid_to)
-                            WHEN 'data_source_code' THEN format('%L', job.default_data_source_code)
+                            WHEN 'valid_from_raw' THEN format('%L', job.default_valid_from)
+                            WHEN 'valid_to_raw' THEN format('%L', job.default_valid_to)
+                            WHEN 'data_source_code_raw' THEN format('%L', job.default_data_source_code)
                             ELSE 'NULL'
                         END
                     ELSE 'NULL'

@@ -7,7 +7,7 @@
  valid_from                       | date                     |           |          | 
  valid_to                         | date                     |           |          | 
  valid_until                      | date                     |           |          | 
- name                             | character varying(256)   |           |          | 
+ name                             | text                     |           |          | 
  birth_date                       | date                     |           |          | 
  death_date                       | date                     |           |          | 
  search                           | tsvector                 |           |          | 
