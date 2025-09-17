@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useEditManager } from "@/atoms/edits";
+import { useTimeContext } from "@/atoms/app-derived";
 
 /**
  * This component has no UI. It exists solely to reset the global edit mode state
@@ -10,6 +11,7 @@ import { useEditManager } from "@/atoms/edits";
  * persist across different statistical units.
  */
 export function EditStateResetter() {
+  const { selectedTimeContext } = useTimeContext();
   const pathname = usePathname();
   const { exitEditMode } = useEditManager();
 
@@ -17,7 +19,7 @@ export function EditStateResetter() {
     () => {
       exitEditMode();
     },
-    [pathname, exitEditMode],
+    [pathname, exitEditMode, selectedTimeContext],
     "EditStateResetter:resetOnPathChange"
   );
 
