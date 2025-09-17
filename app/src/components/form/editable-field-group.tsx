@@ -27,14 +27,36 @@ export function EditableFieldGroup({
   const { selectedTimeContext } = useTimeContext();
   const formRef = useRef<HTMLFormElement>(null);
   const [formKey, setFormKey] = useState(0);
+      
 
   const { currentEdit, setEditTarget, exitEditMode } = useEditManager();
 
   const isEditing = currentEdit?.fieldId === fieldGroupId;
+  const wasEditing = useRef(isEditing);
+  const isExitingOnSuccess = useRef(false);
 
   useGuardedEffect(
     () => {
+      // If we were editing but are no longer...
+      if (wasEditing.current && !isEditing) {
+        if (isExitingOnSuccess.current) {
+          // It was a successful save, so don't reset the form.
+          // Just reset the flag for the next interaction.
+          isExitingOnSuccess.current = false;
+        } else {
+          // It was a cancel or context switch, so reset the form.
+          setFormKey((prevKey) => prevKey + 1);
+        }
+      }
+      wasEditing.current = isEditing;
+    },
+    [isEditing],
+    "EditableFieldGroup:resetOnEditChange"
+  );
+  useGuardedEffect(
+    () => {
       if (response?.status === "success" && isEditing) {
+        isExitingOnSuccess.current = true;
         exitEditMode();
       }
     },
@@ -42,7 +64,6 @@ export function EditableFieldGroup({
     "EditableFieldGroup:exitOnSuccess"
   );
   const handleCancel = () => {
-    setFormKey((prevKey) => prevKey + 1);
     exitEditMode();
   };
   return (

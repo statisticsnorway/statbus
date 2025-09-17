@@ -83,7 +83,6 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
   return (
     <div className="space-y-4">
       <EditableFieldWithMetadata
-        key={`name-lu-${id}`}
         fieldId="name"
         label="Name"
         value={legalUnit?.name}
@@ -177,21 +176,21 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
                 </div>
                 <div className="grid lg:grid-cols-3 gap-4">
                   <FormField
-                    readonly
+                    readonly={!isEditing}
                     label="Latitude"
                     name="latitude"
                     value={physicalLocation?.latitude}
                     response={null}
                   />
                   <FormField
-                    readonly
+                    readonly={!isEditing}
                     label="Longitude"
                     name="longitude"
                     value={physicalLocation?.longitude}
                     response={null}
                   />
                   <FormField
-                    readonly
+                    readonly={!isEditing}
                     label="Altitude"
                     name="altitude"
                     value={physicalLocation?.altitude}

@@ -1,5 +1,5 @@
 "use client";
-import React, { useActionState } from "react";
+import React, { useActionState, useEffect } from "react";
 import { FormField } from "@/components/form/form-field";
 import { useStatisticalUnitDetails } from "@/components/statistical-unit-details/use-unit-details";
 import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
@@ -14,11 +14,15 @@ export default function DemographicInfoForm({ id }: { readonly id: string }) {
     null
   );
   const { status } = useDetailsPageData();
-  const { data, isLoading, error } = useStatisticalUnitDetails(
+  const { data, isLoading, error, revalidate } = useStatisticalUnitDetails(
     id,
     "legal_unit"
   );
-
+  useEffect(() => {
+    if (state?.status === "success") {
+      revalidate();
+    }
+  }, [state, revalidate]);
   if (error || (!isLoading && !data)) {
     return <UnitNotFound />;
   }

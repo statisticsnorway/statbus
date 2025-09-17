@@ -16,7 +16,7 @@ import { SelectFormField } from "@/components/form/select-form-field";
 
 export default function ContactInfoForm({ id }: { readonly id: string }) {
   const [locationState, locationAction] = useActionState(
-    updateLocation.bind(null, id, "physical", "legal_unit"),
+    updateLocation.bind(null, id, "postal", "legal_unit"),
     null
   );
   const [contactState, contactAction] = useActionState(
@@ -32,17 +32,18 @@ export default function ContactInfoForm({ id }: { readonly id: string }) {
     id,
     "legal_unit"
   );
+
+  useEffect(() => {
+    if (
+      locationState?.status === "success" ||
+      contactState?.status === "success"
+    ) {
+      revalidate();
+    }
+  }, [contactState, locationState, revalidate]);
   if (error || (!isLoading && !data)) {
     return <UnitNotFound />;
   }
-   useEffect(() => {
-      if (
-        locationState?.status === "success" ||
-        contactState?.status === "success" 
-      ) {
-        revalidate();
-      }
-    }, [contactState, locationState, revalidate]);
   const legalUnit = data?.legal_unit?.[0];
   const postalLocation = legalUnit?.location?.find(
     (loc) => loc.type === "postal"

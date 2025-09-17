@@ -9,10 +9,4 @@ export const statsSchema = zfd
     value_float: z.coerce.number().nullable().optional(),
     ...editMetadataSchemaFields,
   })
-//   .transform((data) =>
-//     Object.fromEntries(
-//       Object.entries(data).filter(
-//         ([_, v]) => (v !== "" && v !== undefined) || v === null
-//       )
-//     )
-//   );
+

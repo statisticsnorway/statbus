@@ -9,7 +9,7 @@ import { statsSchema } from "./statistical-variables/validation";
 import { _parseAuthStatusRpcResponseToAuthStatus } from "@/lib/auth.types";
 import { contactInfoSchema } from "./contact/validation";
 
-async function getEditMetadata(client: any) {
+export async function getEditMetadata(client: any) {
   const { data } = await client.rpc("auth_status", {}, { get: true });
   const parsedAuthStatus = _parseAuthStatusRpcResponseToAuthStatus(data);
   if (!parsedAuthStatus.isAuthenticated || !parsedAuthStatus.user) {
