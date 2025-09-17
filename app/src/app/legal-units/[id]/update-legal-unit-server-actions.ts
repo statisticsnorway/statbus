@@ -7,6 +7,7 @@ import { locationSchema } from "@/app/legal-units/[id]/general-info/validation";
 import { activitySchema } from "./classifications/validation";
 import { statsSchema } from "./statistical-variables/validation";
 import { _parseAuthStatusRpcResponseToAuthStatus } from "@/lib/auth.types";
+import { contactInfoSchema } from "./contact/validation";
 
 async function getEditMetadata(client: any) {
   const { data } = await client.rpc("auth_status", {}, { get: true });
@@ -182,7 +183,7 @@ export async function updateContact(
 ): Promise<UpdateResponse> {
   "use server";
   const client = await getServerRestClient();
-  const validatedFields = locationSchema.safeParse(formData);
+  const validatedFields = contactInfoSchema.safeParse(formData);
 
   if (!validatedFields.success) {
     return {

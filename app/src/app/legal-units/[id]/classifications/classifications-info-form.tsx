@@ -37,9 +37,7 @@ export default function ClassificationsInfoForm({
     updateLegalUnit.bind(null, id),
     null
   );
-  if (error || (!isLoading && !data)) {
-    return <UnitNotFound />;
-  }
+
   useEffect(() => {
     if (
       primaryActivityState?.status === "success" ||
@@ -56,6 +54,9 @@ export default function ClassificationsInfoForm({
     sectorState,
     revalidate,
   ]);
+  if (error || (!isLoading && !data)) {
+    return <UnitNotFound />;
+  }
   const legalUnit = data?.legal_unit?.[0];
   const primaryActivity = legalUnit?.activity?.find(
     (act) => act.type === "primary"

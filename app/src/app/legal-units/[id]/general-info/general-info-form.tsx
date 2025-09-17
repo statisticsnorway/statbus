@@ -58,7 +58,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
     ) {
       mutate((key) => Array.isArray(key) && key.includes(id));
     }
-  }, [externalIdentState, state, locationState, mutate]);
+  }, [externalIdentState, state, locationState, mutate, id]);
   if (!isClient) {
     return <Loading />;
   }

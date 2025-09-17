@@ -3,7 +3,10 @@ import { Button } from "@/components/ui/button";
 import React, { useActionState, useEffect, useState } from "react";
 import { z } from "zod";
 import { contactInfoSchema } from "@/app/legal-units/[id]/contact/validation";
-import { updateLocation } from "@/app/legal-units/[id]/update-legal-unit-server-actions";
+import {
+  updateContact,
+  updateLocation,
+} from "@/app/legal-units/[id]/update-legal-unit-server-actions";
 import { FormField } from "@/components/form/form-field";
 import { useStatisticalUnitDetails } from "@/components/statistical-unit-details/use-unit-details";
 import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
@@ -12,9 +15,12 @@ import { useDetailsPageData } from "@/atoms/edits";
 import { SelectFormField } from "@/components/form/select-form-field";
 
 export default function ContactInfoForm({ id }: { readonly id: string }) {
-
   const [locationState, locationAction] = useActionState(
     updateLocation.bind(null, id, "physical", "legal_unit"),
+    null
+  );
+  const [contactState, contactAction] = useActionState(
+    updateContact.bind(null, id, "legal_unit"),
     null
   );
   const [isClient, setIsClient] = useState(false);
@@ -22,13 +28,21 @@ export default function ContactInfoForm({ id }: { readonly id: string }) {
     setIsClient(true);
   }, []);
   const { countries } = useDetailsPageData();
-  const { data, isLoading, error } = useStatisticalUnitDetails(
+  const { data, isLoading, error, revalidate } = useStatisticalUnitDetails(
     id,
     "legal_unit"
   );
   if (error || (!isLoading && !data)) {
     return <UnitNotFound />;
   }
+   useEffect(() => {
+      if (
+        locationState?.status === "success" ||
+        contactState?.status === "success" 
+      ) {
+        revalidate();
+      }
+    }, [contactState, locationState, revalidate]);
   const legalUnit = data?.legal_unit?.[0];
   const postalLocation = legalUnit?.location?.find(
     (loc) => loc.type === "postal"
@@ -40,51 +54,64 @@ export default function ContactInfoForm({ id }: { readonly id: string }) {
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-4">
-        <span className="font-medium">Communication</span>
-        <div className="grid lg:grid-cols-2 gap-4">
-          <FormField
-            readonly
-            label="Email address"
-            name="email_address"
-            value={legalUnit?.contact?.email_address}
-            response={null}
-          />
-          <FormField
-            readonly
-            label="Web Address"
-            name="web_address"
-            value={legalUnit?.contact?.web_address}
-            response={null}
-          />
-          <FormField
-            readonly
-            label="Phone number"
-            name="phone_number"
-            value={legalUnit?.contact?.phone_number}
-            response={null}
-          />
-          <FormField
-            readonly
-            label="Landline"
-            name="landline"
-            value={legalUnit?.contact?.landline}
-            response={null}
-          />
-          <FormField
-            readonly
-            label="Mobile Number"
-            name="mobile_number"
-            value={legalUnit?.contact?.mobile_number}
-            response={null}
-          />
-          <FormField
-            readonly
-            label="Fax Number"
-            name="fax_number"
-            value={legalUnit?.contact?.fax_number}
-            response={null}
-          />
-        </div>
+        {legalUnit?.contact && (
+          <EditableFieldGroup
+            key={legalUnit?.contact?.id}
+            fieldGroupId="contact-info"
+            title="Communication"
+            action={contactAction}
+            response={contactState}
+          >
+            {({ isEditing }) => (
+              <>
+                <div className="grid lg:grid-cols-2 gap-4">
+                  <FormField
+                    readonly={!isEditing}
+                    label="Email address"
+                    name="email_address"
+                    value={legalUnit?.contact?.email_address}
+                    response={null}
+                  />
+                  <FormField
+                    readonly={!isEditing}
+                    label="Web Address"
+                    name="web_address"
+                    value={legalUnit?.contact?.web_address}
+                    response={null}
+                  />
+                  <FormField
+                    readonly={!isEditing}
+                    label="Phone number"
+                    name="phone_number"
+                    value={legalUnit?.contact?.phone_number}
+                    response={null}
+                  />
+                  <FormField
+                    readonly={!isEditing}
+                    label="Landline"
+                    name="landline"
+                    value={legalUnit?.contact?.landline}
+                    response={null}
+                  />
+                  <FormField
+                    readonly={!isEditing}
+                    label="Mobile Number"
+                    name="mobile_number"
+                    value={legalUnit?.contact?.mobile_number}
+                    response={null}
+                  />
+                  <FormField
+                    readonly={!isEditing}
+                    label="Fax Number"
+                    name="fax_number"
+                    value={legalUnit?.contact?.fax_number}
+                    response={null}
+                  />
+                </div>
+              </>
+            )}
+          </EditableFieldGroup>
+        )}
       </div>
       {postalLocation && (
         <EditableFieldGroup
