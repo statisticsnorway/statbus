@@ -115,7 +115,7 @@ export const navigationMachine = setup({
         },
         {
           target: 'clearingLastKnownPathBeforeRedirect',
-          guard: ({ context }) => context.isAuthenticated && !context.isAuthLoading && context.pathname === '/login',
+          guard: ({ context }) => context.isAuthenticated && !context.isAuthLoading && !context.isSetupLoading && context.pathname === '/login',
         },
         {
           target: 'redirectingToSetup',
