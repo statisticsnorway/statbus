@@ -38,7 +38,7 @@ BEGIN
             mobile_number = NULLIF(dt.mobile_number_raw, ''),
             fax_number = NULLIF(dt.fax_number_raw, ''),
             last_completed_priority = %2$L
-        WHERE dt.row_id <@ $1;
+        WHERE dt.row_id <@ $1 AND dt.last_completed_priority < %2$L;
     $$,
         v_data_table_name,    /* %1$I */
         v_step.priority       /* %2$L */

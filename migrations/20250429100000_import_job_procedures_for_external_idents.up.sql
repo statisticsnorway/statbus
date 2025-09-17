@@ -550,16 +550,16 @@ BEGIN
     EXECUTE v_sql INTO v_error_count;
     RAISE DEBUG '[Job %] analyse_external_idents: Updated % total rows. Current estimated errors for this step: %', p_job_id, v_update_count, v_error_count;
 
-    -- Update priority for rows that were initially skipped
+    -- Unconditionally advance priority for all relevant rows to ensure progress.
     v_sql := format($$
         UPDATE public.%1$I dt SET
             last_completed_priority = %2$L
-        WHERE EXISTS (SELECT 1 FROM temp_relevant_rows tr WHERE tr.data_row_id = dt.row_id) AND dt.action = 'skip';
+        WHERE EXISTS (SELECT 1 FROM temp_relevant_rows tr WHERE tr.data_row_id = dt.row_id) AND dt.last_completed_priority < %2$L;
     $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */);
-    RAISE DEBUG '[Job %] analyse_external_idents: Updating priority for pre-skipped rows with SQL: %', p_job_id, v_sql;
+    RAISE DEBUG '[Job %] analyse_external_idents: Unconditionally advancing priority for all relevant rows with SQL: %', p_job_id, v_sql;
     EXECUTE v_sql;
     GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
-    RAISE DEBUG '[Job %] analyse_external_idents: Updated last_completed_priority for % pre-skipped rows.', p_job_id, v_skipped_update_count;
+    RAISE DEBUG '[Job %] analyse_external_idents: Advanced last_completed_priority for % total relevant rows.', p_job_id, v_skipped_update_count;
 
     IF to_regclass('pg_temp.temp_unpivoted_idents') IS NOT NULL THEN DROP TABLE temp_unpivoted_idents; END IF;
     IF to_regclass('pg_temp.temp_batch_analysis') IS NOT NULL THEN DROP TABLE temp_batch_analysis; END IF;

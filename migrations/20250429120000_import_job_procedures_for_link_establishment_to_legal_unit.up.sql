@@ -253,6 +253,15 @@ BEGIN
     CREATE TEMP TABLE temp_batch_errors (data_row_id INTEGER PRIMARY KEY) ON COMMIT DROP;
     INSERT INTO temp_batch_errors (data_row_id) SELECT data_row_id FROM temp_precalc WHERE errors_jsonb IS NOT NULL;
     CALL import.propagate_fatal_error_to_entity_holistic(p_job_id, v_data_table_name, 'temp_batch_errors', v_error_keys_to_clear_arr, p_step_code);
+
+    -- Unconditionally advance priority for all relevant rows to ensure progress.
+    v_sql := format($$
+        UPDATE public.%1$I dt SET
+            last_completed_priority = %2$L
+        WHERE EXISTS (SELECT 1 FROM temp_relevant_rows tr WHERE tr.data_row_id = dt.row_id) AND dt.last_completed_priority < %2$L;
+    $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */);
+    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit (Hybrid): Unconditionally advancing priority for all relevant rows with SQL: %', p_job_id, v_sql;
+    EXECUTE v_sql;
     
     v_duration_ms := (EXTRACT(EPOCH FROM (clock_timestamp() - v_start_time)) * 1000);
     RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit (Hybrid): Finished in % ms.', p_job_id, round(v_duration_ms, 2);

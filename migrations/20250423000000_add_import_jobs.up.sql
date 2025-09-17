@@ -2312,9 +2312,11 @@ BEGIN
         BEGIN
             CALL admin.import_job_process_batch(job, v_batch_row_id_ranges);
 
-            EXECUTE format($$UPDATE public.%1$I SET state = 'processed' WHERE row_id <@ $1$$,
+            -- Mark all rows in the batch that are not in an error state as 'processed'.
+            -- This is safe because any errors within the batch call would have already set the row state to 'error'.
+            EXECUTE format($$UPDATE public.%1$I SET state = 'processed' WHERE row_id <@ $1 AND state != 'error'$$,
                            job.data_table_name /* %1$I */) USING v_batch_row_id_ranges;
-            RAISE DEBUG '[Job %] Batch successfully processed. Marked rows in ranges %s as processed.', job.id, v_batch_row_id_ranges::text;
+            RAISE DEBUG '[Job %] Batch successfully processed. Marked non-error rows in ranges %s as processed.', job.id, v_batch_row_id_ranges::text;
         EXCEPTION WHEN OTHERS THEN
             DECLARE
                 error_message TEXT;

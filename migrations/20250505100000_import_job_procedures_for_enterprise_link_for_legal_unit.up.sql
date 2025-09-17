@@ -180,6 +180,12 @@ BEGIN
     -- Propagate errors to all rows of a new entity if one fails
     CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_row_id_ranges, v_error_keys_to_clear_arr, 'analyse_enterprise_link_for_legal_unit');
 
+    -- Unconditionally advance priority for all rows in batch to ensure progress
+    v_sql := format('UPDATE public.%1$I SET last_completed_priority = %2$L WHERE row_id <@ $1 AND last_completed_priority < %2$L',
+                   v_data_table_name, v_step.priority);
+    RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit (Batch): Unconditionally advancing priority for all batch rows with SQL: %', p_job_id, v_sql;
+    EXECUTE v_sql USING p_batch_row_id_ranges;
+
     RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit (Batch): Finished analysis successfully.', p_job_id;
 END;
 $analyse_enterprise_link_for_legal_unit$;

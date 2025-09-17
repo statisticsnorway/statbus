@@ -65,15 +65,12 @@ BEGIN
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
     RAISE DEBUG '[Job %] analyse_data_source (Batch): Updated % non-skipped rows.', p_job_id, v_update_count;
 
-    -- Advance priority for rows that were already skipped to prevent loops.
-    v_sql := format('UPDATE public.%I SET last_completed_priority = %s WHERE row_id <@ $1 AND action = ''skip''', v_job.data_table_name, v_step.priority);
-    RAISE DEBUG '[Job %] analyse_data_source (Batch): Updating priority for previously skipped rows with SQL: %', p_job_id, v_sql;
+    -- Unconditionally advance priority for all rows in batch to ensure progress
+    v_sql := format('UPDATE public.%I SET last_completed_priority = %s WHERE row_id <@ $1 AND last_completed_priority < %s', v_job.data_table_name, v_step.priority, v_step.priority);
+    RAISE DEBUG '[Job %] analyse_data_source (Batch): Unconditionally advancing priority for all batch rows with SQL: %', p_job_id, v_sql;
     EXECUTE v_sql USING p_batch_row_id_ranges;
     GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
-    RAISE DEBUG '[Job %] analyse_data_source (Batch): Updated priority for % previously skipped rows.', p_job_id, v_skipped_update_count;
-
-    v_update_count := v_update_count + v_skipped_update_count;
-    RAISE DEBUG '[Job %] analyse_data_source (Batch): Finished. Updated priority for % total rows.', p_job_id, v_update_count;
+    RAISE DEBUG '[Job %] analyse_data_source (Batch): Advanced last_completed_priority for % total rows in batch.', p_job_id, v_skipped_update_count;
 END;
 $analyse_data_source$;
 

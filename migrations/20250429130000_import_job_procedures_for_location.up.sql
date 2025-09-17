@@ -227,7 +227,7 @@ BEGIN
                 physical_latitude_raw AS physical_latitude, physical_longitude_raw AS physical_longitude, physical_altitude_raw AS physical_altitude,
                 postal_latitude_raw AS postal_latitude, postal_longitude_raw AS postal_longitude, postal_altitude_raw AS postal_altitude
             FROM public.%1$I
-            WHERE row_id <@ $1 AND action = 'use'
+            WHERE row_id <@ $1
         ),
         distinct_codes AS (
             SELECT physical_region_code AS code, 'region' AS type FROM batch_data WHERE NULLIF(physical_region_code, '') IS NOT NULL
@@ -335,7 +335,7 @@ BEGIN
                     ),
             last_completed_priority = %8$L::INTEGER -- Always v_step.priority
         FROM lookups l
-        WHERE dt.row_id = l.data_row_id; -- Join is sufficient, lookups CTE is already filtered
+        WHERE dt.row_id = l.data_row_id AND dt.action IS DISTINCT FROM 'skip'; -- Process if action was not already 'skip' from a prior step.
     $SQL$,
         v_data_table_name,                          /* %1$I (target table) */
         v_error_keys_to_clear_arr,                  /* %2$L (for clearing error keys) */
@@ -361,18 +361,16 @@ BEGIN
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_location: Updated % non-skipped rows in single pass for step %.', p_job_id, v_update_count, p_step_code;
 
-        -- Update priority for skipped rows
+        -- Unconditionally advance priority for all rows in batch to ensure progress
         v_sql := format($$
             UPDATE public.%1$I dt SET
                 last_completed_priority = %2$L
-            WHERE dt.row_id <@ $1 AND dt.action = 'skip';
+            WHERE dt.row_id <@ $1 AND dt.last_completed_priority < %2$L;
         $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */);
-        RAISE DEBUG '[Job %] analyse_location: Updating priority for skipped rows with SQL: %', p_job_id, v_sql;
+        RAISE DEBUG '[Job %] analyse_location: Unconditionally advancing priority for all batch rows with SQL: %', p_job_id, v_sql;
         EXECUTE v_sql USING p_batch_row_id_ranges;
         GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] analyse_location: Updated last_completed_priority for % skipped rows for step %.', p_job_id, v_skipped_update_count, p_step_code;
-        
-        v_update_count := v_update_count + v_skipped_update_count; -- Total rows affected by this step's logic
+        RAISE DEBUG '[Job %] analyse_location: Advanced last_completed_priority for % total rows in batch for step %.', p_job_id, v_skipped_update_count, p_step_code;
 
         v_sql := format($$SELECT COUNT(*) FROM public.%1$I WHERE row_id <@ $1 AND state = 'error' AND (errors ?| %2$L::text[])$$,
                        v_data_table_name /* %1$I */, v_error_keys_to_clear_arr /* %2$L */);

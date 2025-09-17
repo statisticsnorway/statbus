@@ -218,10 +218,10 @@ The import system is built around several key database tables and concepts:
             *   The procedure performs lookups/validations, updates `internal` columns, `error` (for hard errors), and `invalid_codes` (for soft errors).
             *   **Error Handling Rule for Analysis Procedures**:
                 *   **Hard Errors**: If an `analyse_procedure` detects a critical error that makes the row unprocessable for its specific domain (or subsequent domains that depend on its output), it *must*:
-                    *   Populate the `errors` JSONB column with details, merging with existing errors (e.g., `dt.errors || jsonb_build_object('my_error_key', 'description')`).
+                    *   Populate the `errors` JSONB column with details, merging with existing errors (e.g., `dt.errors || jsonb_build_object('my_error_key', 'description')`). The *key* in this JSONB object is the definitive record of which step and which field caused the error.
                     *   Set the row's `state` to `'error'`.
                     *   Set the row's `action` to `'skip'::public.import_row_action_type`.
-                    *   The `last_completed_priority` should be advanced to the current step's priority, even on error, to indicate which step identified the issue.
+                    *   **Critically, `last_completed_priority` must always be advanced to the current step's priority for all rows in a batch.** This includes rows that generate errors, were already skipped, or have no data for the step. This is the only mechanism that guarantees every row makes progress through the analysis pipeline, preventing the worker from getting stuck in an infinite loop.
                 *   **Soft Errors / Invalid Codes**: If an `analyse_procedure` detects a non-critical issue (e.g., an unresolvable `sector_code`), it should:
                     *   Populate the `invalid_codes` JSONB column, merging with existing invalid codes (e.g., `dt.invalid_codes || jsonb_build_object('my_code_key', 'original_value')`).
                     *   It should *not* set `state = 'error'` or `action = 'skip'` solely for this reason.

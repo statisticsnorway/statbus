@@ -1,13 +1,14 @@
 # Done
+- Fixed a state corruption bug in `import_job_processing_phase` where `error` states could be incorrectly overwritten with `processed`.
 - All import procedures for sub-entities now use the modern pattern (passing natural keys to `temporal_merge`) following an upstream bug fix in `sql_saga`.
 - Fixed a persistent "duplicate key" violation in `analyse_external_idents` by correcting a faulty JOIN condition that was causing data fan-out when joining to temporal tables.
 
 # Todo
-- [ ] **Refactor: Standardize JSONB `errors`, `invalid_codes`, and `merge_status` columns**
+- [x] **Refactor: Standardize JSONB `errors`, `invalid_codes`, and `merge_status` columns**
   - **Problem**: The `errors`, `invalid_codes`, and `merge_status` JSONB columns in `import_*_data` tables are nullable. The procedures are inconsistent in treating `NULL` vs an empty object (`'{}'`) as "no errors".
   - **Solution**: Standardize on `'{}'` as the representation for "no errors" and enforce this at the database level.
   - **Plan**:
-    1.  [ ] **Create Migration**: Create a new migration script to update all existing `import_*_data` tables to be `NOT NULL`.
+    1.  [x] **Create Migration**: The `import_job_generate` function now correctly creates these columns as `NOT NULL DEFAULT '{}'::jsonb`. Procedures are being updated to remove redundant `COALESCE` calls.
 
 - [ ] **Refactor: Add `_path` columns for code lookups**: The import system's `analyse_*` procedures currently only look up codes (e.g., `sector_code`) by their simple code value. To properly support hierarchical code lists (like `sector`), a parallel `_path` column (e.g., `sector_path`) should be added to the `import_data_column` definitions for each code list. The `analyse_*` procedures should then be updated to intelligently choose the lookup method: if a `_path` column is present and has a value, it should be used to look up against the `path` column; otherwise, the `_code` column should be used to look up against the `code` column.
 

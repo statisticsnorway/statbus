@@ -70,7 +70,7 @@ BEGIN
     END IF;
 
     -- Always advance priority for all rows in the batch to prevent loops.
-    v_sql := format('UPDATE public.%I SET last_completed_priority = %s WHERE row_id <@ $1', v_data_table_name, v_step.priority);
+    v_sql := format('UPDATE public.%I SET last_completed_priority = %s WHERE row_id <@ $1 AND last_completed_priority < %s', v_data_table_name, v_step.priority, v_step.priority);
     RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: Advancing priority for all rows with SQL: %', p_job_id, v_sql;
     EXECUTE v_sql USING p_batch_row_ids_range;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
