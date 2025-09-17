@@ -7,7 +7,7 @@ import { Pencil } from "lucide-react";
 import { Input } from "../ui/input";
 import { DeleteConfirmationDialog } from "./delete-confirmation-dialog";
 import { Label } from "../ui/label";
-import { useEditManager } from "@/atoms/search";
+import { useEditManager } from "@/atoms/edits";
 import { cn } from "@/lib/utils";
 
 interface EditableFieldProps {
@@ -51,11 +51,15 @@ export const EditableField = ({
   }, [value, isEditing], 'EditableField:syncValue');
 
   // Handle successful save — exit edit mode
-  useGuardedEffect(() => {
-    if (response?.status === "success" && isEditing) {
-      exitEditMode();
-    }
-  }, [response, isEditing, exitEditMode], 'EditableField:exitOnSuccess');
+  useGuardedEffect(
+    () => {
+      if (response?.status === "success" && isEditing) {
+        exitEditMode();
+      }
+    },
+    [response],
+    "EditableField:exitOnSuccess"
+  );
 
   const triggerFormSubmit = () => {
     formRef.current?.requestSubmit();
@@ -89,7 +93,7 @@ export const EditableField = ({
               variant="ghost"
               size="sm"
               type="button"
-              onClick={() => setEditTarget({ fieldId })}
+              onClick={() => setEditTarget(fieldId)}
             >
               <Pencil className="text-zinc-700" />
             </Button>
