@@ -1,7 +1,7 @@
 "use client";
 import { useStatisticalUnitHierarchy } from "@/components/statistical-unit-details/use-unit-details";
-import { FormField } from "@/components/form/form-field";
 import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
+import { DisplayFormField } from "@/components/form/display-field";
 
 export default function ClassificationsInfoForm({
   id,
@@ -32,7 +32,7 @@ export default function ClassificationsInfoForm({
 
   return (
     <form className="space-y-4">
-      <FormField
+      <DisplayFormField
         label="Primary Activity category"
         name="primary_activity_category_id"
         value={
@@ -40,10 +40,8 @@ export default function ClassificationsInfoForm({
             ? `${primaryActivity.code} ${primaryActivity.name}`
             : null
         }
-        response={null}
-        readonly
       />
-      <FormField
+      <DisplayFormField
         label="Secondary Activity category"
         name="secondary_activity_category_id"
         value={
@@ -51,12 +49,10 @@ export default function ClassificationsInfoForm({
             ? `${secondaryActivity.code} ${secondaryActivity.name}`
             : null
         }
-        response={null}
-        readonly
       />
       {primaryLegalUnit && (
         <>
-          <FormField
+          <DisplayFormField
             label="Legal Form"
             name="legal_form_id"
             value={
@@ -64,10 +60,8 @@ export default function ClassificationsInfoForm({
                 ? `${primaryLegalUnit.legal_form.code} ${primaryLegalUnit.legal_form.name}`
                 : null
             }
-            response={null}
-            readonly
           />
-          <FormField
+          <DisplayFormField
             label="Sector"
             name="sector_id"
             value={
@@ -75,8 +69,6 @@ export default function ClassificationsInfoForm({
                 ? `${primaryLegalUnit.sector.code} ${primaryLegalUnit.sector.name}`
                 : null
             }
-            response={null}
-            readonly
           />
         </>
       )}

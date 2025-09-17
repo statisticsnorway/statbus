@@ -1,7 +1,7 @@
 "use client";
 import { useStatisticalUnitHierarchy } from "@/components/statistical-unit-details/use-unit-details";
-import { FormField } from "@/components/form/form-field";
 import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
+import { DisplayFormField } from "@/components/form/display-field";
 
 export default function DemographicInfoForm({ id }: { readonly id: string }) {
   const { hierarchy, isLoading, error } = useStatisticalUnitHierarchy(
@@ -21,26 +21,20 @@ export default function DemographicInfoForm({ id }: { readonly id: string }) {
 
   return (
     <form className="space-y-4">
-      <FormField
+      <DisplayFormField
         label="Status"
         name="status"
         value={primaryUnit?.status?.name}
-        response={null}
-        readonly
       />
-      <FormField
+      <DisplayFormField
         label="Birth date"
         name="birth_date"
         value={primaryUnit?.birth_date}
-        response={null}
-        readonly
       />
-      <FormField
+      <DisplayFormField
         label="Death date"
         name="death_date"
         value={primaryUnit?.death_date}
-        response={null}
-        readonly
       />
     </form>
   );
