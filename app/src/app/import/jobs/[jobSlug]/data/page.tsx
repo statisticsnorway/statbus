@@ -26,8 +26,9 @@ type ImportJobDataRow = {
   name?: string | null;
   operation?: any;
   action?: any;
-  error?: any;
+  errors?: any;
   invalid_codes?: any;
+  merge_status?: any;
   [key:string]: any;
 };
 
@@ -80,12 +81,12 @@ const fetcher = async (key: string): Promise<any> => {
     }
 
     filters.forEach((values, key) => {
-      if (key === 'error' || key === 'invalid_codes') {
+      if (key === 'errors' || key === 'invalid_codes') {
         const filterValue = values[0];
         if (filterValue === 'is_null') {
-          queryBuilder = queryBuilder.is(key, null);
+          queryBuilder = queryBuilder.or(`${key}.is.null,${key}.eq.{}`);
         } else if (filterValue === 'not_null') {
-          queryBuilder = queryBuilder.not(key, 'is', null);
+          queryBuilder = queryBuilder.not(key, 'is', null).not(key, 'eq', '{}');
         }
       } else if (['operation', 'state', 'action'].includes(key)) {
         queryBuilder = queryBuilder.in(key, values);
@@ -237,12 +238,13 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
       'operation',
       'state',
       'action',
-      'error',
+      'errors',
       'invalid_codes',
+      'merge_status',
       ...externalIdentCodes,
       'name'
     ];
-    const allKeys = new Set<string>(preferredOrder);
+    const allKeys = new Set<string>();
 
     if (tableData?.data) {
         tableData.data.forEach(row => {
@@ -252,19 +254,31 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
     let keys = Array.from(allKeys);
 
     keys.sort((a, b) => {
-      const aIndex = preferredOrder.indexOf(a);
-      const bIndex = preferredOrder.indexOf(b);
-      const aPos = aIndex === -1 ? preferredOrder.length : aIndex;
-      const bPos = bIndex === -1 ? preferredOrder.length : bIndex;
-      if (aPos !== bPos) return aPos - bPos;
-      return a.localeCompare(b);
+      const aBase = a.replace(/_raw$/, '');
+      const bBase = b.replace(/_raw$/, '');
+      const aIsRaw = a.endsWith('_raw');
+
+      if (aBase !== bBase) {
+        const aIndex = preferredOrder.indexOf(aBase);
+        const bIndex = preferredOrder.indexOf(bBase);
+        const aPos = aIndex === -1 ? preferredOrder.length : aIndex;
+        const bPos = bIndex === -1 ? preferredOrder.length : bIndex;
+        if (aPos !== bPos) return aPos - bPos;
+        return aBase.localeCompare(bBase);
+      }
+      return aIsRaw ? 1 : -1; // non-raw first
     });
 
     return keys.map(key => {
+      const isRaw = key.endsWith('_raw');
+      const baseKey = isRaw ? key.slice(0, -4) : key;
+      const headerText = baseKey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      const isProcessed = !isRaw && allKeys.has(`${key}_raw`);
+
       const columnDef: ColumnDef<ImportJobDataRow> = {
         id: key,
         accessorKey: key,
-        header: ({ column }) => <DataTableColumnHeader column={column} title={key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} />,
+        header: ({ column }) => <DataTableColumnHeader column={column} title={headerText} />,
         cell: ({ row }) => {
           const value = row.getValue(key);
           let displayValue;
@@ -275,17 +289,17 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
           } else {
             displayValue = String(value);
           }
-          return <div className="text-xs truncate" title={displayValue}>{displayValue}</div>;
+          return <div className={`text-xs truncate ${isProcessed ? 'text-gray-500' : ''}`} title={displayValue}>{displayValue}</div>;
         },
         enableSorting: true,
       };
       
-      if (key === 'name' || externalIdentCodes.includes(key)) {
+      if (baseKey === 'name' || externalIdentCodes.includes(baseKey)) {
         columnDef.enableColumnFilter = true;
         columnDef.meta = {
-          label: key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+          label: isRaw ? `${headerText} (Raw)` : headerText,
           variant: 'text',
-          placeholder: `Filter by ${key.replace(/_/g, ' ')}...`
+          placeholder: `Filter by ${baseKey.replace(/_/g, ' ')}...`
         };
       }
       
@@ -298,10 +312,10 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
         };
       }
 
-      if (['error', 'invalid_codes'].includes(key)) {
+      if (['errors', 'invalid_codes'].includes(key)) {
         columnDef.enableColumnFilter = true;
         columnDef.meta = {
-          label: key === 'error' ? 'Error' : 'Invalid Codes',
+          label: key === 'errors' ? 'Errors' : 'Invalid Codes',
           variant: 'select',
           options: [
             { label: 'Has value', value: 'not_null' },
