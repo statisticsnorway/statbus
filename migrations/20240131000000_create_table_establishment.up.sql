@@ -3,8 +3,8 @@ BEGIN;
 CREATE TABLE public.establishment (
     id SERIAL NOT NULL,
     valid_from date NOT NULL,
-    valid_to date NOT NULL,
-    valid_until date NOT NULL,
+    valid_to date,
+    valid_until date,
     short_name character varying(16),
     name character varying(256) NOT NULL,
     birth_date date,

@@ -3,8 +3,8 @@ BEGIN;
 CREATE TABLE public.person_for_unit (
     id SERIAL NOT NULL,
     valid_from date NOT NULL,
-    valid_to date NOT NULL,
-    valid_until date NOT NULL,
+    valid_to date,
+    valid_until date,
     person_id integer NOT NULL REFERENCES public.person(id) ON DELETE RESTRICT,
     person_role_id integer REFERENCES public.person_role(id),
     data_source_id integer REFERENCES public.data_source(id) ON DELETE RESTRICT,

@@ -3,8 +3,8 @@ BEGIN;
 CREATE TABLE public.enterprise_group (
     id SERIAL NOT NULL,
     valid_from date NOT NULL,
-    valid_to date NOT NULL,
-    valid_until date NOT NULL,
+    valid_to date,
+    valid_until date,
     short_name varchar(16),
     name varchar(256),
     enterprise_group_type_id integer REFERENCES public.enterprise_group_type(id),

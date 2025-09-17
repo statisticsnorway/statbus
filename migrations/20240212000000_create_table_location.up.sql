@@ -5,8 +5,8 @@ CREATE TYPE public.location_type AS ENUM ('physical', 'postal');
 CREATE TABLE public.location (
     id SERIAL NOT NULL,
     valid_from date NOT NULL,
-    valid_to date NOT NULL,
-    valid_until date NOT NULL,
+    valid_to date,
+    valid_until date,
     type public.location_type NOT NULL,
     address_part1 character varying(200),
     address_part2 character varying(200),

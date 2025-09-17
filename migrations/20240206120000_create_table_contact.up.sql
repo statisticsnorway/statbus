@@ -4,8 +4,8 @@ BEGIN;
 CREATE TABLE public.contact (
     id SERIAL NOT NULL,
     valid_from date NOT NULL,
-    valid_to date NOT NULL,
-    valid_until date NOT NULL,
+    valid_to date,
+    valid_until date,
     web_address character varying(256),
     email_address character varying(50),
     phone_number character varying(50),

@@ -5,8 +5,8 @@ CREATE TYPE public.activity_type AS ENUM ('primary', 'secondary', 'ancilliary');
 CREATE TABLE public.activity (
     id SERIAL NOT NULL,
     valid_from date NOT NULL,
-    valid_to date NOT NULL,
-    valid_until date NOT NULL,
+    valid_to date,
+    valid_until date,
     type public.activity_type NOT NULL,
     category_id integer NOT NULL REFERENCES public.activity_category(id) ON DELETE CASCADE,
     data_source_id integer REFERENCES public.data_source(id) ON DELETE SET NULL,
