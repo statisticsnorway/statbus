@@ -1,5 +1,8 @@
 "use client";
-import { updateLegalUnit } from "@/app/legal-units/[id]/update-legal-unit-server-actions";
+import {
+  updateLegalUnit,
+  updateLocation,
+} from "@/app/legal-units/[id]/update-legal-unit-server-actions";
 import React, { useActionState, useEffect, useState } from "react";
 import { z } from "zod";
 import { generalInfoSchema } from "@/app/legal-units/[id]/general-info/validation";
@@ -12,22 +15,35 @@ import { SubmissionFeedbackDebugInfo } from "@/components/form/submission-feedba
 import { useStatisticalUnitDetails } from "@/components/statistical-unit-details/use-unit-details";
 import Loading from "@/components/statistical-unit-details/loading";
 import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
+import { EditableFieldWithMetadata } from "@/components/form/editable-field-with-metadata";
+import { EditableFieldGroup } from "@/components/form/editable-field-group";
+import { SelectFormField } from "@/components/form/select-form-field";
+import { useDetailsPageData } from "@/atoms/edits";
+import { useSWRConfig } from "swr";
 
 export default function GeneralInfoForm({ id }: { readonly id: string }) {
   const [state, formAction] = useActionState(
-    updateLegalUnit.bind(null, id, "general-info"),
+    updateLegalUnit.bind(null, id),
     null
   );
   const [externalIdentState, externalIdentFormAction] = useActionState(
     updateExternalIdent.bind(null, id, "legal_unit"),
     null
   );
+
+  const [locationState, locationAction] = useActionState(
+    updateLocation.bind(null, id, "physical", "legal_unit"),
+    null
+  );
   const { externalIdentTypes } = useBaseData();
+  const { regions, countries } = useDetailsPageData();
 
   const { data, isLoading, revalidate, error } = useStatisticalUnitDetails(
     id,
     "legal_unit"
   );
+
+  const { mutate } = useSWRConfig();
 
   const [isClient, setIsClient] = useState(false);
   useEffect(() => {
@@ -35,31 +51,46 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
   }, []);
 
   useEffect(() => {
-    if (externalIdentState?.status === "success") {
-      revalidate();
+    if (
+      externalIdentState?.status === "success" ||
+      state?.status === "success" ||
+      locationState?.status === "success"
+    ) {
+      mutate((key) => Array.isArray(key) && key.includes(id));
     }
-  }, [externalIdentState, revalidate]);
+  }, [externalIdentState, state, locationState, mutate]);
   if (!isClient) {
     return <Loading />;
   }
-    if (!isLoading && !data) {
-      return <UnitNotFound />;
-    }
+  if (!isLoading && !data) {
+    return <UnitNotFound />;
+  }
   const legalUnit = data?.legal_unit?.[0];
 
   const physicalLocation = legalUnit?.location.find(
     (loc) => loc.type === "physical"
   );
+
+  const regionOptions = regions.map((region) => ({
+    value: region.id,
+    label: `${region.code} ${region.name}`,
+  }));
+  const countriesOptions = countries.map((country) => ({
+    value: country.id,
+    label: `${country.name}`,
+  }));
+
   return (
-    <div className="space-y-8">
-      <FormField
+    <div className="space-y-4">
+      <EditableFieldWithMetadata
+        key={`name-lu-${id}`}
+        fieldId="name"
         label="Name"
-        name="name"
         value={legalUnit?.name}
-        response={null}
-        readonly
+        response={state}
+        formAction={formAction}
       />
-      <div className="grid lg:grid-cols-2 gap-4">
+      <div className="grid lg:grid-cols-2 gap-4 p-3">
         {externalIdentTypes.map(
           (type: Tables<"external_ident_type_active">) => {
             const value = legalUnit?.external_idents[type.code];
@@ -77,89 +108,101 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
         )}
       </div>
       <SubmissionFeedbackDebugInfo state={externalIdentState} />
-      <form className="flex flex-col gap-4">
-        <span className="font-medium">Physical Location</span>
-        <div className="grid lg:grid-cols-2 gap-4 *:col-start-1">
-          <FormField
-            name="address_part1"
-            label="Address Part 1"
-            value={physicalLocation?.address_part1}
-            response={null}
-            readonly
-          />
-          <FormField
-            name="address_part2"
-            label="Address Part 2"
-            value={physicalLocation?.address_part2}
-            response={null}
-            readonly
-          />
-          <FormField
-            name="address_part3"
-            label="Address Part 3"
-            value={physicalLocation?.address_part3}
-            response={null}
-            readonly
-          />
-        </div>
-        <div className="grid lg:grid-cols-2 gap-4">
-          <FormField
-            name="postcode"
-            label="Post Code"
-            value={physicalLocation?.postcode}
-            response={null}
-            readonly
-          />
-          <FormField
-            name="postplace"
-            label="Post Place"
-            value={physicalLocation?.postplace}
-            response={null}
-            readonly
-          />
-          <FormField
-            name="region_id"
-            label="Region"
-            value={
-              physicalLocation?.region
-                ? `${physicalLocation.region.code} ${physicalLocation.region.name}`
-                : null
-            }
-            response={null}
-            readonly
-          />
-          <FormField
-            name="country_id"
-            label="Country"
-            value={physicalLocation?.country?.name}
-            response={null}
-            readonly
-          />
-        </div>
-        <div className="grid lg:grid-cols-3 gap-4">
-          <FormField
-            readonly
-            label="Latitude"
-            name="latitude"
-            value={physicalLocation?.latitude}
-            response={null}
-          />
-          <FormField
-            readonly
-            label="Longitude"
-            name="longitude"
-            value={physicalLocation?.longitude}
-            response={null}
-          />
-          <FormField
-            readonly
-            label="Altitude"
-            name="altitude"
-            value={physicalLocation?.altitude}
-            response={null}
-          />
-        </div>
-      </form>
+      {physicalLocation && (
+        <EditableFieldGroup
+          key={physicalLocation.id}
+          fieldGroupId="physical-location"
+          title="Physical Location"
+          action={locationAction}
+          response={locationState}
+        >
+          {({ isEditing }) => (
+            <>
+              <div className="grid lg:grid-cols-2 gap-4 *:col-start-1">
+                <FormField
+                  name="address_part1"
+                  label="Address Part 1"
+                  value={physicalLocation?.address_part1}
+                  response={locationState}
+                  readonly={!isEditing}
+                />
+                <FormField
+                  name="address_part2"
+                  label="Address Part 2"
+                  value={physicalLocation?.address_part2}
+                  response={locationState}
+                  readonly={!isEditing}
+                />
+                <FormField
+                  name="address_part3"
+                  label="Address Part 3"
+                  value={physicalLocation?.address_part3}
+                  response={locationState}
+                  readonly={!isEditing}
+                />
+              </div>
+
+              <div className="flex flex-col gap-4">
+                <div className="grid lg:grid-cols-2 gap-4">
+                  <FormField
+                    name="postcode"
+                    label="Post Code"
+                    value={physicalLocation?.postcode}
+                    response={null}
+                    readonly={!isEditing}
+                  />
+                  <FormField
+                    name="postplace"
+                    label="Post Place"
+                    value={physicalLocation?.postplace}
+                    response={null}
+                    readonly={!isEditing}
+                  />
+                  <SelectFormField
+                    name="region_id"
+                    label="Region"
+                    readonly={!isEditing}
+                    value={physicalLocation?.region?.id}
+                    options={regionOptions}
+                    placeholder="Select a region"
+                  />
+                  <SelectFormField
+                    name="country_id"
+                    label="Country"
+                    value={physicalLocation?.country?.id}
+                    options={countriesOptions}
+                    readonly={!isEditing}
+                    placeholder="Select a country"
+                  />
+                </div>
+                <div className="grid lg:grid-cols-3 gap-4">
+                  <FormField
+                    readonly
+                    label="Latitude"
+                    name="latitude"
+                    value={physicalLocation?.latitude}
+                    response={null}
+                  />
+                  <FormField
+                    readonly
+                    label="Longitude"
+                    name="longitude"
+                    value={physicalLocation?.longitude}
+                    response={null}
+                  />
+                  <FormField
+                    readonly
+                    label="Altitude"
+                    name="altitude"
+                    value={physicalLocation?.altitude}
+                    response={null}
+                  />
+                </div>
+              </div>
+            </>
+          )}
+        </EditableFieldGroup>
+      )}
     </div>
   );
 }

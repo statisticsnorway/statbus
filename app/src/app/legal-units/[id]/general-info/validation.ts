@@ -1,7 +1,30 @@
+import { editMetadataSchemaFields } from "@/components/form/metadata-validation";
 import { z } from "zod";
 import { zfd } from "zod-form-data";
 
-export const generalInfoSchema = zfd.formData({
-  name: z.string().min(1).nullable(),
-  // tax_ident: z.string().min(9).max(10).nullable(),
+export const generalInfoSchema = zfd
+  .formData({
+    name: z.string().min(1, "Unit must have a name"),
+    status_id: z.coerce.number().optional(),
+    birth_date: z.string().optional(),
+    death_date: z.preprocess(
+      (val) => (val === "" ? undefined : val),
+      z.string().optional()
+    ),
+    sector_id: z.coerce.number().optional(),
+    legal_form_id: z.coerce.number().optional(),
+    ...editMetadataSchemaFields,
+  })
+ 
+
+export const locationSchema = zfd.formData({
+  address_part1: z.string().optional(),
+  address_part2: z.string().optional(),
+  address_part3: z.string().optional(),
+  postcode: z.string().optional(),
+  postplace: z.string().optional(),
+  region_id: z.coerce.number().optional(),
+  country_id: z.coerce.number().optional(),
+  ...editMetadataSchemaFields,
 });
+

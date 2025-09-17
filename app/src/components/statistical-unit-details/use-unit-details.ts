@@ -42,7 +42,7 @@ export function useStatisticalUnitStats(id: string, unitType: UnitType) {
   const { selectedTimeContext } = useTimeContext();
   const validOn = selectedTimeContext?.valid_on;
 
-  const { data, isLoading, error } = useSWR(
+  const { data, isLoading, error, mutate } = useSWR(
     validOn ? ["stats", id, unitType, validOn] : null,
     async ([, id, unitType, validOn]) => {
       const { stats, error } = await getStatisticalUnitStats(
@@ -65,6 +65,7 @@ export function useStatisticalUnitStats(id: string, unitType: UnitType) {
   return {
     data: unitStats,
     isLoading: isLoading || !validOn,
+    revalidate: () => mutate(),
     error,
   };
 }
