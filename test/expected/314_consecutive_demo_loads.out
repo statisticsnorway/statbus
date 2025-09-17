@@ -192,6 +192,14 @@ SELECT
     imported_rows,
     jsonb_pretty(error::jsonb) AS error
 FROM public.import_job WHERE slug = 'import_314_lu_wsd_p2';
+-[ RECORD 1 ]----------+---------------------
+slug                   | import_314_lu_wsd_p2
+state                  | finished
+analysis_completed_pct | 100.00
+import_completed_pct   | 88.00
+total_rows             | 75
+imported_rows          | 66
+error                  | 
 
 \x
 \echo "Inspecting LU source dates data table for skipped/error rows"
@@ -306,6 +314,15 @@ SELECT
     total_rows,
     imported_rows,
     jsonb_pretty(error::jsonb) AS error
+FROM public.import_job WHERE slug = 'import_314_esflu_wsd_p2';
+-[ RECORD 1 ]----------+------------------------
+slug                   | import_314_esflu_wsd_p2
+state                  | finished
+analysis_completed_pct | 100.00
+import_completed_pct   | 0.00
+total_rows             | 26
+imported_rows          | 0
+error                  | 
 
 \x
 \echo "Inspecting Formal ES source dates data table for skipped/error rows"
@@ -574,6 +591,14 @@ SELECT
     imported_rows,
     error
 FROM public.import_job WHERE slug = 'import_314_eswlu_wsd_p2';
+-[ RECORD 1 ]----------+------------------------
+slug                   | import_314_eswlu_wsd_p2
+state                  | finished
+analysis_completed_pct | 100.00
+import_completed_pct   | 0.00
+total_rows             | 12
+imported_rows          | 0
+error                  | 
 
 \x
 \echo "Inspecting Informal ES source dates data table for skipped/error rows"
@@ -695,7 +720,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     8
- import    | completed |   208
+ import    | completed |   280
 (2 rows)
 
 \echo "Final check of import job progress and completion status"
@@ -714,6 +739,66 @@ SELECT
 FROM public.import_job
 WHERE slug LIKE 'import_314_%'
 ORDER BY slug;
+-[ RECORD 1 ]---------------------+-------------------------
+slug                              | import_314_esflu_curr_p1
+state                             | finished
+analysis_completed_pct            | 100.00
+completed_analysis_steps_weighted | 2500
+total_analysis_steps_weighted     | 2500
+import_completed_pct              | 100.00
+total_rows                        | 25
+imported_rows                     | 25
+error                             | 
+-[ RECORD 2 ]---------------------+-------------------------
+slug                              | import_314_esflu_wsd_p2
+state                             | finished
+analysis_completed_pct            | 100.00
+completed_analysis_steps_weighted | 2600
+total_analysis_steps_weighted     | 2600
+import_completed_pct              | 0.00
+total_rows                        | 26
+imported_rows                     | 0
+error                             | 
+-[ RECORD 3 ]---------------------+-------------------------
+slug                              | import_314_eswlu_curr_p1
+state                             | finished
+analysis_completed_pct            | 100.00
+completed_analysis_steps_weighted | 2500
+total_analysis_steps_weighted     | 2500
+import_completed_pct              | 100.00
+total_rows                        | 25
+imported_rows                     | 25
+error                             | 
+-[ RECORD 4 ]---------------------+-------------------------
+slug                              | import_314_eswlu_wsd_p2
+state                             | finished
+analysis_completed_pct            | 100.00
+completed_analysis_steps_weighted | 1200
+total_analysis_steps_weighted     | 1200
+import_completed_pct              | 0.00
+total_rows                        | 12
+imported_rows                     | 0
+error                             | 
+-[ RECORD 5 ]---------------------+-------------------------
+slug                              | import_314_lu_curr_p1
+state                             | finished
+analysis_completed_pct            | 100.00
+completed_analysis_steps_weighted | 2300
+total_analysis_steps_weighted     | 2300
+import_completed_pct              | 100.00
+total_rows                        | 23
+imported_rows                     | 23
+error                             | 
+-[ RECORD 6 ]---------------------+-------------------------
+slug                              | import_314_lu_wsd_p2
+state                             | finished
+analysis_completed_pct            | 100.00
+completed_analysis_steps_weighted | 7500
+total_analysis_steps_weighted     | 7500
+import_completed_pct              | 88.00
+total_rows                        | 75
+imported_rows                     | 66
+error                             | 
 
 \x
 \i test/rollback_unless_persist_is_specified.sql
