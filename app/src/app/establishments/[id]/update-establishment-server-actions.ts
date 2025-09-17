@@ -49,7 +49,7 @@ export async function updateEstablishment(
         .update({ ...updatedFields, ...metadata })
         .eq("id", parseInt(id, 10))
         .eq("valid_from", valid_from as string)
-        .eq("valid_to", valid_until as string);
+        .eq("valid_until", valid_until as string);
 
       if (response.status >= 400) {
         return { status: "error", message: response.statusText };

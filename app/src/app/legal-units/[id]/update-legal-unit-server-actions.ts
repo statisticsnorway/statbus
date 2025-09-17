@@ -49,7 +49,7 @@ export async function updateLegalUnit(
   }
 
   const { valid_from, valid_until, ...updatedFields } = validatedFields.data;
-
+  
   try {
     const { error: metadataError, metadata } = await getEditMetadata(client);
     if (metadataError) return metadataError;
@@ -73,7 +73,7 @@ export async function updateLegalUnit(
         .update({ ...updatedFields, ...metadata })
         .eq("id", parseInt(id, 10))
         .eq("valid_from", valid_from as string)
-        .eq("valid_to", valid_until as string);
+        .eq("valid_until", valid_until as string);
 
       if (response.status >= 400) {
         return { status: "error", message: response.statusText };
@@ -148,7 +148,7 @@ export async function updateLocation(
         .eq(unitIdField, parseInt(id, 10))
         .eq("type", locationType)
         .eq("valid_from", valid_from as string)
-        .eq("valid_to", valid_until as string);
+        .eq("valid_until", valid_until as string);
 
       if (response.status >= 400) {
         return { status: "error", message: response.statusText };
@@ -220,7 +220,7 @@ export async function updateContact(
         .update({ ...updatedFields, ...metadata })
         .eq(unitIdField, parseInt(id, 10))
         .eq("valid_from", valid_from as string)
-        .eq("valid_to", valid_until as string);
+        .eq("valid_until", valid_until as string);
 
       if (response.status >= 400) {
         return { status: "error", message: response.statusText };
@@ -295,7 +295,7 @@ export async function updateActivity(
         .eq(unitIdField, parseInt(id, 10))
         .eq("type", activityType)
         .eq("valid_from", valid_from as string)
-        .eq("valid_to", valid_until as string);
+        .eq("valid_until", valid_until as string);
 
       if (response.status >= 400) {
         return { status: "error", message: response.statusText };
@@ -373,7 +373,7 @@ export async function updateStatisticalVariables(
         .eq(unitIdField, parseInt(id, 10))
         .eq("stat_definition_id", stat_definition_id as number)
         .eq("valid_from", valid_from as string)
-        .eq("valid_to", valid_until as string);
+        .eq("valid_until", valid_until as string);
 
       if (response.status >= 400) {
         return { status: "error", message: response.statusText };
