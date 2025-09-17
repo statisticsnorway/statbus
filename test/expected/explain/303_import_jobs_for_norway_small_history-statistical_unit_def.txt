@@ -37,7 +37,8 @@
                      ->  Append
                            ->  Seq Scan on timeline_establishment
                            ->  Seq Scan on timeline_legal_unit
-                           ->  Seq Scan on timeline_enterprise
+                           ->  Subquery Scan on "*SELECT* 3"
+                                 ->  Seq Scan on timeline_enterprise
                      ->  Hash
                            ->  CTE Scan on external_idents_agg eia1
                ->  Hash
@@ -77,5 +78,5 @@
                                              Filter: (enterprise_group_id IS NOT NULL)
                                        ->  Hash
                                              ->  Seq Scan on tag t_3
-(77 rows)
+(78 rows)
 
