@@ -711,7 +711,7 @@ CREATE TABLE public.import_job(
     upload_table_name text NOT NULL, -- Name of the table holding raw uploaded data
     data_table_name text NOT NULL,   -- Name of the table holding processed/intermediate data
     priority integer,                -- Priority for worker queue processing
-    analysis_batch_size integer NOT NULL DEFAULT 8192, -- Batch size for analysis phase
+    analysis_batch_size integer NOT NULL DEFAULT 32768, -- Batch size for analysis phase
     processing_batch_size integer NOT NULL DEFAULT 200, -- Batch size for processing phase
     definition_snapshot JSONB,       -- Snapshot of definition metadata at job creation time
     preparing_data_at timestamp with time zone,
@@ -1451,9 +1451,9 @@ BEGIN
   EXECUTE format($$CREATE INDEX ON public.%1$I (state, last_completed_priority, row_id)$$, job.data_table_name /* %1$I */);
   RAISE DEBUG '[Job %] Added composite index to data table %', job.id, job.data_table_name;
 
-  -- Add GIST index on row_id for efficient multirange operations (<@)
-  EXECUTE format('CREATE INDEX ON public.%I USING GIST (row_id)', job.data_table_name);
-  RAISE DEBUG '[Job %] Added GIST index on row_id to data table %', job.id, job.data_table_name;
+  -- The GIST index on row_id has been removed. The `analyse_valid_time` procedure,
+  -- which was the sole user of this index via the `<@` operator, has been refactored
+  -- to use an `unnest`/`JOIN` strategy that leverages the much faster B-tree primary key index.
 
   -- Add GIST index on daterange(valid_from, valid_until) for efficient temporal_merge lookups.
   EXECUTE format('CREATE INDEX ON public.%I USING GIST (daterange(valid_from, valid_until, ''[]''))', job.data_table_name);
@@ -1478,15 +1478,10 @@ BEGIN
       );
       RAISE DEBUG '[Job %] Added founding_row_id index to data table %.', job.id, job.data_table_name;
 
-      -- CRITICAL PERFORMANCE FIX: Create a partial index on the entity root ID.
-      -- This index is specifically designed to make the batch selection query in the processing phase nearly instantaneous.
-      -- The query seeks distinct entity roots (`COALESCE(founding_row_id, row_id)`), so an index on that expression is optimal.
-      EXECUTE format(
-          $$ CREATE INDEX %1$I ON public.%2$I ( (COALESCE(founding_row_id, row_id)) ) WHERE state = 'processing' AND action = 'use' $$,
-          job.data_table_name || '_processing_batch_idx', /* %1$I: index name */
-          job.data_table_name                             /* %2$I: table name */
-      );
-      RAISE DEBUG '[Job %] Added processing phase performance index to data table %.', job.id, job.data_table_name;
+      -- The partial indexes on (COALESCE(founding_row_id, row_id)) have been removed.
+      -- They were specific to a previous, more complex batching strategy and are no longer
+      -- used by the simplified batch selection queries, which now efficiently use the
+      -- composite index on (state, last_completed_priority, row_id).
   END;
 
   -- Grant direct permissions to the job owner on the upload table to allow COPY FROM
@@ -2194,22 +2189,16 @@ BEGIN
                     END IF;
                 ELSE
                     -- BATCHED: find and process one batch.
-                    -- This logic ensures that all rows belonging to the same new entity (sharing a founding_row_id) are always processed in the same batch.
+                    -- This is a simplified and more direct query that proved to be more reliable
+                    -- than the previous complex version with a self-join, which confused the query planner.
                     EXECUTE format(
                         $$
-                        WITH entity_batch AS (
-                            SELECT DISTINCT COALESCE(founding_row_id, row_id) AS entity_root_id
+                        WITH batch_rows AS (
+                            SELECT row_id
                             FROM public.%1$I
                             WHERE state IN (%2$L, 'error') AND last_completed_priority < %3$L
-                            ORDER BY entity_root_id
+                            ORDER BY row_id
                             LIMIT %4$L
-                        ),
-                        batch_rows AS (
-                            SELECT dt.row_id
-                            FROM public.%1$I dt
-                            JOIN entity_batch eb ON COALESCE(dt.founding_row_id, dt.row_id) = eb.entity_root_id
-                            WHERE dt.state IN (%2$L, 'error') AND dt.last_completed_priority < %3$L
-                            ORDER BY dt.row_id
                             FOR UPDATE SKIP LOCKED
                         )
                         SELECT public.array_to_int4multirange(array_agg(row_id)) FROM batch_rows
@@ -2283,22 +2272,16 @@ DECLARE
 BEGIN
     RAISE DEBUG '[Job %] Processing phase: checking for a batch.', job.id;
 
-    -- This logic ensures that all rows belonging to the same new entity (sharing a founding_row_id) are always processed in the same batch.
+    -- This is a simplified and more direct query that is more reliable.
+    -- The previous complex version with a self-join confused the query planner.
     EXECUTE format(
         $$
-        WITH entity_batch AS (
-            SELECT DISTINCT COALESCE(founding_row_id, row_id) AS entity_root_id
+        WITH batch_rows AS (
+            SELECT row_id
             FROM public.%1$I
             WHERE state = 'processing' AND action = 'use'
-            ORDER BY entity_root_id
+            ORDER BY row_id
             LIMIT %2$L
-        ),
-        batch_rows AS (
-            SELECT dt.row_id
-            FROM public.%1$I dt
-            JOIN entity_batch eb ON COALESCE(dt.founding_row_id, dt.row_id) = eb.entity_root_id
-            WHERE dt.state = 'processing' AND dt.action = 'use'
-            ORDER BY dt.row_id
             FOR UPDATE SKIP LOCKED
         )
         SELECT public.array_to_int4multirange(array_agg(row_id)) FROM batch_rows

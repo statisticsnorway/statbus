@@ -325,8 +325,6 @@ Indexes:
     "t54_lu_tc_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_lu_tc_data_daterange_idx" gist (daterange(valid_from, valid_until, '[]'::text))
     "t54_lu_tc_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
-    "t54_lu_tc_data_processing_batch_idx" btree (COALESCE(founding_row_id, row_id)) WHERE state = 'processing'::import_data_state AND action = 'use'::import_row_action_type
-    "t54_lu_tc_data_row_id_idx" gist (row_id)
     "t54_lu_tc_data_stat_ident_raw_idx" btree (stat_ident_raw)
     "t54_lu_tc_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
     "t54_lu_tc_data_tax_ident_raw_idx" btree (tax_ident_raw)
@@ -467,8 +465,6 @@ Indexes:
     "t54_lu_sd_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_lu_sd_data_daterange_idx" gist (daterange(valid_from, valid_until, '[]'::text))
     "t54_lu_sd_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
-    "t54_lu_sd_data_processing_batch_idx" btree (COALESCE(founding_row_id, row_id)) WHERE state = 'processing'::import_data_state AND action = 'use'::import_row_action_type
-    "t54_lu_sd_data_row_id_idx" gist (row_id)
     "t54_lu_sd_data_stat_ident_raw_idx" btree (stat_ident_raw)
     "t54_lu_sd_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
     "t54_lu_sd_data_tax_ident_raw_idx" btree (tax_ident_raw)
@@ -608,8 +604,6 @@ Indexes:
     "t54_est_lu_tc_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_est_lu_tc_data_daterange_idx" gist (daterange(valid_from, valid_until, '[]'::text))
     "t54_est_lu_tc_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
-    "t54_est_lu_tc_data_processing_batch_idx" btree (COALESCE(founding_row_id, row_id)) WHERE state = 'processing'::import_data_state AND action = 'use'::import_row_action_type
-    "t54_est_lu_tc_data_row_id_idx" gist (row_id)
     "t54_est_lu_tc_data_stat_ident_raw_idx" btree (stat_ident_raw)
     "t54_est_lu_tc_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
     "t54_est_lu_tc_data_tax_ident_raw_idx" btree (tax_ident_raw)
@@ -749,8 +743,6 @@ Indexes:
     "t54_est_lu_sd_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_est_lu_sd_data_daterange_idx" gist (daterange(valid_from, valid_until, '[]'::text))
     "t54_est_lu_sd_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
-    "t54_est_lu_sd_data_processing_batch_idx" btree (COALESCE(founding_row_id, row_id)) WHERE state = 'processing'::import_data_state AND action = 'use'::import_row_action_type
-    "t54_est_lu_sd_data_row_id_idx" gist (row_id)
     "t54_est_lu_sd_data_stat_ident_raw_idx" btree (stat_ident_raw)
     "t54_est_lu_sd_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
     "t54_est_lu_sd_data_tax_ident_raw_idx" btree (tax_ident_raw)
@@ -889,8 +881,6 @@ Indexes:
     "t54_est_wolu_tc_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_est_wolu_tc_data_daterange_idx" gist (daterange(valid_from, valid_until, '[]'::text))
     "t54_est_wolu_tc_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
-    "t54_est_wolu_tc_data_processing_batch_idx" btree (COALESCE(founding_row_id, row_id)) WHERE state = 'processing'::import_data_state AND action = 'use'::import_row_action_type
-    "t54_est_wolu_tc_data_row_id_idx" gist (row_id)
     "t54_est_wolu_tc_data_stat_ident_raw_idx" btree (stat_ident_raw)
     "t54_est_wolu_tc_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
     "t54_est_wolu_tc_data_tax_ident_raw_idx" btree (tax_ident_raw)
@@ -1029,8 +1019,6 @@ Indexes:
     "t54_est_wolu_sd_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_est_wolu_sd_data_daterange_idx" gist (daterange(valid_from, valid_until, '[]'::text))
     "t54_est_wolu_sd_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
-    "t54_est_wolu_sd_data_processing_batch_idx" btree (COALESCE(founding_row_id, row_id)) WHERE state = 'processing'::import_data_state AND action = 'use'::import_row_action_type
-    "t54_est_wolu_sd_data_row_id_idx" gist (row_id)
     "t54_est_wolu_sd_data_stat_ident_raw_idx" btree (stat_ident_raw)
     "t54_est_wolu_sd_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
     "t54_est_wolu_sd_data_tax_ident_raw_idx" btree (tax_ident_raw)
@@ -1090,8 +1078,6 @@ Indexes:
     "t54_gus_jp_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_gus_jp_data_daterange_idx" gist (daterange(valid_from, valid_until, '[]'::text))
     "t54_gus_jp_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
-    "t54_gus_jp_data_processing_batch_idx" btree (COALESCE(founding_row_id, row_id)) WHERE state = 'processing'::import_data_state AND action = 'use'::import_row_action_type
-    "t54_gus_jp_data_row_id_idx" gist (row_id)
     "t54_gus_jp_data_stat_ident_raw_idx" btree (stat_ident_raw)
     "t54_gus_jp_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
     "t54_gus_jp_data_tax_ident_raw_idx" btree (tax_ident_raw)
@@ -1151,8 +1137,6 @@ Indexes:
     "t54_gus_sd_data_pkey" PRIMARY KEY, btree (row_id)
     "t54_gus_sd_data_daterange_idx" gist (daterange(valid_from, valid_until, '[]'::text))
     "t54_gus_sd_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
-    "t54_gus_sd_data_processing_batch_idx" btree (COALESCE(founding_row_id, row_id)) WHERE state = 'processing'::import_data_state AND action = 'use'::import_row_action_type
-    "t54_gus_sd_data_row_id_idx" gist (row_id)
     "t54_gus_sd_data_stat_ident_raw_idx" btree (stat_ident_raw)
     "t54_gus_sd_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
     "t54_gus_sd_data_tax_ident_raw_idx" btree (tax_ident_raw)

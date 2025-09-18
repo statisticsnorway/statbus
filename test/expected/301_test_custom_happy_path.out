@@ -489,8 +489,6 @@ Indexes:
     "import_71_a1_lu_data_daterange_idx" gist (daterange(valid_from, valid_until, '[]'::text))
     "import_71_a1_lu_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "import_71_a1_lu_data_nin_ident_raw_idx" btree (nin_ident_raw)
-    "import_71_a1_lu_data_processing_batch_idx" btree (COALESCE(founding_row_id, row_id)) WHERE state = 'processing'::import_data_state AND action = 'use'::import_row_action_type
-    "import_71_a1_lu_data_row_id_idx" gist (row_id)
     "import_71_a1_lu_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
     "import_71_a1_lu_data_tax_ident_raw_idx" btree (tax_ident_raw)
 Policies:

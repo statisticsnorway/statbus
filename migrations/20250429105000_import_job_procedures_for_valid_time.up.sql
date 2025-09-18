@@ -48,7 +48,6 @@ DECLARE
     v_data_table_name TEXT;
     v_error_count INT := 0;
     v_update_count INT := 0;
-    v_skipped_update_count INT := 0;
     v_sql TEXT;
     v_error_keys_to_clear_arr TEXT[] := ARRAY['valid_from_raw', 'valid_to_raw'];
 BEGIN
@@ -56,20 +55,36 @@ BEGIN
 
     -- Get job details
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
-    v_data_table_name := v_job.data_table_name; -- Assign from the record
+    v_data_table_name := v_job.data_table_name;
 
-    -- Find the target details from the snapshot
+    -- Find the step details from the snapshot
     SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = 'valid_time';
     IF NOT FOUND THEN
-        RAISE EXCEPTION '[Job %] valid_time target not found in snapshot', p_job_id;
+        RAISE EXCEPTION '[Job %] valid_time step not found in snapshot', p_job_id;
     END IF;
+
+    -- Create a temporary table to hold batch data. This ensures subsequent operations are on a small dataset.
+    IF to_regclass('pg_temp.t_batch_data') IS NOT NULL THEN DROP TABLE t_batch_data; END IF;
+    CREATE TEMP TABLE t_batch_data (
+        row_id integer PRIMARY KEY,
+        valid_from TEXT,
+        valid_to TEXT
+    ) ON COMMIT DROP;
+
+    -- Populate the temp table using the performant unnest/JOIN strategy, which forces use of the PK B-tree index.
+    EXECUTE format(
+        'INSERT INTO t_batch_data (row_id, valid_from, valid_to) SELECT dt.row_id, dt.valid_from_raw, dt.valid_to_raw FROM public.%I dt JOIN unnest($1) AS r(range) ON dt.row_id >= lower(r.range) AND dt.row_id < upper(r.range)',
+        v_data_table_name
+    ) USING p_batch_row_id_ranges;
+
+    ANALYZE t_batch_data; -- Provide stats for the planner.
 
     -- Single-pass batch update for casting, state, error, and priority
     v_sql := format($SQL$
         WITH
-        -- Step 1: Get the raw text dates for the current batch of rows.
+        -- Step 1: Get the raw text dates for the current batch of rows from the temp table.
         batch_data_cte AS (
-            SELECT row_id, valid_from_raw AS valid_from, valid_to_raw AS valid_to FROM public.%1$I WHERE row_id <@ $1
+            SELECT row_id, valid_from, valid_to FROM t_batch_data
         ),
         -- Step 2: Find all unique non-empty date strings within the batch.
         distinct_dates_cte AS (
@@ -78,7 +93,7 @@ BEGIN
             SELECT valid_to AS date_string FROM batch_data_cte WHERE NULLIF(valid_to, '') IS NOT NULL
         ),
         -- Step 3: Call the casting function ONLY for the unique date strings.
-        casted_distinct_dates_cte AS (
+        casted_distinct_dates_cte AS MATERIALIZED (
             SELECT
                 dd.date_string,
                 sc.p_value,
@@ -87,26 +102,21 @@ BEGIN
             LEFT JOIN LATERAL import.safe_cast_to_date(dd.date_string) AS sc ON TRUE
         ),
         -- Step 4: Re-assemble the casted values for each row by joining back to the batch data.
-        -- This serves as the main source for the final UPDATE statement.
         final_cast_cte AS (
             SELECT
                 bd.row_id,
-                -- Casted values for 'valid_from'
                 vf.p_value AS casted_vf,
                 vf.p_error_message AS vf_error_msg,
-                -- Casted values for 'valid_to'
                 vt.p_value AS casted_vt,
                 vt.p_error_message AS vt_error_msg,
-                -- The 'valid_until' is derived from the casted 'valid_to'
                 (CASE WHEN vt.p_value = 'infinity'::date THEN 'infinity'::date ELSE vt.p_value + INTERVAL '1 day' END) AS casted_vu,
-                -- Keep original string values for use in error messages
                 bd.valid_from AS original_vf,
                 bd.valid_to AS original_vt
             FROM batch_data_cte bd
             LEFT JOIN casted_distinct_dates_cte vf ON bd.valid_from = vf.date_string
             LEFT JOIN casted_distinct_dates_cte vt ON bd.valid_to = vt.date_string
         )
-        UPDATE public.%2$I dt SET
+        UPDATE public.%1$I dt SET
             valid_from = fcc.casted_vf,
             valid_to = fcc.casted_vt,
             valid_until = fcc.casted_vu,
@@ -115,55 +125,54 @@ BEGIN
                              NULLIF(fcc.original_vt, '') IS NULL OR fcc.vt_error_msg IS NOT NULL OR
                              (fcc.casted_vf IS NOT NULL AND fcc.casted_vu IS NOT NULL AND fcc.casted_vf >= fcc.casted_vu)
                         THEN 'error'::public.import_data_state
-                        ELSE -- No error in this step
+                        ELSE
                             CASE
-                                WHEN dt.state = 'error'::public.import_data_state THEN 'error'::public.import_data_state -- Preserve previous error
-                                ELSE 'analysing'::public.import_data_state -- OK to set to analysing
+                                WHEN dt.state = 'error'::public.import_data_state THEN 'error'::public.import_data_state
+                                ELSE 'analysing'::public.import_data_state
                             END
                     END,
             action = CASE
                         WHEN NULLIF(fcc.original_vf, '') IS NULL OR fcc.vf_error_msg IS NOT NULL OR
                              NULLIF(fcc.original_vt, '') IS NULL OR fcc.vt_error_msg IS NOT NULL OR
                              (fcc.casted_vf IS NOT NULL AND fcc.casted_vu IS NOT NULL AND fcc.casted_vf >= fcc.casted_vu)
-                        THEN 'skip'::public.import_row_action_type -- Error implies skip
-                        ELSE dt.action -- Preserve action from previous steps if no new fatal error here
+                        THEN 'skip'::public.import_row_action_type
+                        ELSE dt.action
                      END,
             errors = CASE
-                        WHEN NULLIF(fcc.original_vf, '') IS NULL THEN -- Mandatory value missing
+                        WHEN NULLIF(fcc.original_vf, '') IS NULL THEN
                             dt.errors || jsonb_build_object('valid_from_raw', 'Missing mandatory value')
-                        WHEN fcc.vf_error_msg IS NOT NULL THEN -- Cast error for valid_from
+                        WHEN fcc.vf_error_msg IS NOT NULL THEN
                             dt.errors || jsonb_build_object('valid_from_raw', fcc.vf_error_msg)
-                        WHEN NULLIF(fcc.original_vt, '') IS NULL THEN -- Mandatory value missing
+                        WHEN NULLIF(fcc.original_vt, '') IS NULL THEN
                             dt.errors || jsonb_build_object('valid_to_raw', 'Missing mandatory value')
-                        WHEN fcc.vt_error_msg IS NOT NULL THEN -- Cast error for valid_to
+                        WHEN fcc.vt_error_msg IS NOT NULL THEN
                             dt.errors || jsonb_build_object('valid_to_raw', fcc.vt_error_msg)
-                        WHEN fcc.casted_vf IS NOT NULL AND fcc.casted_vu IS NOT NULL AND (fcc.casted_vf >= fcc.casted_vu) THEN -- Invalid period
+                        WHEN fcc.casted_vf IS NOT NULL AND fcc.casted_vu IS NOT NULL AND (fcc.casted_vf >= fcc.casted_vu) THEN
                             dt.errors || jsonb_build_object(
                                 'valid_from_raw', 'Resulting period is invalid: valid_from (' || fcc.casted_vf::TEXT || ') must be before valid_until (' || fcc.casted_vu::TEXT || ')',
                                 'valid_to_raw',   'Resulting period is invalid: valid_from (' || fcc.casted_vf::TEXT || ') must be before valid_until (' || fcc.casted_vu::TEXT || ')'
                             )
-                        ELSE -- No error from this step, clear specific keys
-                            dt.errors - %3$L::TEXT[]
+                        ELSE
+                            dt.errors - %2$L::TEXT[]
                     END,
-            last_completed_priority = %4$L -- Always v_step.priority
+            last_completed_priority = %3$L
         FROM final_cast_cte fcc
-        WHERE dt.row_id = fcc.row_id AND dt.action IS DISTINCT FROM 'skip'; -- Process if action was not already 'skip' from a prior step.
+        WHERE dt.row_id = fcc.row_id;
     $SQL$,
-        v_data_table_name /* %1$I */,                           -- %1$I (CTE source table)
-        v_data_table_name /* %2$I */,                           -- %2$I (main UPDATE target)
-        v_error_keys_to_clear_arr /* %3$L */,                    -- For error CASE (clear)
-        v_step.priority /* %4$L */                              -- For last_completed_priority (always this step's priority)
+        v_data_table_name,             -- %1$I
+        v_error_keys_to_clear_arr,     -- %2$L
+        v_step.priority                -- %3$L
     );
     RAISE DEBUG '[Job %] analyse_valid_time: Single-pass batch update for non-skipped rows: %', p_job_id, v_sql;
 
     BEGIN
-        EXECUTE v_sql USING p_batch_row_id_ranges;
+        EXECUTE v_sql;
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_valid_time: Updated % non-skipped rows in single pass.', p_job_id, v_update_count;
 
         -- Estimate error count
-        v_sql := format($$SELECT COUNT(*) FROM public.%1$I WHERE row_id <@ $1 AND state = 'error' AND (errors ?| %2$L::text[])$$,
-                       v_data_table_name /* %1$I */, v_error_keys_to_clear_arr /* %2$L */);
+        v_sql := format($$SELECT COUNT(*) FROM public.%1$I dt JOIN unnest($1) AS r(range) ON dt.row_id >= lower(r.range) AND dt.row_id < upper(r.range) WHERE dt.state = 'error' AND (dt.errors ?| %2$L::text[])$$,
+                       v_data_table_name, v_error_keys_to_clear_arr);
         RAISE DEBUG '[Job %] analyse_valid_time: Counting errors with SQL: %', p_job_id, v_sql;
         EXECUTE v_sql
         INTO v_error_count
@@ -179,17 +188,6 @@ BEGIN
         RAISE DEBUG '[Job %] analyse_valid_time: Marked job as failed due to error: %', p_job_id, SQLERRM;
         RAISE;
     END;
-
-    -- Unconditionally advance priority for all rows in batch to ensure progress
-    v_sql := format($$
-        UPDATE public.%1$I dt SET
-            last_completed_priority = %2$L
-        WHERE dt.row_id <@ $1 AND dt.last_completed_priority < %2$L;
-    $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */);
-    RAISE DEBUG '[Job %] analyse_valid_time: Unconditionally advancing priority for all batch rows with SQL: %', p_job_id, v_sql;
-    EXECUTE v_sql USING p_batch_row_id_ranges;
-    GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
-    RAISE DEBUG '[Job %] analyse_valid_time: Advanced last_completed_priority for % total rows in batch.', p_job_id, v_skipped_update_count;
 
     -- Propagate errors to all rows of a new entity if one fails (best-effort)
     BEGIN

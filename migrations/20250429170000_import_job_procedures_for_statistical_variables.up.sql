@@ -89,14 +89,18 @@ BEGIN
     SELECT jsonb_agg(elem) INTO v_stat_source_cols FROM jsonb_array_elements(v_stat_data_cols) as elem WHERE elem->>'purpose' = 'source_input' AND (elem->>'step_id')::int = v_step.id;
 
     IF v_stat_source_cols IS NULL OR jsonb_array_length(v_stat_source_cols) = 0 THEN
-        RAISE DEBUG '[Job %] analyse_statistical_variables: No source_input data columns found. Skipping.', p_job_id;
-        v_sql := format('UPDATE public.%I SET last_completed_priority = %L WHERE row_id <@ $1', v_data_table_name, v_step.priority);
+        RAISE DEBUG '[Job %] analyse_statistical_variables: No source_input data columns found for this definition. Skipping step.', p_job_id;
+        v_sql := format($$UPDATE public.%1$I dt SET last_completed_priority = %2$L
+                           FROM unnest($1) AS r(range)
+                           WHERE dt.row_id >= lower(r.range) AND dt.row_id < upper(r.range)
+                             AND dt.last_completed_priority < %2$L
+                          $$, v_data_table_name, v_step.priority);
         RAISE DEBUG '[Job %] analyse_statistical_variables: Advancing priority for skipped batch with SQL: %', p_job_id, v_sql;
         EXECUTE v_sql USING p_batch_row_ids_range;
         RETURN;
     END IF;
 
-    -- Dynamically build components for the main SQL query
+    -- Dynamically build components for the decomposed query
     FOR v_col_rec IN
         SELECT
             replace(elem->>'column_name', '_raw', '') as code,
@@ -117,79 +121,93 @@ BEGIN
 
     SELECT string_agg(sql_part, ' UNION ALL ') INTO v_unpivot_sql
     FROM (
-        SELECT format('SELECT row_id, %L AS stat_code_raw, %L AS stat_code, %L AS stat_type, %I AS stat_value_text FROM batch_data WHERE NULLIF(%I, '''') IS NOT NULL',
+        SELECT format('SELECT row_id, %L AS stat_code_raw, %L AS stat_code, %L AS stat_type, %I AS stat_value_text FROM t_batch_data WHERE NULLIF(%I, '''') IS NOT NULL',
                       sda.code || '_raw', sda.code, sda.type, sda.code || '_raw', sda.code || '_raw') as sql_part
         FROM jsonb_array_elements(v_stat_source_cols) elem
         JOIN public.stat_definition_active sda ON sda.code = replace(elem->>'column_name', '_raw', '')
     ) AS parts;
 
-    v_sql := format($$
-        WITH
-        batch_data AS (
-            SELECT row_id, %1$s
-            FROM public.%2$I
-            WHERE row_id <@ $1 AND action IS DISTINCT FROM 'skip'
-        ),
-        unpivoted AS ( %3$s ),
-        distinct_values AS (
-            SELECT DISTINCT stat_type, stat_value_text FROM unpivoted
-        ),
-        casted AS (
-            SELECT
-                stat_type, stat_value_text,
-                CASE stat_type
-                    WHEN 'int' THEN (import.safe_cast_to_integer(stat_value_text)).p_value::TEXT
-                    WHEN 'float' THEN (import.safe_cast_to_numeric(stat_value_text)).p_value::TEXT
-                    WHEN 'bool' THEN (import.safe_cast_to_boolean(stat_value_text)).p_value::TEXT
-                    ELSE stat_value_text
-                END as casted_value,
-                CASE stat_type
-                    WHEN 'int' THEN (import.safe_cast_to_integer(stat_value_text)).p_error_message
-                    WHEN 'float' THEN (import.safe_cast_to_numeric(stat_value_text)).p_error_message
-                    WHEN 'bool' THEN (import.safe_cast_to_boolean(stat_value_text)).p_error_message
-                    ELSE NULL
-                END AS error_message
-            FROM distinct_values
-        ),
-        pivoted AS (
-            SELECT
-                u.row_id,
-                jsonb_object_agg(u.stat_code, c.casted_value) FILTER (WHERE c.error_message IS NULL) as values,
-                jsonb_object_agg(u.stat_code_raw, c.error_message) FILTER (WHERE c.error_message IS NOT NULL) as errors
-            FROM unpivoted u
-            JOIN casted c ON u.stat_type = c.stat_type AND u.stat_value_text = c.stat_value_text
-            GROUP BY u.row_id
-        )
-        UPDATE public.%2$I dt SET
-            %4$s,
-            state = CASE WHEN pivoted.errors IS NOT NULL THEN 'error'::public.import_data_state ELSE 'analysing'::public.import_data_state END,
-            action = CASE WHEN pivoted.errors IS NOT NULL THEN 'skip'::public.import_row_action_type ELSE dt.action END,
-            errors = dt.errors - %5$L::text[] || COALESCE(pivoted.errors, '{}'::jsonb),
-            last_completed_priority = %6$L
-        FROM pivoted
-        WHERE dt.row_id = pivoted.row_id;
-    $$,
-        v_all_stat_raw_codes_list,    /* %1$s */
-        v_data_table_name,            /* %2$I */
-        v_unpivot_sql,                /* %3$s */
-        v_set_clauses,                /* %4$s */
-        v_error_keys_to_clear_arr,    /* %5$L */
-        v_step.priority               /* %6$L */
-    );
+    -- Decomposed query approach for performance
+    -- Step 1: Select batch into a temp table using the performant unnest/JOIN pattern.
+    IF to_regclass('pg_temp.t_batch_data') IS NOT NULL THEN DROP TABLE t_batch_data; END IF;
+    v_sql := format($$CREATE TEMP TABLE t_batch_data ON COMMIT DROP AS
+                       SELECT dt.row_id, %1$s
+                       FROM public.%2$I dt
+                       JOIN unnest($1) AS r(range) ON dt.row_id >= lower(r.range) AND dt.row_id < upper(r.range)
+                       WHERE dt.action IS DISTINCT FROM 'skip'
+                    $$, v_all_stat_raw_codes_list, v_data_table_name);
+    EXECUTE v_sql USING p_batch_row_ids_range;
 
-    RAISE DEBUG '[Job %] analyse_statistical_variables: Optimized batch update SQL: %', p_job_id, v_sql;
+    -- Step 2: Unpivot the raw data from the batch.
+    IF to_regclass('pg_temp.t_unpivoted') IS NOT NULL THEN DROP TABLE t_unpivoted; END IF;
+    v_sql := format('CREATE TEMP TABLE t_unpivoted ON COMMIT DROP AS %s', v_unpivot_sql);
+    EXECUTE v_sql;
+
+    -- Step 3: Get distinct values to minimize casting operations.
+    IF to_regclass('pg_temp.t_distinct_values') IS NOT NULL THEN DROP TABLE t_distinct_values; END IF;
+    CREATE TEMP TABLE t_distinct_values ON COMMIT DROP AS SELECT DISTINCT stat_type, stat_value_text FROM t_unpivoted;
+
+    -- Step 4: Perform casting on the small set of distinct values.
+    IF to_regclass('pg_temp.t_casted') IS NOT NULL THEN DROP TABLE t_casted; END IF;
+    CREATE TEMP TABLE t_casted ON COMMIT DROP AS
+    SELECT
+        stat_type, stat_value_text,
+        CASE stat_type
+            WHEN 'int' THEN (import.safe_cast_to_integer(stat_value_text)).p_value::TEXT
+            WHEN 'float' THEN (import.safe_cast_to_numeric(stat_value_text)).p_value::TEXT
+            WHEN 'bool' THEN (import.safe_cast_to_boolean(stat_value_text)).p_value::TEXT
+            ELSE stat_value_text
+        END as casted_value,
+        CASE stat_type
+            WHEN 'int' THEN (import.safe_cast_to_integer(stat_value_text)).p_error_message
+            WHEN 'float' THEN (import.safe_cast_to_numeric(stat_value_text)).p_error_message
+            WHEN 'bool' THEN (import.safe_cast_to_boolean(stat_value_text)).p_error_message
+            ELSE NULL
+        END AS error_message
+    FROM t_distinct_values;
+
+    -- Step 5: Pivot the casted data and errors back by row_id.
+    IF to_regclass('pg_temp.t_pivoted') IS NOT NULL THEN DROP TABLE t_pivoted; END IF;
+    CREATE TEMP TABLE t_pivoted ON COMMIT DROP AS
+    SELECT
+        u.row_id,
+        jsonb_object_agg(u.stat_code, c.casted_value) FILTER (WHERE c.error_message IS NULL) as values,
+        jsonb_object_agg(u.stat_code_raw, c.error_message) FILTER (WHERE c.error_message IS NOT NULL) as errors
+    FROM t_unpivoted u
+    JOIN t_casted c ON u.stat_type = c.stat_type AND u.stat_value_text = c.stat_value_text
+    GROUP BY u.row_id;
+
+    -- Step 6: Perform the final, simple UPDATE by joining against the pivoted temp table.
     BEGIN
-        EXECUTE v_sql USING p_batch_row_ids_range;
+        v_sql := format($$UPDATE public.%1$I dt SET
+                %2$s,
+                state = CASE WHEN COALESCE(pivoted.errors, '{}'::jsonb) != '{}'::jsonb THEN 'error'::public.import_data_state ELSE 'analysing'::public.import_data_state END,
+                action = CASE WHEN COALESCE(pivoted.errors, '{}'::jsonb) != '{}'::jsonb THEN 'skip'::public.import_row_action_type ELSE dt.action END,
+                errors = dt.errors - %3$L::text[] || COALESCE(pivoted.errors, '{}'::jsonb),
+                last_completed_priority = %4$L
+            FROM t_pivoted pivoted
+            WHERE dt.row_id = pivoted.row_id
+        $$,
+            v_data_table_name,            /* %1$I */
+            v_set_clauses,                /* %2$s */
+            v_error_keys_to_clear_arr,    /* %3$L */
+            v_step.priority               /* %4$L */
+        );
+        RAISE DEBUG '[Job %] analyse_statistical_variables: Decomposed batch update SQL: %', p_job_id, v_sql;
+        EXECUTE v_sql;
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] analyse_statistical_variables: Updated % non-skipped rows.', p_job_id, v_update_count;
+        RAISE DEBUG '[Job %] analyse_statistical_variables: Updated % non-skipped rows via decomposed method.', p_job_id, v_update_count;
     EXCEPTION WHEN OTHERS THEN
-        RAISE WARNING '[Job %] analyse_statistical_variables: Error during batch update: %', p_job_id, SQLERRM;
+        RAISE WARNING '[Job %] analyse_statistical_variables: Error during decomposed batch update: %', p_job_id, SQLERRM;
         UPDATE public.import_job SET error = jsonb_build_object('analyse_statistical_variables_batch_error', SQLERRM), state = 'finished' WHERE id = p_job_id;
         RAISE;
     END;
 
-    v_sql := format('UPDATE public.%I SET last_completed_priority = %L WHERE row_id <@ $1 AND last_completed_priority < %L',
-                   v_data_table_name, v_step.priority, v_step.priority);
+    v_sql := format($$UPDATE public.%1$I dt SET last_completed_priority = %2$L
+                       FROM unnest($1) AS r(range)
+                       WHERE dt.row_id >= lower(r.range) AND dt.row_id < upper(r.range)
+                         AND dt.last_completed_priority < %2$L
+                      $$, v_data_table_name, v_step.priority);
     RAISE DEBUG '[Job %] analyse_statistical_variables: Advancing priority for all batch rows with SQL: %', p_job_id, v_sql;
     EXECUTE v_sql USING p_batch_row_ids_range;
     GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
