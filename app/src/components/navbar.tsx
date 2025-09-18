@@ -79,7 +79,7 @@ export default function Navbar() {
 
   return (
     <header className="bg-ssb-dark text-white">
-      <div className="mx-auto flex max-w-(--breakpoint-xl) items-center justify-between gap-4 p-2 lg:px-4">
+      <div className="mx-auto grid grid-cols-3 max-w-(--breakpoint-xl) items-center justify-between gap-4 p-2 lg:px-4">
         <Link
           href="/"
           className="flex items-center space-x-3 rtl:space-x-reverse"
@@ -102,8 +102,11 @@ export default function Navbar() {
                   "space-x-2 hidden lg:flex",
                   // Add active state class
                   "border-1", // Base border class
-                  isImporting ? "border-yellow-400" : // Processing state overrides active state
-                  pathname.startsWith("/import") ? "border-white" : "border-transparent" // Active/Inactive state
+                  isImporting
+                    ? "border-yellow-400" // Processing state overrides active state
+                    : pathname.startsWith("/import")
+                      ? "border-white"
+                      : "border-transparent" // Active/Inactive state
                 )}
               >
                 <Upload size={16} />
@@ -119,8 +122,11 @@ export default function Navbar() {
                       "space-x-2 hidden lg:flex",
                       // Add active state class
                       "border-1", // Base border class
-                      isDerivingUnits ? "border-yellow-400" : // Processing state overrides active state
-                      pathname.startsWith("/search") ? "border-white" : "border-transparent" // Active/Inactive state
+                      isDerivingUnits
+                        ? "border-yellow-400" // Processing state overrides active state
+                        : pathname.startsWith("/search")
+                          ? "border-white"
+                          : "border-transparent" // Active/Inactive state
                     )}
                   >
                     <Search size={16} />
@@ -134,8 +140,11 @@ export default function Navbar() {
                       "space-x-2 hidden lg:flex",
                       // Add active state class
                       "border-1", // Base border class
-                      isDerivingReports ? "border-yellow-400" : // Processing state overrides active state
-                      pathname.startsWith("/reports") ? "border-white" : "border-transparent" // Active/Inactive state
+                      isDerivingReports
+                        ? "border-yellow-400" // Processing state overrides active state
+                        : pathname.startsWith("/reports")
+                          ? "border-white"
+                          : "border-transparent" // Active/Inactive state
                     )}
                   >
                     <BarChartHorizontal size={16} />
@@ -148,17 +157,19 @@ export default function Navbar() {
         </div>
 
         {/* Right: Context/Profile/Mobile */}
-        <div className="flex items-center space-x-3">
-          {isAuthenticated && hasStatisticalUnits && ( // isAuthenticated implies not loading and authenticated
-            <TimeContextSelector />
-          )}
+        <div className="flex items-center justify-end space-x-3">
+          {isAuthenticated &&
+            hasStatisticalUnits && ( // isAuthenticated implies not loading and authenticated
+              <TimeContextSelector />
+            )}
           {/* Render ProfileAvatar only if authenticated and user object is available */}
-          {isAuthenticated && currentUser && (  // isAuthenticated implies not loading and authenticated
-            <>
-              <ProfileAvatar className="w-8 h-8 text-ssb-dark hidden lg:flex" />
-              {/* Mobile menu button moved to the center section */}
-            </>
-          )}
+          {isAuthenticated &&
+            currentUser && ( // isAuthenticated implies not loading and authenticated
+              <>
+                <ProfileAvatar className="w-8 h-8 text-ssb-dark hidden lg:flex" />
+                {/* Mobile menu button moved to the center section */}
+              </>
+            )}
         </div>
       </div>
     </header>
