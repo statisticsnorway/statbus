@@ -79,7 +79,7 @@ export const UploadCSVForm = ({
         type="file"
         name={filename}
         accept=".csv"
-        className="mb-4"
+        className="mb-4 bg-white"
       />
       <UploadFormButtons error={state.error} nextPage={nextPage} />
     </form>
