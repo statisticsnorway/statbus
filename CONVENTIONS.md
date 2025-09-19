@@ -16,7 +16,7 @@ Key tools available for you to suggest:
 - **`tree`**: List files to understand directory structures.
 - **`head`**: Inspect the beginning of files to quickly understand their structure and content.
 - **`ls`**: Check file sizes to determine if they should be read or inspected.
-- **`echo "..." | ./devops/manage-statbus.sh psql`**: Run arbitrary SQL for debugging or inspection. You can also write complex queries to a temporary `.sql` file and pipe it.
+- **`./devops/manage-statbus.sh psql < file.sql`**: Run SQL from a file. The `<` redirection is mandatory to prevent `psql` from hanging on standard input. For single-line queries, `echo "..." | ./devops/manage-statbus.sh psql` can be used.
 
 For file system operations and large-scale edits, prefer suggesting shell commands over generating `SEARCH/REPLACE` blocks where appropriate. This is faster and more efficient.
 - Use `rm` to delete files and `git mv` to move or rename them. Do not suggest deleting files from the `tmp/` directory, as they are gitignored and serve as a useful log of diagnostic snippets.
@@ -125,32 +125,41 @@ Migrations are managed using the `statbus` CLI tool.
 For more details, see the main `README.md` file or run `./cli/bin/statbus migrate --help`.
 
 ## The Iterative Development Cycle
-All development work, especially bug fixing, must follow a rigorous, hypothesis-driven cycle to ensure progress is verifiable and the system remains stable. A task is not complete until the final step of this cycle has been successfully executed.
+All development work, especially bug fixing, must follow a rigorous, hypothesis-driven cycle to ensure progress is verifiable, correct, and does not waste time on flawed assumptions. A task is not complete until the final step of this cycle has been successfully executed. **A hypothesis is not confirmed until it is supported by direct, empirical observation.**
 
-### 1. Formulate and State a Hypothesis
-- **Action:** Before making any code changes, clearly state your hypothesis about the root cause of the problem in `tmp/journal.md`. This creates a locally persistent log of your thought process, helping maintain context through interruptions (e.g., an AI context reset or a crash). Files in the `tmp/` directory are gitignored and provide a useful history of investigation; do not suggest deleting them. Before starting a new major task, consider if any recurring patterns or insights from the journal should be used to improve this `CONVENTIONS.md` file.
-- **Example:** "Hypothesis: The test regressions are caused by the 'scorched earth' `replace` logic deleting child records that tests expect to survive a partial import."
+### 1. Hypothesize: Formulate and State a Hypothesis
+- **Action:** Before making any code changes, clearly state your hypothesis about the root cause of the problem in `tmp/journal.md`. This creates a locally persistent log of your thought process.
+- **Example:** "Hypothesis: The import job hangs because the batch selection query is inefficient and confuses the query planner."
 
-### 2. Create or Identify a Reproducing Test
-- **Action:** Before proposing a fix, ensure a test case exists that isolates the bug. This test must fail before the fix and is expected to pass after.
+### 2. Isolate: Create or Identify a Reproducing Test
+- **Action:** Ensure a test case exists that isolates the bug. This can be an existing pg_regress test or a temporary SQL script (`tmp/debug_*.sql`) that demonstrates the failure (e.g., a query that is slow or returns incorrect data).
 
-### 3. Propose a Change and State the Expected Outcome
-- **Action:** Propose the specific code changes (using `SEARCH/REPLACE` blocks). Alongside the changes, explicitly state what the change is expected to achieve.
-- **Example:** "Hope/Assumption: Applying this conditional deletion logic will prevent unintended data loss. The failing tests (`203`, `302`, `303`) will now pass."
+### 3. Prototype: Propose a Non-Destructive Verification
+- **Action:** Before proposing a permanent fix, create a temporary, non-destructive script (e.g., `tmp/verify_fix.sql`) to test your proposed change. This script must use tools like `EXPLAIN (ANALYZE, BUFFERS)` or read-only `SELECT` queries to gather performance data or check logic without altering the database state.
+- **Example:** Create a script that runs `EXPLAIN ANALYZE` on a simplified query to prove it is fast and returns the expected number of rows.
 
-### 4. Gather Real-World Data
-- **Action:** After the user applies the changes, request that they run the relevant tests to gather empirical evidence of the change's impact.
-- **Standard Command**: Use the project's testing script to run tests (e.g., `./devops/manage-statbus.sh test 203_legal_units_consecutive_days`).
+### 4. Observe: Gather Empirical Evidence from the Prototype
+- **Action:** Suggest the user run the verification script from Step 3. **Do not proceed until you have observed the results.** This step is mandatory.
+- **Standard Command**: `./devops/manage-statbus.sh psql < tmp/verify_fix.sql`
 
-### 5. Analyze Results and Verify Hypothesis
-- **Action:** Carefully inspect the test output.
-  - **If Successful:** The hypothesis is confirmed. The fix worked as expected.
-  - **If Unsuccessful:** The hypothesis was incorrect. Analyze the new data to form a new hypothesis and return to Step 1. If the change was incorrect, it must be reverted.
+### 5. Analyze & Refine: Analyze Prototype Results
+- **Action:** Carefully inspect the output from the verification script.
+  - **If Successful:** The prototype confirms the hypothesis (e.g., the new query is fast). You can now proceed to propose the permanent change.
+  - **If Unsuccessful:** The hypothesis was incorrect. The prototype failed (e.g., the query was still slow or returned zero rows). Analyze the new data, update `tmp/journal.md` with a new hypothesis, and return to Step 1.
 
-### 6. Conclude and Update Documentation
-- **Action:** Only after the fix has been successfully verified in Step 5, update `todo.md` to move the task to a "done" state (e.g., `[x]`).
+### 6. Implement: Propose the Permanent Change
+- **Action:** Only after the prototype has been successfully verified in Step 5, propose the specific code changes (using `SEARCH/REPLACE` blocks) for the permanent files (e.g., migrations, functions). State the expected outcome.
+- **Example:** "This change replaces the complex query with the simplified version that was verified to be fast in `tmp/verify_fix.sql`."
+
+### 7. Validate: Run Full Regression Tests
+- **Action:** After the user applies the permanent changes, request that they run the relevant test suite to ensure the fix works and has not introduced any regressions.
+- **Standard Command**: `./devops/manage-statbus.sh test [test_name]`
+
+### 8. Conclude: Update Documentation
+- **Action:** Only after the fix has been successfully validated in Step 7, update `todo.md` to move the task to a "done" state (e.g., `[x]`).
 
 ## General Development Principles
+- **Embrace Falsifiability**: Treat every hypothesis and plan as provisional until proven by direct, empirical observation. Frame plans as "Current Plan" or "Next Step," not "Final Plan." The goal is to be prepared to be wrong and to allow evidence to guide the development process. Optimism should be rooted in the rigor of the process itself, not in the assumed correctness of any single solution. This mindset is the primary defense against hubris and wasted effort.
 - **Fail Fast**:
   - Functionality that is expected to work should fail immediately and clearly if an unexpected state or error occurs.
   - Do not mask or work around problems; instead, provide sufficient error or debugging information to facilitate a solution. This is crucial for maintaining system integrity and simplifying troubleshooting, especially in backend processes and SQL procedures.
