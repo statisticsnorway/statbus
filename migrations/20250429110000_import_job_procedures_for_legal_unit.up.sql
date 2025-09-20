@@ -336,9 +336,9 @@ BEGIN
                 target_table => 'public.legal_unit'::regclass,
                 source_table => 'temp_lu_demotion_source'::regclass,
                 identity_columns => ARRAY['id'],
-                ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
                 mode => 'PATCH_FOR_PORTION_OF',
-                source_row_id_column => 'row_id'
+                row_id_column => 'row_id',
+                ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
             );
             FOR v_batch_result IN SELECT * FROM pg_temp.temporal_merge_feedback WHERE status = 'ERROR' LOOP
                  RAISE WARNING '[Job %] process_legal_unit: Error during demotion for LU ID %: %', p_job_id, (v_batch_result.target_entity_ids->0->>'id')::INT, v_batch_result.error_message;
@@ -351,10 +351,10 @@ BEGIN
         -- Determine merge mode from job strategy
         v_merge_mode := CASE v_definition.strategy
             WHEN 'insert_or_replace' THEN 'MERGE_ENTITY_REPLACE'::sql_saga.temporal_merge_mode
-            WHEN 'replace_only' THEN 'MERGE_ENTITY_REPLACE'::sql_saga.temporal_merge_mode
-            WHEN 'insert_or_update' THEN 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode
-            WHEN 'update_only' THEN 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode
-            ELSE 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode -- Default to safer patch
+            WHEN 'replace_only' THEN 'REPLACE_FOR_PORTION_OF'::sql_saga.temporal_merge_mode
+            WHEN 'insert_or_update' THEN 'MERGE_ENTITY_UPSERT'::sql_saga.temporal_merge_mode
+            WHEN 'update_only' THEN 'UPDATE_FOR_PORTION_OF'::sql_saga.temporal_merge_mode
+            ELSE 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode -- Default to safer patch for other cases
         END;
         RAISE DEBUG '[Job %] process_legal_unit: Determined merge mode % from strategy %', p_job_id, v_merge_mode, v_definition.strategy;
 
@@ -363,8 +363,8 @@ BEGIN
             target_table => 'public.legal_unit'::regclass,
             source_table => 'temp_lu_source_view'::regclass,
             identity_columns => ARRAY['id'],
-            ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at', 'invalid_codes'],
             mode => v_merge_mode,
+            row_id_column => 'data_row_id',
             identity_correlation_column => 'founding_row_id',
             update_source_with_identity => true,
             update_source_with_feedback => true,
@@ -372,7 +372,7 @@ BEGIN
             feedback_status_key => 'legal_unit',
             feedback_error_column => 'errors',
             feedback_error_key => 'legal_unit',
-            source_row_id_column => 'data_row_id'
+            ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at', 'invalid_codes']
         );
 
         -- With feedback written directly to the data table, we just need to count successes and errors.

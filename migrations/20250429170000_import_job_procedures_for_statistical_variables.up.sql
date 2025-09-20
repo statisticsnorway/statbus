@@ -361,9 +361,9 @@ BEGIN
         BEGIN
             v_merge_mode := CASE v_definition.strategy
                 WHEN 'insert_or_replace' THEN 'MERGE_ENTITY_REPLACE'::sql_saga.temporal_merge_mode
-                WHEN 'replace_only' THEN 'MERGE_ENTITY_REPLACE'::sql_saga.temporal_merge_mode
-                WHEN 'insert_or_update' THEN 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode
-                WHEN 'update_only' THEN 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode
+                WHEN 'replace_only' THEN 'REPLACE_FOR_PORTION_OF'::sql_saga.temporal_merge_mode
+                WHEN 'insert_or_update' THEN 'MERGE_ENTITY_UPSERT'::sql_saga.temporal_merge_mode
+                WHEN 'update_only' THEN 'UPDATE_FOR_PORTION_OF'::sql_saga.temporal_merge_mode
                 ELSE 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode
             END;
             RAISE DEBUG '[Job %] process_statistical_variables: Determined merge mode % for stat %', p_job_id, v_merge_mode, v_stat_def.stat_code;
@@ -373,16 +373,16 @@ BEGIN
                 source_table => v_source_view_name::regclass,
                 identity_columns => ARRAY['id'],
                 natural_identity_columns => ARRAY['stat_definition_id', 'legal_unit_id', 'establishment_id'],
-                ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at', 'created_at'],
                 mode => v_merge_mode,
-                identity_correlation_column => 'founding_row_id',
+                row_id_column => 'row_id',
+                founding_id_column => 'founding_row_id',
                 update_source_with_identity => true,
                 update_source_with_feedback => true,
                 feedback_status_column => 'merge_status',
                 feedback_status_key => 'stat_' || v_stat_def.stat_code,
                 feedback_error_column => 'errors',
                 feedback_error_key => 'stat_' || v_stat_def.stat_code,
-                source_row_id_column => 'row_id'
+                ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at', 'created_at']
             );
 
             -- Feedback is written directly back to the data table by sql_saga, no need for manual UPDATE.

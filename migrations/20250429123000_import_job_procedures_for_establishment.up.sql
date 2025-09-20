@@ -313,9 +313,9 @@ BEGIN
                     target_table => 'public.establishment'::regclass,
                     source_table => 'temp_es_demotion_source'::regclass,
                     identity_columns => ARRAY['id'],
-                    ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
                     mode => 'PATCH_FOR_PORTION_OF',
-                    source_row_id_column => 'row_id'
+                    row_id_column => 'row_id',
+                    ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
                 );
                 FOR v_batch_result IN SELECT * FROM pg_temp.temporal_merge_feedback WHERE status = 'ERROR' LOOP RAISE WARNING '[Job %] process_establishment: Error during PFLU demotion for EST ID %: %', p_job_id, (v_batch_result.target_entity_ids->0->>'id')::INT, v_batch_result.error_message; END LOOP;
                 TRUNCATE TABLE temp_es_demotion_source;
@@ -340,9 +340,9 @@ BEGIN
                     target_table => 'public.establishment'::regclass,
                     source_table => 'temp_es_demotion_source'::regclass,
                     identity_columns => ARRAY['id'],
-                    ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
                     mode => 'PATCH_FOR_PORTION_OF',
-                    source_row_id_column => 'row_id'
+                    row_id_column => 'row_id',
+                    ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
                 );
                 FOR v_batch_result IN SELECT * FROM pg_temp.temporal_merge_feedback WHERE status = 'ERROR' LOOP RAISE WARNING '[Job %] process_establishment: Error during PFE demotion for EST ID %: %', p_job_id, (v_batch_result.target_entity_ids->0->>'id')::INT, v_batch_result.error_message; END LOOP;
                 TRUNCATE TABLE temp_es_demotion_source;
@@ -354,24 +354,26 @@ BEGIN
         v_merge_mode := CASE v_definition.strategy
             WHEN 'insert_or_replace' THEN 'MERGE_ENTITY_REPLACE'::sql_saga.temporal_merge_mode
             WHEN 'replace_only' THEN 'MERGE_ENTITY_REPLACE'::sql_saga.temporal_merge_mode
-            WHEN 'insert_or_update' THEN 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode
-            WHEN 'update_only' THEN 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode
-            ELSE 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode -- Default to safer patch
+            WHEN 'insert_or_update' THEN 'MERGE_ENTITY_UPSERT'::sql_saga.temporal_merge_mode
+            WHEN 'update_only' THEN 'MERGE_ENTITY_UPSERT'::sql_saga.temporal_merge_mode
+            ELSE 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode -- Default to safer patch for other cases
         END;
         RAISE DEBUG '[Job %] process_establishment: Determined merge mode % from strategy %', p_job_id, v_merge_mode, v_definition.strategy;
 
         CALL sql_saga.temporal_merge(
-            target_table => 'public.establishment'::regclass, source_table => 'temp_es_source_view'::regclass,
-            identity_columns => ARRAY['id'], ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at', 'invalid_codes'],
+            target_table => 'public.establishment'::regclass,
+            source_table => 'temp_es_source_view'::regclass,
+            identity_columns => ARRAY['id'],
             mode => v_merge_mode,
-            identity_correlation_column => 'founding_row_id',
+            row_id_column => 'data_row_id',
+            founding_id_column => 'founding_row_id',
             update_source_with_identity => true,
             update_source_with_feedback => true,
             feedback_status_column => 'merge_status',
             feedback_status_key => 'establishment',
             feedback_error_column => 'errors',
             feedback_error_key => 'establishment',
-            source_row_id_column => 'data_row_id'
+            ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at', 'invalid_codes']
         );
 
         -- Process feedback

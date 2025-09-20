@@ -233,7 +233,7 @@ BEGIN
 EXCEPTION WHEN others THEN
     RAISE NOTICE 'Test 10 Caught expected error: %', SQLERRM;
 END $$;
-NOTICE:  Test 10 Caught expected error: null value in column "valid_until" of relation "temporal_table" violates not-null constraint
+NOTICE:  Test 10 Caught expected error: An update resulted in an unbounded period by setting the end date to NULL. To make a period open-ended, set "valid_until" to 'infinity'.
 SELECT * FROM trigger_test.show_table() WHERE id = :base_update_id_id; -- Should reflect state from Test 8
  id |   description   | valid_from | valid_until |  valid_to  
 ----+-----------------+------------+-------------+------------
@@ -252,7 +252,7 @@ BEGIN
 EXCEPTION WHEN others THEN
     RAISE NOTICE 'Test 11 Caught expected error: %', SQLERRM;
 END $$;
-NOTICE:  Test 11 Caught expected error: null value in column "valid_to" of relation "temporal_table" violates not-null constraint
+NOTICE:  Test 11 Caught expected error: An update resulted in an unbounded period by setting the end date to NULL. To make a period open-ended, set "valid_to" to 'infinity'.
 SELECT * FROM trigger_test.show_table() WHERE id = :base_update_id_id; -- Should reflect state from Test 8
  id |   description   | valid_from | valid_until |  valid_to  
 ----+-----------------+------------+-------------+------------

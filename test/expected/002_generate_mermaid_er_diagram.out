@@ -1070,6 +1070,7 @@ erDiagram
 		text fk_helper_function
 		name uk_update_trigger
 		name uk_delete_trigger
+		name fk_index_name
 	}
 	sql_saga_system_time_era["sql_saga.system_time_era"] {
 		name table_schema

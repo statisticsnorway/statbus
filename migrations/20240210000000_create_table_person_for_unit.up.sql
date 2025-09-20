@@ -54,16 +54,16 @@ SELECT sql_saga.add_unique_key(
 SELECT sql_saga.add_foreign_key(
     fk_table_oid => 'public.person_for_unit'::regclass,
     fk_column_names => ARRAY['establishment_id'],
-    fk_era_name => 'valid',
-    unique_key_name => 'establishment_id_valid'
+    pk_table_oid => 'public.establishment',
+    pk_column_names => ARRAY['id']
 );
 -- This creates triggers to enforce that a person_for_unit's validity period is always contained
 -- within the validity period of its parent legal unit.
 SELECT sql_saga.add_foreign_key(
     fk_table_oid => 'public.person_for_unit'::regclass,
     fk_column_names => ARRAY['legal_unit_id'],
-    fk_era_name => 'valid',
-    unique_key_name => 'legal_unit_id_valid'
+    pk_table_oid => 'public.legal_unit',
+    pk_column_names => ARRAY['id']
 );
 
 -- Add a view for portion-of updates, allowing for easier updates to specific time slices.
