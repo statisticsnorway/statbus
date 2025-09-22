@@ -23,6 +23,8 @@ declare global {
   var __dbListenerReconnectTimeout: NodeJS.Timeout | null | undefined;
   // eslint-disable-next-line no-var
   var __dbListenerDebounceTimers: { [key: string]: NodeJS.Timeout } | undefined;
+  // eslint-disable-next-line no-var
+  var __dbListenerReconnectDelay: number | undefined;
 }
 
 /**
@@ -128,6 +130,12 @@ let pgClient: Client | null = globalThis.__dbListenerClient || null;
 let isConnecting: boolean = globalThis.__dbListenerConnecting || false;
 let reconnectTimeout: NodeJS.Timeout | null = globalThis.__dbListenerReconnectTimeout || null;
 
+// Reconnection logic with exponential backoff
+const INITIAL_RECONNECT_DELAY_MS = 1000;
+const MAX_RECONNECT_DELAY_MS = 30000;
+const RECONNECT_BACKOFF_FACTOR = 2;
+let reconnectDelay: number = globalThis.__dbListenerReconnectDelay || INITIAL_RECONNECT_DELAY_MS;
+
 // State for debouncing notifications
 const debounceTimers: { [key: string]: NodeJS.Timeout } = globalThis.__dbListenerDebounceTimers || {};
 if (typeof globalThis !== 'undefined') {
@@ -174,7 +182,11 @@ function updateGlobalReconnectTimeout(timeout: NodeJS.Timeout | null) {
   return timeout;
 }
 
-const RECONNECT_DELAY_MS = 5000; // Delay before attempting reconnection
+function updateGlobalReconnectDelay(delay: number) {
+  globalThis.__dbListenerReconnectDelay = delay;
+  reconnectDelay = delay; // Update local variable
+  return delay;
+}
 
 
 async function connectAndListen() {
@@ -254,6 +266,9 @@ async function connectAndListen() {
     updateGlobalConnecting(false);
     console.log(`DB Listener: Connected to ${dbHost}:${dbPort}/${dbName} as ${dbUser} and listening on "worker_status" and "import_job" channels`);
 
+    // On successful connection, reset the reconnect delay
+    updateGlobalReconnectDelay(INITIAL_RECONNECT_DELAY_MS);
+
   } catch (error) {
     updateGlobalConnecting(false);
     console.error({ error, dbHost, dbPort }, 'DB Listener: Failed to connect or listen');
@@ -268,10 +283,14 @@ function scheduleReconnect() {
     const timeout = setTimeout(() => {
       updateGlobalReconnectTimeout(null); // Clear the timeout ID before attempting connection
       connectAndListen(); // Attempt to reconnect
-    }, RECONNECT_DELAY_MS);
+    }, reconnectDelay);
     
     updateGlobalReconnectTimeout(timeout);
-    console.log(`DB Listener: Reconnection scheduled in ${RECONNECT_DELAY_MS / 1000} seconds`);
+    console.log(`DB Listener: Reconnection scheduled in ${reconnectDelay / 1000} seconds`);
+
+    // Increase delay for next time, up to a max
+    const nextDelay = Math.min(reconnectDelay * RECONNECT_BACKOFF_FACTOR, MAX_RECONNECT_DELAY_MS);
+    updateGlobalReconnectDelay(nextDelay);
   }
 }
 
@@ -403,7 +422,12 @@ export function removeClientCallback(channel: string, callback: NotificationCall
  * Safe to call multiple times - will only connect once.
  */
 export async function initializeDbListener() {
-  await connectAndListen();
+  // If a connection attempt is already in progress, or a reconnect is scheduled,
+  // don't try to connect again. This prevents a tight loop if this function
+  // is called repeatedly while the database is down.
+  if (!isConnecting && !reconnectTimeout) {
+    await connectAndListen();
+  }
   
   // Check if the connection is actually working
   let connectionStatus = 'unknown';
