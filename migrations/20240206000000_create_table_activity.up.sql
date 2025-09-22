@@ -30,6 +30,11 @@ CREATE INDEX ix_activity_establishment_valid_from_valid_until ON public.activity
 CREATE INDEX ix_activity_legal_unit_id_valid_range ON public.activity USING gist (legal_unit_id, daterange(valid_from, valid_until, '[)'));
 CREATE INDEX ix_activity_establishment_id_valid_range ON public.activity USING gist (establishment_id, daterange(valid_from, valid_until, '[)'));
 
+-- Improve filtering for temporal_merge
+CREATE INDEX ON activity (legal_unit_id, establishment_id, type);
+CREATE INDEX ON activity (legal_unit_id, type) WHERE establishment_id IS NULL;
+CREATE INDEX ON activity (establishment_id, type) WHERE legal_unit_id IS NULL;
+
 -- Activate era handling
 SELECT sql_saga.add_era('public.activity', synchronize_valid_to_column => 'valid_to');
 -- This creates a GIST exclusion constraint (`activity_id_valid_excl`) to ensure that there are

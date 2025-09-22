@@ -80,6 +80,11 @@ CREATE INDEX ix_location_data_source_id ON public.location USING btree (data_sou
 CREATE INDEX ix_location_legal_unit_id_valid_range ON public.location USING gist (legal_unit_id, daterange(valid_from, valid_until, '[)'));
 CREATE INDEX ix_location_establishment_id_valid_range ON public.location USING gist (establishment_id, daterange(valid_from, valid_until, '[)'));
 
+-- Improve filtering for temporal_merge
+CREATE INDEX ON location (legal_unit_id, establishment_id, type);
+CREATE INDEX ON location (legal_unit_id, type) WHERE establishment_id IS NULL;
+CREATE INDEX ON location (establishment_id, type) WHERE legal_unit_id IS NULL;
+
 -- Activate era handling
 SELECT sql_saga.add_era('public.location', synchronize_valid_to_column => 'valid_to');
 SELECT sql_saga.add_unique_key(
