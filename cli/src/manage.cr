@@ -184,7 +184,20 @@ module Statbus
       caddy_deployment_mode : String,
       site_domain : String,
       debug : String,
-      next_public_debug : String
+      next_public_debug : String,
+
+      # PostgreSQL memory configuration
+      db_mem_limit : String
+
+    # Type-safe derived memory configuration structure
+    record DbMemoryEnv,
+      db_shm_size : String,
+      db_mem_limit : String,
+      db_mem_reservation : String,
+      db_shared_buffers : String,
+      db_maintenance_work_mem : String,
+      db_effective_cache_size : String,
+      db_work_mem : String
 
     # Configuration values that are derived from other settings
     record DerivedEnv,
@@ -207,6 +220,43 @@ module Statbus
       enable_email_autoconfirm : Bool,
       disable_signup : Bool,
       studio_default_project : String
+
+    # Parses a memory size string (e.g., "4G", "512M") into megabytes.
+    private def parse_mem_size_to_mb(size_str : String) : Int64
+      size_str = size_str.strip.upcase
+      if size_str.ends_with?("G")
+        return size_str[0...-1].to_i64 * 1024
+      elsif size_str.ends_with?("M")
+        return size_str[0...-1].to_i64
+      elsif size_str.ends_with?("K")
+        return (size_str[0...-1].to_i64 // 1024)
+      else
+        # try parsing as int, assume bytes
+        return size_str.to_i64 // (1024 * 1024)
+      end
+    rescue
+      raise "Invalid memory size format: #{size_str}"
+    end
+
+    # Formats megabytes into a string suitable for postgresql.conf (e.g., "2GB", "512MB").
+    private def format_mb_for_pg(mb : Int64) : String
+      if mb >= 1024 && mb % 1024 == 0
+        "#{mb / 1024}GB"
+      else
+        "#{mb}MB"
+      end
+    end
+
+    # Formats megabytes into a string suitable for docker-compose.yml (e.g., "2G", "512M").
+    private def format_mb_for_docker(mb : Int64, unit_case : String = "upper") : String
+      unit_gb = unit_case == "upper" ? "G" : "g"
+      unit_mb = unit_case == "upper" ? "M" : "m"
+      if mb >= 1024 && mb % 1024 == 0
+        "#{mb / 1024}#{unit_gb}"
+      else
+        "#{mb}#{unit_mb}"
+      end
+    end
 
     private def manage_generate_config
       Dir.cd(@config.project_directory) do
@@ -321,9 +371,33 @@ module Statbus
             site_domain: config_env.generate("SITE_DOMAIN") { "#{_deployment_slot_code}.statbus.org" },
             # Debug flags
             debug: config_env.generate("DEBUG") { "false" },
-            next_public_debug: config_env.generate("NEXT_PUBLIC_DEBUG") { "false" }
+            next_public_debug: config_env.generate("NEXT_PUBLIC_DEBUG") { "false" },
+
+            # PostgreSQL memory configuration
+            # This is the total memory limit for the container. Other values are derived from this.
+            # See cli/src/manage.cr for calculation logic.
+            db_mem_limit: config_env.generate("DB_MEM_LIMIT") { "4G" }
           )
         end
+
+        # Calculate derived memory values based on DB_MEM_LIMIT
+        # See tmp/db-memory-todo.md for rationale.
+        mem_limit_mb = parse_mem_size_to_mb(config.db_mem_limit)
+        shared_buffers_mb = (mem_limit_mb * 0.25).to_i64
+        maintenance_work_mem_mb = (mem_limit_mb * 0.25).to_i64
+        effective_cache_size_mb = (mem_limit_mb * 0.75).to_i64
+        work_mem_mb = Math.max(4_i64, mem_limit_mb // 100) # Min 4MB for safety
+        reservation_mb = (mem_limit_mb // 2).to_i64
+
+        db_mem = DbMemoryEnv.new(
+          db_mem_limit: config.db_mem_limit,
+          db_shm_size: config.db_mem_limit.downcase, # shm_size uses 'g' instead of 'G'
+          db_mem_reservation: format_mb_for_docker(reservation_mb),
+          db_shared_buffers: format_mb_for_pg(shared_buffers_mb),
+          db_maintenance_work_mem: format_mb_for_pg(maintenance_work_mem_mb),
+          db_effective_cache_size: format_mb_for_pg(effective_cache_size_mb),
+          db_work_mem: format_mb_for_pg(work_mem_mb)
+        )
 
         # Calculate derived values
         base_port = 3000
@@ -386,7 +460,7 @@ module Statbus
         )
 
         # Generate or update .env file
-        new_content = generate_env_content(credentials, config, derived)
+        new_content = generate_env_content(credentials, config, derived, db_mem)
         if File.exists?(".env")
           puts "Checking existing .env for changes" if @config.verbose
           current_content = File.read(".env")
@@ -415,7 +489,7 @@ module Statbus
       end
     end
 
-    private def generate_env_content(credentials : CredentialsEnv, config : ConfigEnv, derived : DerivedEnv) : String      
+    private def generate_env_content(credentials : CredentialsEnv, config : ConfigEnv, derived : DerivedEnv, db_mem : DbMemoryEnv) : String      
       content = <<-EOS
     ################################################################
     # Statbus Environment Variables
@@ -507,6 +581,18 @@ module Statbus
         env.set("POSTGRES_AUTHENTICATOR_PASSWORD", credentials.postgres_authenticator_password)
         env.set("POSTGRES_NOTIFY_PASSWORD", credentials.postgres_notify_password)
         env.set("POSTGRES_PASSWORD", credentials.postgres_admin_password)
+
+        # PostgreSQL memory configuration
+        # These control the docker container resource limits and postgresql.conf settings.
+        # They are derived from DB_MEM_LIMIT in .env.config.
+        env.set("DB_MEM_LIMIT", db_mem.db_mem_limit)
+        env.set("DB_SHM_SIZE", db_mem.db_shm_size)
+        env.set("DB_MEM_RESERVATION", db_mem.db_mem_reservation)
+        env.set("DB_SHARED_BUFFERS", db_mem.db_shared_buffers)
+        env.set("DB_MAINTENANCE_WORK_MEM", db_mem.db_maintenance_work_mem)
+        env.set("DB_EFFECTIVE_CACHE_SIZE", db_mem.db_effective_cache_size)
+        env.set("DB_WORK_MEM", db_mem.db_work_mem)
+        
         env.set("ACCESS_JWT_EXPIRY", config.access_jwt_expiry)
         env.set("REFRESH_JWT_EXPIRY", config.refresh_jwt_expiry)
         env.set("JWT_SECRET", credentials.jwt_secret)
