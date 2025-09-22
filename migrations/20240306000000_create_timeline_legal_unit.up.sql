@@ -432,8 +432,8 @@ ALTER TABLE public.timeline_legal_unit
     ALTER COLUMN valid_until SET NOT NULL;
 
 -- Create indices to optimize queries
-CREATE INDEX IF NOT EXISTS idx_timeline_legal_unit_daterange ON public.timeline_legal_unit
-    USING gist (daterange(valid_from, valid_until, '[)'));
+CREATE INDEX IF NOT EXISTS idx_timeline_legal_unit_en_daterange ON public.timeline_legal_unit
+    USING gist (daterange(valid_from, valid_until, '[)'), enterprise_id) WHERE enterprise_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_timeline_legal_unit_valid_period ON public.timeline_legal_unit
     (valid_from, valid_until);
 CREATE INDEX IF NOT EXISTS idx_timeline_legal_unit_related_establishment_ids ON public.timeline_legal_unit

@@ -38,8 +38,9 @@ ALTER TABLE public.timesegments
     ADD PRIMARY KEY (unit_type, unit_id, valid_from);
 
 -- Create indices to optimize queries
-CREATE INDEX IF NOT EXISTS idx_timesegments_daterange ON public.timesegments
-    USING gist (daterange(valid_from, valid_until, '[)'));
+-- This composite index is more efficient for queries that filter by unit_type and unit_id along with the date range.
+CREATE INDEX IF NOT EXISTS idx_timesegments_unit_daterange ON public.timesegments
+    USING gist (daterange(valid_from, valid_until, '[)'), unit_type, unit_id);
 CREATE INDEX IF NOT EXISTS idx_timesegments_unit_type_id_valid_from ON public.timesegments
     (unit_type, unit_id, valid_from);
 CREATE INDEX IF NOT EXISTS idx_timesegments_unit_type_id_period ON public.timesegments
