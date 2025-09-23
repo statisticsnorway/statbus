@@ -296,13 +296,6 @@ export const resetSearchStateAtom = atom(null, (get, set) => {
   set(resetPaginationAtom); // Explicitly reset pagination.
   set(resetSortingAtom); // Explicitly reset sorting.
   set(resetQueryAtom); // Explicitly reset query.
-  // Optionally, reset search results as well
-  set(searchResultAtom, {
-    data: [],
-    total: 0,
-    loading: false,
-    error: null,
-  });
 });
 
 // ============================================================================
