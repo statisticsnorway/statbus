@@ -350,8 +350,7 @@ $procedure$;
 
 
 -- Command handler for check_table
--- Processes changes in a table since a specific transaction ID
--- and refreshes affected statistical units
+-- Processes all changes in a table since the last run.
 CREATE PROCEDURE worker.command_check_table(
     payload JSONB
 )
@@ -360,20 +359,26 @@ LANGUAGE plpgsql
 AS $procedure$
 DECLARE
     v_table_name text = payload->>'table_name';
-    v_transaction_id bigint = (payload->>'transaction_id')::bigint;
-DECLARE
-  v_current_txid bigint;
-  v_unit_id_columns text;
-  v_valid_columns text;
-  v_changed_rows record;
-  v_establishment_ids int[] := ARRAY[]::int[];
-  v_legal_unit_ids int[] := ARRAY[]::int[];
-  v_enterprise_ids int[] := ARRAY[]::int[];
-  v_valid_from date := NULL::date;
-  v_valid_until date := NULL::date;
+    v_last_processed_txid bigint;
+    v_unit_id_columns text;
+    v_valid_columns text;
+    v_changed_rows record;
+    v_establishment_ids int[] := ARRAY[]::int[];
+    v_legal_unit_ids int[] := ARRAY[]::int[];
+    v_enterprise_ids int[] := ARRAY[]::int[];
+    v_valid_from date := NULL::date;
+    v_valid_until date := NULL::date;
 BEGIN
-  -- Get current transaction ID
-  SELECT txid_current() INTO v_current_txid;
+    -- Get the last transaction ID successfully processed for this table.
+    -- If this is the first run, COALESCE will start the range from 0.
+    SELECT transaction_id INTO v_last_processed_txid
+    FROM worker.last_processed
+    WHERE table_name = v_table_name;
+
+    v_last_processed_txid := COALESCE(v_last_processed_txid, 0);
+
+    RAISE DEBUG '[worker.command_check_table] Checking table % for changes since transaction ID %',
+        v_table_name, v_last_processed_txid;
 
   -- Set up columns based on table type
   CASE v_table_name
@@ -401,14 +406,16 @@ BEGIN
       RAISE EXCEPTION 'Unknown table: %', v_table_name;
   END CASE;
 
-  -- Find changed rows
+  -- Find changed rows using a wraparound-safe check. This selects all rows
+  -- with a transaction ID greater than or equal to the last one processed.
+  -- The upper bound is implicitly and safely handled by the transaction snapshot.
   FOR v_changed_rows IN EXECUTE format(
     'SELECT id, %s, %s
      FROM %I
-     WHERE age(xmin) <= age($1::text::xid)
+     WHERE age($1::text::xid) >= age(xmin)
      ORDER BY id',
     v_unit_id_columns, v_valid_columns, v_table_name
-  ) USING v_transaction_id
+  ) USING v_last_processed_txid
   LOOP
     -- Accumulate IDs
     IF v_changed_rows.establishment_id IS NOT NULL THEN
@@ -441,9 +448,10 @@ BEGIN
     );
   END IF;
 
-  -- Record the check request in last_processed
+  -- Record that we have successfully processed up to the current transaction ID.
+  -- This transaction ID serves as the new bookmark for the next run.
   INSERT INTO worker.last_processed (table_name, transaction_id)
-  VALUES (v_table_name, v_current_txid)
+  VALUES (v_table_name, txid_current())
   ON CONFLICT (table_name)
   DO UPDATE SET transaction_id = EXCLUDED.transaction_id;
 END;
@@ -556,10 +564,15 @@ BEGIN
     payload = jsonb_set(
       worker.tasks.payload,
       '{transaction_id}',
-      to_jsonb(GREATEST(
-        (worker.tasks.payload->>'transaction_id')::bigint,
-        (EXCLUDED.payload->>'transaction_id')::bigint
-      ))
+      -- Use age() for a wraparound-safe comparison to find the newer transaction ID.
+      -- The transaction with the smaller age is the newer one.
+      to_jsonb(
+        CASE
+          WHEN age((worker.tasks.payload->>'transaction_id')::bigint::text::xid) > age((EXCLUDED.payload->>'transaction_id')::bigint::text::xid)
+          THEN (EXCLUDED.payload->>'transaction_id')::bigint
+          ELSE (worker.tasks.payload->>'transaction_id')::bigint
+        END
+      )
     ),
     state = 'pending'::worker.task_state,
     priority = EXCLUDED.priority,  -- Use the new priority to push queue position
