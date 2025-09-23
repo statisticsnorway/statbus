@@ -33,7 +33,9 @@ BEGIN
                 ON (step_elem.value->>'code') = 'external_idents' AND (idc_elem.value->>'step_id')::int = (step_elem.value->>'id')::int
             WHERE idc_elem.value->>'purpose' = 'source_input';
 
-            -- For 'replace' actions, validate that the existing establishment is informal and has an enterprise link.
+            -- For 'replace' or 'update' actions, validate that the existing establishment is informal and has an enterprise link.
+            -- This step is crucial to ensure that when a new historical slice is created for an existing establishment,
+            -- it correctly inherits the enterprise_id, preventing a check constraint violation in the 'process_establishment' step.
             v_sql := format($$
                 WITH validation AS (
                     SELECT
@@ -44,7 +46,8 @@ BEGIN
                     FROM public.%1$I dt
                     LEFT JOIN public.establishment est ON dt.establishment_id = est.id
                     WHERE dt.row_id <@ $1
-                      AND dt.operation = 'replace'
+                      AND dt.operation IN ('replace', 'update')
+                      AND dt.establishment_id IS NOT NULL -- This check should only apply to establishments that existed before this job.
                       AND dt.action IS DISTINCT FROM 'skip'
                 )
                 UPDATE public.%1$I dt SET
@@ -60,14 +63,14 @@ BEGIN
                         ELSE dt.action
                     END,
                     errors = dt.errors || CASE
-                        WHEN v.found_est_id IS NULL THEN (SELECT jsonb_object_agg(col, 'Informal establishment for "replace" not found.') FROM unnest(%2$L::TEXT[]) col)
-                        WHEN v.existing_enterprise_id IS NULL THEN (SELECT jsonb_object_agg(col, 'Informal establishment for "replace" is not linked to an enterprise.') FROM unnest(%2$L::TEXT[]) col)
+                        WHEN v.found_est_id IS NULL THEN (SELECT jsonb_object_agg(col, 'Informal establishment for "replace" or "update" not found.') FROM unnest(%2$L::TEXT[]) col)
+                        WHEN v.existing_enterprise_id IS NULL THEN (SELECT jsonb_object_agg(col, 'Informal establishment for "replace" or "update" is not linked to an enterprise.') FROM unnest(%2$L::TEXT[]) col)
                         ELSE '{}'::jsonb
                     END
                 FROM validation v
                 WHERE dt.row_id = v.row_id;
             $$, v_data_table_name, v_external_ident_source_columns);
-            RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: Validating "replace" rows for informal establishments.', p_job_id;
+            RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: Validating "replace" and "update" rows for informal establishments.', p_job_id;
             EXECUTE v_sql USING p_batch_row_ids_range;
         END IF;
     EXCEPTION WHEN OTHERS THEN
