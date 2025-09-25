@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { useRouter } from "next/navigation";
+import { useSetAtom } from "jotai";
 import { AlertCircle, CheckCircle, Database, Upload } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Tables } from "@/lib/database.types"; // Import Tables type
@@ -30,7 +32,6 @@ export function ImportJobUpload({
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
-  // No context needed here anymore
   const router = useRouter();
 
   // Parent page is responsible for loading the job.
@@ -38,7 +39,7 @@ export function ImportJobUpload({
   // for ensuring the job is loaded into the context.
 
   // Effect to navigate when the job (passed as prop) finishes successfully
-  useEffect(() => {
+  useGuardedEffect(() => {
     const handleFinishedJob = async () => {
       if (job?.state === "finished") {
         if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
@@ -46,7 +47,7 @@ export function ImportJobUpload({
         }
         // refreshRelevantCounts is passed as a prop and should be memoized by the parent.
         // It already includes doRefreshBaseData().
-        await refreshRelevantCounts(); 
+        await refreshRelevantCounts();
         router.push(nextPage);
       }
     };
@@ -54,7 +55,7 @@ export function ImportJobUpload({
     handleFinishedJob();
     // Add refreshRelevantCounts to the dependency array.
     // Ensure it's memoized in the parent component to avoid unnecessary effect runs.
-  }, [job?.state, job?.slug, nextPage, router, refreshRelevantCounts]);
+  }, [job?.state, job?.slug, nextPage, router, refreshRelevantCounts], 'ImportJobUpload:handleFinishedJob');
 
   const handleUpload = useCallback(async (fileToUpload: File) => {
     if (!fileToUpload || !job) return;

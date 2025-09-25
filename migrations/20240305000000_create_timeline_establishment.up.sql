@@ -1,11 +1,11 @@
 BEGIN;
 
-CREATE VIEW public.timeline_establishment_def
+CREATE OR REPLACE VIEW public.timeline_establishment_def
     ( unit_type
     , unit_id
-    , valid_after
     , valid_from
     , valid_to
+    , valid_until
     , name
     , birth_date
     , death_date
@@ -83,13 +83,45 @@ CREATE VIEW public.timeline_establishment_def
     , primary_for_legal_unit
     --
     , stats
+    , stats_summary
+    , related_establishment_ids
+    , excluded_establishment_ids
+    , included_establishment_ids
+    , related_legal_unit_ids
+    , excluded_legal_unit_ids
+    , included_legal_unit_ids
+    , related_enterprise_ids
+    , excluded_enterprise_ids
+    , included_enterprise_ids
     )
     AS
+      WITH establishment_stats AS (
+        SELECT
+            t.unit_id,
+            t.valid_from,
+            jsonb_object_agg(
+                sd.code,
+                CASE
+                    WHEN sfu.value_float IS NOT NULL THEN to_jsonb(sfu.value_float)
+                    WHEN sfu.value_int IS NOT NULL THEN to_jsonb(sfu.value_int)
+                    WHEN sfu.value_string IS NOT NULL THEN to_jsonb(sfu.value_string)
+                    WHEN sfu.value_bool IS NOT NULL THEN to_jsonb(sfu.value_bool)
+                END
+            ) FILTER (WHERE sd.code IS NOT NULL) AS stats
+        FROM public.timesegments AS t
+        JOIN public.stat_for_unit AS sfu
+            ON sfu.establishment_id = t.unit_id
+            AND from_until_overlaps(t.valid_from, t.valid_until, sfu.valid_from, sfu.valid_until)
+        JOIN public.stat_definition AS sd
+            ON sfu.stat_definition_id = sd.id
+        WHERE t.unit_type = 'establishment'
+        GROUP BY t.unit_id, t.valid_from
+      )
       SELECT t.unit_type
            , t.unit_id
-           , t.valid_after
-           , (t.valid_after + '1 day'::INTERVAL)::DATE AS valid_from
-           , t.valid_to
+           , t.valid_from
+           , (t.valid_until - '1 day'::INTERVAL)::DATE AS valid_to
+           , t.valid_until
            , es.name AS name
            , es.birth_date AS birth_date
            , es.death_date AS death_date
@@ -175,50 +207,57 @@ CREATE VIEW public.timeline_establishment_def
            , es.primary_for_enterprise AS primary_for_enterprise
            , es.primary_for_legal_unit AS primary_for_legal_unit
            --
-           , COALESCE(public.get_jsonb_stats(es.id, NULL, t.valid_after, t.valid_to), '{}'::JSONB) AS stats
+           , COALESCE(es_stats.stats, '{}'::JSONB) AS stats
+           -- FINESSE: An establishment is the lowest-level unit. Its `stats_summary` is generated
+           -- directly from its own `stats`. This pre-calculation is critical for enabling
+           -- consistent, incremental roll-ups at higher levels of the hierarchy (legal unit, enterprise).
+           , public.jsonb_stats_to_summary('{}'::jsonb, COALESCE(es_stats.stats, '{}'::JSONB)) AS stats_summary
+           -- 'included_*' arrays form a directed acyclic graph (DAG) for statistical roll-ups.
+           -- A unit includes IDs of units below it in the hierarchy, plus itself.
+           -- E.g., a legal_unit includes its establishments' IDs; an establishment includes its own ID.
+           -- A child NEVER includes its parent's ID in this array. This prevents double-counting stats during roll-ups.
+           , ARRAY[t.unit_id] AS related_establishment_ids
+           , ARRAY[]::INT[] AS excluded_establishment_ids
+           , CASE WHEN st.include_unit_in_reports THEN ARRAY[t.unit_id] ELSE '{}'::INT[] END AS included_establishment_ids
+           , CASE WHEN es.legal_unit_id IS NOT NULL THEN ARRAY[es.legal_unit_id] ELSE ARRAY[]::INT[] END AS related_legal_unit_ids
+           , ARRAY[]::INT[] AS excluded_legal_unit_ids
+           , ARRAY[]::INT[] AS included_legal_unit_ids
+           , CASE WHEN es.enterprise_id IS NOT NULL THEN ARRAY[es.enterprise_id] ELSE ARRAY[]::INT[] END AS related_enterprise_ids
+           , ARRAY[]::INT[] AS excluded_enterprise_ids
+           , ARRAY[]::INT[] AS included_enterprise_ids
       --
       FROM public.timesegments AS t
-      INNER JOIN public.establishment AS es
-          ON t.unit_type = 'establishment' AND t.unit_id = es.id
-         AND after_to_overlaps(t.valid_after, t.valid_to, es.valid_after, es.valid_to)
+      JOIN LATERAL (
+          SELECT * FROM public.establishment es_1
+          WHERE es_1.id = t.unit_id AND from_until_overlaps(t.valid_from, t.valid_until, es_1.valid_from, es_1.valid_until)
+          ORDER BY es_1.id DESC, es_1.valid_from DESC LIMIT 1
+      ) es ON true
+      LEFT JOIN establishment_stats AS es_stats
+          ON es_stats.unit_id = t.unit_id AND es_stats.valid_from = t.valid_from
       --
-      LEFT OUTER JOIN public.activity AS pa
-              ON pa.establishment_id = es.id
-             AND pa.type = 'primary'
-             AND after_to_overlaps(t.valid_after, t.valid_to, pa.valid_after, pa.valid_to)
+      LEFT JOIN LATERAL (SELECT a.* FROM public.activity a WHERE a.establishment_id = es.id AND a.type = 'primary' AND from_until_overlaps(t.valid_from, t.valid_until, a.valid_from, a.valid_until) ORDER BY a.id DESC LIMIT 1) pa ON true
       LEFT JOIN public.activity_category AS pac
               ON pa.category_id = pac.id
       --
-      LEFT OUTER JOIN public.activity AS sa
-              ON sa.establishment_id = es.id
-             AND sa.type = 'secondary'
-             AND after_to_overlaps(t.valid_after, t.valid_to, sa.valid_after, sa.valid_to)
+      LEFT JOIN LATERAL (SELECT a.* FROM public.activity a WHERE a.establishment_id = es.id AND a.type = 'secondary' AND from_until_overlaps(t.valid_from, t.valid_until, a.valid_from, a.valid_until) ORDER BY a.id DESC LIMIT 1) sa ON true
       LEFT JOIN public.activity_category AS sac
               ON sa.category_id = sac.id
       --
       LEFT OUTER JOIN public.sector AS s
               ON es.sector_id = s.id
       --
-      LEFT OUTER JOIN public.location AS phl
-              ON phl.establishment_id = es.id
-             AND phl.type = 'physical'
-             AND after_to_overlaps(t.valid_after, t.valid_to, phl.valid_after, phl.valid_to)
+      LEFT JOIN LATERAL (SELECT l.* FROM public.location l WHERE l.establishment_id = es.id AND l.type = 'physical' AND from_until_overlaps(t.valid_from, t.valid_until, l.valid_from, l.valid_until) ORDER BY l.id DESC LIMIT 1) phl ON true
       LEFT JOIN public.region AS phr
               ON phl.region_id = phr.id
       LEFT JOIN public.country AS phc
               ON phl.country_id = phc.id
       --
-      LEFT OUTER JOIN public.location AS pol
-              ON pol.establishment_id = es.id
-             AND pol.type = 'postal'
-             AND after_to_overlaps(t.valid_after, t.valid_to, pol.valid_after, pol.valid_to)
+      LEFT JOIN LATERAL (SELECT l.* FROM public.location l WHERE l.establishment_id = es.id AND l.type = 'postal' AND from_until_overlaps(t.valid_from, t.valid_until, l.valid_from, l.valid_until) ORDER BY l.id DESC LIMIT 1) pol ON true
       LEFT JOIN public.region AS por
               ON pol.region_id = por.id
       LEFT JOIN public.country AS poc
               ON pol.country_id = poc.id
-      LEFT OUTER JOIN public.contact AS c
-              ON c.establishment_id = es.id
-             AND after_to_overlaps(t.valid_after, t.valid_to, c.valid_after, c.valid_to)
+      LEFT JOIN LATERAL (SELECT c_1.* FROM public.contact c_1 WHERE c_1.establishment_id = es.id AND from_until_overlaps(t.valid_from, t.valid_until, c_1.valid_from, c_1.valid_until) ORDER BY c_1.id DESC LIMIT 1) c ON true
       LEFT JOIN public.unit_size AS us
               ON es.unit_size_id = us.id
       LEFT JOIN public.status AS st
@@ -227,7 +266,7 @@ CREATE VIEW public.timeline_establishment_def
             SELECT array_agg(DISTINCT sfu.data_source_id) FILTER (WHERE sfu.data_source_id IS NOT NULL) AS data_source_ids
             FROM public.stat_for_unit AS sfu
             WHERE sfu.establishment_id = es.id
-              AND after_to_overlaps(t.valid_after, t.valid_to, sfu.valid_after, sfu.valid_to)
+              AND from_until_overlaps(t.valid_from, t.valid_until, sfu.valid_from, sfu.valid_until)
         ) AS sfu ON TRUE
       LEFT JOIN LATERAL (
         SELECT array_agg(ds.id) AS ids
@@ -256,7 +295,7 @@ CREATE VIEW public.timeline_establishment_def
         LIMIT 1
       ) AS last_edit ON TRUE
       --
-      ORDER BY t.unit_type, t.unit_id, t.valid_after
+      ORDER BY t.unit_type, t.unit_id, t.valid_from
 ;
 
 DROP TABLE IF EXISTS public.timeline_establishment;
@@ -268,17 +307,18 @@ WHERE FALSE;
 
 -- Add constraints to the physical table
 ALTER TABLE public.timeline_establishment
-    ADD PRIMARY KEY (unit_type, unit_id, valid_after),
+    ADD PRIMARY KEY (unit_type, unit_id, valid_from),
     ALTER COLUMN unit_type SET NOT NULL,
     ALTER COLUMN unit_id SET NOT NULL,
-    ALTER COLUMN valid_after SET NOT NULL,
-    ALTER COLUMN valid_from SET NOT NULL;
+    ALTER COLUMN valid_from SET NOT NULL,
+    ALTER COLUMN valid_to SET NOT NULL,
+    ALTER COLUMN valid_until SET NOT NULL;
 
 -- Create indices to optimize queries
 CREATE INDEX IF NOT EXISTS idx_timeline_establishment_daterange ON public.timeline_establishment
-    USING gist (daterange(valid_after, valid_to, '(]'));
+    USING gist (daterange(valid_from, valid_until, '[)'));
 CREATE INDEX IF NOT EXISTS idx_timeline_establishment_valid_period ON public.timeline_establishment
-    (valid_after, valid_to);
+    (valid_from, valid_until);
 CREATE INDEX IF NOT EXISTS idx_timeline_establishment_primary_for_enterprise ON public.timeline_establishment
     (primary_for_enterprise) WHERE primary_for_enterprise = true;
 CREATE INDEX IF NOT EXISTS idx_timeline_establishment_primary_for_legal_unit ON public.timeline_establishment
@@ -292,118 +332,42 @@ CREATE INDEX IF NOT EXISTS idx_timeline_establishment_enterprise_id ON public.ti
 
 
 -- Create a function to refresh the timeline_establishment table
-CREATE OR REPLACE FUNCTION public.timeline_establishment_refresh(
-    p_valid_after date DEFAULT NULL,
-    p_valid_to date DEFAULT NULL
-) RETURNS void LANGUAGE plpgsql AS $timeline_establishment_refresh$
+CREATE OR REPLACE PROCEDURE public.timeline_refresh(p_target_table text, p_unit_type public.statistical_unit_type, p_unit_id_ranges int4multirange DEFAULT NULL)
+LANGUAGE plpgsql AS $procedure$
 DECLARE
-    v_valid_after date;
-    v_valid_to date;
+    v_batch_size INT := 50000;
+    v_def_view_name text := p_target_table || '_def';
+    v_min_id int; v_max_id int; v_start_id int; v_end_id int;
 BEGIN
-    -- Set the time range for filtering
-    v_valid_after := COALESCE(p_valid_after, '-infinity'::date);
-    v_valid_to := COALESCE(p_valid_to, 'infinity'::date);
+    IF p_unit_id_ranges IS NOT NULL THEN
+        EXECUTE format('DELETE FROM public.%I WHERE unit_type = %L AND unit_id <@ %L::int4multirange', p_target_table, p_unit_type, p_unit_id_ranges);
+        EXECUTE format('INSERT INTO public.%I SELECT * FROM public.%I WHERE unit_type = %L AND unit_id <@ %L::int4multirange',
+                       p_target_table, v_def_view_name, p_unit_type, p_unit_id_ranges);
+    ELSE
+        SELECT MIN(unit_id), MAX(unit_id) INTO v_min_id, v_max_id FROM public.timesegments WHERE unit_type = p_unit_type;
+        IF v_min_id IS NULL THEN RETURN; END IF;
 
-    -- Create a temporary table with the new data
-    CREATE TEMPORARY TABLE temp_timeline_establishment ON COMMIT DROP AS
-    SELECT * FROM public.timeline_establishment_def
-    WHERE after_to_overlaps(valid_after, valid_to, v_valid_after, v_valid_to);
+        FOR i IN v_min_id..v_max_id BY v_batch_size LOOP
+            v_start_id := i; v_end_id := i + v_batch_size - 1;
+            EXECUTE format('DELETE FROM public.%I WHERE unit_type = %L AND unit_id BETWEEN %L AND %L',
+                           p_target_table, p_unit_type, v_start_id, v_end_id);
+            EXECUTE format('INSERT INTO public.%I SELECT * FROM public.%I WHERE unit_type = %L AND unit_id BETWEEN %L AND %L',
+                           p_target_table, v_def_view_name, p_unit_type, v_start_id, v_end_id);
+        END LOOP;
+    END IF;
 
-    -- Delete records that exist in the main table but not in the temp table
-    DELETE FROM public.timeline_establishment te
-    WHERE after_to_overlaps(te.valid_after, te.valid_to, v_valid_after, v_valid_to)
-    AND NOT EXISTS (
-        SELECT 1 FROM temp_timeline_establishment tte
-        WHERE tte.unit_type = te.unit_type
-        AND tte.unit_id = te.unit_id
-        AND tte.valid_after = te.valid_after
-        AND tte.valid_to = te.valid_to
-    );
-
-    -- Insert or update records from the temp table into the main table
-    INSERT INTO public.timeline_establishment
-    SELECT tte.* FROM temp_timeline_establishment tte
-    ON CONFLICT (unit_type, unit_id, valid_after) DO UPDATE SET
-        valid_to = EXCLUDED.valid_to,
-        valid_from = EXCLUDED.valid_from,
-        name = EXCLUDED.name,
-        birth_date = EXCLUDED.birth_date,
-        death_date = EXCLUDED.death_date,
-        search = EXCLUDED.search,
-        primary_activity_category_id = EXCLUDED.primary_activity_category_id,
-        primary_activity_category_path = EXCLUDED.primary_activity_category_path,
-        primary_activity_category_code = EXCLUDED.primary_activity_category_code,
-        secondary_activity_category_id = EXCLUDED.secondary_activity_category_id,
-        secondary_activity_category_path = EXCLUDED.secondary_activity_category_path,
-        secondary_activity_category_code = EXCLUDED.secondary_activity_category_code,
-        activity_category_paths = EXCLUDED.activity_category_paths,
-        sector_id = EXCLUDED.sector_id,
-        sector_path = EXCLUDED.sector_path,
-        sector_code = EXCLUDED.sector_code,
-        sector_name = EXCLUDED.sector_name,
-        data_source_ids = EXCLUDED.data_source_ids,
-        data_source_codes = EXCLUDED.data_source_codes,
-        legal_form_id = EXCLUDED.legal_form_id,
-        legal_form_code = EXCLUDED.legal_form_code,
-        legal_form_name = EXCLUDED.legal_form_name,
-        physical_address_part1 = EXCLUDED.physical_address_part1,
-        physical_address_part2 = EXCLUDED.physical_address_part2,
-        physical_address_part3 = EXCLUDED.physical_address_part3,
-        physical_postcode = EXCLUDED.physical_postcode,
-        physical_postplace = EXCLUDED.physical_postplace,
-        physical_region_id = EXCLUDED.physical_region_id,
-        physical_region_path = EXCLUDED.physical_region_path,
-        physical_region_code = EXCLUDED.physical_region_code,
-        physical_country_id = EXCLUDED.physical_country_id,
-        physical_country_iso_2 = EXCLUDED.physical_country_iso_2,
-        physical_latitude = EXCLUDED.physical_latitude,
-        physical_longitude = EXCLUDED.physical_longitude,
-        physical_altitude = EXCLUDED.physical_altitude,
-        postal_address_part1 = EXCLUDED.postal_address_part1,
-        postal_address_part2 = EXCLUDED.postal_address_part2,
-        postal_address_part3 = EXCLUDED.postal_address_part3,
-        postal_postcode = EXCLUDED.postal_postcode,
-        postal_postplace = EXCLUDED.postal_postplace,
-        postal_region_id = EXCLUDED.postal_region_id,
-        postal_region_path = EXCLUDED.postal_region_path,
-        postal_region_code = EXCLUDED.postal_region_code,
-        postal_country_id = EXCLUDED.postal_country_id,
-        postal_country_iso_2 = EXCLUDED.postal_country_iso_2,
-        postal_latitude = EXCLUDED.postal_latitude,
-        postal_longitude = EXCLUDED.postal_longitude,
-        postal_altitude = EXCLUDED.postal_altitude,
-        web_address = EXCLUDED.web_address,
-        email_address = EXCLUDED.email_address,
-        phone_number = EXCLUDED.phone_number,
-        landline = EXCLUDED.landline,
-        mobile_number = EXCLUDED.mobile_number,
-        fax_number = EXCLUDED.fax_number,
-        unit_size_id = EXCLUDED.unit_size_id,
-        unit_size_code = EXCLUDED.unit_size_code,
-        status_id = EXCLUDED.status_id,
-        status_code = EXCLUDED.status_code,
-        include_unit_in_reports = EXCLUDED.include_unit_in_reports,
-        last_edit_comment = EXCLUDED.last_edit_comment,
-        last_edit_by_user_id = EXCLUDED.last_edit_by_user_id,
-        last_edit_at = EXCLUDED.last_edit_at,
-        invalid_codes = EXCLUDED.invalid_codes,
-        has_legal_unit = EXCLUDED.has_legal_unit,
-        establishment_id = EXCLUDED.establishment_id,
-        legal_unit_id = EXCLUDED.legal_unit_id,
-        enterprise_id = EXCLUDED.enterprise_id,
-        primary_for_enterprise = EXCLUDED.primary_for_enterprise,
-        primary_for_legal_unit = EXCLUDED.primary_for_legal_unit,
-        stats = EXCLUDED.stats;
-
-    -- Drop the temporary table
-    DROP TABLE temp_timeline_establishment;
-
-    -- Ensure sql execution planning takes in to account table changes.
-    ANALYZE public.timeline_establishment;
+    EXECUTE format('ANALYZE public.%I', p_target_table);
 END;
-$timeline_establishment_refresh$;
+$procedure$;
+
+CREATE OR REPLACE PROCEDURE public.timeline_establishment_refresh(p_unit_id_ranges int4multirange DEFAULT NULL) LANGUAGE plpgsql AS $$
+BEGIN
+    ANALYZE public.timesegments, public.establishment, public.activity, public.location, public.contact, public.stat_for_unit;
+    CALL public.timeline_refresh('timeline_establishment', 'establishment', p_unit_id_ranges);
+END;
+$$;
 
 -- Initial population of the timeline_establishment table
-SELECT public.timeline_establishment_refresh();
+CALL public.timeline_establishment_refresh();
 
 END;

@@ -6,7 +6,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { InfoBox } from "@/components/info-box";
 import { useImportManager, usePendingJobsByMode } from "@/atoms/import"; // Updated import
 import { TimeContextSelector } from "../components/time-context-selector";
@@ -20,24 +21,25 @@ import { PendingJobsList } from "../components/pending-jobs-list";
 
 export default function UploadEstablishmentsWithoutLegalUnitPage() {
   const router = useRouter();
-  const { counts: { establishmentsWithoutLegalUnit } } = useImportManager();
+  const { counts: { establishmentsWithoutLegalUnit }, importState } = useImportManager();
+  const { selectedDefinition } = importState;
   // Use the generalized hook with the specific import mode for informal establishments
   const { jobs: pendingJobs, loading: isLoading, error, refreshJobs } = usePendingJobsByMode("establishment_informal");
   const [isClient, setIsClient] = useState(false);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     setIsClient(true);
-  }, []);
+  }, [], 'UploadInformalEstablishmentsPage:setClient');
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     if (!isLoading) {
       setHasLoadedOnce(true);
     }
-  }, [isLoading]);
+  }, [isLoading], 'UploadInformalEstablishmentsPage:setHasLoadedOnce');
 
   // Listen for any job updates and refresh the pending list
-  useEffect(() => {
+  useGuardedEffect(() => {
     // We connect after the initial load. If there are jobs, we listen for
     // updates to them. We always listen for new INSERTs.
     if (isLoading) return;
@@ -69,7 +71,7 @@ export default function UploadEstablishmentsWithoutLegalUnitPage() {
     return () => {
       eventSource.close();
     };
-  }, [refreshJobs, isLoading, pendingJobs]);
+  }, [refreshJobs, isLoading, pendingJobs], 'UploadInformalEstablishmentsPage:sseListener');
 
   // The useEffect in usePendingJobsByPattern handles initial fetch.
 
@@ -170,19 +172,37 @@ export default function UploadEstablishmentsWithoutLegalUnitPage() {
           </AccordionTrigger>
           <AccordionContent>
             <p className="mb-3">
-              An Informal Establishments file is a CSV file containing the
-              establishments independent of legal units. Only ids for the
-              establishments should be presented in this option. Have a look at
-              this example CSV file to get an idea of how the file should be
-              structured:
+              An Informal Establishments file is a CSV file containing
+              establishments that are independent of legal units. Only ids for
+              the establishments should be provided. Download an example to see
+              the structure. The correct example to use depends on the &quot;Data
+              validity period&quot; selected above.
             </p>
-            <a
-              href="/demo/informal_establishments_units_demo.csv"
-              download="informal_establishments.example.csv"
-              className="underline"
-            >
-              Download example CSV file
-            </a>
+            <div className="flex flex-col space-y-2 pl-4">
+              <a
+                href="/demo/informal_establishments_units_demo.csv"
+                download="informal_establishments_units_demo.csv"
+                className={`underline ${
+                  selectedDefinition?.valid_time_from === "job_provided"
+                    ? "font-bold"
+                    : ""
+                }`}
+              >
+                Example for jobs with a defined validity period
+              </a>
+              <a
+                href="/demo/informal_establishments_units_with_source_dates_demo.csv"
+                download="informal_establishments_units_with_source_dates_demo.csv"
+                className={`underline ${
+                  selectedDefinition?.valid_time_from === "source_columns"
+                    ? "font-bold"
+                    : ""
+                }`}
+              >
+                Example for jobs with validity from source file (valid_from,
+                valid_to)
+              </a>
+            </div>
           </AccordionContent>
         </AccordionItem>
       </Accordion>

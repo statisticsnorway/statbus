@@ -17,8 +17,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useEffect, useState } from "react";
-import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
+import { useRouter } from "next/navigation";
+import { toast } from "@/hooks/use-toast";
 import { Enums } from "@/lib/database.types";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { useSetAtom } from "jotai";
@@ -27,11 +29,11 @@ import { gettingStartedUIStateAtom } from "@/atoms/getting-started";
 import { selectedTimeContextAtom } from "@/atoms/app";
 
 export function ResetConfirmationDialog() {
-  const { toast } = useToast();
+  const router = useRouter();
   const setGettingStartedUIState = useSetAtom(gettingStartedUIStateAtom);
   const setSelectedTimeContext = useSetAtom(selectedTimeContextAtom);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     const showDialog = () => {
       setOpen(true);
     };
@@ -40,7 +42,7 @@ export function ResetConfirmationDialog() {
     return () => {
       document.removeEventListener('show-reset-dialog', showDialog);
     };
-  }, []);
+  }, [], 'ResetConfirmationDialog:showDialogListener');
   const [open, setOpen] = useState(false);
   const [scope, setScope] = useState<Enums<"reset_scope">>('data');
   const [isLoading, setIsLoading] = useState(false);
@@ -70,7 +72,7 @@ export function ResetConfirmationDialog() {
         // server data reset. The page reload will handle re-fetching data.
         setGettingStartedUIState(RESET);
         setSelectedTimeContext(RESET);
-        window.location.href = "/";
+        router.push("/");
       }
     } catch (error) {
       toast({

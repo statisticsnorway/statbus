@@ -1,17 +1,19 @@
 "use client";
 
 import { useDrillDownData } from "@/app/reports/use-drill-down-data";
-import { useEffect, useMemo, useState } from "react";
-import * as highcharts from "highcharts";
+import { useMemo, useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { BreadCrumb } from "@/app/reports/bread-crumb";
 import { DrillDownChart } from "@/app/reports/drill-down-chart";
 import { SearchLink } from "@/app/reports/search-link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useBaseData } from "@/atoms/base-data";
 import { Tables } from "@/lib/database.types";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ReportsPageClient({
 }) {
+  const [highchartsModulesLoaded, setHighchartsModulesLoaded] = useState(false);
   const [maxStatValuesNoFiltering, setMaxStatValuesNoFiltering] = useState<Record<string, { region: number, activity: number }>>({});
   const {
     drillDown,
@@ -23,10 +25,22 @@ export default function ReportsPageClient({
 
   const { statDefinitions } = useBaseData();
 
-  useEffect(() => {
-    import("highcharts/modules/drilldown");
-    import("highcharts/modules/accessibility");
-  }, []);
+  useGuardedEffect(() => {
+    // Pinpoint: The intermittent "hoverPoint" error in Highcharts is a classic
+    // race condition. It occurs if a chart is created *before* all its required
+    // modules (like 'drilldown') have finished loading. The chart instance ends
+    // up in an incomplete or unstable state.
+    // The fix is to ensure the modules are fully loaded before we attempt to
+    // render any chart components. We use a state flag (`highchartsModulesLoaded`)
+    // that is set to true only after the dynamic imports have resolved. The JSX
+    // then uses this flag to conditionally render the charts or a skeleton.
+    Promise.all([
+      import("highcharts/modules/drilldown"),
+      import("highcharts/modules/accessibility"),
+    ]).then(() => {
+      setHighchartsModulesLoaded(true);
+    });
+  }, [], 'ReportsPageClient:importHighchartsModules');
 
   const statisticalVariables = useMemo(() => {
     return [
@@ -40,7 +54,7 @@ export default function ReportsPageClient({
   }, [statDefinitions]);
 
   // Calculate max values only for unfiltered top-level data
-  useEffect(() => {
+  useGuardedEffect(() => {
     if (drillDown && !region && !activityCategory) {
       setMaxStatValuesNoFiltering((prevMaxValues) => {
         const newMaxValues = { ...prevMaxValues };
@@ -78,7 +92,7 @@ export default function ReportsPageClient({
         return newMaxValues;
       });
     }
-  }, [drillDown, region, activityCategory, statisticalVariables]);
+  }, [drillDown, region, activityCategory, statisticalVariables], 'ReportsPageClient:calculateMaxValues');
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col px-2 py-8 md:py-12">
@@ -114,13 +128,17 @@ export default function ReportsPageClient({
                       selected={region}
                       onSelect={setRegion}
                     />
-                    <DrillDownChart
-                      points={drillDown.available.region}
-                      onSelect={setRegion}
-                      variable={statisticalVariable.value}
-                      title={statisticalVariable.title}
-                      maxTopLevelValue={maxStatValuesNoFiltering[statisticalVariable.value]?.region}
-                    />
+                    {highchartsModulesLoaded ? (
+                      <DrillDownChart
+                        points={drillDown.available.region}
+                        onSelect={setRegion}
+                        variable={statisticalVariable.value}
+                        title={statisticalVariable.title}
+                        maxTopLevelValue={maxStatValuesNoFiltering[statisticalVariable.value]?.region}
+                      />
+                    ) : (
+                      <Skeleton className="w-full h-[200px]" />
+                    )}
                   </>
                 )}
               </div>
@@ -133,13 +151,17 @@ export default function ReportsPageClient({
                       selected={activityCategory}
                       onSelect={setActivityCategory}
                     />
-                    <DrillDownChart
-                      points={drillDown.available.activity_category}
-                      onSelect={setActivityCategory}
-                      variable={statisticalVariable.value}
-                      title={statisticalVariable.title}
-                      maxTopLevelValue={maxStatValuesNoFiltering[statisticalVariable.value]?.activity}
-                    />
+                    {highchartsModulesLoaded ? (
+                      <DrillDownChart
+                        points={drillDown.available.activity_category}
+                        onSelect={setActivityCategory}
+                        variable={statisticalVariable.value}
+                        title={statisticalVariable.title}
+                        maxTopLevelValue={maxStatValuesNoFiltering[statisticalVariable.value]?.activity}
+                      />
+                    ) : (
+                      <Skeleton className="w-full h-[200px]" />
+                    )}
                   </>
                 )}
               </div>

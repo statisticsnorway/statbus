@@ -16,12 +16,18 @@ function buildPathQuery(values: (string | null | undefined)[]): string | null {
 }
 
 function parseInitialValues(initialValue: string | null): (string | null)[] {
-  return initialValue?.split(",").map(value => {
-    if (value === '' || value === 'null') {
+  if (initialValue === null) return [];
+  // Split and filter out empty strings which can result from trailing commas
+  // or an empty parameter like `&unit_type=`.
+  const parts = initialValue.split(',').filter(p => p !== '');
+  if (parts.length === 0) return [];
+
+  return parts.map(value => {
+    if (value === 'null') {
       return null;
     }
     return value;
-  }) ?? [];
+  });
 }
 
 export function fullTextSearchDeriveStateUpdateFromSearchParams(urlSearchParams: URLSearchParams): SearchAction {
@@ -225,10 +231,21 @@ export function unitSizeDeriveStateUpdateFromValues(
 
 export const DATA_SOURCE = "data_source";
 
-export function dataSourceDeriveStateUpdateFromSearchParams(urlSearchParams: URLSearchParams, dataSources: Tables<"data_source">[]): SearchAction {
+export function dataSourceDeriveStateUpdateFromSearchParams(urlSearchParams: URLSearchParams): SearchAction {
   const initialValue = urlSearchParams.get(DATA_SOURCE);
   const initialValues = parseInitialValues(initialValue);
-  return dataSourceDeriveStateUpdateFromValues(initialValues, dataSources);
+  // This function is now only used for URL -> Jotai state initialization.
+  // It just needs to pass the codes through. The conversion to IDs for the API
+  // happens later in derivedApiSearchParamsAtom.
+  return {
+    type: "set_query",
+    payload: {
+      app_param_name: DATA_SOURCE,
+      api_param_name: "data_source_ids", // This is technically incorrect now, but not used.
+      api_param_value: null, // This is technically incorrect now, but not used.
+      app_param_values: initialValues,
+    },
+  } as SearchAction;
 }
 
 export function dataSourceDeriveStateUpdateFromValues(values: (string | null)[], dataSources: Tables<"data_source_used">[]): SearchAction {
@@ -303,11 +320,11 @@ export function statisticalVariableParse(rawValue: string | null): { operator: s
   }
 
   // Regex for standard 'operator.operand' format (used by API, but not for app state string)
-  // const standardDotRegex = /^(?<operator>[^.]+)\.(?<operand>[^()]+)$/;
-  // const standardDotMatch = rawValue.match(standardDotRegex);
-  // if (standardDotMatch?.groups) {
-  //   return { operator: standardDotMatch.groups.operator, operand: standardDotMatch.groups.operand };
-  // }
+  const standardDotRegex = /^(?<operator>[^.]+)\.(?<operand>[^()]+)$/;
+  const standardDotMatch = rawValue.match(standardDotRegex);
+  if (standardDotMatch?.groups) {
+    return { operator: standardDotMatch.groups.operator, operand: standardDotMatch.groups.operand };
+  }
 
   // Regex for 'operator:operand' format (used in app state for statistical variables)
   const colonRegex = /^(?<operator>[^:]+):(?<operand>.+)$/;

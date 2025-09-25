@@ -77,6 +77,15 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error
 FROM public.import_job
 WHERE slug LIKE 'import_34_%' ORDER BY slug;
 
+\echo "Checking for data processing issues in import_34_lu_era_data"
+SELECT row_id, errors, invalid_codes, merge_status FROM public.import_34_lu_era_data WHERE errors IS NOT NULL OR invalid_codes IS NOT NULL ORDER BY row_id;
+
+\echo "Checking for data processing issues in import_34_esflu_era_data"
+SELECT row_id, errors, invalid_codes, merge_status FROM public.import_34_esflu_era_data WHERE errors IS NOT NULL OR invalid_codes IS NOT NULL ORDER BY row_id;
+
+\echo "Checking for data processing issues in import_34_eswlu_era_data"
+SELECT row_id, errors, invalid_codes, merge_status FROM public.import_34_eswlu_era_data WHERE errors IS NOT NULL OR invalid_codes IS NOT NULL ORDER BY row_id;
+
 \echo Run worker processing for analytics tasks
 CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
@@ -86,6 +95,29 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
+\echo "Checking stats in stat_for_unit"
+SELECT
+    su.unit_type,
+    su.name,
+    sd.code AS stat_code,
+    sfu.value_int,
+    sfu.value_float,
+    sfu.valid_from,
+    sfu.valid_to
+FROM public.stat_for_unit AS sfu
+JOIN public.statistical_unit AS su ON
+    (sfu.establishment_id = su.unit_id AND su.unit_type = 'establishment') OR
+    (sfu.legal_unit_id = su.unit_id AND su.unit_type = 'legal_unit')
+JOIN public.stat_definition AS sd ON sfu.stat_definition_id = sd.id
+ORDER BY su.unit_type, su.name, sd.code;
+
+\echo "Checking aggregated stats in statistical_unit"
+SELECT unit_type, count(*) AS units_with_stats
+FROM public.statistical_unit
+WHERE stats_summary IS NOT NULL AND stats_summary != '{}'::jsonb
+GROUP BY unit_type
+ORDER BY unit_type;
+    
 SELECT unit_type, name, external_idents
 FROM statistical_unit ORDER BY unit_type,name;
 

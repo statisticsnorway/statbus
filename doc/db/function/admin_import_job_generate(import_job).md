@@ -89,48 +89,48 @@ BEGIN
     RAISE DEBUG '[Job %] Data table DDL: %', job.id, create_data_table_stmt;
     EXECUTE create_data_table_stmt;
 
-  -- Add a UNIQUE index on expressions for columns marked as uniquely identifying,
-  -- including validity period. This is required for the ON CONFLICT clause in the prepare step
-  -- to handle temporal idempotency and NULLs in identifier columns.
-  DECLARE
-      uniquely_identifying_cols TEXT[];
-      conflict_expressions TEXT[];
-      constraint_stmt TEXT;
-      col_name TEXT;
-  BEGIN
-      -- Find uniquely identifying columns THAT ARE ACTUALLY MAPPED for this job by inspecting the snapshot
-      SELECT array_agg(DISTINCT idc.column_name ORDER BY idc.column_name)
-      INTO uniquely_identifying_cols
-      FROM
-          jsonb_to_recordset(job.definition_snapshot->'import_mapping_list') AS item(mapping JSONB, source_column JSONB, target_data_column JSONB),
-          jsonb_to_record(item.target_data_column) AS idc(column_name TEXT, is_uniquely_identifying BOOLEAN, purpose TEXT)
-      WHERE
-          idc.is_uniquely_identifying IS TRUE AND
-          idc.purpose = 'source_input';
-
-      IF array_length(uniquely_identifying_cols, 1) > 0 THEN
-          FOREACH col_name IN ARRAY uniquely_identifying_cols
-          LOOP
-              -- Use COALESCE to treat NULL as an empty string for uniqueness on identifiers
-              conflict_expressions := array_append(conflict_expressions, format('COALESCE(%I, %L)', col_name, ''));
-          END LOOP;
-
-          -- Add validity columns to the expressions for the unique index.
-          -- They are NOT coalesced, so rows with NULL validity periods are treated as distinct by the index.
-          conflict_expressions := conflict_expressions || ARRAY[format('%I', 'valid_from'), format('%I', 'valid_to')];
-
-          constraint_stmt := format('CREATE UNIQUE INDEX %I ON public.%I (%s)',
-                                    job.data_table_name || '_unique_ident_key',
-                                    job.data_table_name,
-                                    array_to_string(conflict_expressions, ', '));
-          RAISE DEBUG '[Job %] Adding unique index on expressions to data table %: %', job.id, job.data_table_name, constraint_stmt;
-          EXECUTE constraint_stmt;
-      END IF;
-  END;
 
   -- Create composite index (state, last_completed_priority, row_id) for efficient batch selection and in-index ordering
   EXECUTE format($$CREATE INDEX ON public.%1$I (state, last_completed_priority, row_id)$$, job.data_table_name /* %1$I */);
   RAISE DEBUG '[Job %] Added composite index to data table %', job.id, job.data_table_name;
+
+  -- Add GIST index on row_id for efficient multirange operations (<@)
+  EXECUTE format('CREATE INDEX ON public.%I USING GIST (row_id)', job.data_table_name);
+  RAISE DEBUG '[Job %] Added GIST index on row_id to data table %', job.id, job.data_table_name;
+
+  -- Add GIST index on daterange(valid_from, valid_until) for efficient temporal_merge lookups.
+  EXECUTE format('CREATE INDEX ON public.%I USING GIST (daterange(valid_from, valid_until, ''[]''))', job.data_table_name);
+  RAISE DEBUG '[Job %] Added GIST index on validity daterange to data table %', job.id, job.data_table_name;
+
+  -- Create indexes on uniquely identifying source_input columns to speed up lookups within analysis steps.
+  FOR col_rec IN
+      SELECT (x->>'column_name')::TEXT as column_name
+      FROM jsonb_array_elements(job.definition_snapshot->'import_data_column_list') x
+      WHERE x->>'purpose' = 'source_input' AND (x->>'is_uniquely_identifying')::boolean IS TRUE
+  LOOP
+      RAISE DEBUG '[Job %] Adding index on uniquely identifying source column: %', job.id, col_rec.column_name;
+      EXECUTE format('CREATE INDEX ON public.%I (%I)', job.data_table_name, col_rec.column_name);
+  END LOOP;
+
+  -- Add recommended performance indexes.
+  BEGIN
+      -- Add index on founding_row_id. This helps with error propagation and is now a standard column.
+      EXECUTE format(
+          $$ CREATE INDEX ON public.%1$I (founding_row_id) WHERE founding_row_id IS NOT NULL $$,
+          job.data_table_name
+      );
+      RAISE DEBUG '[Job %] Added founding_row_id index to data table %.', job.id, job.data_table_name;
+
+      -- CRITICAL PERFORMANCE FIX: Create a partial index on the entity root ID.
+      -- This index is specifically designed to make the batch selection query in the processing phase nearly instantaneous.
+      -- The query seeks distinct entity roots (`COALESCE(founding_row_id, row_id)`), so an index on that expression is optimal.
+      EXECUTE format(
+          $$ CREATE INDEX %1$I ON public.%2$I ( (COALESCE(founding_row_id, row_id)) ) WHERE state = 'processing' AND action = 'use' $$,
+          job.data_table_name || '_processing_batch_idx', /* %1$I: index name */
+          job.data_table_name                             /* %2$I: table name */
+      );
+      RAISE DEBUG '[Job %] Added processing phase performance index to data table %.', job.id, job.data_table_name;
+  END;
 
   -- Grant direct permissions to the job owner on the upload table to allow COPY FROM
   DECLARE

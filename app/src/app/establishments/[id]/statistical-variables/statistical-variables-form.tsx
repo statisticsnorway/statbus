@@ -1,29 +1,62 @@
 "use client";
 import { useBaseData } from "@/atoms/base-data";
-import { FormField } from "@/components/form/form-field";
+import { useStatisticalUnitStats } from "@/components/statistical-unit-details/use-unit-details";
+import Loading from "@/components/statistical-unit-details/loading";
+import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
+import { useActionState, useEffect, useState } from "react";
+import { updateStatisticalVariables } from "@/app/legal-units/[id]/update-legal-unit-server-actions";
+import { EditableFieldWithMetadata } from "@/components/form/editable-field-with-metadata";
 
 export default function StatisticalVariablesForm({
-  establishmentStats,
+  id,
 }: {
-  readonly establishmentStats: StatisticalUnitStats;
+  readonly id: string;
 }) {
+  const [statsState, statsAction] = useActionState(
+    updateStatisticalVariables.bind(null, id, "establishment"),
+    null
+  );
   const { statDefinitions } = useBaseData();
+  const { data, isLoading, error, revalidate } = useStatisticalUnitStats(
+    id,
+    "establishment"
+  );
+
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+  useEffect(() => {
+    if (statsState?.status === "success") {
+      revalidate();
+    }
+  }, [statsState, revalidate]);
+
+  if (!isClient) {
+    return <Loading />;
+  }
+  if (error || (!isLoading && !data)) {
+    return <UnitNotFound />;
+  }
 
   return (
-    <form className="space-y-4">
+    <div>
       {statDefinitions.map((statDefinition) => {
-        const value = establishmentStats.stats?.[statDefinition.code!];
+        const value = data?.stats?.[statDefinition.code!];
         return (
-          <FormField
+          <EditableFieldWithMetadata
             key={statDefinition.code}
             label={statDefinition.name ?? statDefinition.code!}
-            name={`stats.${statDefinition.code}`}
-            value={value}
-            response={null}
-            readonly
+            fieldId={`${statDefinition.code}`}
+            name="value"
+            value={value || ""}
+            response={statsState}
+            formAction={statsAction}
+            statType={statDefinition.type!}
+            statDefinitionId={statDefinition.id!}
           />
         );
       })}
-    </form>
+    </div>
   );
 }

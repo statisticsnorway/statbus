@@ -1,7 +1,7 @@
 "use client";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { useSearch } from "@/atoms/search"; // Changed to Jotai hook
+import { useSearchFilters } from "@/atoms/search";
 import { Tables } from "@/lib/database.types";
 
 interface ActiveExternalIdentBadgesProps {
@@ -9,8 +9,7 @@ interface ActiveExternalIdentBadgesProps {
 }
 
 export function ActiveExternalIdentBadges({ externalIdentTypes }: ActiveExternalIdentBadgesProps) {
-  const { searchState } = useSearch(); // Use Jotai hook
-  const { filters } = searchState;
+  const { filters } = useSearchFilters();
 
   const activeFilters = externalIdentTypes
     .map(type => {

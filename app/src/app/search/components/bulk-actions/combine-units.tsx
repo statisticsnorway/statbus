@@ -4,7 +4,7 @@ import { Combine } from "lucide-react";
 import { CommandItem } from "@/components/ui/command";
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import logger from "@/lib/client-logger";
+import { logger } from "@/lib/client-logger";
 import { useSelection, type StatisticalUnit } from "@/atoms/search"; // Changed to Jotai hook
 
 export default function CombineUnits() {
@@ -22,8 +22,9 @@ export default function CombineUnits() {
 
     if (!legalUnit || !enterprise) {
       logger.error(
-        { legalUnit, enterprise },
-        "failed to set primary legal unit for enterprise due to missing legal unit or enterprise"
+        "CombineUnits",
+        "failed to set primary legal unit for enterprise due to missing legal unit or enterprise",
+        { legalUnit, enterprise }
       );
       return;
     }
@@ -39,15 +40,16 @@ export default function CombineUnits() {
 
       if (!response.ok) {
         logger.error(
-          { legalUnit, enterprise },
-          "failed to set primary legal unit for enterprise"
+          "CombineUnits",
+          "failed to set primary legal unit for enterprise",
+          { legalUnit, enterprise }
         );
         return;
       }
 
       router.push(`/enterprises/${enterprise.unit_id}`);
     } catch (e) {
-      logger.error(e, "failed to set primary legal unit for enterprise");
+      logger.error("CombineUnits", "failed to set primary legal unit for enterprise", { error: e });
     }
   };
 

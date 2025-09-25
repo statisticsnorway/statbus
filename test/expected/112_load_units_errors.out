@@ -128,7 +128,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     6
- import    | completed |    24
+ import    | completed |    93
 (2 rows)
 
 \echo "Checking import job statuses for Block 1"
@@ -146,14 +146,14 @@ WHERE slug IN ('import_31_lu_era_b1', 'import_31_esflu_era_b1') ORDER BY slug;
 
 \echo "Error rows in import_31_esflu_era_b1_data (if any):"
 "Error rows in import_31_esflu_era_b1_data (if any):"
-SELECT row_id, state, error, tax_ident, stat_ident, name
+SELECT row_id, state, errors, tax_ident_raw, stat_ident_raw, name_raw, merge_status
 FROM public.import_31_esflu_era_b1_data
-WHERE error IS NOT NULL OR state = 'error'
+WHERE (errors IS NOT NULL AND errors IS DISTINCT FROM '{}'::JSONB) OR state = 'error'
 ORDER BY row_id;
- row_id | state |                                                                                                  error                                                                                                   |  tax_ident  | stat_ident |          name           
---------+-------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------+------------+-------------------------
-      1 | error | {"tax_ident": "Identifier tax_ident value '92212760144' from input attempts to change existing value '2212760144'", "stat_ident": "Identifier already used by a Legal Unit: {\"stat_ident\": \"1000\"}"} | 92212760144 | 1000       | NILE PEARL WATER
-      2 | error | {"tax_ident": "Identifier tax_ident value '92812760140' from input attempts to change existing value '2812760140'", "stat_ident": "Identifier already used by a Legal Unit: {\"stat_ident\": \"1001\"}"} | 92812760140 | 1001       | EQUATOR GLOBE SOLUTIONS
+ row_id | state |                                                                                                        errors                                                                                                        | tax_ident_raw | stat_ident_raw |        name_raw         | merge_status 
+--------+-------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------+----------------+-------------------------+--------------
+      1 | error | {"tax_ident_raw": "Identifier tax_ident value '92212760144' from input attempts to change existing value '2212760144'", "stat_ident_raw": "Identifier already used by a Legal Unit: {\"stat_ident_raw\": \"1000\"}"} | 92212760144   | 1000           | NILE PEARL WATER        | {}
+      2 | error | {"tax_ident_raw": "Identifier tax_ident value '92812760140' from input attempts to change existing value '2812760140'", "stat_ident_raw": "Identifier already used by a Legal Unit: {\"stat_ident_raw\": \"1001\"}"} | 92812760140   | 1001           | EQUATOR GLOBE SOLUTIONS | {}
 (2 rows)
 
 \echo Run worker processing for analytics tasks - Block 1 (errors primarily tested on import queue)
@@ -163,7 +163,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |     8
- import    | completed |    24
+ import    | completed |    93
 (2 rows)
 
 ROLLBACK TO before_loading_units;
@@ -224,7 +224,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     7
- import    | completed |    42
+ import    | completed |   140
 (2 rows)
 
 SELECT
@@ -253,14 +253,14 @@ WHERE slug IN ('import_31_lu_era_b2', 'import_31_esflu_era_b2', 'import_31_eswlu
 
 \echo "Error rows in import_31_eswlu_era_b2_errors_data (if any):"
 "Error rows in import_31_eswlu_era_b2_errors_data (if any):"
-SELECT row_id, state, error, tax_ident, stat_ident, name
+SELECT row_id, state, errors, tax_ident_raw, stat_ident_raw, name_raw, merge_status
 FROM public.import_31_eswlu_era_b2_errors_data
-WHERE error IS NOT NULL OR state = 'error'
+WHERE (errors IS NOT NULL AND errors IS DISTINCT FROM '{}'::JSONB) OR state = 'error'
 ORDER BY row_id;
- row_id | state |                                                                                                        error                                                                                                        |  tax_ident  | stat_ident |             name             
---------+-------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------+------------+------------------------------
-      1 | error | {"tax_ident": "Identifier tax_ident value '82212760144' from input attempts to change existing value '92212760144'", "stat_ident": "Identifier already used by a Formal Establishment: {\"stat_ident\": \"2000\"}"} | 82212760144 | 2000       | THE NILE PEARL WATER
-      2 | error | {"tax_ident": "Identifier tax_ident value '82812760140' from input attempts to change existing value '92812760140'", "stat_ident": "Identifier already used by a Formal Establishment: {\"stat_ident\": \"2001\"}"} | 82812760140 | 2001       | THE  EQUATOR GLOBE SOLUTIONS
+ row_id | state |                                                                                                             errors                                                                                                              | tax_ident_raw | stat_ident_raw |           name_raw           | merge_status 
+--------+-------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+---------------+----------------+------------------------------+--------------
+      1 | error | {"tax_ident_raw": "Identifier tax_ident value '82212760144' from input attempts to change existing value '92212760144'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"2000\"}"} | 82212760144   | 2000           | THE NILE PEARL WATER         | {}
+      2 | error | {"tax_ident_raw": "Identifier tax_ident value '82812760140' from input attempts to change existing value '92812760140'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"2001\"}"} | 82812760140   | 2001           | THE  EQUATOR GLOBE SOLUTIONS | {}
 (2 rows)
 
 \echo Run worker processing for analytics tasks - Block 2 (errors primarily tested on import queue)
@@ -270,7 +270,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |     9
- import    | completed |    42
+ import    | completed |   140
 (2 rows)
 
 ROLLBACK TO before_loading_units;
@@ -316,8 +316,8 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | pending   |     6
- import    | completed |    18
+ analytics | pending   |     7
+ import    | completed |    47
 (2 rows)
 
 \echo "Checking import job status for Block 3 (import_31_lu_era_b3_coord_errors)"
@@ -334,18 +334,18 @@ ORDER BY slug;
 
 \echo "Error rows in import_31_lu_era_b3_coord_errors_data (if any):"
 "Error rows in import_31_lu_era_b3_coord_errors_data (if any):"
-SELECT row_id, state, error, tax_ident, name, physical_latitude
+SELECT row_id, state, errors, tax_ident_raw, name_raw, physical_latitude_raw, merge_status
 FROM public.import_31_lu_era_b3_coord_errors_data
-WHERE error IS NOT NULL OR state = 'error'
+WHERE (errors IS NOT NULL AND errors IS DISTINCT FROM '{}'::JSONB) OR state = 'error'
 ORDER BY row_id;
- row_id | state |                                                       error                                                        | tax_ident  |           name            | physical_latitude 
---------+-------+--------------------------------------------------------------------------------------------------------------------+------------+---------------------------+-------------------
-      1 | error | {"physical_latitude": "Value '3333333' is out of range for type NUMERIC(9,6). SQLSTATE: 22003"}                    | 2212760144 | NILE PEARL WATER          | 3333333
-      3 | error | {"physical_longitude": "Value 190.123456 out of range. Expected -180 to 180."}                                     | 3000000003 | Longitude Range Test LU   | 10.0
-      4 | error | {"physical_altitude": "Value -50.5 cannot be negative. Expected >= 0."}                                            | 3000000004 | Altitude Negative Test LU | 10.0
-      5 | error | {"physical_latitude": "Value 'abc' is not a valid numeric representation for type NUMERIC(9,6). SQLSTATE: 22P02"}  | 3000000005 | Latitude Text Test LU     | abc
-      6 | error | {"physical_longitude": "Value 'def' is not a valid numeric representation for type NUMERIC(9,6). SQLSTATE: 22P02"} | 3000000006 | Longitude Text Test LU    | 10.0
-      7 | error | {"physical_altitude": "Value 'ghi' is not a valid numeric representation for type NUMERIC(6,1). SQLSTATE: 22P02"}  | 3000000007 | Altitude Text Test LU     | 10.0
+ row_id | state |                                                         errors                                                         | tax_ident_raw |         name_raw          | physical_latitude_raw | merge_status 
+--------+-------+------------------------------------------------------------------------------------------------------------------------+---------------+---------------------------+-----------------------+--------------
+      1 | error | {"physical_latitude_raw": "Value '3333333' is out of range for type NUMERIC(9,6). SQLSTATE: 22003"}                    | 2212760144    | NILE PEARL WATER          | 3333333               | {}
+      3 | error | {"physical_longitude_raw": "Value 190.123456 out of range. Expected -180 to 180."}                                     | 3000000003    | Longitude Range Test LU   | 10.0                  | {}
+      4 | error | {"physical_altitude_raw": "Value -50.5 cannot be negative. Expected >= 0."}                                            | 3000000004    | Altitude Negative Test LU | 10.0                  | {}
+      5 | error | {"physical_latitude_raw": "Value 'abc' is not a valid numeric representation for type NUMERIC(9,6). SQLSTATE: 22P02"}  | 3000000005    | Latitude Text Test LU     | abc                   | {}
+      6 | error | {"physical_longitude_raw": "Value 'def' is not a valid numeric representation for type NUMERIC(9,6). SQLSTATE: 22P02"} | 3000000006    | Longitude Text Test LU    | 10.0                  | {}
+      7 | error | {"physical_altitude_raw": "Value 'ghi' is not a valid numeric representation for type NUMERIC(6,1). SQLSTATE: 22P02"}  | 3000000007    | Altitude Text Test LU     | 10.0                  | {}
 (6 rows)
 
 ROLLBACK TO before_loading_units;

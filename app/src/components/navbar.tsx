@@ -8,10 +8,11 @@ import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { CommandPaletteTriggerMobileMenuButton } from "@/components/command-palette/command-palette-trigger-button";
 import TimeContextSelector from "@/components/time-context-selector";
-import { useAuth, isAuthenticatedAtom, currentUserAtom } from "@/atoms/auth";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
+import { useAuth, isAuthenticatedStrictAtom, currentUserAtom } from "@/atoms/auth";
 import { useBaseData } from "@/atoms/base-data";
 import { useWorkerStatus } from "@/atoms/worker_status";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { usePathname } from "next/navigation"; // Import usePathname
 import { useAtomValue } from "jotai";
 
@@ -26,7 +27,7 @@ export function NavbarSkeleton() {
 }
 
 export default function Navbar() {
-  const isAuthenticated = useAtomValue(isAuthenticatedAtom); // Use derived atom
+  const isAuthenticated = useAtomValue(isAuthenticatedStrictAtom); // Use derived atom
   const currentUser = useAtomValue(currentUserAtom); // Use derived atom
   const { hasStatisticalUnits } = useBaseData();
   const workerStatus = useWorkerStatus();
@@ -35,9 +36,9 @@ export default function Navbar() {
 
   const [isClient, setIsClient] = useState(false);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     setIsClient(true);
-  }, []);
+  }, [], 'Navbar:setIsClient');
 
   // isAuthenticatedAtom is false if auth is loading, so !isAuthenticated covers both cases
   if (!isClient || !isAuthenticated) { 
@@ -88,14 +89,14 @@ export default function Navbar() {
 
         {/* Center: Main Navigation Links / Mobile Menu Trigger */}
         <div className="flex flex-1 justify-center space-x-3">
-          {isAuthenticated && hasStatisticalUnits && ( // isAuthenticated implies not loading and authenticated
+          {isAuthenticated && ( // isAuthenticated implies not loading and authenticated
             <>
               {/* Mobile Menu Trigger (Hamburger) */}
               <CommandPaletteTriggerMobileMenuButton className="lg:hidden" />
 
               {/* Import Link */}
               <Link
-                href="/import"
+                href={isImporting ? "/import/jobs" : "/import"}
                 className={cn(
                   buttonVariants({ variant: "ghost", size: "sm" }),
                   "space-x-2 hidden lg:flex",
@@ -108,36 +109,40 @@ export default function Navbar() {
                 <Upload size={16} />
                 <span>Import</span>
               </Link>
-              {/* Search Link */}
-              <Link
-                href="/search"
-                className={cn(
-                  buttonVariants({ variant: "ghost", size: "sm" }),
-                  "space-x-2 hidden lg:flex",
-                  // Add active state class
-                  "border-1", // Base border class
-                  isDerivingUnits ? "border-yellow-400" : // Processing state overrides active state
-                  pathname.startsWith("/search") ? "border-white" : "border-transparent" // Active/Inactive state
-                )}
-              >
-                <Search size={16} />
-                <span>Statistical Units</span>
-              </Link>
-              {/* Reports Link */}
-              <Link
-                href="/reports"
-                className={cn(
-                  buttonVariants({ variant: "ghost", size: "sm" }),
-                  "space-x-2 hidden lg:flex",
-                  // Add active state class
-                  "border-1", // Base border class
-                  isDerivingReports ? "border-yellow-400" : // Processing state overrides active state
-                  pathname.startsWith("/reports") ? "border-white" : "border-transparent" // Active/Inactive state
-                )}
-              >
-                <BarChartHorizontal size={16} />
-                <span>Reports</span>
-              </Link>
+              {hasStatisticalUnits && (
+                <>
+                  {/* Search Link */}
+                  <Link
+                    href="/search"
+                    className={cn(
+                      buttonVariants({ variant: "ghost", size: "sm" }),
+                      "space-x-2 hidden lg:flex",
+                      // Add active state class
+                      "border-1", // Base border class
+                      isDerivingUnits ? "border-yellow-400" : // Processing state overrides active state
+                      pathname.startsWith("/search") ? "border-white" : "border-transparent" // Active/Inactive state
+                    )}
+                  >
+                    <Search size={16} />
+                    <span>Statistical Units</span>
+                  </Link>
+                  {/* Reports Link */}
+                  <Link
+                    href="/reports"
+                    className={cn(
+                      buttonVariants({ variant: "ghost", size: "sm" }),
+                      "space-x-2 hidden lg:flex",
+                      // Add active state class
+                      "border-1", // Base border class
+                      isDerivingReports ? "border-yellow-400" : // Processing state overrides active state
+                      pathname.startsWith("/reports") ? "border-white" : "border-transparent" // Active/Inactive state
+                    )}
+                  >
+                    <BarChartHorizontal size={16} />
+                    <span>Reports</span>
+                  </Link>
+                </>
+              )}
             </>
           )}
         </div>

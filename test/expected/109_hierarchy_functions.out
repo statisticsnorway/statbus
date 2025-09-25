@@ -131,8 +131,8 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | pending   |     7
- import    | completed |    54
+ analytics | pending   |     8
+ import    | completed |   141
 (2 rows)
 
 \echo "Checking import job statuses"
@@ -147,14 +147,42 @@ WHERE slug LIKE 'import_34_%' ORDER BY slug;
  import_34_lu_era    | finished |          2 |             2 | f
 (3 rows)
 
+\echo "Checking for data processing issues in import_34_lu_era_data"
+"Checking for data processing issues in import_34_lu_era_data"
+SELECT row_id, errors, invalid_codes, merge_status FROM public.import_34_lu_era_data WHERE errors IS NOT NULL OR invalid_codes IS NOT NULL ORDER BY row_id;
+ row_id | errors | invalid_codes |                                                                              merge_status                                                                               
+--------+--------+---------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+      1 | {}     | {}            | {"contact": "APPLIED", "legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+      2 | {}     | {}            | {"contact": "APPLIED", "legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+(2 rows)
+
+\echo "Checking for data processing issues in import_34_esflu_era_data"
+"Checking for data processing issues in import_34_esflu_era_data"
+SELECT row_id, errors, invalid_codes, merge_status FROM public.import_34_esflu_era_data WHERE errors IS NOT NULL OR invalid_codes IS NOT NULL ORDER BY row_id;
+ row_id | errors | invalid_codes |                                                                                merge_status                                                                                
+--------+--------+---------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+      1 | {}     | {}            | {"contact": "APPLIED", "establishment": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+      2 | {}     | {}            | {"establishment": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+      3 | {}     | {}            | {"contact": "APPLIED", "establishment": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+(3 rows)
+
+\echo "Checking for data processing issues in import_34_eswlu_era_data"
+"Checking for data processing issues in import_34_eswlu_era_data"
+SELECT row_id, errors, invalid_codes, merge_status FROM public.import_34_eswlu_era_data WHERE errors IS NOT NULL OR invalid_codes IS NOT NULL ORDER BY row_id;
+ row_id | errors | invalid_codes |                                                                                merge_status                                                                                
+--------+--------+---------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+      1 | {}     | {}            | {"contact": "APPLIED", "establishment": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+      2 | {}     | {}            | {"contact": "APPLIED", "establishment": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"}
+(2 rows)
+
 \echo Run worker processing for analytics tasks
 Run worker processing for analytics tasks
 CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |     9
- import    | completed |    54
+ analytics | completed |    10
+ import    | completed |   141
 (2 rows)
 
 SELECT
@@ -166,6 +194,55 @@ SELECT
                    5 |                2 |                4
 (1 row)
 
+\echo "Checking stats in stat_for_unit"
+"Checking stats in stat_for_unit"
+SELECT
+    su.unit_type,
+    su.name,
+    sd.code AS stat_code,
+    sfu.value_int,
+    sfu.value_float,
+    sfu.valid_from,
+    sfu.valid_to
+FROM public.stat_for_unit AS sfu
+JOIN public.statistical_unit AS su ON
+    (sfu.establishment_id = su.unit_id AND su.unit_type = 'establishment') OR
+    (sfu.legal_unit_id = su.unit_id AND su.unit_type = 'legal_unit')
+JOIN public.stat_definition AS sd ON sfu.stat_definition_id = sd.id
+ORDER BY su.unit_type, su.name, sd.code;
+   unit_type   |           name           | stat_code | value_int | value_float | valid_from | valid_to 
+---------------+--------------------------+-----------+-----------+-------------+------------+----------
+ establishment | EQUATOR GLOBE SOLUTIONS  | employees |         0 |             | 2024-01-01 | infinity
+ establishment | EQUATOR GLOBE SOLUTIONS  | turnover  |           |           0 | 2024-01-01 | infinity
+ establishment | NILE PEARL WATER         | employees |         5 |             | 2024-01-01 | infinity
+ establishment | NILE PEARL WATER         | turnover  |           |     5000000 | 2024-01-01 | infinity
+ establishment | NILE TEXTILES            | employees |        10 |             | 2024-01-01 | infinity
+ establishment | NILE TEXTILES            | turnover  |           |    10000000 | 2024-01-01 | infinity
+ establishment | THE MARINE SERVICES      | employees |        75 |             | 2024-01-01 | infinity
+ establishment | THE MARINE SERVICES      | turnover  |           |     4400000 | 2024-01-01 | infinity
+ establishment | THE VICTORIA FRESH FARMS | employees |        80 |             | 2024-01-01 | infinity
+ establishment | THE VICTORIA FRESH FARMS | turnover  |           |     1200000 | 2024-01-01 | infinity
+ legal_unit    | EQUATOR GLOBE SOLUTIONS  | employees |         2 |             | 2024-01-01 | infinity
+ legal_unit    | EQUATOR GLOBE SOLUTIONS  | turnover  |           |     2400000 | 2024-01-01 | infinity
+ legal_unit    | NILE PEARL WATER         | employees |         0 |             | 2024-01-01 | infinity
+ legal_unit    | NILE PEARL WATER         | turnover  |           |           0 | 2024-01-01 | infinity
+(14 rows)
+
+\echo "Checking aggregated stats in statistical_unit"
+"Checking aggregated stats in statistical_unit"
+SELECT unit_type, count(*) AS units_with_stats
+FROM public.statistical_unit
+WHERE stats_summary IS NOT NULL AND stats_summary != '{}'::jsonb
+GROUP BY unit_type
+ORDER BY unit_type;
+   unit_type   | units_with_stats 
+---------------+------------------
+ establishment |                5
+ legal_unit    |                2
+ enterprise    |                4
+(3 rows)
+
+    
 SELECT unit_type, name, external_idents
 FROM statistical_unit ORDER BY unit_type,name;
    unit_type   |           name           |                  external_idents                   
@@ -209,7 +286,6 @@ SELECT jsonb_pretty(
          "legal_unit": [                                                                                                          +
              {                                                                                                                    +
                  "name": "NILE PEARL WATER",                                                                                      +
-                 "active": true,                                                                                                  +
                  "sector": {                                                                                                      +
                      "code": "6100",                                                                                              +
                      "name": "Central government",                                                                                +
@@ -233,7 +309,7 @@ SELECT jsonb_pretty(
                      "valid_to": "infinity",                                                                                      +
                      "fax_number": null,                                                                                          +
                      "valid_from": "2024-01-01",                                                                                  +
-                     "valid_after": "2023-12-31",                                                                                 +
+                     "valid_until": "infinity",                                                                                   +
                      "web_address": "www.nilepearlwater.ug",                                                                      +
                      "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                               +
                      "phone_number": "123456789",                                                                                 +
@@ -251,7 +327,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                           +
                          "activity_category": {                                                                                   +
                              "code": "4752",                                                                                      +
@@ -306,7 +382,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                           +
                          "address_part1": null,                                                                                   +
                          "address_part2": null,                                                                                   +
@@ -330,12 +406,11 @@ SELECT jsonb_pretty(
                      "active": true,                                                                                              +
                      "custom": false                                                                                              +
                  },                                                                                                               +
-                 "valid_after": "2023-12-31",                                                                                     +
+                 "valid_until": "infinity",                                                                                       +
                  "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                                   +
                  "establishment": [                                                                                               +
                      {                                                                                                            +
                          "name": "NILE PEARL WATER",                                                                              +
-                         "active": true,                                                                                          +
                          "status": {                                                                                              +
                              "code": "active",                                                                                    +
                              "name": "Active",                                                                                    +
@@ -350,7 +425,7 @@ SELECT jsonb_pretty(
                              "valid_to": "infinity",                                                                              +
                              "fax_number": null,                                                                                  +
                              "valid_from": "2024-01-01",                                                                          +
-                             "valid_after": "2023-12-31",                                                                         +
+                             "valid_until": "infinity",                                                                           +
                              "web_address": "www.nilepearlwater.ug",                                                              +
                              "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                       +
                              "phone_number": null,                                                                                +
@@ -368,7 +443,7 @@ SELECT jsonb_pretty(
                                      "active": true,                                                                              +
                                      "custom": false                                                                              +
                                  },                                                                                               +
-                                 "valid_after": "2023-12-31",                                                                     +
+                                 "valid_until": "infinity",                                                                       +
                                  "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                                  "activity_category": {                                                                           +
                                      "code": "4752",                                                                              +
@@ -423,7 +498,7 @@ SELECT jsonb_pretty(
                                      "active": true,                                                                              +
                                      "custom": false                                                                              +
                                  },                                                                                               +
-                                 "valid_after": "2023-12-31",                                                                     +
+                                 "valid_until": "infinity",                                                                       +
                                  "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                                  "address_part1": null,                                                                           +
                                  "address_part2": null,                                                                           +
@@ -441,7 +516,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                           +
                          "invalid_codes": null,                                                                                   +
                          "stat_for_unit": [                                                                                       +
@@ -456,7 +531,7 @@ SELECT jsonb_pretty(
                                      "active": true,                                                                              +
                                      "custom": false                                                                              +
                                  },                                                                                               +
-                                 "valid_after": "2023-12-31",                                                                     +
+                                 "valid_until": "infinity",                                                                       +
                                  "value_float": null,                                                                             +
                                  "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                                  "value_string": null,                                                                            +
@@ -481,7 +556,7 @@ SELECT jsonb_pretty(
                                      "active": true,                                                                              +
                                      "custom": false                                                                              +
                                  },                                                                                               +
-                                 "valid_after": "2023-12-31",                                                                     +
+                                 "valid_until": "infinity",                                                                       +
                                  "value_float": 5000000,                                                                          +
                                  "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                                  "value_string": null,                                                                            +
@@ -506,7 +581,6 @@ SELECT jsonb_pretty(
                      },                                                                                                           +
                      {                                                                                                            +
                          "name": "NILE TEXTILES",                                                                                 +
-                         "active": true,                                                                                          +
                          "status": {                                                                                              +
                              "code": "active",                                                                                    +
                              "name": "Active",                                                                                    +
@@ -527,7 +601,7 @@ SELECT jsonb_pretty(
                                      "active": true,                                                                              +
                                      "custom": false                                                                              +
                                  },                                                                                               +
-                                 "valid_after": "2023-12-31",                                                                     +
+                                 "valid_until": "infinity",                                                                       +
                                  "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                                  "activity_category": {                                                                           +
                                      "code": "1311",                                                                              +
@@ -582,7 +656,7 @@ SELECT jsonb_pretty(
                                      "active": true,                                                                              +
                                      "custom": false                                                                              +
                                  },                                                                                               +
-                                 "valid_after": "2023-12-31",                                                                     +
+                                 "valid_until": "infinity",                                                                       +
                                  "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                                  "address_part1": null,                                                                           +
                                  "address_part2": null,                                                                           +
@@ -600,7 +674,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                           +
                          "invalid_codes": null,                                                                                   +
                          "stat_for_unit": [                                                                                       +
@@ -615,7 +689,7 @@ SELECT jsonb_pretty(
                                      "active": true,                                                                              +
                                      "custom": false                                                                              +
                                  },                                                                                               +
-                                 "valid_after": "2023-12-31",                                                                     +
+                                 "valid_until": "infinity",                                                                       +
                                  "value_float": null,                                                                             +
                                  "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                                  "value_string": null,                                                                            +
@@ -640,7 +714,7 @@ SELECT jsonb_pretty(
                                      "active": true,                                                                              +
                                      "custom": false                                                                              +
                                  },                                                                                               +
-                                 "valid_after": "2023-12-31",                                                                     +
+                                 "valid_until": "infinity",                                                                       +
                                  "value_float": 10000000,                                                                         +
                                  "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                                  "value_string": null,                                                                            +
@@ -677,7 +751,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "value_float": null,                                                                                     +
                          "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                           +
                          "value_string": null,                                                                                    +
@@ -702,7 +776,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "value_float": 0,                                                                                        +
                          "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                           +
                          "value_string": null,                                                                                    +
@@ -759,7 +833,6 @@ SELECT jsonb_pretty(
          "establishment": [                                                                                               +
              {                                                                                                            +
                  "name": "THE MARINE SERVICES",                                                                           +
-                 "active": true,                                                                                          +
                  "status": {                                                                                              +
                      "code": "active",                                                                                    +
                      "name": "Active",                                                                                    +
@@ -774,7 +847,7 @@ SELECT jsonb_pretty(
                      "valid_to": "infinity",                                                                              +
                      "fax_number": null,                                                                                  +
                      "valid_from": "2024-01-01",                                                                          +
-                     "valid_after": "2023-12-31",                                                                         +
+                     "valid_until": "infinity",                                                                           +
                      "web_address": "www.ms.ug",                                                                          +
                      "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                       +
                      "phone_number": "123456789",                                                                         +
@@ -792,7 +865,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                              +
                              "custom": false                                                                              +
                          },                                                                                               +
-                         "valid_after": "2023-12-31",                                                                     +
+                         "valid_until": "infinity",                                                                       +
                          "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                          "activity_category": {                                                                           +
                              "code": "0123",                                                                              +
@@ -847,7 +920,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                              +
                              "custom": false                                                                              +
                          },                                                                                               +
-                         "valid_after": "2023-12-31",                                                                     +
+                         "valid_until": "infinity",                                                                       +
                          "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                          "address_part1": null,                                                                           +
                          "address_part2": null,                                                                           +
@@ -865,7 +938,7 @@ SELECT jsonb_pretty(
                      "active": true,                                                                                      +
                      "custom": false                                                                                      +
                  },                                                                                                       +
-                 "valid_after": "2023-12-31",                                                                             +
+                 "valid_until": "infinity",                                                                               +
                  "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                           +
                  "invalid_codes": null,                                                                                   +
                  "stat_for_unit": [                                                                                       +
@@ -880,7 +953,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                              +
                              "custom": false                                                                              +
                          },                                                                                               +
-                         "valid_after": "2023-12-31",                                                                     +
+                         "valid_until": "infinity",                                                                       +
                          "value_float": null,                                                                             +
                          "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                          "value_string": null,                                                                            +
@@ -905,7 +978,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                              +
                              "custom": false                                                                              +
                          },                                                                                               +
-                         "valid_after": "2023-12-31",                                                                     +
+                         "valid_until": "infinity",                                                                       +
                          "value_float": 4400000,                                                                          +
                          "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                          "value_string": null,                                                                            +
@@ -958,7 +1031,6 @@ SELECT jsonb_pretty(
          "legal_unit": [                                                                                       +
              {                                                                                                 +
                  "name": "NILE PEARL WATER",                                                                   +
-                 "active": true,                                                                               +
                  "activity": [                                                                                 +
                      {                                                                                         +
                          "type": "primary",                                                                    +
@@ -970,7 +1042,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                   +
                              "custom": false                                                                   +
                          },                                                                                    +
-                         "valid_after": "2023-12-31",                                                          +
+                         "valid_until": "infinity",                                                            +
                          "edit_comment": "Test data load (34_hierarchy_functions.sql)",                        +
                          "activity_category": {                                                                +
                              "code": "4752",                                                                   +
@@ -1025,7 +1097,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                   +
                              "custom": false                                                                   +
                          },                                                                                    +
-                         "valid_after": "2023-12-31",                                                          +
+                         "valid_until": "infinity",                                                            +
                          "edit_comment": "Test data load (34_hierarchy_functions.sql)",                        +
                          "address_part1": null,                                                                +
                          "address_part2": null,                                                                +
@@ -1037,12 +1109,11 @@ SELECT jsonb_pretty(
                  "death_date": null,                                                                           +
                  "short_name": null,                                                                           +
                  "valid_from": "2024-01-01",                                                                   +
-                 "valid_after": "2023-12-31",                                                                  +
+                 "valid_until": "infinity",                                                                    +
                  "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                +
                  "establishment": [                                                                            +
                      {                                                                                         +
                          "name": "NILE PEARL WATER",                                                           +
-                         "active": true,                                                                       +
                          "activity": [                                                                         +
                              {                                                                                 +
                                  "type": "primary",                                                            +
@@ -1054,7 +1125,7 @@ SELECT jsonb_pretty(
                                      "active": true,                                                           +
                                      "custom": false                                                           +
                                  },                                                                            +
-                                 "valid_after": "2023-12-31",                                                  +
+                                 "valid_until": "infinity",                                                    +
                                  "edit_comment": "Test data load (34_hierarchy_functions.sql)",                +
                                  "activity_category": {                                                        +
                                      "code": "4752",                                                           +
@@ -1109,7 +1180,7 @@ SELECT jsonb_pretty(
                                      "active": true,                                                           +
                                      "custom": false                                                           +
                                  },                                                                            +
-                                 "valid_after": "2023-12-31",                                                  +
+                                 "valid_until": "infinity",                                                    +
                                  "edit_comment": "Test data load (34_hierarchy_functions.sql)",                +
                                  "address_part1": null,                                                        +
                                  "address_part2": null,                                                        +
@@ -1121,7 +1192,7 @@ SELECT jsonb_pretty(
                          "death_date": null,                                                                   +
                          "short_name": null,                                                                   +
                          "valid_from": "2024-01-01",                                                           +
-                         "valid_after": "2023-12-31",                                                          +
+                         "valid_until": "infinity",                                                            +
                          "edit_comment": "Test data load (34_hierarchy_functions.sql)",                        +
                          "invalid_codes": null,                                                                +
                          "free_econ_zone": null,                                                               +
@@ -1134,7 +1205,6 @@ SELECT jsonb_pretty(
                      },                                                                                        +
                      {                                                                                         +
                          "name": "NILE TEXTILES",                                                              +
-                         "active": true,                                                                       +
                          "activity": [                                                                         +
                              {                                                                                 +
                                  "type": "primary",                                                            +
@@ -1146,7 +1216,7 @@ SELECT jsonb_pretty(
                                      "active": true,                                                           +
                                      "custom": false                                                           +
                                  },                                                                            +
-                                 "valid_after": "2023-12-31",                                                  +
+                                 "valid_until": "infinity",                                                    +
                                  "edit_comment": "Test data load (34_hierarchy_functions.sql)",                +
                                  "activity_category": {                                                        +
                                      "code": "1311",                                                           +
@@ -1201,7 +1271,7 @@ SELECT jsonb_pretty(
                                      "active": true,                                                           +
                                      "custom": false                                                           +
                                  },                                                                            +
-                                 "valid_after": "2023-12-31",                                                  +
+                                 "valid_until": "infinity",                                                    +
                                  "edit_comment": "Test data load (34_hierarchy_functions.sql)",                +
                                  "address_part1": null,                                                        +
                                  "address_part2": null,                                                        +
@@ -1213,7 +1283,7 @@ SELECT jsonb_pretty(
                          "death_date": null,                                                                   +
                          "short_name": null,                                                                   +
                          "valid_from": "2024-01-01",                                                           +
-                         "valid_after": "2023-12-31",                                                          +
+                         "valid_until": "infinity",                                                            +
                          "edit_comment": "Test data load (34_hierarchy_functions.sql)",                        +
                          "invalid_codes": null,                                                                +
                          "free_econ_zone": null,                                                               +
@@ -1263,7 +1333,6 @@ SELECT jsonb_pretty(
      "legal_unit": [                                                                                                  +
          {                                                                                                            +
              "name": "NILE PEARL WATER",                                                                              +
-             "active": true,                                                                                          +
              "sector": {                                                                                              +
                  "code": "6100",                                                                                      +
                  "name": "Central government",                                                                        +
@@ -1287,7 +1356,7 @@ SELECT jsonb_pretty(
                  "valid_to": "infinity",                                                                              +
                  "fax_number": null,                                                                                  +
                  "valid_from": "2024-01-01",                                                                          +
-                 "valid_after": "2023-12-31",                                                                         +
+                 "valid_until": "infinity",                                                                           +
                  "web_address": "www.nilepearlwater.ug",                                                              +
                  "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                       +
                  "phone_number": "123456789",                                                                         +
@@ -1305,7 +1374,7 @@ SELECT jsonb_pretty(
                          "active": true,                                                                              +
                          "custom": false                                                                              +
                      },                                                                                               +
-                     "valid_after": "2023-12-31",                                                                     +
+                     "valid_until": "infinity",                                                                       +
                      "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                      "activity_category": {                                                                           +
                          "code": "4752",                                                                              +
@@ -1360,7 +1429,7 @@ SELECT jsonb_pretty(
                          "active": true,                                                                              +
                          "custom": false                                                                              +
                      },                                                                                               +
-                     "valid_after": "2023-12-31",                                                                     +
+                     "valid_until": "infinity",                                                                       +
                      "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                      "address_part1": null,                                                                           +
                      "address_part2": null,                                                                           +
@@ -1384,7 +1453,7 @@ SELECT jsonb_pretty(
                  "active": true,                                                                                      +
                  "custom": false                                                                                      +
              },                                                                                                       +
-             "valid_after": "2023-12-31",                                                                             +
+             "valid_until": "infinity",                                                                               +
              "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                           +
              "invalid_codes": null,                                                                                   +
              "stat_for_unit": [                                                                                       +
@@ -1399,7 +1468,7 @@ SELECT jsonb_pretty(
                          "active": true,                                                                              +
                          "custom": false                                                                              +
                      },                                                                                               +
-                     "valid_after": "2023-12-31",                                                                     +
+                     "valid_until": "infinity",                                                                       +
                      "value_float": null,                                                                             +
                      "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                      "value_string": null,                                                                            +
@@ -1424,7 +1493,7 @@ SELECT jsonb_pretty(
                          "active": true,                                                                              +
                          "custom": false                                                                              +
                      },                                                                                               +
-                     "valid_after": "2023-12-31",                                                                     +
+                     "valid_until": "infinity",                                                                       +
                      "value_float": 0,                                                                                +
                      "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                      "value_string": null,                                                                            +
@@ -1543,9 +1612,9 @@ jsonb_pretty | {                                                               +
              |         "mean": 5000000.000000000000,                           +
              |         "type": "number",                                       +
              |         "count": 3,                                             +
-             |         "stddev": 5000000.00000000000000,                       +
-             |         "variance": 25000000000000.00000000000000,              +
-             |         "sum_sq_diff": 50000000000000.00000000000000,           +
+             |         "stddev": 5000000.000000000,                            +
+             |         "variance": 25000000000000.0000,                        +
+             |         "sum_sq_diff": 50000000000000.0000,                     +
              |         "coefficient_of_variation_pct": 100.00000000000000000000+
              |     },                                                          +
              |     "employees": {                                              +
@@ -1555,9 +1624,9 @@ jsonb_pretty | {                                                               +
              |         "mean": 5.0000000000000000,                             +
              |         "type": "number",                                       +
              |         "count": 3,                                             +
-             |         "stddev": 5.000000000000000000,                         +
-             |         "variance": 25.000000000000000000,                      +
-             |         "sum_sq_diff": 50.000000000000000000,                   +
+             |         "stddev": 5.0000000000000000,                           +
+             |         "variance": 25.0000000000000000,                        +
+             |         "sum_sq_diff": 50.0000000000000000,                     +
              |         "coefficient_of_variation_pct": 100.00000000000000000000+
              |     }                                                           +
              | }

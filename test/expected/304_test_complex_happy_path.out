@@ -147,10 +147,10 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, e
 
 \echo "Data table for import_69_a1_lu:"
 "Data table for import_69_a1_lu:"
-SELECT row_id, state, error, invalid_codes, action, operation, tax_ident, name, valid_from, valid_to FROM public.import_69_a1_lu_data ORDER BY row_id;
- row_id |   state   | error |     invalid_codes     | action | operation | tax_ident |      name       | valid_from |  valid_to  
---------+-----------+-------+-----------------------+--------+-----------+-----------+-----------------+------------+------------
-      1 | processed |       | {"sector_code": "S1"} | insert | insert    | 69A000001 | LU-69A Period 1 | 2023-01-01 | 2023-03-31
+SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident_raw, name_raw, valid_from_raw, valid_to_raw FROM public.import_69_a1_lu_data ORDER BY row_id;
+ row_id |   state   | errors |       invalid_codes       |                                                                merge_status                                                                 | action | operation | tax_ident_raw |    name_raw     | valid_from_raw | valid_to_raw 
+--------+-----------+--------+---------------------------+---------------------------------------------------------------------------------------------------------------------------------------------+--------+-----------+---------------+-----------------+----------------+--------------
+      1 | processed | {}     | {"sector_code_raw": "S1"} | {"contact": "APPLIED", "legal_unit": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | use    | insert    | 69A000001     | LU-69A Period 1 | 2023-01-01     | 2023-03-31
 (1 row)
 
 \echo "Verification for LU-69A ('69A000001') after Sub-Scenario 69.A.1 (all segments shown):"
@@ -259,10 +259,10 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, e
 
 \echo "Data table for import_69_a2_lu:"
 "Data table for import_69_a2_lu:"
-SELECT row_id, state, error, invalid_codes, action, operation, tax_ident, name, valid_from, valid_to FROM public.import_69_a2_lu_data ORDER BY row_id;
- row_id |   state   | error |     invalid_codes     | action  | operation | tax_ident |             name             | valid_from |  valid_to  
---------+-----------+-------+-----------------------+---------+-----------+-----------+------------------------------+------------+------------
-      1 | processed |       | {"sector_code": "S1"} | replace | replace   | 69A000001 | LU-69A Period 2 Updated Name | 2023-04-01 | 2023-06-30
+SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident_raw, name_raw, valid_from_raw, valid_to_raw FROM public.import_69_a2_lu_data ORDER BY row_id;
+ row_id |   state   | errors |       invalid_codes       |                                                                merge_status                                                                 | action | operation | tax_ident_raw |           name_raw           | valid_from_raw | valid_to_raw 
+--------+-----------+--------+---------------------------+---------------------------------------------------------------------------------------------------------------------------------------------+--------+-----------+---------------+------------------------------+----------------+--------------
+      1 | processed | {}     | {"sector_code_raw": "S1"} | {"contact": "APPLIED", "legal_unit": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | use    | update    | 69A000001     | LU-69A Period 2 Updated Name | 2023-04-01     | 2023-06-30
 (1 row)
 
 \echo "Verification for LU-69A ('69A000001') after Sub-Scenario 69.A.2 (all segments shown):"
@@ -362,7 +362,7 @@ INSERT INTO public.import_69_a3_lu_upload(
     primary_activity_category_code, sector_code, legal_form_code, email_address, employees, tag_path
 ) VALUES (
     '69A000001', 'LU-69A Period 2 Updated Name', '2023-07-01', '2023-09-30', 'Addr 2 LU-69A Updated', 'NO', '1002', '0301',
-    '01.120', 'S2', 'AS', 'lu69a_p3_updated@example.com', '15', 'TestTag.LU.Updated' -- Name, address, activity unchanged from A.2
+    '01.120', '2100', 'AS', 'lu69a_p3_updated@example.com', '15', 'TestTag.LU.Updated' -- Name, address, activity unchanged from A.2
 );
 --SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
@@ -377,16 +377,16 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, e
 
 \echo "Data table for import_69_a3_lu:"
 "Data table for import_69_a3_lu:"
-SELECT row_id, state, error, invalid_codes, action, operation, tax_ident, name, valid_from, valid_to FROM public.import_69_a3_lu_data ORDER BY row_id;
- row_id |   state   | error |     invalid_codes     | action  | operation | tax_ident |             name             | valid_from |  valid_to  
---------+-----------+-------+-----------------------+---------+-----------+-----------+------------------------------+------------+------------
-      1 | processed |       | {"sector_code": "S2"} | replace | replace   | 69A000001 | LU-69A Period 2 Updated Name | 2023-07-01 | 2023-09-30
+SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident_raw, name_raw, valid_from_raw, valid_to_raw FROM public.import_69_a3_lu_data ORDER BY row_id;
+ row_id |   state   | errors | invalid_codes |                                                                merge_status                                                                 | action | operation | tax_ident_raw |           name_raw           | valid_from_raw | valid_to_raw 
+--------+-----------+--------+---------------+---------------------------------------------------------------------------------------------------------------------------------------------+--------+-----------+---------------+------------------------------+----------------+--------------
+      1 | processed | {}     | {}            | {"contact": "APPLIED", "legal_unit": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | use    | update    | 69A000001     | LU-69A Period 2 Updated Name | 2023-07-01     | 2023-09-30
 (1 row)
 
 \echo "Verification for LU-69A ('69A000001') after Sub-Scenario 69.A.3 (all segments shown):"
 "Verification for LU-69A ('69A000001') after Sub-Scenario 69.A.3 (all segments shown):"
-\echo "Legal Unit (expect sector S2 in latest segment):"
-"Legal Unit (expect sector S2 in latest segment):"
+\echo "Legal Unit (expect sector 2100 in latest segment):"
+"Legal Unit (expect sector 2100 in latest segment):"
 SELECT lu.name, ei.ident, sec.code as sector_code, lf.code as legal_form_code, lu.valid_from, lu.valid_to
 FROM public.legal_unit lu
 JOIN public.external_ident ei ON lu.id = ei.legal_unit_id AND ei.type_id = (SELECT id FROM external_ident_type WHERE code='tax_ident')
@@ -397,7 +397,7 @@ WHERE ei.ident = '69A000001' ORDER BY lu.valid_from, lu.valid_to;
 ------------------------------+-----------+-------------+-----------------+------------+------------
  LU-69A Period 1              | 69A000001 |             | AS              | 2023-01-01 | 2023-03-31
  LU-69A Period 2 Updated Name | 69A000001 |             | AS              | 2023-04-01 | 2023-06-30
- LU-69A Period 2 Updated Name | 69A000001 |             | AS              | 2023-07-01 | 2023-09-30
+ LU-69A Period 2 Updated Name | 69A000001 | 2100        | AS              | 2023-07-01 | 2023-09-30
 (3 rows)
 
 \echo "Location (should be unchanged from A.2, possibly extended):"
@@ -484,7 +484,7 @@ ORDER BY su.valid_from, su.valid_to;
 ------------------------------+------------+------------+------------------------+-------------------+----------------------+--------------------------------+-------------+-----------------+------------------------------+-----------+---------------------------------
  LU-69A Period 1              | 2023-01-01 | 2023-03-31 | Addr 1 LU-69A          | 1001              | 0301                 | 01.110                         |             | AS              | lu69a_p1@example.com         | 10        | {TestTag.LU,TestTag.LU.Updated}
  LU-69A Period 2 Updated Name | 2023-04-01 | 2023-06-30 | Addr 2 LU-69A Updated  | 1002              | 0301                 | 01.120                         |             | AS              | lu69a_p1@example.com         | 10        | {TestTag.LU,TestTag.LU.Updated}
- LU-69A Period 2 Updated Name | 2023-07-01 | 2023-09-30 | Addr 2 LU-69A Updated  | 1002              | 0301                 | 01.120                         |             | AS              | lu69a_p3_updated@example.com | 15        | {TestTag.LU,TestTag.LU.Updated}
+ LU-69A Period 2 Updated Name | 2023-07-01 | 2023-09-30 | Addr 2 LU-69A Updated  | 1002              | 0301                 | 01.120                         | 2100        | AS              | lu69a_p3_updated@example.com | 15        | {TestTag.LU,TestTag.LU.Updated}
 (3 rows)
 
 ROLLBACK TO scenario_69_a_lu_lifecycle;
@@ -515,10 +515,10 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, e
 
 \echo "Data table for import_69_b_lu_for_es:"
 "Data table for import_69_b_lu_for_es:"
-SELECT row_id, state, error, invalid_codes, action, operation, tax_ident, name FROM public.import_69_b_lu_for_es_data ORDER BY row_id;
- row_id |   state   | error |                             invalid_codes                             | action | operation | tax_ident |        name        
---------+-----------+-------+-----------------------------------------------------------------------+--------+-----------+-----------+--------------------
-      1 | processed |       | {"sector_code": "S_Base", "primary_activity_category_code": "00.000"} | insert | insert    | 69B000000 | Base LU for ES-69B
+SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident_raw, name_raw FROM public.import_69_b_lu_for_es_data ORDER BY row_id;
+ row_id |   state   | errors |                                 invalid_codes                                 |       merge_status        | action | operation | tax_ident_raw |      name_raw      
+--------+-----------+--------+-------------------------------------------------------------------------------+---------------------------+--------+-----------+---------------+--------------------
+      1 | processed | {}     | {"sector_code_raw": "S_Base", "primary_activity_category_code_raw": "00.000"} | {"legal_unit": "APPLIED"} | use    | insert    | 69B000000     | Base LU for ES-69B
 (1 row)
 
 -- Sub-Scenario 69.B.1: Initial Formal ES Import
@@ -555,10 +555,10 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, e
 
 \echo "Data table for import_69_b1_es:"
 "Data table for import_69_b1_es:"
-SELECT row_id, state, error, invalid_codes, action, operation, tax_ident, name, valid_from, valid_to FROM public.import_69_b1_es_data ORDER BY row_id;
- row_id |   state   | error |                invalid_codes                 | action | operation | tax_ident |      name       | valid_from |  valid_to  
---------+-----------+-------+----------------------------------------------+--------+-----------+-----------+-----------------+------------+------------
-      1 | processed |       | {"primary_activity_category_code": "02.110"} | insert | insert    | E69B00001 | ES-69B Period 1 | 2023-01-01 | 2023-03-31
+SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident_raw, name_raw, valid_from_raw, valid_to_raw FROM public.import_69_b1_es_data ORDER BY row_id;
+ row_id |   state   | errors |                  invalid_codes                   |                                                  merge_status                                                   | action | operation | tax_ident_raw |    name_raw     | valid_from_raw | valid_to_raw 
+--------+-----------+--------+--------------------------------------------------+-----------------------------------------------------------------------------------------------------------------+--------+-----------+---------------+-----------------+----------------+--------------
+      1 | processed | {}     | {"primary_activity_category_code_raw": "02.110"} | {"contact": "APPLIED", "establishment": "APPLIED", "stat_employees": "APPLIED", "physical_location": "APPLIED"} | use    | insert    | E69B00001     | ES-69B Period 1 | 2023-01-01     | 2023-03-31
 (1 row)
 
 \echo "Verification for ES-69B ('E69B00001') after Sub-Scenario 69.B.1 (all segments shown):"
@@ -666,10 +666,10 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, e
 
 \echo "Data table for import_69_b2_es:"
 "Data table for import_69_b2_es:"
-SELECT row_id, state, error, invalid_codes, action, operation, tax_ident, name, valid_from, valid_to FROM public.import_69_b2_es_data ORDER BY row_id;
- row_id |   state   | error |                invalid_codes                 | action  | operation | tax_ident |             name             | valid_from |  valid_to  
---------+-----------+-------+----------------------------------------------+---------+-----------+-----------+------------------------------+------------+------------
-      1 | processed |       | {"primary_activity_category_code": "02.120"} | replace | replace   | E69B00001 | ES-69B Period 2 Updated Name | 2023-04-01 | 2023-06-30
+SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident_raw, name_raw, valid_from_raw, valid_to_raw FROM public.import_69_b2_es_data ORDER BY row_id;
+ row_id |   state   | errors |                  invalid_codes                   |                                                  merge_status                                                   | action | operation | tax_ident_raw |           name_raw           | valid_from_raw | valid_to_raw 
+--------+-----------+--------+--------------------------------------------------+-----------------------------------------------------------------------------------------------------------------+--------+-----------+---------------+------------------------------+----------------+--------------
+      1 | processed | {}     | {"primary_activity_category_code_raw": "02.120"} | {"contact": "APPLIED", "establishment": "APPLIED", "stat_employees": "APPLIED", "physical_location": "APPLIED"} | use    | update    | E69B00001     | ES-69B Period 2 Updated Name | 2023-04-01     | 2023-06-30
 (1 row)
 
 \echo "Verification for ES-69B ('E69B00001') after Sub-Scenario 69.B.2 (all segments shown):"
@@ -720,7 +720,7 @@ JOIN public.external_ident ei ON con.establishment_id = ei.establishment_id AND 
 WHERE ei.ident = 'E69B00001' ORDER BY con.valid_from, con.valid_to;
     email_address     | valid_from |  valid_to  
 ----------------------+------------+------------
- es69b_p1@example.com | 2023-01-01 | 2023-03-31
+ es69b_p1@example.com | 2023-01-01 | 2023-06-30
 (1 row)
 
 \echo "Stat (Employees - should be unchanged from B.1, possibly extended):"
@@ -780,10 +780,10 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, e
 
 \echo "Data table for import_69_b3_es:"
 "Data table for import_69_b3_es:"
-SELECT row_id, state, error, invalid_codes, action, operation, tax_ident, name, valid_from, valid_to FROM public.import_69_b3_es_data ORDER BY row_id;
- row_id |   state   | error |                invalid_codes                 | action  | operation | tax_ident |             name             | valid_from |  valid_to  
---------+-----------+-------+----------------------------------------------+---------+-----------+-----------+------------------------------+------------+------------
-      1 | processed |       | {"primary_activity_category_code": "02.120"} | replace | replace   | E69B00001 | ES-69B Period 2 Updated Name | 2023-07-01 | 2023-09-30
+SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident_raw, name_raw, valid_from_raw, valid_to_raw FROM public.import_69_b3_es_data ORDER BY row_id;
+ row_id |   state   | errors |                  invalid_codes                   |                                                  merge_status                                                   | action | operation | tax_ident_raw |           name_raw           | valid_from_raw | valid_to_raw 
+--------+-----------+--------+--------------------------------------------------+-----------------------------------------------------------------------------------------------------------------+--------+-----------+---------------+------------------------------+----------------+--------------
+      1 | processed | {}     | {"primary_activity_category_code_raw": "02.120"} | {"contact": "APPLIED", "establishment": "APPLIED", "stat_employees": "APPLIED", "physical_location": "APPLIED"} | use    | update    | E69B00001     | ES-69B Period 2 Updated Name | 2023-07-01     | 2023-09-30
 (1 row)
 
 \echo "Verification for ES-69B ('E69B00001') after Sub-Scenario 69.B.3 (all segments shown):"
@@ -832,10 +832,11 @@ SELECT con.email_address, con.valid_from, con.valid_to
 FROM public.contact con
 JOIN public.external_ident ei ON con.establishment_id = ei.establishment_id AND ei.type_id = (SELECT id FROM external_ident_type WHERE code='tax_ident')
 WHERE ei.ident = 'E69B00001' ORDER BY con.valid_from, con.valid_to;
-    email_address     | valid_from |  valid_to  
-----------------------+------------+------------
- es69b_p1@example.com | 2023-01-01 | 2023-03-31
-(1 row)
+        email_address         | valid_from |  valid_to  
+------------------------------+------------+------------
+ es69b_p1@example.com         | 2023-01-01 | 2023-06-30
+ es69b_p3_updated@example.com | 2023-07-01 | 2023-09-30
+(2 rows)
 
 \echo "Stat (Employees - expect new value 7 in latest segment):"
 "Stat (Employees - expect new value 7 in latest segment):"
@@ -879,11 +880,11 @@ SELECT
 FROM public.statistical_unit su
 WHERE su.unit_type = 'establishment' AND su.external_idents->>'tax_ident' = 'E69B00001'
 ORDER BY su.valid_from, su.valid_to;
-             name             | valid_from |  valid_to  | physical_address_part1 | physical_postcode | physical_region_code | primary_activity_category_code |    email_address     | employees |                   tag_paths                   | legal_unit_tax_ident 
-------------------------------+------------+------------+------------------------+-------------------+----------------------+--------------------------------+----------------------+-----------+-----------------------------------------------+----------------------
- ES-69B Period 1              | 2023-01-01 | 2023-03-31 | Addr 1 ES-69B          | 2001              | 0301                 |                                | es69b_p1@example.com | 5         | {TestTag.ES.Formal,TestTag.ES.Formal.Updated} | 
- ES-69B Period 2 Updated Name | 2023-04-01 | 2023-06-30 | Addr 2 ES-69B Updated  | 2002              | 0301                 |                                |                      | 5         | {TestTag.ES.Formal,TestTag.ES.Formal.Updated} | 
- ES-69B Period 2 Updated Name | 2023-07-01 | 2023-09-30 | Addr 2 ES-69B Updated  | 2002              | 0301                 |                                |                      | 7         | {TestTag.ES.Formal,TestTag.ES.Formal.Updated} | 
+             name             | valid_from |  valid_to  | physical_address_part1 | physical_postcode | physical_region_code | primary_activity_category_code |        email_address         | employees |                   tag_paths                   | legal_unit_tax_ident 
+------------------------------+------------+------------+------------------------+-------------------+----------------------+--------------------------------+------------------------------+-----------+-----------------------------------------------+----------------------
+ ES-69B Period 1              | 2023-01-01 | 2023-03-31 | Addr 1 ES-69B          | 2001              | 0301                 |                                | es69b_p1@example.com         | 5         | {TestTag.ES.Formal,TestTag.ES.Formal.Updated} | 
+ ES-69B Period 2 Updated Name | 2023-04-01 | 2023-06-30 | Addr 2 ES-69B Updated  | 2002              | 0301                 |                                | es69b_p1@example.com         | 5         | {TestTag.ES.Formal,TestTag.ES.Formal.Updated} | 
+ ES-69B Period 2 Updated Name | 2023-07-01 | 2023-09-30 | Addr 2 ES-69B Updated  | 2002              | 0301                 |                                | es69b_p3_updated@example.com | 7         | {TestTag.ES.Formal,TestTag.ES.Formal.Updated} | 
 (3 rows)
 
 ROLLBACK TO scenario_69_b_formal_es_lifecycle;
@@ -921,10 +922,10 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, e
 
 \echo "Data table for import_69_c1_es:"
 "Data table for import_69_c1_es:"
-SELECT row_id, state, error, invalid_codes, action, operation, tax_ident, name, valid_from, valid_to FROM public.import_69_c1_es_data ORDER BY row_id;
- row_id |   state   | error |                invalid_codes                 | action | operation | tax_ident |      name       | valid_from |  valid_to  
---------+-----------+-------+----------------------------------------------+--------+-----------+-----------+-----------------+------------+------------
-      1 | processed |       | {"primary_activity_category_code": "03.110"} | insert | insert    | E69C00001 | ES-69C Period 1 | 2023-01-01 | 2023-03-31
+SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident_raw, name_raw, valid_from_raw, valid_to_raw FROM public.import_69_c1_es_data ORDER BY row_id;
+ row_id |   state   | errors |                  invalid_codes                   |                                                  merge_status                                                   | action | operation | tax_ident_raw |    name_raw     | valid_from_raw | valid_to_raw 
+--------+-----------+--------+--------------------------------------------------+-----------------------------------------------------------------------------------------------------------------+--------+-----------+---------------+-----------------+----------------+--------------
+      1 | processed | {}     | {"primary_activity_category_code_raw": "03.110"} | {"contact": "APPLIED", "establishment": "APPLIED", "stat_employees": "APPLIED", "physical_location": "APPLIED"} | use    | insert    | E69C00001     | ES-69C Period 1 | 2023-01-01     | 2023-03-31
 (1 row)
 
 \echo "Verification for ES-69C ('E69C00001') after Sub-Scenario 69.C.1 (all segments shown):"
@@ -1019,6 +1020,8 @@ INSERT INTO public.import_69_c2_es_upload(
     'E69C00001', 'ES-69C Period 2 Updated Name', '2023-04-01', '2023-06-30', 'Addr 2 ES-69C Updated', 'NO', '3002', '0301',
     '03.120', 'es69c_p1@example.com', '2', 'TestTag.ES.Informal'
 );
+\echo "Processing import jobs"
+"Processing import jobs"
 CALL worker.process_tasks(p_queue => 'import');
 \echo "Job status for import_69_c2_es:"
 "Job status for import_69_c2_es:"
@@ -1030,10 +1033,10 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, e
 
 \echo "Data table for import_69_c2_es:"
 "Data table for import_69_c2_es:"
-SELECT row_id, state, error, invalid_codes, action, operation, tax_ident, name, valid_from, valid_to FROM public.import_69_c2_es_data ORDER BY row_id;
- row_id |   state   | error | invalid_codes | action  | operation | tax_ident |             name             | valid_from |  valid_to  
---------+-----------+-------+---------------+---------+-----------+-----------+------------------------------+------------+------------
-      1 | processed |       |               | replace | replace   | E69C00001 | ES-69C Period 2 Updated Name | 2023-04-01 | 2023-06-30
+SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident_raw, name_raw, valid_from_raw, valid_to_raw FROM public.import_69_c2_es_data ORDER BY row_id;
+ row_id |   state   | errors | invalid_codes |                                                                  merge_status                                                                  | action | operation | tax_ident_raw |           name_raw           | valid_from_raw | valid_to_raw 
+--------+-----------+--------+---------------+------------------------------------------------------------------------------------------------------------------------------------------------+--------+-----------+---------------+------------------------------+----------------+--------------
+      1 | processed | {}     | {}            | {"contact": "APPLIED", "establishment": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | use    | update    | E69C00001     | ES-69C Period 2 Updated Name | 2023-04-01     | 2023-06-30
 (1 row)
 
 \echo "Verification for ES-69C ('E69C00001') after Sub-Scenario 69.C.2 (all segments shown):"
@@ -1143,10 +1146,10 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, e
 
 \echo "Data table for import_69_c3_es:"
 "Data table for import_69_c3_es:"
-SELECT row_id, state, error, invalid_codes, action, operation, tax_ident, name, valid_from, valid_to FROM public.import_69_c3_es_data ORDER BY row_id;
- row_id |   state   | error | invalid_codes | action  | operation | tax_ident |             name             | valid_from |  valid_to  
---------+-----------+-------+---------------+---------+-----------+-----------+------------------------------+------------+------------
-      1 | processed |       |               | replace | replace   | E69C00001 | ES-69C Period 2 Updated Name | 2023-07-01 | 2023-09-30
+SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident_raw, name_raw, valid_from_raw, valid_to_raw FROM public.import_69_c3_es_data ORDER BY row_id;
+ row_id |   state   | errors | invalid_codes |                                                                  merge_status                                                                  | action | operation | tax_ident_raw |           name_raw           | valid_from_raw | valid_to_raw 
+--------+-----------+--------+---------------+------------------------------------------------------------------------------------------------------------------------------------------------+--------+-----------+---------------+------------------------------+----------------+--------------
+      1 | processed | {}     | {}            | {"contact": "APPLIED", "establishment": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | use    | update    | E69C00001     | ES-69C Period 2 Updated Name | 2023-07-01     | 2023-09-30
 (1 row)
 
 \echo "Verification for ES-69C ('E69C00001') after Sub-Scenario 69.C.3 (all segments shown):"

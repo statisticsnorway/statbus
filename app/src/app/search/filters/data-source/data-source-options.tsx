@@ -1,6 +1,6 @@
 "use client";
 import { OptionsFilter } from "@/app/search/components/options-filter";
-import { useSearch } from "@/atoms/search";
+import { useSearchFilters } from "@/atoms/search";
 import { useCallback, useMemo } from "react"; // Added useMemo
 import { DATA_SOURCE } from "@/app/search/filters/url-search-params";
 import { SearchFilterOption } from "../../search.d";
@@ -14,8 +14,8 @@ export default function DataSourceOptions({
   readonly options: SearchFilterOption[];
   readonly dataSources: Tables<"data_source_used">[];
 }) {
-  const { searchState, updateFilters, executeSearch } = useSearch();
-  const filterValue = searchState.filters[DATA_SOURCE];
+  const { filters, updateFilters } = useSearchFilters();
+  const filterValue = filters[DATA_SOURCE];
   const selected = useMemo(() => {
     if (Array.isArray(filterValue)) {
       return filterValue as (string | null)[];
@@ -33,23 +33,21 @@ export default function DataSourceOptions({
         : [...selected, value];
 
       const newFilters = {
-        ...searchState.filters,
+        ...filters,
         [DATA_SOURCE]: values,
       };
       updateFilters(newFilters);
-      await executeSearch();
     },
-    [selected, searchState.filters, updateFilters, executeSearch]
+    [selected, filters, updateFilters]
   );
 
   const reset = useCallback(async () => {
     const newFilters = {
-      ...searchState.filters,
+      ...filters,
       [DATA_SOURCE]: [],
     };
     updateFilters(newFilters);
-    await executeSearch();
-  }, [searchState.filters, updateFilters, executeSearch]);
+  }, [filters, updateFilters]);
 
   return (
     <OptionsFilter

@@ -32,14 +32,15 @@ $$;
 
 CREATE FUNCTION public.contact_hierarchy(
   parent_establishment_id INTEGER,
-  parent_legal_unit_id INTEGER
+  parent_legal_unit_id INTEGER,
+  valid_on DATE
 ) RETURNS JSONB LANGUAGE sql STABLE AS $$
   SELECT COALESCE(
     (SELECT jsonb_build_object('contact',to_jsonb(c.*))
      FROM public.contact AS c
      WHERE (  parent_establishment_id IS NOT NULL AND c.establishment_id = parent_establishment_id
            OR parent_legal_unit_id    IS NOT NULL AND c.legal_unit_id    = parent_legal_unit_id
-           )),
+           ) AND c.valid_from <= valid_on AND valid_on < c.valid_until),
     '{}'::JSONB
   );
 $$;
@@ -71,7 +72,7 @@ CREATE FUNCTION public.establishment_hierarchy(
         || CASE WHEN scope IN ('all','details') THEN (SELECT public.sector_hierarchy(es.sector_id)) ELSE '{}'::JSONB END
         || CASE WHEN scope IN ('all','details') THEN (SELECT public.unit_size_hierarchy(es.unit_size_id)) ELSE '{}'::JSONB END
         || CASE WHEN scope IN ('all','details') THEN (SELECT public.status_hierarchy(es.status_id)) ELSE '{}'::JSONB END
-        || CASE WHEN scope IN ('all','details') THEN (SELECT public.contact_hierarchy(es.id,NULL)) ELSE '{}'::JSONB END
+        || CASE WHEN scope IN ('all','details') THEN (SELECT public.contact_hierarchy(es.id,NULL,valid_on)) ELSE '{}'::JSONB END
         || CASE WHEN scope IN ('all','details') THEN (SELECT public.data_source_hierarchy(es.data_source_id)) ELSE '{}'::JSONB END
         || CASE WHEN scope IN ('all','details') THEN (SELECT public.notes_for_unit(es.id,NULL,NULL,NULL)) ELSE '{}'::JSONB END
         || CASE WHEN scope IN ('all','details') THEN (SELECT public.tag_for_unit_hierarchy(es.id,NULL,NULL,NULL)) ELSE '{}'::JSONB END
@@ -81,7 +82,7 @@ CREATE FUNCTION public.establishment_hierarchy(
          OR (parent_legal_unit_id IS NOT NULL AND es.legal_unit_id = parent_legal_unit_id)
          OR (parent_enterprise_id IS NOT NULL AND es.enterprise_id = parent_enterprise_id)
          )
-     AND es.valid_after < valid_on AND valid_on <= es.valid_to
+     AND es.valid_from <= valid_on AND valid_on < es.valid_until
    ORDER BY es.primary_for_legal_unit DESC, es.name
   ), data_list AS (
       SELECT jsonb_agg(data) AS data FROM ordered_data
@@ -111,7 +112,7 @@ CREATE FUNCTION public.legal_unit_hierarchy(
         || CASE WHEN scope IN ('all','details') THEN (SELECT public.unit_size_hierarchy(lu.unit_size_id)) ELSE '{}'::JSONB END
         || CASE WHEN scope IN ('all','details') THEN (SELECT public.status_hierarchy(lu.status_id)) ELSE '{}'::JSONB END
         || CASE WHEN scope IN ('all','details') THEN (SELECT public.legal_form_hierarchy(lu.legal_form_id)) ELSE '{}'::JSONB END
-        || CASE WHEN scope IN ('all','details') THEN (SELECT public.contact_hierarchy(NULL,lu.id)) ELSE '{}'::JSONB END
+        || CASE WHEN scope IN ('all','details') THEN (SELECT public.contact_hierarchy(NULL,lu.id,valid_on)) ELSE '{}'::JSONB END
         || CASE WHEN scope IN ('all','details') THEN (SELECT public.data_source_hierarchy(lu.data_source_id)) ELSE '{}'::JSONB END
         || CASE WHEN scope IN ('all','details') THEN (SELECT public.notes_for_unit(NULL,lu.id,NULL,NULL)) ELSE '{}'::JSONB END
         || CASE WHEN scope IN ('all','details') THEN (SELECT public.tag_for_unit_hierarchy(NULL,lu.id,NULL,NULL)) ELSE '{}'::JSONB END
@@ -120,7 +121,7 @@ CREATE FUNCTION public.legal_unit_hierarchy(
    WHERE (  (legal_unit_id IS NOT NULL AND lu.id = legal_unit_id)
          OR (parent_enterprise_id IS NOT NULL AND lu.enterprise_id = parent_enterprise_id)
          )
-     AND lu.valid_after < valid_on AND valid_on <= lu.valid_to
+     AND lu.valid_from <= valid_on AND valid_on < lu.valid_until
    ORDER BY lu.primary_for_enterprise DESC, lu.name
   ), data_list AS (
       SELECT jsonb_agg(data) AS data FROM ordered_data

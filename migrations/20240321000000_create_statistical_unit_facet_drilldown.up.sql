@@ -25,6 +25,11 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
     ), settings_activity_category_standard AS (
         SELECT activity_category_standard_id AS id FROM public.settings
     ),
+    -- FINESSE: This function queries the pre-aggregated `statistical_unit_facet` table for a
+    -- specific point in time (`valid_on`) to build a snapshot for UI drilldowns.
+    -- The core temporal logic `suf.valid_from <= param_valid_on AND param_valid_on < suf.valid_until`
+    -- correctly selects the single valid timeslice for the requested date, using the
+    -- standard `[start, end)` interval convention.
     available_facet AS (
         SELECT suf.physical_region_path
              , suf.primary_activity_category_path
@@ -37,7 +42,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
         FROM public.statistical_unit_facet AS suf
            , params
         WHERE
-            suf.valid_from <= param_valid_on AND param_valid_on <= suf.valid_to
+            suf.valid_from <= param_valid_on AND param_valid_on < suf.valid_until
             AND (param_unit_type IS NULL OR suf.unit_type = param_unit_type)
             AND (
                 param_region_path IS NULL

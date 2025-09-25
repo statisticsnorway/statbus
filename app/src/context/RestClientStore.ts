@@ -303,101 +303,26 @@ class RestClientStore {
     url: string,
     options: RequestInit = {}
   ): Promise<Response> {
-    // const callStack = new Error().stack?.split('\n').slice(2, 5).join('\n'); // Get a snippet of the call stack
+    // This function is now a simple fetch wrapper. The complex logic for handling
+    // 401 errors and triggering a token refresh has been removed and centralized
+    // into the declarative authMachine. This eliminates the race condition where
+    // both this fetch wrapper and the auth machine would try to refresh the token.
 
-    // Create a new Headers object from the options passed by postgrest-js.
-    // This preserves all headers set by the client, including the crucial 'Accept' header.
-    // For GET requests, postgrest-js does not set a Content-Type, and we should not add one.
-    // For POST/PATCH, postgrest-js sets the Content-Type, which will be preserved.
     const headers = new Headers(options.headers);
-
-    // The browser will automatically include cookies with `credentials: 'include'`,
-    // so we don't need to manually add the Authorization header here.
-    
-    // First attempt with current token
-    const initialFetchOptions = {
+    const fetchOptions = {
       ...options,
       credentials: 'include' as RequestCredentials,
       headers,
     };
 
-    let response: Response;
     try {
-      response = await fetch(url, initialFetchOptions);
+      return await fetch(url, fetchOptions);
     } catch (error: any) {
-      if (error.name === 'AbortError') {
-      } else {
-        console.error(`[RestClientStore.fetchWithAuthRefresh] Initial fetch failed for URL: ${url}`, error);
+      if (error.name !== 'AbortError') {
+        console.error(`[RestClientStore.fetchWithAuthRefresh] Fetch failed for URL: ${url}`, error);
       }
-      throw error; // Re-throw the error to be handled by the caller
+      throw error;
     }
-    
-    // If we get a 401 Unauthorized, try to refresh the token *only on the browser*
-    // Server-side 401s should typically be handled by initial auth checks or middleware
-    if (response.status === 401 && typeof window !== 'undefined') {
-      if (!this.refreshPromise) {
-        // No refresh in progress, so this instance will initiate it.
-        this.refreshPromise = (async () => {
-          try {
-            const refreshApiUrl = `${process.env.NEXT_PUBLIC_BROWSER_REST_URL || ''}/rest/rpc/refresh`;
-            const refreshFetchOptions: RequestInit = { // Explicitly type for clarity
-              method: 'POST' as const,
-              headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-              credentials: 'include' as RequestCredentials // Crucial for sending cookies
-            };
-
-            const refreshApiResponse = await fetch(refreshApiUrl, refreshFetchOptions);
-
-            if (!refreshApiResponse.ok) {
-              let errorDetail = `Refresh RPC failed with status: ${refreshApiResponse.status}`;
-              try { const errorJson = await refreshApiResponse.json(); errorDetail = errorJson.message || errorDetail; } catch (e) { /* ignore */ }
-              console.error(`RestClientStore.fetchWithAuthRefresh: Token refresh RPC failed: ${errorDetail}`);
-              window.dispatchEvent(new CustomEvent('auth:logout', { detail: { reason: 'refresh_rpc_failed', error: new Error(errorDetail) } }));
-              return false; // Indicate refresh failure
-            }
-            return true; // Indicate refresh success
-          } catch (error) {
-            console.error('[RestClientStore.fetchWithAuthRefresh REFRESH_EXCEPTION] Error during token refresh attempt:', error);
-            window.dispatchEvent(new CustomEvent('auth:logout', { detail: { reason: 'refresh_attempt_exception', error } }));
-            return false; // Indicate refresh failure
-          } finally {
-            this.refreshPromise = null; // Clear the shared promise once this operation is fully complete
-          }
-        })();
-      } else {
-      }
-
-      // All callers (initiator or those that found an existing promise) await the current refreshPromise.
-      try {
-        const refreshSuccessful = await this.refreshPromise;
-
-        if (refreshSuccessful) {
-          const retryFetchOptions = { ...options, credentials: 'include' as RequestCredentials, headers };
-          try {
-            response = await fetch(url, retryFetchOptions); // Re-assign to original response variable
-          } catch (error: any) {
-            if (error.name === 'AbortError') {
-            } else {
-              console.error(`[RestClientStore.fetchWithAuthRefresh] Retry fetch failed for URL: ${url}`, error);
-            }
-            throw error; // Re-throw the error
-          }
-        } else {
-          // `response` is still the original 401 response from the initial fetch.
-        }
-      } catch (error) {
-        // This catch is for errors specifically from awaiting this.refreshPromise.
-        // This might happen if the promise was nullified unexpectedly or rejected in a way not caught by its internal try/catch.
-        console.error(`[RestClientStore.fetchWithAuthRefresh] Error awaiting refreshPromise for URL ${url}:`, error);
-        // `response` is still the original 401 response.
-        // Ensure refreshPromise is cleared if an error occurs here, though it should ideally be handled by the IIFE's finally.
-        if (this.refreshPromise) { // Check if it wasn't cleared by the IIFE's finally (e.g. if IIFE itself threw before finally)
-            this.refreshPromise = null;
-        }
-      }
-    }
-    
-    return response;
   }
 }
 

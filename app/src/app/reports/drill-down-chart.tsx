@@ -1,5 +1,6 @@
 import { DrillDownPoint } from "@/app/reports/types/drill-down";
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import type { Chart } from "highcharts";
 import { chart } from "highcharts";
 
@@ -21,93 +22,110 @@ export const DrillDownChart = ({
   onSelect,
   maxTopLevelValue,
 }: DrillDownChartProps) => {
-  const _ref = useRef<HTMLDivElement>(null);
-  const _chart = useRef<Chart | null>(null);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (_ref.current) {
-      _chart.current?.destroy();
-      _chart.current = chart({
-        chart: {
-          height: BASE_HEIGHT + ROW_HEIGHT * (points?.length ?? 0),
-          renderTo: _ref.current,
-          events: {
-            drilldown: (e) =>
-              onSelect(e.point.options.custom as DrillDownPoint),
-          },
-          backgroundColor: "transparent",
+  useGuardedEffect(() => {
+    // Pinpoint: This error occurs when Highcharts event listeners (like for clicks)
+    // remain attached to the DOM after the chart instance has been destroyed. This
+    // typically happens during component unmounting or re-rendering if the cleanup
+    // is not perfectly synchronized.
+
+    // The fix is to ensure each chart instance is self-contained within a single
+    // effect's lifecycle. We create the chart and return a cleanup function that
+    // closes over *that specific chart instance*. This avoids race conditions
+    // with mutable refs that can occur during fast re-renders or navigation.
+
+    if (!chartContainerRef.current) {
+      return;
+    }
+
+    const chartInstance = chart({
+      chart: {
+        height: BASE_HEIGHT + ROW_HEIGHT * (points?.length ?? 0),
+        renderTo: chartContainerRef.current,
+        events: {
+          drilldown: (e) => onSelect(e.point.options.custom as DrillDownPoint),
         },
-        plotOptions: {
-          series: {
-            borderWidth: 0,
-            dataLabels: {
-              enabled: true,
+        backgroundColor: "transparent",
+      },
+      plotOptions: {
+        series: {
+          borderWidth: 0,
+          dataLabels: {
+            enabled: true,
+            format: "{point.y:,.0f}",
+            style: {
+              fontWeight: "normal",
               format: "{point.y:,.0f}",
-              style: {
-                fontWeight: "normal",
-                format: "{point.y:,.0f}",
-                textOutline: "none",
-              },
+              textOutline: "none",
             },
           },
         },
+      },
+      title: {
+        text: "",
+      },
+      xAxis: {
+        type: "category",
+      },
+      yAxis: {
+        max: maxTopLevelValue,
+        visible: true,
+        gridLineColor: "transparent",
         title: {
-          text: "",
+          text: title,
         },
-        xAxis: {
-          type: "category",
+        labels: {
+          enabled: false,
         },
-        yAxis: {
-          max: maxTopLevelValue,
-          visible: true,
-          gridLineColor: "transparent",
-          title: {
-            text: title,
-          },
-          labels: {
-            enabled: false,
-          },
+      },
+      credits: {
+        href: "",
+        style: {
+          cursor: "default",
         },
-        credits: {
-          href: "",
-          style: {
-            cursor: "default",
-          },
+      },
+      drilldown: {
+        activeAxisLabelStyle: {
+          color: "black",
+          fontWeight: "normal",
+          textDecoration: "none",
         },
-        drilldown: {
-          activeAxisLabelStyle: {
-            color: "black",
-            fontWeight: "normal",
-            textDecoration: "none",
-          },
-          activeDataLabelStyle: {
-            color: "black",
-            fontWeight: "normal",
-            textDecoration: "none",
-          },
+        activeDataLabelStyle: {
+          color: "black",
+          fontWeight: "normal",
+          textDecoration: "none",
         },
-        tooltip: {
-          headerFormat: "",
-          pointFormat: "{point.name}: <b>\u200e{point.y}</b>",
-          outside: true,
-          useHTML: true,
+      },
+      tooltip: {
+        headerFormat: "",
+        pointFormat: "{point.name}: <b>\u200e{point.y}</b>",
+        outside: true,
+        useHTML: true,
+      },
+      series: [
+        {
+          type: "bar",
+          showInLegend: false,
+          data: points
+            ?.filter((point) => getStatValue(point, variable) !== 0)
+            .map((point) => toPointOptionObject(point, variable)),
+          groupPadding: 0.05,
+          minPointLength: 3,
         },
-        series: [
-          {
-            type: "bar",
-            showInLegend: false,
-            data: points
-              ?.filter((point) => getStatValue(point, variable) !== 0)
-              .map((point) => toPointOptionObject(point, variable)),
-            groupPadding: 0.05,
-            minPointLength: 3,
-          },
-        ],
-      });
-    }
-  }, [points, onSelect, variable, title, maxTopLevelValue]);
+      ],
+    });
 
-  return <div ref={_ref} />;
+    // This cleanup function is crucial. It's returned by the effect and will be
+    // called by React just before the component unmounts or before the effect
+    // re-runs. It closes over `chartInstance` ensuring we always destroy the
+    // correct chart.
+    return () => {
+      chartInstance.destroy();
+    };
+  }, [points, onSelect, variable, title, maxTopLevelValue], 'DrillDownChart:createChart');
+
+  return <div ref={chartContainerRef} />;
 };
 
 const getStatValue = (point: DrillDownPoint, variable: string): number =>

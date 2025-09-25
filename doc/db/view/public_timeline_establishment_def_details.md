@@ -4,9 +4,9 @@
 ----------------------------------+--------------------------+-----------+----------+---------+----------+-------------
  unit_type                        | statistical_unit_type    |           |          |         | plain    | 
  unit_id                          | integer                  |           |          |         | plain    | 
- valid_after                      | date                     |           |          |         | plain    | 
  valid_from                       | date                     |           |          |         | plain    | 
  valid_to                         | date                     |           |          |         | plain    | 
+ valid_until                      | date                     |           |          |         | plain    | 
  name                             | character varying(256)   |           |          |         | extended | 
  birth_date                       | date                     |           |          |         | plain    | 
  death_date                       | date                     |           |          |         | plain    | 
@@ -75,12 +75,39 @@
  primary_for_enterprise           | boolean                  |           |          |         | plain    | 
  primary_for_legal_unit           | boolean                  |           |          |         | plain    | 
  stats                            | jsonb                    |           |          |         | extended | 
+ stats_summary                    | jsonb                    |           |          |         | extended | 
+ related_establishment_ids        | integer[]                |           |          |         | extended | 
+ excluded_establishment_ids       | integer[]                |           |          |         | extended | 
+ included_establishment_ids       | integer[]                |           |          |         | extended | 
+ related_legal_unit_ids           | integer[]                |           |          |         | extended | 
+ excluded_legal_unit_ids          | integer[]                |           |          |         | extended | 
+ included_legal_unit_ids          | integer[]                |           |          |         | extended | 
+ related_enterprise_ids           | integer[]                |           |          |         | extended | 
+ excluded_enterprise_ids          | integer[]                |           |          |         | extended | 
+ included_enterprise_ids          | integer[]                |           |          |         | extended | 
 View definition:
+ WITH establishment_stats AS (
+         SELECT t_1.unit_id,
+            t_1.valid_from,
+            jsonb_object_agg(sd.code,
+                CASE
+                    WHEN sfu_1.value_float IS NOT NULL THEN to_jsonb(sfu_1.value_float)
+                    WHEN sfu_1.value_int IS NOT NULL THEN to_jsonb(sfu_1.value_int)
+                    WHEN sfu_1.value_string IS NOT NULL THEN to_jsonb(sfu_1.value_string)
+                    WHEN sfu_1.value_bool IS NOT NULL THEN to_jsonb(sfu_1.value_bool)
+                    ELSE NULL::jsonb
+                END) FILTER (WHERE sd.code IS NOT NULL) AS stats
+           FROM timesegments t_1
+             JOIN stat_for_unit sfu_1 ON sfu_1.establishment_id = t_1.unit_id AND from_until_overlaps(t_1.valid_from, t_1.valid_until, sfu_1.valid_from, sfu_1.valid_until)
+             JOIN stat_definition sd ON sfu_1.stat_definition_id = sd.id
+          WHERE t_1.unit_type = 'establishment'::statistical_unit_type
+          GROUP BY t_1.unit_id, t_1.valid_from
+        )
  SELECT t.unit_type,
     t.unit_id,
-    t.valid_after,
-    (t.valid_after + '1 day'::interval)::date AS valid_from,
-    t.valid_to,
+    t.valid_from,
+    (t.valid_until - '1 day'::interval)::date AS valid_to,
+    t.valid_until,
     es.name,
     es.birth_date,
     es.death_date,
@@ -148,26 +175,167 @@ View definition:
     es.enterprise_id,
     es.primary_for_enterprise,
     es.primary_for_legal_unit,
-    COALESCE(get_jsonb_stats(es.id, NULL::integer, t.valid_after, t.valid_to), '{}'::jsonb) AS stats
+    COALESCE(es_stats.stats, '{}'::jsonb) AS stats,
+    jsonb_stats_to_summary('{}'::jsonb, COALESCE(es_stats.stats, '{}'::jsonb)) AS stats_summary,
+    ARRAY[t.unit_id] AS related_establishment_ids,
+    ARRAY[]::integer[] AS excluded_establishment_ids,
+        CASE
+            WHEN st.include_unit_in_reports THEN ARRAY[t.unit_id]
+            ELSE '{}'::integer[]
+        END AS included_establishment_ids,
+        CASE
+            WHEN es.legal_unit_id IS NOT NULL THEN ARRAY[es.legal_unit_id]
+            ELSE ARRAY[]::integer[]
+        END AS related_legal_unit_ids,
+    ARRAY[]::integer[] AS excluded_legal_unit_ids,
+    ARRAY[]::integer[] AS included_legal_unit_ids,
+        CASE
+            WHEN es.enterprise_id IS NOT NULL THEN ARRAY[es.enterprise_id]
+            ELSE ARRAY[]::integer[]
+        END AS related_enterprise_ids,
+    ARRAY[]::integer[] AS excluded_enterprise_ids,
+    ARRAY[]::integer[] AS included_enterprise_ids
    FROM timesegments t
-     JOIN establishment es ON t.unit_type = 'establishment'::statistical_unit_type AND t.unit_id = es.id AND public.after_to_overlaps(t.valid_after, t.valid_to, es.valid_after, es.valid_to)
-     LEFT JOIN activity pa ON pa.establishment_id = es.id AND pa.type = 'primary'::activity_type AND public.after_to_overlaps(t.valid_after, t.valid_to, pa.valid_after, pa.valid_to)
+     JOIN LATERAL ( SELECT es_1.id,
+            es_1.valid_from,
+            es_1.valid_to,
+            es_1.valid_until,
+            es_1.short_name,
+            es_1.name,
+            es_1.birth_date,
+            es_1.death_date,
+            es_1.free_econ_zone,
+            es_1.sector_id,
+            es_1.status_id,
+            es_1.edit_comment,
+            es_1.edit_by_user_id,
+            es_1.edit_at,
+            es_1.unit_size_id,
+            es_1.data_source_id,
+            es_1.enterprise_id,
+            es_1.legal_unit_id,
+            es_1.primary_for_legal_unit,
+            es_1.primary_for_enterprise,
+            es_1.invalid_codes
+           FROM establishment es_1
+          WHERE es_1.id = t.unit_id AND from_until_overlaps(t.valid_from, t.valid_until, es_1.valid_from, es_1.valid_until)
+          ORDER BY es_1.id DESC, es_1.valid_from DESC
+         LIMIT 1) es ON true
+     LEFT JOIN establishment_stats es_stats ON es_stats.unit_id = t.unit_id AND es_stats.valid_from = t.valid_from
+     LEFT JOIN LATERAL ( SELECT a.id,
+            a.valid_from,
+            a.valid_to,
+            a.valid_until,
+            a.type,
+            a.category_id,
+            a.data_source_id,
+            a.edit_comment,
+            a.edit_by_user_id,
+            a.edit_at,
+            a.establishment_id,
+            a.legal_unit_id
+           FROM activity a
+          WHERE a.establishment_id = es.id AND a.type = 'primary'::activity_type AND from_until_overlaps(t.valid_from, t.valid_until, a.valid_from, a.valid_until)
+          ORDER BY a.id DESC
+         LIMIT 1) pa ON true
      LEFT JOIN activity_category pac ON pa.category_id = pac.id
-     LEFT JOIN activity sa ON sa.establishment_id = es.id AND sa.type = 'secondary'::activity_type AND public.after_to_overlaps(t.valid_after, t.valid_to, sa.valid_after, sa.valid_to)
+     LEFT JOIN LATERAL ( SELECT a.id,
+            a.valid_from,
+            a.valid_to,
+            a.valid_until,
+            a.type,
+            a.category_id,
+            a.data_source_id,
+            a.edit_comment,
+            a.edit_by_user_id,
+            a.edit_at,
+            a.establishment_id,
+            a.legal_unit_id
+           FROM activity a
+          WHERE a.establishment_id = es.id AND a.type = 'secondary'::activity_type AND from_until_overlaps(t.valid_from, t.valid_until, a.valid_from, a.valid_until)
+          ORDER BY a.id DESC
+         LIMIT 1) sa ON true
      LEFT JOIN activity_category sac ON sa.category_id = sac.id
      LEFT JOIN sector s ON es.sector_id = s.id
-     LEFT JOIN location phl ON phl.establishment_id = es.id AND phl.type = 'physical'::location_type AND public.after_to_overlaps(t.valid_after, t.valid_to, phl.valid_after, phl.valid_to)
+     LEFT JOIN LATERAL ( SELECT l.id,
+            l.valid_from,
+            l.valid_to,
+            l.valid_until,
+            l.type,
+            l.address_part1,
+            l.address_part2,
+            l.address_part3,
+            l.postcode,
+            l.postplace,
+            l.region_id,
+            l.country_id,
+            l.latitude,
+            l.longitude,
+            l.altitude,
+            l.establishment_id,
+            l.legal_unit_id,
+            l.data_source_id,
+            l.edit_comment,
+            l.edit_by_user_id,
+            l.edit_at
+           FROM location l
+          WHERE l.establishment_id = es.id AND l.type = 'physical'::location_type AND from_until_overlaps(t.valid_from, t.valid_until, l.valid_from, l.valid_until)
+          ORDER BY l.id DESC
+         LIMIT 1) phl ON true
      LEFT JOIN region phr ON phl.region_id = phr.id
      LEFT JOIN country phc ON phl.country_id = phc.id
-     LEFT JOIN location pol ON pol.establishment_id = es.id AND pol.type = 'postal'::location_type AND public.after_to_overlaps(t.valid_after, t.valid_to, pol.valid_after, pol.valid_to)
+     LEFT JOIN LATERAL ( SELECT l.id,
+            l.valid_from,
+            l.valid_to,
+            l.valid_until,
+            l.type,
+            l.address_part1,
+            l.address_part2,
+            l.address_part3,
+            l.postcode,
+            l.postplace,
+            l.region_id,
+            l.country_id,
+            l.latitude,
+            l.longitude,
+            l.altitude,
+            l.establishment_id,
+            l.legal_unit_id,
+            l.data_source_id,
+            l.edit_comment,
+            l.edit_by_user_id,
+            l.edit_at
+           FROM location l
+          WHERE l.establishment_id = es.id AND l.type = 'postal'::location_type AND from_until_overlaps(t.valid_from, t.valid_until, l.valid_from, l.valid_until)
+          ORDER BY l.id DESC
+         LIMIT 1) pol ON true
      LEFT JOIN region por ON pol.region_id = por.id
      LEFT JOIN country poc ON pol.country_id = poc.id
-     LEFT JOIN contact c ON c.establishment_id = es.id AND public.after_to_overlaps(t.valid_after, t.valid_to, c.valid_after, c.valid_to)
+     LEFT JOIN LATERAL ( SELECT c_1.id,
+            c_1.valid_from,
+            c_1.valid_to,
+            c_1.valid_until,
+            c_1.web_address,
+            c_1.email_address,
+            c_1.phone_number,
+            c_1.landline,
+            c_1.mobile_number,
+            c_1.fax_number,
+            c_1.establishment_id,
+            c_1.legal_unit_id,
+            c_1.data_source_id,
+            c_1.edit_comment,
+            c_1.edit_by_user_id,
+            c_1.edit_at
+           FROM contact c_1
+          WHERE c_1.establishment_id = es.id AND from_until_overlaps(t.valid_from, t.valid_until, c_1.valid_from, c_1.valid_until)
+          ORDER BY c_1.id DESC
+         LIMIT 1) c ON true
      LEFT JOIN unit_size us ON es.unit_size_id = us.id
      LEFT JOIN status st ON es.status_id = st.id
      LEFT JOIN LATERAL ( SELECT array_agg(DISTINCT sfu_1.data_source_id) FILTER (WHERE sfu_1.data_source_id IS NOT NULL) AS data_source_ids
            FROM stat_for_unit sfu_1
-          WHERE sfu_1.establishment_id = es.id AND public.after_to_overlaps(t.valid_after, t.valid_to, sfu_1.valid_after, sfu_1.valid_to)) sfu ON true
+          WHERE sfu_1.establishment_id = es.id AND from_until_overlaps(t.valid_from, t.valid_until, sfu_1.valid_from, sfu_1.valid_until)) sfu ON true
      LEFT JOIN LATERAL ( SELECT array_agg(ds_1.id) AS ids,
             array_agg(ds_1.code) AS codes
            FROM data_source ds_1
@@ -179,6 +347,6 @@ View definition:
           WHERE all_edits.edit_at IS NOT NULL
           ORDER BY all_edits.edit_at DESC
          LIMIT 1) last_edit ON true
-  ORDER BY t.unit_type, t.unit_id, t.valid_after;
+  ORDER BY t.unit_type, t.unit_id, t.valid_from;
 
 ```

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useState, useRef } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import mermaid from "mermaid";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { Spinner } from "@/components/ui/spinner";
@@ -16,7 +17,7 @@ export default function ErDiagramClientComponent() {
   const containerRef = useRef<HTMLDivElement>(null);
   const panZoomInstanceRef = useRef<SvgPanZoom.Instance | null>(null);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     const fetchAndRenderDiagram = async () => {
       setLoading(true);
       setError(null);
@@ -55,9 +56,9 @@ ${diagramText}`;
     };
 
     fetchAndRenderDiagram();
-  }, []);
+  }, [], 'ErDiagramClient:fetchAndRender');
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     const container = containerRef.current;
     if (svg && container) {
       const svgElement = container.querySelector("svg");
@@ -88,7 +89,7 @@ ${diagramText}`;
         panZoomInstanceRef.current = null;
       }
     };
-  }, [svg]);
+  }, [svg], 'ErDiagramClient:initPanZoom');
 
   return (
     <div className="mt-4">

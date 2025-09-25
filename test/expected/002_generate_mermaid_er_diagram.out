@@ -66,8 +66,8 @@ erDiagram
 	activity["activity"] {
 		integer id
 		date valid_from
-		date valid_after
 		date valid_to
+		date valid_until
 		activity_type type
 		integer category_id
 		integer data_source_id
@@ -118,8 +118,8 @@ erDiagram
 	contact["contact"] {
 		integer id
 		date valid_from
-		date valid_after
 		date valid_to
+		date valid_until
 		character_varying(256) web_address
 		character_varying(50) email_address
 		character_varying(50) phone_number
@@ -174,9 +174,8 @@ erDiagram
 	enterprise_group["enterprise_group"] {
 		integer id
 		date valid_from
-		date valid_after
 		date valid_to
-		boolean active
+		date valid_until
 		character_varying(16) short_name
 		character_varying(256) name
 		integer enterprise_group_type_id
@@ -212,9 +211,8 @@ erDiagram
 	establishment["establishment"] {
 		integer id
 		date valid_from
-		date valid_after
 		date valid_to
-		boolean active
+		date valid_until
 		character_varying(16) short_name
 		character_varying(256) name
 		date birth_date
@@ -390,9 +388,8 @@ erDiagram
 	legal_unit["legal_unit"] {
 		integer id
 		date valid_from
-		date valid_after
 		date valid_to
-		boolean active
+		date valid_until
 		character_varying(16) short_name
 		character_varying(256) name
 		date birth_date
@@ -414,8 +411,8 @@ erDiagram
 	location["location"] {
 		integer id
 		date valid_from
-		date valid_after
 		date valid_to
+		date valid_until
 		location_type type
 		character_varying(200) address_part1
 		character_varying(200) address_part2
@@ -453,8 +450,8 @@ erDiagram
 	person_for_unit["person_for_unit"] {
 		integer id
 		date valid_from
-		date valid_after
 		date valid_to
+		date valid_until
 		integer person_id
 		integer person_role_id
 		integer data_source_id
@@ -552,8 +549,8 @@ erDiagram
 		integer id
 		integer stat_definition_id
 		date valid_from
-		date valid_after
 		date valid_to
+		date valid_until
 		integer data_source_id
 		integer establishment_id
 		integer legal_unit_id
@@ -572,16 +569,16 @@ erDiagram
 		integer month
 		statistical_unit_type unit_type
 		bigint count
-		bigint births
-		bigint deaths
-		bigint name_change_count
-		bigint primary_activity_category_change_count
-		bigint secondary_activity_category_change_count
-		bigint sector_change_count
-		bigint legal_form_change_count
-		bigint physical_region_change_count
-		bigint physical_country_change_count
-		bigint physical_address_change_count
+		integer births
+		integer deaths
+		integer name_change_count
+		integer primary_activity_category_change_count
+		integer secondary_activity_category_change_count
+		integer sector_change_count
+		integer legal_form_change_count
+		integer physical_region_change_count
+		integer physical_country_change_count
+		integer physical_address_change_count
 		jsonb stats_summary
 	}
 	statistical_history_facet["statistical_history_facet"] {
@@ -598,28 +595,28 @@ erDiagram
 		integer unit_size_id
 		integer status_id
 		bigint count
-		bigint births
-		bigint deaths
-		bigint name_change_count
-		bigint primary_activity_category_change_count
-		bigint secondary_activity_category_change_count
-		bigint sector_change_count
-		bigint legal_form_change_count
-		bigint physical_region_change_count
-		bigint physical_country_change_count
-		bigint physical_address_change_count
-		bigint unit_size_change_count
-		bigint status_change_count
+		integer births
+		integer deaths
+		integer name_change_count
+		integer primary_activity_category_change_count
+		integer secondary_activity_category_change_count
+		integer sector_change_count
+		integer legal_form_change_count
+		integer physical_region_change_count
+		integer physical_country_change_count
+		integer physical_address_change_count
+		integer unit_size_change_count
+		integer status_change_count
 		jsonb stats_summary
 	}
 	statistical_unit["statistical_unit"] {
 		statistical_unit_type unit_type
 		integer unit_id
-		date valid_after
 		date valid_from
 		date valid_to
+		date valid_until
 		jsonb external_idents
-		character_varying(256) name
+		character_varying name
 		date birth_date
 		date death_date
 		tsvector search
@@ -700,6 +697,7 @@ erDiagram
 	statistical_unit_facet["statistical_unit_facet"] {
 		date valid_from
 		date valid_to
+		date valid_until
 		statistical_unit_type unit_type
 		ltree physical_region_path
 		ltree primary_activity_category_path
@@ -733,9 +731,9 @@ erDiagram
 		text description
 		boolean active
 		tag_type type
-		date context_valid_after
 		date context_valid_from
 		date context_valid_to
+		date context_valid_until
 		date context_valid_on
 		boolean is_scoped_tag
 		timestamp_with_time_zone created_at
@@ -756,10 +754,10 @@ erDiagram
 	timeline_enterprise["timeline_enterprise"] {
 		statistical_unit_type unit_type
 		integer unit_id
-		date valid_after
 		date valid_from
 		date valid_to
-		character_varying(256) name
+		date valid_until
+		text name
 		date birth_date
 		date death_date
 		tsvector search
@@ -827,6 +825,9 @@ erDiagram
 		integer[] related_legal_unit_ids
 		integer[] excluded_legal_unit_ids
 		integer[] included_legal_unit_ids
+		integer[] related_enterprise_ids
+		integer[] excluded_enterprise_ids
+		integer[] included_enterprise_ids
 		integer enterprise_id
 		integer primary_establishment_id
 		integer primary_legal_unit_id
@@ -835,9 +836,9 @@ erDiagram
 	timeline_establishment["timeline_establishment"] {
 		statistical_unit_type unit_type
 		integer unit_id
-		date valid_after
 		date valid_from
 		date valid_to
+		date valid_until
 		character_varying(256) name
 		date birth_date
 		date death_date
@@ -906,13 +907,23 @@ erDiagram
 		boolean primary_for_enterprise
 		boolean primary_for_legal_unit
 		jsonb stats
+		jsonb stats_summary
+		integer[] related_establishment_ids
+		integer[] excluded_establishment_ids
+		integer[] included_establishment_ids
+		integer[] related_legal_unit_ids
+		integer[] excluded_legal_unit_ids
+		integer[] included_legal_unit_ids
+		integer[] related_enterprise_ids
+		integer[] excluded_enterprise_ids
+		integer[] included_enterprise_ids
 	}
 	timeline_legal_unit["timeline_legal_unit"] {
 		statistical_unit_type unit_type
 		integer unit_id
-		date valid_after
 		date valid_from
 		date valid_to
+		date valid_until
 		character_varying(256) name
 		date birth_date
 		date death_date
@@ -978,17 +989,28 @@ erDiagram
 		integer[] related_establishment_ids
 		integer[] excluded_establishment_ids
 		integer[] included_establishment_ids
+		integer[] related_legal_unit_ids
+		integer[] excluded_legal_unit_ids
+		integer[] included_legal_unit_ids
+		integer[] related_enterprise_ids
+		integer[] excluded_enterprise_ids
+		integer[] included_enterprise_ids
 		integer legal_unit_id
 		integer enterprise_id
 		boolean primary_for_enterprise
 		jsonb stats
 		jsonb stats_summary
 	}
+	timepoints["timepoints"] {
+		statistical_unit_type unit_type
+		integer unit_id
+		date timepoint
+	}
 	timesegments["timesegments"] {
 		statistical_unit_type unit_type
 		integer unit_id
-		date valid_after
-		date valid_to
+		date valid_from
+		date valid_until
 	}
 	timesegments_years["timesegments_years"] {
 		integer year
@@ -1014,42 +1036,84 @@ erDiagram
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
 	}
-	sql_saga_api_view["sql_saga.api_view"] {
-		regclass table_oid
-		name era_name
-		regclass view_oid
-		name trigger_name
-	}
 	sql_saga_era["sql_saga.era"] {
-		regclass table_oid
+		name table_schema
+		name table_name
 		name era_name
-		name start_after_column_name
-		name stop_on_column_name
+		name valid_from_column_name
+		name valid_until_column_name
 		regtype range_type
+		regtype range_subtype
+		character(1) range_subtype_category
 		name bounds_check_constraint
-		regclass audit_table_oid
+		name synchronize_valid_to_column
+		name synchronize_range_column
+		boolean trigger_applies_defaults
+		name audit_schema_name
+		name audit_table_name
 	}
 	sql_saga_foreign_keys["sql_saga.foreign_keys"] {
 		name foreign_key_name
-		regclass table_oid
+		sql_saga_fg_type type
+		name table_schema
+		name table_name
 		name[] column_names
-		name era_name
+		name fk_era_name
+		name[] fk_table_columns_snapshot
 		name unique_key_name
 		sql_saga_fk_match_types match_type
 		sql_saga_fk_actions update_action
 		sql_saga_fk_actions delete_action
 		name fk_insert_trigger
 		name fk_update_trigger
+		name fk_check_constraint
+		text fk_helper_function
 		name uk_update_trigger
 		name uk_delete_trigger
 	}
+	sql_saga_system_time_era["sql_saga.system_time_era"] {
+		name table_schema
+		name table_name
+		name era_name
+		name infinity_check_constraint
+		name generated_always_trigger
+		name write_history_trigger
+		name truncate_trigger
+		name[] excluded_column_names
+	}
+	sql_saga_system_versioning["sql_saga.system_versioning"] {
+		name table_schema
+		name table_name
+		name era_name
+		name history_schema_name
+		name history_table_name
+		name view_schema_name
+		name view_table_name
+		text func_as_of
+		text func_between
+		text func_between_symmetric
+		text func_from_to
+	}
 	sql_saga_unique_keys["sql_saga.unique_keys"] {
 		name unique_key_name
-		regclass table_oid
+		name table_schema
+		name table_name
+		sql_saga_unique_key_type key_type
 		name[] column_names
 		name era_name
 		name unique_constraint
 		name exclude_constraint
+		text predicate
+	}
+	sql_saga_updatable_view["sql_saga.updatable_view"] {
+		name view_schema
+		name view_name
+		sql_saga_updatable_view_type view_type
+		name table_schema
+		name table_name
+		name era_name
+		name trigger_name
+		text current_func
 	}
 	worker_command_registry["worker.command_registry"] {
 		text command
@@ -1066,7 +1130,6 @@ erDiagram
 	}
 	worker_queue_registry["worker.queue_registry"] {
 		text queue
-		boolean concurrent
 		text description
 	}
 	worker_tasks["worker.tasks"] {
@@ -1079,6 +1142,7 @@ erDiagram
 		numeric duration_ms
 		text error
 		timestamp_with_time_zone scheduled_at
+		integer worker_pid
 		jsonb payload
 	}
 	%% Relationships (derived from foreign keys)
@@ -1152,13 +1216,19 @@ erDiagram
 	tag_for_unit }|--|| tag : tag_for_unit_tag_id_fkey
 	unit_notes }o--|| auth_user : unit_notes_edit_by_user_id_fkey
 	unit_notes }o--o| enterprise : unit_notes_enterprise_id_fkey
-	sql_saga_api_view }|--|| sql_saga_era : api_view_table_oid_era_name_fkey
-	sql_saga_api_view }|--|| sql_saga_era : api_view_table_oid_era_name_fkey
-	sql_saga_foreign_keys }o--|| sql_saga_era : foreign_keys_table_oid_era_name_fkey
-	sql_saga_foreign_keys }o--|| sql_saga_era : foreign_keys_table_oid_era_name_fkey
 	sql_saga_foreign_keys }o--|| sql_saga_unique_keys : foreign_keys_unique_key_name_fkey
-	sql_saga_unique_keys }o--|| sql_saga_era : unique_keys_table_oid_era_name_fkey
-	sql_saga_unique_keys }o--|| sql_saga_era : unique_keys_table_oid_era_name_fkey
+	sql_saga_system_time_era }|--|| sql_saga_era : system_time_era_table_schema_table_name_era_name_fkey
+	sql_saga_system_time_era }|--|| sql_saga_era : system_time_era_table_schema_table_name_era_name_fkey
+	sql_saga_system_time_era }|--|| sql_saga_era : system_time_era_table_schema_table_name_era_name_fkey
+	sql_saga_system_versioning }|--|| sql_saga_era : system_versioning_table_schema_table_name_era_name_fkey
+	sql_saga_system_versioning }|--|| sql_saga_era : system_versioning_table_schema_table_name_era_name_fkey
+	sql_saga_system_versioning }|--|| sql_saga_era : system_versioning_table_schema_table_name_era_name_fkey
+	sql_saga_unique_keys }o--|| sql_saga_era : unique_keys_table_schema_table_name_era_name_fkey
+	sql_saga_unique_keys }o--|| sql_saga_era : unique_keys_table_schema_table_name_era_name_fkey
+	sql_saga_unique_keys }o--|| sql_saga_era : unique_keys_table_schema_table_name_era_name_fkey
+	sql_saga_updatable_view }o--|| sql_saga_era : updatable_view_table_schema_table_name_era_name_fkey
+	sql_saga_updatable_view }o--|| sql_saga_era : updatable_view_table_schema_table_name_era_name_fkey
+	sql_saga_updatable_view }o--|| sql_saga_era : updatable_view_table_schema_table_name_era_name_fkey
 	worker_command_registry }o--|| worker_queue_registry : command_registry_queue_fkey
 	worker_tasks }o--|| worker_command_registry : fk_tasks_command
 	worker_tasks }o--|| worker_command_registry : tasks_command_fkey

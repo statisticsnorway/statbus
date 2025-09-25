@@ -49,7 +49,9 @@ SELECT
 \copy public.import_32_lu_tc_ds_upload(tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'app/public/demo/legal_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 \echo Run worker processing for import jobs
+--SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
+--SET client_min_messages TO NOTICE;
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Checking unit counts after import processing"
@@ -59,7 +61,7 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
 \echo "Inspecting import job data for import_32_lu_tc_ds"
-SELECT row_id, state, error, tax_ident, name, data_source_code
+SELECT row_id, state, errors, tax_ident_raw, name_raw, data_source_code_raw, merge_status
 FROM public.import_32_lu_tc_ds_data
 ORDER BY row_id
 LIMIT 5;
@@ -77,9 +79,9 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 
 \echo "Checking statistics"
 
-SELECT name, external_idents, unit_type, data_source_codes, invalid_codes
+SELECT name, external_idents, unit_type, data_source_codes, invalid_codes, primary_activity_category_path, web_address, stats_summary->'employees'->>'value_int' AS employees, stats_summary->'turnover'->>'value_int' AS turnover
  FROM statistical_unit
- WHERE valid_after < CURRENT_DATE AND CURRENT_DATE <= valid_to
+ WHERE valid_from <= CURRENT_DATE AND CURRENT_DATE < valid_until
  ORDER BY name, external_idents->>'tax_ident', unit_type, valid_from, unit_id;
 
 ROLLBACK;

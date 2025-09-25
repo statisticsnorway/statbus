@@ -2,14 +2,15 @@
 import { TopologyItem } from "@/components/statistical-unit-hierarchy/topology-item";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { Label } from "@/components/ui/label";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import useHierarchyStats from "./use-hierarchy-stats";
+import { useStatisticalUnitHierarchyStats } from "@/components/statistical-unit-details/use-unit-details";
 
 interface TopologyProps {
   readonly hierarchy: StatisticalUnitHierarchy;
-  readonly unitId: number;
+  readonly unitId: string;
   readonly unitType:
     | "legal_unit"
     | "establishment"
@@ -24,11 +25,11 @@ export function Topology({ hierarchy, unitId, unitType }: TopologyProps) {
   const details = searchParams?.get("details");
   const [compact, setCompact] = useState(!details);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     setCompact(!details);
-  }, [details]);
+  }, [details], 'Topology:setCompact');
 
-  const { hierarchyStats } = useHierarchyStats(unitId, unitType, compact);
+  const { data } = useStatisticalUnitHierarchyStats(unitId, unitType, compact);
 
   const handleCompactChange = () => {
     const params = new URLSearchParams(searchParams?.toString() ?? "");
@@ -37,7 +38,7 @@ export function Topology({ hierarchy, unitId, unitType }: TopologyProps) {
     } else {
       params.delete("details");
     }
-    router.replace(`${pathname}?${params}`);
+    router.replace(`${pathname}?${params}`, { scroll: false });
     setCompact(!compact);
   };
 
@@ -79,9 +80,10 @@ export function Topology({ hierarchy, unitId, unitType }: TopologyProps) {
           id={hierarchy.enterprise.id}
           unit={primaryUnit}
           active={
-            hierarchy.enterprise.id == unitId && unitType === "enterprise"
+            hierarchy.enterprise.id == parseInt(unitId, 10) &&
+            unitType === "enterprise"
           }
-          stats={hierarchyStats?.find(
+          stats={data?.find(
             (stat) =>
               stat.unit_id === hierarchy.enterprise.id &&
               stat.unit_type === "enterprise"
@@ -94,9 +96,12 @@ export function Topology({ hierarchy, unitId, unitType }: TopologyProps) {
                 type="legal_unit"
                 id={legalUnit.id}
                 unit={legalUnit}
-                active={legalUnit.id === unitId && unitType === "legal_unit"}
+                active={
+                  legalUnit.id === parseInt(unitId, 10) &&
+                  unitType === "legal_unit"
+                }
                 primary={legalUnit.primary_for_enterprise}
-                stats={hierarchyStats?.find(
+                stats={data?.find(
                   (stat) =>
                     stat.unit_id === legalUnit.id &&
                     stat.unit_type === "legal_unit"
@@ -109,7 +114,7 @@ export function Topology({ hierarchy, unitId, unitType }: TopologyProps) {
                     id={establishment.id}
                     unit={establishment}
                     active={
-                      establishment.id === unitId &&
+                      establishment.id === parseInt(unitId, 10) &&
                       unitType === "establishment"
                     }
                     primary={establishment.primary_for_legal_unit}
@@ -125,7 +130,8 @@ export function Topology({ hierarchy, unitId, unitType }: TopologyProps) {
                 id={establishment.id}
                 unit={establishment}
                 active={
-                  establishment.id === unitId && unitType === "establishment"
+                  establishment.id === parseInt(unitId, 10) &&
+                  unitType === "establishment"
                 }
                 primary={establishment.primary_for_enterprise}
               />

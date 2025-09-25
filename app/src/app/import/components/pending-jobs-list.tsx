@@ -89,7 +89,7 @@ export function PendingJobsList({ jobs, onDeleteJob, unitTypeTitle, unitTypeDesc
               <p className="font-medium">{job.description}</p>
             </div>
             <div className="flex items-center space-x-2">
-              <Button 
+              <Button
                 size="sm"
                 onClick={() => router.push(`${uploadPathPrefix}/${job.slug}`)}
               >

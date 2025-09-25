@@ -5,6 +5,10 @@ BEGIN;
 
 \i test/setup.sql
 
+-- Reset sequences for stable IDs in this test
+ALTER SEQUENCE legal_unit_id_seq RESTART WITH 1;
+ALTER SEQUENCE establishment_id_seq RESTART WITH 1;
+
 -- A Super User configures statbus.
 CALL test.set_user_from_email('test.admin@statbus.org');
 
@@ -78,12 +82,11 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo 'SC1: Verifying _data table contents'
 SELECT
     row_id,
-    tax_ident,
-    name,
-    valid_from,
-    valid_to,
+    tax_ident_raw AS tax_ident,
+    name_raw AS name,
+    valid_from_raw AS valid_from,
+    valid_to_raw AS valid_to,
     action,
-    -- operation, -- Column does not exist
     founding_row_id,
     CASE WHEN legal_unit_id IS NOT NULL THEN 'LU_SET' ELSE 'LU_NULL' END AS data_lu_marker,
     CASE WHEN enterprise_id IS NOT NULL THEN 'EN_SET' ELSE 'EN_NULL' END AS data_en_marker,
@@ -91,8 +94,9 @@ SELECT
     CASE WHEN legal_unit_id = FIRST_VALUE(legal_unit_id) OVER (ORDER BY row_id) THEN 'SAME_LU' ELSE 'DIFF_LU' END AS lu_consistency,
     -- Check all rows have same enterprise_id
     CASE WHEN enterprise_id = FIRST_VALUE(enterprise_id) OVER (ORDER BY row_id) THEN 'SAME_EN' ELSE 'DIFF_EN' END AS en_consistency,
-    error,
+    errors,
     invalid_codes,
+    merge_status,
     state
 FROM public.test72_sc1_lu_segments_data -- Hardcoded based on sc1_job_slug
 ORDER BY row_id;
@@ -104,18 +108,17 @@ SELECT
     lu.name,
     lu.valid_from,
     lu.valid_to,
-    lu.valid_after,
     CASE WHEN lu.enterprise_id IS NOT NULL THEN 'EN_SET' ELSE 'EN_NULL' END AS en_marker,
     lu.primary_for_enterprise,
     (SELECT code FROM public.sector s WHERE s.id = lu.sector_id) as sector_code,
-    (SELECT COUNT(*) FROM public.location loc WHERE loc.legal_unit_id = lu.id AND lu.valid_from <= loc.valid_to AND lu.valid_to >= loc.valid_from) as location_count_for_slice,
-    (SELECT COUNT(*) FROM public.activity act WHERE act.legal_unit_id = lu.id AND lu.valid_from <= act.valid_to AND lu.valid_to >= act.valid_from) as activity_count_for_slice,
+    (SELECT COUNT(*) FROM public.location loc WHERE loc.legal_unit_id = lu.id AND (lu.valid_from, lu.valid_until) OVERLAPS (loc.valid_from, loc.valid_until)) as location_count_for_slice,
+    (SELECT COUNT(*) FROM public.activity act WHERE act.legal_unit_id = lu.id AND (lu.valid_from, lu.valid_until) OVERLAPS (act.valid_from, act.valid_until)) as activity_count_for_slice,
     -- Check all slices have same enterprise_id
     CASE WHEN MIN(lu.enterprise_id) OVER() = MAX(lu.enterprise_id) OVER() THEN 'SAME_EN_ALL_SLICES' ELSE 'DIFF_EN_ACROSS_SLICES' END AS en_consistency
 FROM public.legal_unit lu
 JOIN public.external_ident ei ON ei.legal_unit_id = lu.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
 WHERE ei.ident = :'sc1_lu_tax_ident'
-ORDER BY lu.valid_after, lu.valid_from;
+ORDER BY lu.valid_from;
 
 \echo 'SC1: Verifying public.enterprise table (expect 1 new enterprise)'
 SELECT
@@ -179,18 +182,18 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo 'SC2: Verifying _data table contents'
 SELECT
     row_id,
-    tax_ident,
-    name,
+    tax_ident_raw AS tax_ident,
+    name_raw AS name,
     action,
-    -- operation, -- Column does not exist
     CASE WHEN legal_unit_id IS NOT NULL THEN 'LU_SET' ELSE 'LU_NULL' END AS data_lu_marker,
     CASE WHEN enterprise_id IS NOT NULL THEN 'EN_SET' ELSE 'EN_NULL' END AS data_en_marker,
     -- Check that each row has different legal_unit_id
     CASE WHEN COUNT(*) OVER() = COUNT(*) OVER(PARTITION BY legal_unit_id) THEN 'DUPLICATE_LUS' ELSE 'UNIQUE_LUS' END AS lu_uniqueness,
     -- Check that each row has different enterprise_id
     CASE WHEN COUNT(*) OVER() = COUNT(*) OVER(PARTITION BY enterprise_id) THEN 'DUPLICATE_ENS' ELSE 'UNIQUE_ENS' END AS en_uniqueness,
-    error,
+    errors,
     invalid_codes,
+    merge_status,
     state
 FROM public.test72_sc2_two_lus_data -- Hardcoded based on sc2_job_slug
 ORDER BY row_id;
@@ -324,7 +327,7 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo 'SC3: Verifying _data table contents for LUs job (test72_sc3_lus)'
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, error, invalid_codes, -- removed operation
+SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, action, state, errors, invalid_codes, merge_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
        CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc3_lus_data -- Hardcoded based on sc3_job_lu_slug
@@ -404,7 +407,7 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo 'SC3: Verifying _data table contents for ESs job (test72_sc3_ests)'
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, legal_unit_tax_ident, action, state, error, invalid_codes, -- removed operation
+SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, legal_unit_tax_ident_raw AS legal_unit_tax_ident, action, state, errors, invalid_codes, merge_status,
        CASE WHEN establishment_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS establishment_id_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS lu_fk_id_status
 FROM public.test72_sc3_ests_data -- Hardcoded based on sc3_job_es_slug
@@ -551,7 +554,7 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo 'SC4: Verifying _data table contents for V1 job (test72_sc4_order_v1)'
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, error, invalid_codes, -- removed operation
+SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, action, state, errors, invalid_codes, merge_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
        CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc4_order_v1_data -- Hardcoded based on sc4_job_slug_v1
@@ -586,7 +589,7 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo 'SC4: Verifying _data table contents for V2 job (test72_sc4_order_v2)'
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, error, invalid_codes, -- removed operation
+SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, action, state, errors, invalid_codes, merge_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
        CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc4_order_v2_data -- Hardcoded based on sc4_job_slug_v2
@@ -653,7 +656,7 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo 'SC5.1: Verifying _data table contents for LUs job (test72_sc5_1_lus)'
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, error, invalid_codes, -- removed operation
+SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, action, state, errors, invalid_codes, merge_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
        CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc5_1_lus_data -- Hardcoded
@@ -676,7 +679,7 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo 'SC5.1: Verifying _data table contents for ESs job (test72_sc5_1_ests)'
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, legal_unit_tax_ident, action, state, error, invalid_codes, -- removed operation
+SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, legal_unit_tax_ident_raw AS legal_unit_tax_ident, action, state, errors, invalid_codes, merge_status,
        CASE WHEN establishment_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS establishment_id_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS lu_fk_id_status
 FROM public.test72_sc5_1_ests_data -- Hardcoded
@@ -733,7 +736,7 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo 'SC6: Verifying _data table contents for Baseline job (test72_sc6_baseline)'
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, error, invalid_codes, -- removed operation
+SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, action, state, errors, invalid_codes, merge_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
        CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc6_baseline_data -- Hardcoded
@@ -780,7 +783,7 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo 'SC6.1: Verifying _data table contents for Single Batch Update job (test72_sc6_1_single)'
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, error, invalid_codes, -- removed operation
+SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, action, state, errors, invalid_codes, merge_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
        CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc6_1_single_data -- Hardcoded
@@ -852,7 +855,7 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo 'SC7: Verifying _data table contents for Initial LUs job (test72_sc7_multi_lu_same_ent)'
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, error, invalid_codes, -- removed operation
+SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, action, state, errors, invalid_codes, merge_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
        CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc7_multi_lu_same_ent_data -- Hardcoded
@@ -979,7 +982,7 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo 'SC7: Verifying _data table contents for Update Batch job (test72_sc7_update_batch)'
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, error, invalid_codes, -- removed operation
+SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, action, state, errors, invalid_codes, merge_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
        CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc7_update_batch_data -- Hardcoded
@@ -1049,7 +1052,7 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo 'SC8: Verifying _data table contents for LU job (test72_sc8_lu)'
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, error, invalid_codes, -- removed operation
+SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, action, state, errors, invalid_codes, merge_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
        CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc8_lu_data -- Hardcoded
@@ -1076,7 +1079,7 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo 'SC8: Verifying _data table contents for ESs job (test72_sc8_multi_es)'
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, legal_unit_tax_ident, action, state, error, invalid_codes, -- removed operation
+SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, legal_unit_tax_ident_raw AS legal_unit_tax_ident, action, state, errors, invalid_codes, merge_status,
        CASE WHEN establishment_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS establishment_id_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS lu_fk_id_status
 FROM public.test72_sc8_multi_es_data -- Hardcoded
@@ -1157,7 +1160,7 @@ CALL worker.process_tasks(p_queue => 'import');
 
 -- SC9 Verifications
 \echo 'SC9: Verifying _data table contents'
-SELECT row_id, tax_ident, name, valid_from, valid_to, error, invalid_codes, state, action 
+SELECT row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, errors, invalid_codes, merge_status, state, action, operation
 FROM public.test72_sc9_lu_overlap_data -- Hardcoded based on sc9_job_slug
 ORDER BY row_id;
 
@@ -1171,10 +1174,10 @@ BEGIN
         WITH data_table_content AS (
             SELECT
                 row_id,
-                action,
+                operation,
                 state,
                 CASE
-                    WHEN error IS NOT NULL AND error::TEXT <> '{}' THEN 'ERROR_PRESENT'
+                    WHEN errors IS DISTINCT FROM '{}'::jsonb THEN 'ERROR_PRESENT'
                     ELSE 'NO_ERROR'
                 END as error_status
             FROM public.test72_sc9_lu_overlap_data -- Hardcoded
@@ -1184,15 +1187,15 @@ BEGIN
                 WHEN COUNT(*) = 2
                  AND SUM(CASE WHEN state = 'processed' THEN 1 ELSE 0 END) = 2
                  AND SUM(CASE WHEN error_status = 'NO_ERROR' THEN 1 ELSE 0 END) = 2
-                 AND SUM(CASE WHEN row_id = 1 AND action = 'insert' THEN 1 ELSE 0 END) = 1
-                 AND SUM(CASE WHEN row_id = 2 AND action = 'replace' THEN 1 ELSE 0 END) = 1
-                THEN 'PASS: Both rows in _data table processed successfully with correct actions.'
+                 AND SUM(CASE WHEN row_id = 1 AND operation = 'insert' THEN 1 ELSE 0 END) = 1
+                 AND SUM(CASE WHEN row_id = 2 AND operation = 'update' THEN 1 ELSE 0 END) = 1
+                THEN 'PASS: Both rows in _data table processed successfully with correct operations.'
                 ELSE 'FAIL: _data table verification failed for SC9. ' ||
                      'Total rows: ' || COUNT(*) ||
                      ', Processed rows: ' || SUM(CASE WHEN state = 'processed' THEN 1 ELSE 0 END) ||
                      ', No error rows: ' || SUM(CASE WHEN error_status = 'NO_ERROR' THEN 1 ELSE 0 END) ||
-                     ', Row 1 action insert: ' || SUM(CASE WHEN row_id = 1 AND action = 'insert' THEN 1 ELSE 0 END) ||
-                     ', Row 2 action replace: ' || SUM(CASE WHEN row_id = 2 AND action = 'replace' THEN 1 ELSE 0 END)
+                     ', Row 1 operation insert: ' || SUM(CASE WHEN row_id = 1 AND operation = 'insert' THEN 1 ELSE 0 END) ||
+                     ', Row 2 operation update: ' || SUM(CASE WHEN row_id = 2 AND operation = 'update' THEN 1 ELSE 0 END)
             END
         FROM data_table_content
     $$) INTO v_data_table_check_result; -- No second argument to format needed
@@ -1284,7 +1287,7 @@ $$, -- No table variable needed here
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo 'SC10 (Two Batches) Batch 1: Verifying _data table contents for job (test72_sc10_tb_lu_b1)'
-SELECT row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, error, invalid_codes, -- removed operation
+SELECT row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, action, state, errors, invalid_codes, merge_status,
        CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
        CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc10_tb_lu_b1_data -- Hardcoded based on sc10_tb_job_b1_slug
@@ -1336,7 +1339,7 @@ CALL worker.process_tasks(p_queue => 'import');
 -- SC10TB Batch 2: Verifications
 \echo 'SC10 (Two Batches) Batch 2: Verifying _data table contents after Batch 2 processing'
 SELECT
-    row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, error, invalid_codes, -- removed operation
+    row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, action, state, errors, invalid_codes, merge_status,
     CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
     CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc10_tb_lu_b2_data -- Hardcoded based on sc10_tb_job_b2_slug
@@ -1471,7 +1474,7 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo 'SC11 (Single Batch): Verifying _data table contents'
 -- Display relevant columns from the _data table
 SELECT
-    row_id, founding_row_id, tax_ident, name, valid_from, valid_to, action, state, error, invalid_codes,
+    row_id, founding_row_id, tax_ident_raw AS tax_ident, name_raw AS name, valid_from_raw AS valid_from, valid_to_raw AS valid_to, action, operation, state, errors, invalid_codes, merge_status,
     CASE WHEN legal_unit_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS legal_unit_id_status,
     CASE WHEN enterprise_id IS NOT NULL THEN 'SET' ELSE 'NULL' END AS enterprise_id_status
 FROM public.test72_sc11_sb_lu_overlap_data -- Hardcoded based on sc11_sb_job_slug
@@ -1480,23 +1483,23 @@ ORDER BY row_id;
 -- Check the processing status of rows in the _data table
 WITH data_check_cte AS (
     SELECT
-        row_id, action, state, error -- removed operation
+        row_id, operation, state, errors, merge_status
     FROM public.test72_sc11_sb_lu_overlap_data -- Hardcoded based on sc11_sb_job_slug
 )
 SELECT
     CASE
         WHEN COUNT(*) = 6
          AND SUM(CASE WHEN state = 'processed' THEN 1 ELSE 0 END) = 6
-         AND SUM(CASE WHEN error IS NOT NULL AND error::TEXT <> '{}' THEN 1 ELSE 0 END) = 0
-         AND SUM(CASE WHEN row_id = 1 AND action = 'insert' THEN 1 ELSE 0 END) = 1 -- removed operation check
-         AND SUM(CASE WHEN row_id > 1 AND action = 'replace' THEN 1 ELSE 0 END) = 5 -- removed operation check
-        THEN 'PASS: All 6 rows in _data table processed successfully with correct actions.'
+         AND SUM(CASE WHEN errors IS DISTINCT FROM '{}'::jsonb THEN 1 ELSE 0 END) = 0
+         AND SUM(CASE WHEN row_id = 1 AND operation = 'insert' THEN 1 ELSE 0 END) = 1
+         AND SUM(CASE WHEN row_id > 1 AND operation = 'update' THEN 1 ELSE 0 END) = 5
+        THEN 'PASS: All 6 rows in _data table processed successfully with correct operations.'
         ELSE 'FAIL: _data table verification failed for SC11. ' ||
              'Total rows: ' || COUNT(*) ||
              ', Processed rows: ' || SUM(CASE WHEN state = 'processed' THEN 1 ELSE 0 END) ||
-             ', Error rows: ' || SUM(CASE WHEN error IS NOT NULL AND error::TEXT <> '{}' THEN 1 ELSE 0 END) ||
-             ', Row 1 action insert: ' || SUM(CASE WHEN row_id = 1 AND action = 'insert' THEN 1 ELSE 0 END) ||
-             ', Subsequent action replace: ' || SUM(CASE WHEN row_id > 1 AND action = 'replace' THEN 1 ELSE 0 END)
+             ', Error rows: ' || SUM(CASE WHEN errors IS DISTINCT FROM '{}'::jsonb THEN 1 ELSE 0 END) ||
+             ', Row 1 operation insert: ' || SUM(CASE WHEN row_id = 1 AND operation = 'insert' THEN 1 ELSE 0 END) ||
+             ', Subsequent operation update: ' || SUM(CASE WHEN row_id > 1 AND operation = 'update' THEN 1 ELSE 0 END)
     END as data_table_check
 FROM data_check_cte;
 

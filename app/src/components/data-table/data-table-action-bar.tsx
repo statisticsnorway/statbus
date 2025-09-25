@@ -13,6 +13,7 @@ import { Loader, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import * as React from "react";
 import * as ReactDOM from "react-dom";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 
 interface DataTableActionBarProps<TData>
   extends React.ComponentProps<typeof motion.div> {
@@ -35,7 +36,7 @@ function DataTableActionBar<TData>({
     setMounted(true);
   }, []);
 
-  React.useEffect(() => {
+  useGuardedEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         table.toggleAllRowsSelected(false);
@@ -44,7 +45,7 @@ function DataTableActionBar<TData>({
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [table]);
+  }, [table], 'DataTableActionBar:escapeListener');
 
   const container =
     containerProp ?? (mounted ? globalThis.document?.body : null);

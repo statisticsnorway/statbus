@@ -1,6 +1,6 @@
 "use client";
 import { OptionsFilter } from "@/app/search/components/options-filter";
-import { useSearch } from "@/atoms/search"; // Changed to Jotai hook
+import { useSearchFilters } from "@/atoms/search";
 import { useCallback, useMemo } from "react"; // Added useMemo
 import { REGION } from "@/app/search/filters/url-search-params";
 import { SearchFilterOption } from "../../search.d";
@@ -10,9 +10,9 @@ export default function RegionOptions({
 }: {
   readonly options: SearchFilterOption[];
 }) {
-  const { searchState, updateFilters, executeSearch } = useSearch();
-  // const selected = (searchState.filters[REGION] as (string | null)[]) || [];
-  const filterValue = searchState.filters[REGION];
+  const { filters, updateFilters } = useSearchFilters();
+  // const selected = (filters[REGION] as (string | null)[]) || [];
+  const filterValue = filters[REGION];
   const selected = useMemo(() => {
     if (Array.isArray(filterValue)) {
       return filterValue as (string | null)[];
@@ -27,23 +27,21 @@ export default function RegionOptions({
     async ({ value }: SearchFilterOption) => {
       const toggledValues = selected.includes(value) ? [] : [value];
       const newFilters = {
-        ...searchState.filters,
+        ...filters,
         [REGION]: toggledValues,
       };
       updateFilters(newFilters);
-      await executeSearch();
     },
-    [searchState.filters, updateFilters, executeSearch, selected]
+    [filters, updateFilters, selected]
   );
 
   const reset = useCallback(async () => {
     const newFilters = {
-      ...searchState.filters,
+      ...filters,
       [REGION]: [],
     };
     updateFilters(newFilters);
-    await executeSearch();
-  }, [searchState.filters, updateFilters, executeSearch]);
+  }, [filters, updateFilters]);
 
   return (
     <OptionsFilter

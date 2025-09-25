@@ -1,14 +1,14 @@
 "use client";
 import { OptionsFilter } from "@/app/search/components/options-filter";
-import { useSearch } from "@/atoms/search"; // Using Jotai's useSearch
+import { useSearchFilters } from "@/atoms/search";
 import { useCallback, useMemo } from "react"; // Added useMemo
 import { UNIT_TYPE } from "@/app/search/filters/url-search-params";
 import { SearchFilterOption } from "../search.d";
 import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
 
 export default function UnitTypeFilter() {
-  const { searchState, updateFilters, executeSearch } = useSearch(); // Added executeSearch
-  const filterValue = searchState.filters[UNIT_TYPE];
+  const { filters, updateFilters } = useSearchFilters();
+  const filterValue = filters[UNIT_TYPE];
   const selected = useMemo(() => {
     if (Array.isArray(filterValue)) {
       return filterValue as string[];
@@ -27,18 +27,16 @@ export default function UnitTypeFilter() {
         ? currentValues.filter((v) => v !== value)
         : [...currentValues, value as string];
       
-      updateFilters({ ...searchState.filters, [UNIT_TYPE]: newValues });
-      await executeSearch(); // Added executeSearch
+      updateFilters({ ...filters, [UNIT_TYPE]: newValues });
     },
-    [selected, searchState.filters, updateFilters, executeSearch] // Added executeSearch to deps
+    [selected, filters, updateFilters] // Added executeSearch to deps
   );
 
   const reset = useCallback(async () => { // Made async
-    const newFilters = { ...searchState.filters };
+    const newFilters = { ...filters };
     delete newFilters[UNIT_TYPE]; // Or set to [] if that's preferred for consistency
     updateFilters(newFilters);
-    await executeSearch(); // Added executeSearch
-  }, [searchState.filters, updateFilters, executeSearch]); // Added executeSearch to deps
+  }, [filters, updateFilters]); // Added executeSearch to deps
 
   return (
     <OptionsFilter

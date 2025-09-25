@@ -3,9 +3,8 @@ BEGIN;
 CREATE TABLE public.enterprise_group (
     id SERIAL NOT NULL,
     valid_from date NOT NULL,
-    valid_after date NOT NULL,
-    valid_to date NOT NULL DEFAULT 'infinity',
-    active boolean NOT NULL DEFAULT true,
+    valid_to date,
+    valid_until date,
     short_name varchar(16),
     name varchar(256),
     enterprise_group_type_id integer REFERENCES public.enterprise_group_type(id),
@@ -20,7 +19,6 @@ CREATE TABLE public.enterprise_group (
     reorg_type_id integer REFERENCES public.reorg_type(id),
     foreign_participation_id integer REFERENCES public.foreign_participation(id)
 );
-CREATE INDEX ix_enterprise_group_active ON public.enterprise_group USING btree (active);
 CREATE INDEX ix_enterprise_group_data_source_id ON public.enterprise_group USING btree (data_source_id);
 CREATE INDEX ix_enterprise_group_enterprise_group_type_id ON public.enterprise_group USING btree (enterprise_group_type_id);
 CREATE INDEX ix_enterprise_group_foreign_participation_id ON public.enterprise_group USING btree (foreign_participation_id);
@@ -33,8 +31,19 @@ CREATE FUNCTION admin.enterprise_group_id_exists(fk_id integer) RETURNS boolean 
     SELECT fk_id IS NULL OR EXISTS (SELECT 1 FROM public.enterprise_group WHERE id = fk_id);
 $$;
 
-CREATE TRIGGER trg_enterprise_group_synchronize_valid_from_after
-    BEFORE INSERT OR UPDATE ON public.enterprise_group
-    FOR EACH ROW EXECUTE FUNCTION public.synchronize_valid_from_after();
+-- Activate era handling
+SELECT sql_saga.add_era('public.enterprise_group', synchronize_valid_to_column => 'valid_to');
+-- This creates a GIST exclusion constraint (`enterprise_group_id_valid_excl`) to ensure
+-- that there are no overlapping time periods for the same enterprise_group ID. This constraint is
+-- backed by a GIST index, which also accelerates temporal queries on the primary key.
+SELECT sql_saga.add_unique_key(
+    table_oid => 'public.enterprise_group',
+    key_type => 'primary',
+    column_names => ARRAY['id'],
+    unique_key_name => 'enterprise_group_id_valid'
+);
+
+-- Add a view for portion-of updates, allowing for easier updates to specific time slices.
+SELECT sql_saga.add_for_portion_of_view('public.enterprise_group');
 
 END;

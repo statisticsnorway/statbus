@@ -1,17 +1,14 @@
-import { getServerRestClient } from "@/context/RestClientStore";
+"use client";
 import UnitSizeOptions from "@/app/search/filters/unit-size/unit-size-options";
+import { useSearchPageData } from "@/atoms/search";
 
-export default async function UnitSizeFilter() {
-  const client = await getServerRestClient();
-  const { data: unitSizes } = await client
-    .from("unit_size")
-    .select()
-    .filter("active", "eq", true);
+export default function UnitSizeFilter() {
+  const { allUnitSizes } = useSearchPageData();
 
   return (
     <UnitSizeOptions
       options={
-        unitSizes?.map(({ code, name }) => ({
+        allUnitSizes?.map(({ code, name }) => ({
           label: name!,
           value: code!,
           humanReadableValue: name!,

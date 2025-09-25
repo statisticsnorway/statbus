@@ -4,7 +4,7 @@
 -------------+-----------------------+-----------+----------+---------
  unit_type   | statistical_unit_type |           |          | 
  unit_id     | integer               |           |          | 
- valid_after | date                  |           |          | 
- valid_to    | date                  |           |          | 
+ valid_from  | date                  |           |          | 
+ valid_until | date                  |           |          | 
 
 ```

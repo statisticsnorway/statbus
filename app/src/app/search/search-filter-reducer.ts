@@ -1,11 +1,11 @@
-import { SearchAction, SearchOrder, SearchState } from "./search";
+import { SearchAction, SearchOrder } from "./search.d";
 
-export const defaultOrder = {name: "name", direction: "asc"} as SearchOrder;
+export const defaultOrder: SearchOrder = {field: "name", direction: "asc"};
 
 export function modifySearchStateReducer(
-  state: SearchState,
+  state: any,
   action: SearchAction
-): SearchState {
+): any {
   switch (action.type) {
     case "set_query": {
       const {
@@ -14,47 +14,23 @@ export function modifySearchStateReducer(
         api_param_value,
         app_param_values,
       } = action.payload;
-      const resetPage =
-        state.apiSearchParams[api_param_name] !== api_param_value;
-      return {
-        ...state,
-        apiSearchParams: {
-          ...state.apiSearchParams,
-          [api_param_name]: api_param_value,
-        },
-        appSearchParams: {
-          ...state.appSearchParams,
-          [app_param_name]: app_param_values,
-        },
-        pagination: {
-          ...state.pagination,
-          pageNumber: resetPage ? 1 : state.pagination.pageNumber,
-        },
-      };
-
+      // This reducer is now obsolete due to the Jotai refactor.
+      // The logic has been moved into the granular `useSearch...` hooks
+      // and the `useSearchUrlSync` hook. This function is no longer called
+      // but is kept to satisfy type dependencies until the old search provider
+      // is fully removed.
+      return state;
     }
     case "reset_all":
-      return {
-        ...state,
-        apiSearchParams: {},
-        appSearchParams: {},
-        pagination: { ...state.pagination, pageNumber: 1 },
-        order: defaultOrder
-      };
+       // See comment in "set_query"
+      return state;
     case "set_order": {
-      const name = action.payload.name;
-      const flippedDirection =
-        state.order.direction === "desc.nullslast" ? "asc" : "desc.nullslast";
-
-      const order: SearchOrder = name === state.order.name
-        ? { ...state.order, direction: flippedDirection }
-        : { name, direction: 'asc' };
-      return { ...state, order };
+       // See comment in "set_query"
+      return state;
     }
     case "set_page": {
-      const { pageNumber } = action.payload;
-      const pagination = { ...state.pagination, pageNumber };
-      return { ...state, pagination };
+       // See comment in "set_query"
+      return state;
     }
     default:
       return state;

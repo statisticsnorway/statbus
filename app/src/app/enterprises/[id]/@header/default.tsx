@@ -1,17 +1,14 @@
-import { getStatisticalUnitHierarchy } from "@/components/statistical-unit-details/requests";
+"use client";
 import HeaderSlot from "@/components/statistical-unit-details/header-slot";
+import { useStatisticalUnitHierarchy } from "@/components/statistical-unit-details/use-unit-details";
+import { useParams } from "next/navigation";
 
-export default async function Slot(
-  props: {
-    readonly params: Promise<{ id: string }>;
-  }
-) {
-  const params = await props.params;
+export default function Slot() {
+  const params = useParams();
+  const id = params.id as string;
 
-  const { id } = params;
-
-  const { hierarchy, error } = await getStatisticalUnitHierarchy(
-    parseInt(id, 10),
+  const { hierarchy, isLoading, error } = useStatisticalUnitHierarchy(
+    id,
     "enterprise"
   );
   const primaryLegalUnit = hierarchy?.enterprise?.legal_unit?.find(
@@ -21,13 +18,15 @@ export default async function Slot(
     (es: Establishment) => es.primary_for_enterprise
   );
   const informal =
-    !hierarchy?.enterprise?.legal_unit ||
-    hierarchy.enterprise.legal_unit.length === 0;
+    hierarchy &&
+    (!hierarchy.enterprise?.legal_unit ||
+      hierarchy.enterprise.legal_unit.length === 0);
   return (
     <HeaderSlot
       id={id}
       unit={primaryLegalUnit || primaryEstablishment}
       error={error}
+      loading={isLoading}
       className={
         informal
           ? "border-informal-400 bg-informal-300"
@@ -36,4 +35,3 @@ export default async function Slot(
     />
   );
 }
-

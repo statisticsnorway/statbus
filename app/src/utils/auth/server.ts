@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from 'next/server';
 import { Agent } from 'undici';
-import { getDeploymentSlotCode } from './jwt';
+import { getDeploymentSlotCode } from './deployment';
 
 /**
  * Handles token refresh in middleware

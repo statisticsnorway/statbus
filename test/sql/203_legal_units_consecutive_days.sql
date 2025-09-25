@@ -45,7 +45,6 @@ SELECT
     'Test data load (43_legal_units_consecutive_days.sql)';
 \echo "User uploads the legal units over time (Day 1 - via import job: import_43_lu_day1)"
 \copy public.import_43_lu_day1_upload(valid_from,valid_to,tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'test/data/43_legal-units-day-1.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-
 \echo Run worker processing for import jobs (Day 1)
 CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
@@ -69,7 +68,6 @@ SELECT
 \echo "Checking timeline_legal_unit data after Day 1 load"
 SELECT unit_type
      , public.get_external_idents(unit_type, unit_id)->>'tax_ident' AS tax_ident
-     , valid_after
      , valid_from
      , valid_to
      , name
@@ -88,7 +86,7 @@ SELECT unit_type
      , physical_country_iso_2
      , invalid_codes
 FROM public.timeline_legal_unit
-ORDER BY unit_type, unit_id, valid_after, valid_to;
+ORDER BY unit_type, unit_id, valid_from, valid_to;
 
 -- Create Import Job for Legal Units (Day 4)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
@@ -100,12 +98,8 @@ SELECT
     'Test data load (43_legal_units_consecutive_days.sql)';
 \echo "User uploads the legal units over time (Day 4 - via import job: import_43_lu_day4)"
 \copy public.import_43_lu_day4_upload(valid_from,valid_to,tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'test/data/43_legal-units-day-4.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-
 \echo Run worker processing for import jobs (Day 4)
---SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
---SET client_min_messages TO NOTICE;
-
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Checking unit counts after import processing (Day 4)"
@@ -127,7 +121,6 @@ SELECT
 \echo "Checking timeline_legal_unit data after Day 4 load"
 SELECT unit_type
      , public.get_external_idents(unit_type, unit_id)->>'tax_ident' AS tax_ident
-     , valid_after
      , valid_from
      , valid_to
      , name
@@ -146,7 +139,7 @@ SELECT unit_type
      , physical_country_iso_2
      , invalid_codes
 FROM public.timeline_legal_unit
-ORDER BY unit_type, unit_id, valid_after, valid_to;
+ORDER BY unit_type, unit_id, valid_from, valid_to;
 
 -- Create Import Job for Legal Units (Day 3)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
@@ -158,7 +151,6 @@ SELECT
     'Test data load (43_legal_units_consecutive_days.sql)';
 \echo "User uploads the legal units over time (Day 3 - via import job: import_43_lu_day3)"
 \copy public.import_43_lu_day3_upload(valid_from,valid_to,tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'test/data/43_legal-units-day-3.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-
 \echo Run worker processing for import jobs (Day 3)
 CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
@@ -182,7 +174,6 @@ SELECT
 \echo "Checking timeline_legal_unit data after Day 3 load"
 SELECT unit_type
      , public.get_external_idents(unit_type, unit_id)->>'tax_ident' AS tax_ident
-     , valid_after
      , valid_from
      , valid_to
      , name
@@ -201,7 +192,7 @@ SELECT unit_type
      , physical_country_iso_2
      , invalid_codes
 FROM public.timeline_legal_unit
-ORDER BY unit_type, unit_id, valid_after, valid_to;
+ORDER BY unit_type, unit_id, valid_from, valid_to;
 
 ROLLBACK TO before_loading_units;
 
@@ -220,7 +211,6 @@ SELECT
     'Test data load (43_legal_units_consecutive_days.sql)';
 \echo "User uploads the legal units over time (Scenario 2 - Day 1 - via import job: import_43_lu_s2_day1)"
 \copy public.import_43_lu_s2_day1_upload(valid_from,valid_to,tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'test/data/43_legal-units-day-1.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-
 \echo Run worker processing for import jobs (Scenario 2 - Day 1)
 CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
@@ -241,7 +231,6 @@ SELECT
     'Test data load (43_legal_units_consecutive_days.sql)';
 \echo "User uploads the legal units over time (Scenario 2 - Day 3 - via import job: import_43_lu_s2_day3)"
 \copy public.import_43_lu_s2_day3_upload(valid_from,valid_to,tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'test/data/43_legal-units-day-3.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-
 \echo Run worker processing for import jobs (Scenario 2 - Day 3)
 CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
@@ -265,7 +254,6 @@ SELECT
 \echo "Checking timeline_legal_unit data after Scenario 2 (Day 1 & 3) load"
 SELECT unit_type
      , public.get_external_idents(unit_type, unit_id)->>'tax_ident' AS tax_ident
-     , valid_after
      , valid_from
      , valid_to
      , name
@@ -284,7 +272,7 @@ SELECT unit_type
      , physical_country_iso_2
      , invalid_codes
 FROM public.timeline_legal_unit
-ORDER BY unit_type, unit_id, valid_after, valid_to;
+ORDER BY unit_type, unit_id, valid_from, valid_to;
 
 -- Create Import Job for Legal Units (Scenario 2 - Day 4)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
@@ -296,7 +284,6 @@ SELECT
     'Test data load (43_legal_units_consecutive_days.sql)';
 \echo "User uploads the legal units over time (Scenario 2 - Day 4 - via import job: import_43_lu_s2_day4)"
 \copy public.import_43_lu_s2_day4_upload(valid_from,valid_to,tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'test/data/43_legal-units-day-4.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-
 \echo Run worker processing for import jobs (Scenario 2 - Day 4)
 CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
@@ -320,7 +307,6 @@ SELECT
 \echo "Checking timeline_legal_unit data after Scenario 2 (Day 1, 3 & 4) load"
 SELECT unit_type
      , public.get_external_idents(unit_type, unit_id)->>'tax_ident' AS tax_ident
-     , valid_after
      , valid_from
      , valid_to
      , name
@@ -339,6 +325,6 @@ SELECT unit_type
      , physical_country_iso_2
      , invalid_codes
 FROM public.timeline_legal_unit
-ORDER BY unit_type, unit_id, valid_after, valid_to;
+ORDER BY unit_type, unit_id, valid_from, valid_to;
 
 ROLLBACK;

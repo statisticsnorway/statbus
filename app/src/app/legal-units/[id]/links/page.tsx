@@ -17,7 +17,7 @@ export default async function LegalUnitLinksPage(
       title="Links and external references"
       subtitle="Relationships (links) between units of different types within the SBR"
     >
-      <TopologySlot unitId={parseInt(id)} unitType="legal_unit" />
+      <TopologySlot unitId={id} unitType="legal_unit" />
     </DetailsPage>
   );
 }

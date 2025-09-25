@@ -60,24 +60,28 @@ CREATE EXTENSION ltree SCHEMA public;
 --   daterange(..,..,'(]') && daterange(..,..,'(]')
 -- being very slow in comparison the OVERLAPS, but the semantics are incorrect
 -- we need a valid_from <= time <= valid_to as opposed to the OVERLAPS valid_from <= time <= valid_to
--- We need two kinds of comparisons in this project
---   after_to_overlaps(valid_after1, valid_to1, valid_after2, valid_to2)
--- with the range `valid_after < time <= valid_to`
--- and
---   from_to_overlaps(valid_from1, valid_to1, valid_from2, valid_to2)
--- with the range `valid_from <= time <= valid_to`
+-- We need two kinds of range overlap comparisons in this project, which are faster
+-- alternatives to PostgreSQL's built-in range operators (`&&`).
+--
+-- 1. `from_until_overlaps(from1, until1, from2, until2)`
+--    For Inclusive-Exclusive `[from, until)` ranges, used for sql_saga's core temporal logic.
+--    This corresponds to the logic: `valid_from <= time < valid_until`.
+--
+-- 2. `from_to_overlaps(start1, end1, start2, end2)`
+--    For Inclusive-Inclusive `[start, end]` ranges, used for UI-facing dates.
+--    This corresponds to the logic: `valid_from <= time <= valid_to`.
 
-CREATE OR REPLACE FUNCTION after_to_overlaps(
-    after1 anyelement, to1 anyelement,
-    after2 anyelement, to2 anyelement
+CREATE OR REPLACE FUNCTION from_until_overlaps(
+    from1 anyelement, until1 anyelement,
+    from2 anyelement, until2 anyelement
 ) RETURNS BOOLEAN 
 LANGUAGE sql IMMUTABLE PARALLEL SAFE COST 1 
-AS $after_to_overlaps$
+AS $from_until_overlaps$
     -- This function implements range overlap check for any comparable type
-    -- with the range semantics: after < time <= to
-    -- The formula (after1 < to2 AND after2 < to1) checks if two half-open ranges overlap
-    SELECT after1 < to2 AND after2 < to1;
-$after_to_overlaps$;
+    -- with the range semantics: from <= time < until
+    -- The formula (from1 < until2 AND from2 < until1) checks if two half-open ranges overlap
+    SELECT from1 < until2 AND from2 < until1;
+$from_until_overlaps$;
 
 CREATE OR REPLACE FUNCTION from_to_overlaps(
     start1 anyelement, end1 anyelement,

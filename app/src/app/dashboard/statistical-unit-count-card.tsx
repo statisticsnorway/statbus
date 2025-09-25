@@ -2,8 +2,9 @@
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
-import { useTimeContext } from '@/atoms/app';
-import { useEffect, useState } from "react";
+import { useTimeContext } from '@/atoms/app-derived';
+import { useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { PostgrestError } from "@supabase/postgrest-js";
 
 export const StatisticalUnitCountCard = ({
@@ -17,7 +18,7 @@ export const StatisticalUnitCountCard = ({
 
   const [data, setData] = useState<{ count: number | null; error: PostgrestError | null }>({ count: null, error: null });
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     const fetchData = async (validOn: string) => {
       const client = await getBrowserRestClient();
       const { count, error } = await client
@@ -39,7 +40,7 @@ export const StatisticalUnitCountCard = ({
     };
 
     fetchDataAsync();
-  }, [selectedTimeContext, unitType]);
+  }, [selectedTimeContext, unitType], `StatisticalUnitCountCard:${unitType}:fetchData`);
 
   const { count, error } = data;
 

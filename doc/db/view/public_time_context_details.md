@@ -17,12 +17,15 @@ View definition:
          SELECT 'relative_period'::time_context_type AS type,
             'r_'::text || relative_period_with_time.code::character varying::text AS ident,
                 CASE
-                    WHEN relative_period_with_time.code = 'year_curr'::relative_period_code THEN format('Current Year (%s)'::text, EXTRACT(year FROM CURRENT_DATE))::character varying
+                    WHEN relative_period_with_time.code = ANY (ARRAY['year_curr'::relative_period_code, 'year_curr_only'::relative_period_code]) THEN format('%s (%s)'::text, relative_period_with_time.name_when_query, EXTRACT(year FROM CURRENT_DATE))::character varying
+                    WHEN relative_period_with_time.code = 'year_prev'::relative_period_code THEN format('%s (%s)'::text, relative_period_with_time.name_when_query, EXTRACT(year FROM CURRENT_DATE) - 1::numeric)::character varying
                     ELSE relative_period_with_time.name_when_query
                 END AS name_when_query,
                 CASE
-                    WHEN relative_period_with_time.code = 'year_curr'::relative_period_code THEN format('Current year and onwards (%s->)'::text, EXTRACT(year FROM CURRENT_DATE))::character varying
-                    WHEN relative_period_with_time.code = 'year_prev_only'::relative_period_code THEN format('Previous year only (%s)'::text, EXTRACT(year FROM CURRENT_DATE) - 1::numeric)::character varying
+                    WHEN relative_period_with_time.code = 'year_curr'::relative_period_code THEN format('%s (%s->)'::text, relative_period_with_time.name_when_input, EXTRACT(year FROM CURRENT_DATE))::character varying
+                    WHEN relative_period_with_time.code = 'year_prev'::relative_period_code THEN format('%s (%s->)'::text, relative_period_with_time.name_when_input, EXTRACT(year FROM CURRENT_DATE) - 1::numeric)::character varying
+                    WHEN relative_period_with_time.code = 'year_curr_only'::relative_period_code THEN format('%s (%s)'::text, relative_period_with_time.name_when_input, EXTRACT(year FROM CURRENT_DATE))::character varying
+                    WHEN relative_period_with_time.code = 'year_prev_only'::relative_period_code THEN format('%s (%s)'::text, relative_period_with_time.name_when_input, EXTRACT(year FROM CURRENT_DATE) - 1::numeric)::character varying
                     ELSE relative_period_with_time.name_when_input
                 END AS name_when_input,
             relative_period_with_time.scope,
@@ -49,7 +52,7 @@ View definition:
         UNION ALL
          SELECT 'year'::time_context_type AS type,
             'y_'::text || ty.year::text AS ident,
-            ty.year::text AS name_when_query,
+            ty.year::text || ' (Data)'::text AS name_when_query,
             ty.year::text AS name_when_input,
             'input_and_query'::relative_period_scope AS scope,
             make_date(ty.year, 1, 1) AS valid_from,
@@ -57,7 +60,7 @@ View definition:
             make_date(ty.year, 12, 31) AS valid_on,
             NULL::relative_period_code AS code,
             NULL::ltree AS path
-           FROM timepoints_years ty
+           FROM timesegments_years ty
           WHERE ty.year <> ALL (ARRAY[EXTRACT(year FROM CURRENT_DATE)::integer, (EXTRACT(year FROM CURRENT_DATE) - 1::numeric)::integer])
         )
  SELECT type,
@@ -73,8 +76,8 @@ View definition:
    FROM combined_data
   ORDER BY type, (
         CASE
-            WHEN type = 'year'::time_context_type THEN name_when_query::integer
-            ELSE NULL::integer
+            WHEN type = 'year'::time_context_type THEN EXTRACT(year FROM valid_from)
+            ELSE NULL::numeric
         END) DESC, code, path;
 
 ```

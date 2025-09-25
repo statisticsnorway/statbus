@@ -122,6 +122,7 @@ BEGIN
     -- PERFORM admin.add_rls_regular_user_can_read('public.region_access'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.stat_definition'::regclass);
     -- Is updated by the statbus worker, using authorized functions.
+    PERFORM admin.add_rls_regular_user_can_read('public.timepoints'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.timesegments'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.timesegments_years'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.timeline_establishment'::regclass);
@@ -188,6 +189,7 @@ BEGIN
         JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
         WHERE n.nspname = 'public' 
         AND c.relkind = 'v'
+        AND c.relname NOT LIKE '%__for_portion_of_valid'
     LOOP
         -- Grant SELECT to authenticated, regular_user, and admin_user
         EXECUTE format('GRANT SELECT ON public.%I TO authenticated, regular_user, admin_user', view_record.view_name);
@@ -247,6 +249,7 @@ BEGIN
         JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
         WHERE n.nspname = 'public' 
         AND c.relkind = 'v'
+        AND c.relname NOT LIKE '%__for_portion_of_valid'
     LOOP
         -- For each view, check privileges for each required role
         FOREACH role_name IN ARRAY required_roles

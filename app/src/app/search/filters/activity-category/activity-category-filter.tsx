@@ -1,11 +1,9 @@
-import { getServerRestClient } from "@/context/RestClientStore";
+"use client";
 import ActivityCategoryOptions from "@/app/search/filters/activity-category/activity-category-options";
+import { useSearchPageData } from "@/atoms/search";
 
-export default async function ActivityCategoryFilter() {
-  const client = await getServerRestClient();
-  const activityCategories = await client
-    .from("activity_category_used")
-    .select();
+export default function ActivityCategoryFilter() {
+  const { allActivityCategories } = useSearchPageData();
 
   return (
     <ActivityCategoryOptions
@@ -16,7 +14,7 @@ export default async function ActivityCategoryFilter() {
           humanReadableValue: "Missing",
           className: "bg-orange-200",
         },
-        ...(activityCategories.data?.map(({ code, path, name }) => ({
+        ...(allActivityCategories?.map(({ code, path, name }) => ({
           label: `${code} ${name}`,
           value: path as string,
           humanReadableValue: `${code} ${name}`,

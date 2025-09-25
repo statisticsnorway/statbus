@@ -39,6 +39,11 @@ BEGIN
     IF NEW.state IN ('waiting_for_review', 'finished', 'rejected') THEN
         NEW.current_step_code := NULL;
         NEW.current_step_priority := NULL;
+
+        -- When a job is finished or rejected, it's done. The performance index will be dropped with the table.
+        IF NEW.state IN ('finished', 'rejected') THEN
+            RAISE DEBUG '[Job %] State is now %, performance index will be dropped with table.', NEW.id, NEW.state;
+        END IF;
     END IF;
 
     -- Record start timestamp for processing_data state

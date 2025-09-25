@@ -1,6 +1,7 @@
 "use client";
 "use client";
-import React, { Suspense, useEffect, useState } from 'react'; // Added useEffect, useState
+import React, { Suspense, useState } from 'react'; // Added useEffect, useState
+import { useGuardedEffect } from '@/hooks/use-guarded-effect';
 import { useAtomValue } from 'jotai';
 import {
   activityCategoryStandardSettingAtomAsync,
@@ -14,9 +15,9 @@ import { Loader2 } from 'lucide-react';
 
 const ProgressStatusContent = () => {
   const [isMounted, setIsMounted] = useState(false);
-  useEffect(() => {
+  useGuardedEffect(() => {
     setIsMounted(true);
-  }, []);
+  }, [], 'GettingStartedProgress:setMounted');
 
   const activity_category_standard = useAtomValue(activityCategoryStandardSettingAtomAsync);
   const numberOfRegions = useAtomValue(numberOfRegionsAtomAsync);

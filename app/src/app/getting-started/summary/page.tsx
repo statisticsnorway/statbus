@@ -1,6 +1,7 @@
 "use client";
 
-import React, { Suspense, useEffect, useState } from "react"; // Added useEffect, useState
+import React, { Suspense, useState } from "react"; // Added useEffect, useState
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import Link from "next/link";
 import { Check, Minus, X } from "lucide-react";
 import { useAtomValue } from 'jotai';
@@ -16,9 +17,9 @@ import { Loader2 } from 'lucide-react';
 
 const SummaryContent = () => {
   const [isMounted, setIsMounted] = useState(false);
-  useEffect(() => {
+  useGuardedEffect(() => {
     setIsMounted(true);
-  }, []);
+  }, [], 'GettingStartedSummary:setMounted');
 
   const activity_category_standard = useAtomValue(activityCategoryStandardSettingAtomAsync);
   const numberOfRegions = useAtomValue(numberOfRegionsAtomAsync);

@@ -10,8 +10,8 @@
 import { atom, useAtom } from 'jotai'
 import { atomWithStorage, atomWithRefresh } from 'jotai/utils'
 
-import { restClientAtom } from './app'
-import { isAuthenticatedAtom } from './auth'
+import { restClientAtom } from './rest-client'
+import { authStateForDataFetchingAtom } from './auth'
 
 // ============================================================================
 // GETTING STARTED ATOMS - Replace GettingStartedContext
@@ -37,8 +37,9 @@ export const gettingStartedUIStateAtom = atomWithStorage<GettingStartedUIState>(
 
 // Activity Category Standard Setting
 export const activityCategoryStandardSettingAtomAsync = atomWithRefresh(async (get) => {
-  const isAuthenticated = get(isAuthenticatedAtom);
-  if (!isAuthenticated) return null;
+  const authState = get(authStateForDataFetchingAtom);
+  if (authState === 'checking' || authState === 'refreshing') return new Promise<never>(() => {});
+  if (authState !== 'authenticated') return null;
 
   const client = get(restClientAtom);
   if (!client) return null;
@@ -55,8 +56,9 @@ export const activityCategoryStandardSettingAtomAsync = atomWithRefresh(async (g
 
 // Number of Regions
 export const numberOfRegionsAtomAsync = atomWithRefresh(async (get) => {
-  const isAuthenticated = get(isAuthenticatedAtom);
-  if (!isAuthenticated) return null;
+  const authState = get(authStateForDataFetchingAtom);
+  if (authState === 'checking' || authState === 'refreshing') return new Promise<never>(() => {});
+  if (authState !== 'authenticated') return null;
 
   const client = get(restClientAtom);
   if (!client) return null;
@@ -70,8 +72,9 @@ export const numberOfRegionsAtomAsync = atomWithRefresh(async (get) => {
 
 // Number of Custom Activity Category Codes
 export const numberOfCustomActivityCodesAtomAsync = atomWithRefresh(async (get) => {
-  const isAuthenticated = get(isAuthenticatedAtom);
-  if (!isAuthenticated) return null;
+  const authState = get(authStateForDataFetchingAtom);
+  if (authState === 'checking' || authState === 'refreshing') return new Promise<never>(() => {});
+  if (authState !== 'authenticated') return null;
 
   const client = get(restClientAtom);
   if (!client) return null;
@@ -85,8 +88,9 @@ export const numberOfCustomActivityCodesAtomAsync = atomWithRefresh(async (get) 
 
 // Number of Custom Sectors
 export const numberOfCustomSectorsAtomAsync = atomWithRefresh(async (get) => {
-  const isAuthenticated = get(isAuthenticatedAtom);
-  if (!isAuthenticated) return null;
+  const authState = get(authStateForDataFetchingAtom);
+  if (authState === 'checking' || authState === 'refreshing') return new Promise<never>(() => {});
+  if (authState !== 'authenticated') return null;
 
   const client = get(restClientAtom);
   if (!client) return null;
@@ -100,8 +104,9 @@ export const numberOfCustomSectorsAtomAsync = atomWithRefresh(async (get) => {
 
 // Number of Custom Legal Forms
 export const numberOfCustomLegalFormsAtomAsync = atomWithRefresh(async (get) => {
-  const isAuthenticated = get(isAuthenticatedAtom);
-  if (!isAuthenticated) return null;
+  const authState = get(authStateForDataFetchingAtom);
+  if (authState === 'checking' || authState === 'refreshing') return new Promise<never>(() => {});
+  if (authState !== 'authenticated') return null;
 
   const client = get(restClientAtom);
   if (!client) return null;
@@ -115,8 +120,9 @@ export const numberOfCustomLegalFormsAtomAsync = atomWithRefresh(async (get) => 
 
 // Number of Total Activity Category Codes (available)
 export const numberOfTotalActivityCodesAtomAsync = atomWithRefresh(async (get) => {
-  const isAuthenticated = get(isAuthenticatedAtom);
-  if (!isAuthenticated) return null;
+  const authState = get(authStateForDataFetchingAtom);
+  if (authState === 'checking' || authState === 'refreshing') return new Promise<never>(() => {});
+  if (authState !== 'authenticated') return null;
 
   const client = get(restClientAtom);
   if (!client) return null;

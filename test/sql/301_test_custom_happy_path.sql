@@ -87,7 +87,7 @@ BEGIN
     SELECT array_agg(s.id) INTO v_lu_step_ids
     FROM public.import_step s
     WHERE s.code IN (
-        'external_idents', 'enterprise_link_for_legal_unit', 'valid_time', 'status', 'legal_unit',
+        'external_idents', 'data_source', 'enterprise_link_for_legal_unit', 'valid_time', 'status', 'legal_unit',
         'physical_location', 'postal_location', 'primary_activity', 'secondary_activity',
         'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'
     );
@@ -95,7 +95,7 @@ BEGIN
     SELECT array_agg(s.id) INTO v_es_formal_step_ids
     FROM public.import_step s
     WHERE s.code IN (
-        'external_idents', 'link_establishment_to_legal_unit', 'enterprise_link_for_establishment', 'valid_time', 'status', 'establishment',
+        'external_idents', 'data_source', 'link_establishment_to_legal_unit', 'enterprise_link_for_establishment', 'valid_time', 'status', 'establishment',
         'physical_location', 'postal_location', 'primary_activity', 'secondary_activity',
         'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'
     );
@@ -103,7 +103,7 @@ BEGIN
     SELECT array_agg(s.id) INTO v_es_informal_step_ids
     FROM public.import_step s
     WHERE s.code IN (
-        'external_idents', 'enterprise_link_for_establishment', 'valid_time', 'status', 'establishment',
+        'external_idents', 'data_source', 'enterprise_link_for_establishment', 'valid_time', 'status', 'establishment',
         'physical_location', 'postal_location', 'primary_activity', 'secondary_activity',
         'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'
     );
@@ -126,7 +126,7 @@ BEGIN
     FROM public.import_definition d
     JOIN public.import_source_column sc ON sc.definition_id = d.id
     JOIN public.import_definition_step ds ON ds.definition_id = d.id
-    JOIN public.import_data_column dc ON dc.step_id = ds.step_id AND dc.column_name = sc.column_name AND dc.purpose = 'source_input'
+    JOIN public.import_data_column dc ON dc.step_id = ds.step_id AND replace(dc.column_name, '_raw', '') = sc.column_name AND dc.purpose = 'source_input'
     WHERE d.id = v_lu_def_id;
     UPDATE public.import_definition SET valid = true WHERE id = v_lu_def_id;
 
@@ -148,7 +148,7 @@ BEGIN
     FROM public.import_definition d
     JOIN public.import_source_column sc ON sc.definition_id = d.id
     JOIN public.import_definition_step ds ON ds.definition_id = d.id
-    JOIN public.import_data_column dc ON dc.step_id = ds.step_id AND dc.column_name = sc.column_name AND dc.purpose = 'source_input'
+    JOIN public.import_data_column dc ON dc.step_id = ds.step_id AND replace(dc.column_name, '_raw', '') = sc.column_name AND dc.purpose = 'source_input'
     WHERE d.id = v_es_lu_def_id;
     UPDATE public.import_definition SET valid = true WHERE id = v_es_lu_def_id;
 
@@ -170,7 +170,7 @@ BEGIN
     FROM public.import_definition d
     JOIN public.import_source_column sc ON sc.definition_id = d.id
     JOIN public.import_definition_step ds ON ds.definition_id = d.id
-    JOIN public.import_data_column dc ON dc.step_id = ds.step_id AND dc.column_name = sc.column_name AND dc.purpose = 'source_input'
+    JOIN public.import_data_column dc ON dc.step_id = ds.step_id AND replace(dc.column_name, '_raw', '') = sc.column_name AND dc.purpose = 'source_input'
     WHERE d.id = v_es_no_lu_def_id;
     UPDATE public.import_definition SET valid = true WHERE id = v_es_no_lu_def_id;
 
@@ -209,14 +209,14 @@ INSERT INTO public.import_71_a1_lu_upload(
     primary_activity_category_code, sector_code, legal_form_code, email_address, men_employees, women_employees, tag_path
 ) VALUES (
     '71A000001', 'NIN71A001', 'LU-71A Period 1', '2023-01-01', '2023-03-31', 'Addr 1 LU-71A', 'NO', '1001', '0301',
-    '01.110', 'S1', 'AS', 'lu71a_p1@example.com', '6', '4', 'TestTag.LU'
+    '01.110', '2100', 'AS', 'lu71a_p1@example.com', '6', '4', 'TestTag.LU'
 );
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo "Job status for import_71_a1_lu:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_71_a1_lu';
 \echo "Data table for import_71_a1_lu:"
-SELECT row_id, state, error, action, operation, tax_ident, nin_ident, name, valid_from, valid_to FROM public.import_71_a1_lu_data ORDER BY row_id;
+SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident_raw, nin_ident_raw, name_raw, valid_from_raw, valid_to_raw FROM public.import_71_a1_lu_data ORDER BY row_id;
 
 \echo "Verification for LU-71A ('71A000001') after Sub-Scenario 71.A.1 (all segments shown):"
 \echo "Legal Unit External Idents (tax_ident, nin_ident):"
@@ -248,18 +248,18 @@ INSERT INTO public.import_71_a2_lu_upload(
     primary_activity_category_code, sector_code, legal_form_code, email_address, men_employees, women_employees, tag_path
 ) VALUES (
     '71A000001', 'NIN71A001', 'LU-71A Period 2 Updated Name', '2023-04-01', '2023-06-30', 'Addr 1 LU-71A', 'NO', '1001', '0301',
-    '01.110', 'S1', 'AS', 'lu71a_p1@example.com', '7', '4', 'TestTag.LU' -- Women employees, address, etc. unchanged. NIN kept same.
+    '01.110', '2100', 'AS', 'lu71a_p1@example.com', '7', '4', 'TestTag.LU' -- Women employees, address, etc. unchanged. NIN kept same.
 );
---SET client_min_messages TO DEBUG1;
+
 CALL worker.process_tasks(p_queue => 'import');
---SET client_min_messages TO NOTICE;
 
 \echo "Job status for import_71_a2_lu:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_71_a2_lu';
 \echo "Data table for import_71_a2_lu:"
-SELECT row_id, state, error, action, operation, tax_ident, nin_ident, name, valid_from, valid_to FROM public.import_71_a2_lu_data ORDER BY row_id;
+SELECT row_id, state, errors, invalid_codes, merge_status, action, operation, tax_ident_raw, nin_ident_raw, name_raw, valid_from_raw, valid_to_raw FROM public.import_71_a2_lu_data ORDER BY row_id;
 
 \echo "Verification for LU-71A ('71A000001') after Sub-Scenario 71.A.2 (all segments shown):"
+
 \echo "Legal Unit External Idents (tax_ident, nin_ident - nin updated in latest segment):"
 SELECT lu.name, ei.ident as tax_ident, ei_nin.ident as nin_ident, sec.code as sector_code, lf.code as legal_form_code, lu.valid_from, lu.valid_to
 FROM public.legal_unit lu
@@ -268,6 +268,7 @@ LEFT JOIN public.external_ident ei_nin ON lu.id = ei_nin.legal_unit_id AND ei_ni
 LEFT JOIN public.sector sec ON lu.sector_id = sec.id
 LEFT JOIN public.legal_form lf ON lu.legal_form_id = lf.id
 WHERE ei.ident = '71A000001' ORDER BY lu.valid_from, lu.valid_to;
+
 \echo "Stat (Men/Women Employees - men_employees updated in latest segment):"
 SELECT sd.code as stat_code, sfu.value_int, sfu.valid_from, sfu.valid_to
 FROM public.stat_for_unit sfu
@@ -302,7 +303,7 @@ BEGIN
     VALUES (v_definition_id, 'import_71_b_lu_for_es', 'Test 71.B: Base LU for Formal ES', 'Test 71.B');
 END $$;
 INSERT INTO public.import_71_b_lu_for_es_upload(tax_ident, nin_ident, name, valid_from, valid_to, sector_code, legal_form_code, primary_activity_category_code) VALUES
-('71B000000', 'NIN_LU_FOR_ES_71B', 'Base LU for ES-71B', '2023-01-01', '2023-12-31', 'S_Base', 'AS', '00.000');
+('71B000000', 'NIN_LU_FOR_ES_71B', 'Base LU for ES-71B', '2023-01-01', '2023-12-31', '2100', 'AS', '00.000');
 CALL worker.process_tasks(p_queue => 'import');
 
 -- Sub-Scenario 71.B.1: Initial Formal ES Import
@@ -321,9 +322,7 @@ INSERT INTO public.import_71_b1_es_upload(
     'E71B00001', 'NIN_ES_71B001', '71B000000', 'ES-71B Period 1', '2023-01-01', '2023-03-31', 'Addr 1 ES-71B', 'NO', '2001', '0301',
     '02.110', 'es71b_p1@example.com', '3', '2', 'TestTag.ES.Formal'
 );
---SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
---SET client_min_messages TO NOTICE;
 
 \echo "Verification for ES-71B ('E71B00001') after Sub-Scenario 71.B.1 (all segments shown):"
 \echo "Establishment External Idents (tax_ident, nin_ident):"

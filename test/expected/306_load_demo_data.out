@@ -1092,7 +1092,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     7
- import    | completed |    54
+ import    | completed |   141
 (2 rows)
 
 \echo "Checking import job statuses for Block 1"
@@ -1121,7 +1121,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |     9
- import    | completed |    54
+ import    | completed |   141
 (2 rows)
 
 \echo "Checking statistics"
@@ -1132,7 +1132,7 @@ SELECT unit_type
      , jsonb_agg(DISTINCT invalid_codes) FILTER (WHERE invalid_codes IS NOT NULL) AS invalid_codes
      , jsonb_pretty(jsonb_stats_summary_merge_agg(stats_summary)) AS stats_summary
  FROM statistical_unit
- WHERE valid_after < CURRENT_DATE AND CURRENT_DATE <= valid_to
+ WHERE valid_from <= CURRENT_DATE AND CURRENT_DATE < valid_until
  GROUP BY unit_type;
 -[ RECORD 1 ]-+-----------------------------------------------
 unit_type     | establishment
@@ -1267,7 +1267,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     7
- import    | completed |    36
+ import    | completed |    94
 (2 rows)
 
 \echo "Checking import job statuses for Block 2"
@@ -1295,7 +1295,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |     9
- import    | completed |    36
+ import    | completed |    94
 (2 rows)
 
 \echo "Checking statistics"
@@ -1306,7 +1306,7 @@ SELECT unit_type
      , jsonb_agg(DISTINCT invalid_codes) FILTER (WHERE invalid_codes IS NOT NULL) AS invalid_codes
      , jsonb_pretty(jsonb_stats_summary_merge_agg(stats_summary)) AS stats_summary
  FROM statistical_unit
- WHERE valid_after < CURRENT_DATE AND CURRENT_DATE <= valid_to
+ WHERE valid_from <= CURRENT_DATE AND CURRENT_DATE < valid_until
  GROUP BY unit_type;
 -[ RECORD 1 ]-+-----------------------------------------------
 unit_type     | establishment
@@ -1429,7 +1429,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     6
- import    | completed |    18
+ import    | completed |    47
 (2 rows)
 
 \echo "Checking import job statuses for Block 3"
@@ -1456,7 +1456,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |     8
- import    | completed |    18
+ import    | completed |    47
 (2 rows)
 
 \echo "Checking statistics"
@@ -1467,7 +1467,7 @@ SELECT unit_type
      , jsonb_agg(DISTINCT invalid_codes) FILTER (WHERE invalid_codes IS NOT NULL) AS invalid_codes
      , jsonb_pretty(jsonb_stats_summary_merge_agg(stats_summary)) AS stats_summary
  FROM statistical_unit
- WHERE valid_after < CURRENT_DATE AND CURRENT_DATE <= valid_to
+ WHERE valid_from <= CURRENT_DATE AND CURRENT_DATE < valid_until
  GROUP BY unit_type;
 -[ RECORD 1 ]-+-----------------------------------------------
 unit_type     | legal_unit
@@ -1560,7 +1560,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     6
- import    | completed |    18
+ import    | completed |    47
 (2 rows)
 
 \echo "Checking import job statuses for Block 4"
@@ -1587,7 +1587,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |     8
- import    | completed |    18
+ import    | completed |    47
 (2 rows)
 
 \echo "Checking statistics"
@@ -1598,7 +1598,7 @@ SELECT unit_type
      , jsonb_agg(DISTINCT invalid_codes) FILTER (WHERE invalid_codes IS NOT NULL) AS invalid_codes
      , jsonb_pretty(jsonb_stats_summary_merge_agg(stats_summary)) AS stats_summary
  FROM statistical_unit
- WHERE valid_after < CURRENT_DATE AND CURRENT_DATE <= valid_to
+ WHERE valid_from <= CURRENT_DATE AND CURRENT_DATE < valid_until
  GROUP BY unit_type;
 -[ RECORD 1 ]-+----------------------------------------------
 unit_type     | establishment
@@ -1662,4 +1662,23 @@ stats_summary | {                                            +
               | }
 
 \x
+RESET client_min_messages;
+\i test/rollback_unless_persist_is_specified.sql
+---------------------------------------------------------------------------
+-- Support development loading of the data without rollback using
+--   ./devops/manage-statbus.sh psql --variable=PERSIST=true < test/sql/01_load_web_examples.sql
+-- Ref. https://stackoverflow.com/a/32597876/1023558
+\set PERSIST :PERSIST
+-- now PERSIST is set to the string ':PERSIST' if was not already set.
+-- Checking it using a CASE statement:
+SELECT CASE
+  WHEN :'PERSIST'= ':PERSIST'
+  THEN 'false'
+  ELSE :'PERSIST'
+END::BOOL AS "PERSIST" \gset
+-- < \gset call at end of the query to set variable.
+\if :PERSIST
+COMMIT;
+\else
 ROLLBACK;
+\endif

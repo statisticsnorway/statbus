@@ -3,9 +3,8 @@ BEGIN;
 CREATE TABLE public.establishment (
     id SERIAL NOT NULL,
     valid_from date NOT NULL,
-    valid_after date NOT NULL,
-    valid_to date NOT NULL DEFAULT 'infinity',
-    active boolean NOT NULL DEFAULT true,
+    valid_to date,
+    valid_until date,
     short_name character varying(16),
     name character varying(256) NOT NULL,
     birth_date date,
@@ -39,7 +38,6 @@ CREATE TABLE public.establishment (
     CHECK( CASE WHEN enterprise_id IS NULL THEN sector_id IS NULL END)
 );
 
-CREATE INDEX establishment_active_idx ON public.establishment(active);
 CREATE INDEX ix_establishment_data_source_id ON public.establishment USING btree (data_source_id);
 CREATE INDEX ix_establishment_sector_id ON public.establishment USING btree (sector_id);
 CREATE INDEX ix_establishment_status_id ON public.establishment USING btree (status_id);
@@ -49,6 +47,9 @@ CREATE INDEX ix_establishment_name ON public.establishment USING btree (name);
 CREATE INDEX ix_establishment_size_id ON public.establishment USING btree (unit_size_id);
 CREATE INDEX ix_establishment_edit_by_user_id ON public.establishment USING btree (edit_by_user_id);
 
+CREATE INDEX ix_establishment_legal_unit_id_valid_range ON public.establishment USING gist (legal_unit_id, daterange(valid_from, valid_until, '[)'));
+CREATE INDEX ix_establishment_enterprise_id_valid_range ON public.establishment USING gist (enterprise_id, daterange(valid_from, valid_until, '[)'));
+
 CREATE INDEX establishment_enterprise_id_primary_for_enterprise_idx ON public.establishment(enterprise_id, primary_for_enterprise) WHERE enterprise_id IS NOT NULL;
 CREATE INDEX establishment_legal_unit_id_primary_for_legal_unit_idx ON public.establishment(legal_unit_id, primary_for_legal_unit) WHERE legal_unit_id IS NOT NULL;
 
@@ -56,8 +57,48 @@ CREATE OR REPLACE FUNCTION admin.establishment_id_exists(fk_id integer) RETURNS 
     SELECT fk_id IS NULL OR EXISTS (SELECT 1 FROM public.establishment WHERE id = fk_id);
 $$;
 
-CREATE TRIGGER trg_establishment_synchronize_valid_from_after
-    BEFORE INSERT OR UPDATE ON public.establishment
-    FOR EACH ROW EXECUTE FUNCTION public.synchronize_valid_from_after();
+-- Activate era handling
+SELECT sql_saga.add_era('public.establishment', synchronize_valid_to_column => 'valid_to');
+-- This creates a GIST exclusion constraint (`establishment_id_valid_excl`) to ensure that
+-- there are no overlapping time periods for the same establishment ID. This is backed by a
+-- GIST index, which also accelerates temporal queries on the primary key.
+SELECT sql_saga.add_unique_key(
+    table_oid => 'public.establishment',
+    key_type => 'primary',
+    column_names => ARRAY['id'],
+    unique_key_name => 'establishment_id_valid'
+);
+-- Enforce that an enterprise can only have one primary establishment at any given time.
+-- This creates a GIST exclusion constraint (`establishment_enterprise_id_primary_valid_excl`)
+-- to prevent overlapping time periods for primary establishments within the same enterprise.
+SELECT sql_saga.add_unique_key(
+    table_oid => 'public.establishment',
+    column_names => ARRAY['enterprise_id'],
+    key_type => 'predicated',
+    predicate => 'primary_for_enterprise IS TRUE',
+    unique_key_name => 'establishment_enterprise_id_primary_valid'
+);
+-- Enforce that a legal unit can only have one primary establishment at any given time.
+-- This creates a GIST exclusion constraint (`establishment_legal_unit_id_primary_valid_excl`)
+-- to prevent overlapping time periods for primary establishments within the same legal unit.
+SELECT sql_saga.add_unique_key(
+    table_oid => 'public.establishment',
+    column_names => ARRAY['legal_unit_id'],
+    key_type => 'predicated',
+    predicate => 'primary_for_legal_unit IS TRUE',
+    unique_key_name => 'establishment_legal_unit_id_primary_valid'
+);
+-- Add temporal foreign key to legal_unit. This creates triggers to enforce that an
+-- establishment's validity period is always contained within the validity period of its
+-- parent legal unit.
+SELECT sql_saga.add_foreign_key(
+    fk_table_oid => 'public.establishment',
+    fk_column_names => ARRAY['legal_unit_id'],
+    fk_era_name => 'valid',
+    unique_key_name => 'legal_unit_id_valid'
+);
+
+-- Add a view for portion-of updates, allowing for easier updates to specific time slices.
+SELECT sql_saga.add_for_portion_of_view('public.establishment');
 
 END;

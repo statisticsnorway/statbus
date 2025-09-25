@@ -139,7 +139,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     7
- import    | completed |    54
+ import    | completed |   141
 (2 rows)
 
 \echo "Checking import job statuses"
@@ -154,6 +154,33 @@ WHERE slug LIKE 'import_33_%' ORDER BY slug;
  import_33_lu_era    | finished |          2 |             2 | f
 (3 rows)
 
+\echo "Data table for Legal Units (import_33_lu_era):"
+"Data table for Legal Units (import_33_lu_era):"
+SELECT row_id, state, errors, merge_status, action, operation, tax_ident_raw, name_raw FROM public.import_33_lu_era_data ORDER BY row_id;
+ row_id |   state   | errors |                                                                   merge_status                                                                    | action | operation | tax_ident_raw |        name_raw         
+--------+-----------+--------+---------------------------------------------------------------------------------------------------------------------------------------------------+--------+-----------+---------------+-------------------------
+      1 | processed | {}     | {"legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | use    | insert    | 2212760144    | NILE PEARL WATER
+      2 | processed | {}     | {"legal_unit": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | use    | insert    | 2812760140    | EQUATOR GLOBE SOLUTIONS
+(2 rows)
+
+\echo "Data table for Formal Establishments (import_33_esflu_era):"
+"Data table for Formal Establishments (import_33_esflu_era):"
+SELECT row_id, state, errors, merge_status, action, operation, tax_ident_raw, legal_unit_tax_ident_raw, name_raw FROM public.import_33_esflu_era_data ORDER BY row_id;
+ row_id |   state   | errors |                                                                     merge_status                                                                     | action | operation | tax_ident_raw | legal_unit_tax_ident_raw |        name_raw         
+--------+-----------+--------+------------------------------------------------------------------------------------------------------------------------------------------------------+--------+-----------+---------------+--------------------------+-------------------------
+      1 | processed | {}     | {"establishment": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | use    | insert    | 92212760144   | 2212760144               | NILE PEARL WATER
+      2 | processed | {}     | {"establishment": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | use    | insert    | 92812760140   | 2812760140               | EQUATOR GLOBE SOLUTIONS
+(2 rows)
+
+\echo "Data table for Informal Establishments (import_33_eswlu_era):"
+"Data table for Informal Establishments (import_33_eswlu_era):"
+SELECT row_id, state, errors, merge_status, action, operation, tax_ident_raw, name_raw FROM public.import_33_eswlu_era_data ORDER BY row_id;
+ row_id |   state   | errors |                                                                     merge_status                                                                     | action | operation | tax_ident_raw |           name_raw            
+--------+-----------+--------+------------------------------------------------------------------------------------------------------------------------------------------------------+--------+-----------+---------------+-------------------------------
+      1 | processed | {}     | {"establishment": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | use    | insert    | 82212760144   | THE INFORMAL NILE PEARL WATER
+      2 | processed | {}     | {"establishment": "APPLIED", "stat_turnover": "APPLIED", "stat_employees": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | use    | insert    | 82812760140   | THE EQUATOR GLOBE SOLUTIONS
+(2 rows)
+
 \echo Run worker processing for initial analytics tasks
 Run worker processing for initial analytics tasks
 CALL worker.process_tasks(p_queue => 'analytics');
@@ -161,7 +188,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |     9
- import    | completed |    54
+ import    | completed |   141
 (2 rows)
 
 SELECT
@@ -215,7 +242,6 @@ SELECT jsonb_pretty(
          "legal_unit": [                                                                                                          +
              {                                                                                                                    +
                  "name": "NILE PEARL WATER",                                                                                      +
-                 "active": true,                                                                                                  +
                  "sector": {                                                                                                      +
                      "code": "6100",                                                                                              +
                      "name": "Central government",                                                                                +
@@ -245,7 +271,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "activity_category": {                                                                                   +
                              "code": "4752",                                                                                      +
@@ -300,7 +326,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "address_part1": null,                                                                                   +
                          "address_part2": null,                                                                                   +
@@ -324,12 +350,11 @@ SELECT jsonb_pretty(
                      "active": true,                                                                                              +
                      "custom": false                                                                                              +
                  },                                                                                                               +
-                 "valid_after": "2023-12-31",                                                                                     +
+                 "valid_until": "infinity",                                                                                       +
                  "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                           +
                  "establishment": [                                                                                               +
                      {                                                                                                            +
                          "name": "NILE PEARL WATER",                                                                              +
-                         "active": true,                                                                                          +
                          "status": {                                                                                              +
                              "code": "active",                                                                                    +
                              "name": "Active",                                                                                    +
@@ -350,7 +375,7 @@ SELECT jsonb_pretty(
                                      "active": true,                                                                              +
                                      "custom": false                                                                              +
                                  },                                                                                               +
-                                 "valid_after": "2023-12-31",                                                                     +
+                                 "valid_until": "infinity",                                                                       +
                                  "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "activity_category": {                                                                           +
                                      "code": "4752",                                                                              +
@@ -405,7 +430,7 @@ SELECT jsonb_pretty(
                                      "active": true,                                                                              +
                                      "custom": false                                                                              +
                                  },                                                                                               +
-                                 "valid_after": "2023-12-31",                                                                     +
+                                 "valid_until": "infinity",                                                                       +
                                  "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "address_part1": null,                                                                           +
                                  "address_part2": null,                                                                           +
@@ -423,7 +448,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "invalid_codes": null,                                                                                   +
                          "stat_for_unit": [                                                                                       +
@@ -438,7 +463,7 @@ SELECT jsonb_pretty(
                                      "active": true,                                                                              +
                                      "custom": false                                                                              +
                                  },                                                                                               +
-                                 "valid_after": "2023-12-31",                                                                     +
+                                 "valid_until": "infinity",                                                                       +
                                  "value_float": null,                                                                             +
                                  "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "value_string": null,                                                                            +
@@ -463,7 +488,7 @@ SELECT jsonb_pretty(
                                      "active": true,                                                                              +
                                      "custom": false                                                                              +
                                  },                                                                                               +
-                                 "valid_after": "2023-12-31",                                                                     +
+                                 "valid_until": "infinity",                                                                       +
                                  "value_float": 0,                                                                                +
                                  "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "value_string": null,                                                                            +
@@ -500,7 +525,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "value_float": null,                                                                                     +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "value_string": null,                                                                                    +
@@ -525,7 +550,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "value_float": 9000000,                                                                                  +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "value_string": null,                                                                                    +
@@ -582,7 +607,6 @@ SELECT jsonb_pretty(
          "establishment": [                                                                                               +
              {                                                                                                            +
                  "name": "THE EQUATOR GLOBE SOLUTIONS",                                                                   +
-                 "active": true,                                                                                          +
                  "status": {                                                                                              +
                      "code": "active",                                                                                    +
                      "name": "Active",                                                                                    +
@@ -603,7 +627,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                              +
                              "custom": false                                                                              +
                          },                                                                                               +
-                         "valid_after": "2023-12-31",                                                                     +
+                         "valid_until": "infinity",                                                                       +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                          "activity_category": {                                                                           +
                              "code": "5610",                                                                              +
@@ -658,7 +682,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                              +
                              "custom": false                                                                              +
                          },                                                                                               +
-                         "valid_after": "2023-12-31",                                                                     +
+                         "valid_until": "infinity",                                                                       +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                          "address_part1": null,                                                                           +
                          "address_part2": null,                                                                           +
@@ -676,7 +700,7 @@ SELECT jsonb_pretty(
                      "active": true,                                                                                      +
                      "custom": false                                                                                      +
                  },                                                                                                       +
-                 "valid_after": "2023-12-31",                                                                             +
+                 "valid_until": "infinity",                                                                               +
                  "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                  "invalid_codes": null,                                                                                   +
                  "stat_for_unit": [                                                                                       +
@@ -691,7 +715,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                              +
                              "custom": false                                                                              +
                          },                                                                                               +
-                         "valid_after": "2023-12-31",                                                                     +
+                         "valid_until": "infinity",                                                                       +
                          "value_float": null,                                                                             +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                          "value_string": null,                                                                            +
@@ -716,7 +740,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                              +
                              "custom": false                                                                              +
                          },                                                                                               +
-                         "valid_after": "2023-12-31",                                                                     +
+                         "valid_until": "infinity",                                                                       +
                          "value_float": 4400,                                                                             +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                          "value_string": null,                                                                            +
@@ -765,7 +789,7 @@ WITH equator_enterprise AS (
 )
 SELECT
   public.remove_ephemeral_data_from_hierarchy(
-    connect_legal_unit_to_enterprise(nile_legal_unit.unit_id, equator_enterprise.unit_id)
+    connect_legal_unit_to_enterprise(nile_legal_unit.unit_id, equator_enterprise.unit_id, '2024-01-01'::date)
   )
 FROM equator_enterprise
    , nile_legal_unit;
@@ -781,7 +805,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |    13
- import    | completed |    54
+ import    | completed |   141
 (2 rows)
 
 SELECT
@@ -860,7 +884,6 @@ SELECT jsonb_pretty(
          "legal_unit": [                                                                                                          +
              {                                                                                                                    +
                  "name": "NILE PEARL WATER",                                                                                      +
-                 "active": true,                                                                                                  +
                  "sector": {                                                                                                      +
                      "code": "6100",                                                                                              +
                      "name": "Central government",                                                                                +
@@ -890,7 +913,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "activity_category": {                                                                                   +
                              "code": "4752",                                                                                      +
@@ -945,7 +968,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "address_part1": null,                                                                                   +
                          "address_part2": null,                                                                                   +
@@ -969,12 +992,11 @@ SELECT jsonb_pretty(
                      "active": true,                                                                                              +
                      "custom": false                                                                                              +
                  },                                                                                                               +
-                 "valid_after": "2023-12-31",                                                                                     +
+                 "valid_until": "infinity",                                                                                       +
                  "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                           +
                  "establishment": [                                                                                               +
                      {                                                                                                            +
                          "name": "NILE PEARL WATER",                                                                              +
-                         "active": true,                                                                                          +
                          "status": {                                                                                              +
                              "code": "active",                                                                                    +
                              "name": "Active",                                                                                    +
@@ -995,7 +1017,7 @@ SELECT jsonb_pretty(
                                      "active": true,                                                                              +
                                      "custom": false                                                                              +
                                  },                                                                                               +
-                                 "valid_after": "2023-12-31",                                                                     +
+                                 "valid_until": "infinity",                                                                       +
                                  "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "activity_category": {                                                                           +
                                      "code": "4752",                                                                              +
@@ -1050,7 +1072,7 @@ SELECT jsonb_pretty(
                                      "active": true,                                                                              +
                                      "custom": false                                                                              +
                                  },                                                                                               +
-                                 "valid_after": "2023-12-31",                                                                     +
+                                 "valid_until": "infinity",                                                                       +
                                  "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "address_part1": null,                                                                           +
                                  "address_part2": null,                                                                           +
@@ -1068,7 +1090,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "invalid_codes": null,                                                                                   +
                          "stat_for_unit": [                                                                                       +
@@ -1083,7 +1105,7 @@ SELECT jsonb_pretty(
                                      "active": true,                                                                              +
                                      "custom": false                                                                              +
                                  },                                                                                               +
-                                 "valid_after": "2023-12-31",                                                                     +
+                                 "valid_until": "infinity",                                                                       +
                                  "value_float": null,                                                                             +
                                  "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "value_string": null,                                                                            +
@@ -1108,7 +1130,7 @@ SELECT jsonb_pretty(
                                      "active": true,                                                                              +
                                      "custom": false                                                                              +
                                  },                                                                                               +
-                                 "valid_after": "2023-12-31",                                                                     +
+                                 "valid_until": "infinity",                                                                       +
                                  "value_float": 0,                                                                                +
                                  "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "value_string": null,                                                                            +
@@ -1145,7 +1167,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "value_float": null,                                                                                     +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "value_string": null,                                                                                    +
@@ -1170,7 +1192,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "value_float": 9000000,                                                                                  +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "value_string": null,                                                                                    +
@@ -1198,7 +1220,6 @@ SELECT jsonb_pretty(
          "establishment": [                                                                                                       +
              {                                                                                                                    +
                  "name": "THE EQUATOR GLOBE SOLUTIONS",                                                                           +
-                 "active": true,                                                                                                  +
                  "status": {                                                                                                      +
                      "code": "active",                                                                                            +
                      "name": "Active",                                                                                            +
@@ -1219,7 +1240,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "activity_category": {                                                                                   +
                              "code": "5610",                                                                                      +
@@ -1274,7 +1295,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "address_part1": null,                                                                                   +
                          "address_part2": null,                                                                                   +
@@ -1292,7 +1313,7 @@ SELECT jsonb_pretty(
                      "active": true,                                                                                              +
                      "custom": false                                                                                              +
                  },                                                                                                               +
-                 "valid_after": "2023-12-31",                                                                                     +
+                 "valid_until": "infinity",                                                                                       +
                  "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                           +
                  "invalid_codes": null,                                                                                           +
                  "stat_for_unit": [                                                                                               +
@@ -1307,7 +1328,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "value_float": null,                                                                                     +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "value_string": null,                                                                                    +
@@ -1332,7 +1353,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "value_float": 4400,                                                                                     +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "value_string": null,                                                                                    +
@@ -1386,7 +1407,6 @@ SELECT jsonb_pretty(
          "legal_unit": [                                                                                                          +
              {                                                                                                                    +
                  "name": "NILE PEARL WATER",                                                                                      +
-                 "active": true,                                                                                                  +
                  "sector": {                                                                                                      +
                      "code": "6100",                                                                                              +
                      "name": "Central government",                                                                                +
@@ -1416,7 +1436,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "activity_category": {                                                                                   +
                              "code": "4752",                                                                                      +
@@ -1471,7 +1491,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "address_part1": null,                                                                                   +
                          "address_part2": null,                                                                                   +
@@ -1495,12 +1515,11 @@ SELECT jsonb_pretty(
                      "active": true,                                                                                              +
                      "custom": false                                                                                              +
                  },                                                                                                               +
-                 "valid_after": "2023-12-31",                                                                                     +
+                 "valid_until": "infinity",                                                                                       +
                  "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                           +
                  "establishment": [                                                                                               +
                      {                                                                                                            +
                          "name": "NILE PEARL WATER",                                                                              +
-                         "active": true,                                                                                          +
                          "status": {                                                                                              +
                              "code": "active",                                                                                    +
                              "name": "Active",                                                                                    +
@@ -1521,7 +1540,7 @@ SELECT jsonb_pretty(
                                      "active": true,                                                                              +
                                      "custom": false                                                                              +
                                  },                                                                                               +
-                                 "valid_after": "2023-12-31",                                                                     +
+                                 "valid_until": "infinity",                                                                       +
                                  "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "activity_category": {                                                                           +
                                      "code": "4752",                                                                              +
@@ -1576,7 +1595,7 @@ SELECT jsonb_pretty(
                                      "active": true,                                                                              +
                                      "custom": false                                                                              +
                                  },                                                                                               +
-                                 "valid_after": "2023-12-31",                                                                     +
+                                 "valid_until": "infinity",                                                                       +
                                  "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "address_part1": null,                                                                           +
                                  "address_part2": null,                                                                           +
@@ -1594,7 +1613,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "invalid_codes": null,                                                                                   +
                          "stat_for_unit": [                                                                                       +
@@ -1609,7 +1628,7 @@ SELECT jsonb_pretty(
                                      "active": true,                                                                              +
                                      "custom": false                                                                              +
                                  },                                                                                               +
-                                 "valid_after": "2023-12-31",                                                                     +
+                                 "valid_until": "infinity",                                                                       +
                                  "value_float": null,                                                                             +
                                  "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "value_string": null,                                                                            +
@@ -1634,7 +1653,7 @@ SELECT jsonb_pretty(
                                      "active": true,                                                                              +
                                      "custom": false                                                                              +
                                  },                                                                                               +
-                                 "valid_after": "2023-12-31",                                                                     +
+                                 "valid_until": "infinity",                                                                       +
                                  "value_float": 0,                                                                                +
                                  "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "value_string": null,                                                                            +
@@ -1671,7 +1690,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "value_float": null,                                                                                     +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "value_string": null,                                                                                    +
@@ -1696,7 +1715,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "value_float": 9000000,                                                                                  +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "value_string": null,                                                                                    +
@@ -1724,7 +1743,6 @@ SELECT jsonb_pretty(
          "establishment": [                                                                                                       +
              {                                                                                                                    +
                  "name": "THE EQUATOR GLOBE SOLUTIONS",                                                                           +
-                 "active": true,                                                                                                  +
                  "status": {                                                                                                      +
                      "code": "active",                                                                                            +
                      "name": "Active",                                                                                            +
@@ -1745,7 +1763,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "activity_category": {                                                                                   +
                              "code": "5610",                                                                                      +
@@ -1800,7 +1818,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "address_part1": null,                                                                                   +
                          "address_part2": null,                                                                                   +
@@ -1818,7 +1836,7 @@ SELECT jsonb_pretty(
                      "active": true,                                                                                              +
                      "custom": false                                                                                              +
                  },                                                                                                               +
-                 "valid_after": "2023-12-31",                                                                                     +
+                 "valid_until": "infinity",                                                                                       +
                  "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                           +
                  "invalid_codes": null,                                                                                           +
                  "stat_for_unit": [                                                                                               +
@@ -1833,7 +1851,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "value_float": null,                                                                                     +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "value_string": null,                                                                                    +
@@ -1858,7 +1876,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "value_float": 4400,                                                                                     +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "value_string": null,                                                                                    +
@@ -1912,7 +1930,6 @@ SELECT jsonb_pretty(
          "legal_unit": [                                                                                                          +
              {                                                                                                                    +
                  "name": "NILE PEARL WATER",                                                                                      +
-                 "active": true,                                                                                                  +
                  "sector": {                                                                                                      +
                      "code": "6100",                                                                                              +
                      "name": "Central government",                                                                                +
@@ -1942,7 +1959,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "activity_category": {                                                                                   +
                              "code": "4752",                                                                                      +
@@ -1997,7 +2014,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "address_part1": null,                                                                                   +
                          "address_part2": null,                                                                                   +
@@ -2021,12 +2038,11 @@ SELECT jsonb_pretty(
                      "active": true,                                                                                              +
                      "custom": false                                                                                              +
                  },                                                                                                               +
-                 "valid_after": "2023-12-31",                                                                                     +
+                 "valid_until": "infinity",                                                                                       +
                  "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                           +
                  "establishment": [                                                                                               +
                      {                                                                                                            +
                          "name": "NILE PEARL WATER",                                                                              +
-                         "active": true,                                                                                          +
                          "status": {                                                                                              +
                              "code": "active",                                                                                    +
                              "name": "Active",                                                                                    +
@@ -2047,7 +2063,7 @@ SELECT jsonb_pretty(
                                      "active": true,                                                                              +
                                      "custom": false                                                                              +
                                  },                                                                                               +
-                                 "valid_after": "2023-12-31",                                                                     +
+                                 "valid_until": "infinity",                                                                       +
                                  "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "activity_category": {                                                                           +
                                      "code": "4752",                                                                              +
@@ -2102,7 +2118,7 @@ SELECT jsonb_pretty(
                                      "active": true,                                                                              +
                                      "custom": false                                                                              +
                                  },                                                                                               +
-                                 "valid_after": "2023-12-31",                                                                     +
+                                 "valid_until": "infinity",                                                                       +
                                  "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "address_part1": null,                                                                           +
                                  "address_part2": null,                                                                           +
@@ -2120,7 +2136,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "invalid_codes": null,                                                                                   +
                          "stat_for_unit": [                                                                                       +
@@ -2135,7 +2151,7 @@ SELECT jsonb_pretty(
                                      "active": true,                                                                              +
                                      "custom": false                                                                              +
                                  },                                                                                               +
-                                 "valid_after": "2023-12-31",                                                                     +
+                                 "valid_until": "infinity",                                                                       +
                                  "value_float": null,                                                                             +
                                  "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "value_string": null,                                                                            +
@@ -2160,7 +2176,7 @@ SELECT jsonb_pretty(
                                      "active": true,                                                                              +
                                      "custom": false                                                                              +
                                  },                                                                                               +
-                                 "valid_after": "2023-12-31",                                                                     +
+                                 "valid_until": "infinity",                                                                       +
                                  "value_float": 0,                                                                                +
                                  "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "value_string": null,                                                                            +
@@ -2197,7 +2213,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "value_float": null,                                                                                     +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "value_string": null,                                                                                    +
@@ -2222,7 +2238,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "value_float": 9000000,                                                                                  +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "value_string": null,                                                                                    +
@@ -2250,7 +2266,6 @@ SELECT jsonb_pretty(
          "establishment": [                                                                                                       +
              {                                                                                                                    +
                  "name": "THE EQUATOR GLOBE SOLUTIONS",                                                                           +
-                 "active": true,                                                                                                  +
                  "status": {                                                                                                      +
                      "code": "active",                                                                                            +
                      "name": "Active",                                                                                            +
@@ -2271,7 +2286,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "activity_category": {                                                                                   +
                              "code": "5610",                                                                                      +
@@ -2326,7 +2341,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "address_part1": null,                                                                                   +
                          "address_part2": null,                                                                                   +
@@ -2344,7 +2359,7 @@ SELECT jsonb_pretty(
                      "active": true,                                                                                              +
                      "custom": false                                                                                              +
                  },                                                                                                               +
-                 "valid_after": "2023-12-31",                                                                                     +
+                 "valid_until": "infinity",                                                                                       +
                  "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                           +
                  "invalid_codes": null,                                                                                           +
                  "stat_for_unit": [                                                                                               +
@@ -2359,7 +2374,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "value_float": null,                                                                                     +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "value_string": null,                                                                                    +
@@ -2384,7 +2399,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "valid_after": "2023-12-31",                                                                             +
+                         "valid_until": "infinity",                                                                               +
                          "value_float": 4400,                                                                                     +
                          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "value_string": null,                                                                                    +

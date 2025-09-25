@@ -199,9 +199,20 @@ case "$action" in
 
         # Store original arguments
         ORIGINAL_ARGS=("$@")
+
+        # Check for --update-expected flag and filter it out
+        update_expected=false
+        TEST_ARGS=()
+        for arg in "${ORIGINAL_ARGS[@]}"; do
+            if [ "$arg" = "--update-expected" ]; then
+                update_expected=true
+            else
+                TEST_ARGS+=("$arg")
+            fi
+        done
         
         # Check if no arguments were provided
-        if [ ${#ORIGINAL_ARGS[@]} -eq 0 ]; then
+        if [ ${#TEST_ARGS[@]} -eq 0 ]; then
             echo "Available tests:"
             echo "all"
             echo "fast"
@@ -211,7 +222,7 @@ case "$action" in
         fi
         
         # Check for special keywords
-        if [ "${ORIGINAL_ARGS[0]}" = "all" ]; then
+        if [ "${TEST_ARGS[0]}" = "all" ]; then
             # Get all tests
             ALL_TESTS=$(basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql)
             
@@ -219,7 +230,7 @@ case "$action" in
             TEST_BASENAMES=""
             for test in $ALL_TESTS; do
                 exclude=false
-                for arg in "${ORIGINAL_ARGS[@]:1}"; do  # Skip the first arg which is "all"
+                for arg in "${TEST_ARGS[@]:1}"; do  # Skip the first arg which is "all"
                     if [ "$arg" = "-$test" ]; then
                         exclude=true
                         break
@@ -230,32 +241,23 @@ case "$action" in
                     TEST_BASENAMES="$TEST_BASENAMES $test"
                 fi
             done
-        elif [ "${ORIGINAL_ARGS[0]}" = "fast" ]; then
+        elif [ "${TEST_ARGS[0]}" = "fast" ]; then
             # Get all tests
             ALL_TESTS=$(basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql)
-
-            # Define slow tests to exclude
-            SLOW_TESTS=(
-                "309_import_jobs_for_norway_history"
-                "310_import_jobs_for_brreg_selection"
-                "311_import_jobs_for_brreg_downloads"
-            )
 
             # Process exclusions
             TEST_BASENAMES=""
             for test in $ALL_TESTS; do
                 exclude=false
-                # Check against hardcoded slow tests
-                for slow_test in "${SLOW_TESTS[@]}"; do
-                    if [ "$test" = "$slow_test" ]; then
-                        exclude=true
-                        break
-                    fi
-                done
+
+                # Exclude slow tests (4xx series are large data imports)
+                if [[ "$test" == 4* ]]; then
+                    exclude=true
+                fi
 
                 # Check against additional user-provided exclusions, if any
                 if [ "$exclude" = "false" ]; then
-                    for arg in "${ORIGINAL_ARGS[@]:1}"; do  # Skip the first arg which is "fast"
+                    for arg in "${TEST_ARGS[@]:1}"; do  # Skip the first arg which is "fast"
                         if [ "$arg" = "-$test" ]; then
                             exclude=true
                             break
@@ -267,7 +269,7 @@ case "$action" in
                     TEST_BASENAMES="$TEST_BASENAMES $test"
                 fi
             done
-        elif [ "${ORIGINAL_ARGS[0]}" = "failed" ]; then
+        elif [ "${TEST_ARGS[0]}" = "failed" ]; then
             # Get failed tests
             FAILED_TESTS=$(grep -E '^not ok' $WORKSPACE/test/regression.out | sed -E 's/not ok[[:space:]]+[0-9]+[[:space:]]+- ([^[:space:]]+).*/\1/')
             
@@ -275,7 +277,7 @@ case "$action" in
             TEST_BASENAMES=""
             for test in $FAILED_TESTS; do
                 exclude=false
-                for arg in "${ORIGINAL_ARGS[@]:1}"; do  # Skip the first arg which is "failed"
+                for arg in "${TEST_ARGS[@]:1}"; do  # Skip the first arg which is "failed"
                     if [ "$arg" = "-$test" ]; then
                         exclude=true
                         break
@@ -289,7 +291,7 @@ case "$action" in
         else
             # Just use the provided test names, filtering out exclusions
             TEST_BASENAMES=""
-            for arg in "${ORIGINAL_ARGS[@]}"; do
+            for arg in "${TEST_ARGS[@]}"; do
                 if [[ "$arg" != -* ]]; then
                     TEST_BASENAMES="$TEST_BASENAMES $arg"
                 fi
@@ -317,6 +319,20 @@ case "$action" in
             --dbname=$PGDATABASE \
             --user=$PGUSER \
             $TEST_BASENAMES
+
+        if [ "$update_expected" = "true" ]; then
+            echo "Updating expected output for tests: $(echo $TEST_BASENAMES)"
+            for test_basename in $TEST_BASENAMES; do
+                result_file="$PG_REGRESS_DIR/results/$test_basename.out"
+                expected_file="$PG_REGRESS_DIR/expected/$test_basename.out"
+                if [ -f "$result_file" ]; then
+                    echo "  -> Copying results for $test_basename"
+                    cp "$result_file" "$expected_file"
+                else
+                    echo "Warning: Result file not found for test: '$test_basename'. Cannot update expected output."
+                fi
+            done
+        fi
     ;;
     'diff-fail-first' )
       if [ ! -f "$WORKSPACE/test/regression.out" ]; then
@@ -330,23 +346,32 @@ case "$action" in
           # Extract the full test name (e.g., "01_load_web_examples")
           test=$(echo "$test_line" | sed -E 's/not ok[[:space:]]+[0-9]+[[:space:]]+- ([^[:space:]]+).*/\1/')
           
-          ui=${1:-tui}
-          shift || true
-          case $ui in
+          ui_choice=${1:-pipe}
+          line_limit=${2:-}
+          case $ui_choice in
               'gui')
                   echo "Running opendiff for test: $test"
                   opendiff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out -merge $WORKSPACE/test/expected/$test.out
                   ;;
-              'tui')
-                  echo "Running vimdiff for test: $test"
+              'vim'|'tui')
+                  echo "Running vim -d for test: $test"
                   vim -d $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
+                  ;;
+              'vimo')
+                  echo "Running vim -d -o for test: $test"
+                  vim -d -o $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
                   ;;
               'pipe')
                   echo "Running diff for test: $test"
-                  diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
+                  # Note the pipe from /dev/tty to avoid the diff alias running an interactive program.
+                  if [[ "$line_limit" =~ ^[0-9]+$ ]]; then
+                    diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty | head -n "$line_limit" || true
+                  else
+                    diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty || true
+                  fi
                   ;;
               *)
-                  echo "Error: Unknown UI option '$ui'. Please use 'gui' or 'tui'."
+                  echo "Error: Unknown UI option '$ui_choice'. Please use 'gui', 'vim', 'vimo', or 'pipe'."
                   exit 1
               ;;
           esac
@@ -360,9 +385,12 @@ case "$action" in
           exit 1
       fi
 
-      ui_choice=${1:-tui} # Get UI choice from the first argument to diff-fail-all, default to tui
+      ui_choice=${1:-pipe} # Get UI choice from the first argument to diff-fail-all, default to pipe
+      line_limit=${2:-}
 
-      grep -E '^not ok' "$WORKSPACE/test/regression.out" | while read test_line; do
+      # Use process substitution to avoid running the loop in a subshell,
+      # which can have subtle side effects on variable scope and signal handling.
+      while read test_line; do
           # Extract the full test name (e.g., "01_load_web_examples")
           test=$(echo "$test_line" | sed -E 's/not ok[[:space:]]+[0-9]+[[:space:]]+- ([^[:space:]]+).*/\1/')
           
@@ -382,21 +410,29 @@ case "$action" in
                   echo "Running opendiff for test: $test"
                   opendiff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out -merge $WORKSPACE/test/expected/$test.out
                   ;;
-              'tui')
-                  echo "Running vimdiff for test: $test"
+              'vim'|'tui')
+                  echo "Running vim -d for test: $test"
                   vim -d $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
+                  ;;
+              'vimo')
+                  echo "Running vim -d -o for test: $test"
+                  vim -d -o $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
                   ;;
               'pipe')
                   echo "Running diff for test: $test"
                   # Note the pipe from /dev/tty to avoid the diff alias running an interactive program.
-                  diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty || true
+                  if [[ "$line_limit" =~ ^[0-9]+$ ]]; then
+                    diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty | head -n "$line_limit" || true
+                  else
+                    diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty || true
+                  fi
                   ;;
               *)
-                  echo "Error: Unknown UI option '$ui_choice'. Please use 'gui', 'tui', or 'pipe'."
+                  echo "Error: Unknown UI option '$ui_choice'. Please use 'gui', 'vim', 'vimo', or 'pipe'."
                   exit 1
               ;;
           esac
-      done
+      done < <(grep -E '^not ok' "$WORKSPACE/test/regression.out")
     ;;
     'make-all-failed-test-results-expected' )
         if [ ! -f "$WORKSPACE/test/regression.out" ]; then

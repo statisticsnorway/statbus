@@ -1,16 +1,16 @@
 "use client";
 
-import logger from "@/lib/client-logger";
-import { useEffect } from "react";
+import { logger } from "@/lib/client-logger";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 
 export default function ErrorPage({
   error,
 }: {
   readonly error: Error & { digest?: string };
 }) {
-  useEffect(() => {
-    logger.error(error, error.message);
-  }, [error]);
+  useGuardedEffect(() => {
+    logger.error('ErrorPage', error.message, { error });
+  }, [error], 'ErrorPage:logError');
 
   return (
     <main className="py-12 mx-auto text-center">

@@ -28,6 +28,9 @@ fi
 
 cd $WORKSPACE
 
+echo "Setting up Statbus for Norway"
+$WORKSPACE/devops/manage-statbus.sh psql < samples/norway/getting-started.sql
+
 legal_unit_file=$WORKSPACE/tmp/enheter.csv
 establishment_file=$WORKSPACE/tmp/underenheter_filtered.csv
 

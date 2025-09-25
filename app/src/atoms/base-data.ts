@@ -9,14 +9,15 @@
  */
 
 import { atom } from 'jotai'
-import { loadable } from 'jotai/utils'
+import { loadable, selectAtom } from 'jotai/utils'
+import { isEqual } from 'moderndash'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { atomWithRefresh } from 'jotai/utils'
 import { useCallback } from 'react'
 
 import type { Database, Tables } from '@/lib/database.types'
-import { restClientAtom } from './app'
-import { isAuthenticatedAtom } from './auth'
+import { restClientAtom } from './rest-client'
+import { authStatusUnstableDetailsAtom } from './auth'
 
 // ============================================================================
 // BASE DATA ATOMS - Replace BaseDataStore + BaseDataContext
@@ -40,19 +41,31 @@ const initialBaseData: BaseData = {
   hasStatisticalUnits: false,
 };
 
+import { authStateForDataFetchingAtom } from './auth';
+import { isUserConsideredAuthenticatedForUIAtom } from './auth';
+
+// ...
+
 // Explicitly type the return of the async function for atomWithRefresh
-export const baseDataCoreAtom = atomWithRefresh<Promise<BaseData>>(async (get): Promise<BaseData> => {
-  const isAuthenticated = get(isAuthenticatedAtom);
+export const baseDataPromiseAtom = atomWithRefresh<Promise<BaseData>>(async (get): Promise<BaseData> => {
+  const authState = get(authStateForDataFetchingAtom);
   const client = get(restClientAtom);
 
-  if (!isAuthenticated) return initialBaseData;
+  // If a token refresh or an initial check is in progress, suspend. This prevents API
+  // calls with an expired or unknown token. The atom will re-evaluate when the
+  // auth machine's state changes.
+  if (authState === 'refreshing' || authState === 'checking') {
+    return new Promise<never>(() => {}); // Suspends the atom and any component that uses it
+  }
 
+  // Check for a stable authenticated state.
+  if (authState !== 'authenticated') {
+    return initialBaseData;
+  }
+  
   if (!client) {
-    if (typeof window !== 'undefined') {
-      // Client-side, authenticated, but client is not ready. Return a promise that never resolves.
-      return new Promise<BaseData>(() => {}); // Cast to expected Promise type
-    }
-    // Server-side, client not ready, or unauthenticated.
+    // If the client is not ready, return the initial empty data.
+    // The atom will be re-evaluated automatically by Jotai when restClientAtom changes.
     return initialBaseData;
   }
 
@@ -93,16 +106,12 @@ export const baseDataCoreAtom = atomWithRefresh<Promise<BaseData>>(async (get): 
       hasStatisticalUnits: !!statisticalUnitResult.count && statisticalUnitResult.count > 0,
     };
   } catch (error) {
-    console.error("baseDataCoreAtom: Failed to fetch base data:", error);
+    console.error("baseDataPromiseAtom: Failed to fetch base data:", error);
     return initialBaseData;
   }
 });
 
-export const baseDataLoadableAtom = loadable(baseDataCoreAtom);
-
-// Add a module-level variable to hold the last stable value.
-// This is a pragmatic approach for client-side state to ensure object reference stability.
-let lastStableBaseData: (BaseData & { loading: boolean; error: string | null }) | null = null;
+export const baseDataLoadableAtom = loadable(baseDataPromiseAtom);
 
 /**
  * Performs a "good enough" deep comparison of two BaseData objects to check for meaningful changes.
@@ -126,11 +135,27 @@ function isBaseDataEqual(a: BaseData, b: BaseData): boolean {
   return true;
 }
 
+function areBaseDataResultsEqual(
+  a: BaseData & { loading: boolean; error: string | null },
+  b: BaseData & { loading: boolean; error: string | null }
+): boolean {
+  if (a.loading !== b.loading) return false;
+  if (a.error !== b.error) return false;
+  return isBaseDataEqual(a, b);
+}
 
-export const baseDataAtom = atom<BaseData & { loading: boolean; error: string | null }>(
+const baseDataUnstableDetailsAtom = atom<BaseData & { loading: boolean; error: string | null }>(
   (get): BaseData & { loading: boolean; error: string | null } => {
     const loadableState = get(baseDataLoadableAtom);
+    const isAuthenticatedForUI = get(isUserConsideredAuthenticatedForUIAtom);
     let result: BaseData & { loading: boolean; error: string | null };
+
+    // Explicitly return initial data if not authenticated (from a UI perspective).
+    // This makes the atom's behavior during logout transition crystal clear and robust,
+    // preventing any possibility of showing stale data from a previous session.
+    if (!isAuthenticatedForUI) {
+      return { ...initialBaseData, loading: false, error: null };
+    }
 
     switch (loadableState.state) {
       case 'loading':
@@ -150,32 +175,27 @@ export const baseDataAtom = atom<BaseData & { loading: boolean; error: string | 
         result = { ...initialBaseData, loading: false, error: 'Unknown loadable state' };
     }
     
-    // If the new result is meaningfully the same as the last one, return the last one
-    // to preserve object reference and prevent unnecessary re-renders.
-    if (lastStableBaseData &&
-        lastStableBaseData.loading === result.loading &&
-        lastStableBaseData.error === result.error &&
-        isBaseDataEqual(lastStableBaseData, result)
-    ) {
-        return lastStableBaseData;
-    }
-
-    lastStableBaseData = result;
+    // The "flap guard" logic has been removed from this atom. The flap is now
+    // prevented at its source by the new, stabilized `isAuthenticatedAtom`.
+    // This makes this atom much simpler and more direct.
+    
     return result;
   }
 );
 
+export const baseDataAtom = selectAtom(baseDataUnstableDetailsAtom, (v) => v, areBaseDataResultsEqual);
+
 // Derived atoms for individual data pieces
-export const statDefinitionsAtom = atom((get) => get(baseDataAtom).statDefinitions)
-export const externalIdentTypesAtom = atom((get) => get(baseDataAtom).externalIdentTypes)
-export const statbusUsersAtom = atom((get) => get(baseDataAtom).statbusUsers)
+export const statDefinitionsAtom = selectAtom(baseDataAtom, (data) => data.statDefinitions, isEqual)
+export const externalIdentTypesAtom = selectAtom(baseDataAtom, (data) => data.externalIdentTypes, isEqual)
+export const statbusUsersAtom = selectAtom(baseDataAtom, (data) => data.statbusUsers, isEqual)
 export const timeContextsAtom = atom((get) => get(baseDataAtom).timeContexts)
 export const defaultTimeContextAtom = atom((get) => get(baseDataAtom).defaultTimeContext)
 export const hasStatisticalUnitsAtom = atom((get) => get(baseDataAtom).hasStatisticalUnits)
 
 // Action to refresh base data
 export const refreshBaseDataAtom = atom(null, (_get, set) => { // get is not used
-  set(baseDataCoreAtom);
+  set(baseDataPromiseAtom);
 });
 
 // ============================================================================

@@ -20,7 +20,10 @@ BEGIN
     RAISE DEBUG '[Sync Mappings Def ID %] Synchronizing mappings for step % (Definition: active=%, custom=%).', p_definition_id, p_step_code, v_def.active, v_def.custom;
 
     FOR v_data_col IN
-        SELECT dc.id AS data_column_id, dc.column_name AS data_column_name
+        SELECT
+            dc.id AS data_column_id,
+            dc.column_name AS data_column_name,
+            regexp_replace(dc.column_name, '_raw$', '') AS source_column_name
         FROM public.import_data_column dc
         JOIN public.import_step s ON dc.step_id = s.id
         JOIN public.import_definition_step ids ON ids.step_id = s.id
@@ -31,16 +34,16 @@ BEGIN
         -- Ensure import_source_column exists
         SELECT id INTO v_source_col_id
         FROM public.import_source_column
-        WHERE definition_id = p_definition_id AND column_name = v_data_col.data_column_name;
+        WHERE definition_id = p_definition_id AND column_name = v_data_col.source_column_name;
 
         IF NOT FOUND THEN
             SELECT COALESCE(MAX(priority), 0) + 1 INTO v_max_priority
             FROM public.import_source_column WHERE definition_id = p_definition_id;
 
             INSERT INTO public.import_source_column (definition_id, column_name, priority)
-            VALUES (p_definition_id, v_data_col.data_column_name, v_max_priority)
+            VALUES (p_definition_id, v_data_col.source_column_name, v_max_priority)
             RETURNING id INTO v_source_col_id;
-            RAISE DEBUG '[Sync Mappings Def ID %] Created source column "%" (ID: %) for data column ID %.', p_definition_id, v_data_col.data_column_name, v_source_col_id, v_data_col.data_column_id;
+            RAISE DEBUG '[Sync Mappings Def ID %] Created source column "%" (ID: %) for data column ID %.', p_definition_id, v_data_col.source_column_name, v_source_col_id, v_data_col.data_column_id;
         END IF;
 
         -- Ensure import_mapping exists. If newly created by this sync, it should be a valid, non-ignored mapping.
@@ -127,7 +130,7 @@ BEGIN
                     FROM public.import_definition_step ids
                     JOIN public.import_data_column idc ON ids.step_id = idc.step_id
                     WHERE ids.definition_id = v_def.id
-                      AND idc.column_name = v_source_col.column_name
+                      AND idc.column_name = v_source_col.column_name || '_raw'
                       AND idc.purpose = 'source_input'
                 ) INTO v_data_column_exists;
             END IF;
@@ -193,7 +196,7 @@ BEGIN
     -- Handle validity date mappings based on definition mode
     IF v_def.valid_time_from = 'job_provided' THEN
         FOR v_col_name IN VALUES ('valid_from'), ('valid_to') LOOP
-            SELECT dc.id INTO v_data_col_id FROM public.import_data_column dc JOIN public.import_step s ON dc.step_id = s.id WHERE s.code = 'valid_time' AND dc.column_name = v_col_name;
+            SELECT dc.id INTO v_data_col_id FROM public.import_data_column dc JOIN public.import_step s ON dc.step_id = s.id WHERE s.code = 'valid_time' AND dc.column_name = v_col_name || '_raw';
             IF v_data_col_id IS NOT NULL THEN
                 INSERT INTO public.import_mapping (definition_id, source_expression, target_data_column_id, target_data_column_purpose)
                 VALUES (p_definition_id, 'default', v_data_col_id, 'source_input'::public.import_data_column_purpose)
@@ -213,7 +216,7 @@ BEGIN
             SELECT dc.id INTO v_data_col_id
             FROM public.import_definition_step ds
             JOIN public.import_data_column dc ON ds.step_id = dc.step_id
-            WHERE ds.definition_id = p_definition_id AND dc.column_name = v_col_name AND dc.purpose = 'source_input';
+            WHERE ds.definition_id = p_definition_id AND dc.column_name = v_col_name || '_raw' AND dc.purpose = 'source_input';
 
             IF v_data_col_id IS NOT NULL THEN
                 INSERT INTO public.import_mapping (definition_id, source_column_id, target_data_column_id, target_data_column_purpose)
@@ -243,7 +246,7 @@ BEGIN
         SELECT dc.id INTO v_data_col_id FROM public.import_definition_step ds
         JOIN public.import_step s ON ds.step_id = s.id
         JOIN public.import_data_column dc ON ds.step_id = dc.step_id
-        WHERE ds.definition_id = p_definition_id AND s.code = 'statistical_variables' AND dc.column_name = v_col_rec.stat_code AND dc.purpose = 'source_input';
+        WHERE ds.definition_id = p_definition_id AND s.code = 'statistical_variables' AND dc.column_name = v_col_rec.stat_code || '_raw' AND dc.purpose = 'source_input';
 
         IF v_data_col_id IS NOT NULL THEN
             INSERT INTO public.import_mapping (definition_id, source_column_id, target_data_column_id, target_data_column_purpose)
@@ -260,12 +263,11 @@ $$;
 DO $$
 DECLARE
     def_id INT;
-    lu_steps TEXT[] := ARRAY['external_idents', 'valid_time', 'enterprise_link_for_legal_unit', 'status', 'legal_unit', 'physical_location', 'postal_location', 'primary_activity', 'secondary_activity', 'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'];
-    es_steps TEXT[] := ARRAY['external_idents', 'valid_time', 'link_establishment_to_legal_unit', 'status', 'establishment', 'physical_location', 'postal_location', 'primary_activity', 'secondary_activity', 'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'];
-    es_no_lu_steps TEXT[] := ARRAY['external_idents', 'valid_time', 'enterprise_link_for_establishment', 'status', 'establishment', 'physical_location', 'postal_location', 'primary_activity', 'secondary_activity', 'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'];
+    lu_steps TEXT[] := ARRAY['external_idents', 'data_source', 'valid_time', 'enterprise_link_for_legal_unit', 'status', 'legal_unit', 'physical_location', 'postal_location', 'primary_activity', 'secondary_activity', 'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'];
+    es_steps TEXT[] := ARRAY['external_idents', 'data_source', 'valid_time', 'link_establishment_to_legal_unit', 'status', 'establishment', 'physical_location', 'postal_location', 'primary_activity', 'secondary_activity', 'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'];
+    es_no_lu_steps TEXT[] := ARRAY['external_idents', 'data_source', 'valid_time', 'enterprise_link_for_establishment', 'status', 'establishment', 'physical_location', 'postal_location', 'primary_activity', 'secondary_activity', 'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'];
 
     lu_source_cols TEXT[] := ARRAY[
-        'tax_ident','stat_ident',
         'name', 'birth_date', 'death_date',
         'physical_address_part1', 'physical_address_part2', 'physical_address_part3', 'physical_postcode', 'physical_postplace', 'physical_latitude', 'physical_longitude', 'physical_altitude', 'physical_region_code', 'physical_country_iso_2',
         'postal_address_part1', 'postal_address_part2', 'postal_address_part3', 'postal_postcode', 'postal_postplace', 'postal_region_code', 'postal_country_iso_2',
@@ -277,7 +279,6 @@ DECLARE
     lu_explicit_source_cols TEXT[] := lu_source_cols || ARRAY['valid_from', 'valid_to'];
 
     es_source_cols TEXT[] := ARRAY[
-        'tax_ident','stat_ident',
         'name', 'birth_date', 'death_date',
         'physical_address_part1', 'physical_address_part2', 'physical_address_part3', 'physical_postcode', 'physical_postplace', 'physical_latitude', 'physical_longitude', 'physical_altitude', 'physical_region_code', 'physical_country_iso_2',
         'postal_address_part1', 'postal_address_part2', 'postal_address_part3', 'postal_postcode', 'postal_postplace', 'postal_region_code', 'postal_country_iso_2',
@@ -290,7 +291,6 @@ DECLARE
     es_explicit_source_cols TEXT[] := es_source_cols || ARRAY['valid_from', 'valid_to'];
 
     es_no_lu_source_cols TEXT[] := ARRAY[
-        'tax_ident','stat_ident',
         'name', 'birth_date', 'death_date',
         'physical_address_part1', 'physical_address_part2', 'physical_address_part3', 'physical_postcode', 'physical_postplace', 'physical_latitude', 'physical_longitude', 'physical_altitude', 'physical_region_code', 'physical_country_iso_2',
         'postal_address_part1', 'postal_address_part2', 'postal_address_part3', 'postal_postcode', 'postal_postplace', 'postal_region_code', 'postal_country_iso_2',
@@ -337,42 +337,42 @@ BEGIN
 
     -- 1. Legal Units (Job Provided Time)
     INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id, custom)
-    VALUES ('legal_unit_job_provided', 'Legal Units (Job Provided Time)', 'Import legal units. Validity is determined by a time context or explicit dates provided when the job is created.', 'insert_or_replace', 'legal_unit', 'job_provided', false, nlr_data_source_id, FALSE)
+    VALUES ('legal_unit_job_provided', 'Legal Units (Job Provided Time)', 'Import legal units. Validity is determined by a time context or explicit dates provided when the job is created.', 'insert_or_update', 'legal_unit', 'job_provided', false, nlr_data_source_id, FALSE)
     RETURNING id INTO def_id;
     PERFORM import.link_steps_to_definition(def_id, lu_steps);
     PERFORM import.create_source_and_mappings_for_definition(def_id, lu_source_cols);
 
     -- 2. Legal Units (via Source File Dates)
     INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id, custom)
-    VALUES ('legal_unit_source_dates', 'Legal Units (Source Dates)', 'Import legal units. Validity period is determined by explicit valid_from and valid_to columns in the source file.', 'insert_or_replace', 'legal_unit', 'source_columns', false, nlr_data_source_id, FALSE)
+    VALUES ('legal_unit_source_dates', 'Legal Units (Source Dates)', 'Import legal units. Validity period is determined by explicit valid_from and valid_to columns in the source file.', 'insert_or_update', 'legal_unit', 'source_columns', false, nlr_data_source_id, FALSE)
     RETURNING id INTO def_id;
     PERFORM import.link_steps_to_definition(def_id, lu_steps);
     PERFORM import.create_source_and_mappings_for_definition(def_id, lu_explicit_source_cols);
 
     -- 3. Establishments for Legal Unit (Job Provided Time)
     INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id, custom)
-    VALUES ('establishment_for_lu_job_provided', 'Establishments for LU (Job Provided Time)', 'Import establishments for LUs. Validity is determined by a time context or explicit dates provided on the job.', 'insert_or_replace', 'establishment_formal', 'job_provided', false, nlr_data_source_id, FALSE)
+    VALUES ('establishment_for_lu_job_provided', 'Establishments for LU (Job Provided Time)', 'Import establishments for LUs. Validity is determined by a time context or explicit dates provided on the job.', 'insert_or_update', 'establishment_formal', 'job_provided', false, nlr_data_source_id, FALSE)
     RETURNING id INTO def_id;
     PERFORM import.link_steps_to_definition(def_id, es_steps);
     PERFORM import.create_source_and_mappings_for_definition(def_id, es_source_cols);
 
     -- 4. Establishments for Legal Unit (via Source File Dates)
     INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id, custom)
-    VALUES ('establishment_for_lu_source_dates', 'Establishments for LU (Source Dates)', 'Import establishments linked to legal units. Validity is determined by explicit valid_from and valid_to columns in the source file.', 'insert_or_replace', 'establishment_formal', 'source_columns', false, nlr_data_source_id, FALSE)
+    VALUES ('establishment_for_lu_source_dates', 'Establishments for LU (Source Dates)', 'Import establishments linked to legal units. Validity is determined by explicit valid_from and valid_to columns in the source file.', 'insert_or_update', 'establishment_formal', 'source_columns', false, nlr_data_source_id, FALSE)
     RETURNING id INTO def_id;
     PERFORM import.link_steps_to_definition(def_id, es_steps);
     PERFORM import.create_source_and_mappings_for_definition(def_id, es_explicit_source_cols);
 
     -- 5. Establishments without Legal Unit (Job Provided Time)
     INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id, custom)
-    VALUES ('establishment_without_lu_job_provided', 'Establishments w/o LU (Job Provided Time)', 'Import standalone establishments. Validity is determined by a time context or explicit dates on the job.', 'insert_or_replace', 'establishment_informal', 'job_provided', false, census_data_source_id, FALSE)
+    VALUES ('establishment_without_lu_job_provided', 'Establishments w/o LU (Job Provided Time)', 'Import standalone establishments. Validity is determined by a time context or explicit dates on the job.', 'insert_or_update', 'establishment_informal', 'job_provided', false, census_data_source_id, FALSE)
     RETURNING id INTO def_id;
     PERFORM import.link_steps_to_definition(def_id, es_no_lu_steps);
     PERFORM import.create_source_and_mappings_for_definition(def_id, es_no_lu_source_cols);
 
     -- 6. Establishments without Legal Unit (via Source File Dates)
     INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id, custom)
-    VALUES ('establishment_without_lu_source_dates', 'Establishments w/o LU (Source Dates)', 'Import standalone establishments. Validity is determined by explicit valid_from and valid_to columns in the source file.', 'insert_or_replace', 'establishment_informal', 'source_columns', false, census_data_source_id, FALSE)
+    VALUES ('establishment_without_lu_source_dates', 'Establishments w/o LU (Source Dates)', 'Import standalone establishments. Validity is determined by explicit valid_from and valid_to columns in the source file.', 'insert_or_update', 'establishment_informal', 'source_columns', false, census_data_source_id, FALSE)
     RETURNING id INTO def_id;
     PERFORM import.link_steps_to_definition(def_id, es_no_lu_steps);
     PERFORM import.create_source_and_mappings_for_definition(def_id, es_no_lu_explicit_source_cols);
@@ -381,14 +381,14 @@ BEGIN
     INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id, custom)
     VALUES ('generic_unit_stats_update_job_provided', 'Unit Stats Update (Job Provided Time)', 'Updates statistical variables for existing units. Validity is determined by a time context or explicit dates on the job.', 'replace_only', 'generic_unit', 'job_provided', false, survey_data_source_id, FALSE)
     RETURNING id INTO def_id;
-    PERFORM import.link_steps_to_definition(def_id, ARRAY['external_idents', 'valid_time', 'statistical_variables', 'edit_info', 'metadata']);
+    PERFORM import.link_steps_to_definition(def_id, ARRAY['external_idents', 'data_source', 'valid_time', 'statistical_variables', 'edit_info', 'metadata']);
     PERFORM import.create_source_and_mappings_for_definition(def_id, active_ext_ident_codes); -- Pass active external ident codes
 
     -- 8. Unit Stats Update (via Source File Dates)
     INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id, custom)
     VALUES ('generic_unit_stats_update_source_dates', 'Unit Stats Update (Source Dates)', 'Updates statistical variables for existing units using explicit valid_from/valid_to from the source file.', 'replace_only', 'generic_unit', 'source_columns', false, survey_data_source_id, FALSE)
     RETURNING id INTO def_id;
-    PERFORM import.link_steps_to_definition(def_id, ARRAY['external_idents', 'valid_time', 'statistical_variables', 'edit_info', 'metadata']);
+    PERFORM import.link_steps_to_definition(def_id, ARRAY['external_idents', 'data_source', 'valid_time', 'statistical_variables', 'edit_info', 'metadata']);
     PERFORM import.create_source_and_mappings_for_definition(def_id, ARRAY['valid_from', 'valid_to'] || active_ext_ident_codes); -- Pass valid_from, valid_to, and active external ident codes
 
 END $$;

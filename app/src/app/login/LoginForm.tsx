@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useAuth } from "@/atoms/auth";
 import { useRouter } from "next/navigation";
 
@@ -9,76 +10,57 @@ interface LoginFormProps {
 }
 
 export default function LoginForm({ nextPath }: LoginFormProps) {
-  const { login } = useAuth();
-  const router = useRouter();
+  const { login, loginError } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const emailInputRef = useRef<HTMLInputElement>(null);
+  const [displayError, setDisplayError] = useState<string | null>(null);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     emailInputRef.current?.focus();
-  }, []);
+  }, [], 'LoginForm:focusEmailInput');
 
   // Map error codes to user-friendly messages
   const loginErrorMessages: Record<string, string> = {
     USER_NOT_FOUND: "User with this email not found.",
     USER_NOT_CONFIRMED_EMAIL: "Email not confirmed. Please check your inbox for a confirmation link.",
     USER_DELETED: "This user account has been marked as deleted.",
-    USER_MISSING_PASSWORD: "Password cannot be empty. Please enter your password.", // Should ideally be caught by form validation
+    USER_MISSING_PASSWORD: "Password cannot be empty. Please enter your password.",
     WRONG_PASSWORD: "Incorrect password. Please try again.",
     // Generic fallback for unmapped errors or if error_code is null but login failed
     DEFAULT: "Login failed. Please check your credentials and try again."
   };
 
+  // Effect to translate the error from the atom into a displayable message.
+  useGuardedEffect(() => {
+    if (loginError) {
+      const errorCode = loginError.code;
+      const message = errorCode && loginErrorMessages[errorCode] 
+                      ? loginErrorMessages[errorCode]
+                      : (loginError.message || loginErrorMessages.DEFAULT);
+      setDisplayError(message);
+      setIsLoading(false); // Ensure loading is stopped on error.
+    } else {
+      setDisplayError(null);
+    }
+  }, [loginError], 'LoginForm:displayLoginError');
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setError(null);
     setIsLoading(true);
+    setDisplayError(null); // Clear previous errors on new submission
     
     const formData = new FormData(event.currentTarget);
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
 
-    try {
-      // The loginAtom now internally handles parsing the response from /rpc/login
-      // and refreshing authStatusCoreAtom.
-      // For LoginForm, we primarily care about the immediate success/failure from the login attempt.
-      // The loginAtom itself doesn't directly return the RPC response to here.
-      // We need to modify loginAtom or have a new atom if we want to access error_code directly here.
-
-      // For now, let's assume loginAtom throws an error on failure,
-      // and we'll keep the generic error message.
-      // A more advanced approach would be for loginAtom to return the auth_response or update an error atom.
-      // Given the current structure of loginAtom (it throws on error), we can't easily get error_code here
-      // without a larger refactor of loginAtom.
-
-      // The original request was to use error_code from login.
-      // This implies loginAtom should provide it.
-      // Let's assume loginAtom is modified to throw an error object that includes error_code.
-      // This is a hypothetical modification to loginAtom for this example.
-      // A better way would be for loginAtom to return the full auth_response.
-      // For now, I'll proceed as if `error.cause` might contain the error_code.
-
-      await login({ credentials: { email, password }, nextPath });
-      
-      // If loginAtom completes without error, it means the /rest/rpc/login was successful (2xx)
-      // AND the subsequent refresh of authStatusCoreAtom (via /rest/rpc/auth_status) also indicated authenticated.
-      // The LoginClientBoundary component will handle redirecting the user when authStatusAtom updates.
-      // No need to router.push('/') here anymore.
-      
-    } catch (error: any) {
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.error("LoginForm: Login error caught in handleSubmit:", error, "Error cause:", error.cause);
-      }
-      // Attempt to get a specific message if error.cause is one of our known error codes
-      const errorCode = typeof error.cause === 'string' ? error.cause : null;
-      const message = errorCode && loginErrorMessages[errorCode] 
-                      ? loginErrorMessages[errorCode]
-                      : loginErrorMessages.DEFAULT;
-      setError(message);
-    } finally {
-      setIsLoading(false);
-    }
+    // The login action is now "fire and forget". It updates global state (authStatus or loginError).
+    // This component re-renders based on those state changes.
+    // We no longer need a try/catch block here.
+    await login({ credentials: { email, password } });
+    
+    // The `isLoading` state is manually managed. It will be set to false either
+    // by the error-handling useEffect above, or by the unmounting of this
+    // component upon successful login and redirect.
   };
 
   return (
@@ -134,9 +116,9 @@ export default function LoginForm({ nextPath }: LoginFormProps) {
       </div>
 
       <div>
-        {error && (
+        {displayError && (
           <div className="my-2 text-center text-sm text-red-500">
-            {error}
+            {displayError}
           </div>
         )}
         <button

@@ -1,6 +1,7 @@
 "use client";
 
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { PostgrestError } from "@supabase/postgrest-js";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { format } from "date-fns";
@@ -23,7 +24,7 @@ export const DashboardClientContent = ({
     error: PostgrestError | null;
   }>({ data: null, error: null });
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     const fetchData = async () => {
       const client = await getBrowserRestClient();
       const { data, error } = await client
@@ -35,7 +36,7 @@ export const DashboardClientContent = ({
       setEditInfo({ data, error });
     };
     fetchData();
-  }, []);
+  }, [], 'DashboardClientContent:fetchData');
 
   const { data } = editInfo;
 

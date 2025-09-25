@@ -1,6 +1,8 @@
 -- Migration 20250227115859: add import jobs
 BEGIN;
 
+-- Enable GIST indexes on base types for efficient multirange operations
+CREATE EXTENSION IF NOT EXISTS btree_gist;
 
 -- Create a separate schema for all the import related functions that are used internally
 -- by the import job system, but not available through the API.
@@ -75,17 +77,13 @@ COMMENT ON TYPE public.import_row_operation_type IS
 - update: An existing unit was found, and the strategy implies an update-style modification.';
 
 CREATE TYPE public.import_row_action_type AS ENUM (
-    'insert',  -- Row represents a new unit/record to be inserted.
-    'replace', -- Row represents an existing unit/record to be updated/replaced (using batch upsert logic, effectively replacing the temporal slice).
-    'update',  -- Row represents an existing unit/record to be updated (merging non-null values into the existing temporal slice).
+    'use',     -- Row is valid and should be used by processing steps.
     'skip'     -- Row should be skipped due to strategy mismatch or other reasons identified during analysis.
 );
 
 COMMENT ON TYPE public.import_row_action_type IS
 'Specifies the intended action for an import data row after analysis:
-- insert: Create a new record.
-- replace: Replace an existing record (temporal data is handled by replacing overlapping periods).
-- update: Update an existing record (temporal data is handled by merging data into overlapping periods, potentially splitting/adjusting eras).
+- use: The row has passed analysis and is ready for processing. The specific DML operation (INSERT/UPDATE/REPLACE) will be determined by sql_saga.temporal_merge based on the founding_row_id.
 - skip: Do not process this row further due to strategy mismatch or errors.';
 
 
@@ -127,7 +125,7 @@ CREATE TYPE public.import_data_column_purpose AS ENUM (
     'source_input',      -- Raw data mapped directly from the source file
     'internal',          -- Result of lookups/calculations during analysis phase
     'pk_id',             -- ID of the record inserted into a final table by this target
-    'metadata'           -- Internal status/error tracking columns (state, error, last_completed_priority)
+    'metadata'           -- Internal status/error tracking columns (state, errors, last_completed_priority)
 );
 COMMENT ON TYPE public.import_data_column_purpose IS
 'Defines the role of a column within the job-specific _data table:
@@ -192,8 +190,8 @@ END;
 $procedure$;
 
 -- Register import_job_process command in the worker system
-INSERT INTO worker.queue_registry (queue, concurrent, description)
-VALUES ('import', true, 'Concurrent queue for processing import jobs');
+INSERT INTO worker.queue_registry (queue, description)
+VALUES ('import', 'Serial queue for processing import jobs');
 
 INSERT INTO worker.command_registry (queue, command, handler_procedure, before_procedure, after_procedure, description)
 VALUES
@@ -349,41 +347,41 @@ BEGIN
 
     -- The following checks ensure the mappings for 'valid_from' and 'valid_to' are consistent with the chosen time validity mode.
     IF v_definition.valid_time_from = 'source_columns' THEN
-        -- Check that 'valid_from' and 'valid_to' are mapped from source columns.
+        -- Check that 'valid_from_raw' and 'valid_to_raw' are mapped from source columns.
         SELECT EXISTS (
             SELECT 1 FROM public.import_mapping im
             JOIN public.import_data_column idc ON im.target_data_column_id = idc.id JOIN public.import_step s ON idc.step_id = s.id
-            WHERE im.definition_id = p_definition_id AND s.code = 'valid_time' AND idc.column_name = 'valid_from' AND im.source_column_id IS NOT NULL AND im.is_ignored = FALSE
+            WHERE im.definition_id = p_definition_id AND s.code = 'valid_time' AND idc.column_name = 'valid_from_raw' AND im.source_column_id IS NOT NULL AND im.is_ignored = FALSE
         ) INTO v_has_valid_from_mapping;
         SELECT EXISTS (
             SELECT 1 FROM public.import_mapping im
             JOIN public.import_data_column idc ON im.target_data_column_id = idc.id JOIN public.import_step s ON idc.step_id = s.id
-            WHERE im.definition_id = p_definition_id AND s.code = 'valid_time' AND idc.column_name = 'valid_to' AND im.source_column_id IS NOT NULL AND im.is_ignored = FALSE
+            WHERE im.definition_id = p_definition_id AND s.code = 'valid_time' AND idc.column_name = 'valid_to_raw' AND im.source_column_id IS NOT NULL AND im.is_ignored = FALSE
         ) INTO v_has_valid_to_mapping;
 
         IF NOT (v_has_valid_from_mapping AND v_has_valid_to_mapping) THEN
             v_is_valid := false;
-            v_error_messages := array_append(v_error_messages, 'When valid_time_from="source_columns", mappings for both "valid_from" and "valid_to" from source columns are required.');
+            v_error_messages := array_append(v_error_messages, 'When valid_time_from="source_columns", mappings for both "valid_from_raw" and "valid_to_raw" from source columns are required.');
         END IF;
 
     ELSIF v_definition.valid_time_from = 'job_provided' THEN
-        -- If validity is derived from job-level parameters, the definition must map 'valid_from'
-        -- and 'valid_to' to the 'default' source expression. This allows the `import_job_prepare`
+        -- If validity is derived from job-level parameters, the definition must map 'valid_from_raw'
+        -- and 'valid_to_raw' to the 'default' source expression. This allows the `import_job_prepare`
         -- function to populate these columns from the job's `default_valid_from`/`to` fields.
         SELECT EXISTS (
             SELECT 1 FROM public.import_mapping im
             JOIN public.import_data_column idc ON im.target_data_column_id = idc.id JOIN public.import_step s ON idc.step_id = s.id
-            WHERE im.definition_id = p_definition_id AND s.code = 'valid_time' AND idc.column_name = 'valid_from' AND im.source_expression = 'default' AND im.is_ignored = FALSE
+            WHERE im.definition_id = p_definition_id AND s.code = 'valid_time' AND idc.column_name = 'valid_from_raw' AND im.source_expression = 'default' AND im.is_ignored = FALSE
         ) INTO v_has_valid_from_mapping;
         SELECT EXISTS (
             SELECT 1 FROM public.import_mapping im
             JOIN public.import_data_column idc ON im.target_data_column_id = idc.id JOIN public.import_step s ON idc.step_id = s.id
-            WHERE im.definition_id = p_definition_id AND s.code = 'valid_time' AND idc.column_name = 'valid_to' AND im.source_expression = 'default' AND im.is_ignored = FALSE
+            WHERE im.definition_id = p_definition_id AND s.code = 'valid_time' AND idc.column_name = 'valid_to_raw' AND im.source_expression = 'default' AND im.is_ignored = FALSE
         ) INTO v_has_valid_to_mapping;
 
         IF NOT (v_has_valid_from_mapping AND v_has_valid_to_mapping) THEN
             v_is_valid := false;
-            v_error_messages := array_append(v_error_messages, 'When valid_time_from="job_provided", mappings for both "valid_from" and "valid_to" using source_expression="default" are required.');
+            v_error_messages := array_append(v_error_messages, 'When valid_time_from="job_provided", mappings for both "valid_from_raw" and "valid_to_raw" using source_expression="default" are required.');
         END IF;
 
     ELSE
@@ -495,20 +493,20 @@ BEGIN
     -- The analyse_status procedure will handle defaults, and analyse_legal_unit/_establishment
     -- will error if status_id is ultimately not resolved.
 
-    -- Conditional check for 'data_source_code' mapping:
-    -- If import_definition.data_source_id is NULL, a mapping for 'data_source_code' is required.
+    -- Conditional check for 'data_source_code_raw' mapping:
+    -- If import_definition.data_source_id is NULL, a mapping for 'data_source_code_raw' is required.
     IF v_definition.data_source_id IS NULL THEN
         DECLARE
             v_data_source_code_mapped BOOLEAN;
             v_data_source_code_data_column_exists BOOLEAN;
         BEGIN
-            -- Check if a data_source_code data column even exists for any of the definition's steps
+            -- Check if a data_source_code_raw data column even exists for any of the definition's steps
             SELECT EXISTS (
                 SELECT 1
                 FROM public.import_definition_step ids
                 JOIN public.import_data_column idc ON ids.step_id = idc.step_id
                 WHERE ids.definition_id = p_definition_id
-                  AND idc.column_name = 'data_source_code'
+                  AND idc.column_name = 'data_source_code_raw'
                   AND idc.purpose = 'source_input'
             ) INTO v_data_source_code_data_column_exists;
 
@@ -518,19 +516,19 @@ BEGIN
                     SELECT 1 FROM public.import_mapping im
                     JOIN public.import_data_column idc ON im.target_data_column_id = idc.id
                     WHERE im.definition_id = p_definition_id
-                      AND idc.column_name = 'data_source_code'
+                      AND idc.column_name = 'data_source_code_raw'
                       AND idc.purpose = 'source_input'
                       AND im.is_ignored = FALSE
                 ) INTO v_data_source_code_mapped;
 
                 IF NOT v_data_source_code_mapped THEN
                     v_is_valid := false;
-                    v_error_messages := array_append(v_error_messages, 'If import_definition.data_source_id is NULL and a "data_source_code" source_input data column is available for the definition''s steps, it must be mapped.');
+                    v_error_messages := array_append(v_error_messages, 'If import_definition.data_source_id is NULL and a "data_source_code_raw" source_input data column is available for the definition''s steps, it must be mapped.');
                 END IF;
             ELSE
-                -- If data_source_id is NULL and no data_source_code data column is available from steps, it's an error.
+                -- If data_source_id is NULL and no data_source_code_raw data column is available from steps, it's an error.
                 v_is_valid := false;
-                v_error_messages := array_append(v_error_messages, 'If import_definition.data_source_id is NULL, a "data_source_code" source_input data column must be available via one of the definition''s steps and mapped. None found.');
+                v_error_messages := array_append(v_error_messages, 'If import_definition.data_source_id is NULL, a "data_source_code_raw" source_input data column must be available via one of the definition''s steps and mapped. None found.');
             END IF;
         END;
     END IF;
@@ -713,8 +711,8 @@ CREATE TABLE public.import_job(
     upload_table_name text NOT NULL, -- Name of the table holding raw uploaded data
     data_table_name text NOT NULL,   -- Name of the table holding processed/intermediate data
     priority integer,                -- Priority for worker queue processing
-    analysis_batch_size integer NOT NULL DEFAULT 10000, -- Batch size for analysis phase
-    processing_batch_size integer NOT NULL DEFAULT 1000, -- Batch size for processing phase
+    analysis_batch_size integer NOT NULL DEFAULT 32768, -- Batch size for analysis phase
+    processing_batch_size integer NOT NULL DEFAULT 200, -- Batch size for processing phase
     definition_snapshot JSONB,       -- Snapshot of definition metadata at job creation time
     preparing_data_at timestamp with time zone,
     analysis_start_at timestamp with time zone, -- Timestamp analysis phase started
@@ -1090,6 +1088,11 @@ BEGIN
     IF NEW.state IN ('waiting_for_review', 'finished', 'rejected') THEN
         NEW.current_step_code := NULL;
         NEW.current_step_priority := NULL;
+
+        -- When a job is finished or rejected, it's done. The performance index will be dropped with the table.
+        IF NEW.state IN ('finished', 'rejected') THEN
+            RAISE DEBUG '[Job %] State is now %, performance index will be dropped with table.', NEW.id, NEW.state;
+        END IF;
     END IF;
 
     -- Record start timestamp for processing_data state
@@ -1448,6 +1451,14 @@ BEGIN
   EXECUTE format($$CREATE INDEX ON public.%1$I (state, last_completed_priority, row_id)$$, job.data_table_name /* %1$I */);
   RAISE DEBUG '[Job %] Added composite index to data table %', job.id, job.data_table_name;
 
+  -- The GIST index on row_id has been removed. The `analyse_valid_time` procedure,
+  -- which was the sole user of this index via the `<@` operator, has been refactored
+  -- to use an `unnest`/`JOIN` strategy that leverages the much faster B-tree primary key index.
+
+  -- Add GIST index on daterange(valid_from, valid_until) for efficient temporal_merge lookups.
+  EXECUTE format('CREATE INDEX ON public.%I USING GIST (daterange(valid_from, valid_until, ''[]''))', job.data_table_name);
+  RAISE DEBUG '[Job %] Added GIST index on validity daterange to data table %', job.id, job.data_table_name;
+
   -- Create indexes on uniquely identifying source_input columns to speed up lookups within analysis steps.
   FOR col_rec IN
       SELECT (x->>'column_name')::TEXT as column_name
@@ -1458,29 +1469,19 @@ BEGIN
       EXECUTE format('CREATE INDEX ON public.%I (%I)', job.data_table_name, col_rec.column_name);
   END LOOP;
 
-  -- Add recommended performance indexes for processing phase and founding_row_id lookups.
+  -- Add recommended performance indexes.
   BEGIN
-      DECLARE
-          v_has_founding_row_id_col BOOLEAN;
-      BEGIN
-          -- Check if the 'founding_row_id' column is defined for this job's data table
-          SELECT EXISTS (
-              SELECT 1 FROM jsonb_array_elements(job.definition_snapshot->'import_data_column_list') elem
-              WHERE elem->>'column_name' = 'founding_row_id'
-          ) INTO v_has_founding_row_id_col;
+      -- Add index on founding_row_id. This helps with error propagation and is now a standard column.
+      EXECUTE format(
+          $$ CREATE INDEX ON public.%1$I (founding_row_id) WHERE founding_row_id IS NOT NULL $$,
+          job.data_table_name
+      );
+      RAISE DEBUG '[Job %] Added founding_row_id index to data table %.', job.id, job.data_table_name;
 
-          -- Add processing phase index
-          EXECUTE format($$ CREATE INDEX ON public.%1$I (action, row_id) WHERE state = 'processing' AND error IS NULL $$, job.data_table_name);
-          RAISE DEBUG '[Job %] Added processing phase index to data table %.', job.id, job.data_table_name;
-
-          -- Add founding_row_id index if the column exists
-          IF v_has_founding_row_id_col THEN
-              EXECUTE format($$ CREATE INDEX ON public.%1$I (founding_row_id) WHERE founding_row_id IS NOT NULL $$, job.data_table_name);
-              RAISE DEBUG '[Job %] Added founding_row_id index to data table %.', job.id, job.data_table_name;
-          ELSE
-              RAISE DEBUG '[Job %] Skipping founding_row_id index as column is not present in data table %.', job.id, job.data_table_name;
-          END IF;
-      END;
+      -- The partial indexes on (COALESCE(founding_row_id, row_id)) have been removed.
+      -- They were specific to a previous, more complex batching strategy and are no longer
+      -- used by the simplified batch selection queries, which now efficiently use the
+      -- composite index on (state, last_completed_priority, row_id).
   END;
 
   -- Grant direct permissions to the job owner on the upload table to allow COPY FROM
@@ -1725,7 +1726,7 @@ $$;
 CREATE OR REPLACE PROCEDURE import.propagate_fatal_error_to_entity_batch(
     p_job_id INT,
     p_data_table_name TEXT,
-    p_batch_row_ids INTEGER[],
+    p_batch_row_id_ranges int4multirange,
     p_error_keys TEXT[],
     p_step_code TEXT
 )
@@ -1740,13 +1741,13 @@ BEGIN
     EXECUTE format($$
         SELECT array_agg(DISTINCT dt.founding_row_id)
         FROM public.%1$I dt
-        WHERE dt.row_id = ANY($1) -- from the current batch
+        WHERE dt.row_id <@ $1 -- from the current batch
           AND dt.state = 'error'
           AND dt.founding_row_id IS NOT NULL
-          AND (dt.error ?| %2$L::text[]); -- and the error is from this step
+          AND (dt.errors ?| %2$L::text[]); -- and the error is from this step
     $$, p_data_table_name, p_error_keys)
     INTO v_failed_entity_founding_rows
-    USING p_batch_row_ids;
+    USING p_batch_row_id_ranges;
 
     IF array_length(v_failed_entity_founding_rows, 1) > 0 THEN
         RAISE DEBUG '[Job %] %s: Propagating errors for % failed entities.', p_job_id, p_step_code, array_length(v_failed_entity_founding_rows, 1);
@@ -1754,20 +1755,20 @@ BEGIN
             WITH failed_rows AS (
                 SELECT founding_row_id, array_agg(row_id) as error_source_row_ids
                 FROM public.%1$I
-                WHERE founding_row_id = ANY($1) AND state = 'error' AND (error ?| %2$L::text[])
+                WHERE founding_row_id = ANY($1) AND state = 'error' AND (errors ?| %2$L::text[])
                 GROUP BY founding_row_id
             )
             UPDATE public.%1$I dt SET
                 state = 'error',
                 action = 'skip',
-                error = COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object(
+                errors = COALESCE(dt.errors, '{}'::jsonb) || jsonb_build_object(
                     %4$L,
                     'An error on a related new entity row caused this row to be skipped. Source error row(s): ' || fr.error_source_row_ids::TEXT
                 )
             FROM failed_rows fr
             WHERE dt.founding_row_id = fr.founding_row_id
               AND dt.state != 'error' -- Don't re-process rows already in error
-              AND NOT (dt.error ?| %2$L::text[]); -- Don't update the row that was the source of the error
+              AND NOT (dt.errors ?| %2$L::text[]); -- Don't update the row that was the source of the error
         $$, p_data_table_name, p_error_keys, v_failed_entity_founding_rows, v_error_key_for_json)
         USING v_failed_entity_founding_rows;
     END IF;
@@ -1810,7 +1811,7 @@ BEGIN
             UPDATE public.%1$I dt SET
                 state = 'error',
                 action = 'skip',
-                error = COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object(
+                errors = COALESCE(dt.errors, '{}'::jsonb) || jsonb_build_object(
                     %3$L,
                     'An error on a related new entity row caused this row to be skipped. Source error row(s): ' || fr.error_source_row_ids::TEXT
                 )
@@ -1887,6 +1888,10 @@ BEGIN
 
                 RAISE DEBUG '[Job %] Recounted total_rows to % and updated total_analysis_steps_weighted.', job.id, job.total_rows;
 
+                -- PERFORMANCE FIX: Analyze the data table after populating it to ensure the query planner has statistics for the analysis phase.
+                RAISE DEBUG '[Job %] Running ANALYZE on data table %', job_id, job.data_table_name;
+                EXECUTE format('ANALYZE public.%I', job.data_table_name);
+
                 -- Transition rows in _data table from 'pending' to 'analysing'
                 RAISE DEBUG '[Job %] Updating data rows from pending to analysing in table %', job_id, job.data_table_name;
                 EXECUTE format($$UPDATE public.%I SET state = %L WHERE state = %L$$, job.data_table_name, 'analysing'::public.import_data_state, 'pending'::public.import_data_state);
@@ -1927,13 +1932,19 @@ BEGIN
                     IF job.review THEN
                         -- Transition rows from 'analysing' to 'analysed' if review is required
                         RAISE DEBUG '[Job %] Updating data rows from analysing to analysed in table % for review', job_id, job.data_table_name;
-                        EXECUTE format($$UPDATE public.%I SET state = %L WHERE state = %L AND error IS NULL$$, job.data_table_name, 'analysed'::public.import_data_state, 'analysing'::public.import_data_state);
+                        EXECUTE format($$UPDATE public.%I SET state = %L WHERE state = %L AND action = 'use'$$, job.data_table_name, 'analysed'::public.import_data_state, 'analysing'::public.import_data_state);
                         job := admin.import_job_set_state(job, 'waiting_for_review');
                         RAISE DEBUG '[Job %] Analysis complete, waiting for review.', job_id;
                     ELSE
                         -- Transition rows from 'analysing' to 'processing' if no review
                         RAISE DEBUG '[Job %] Updating data rows from analysing to processing and resetting LCP in table %', job_id, job.data_table_name;
-                        EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L AND error IS NULL$$, job.data_table_name, 'processing'::public.import_data_state, 'analysing'::public.import_data_state);
+                        EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L AND action = 'use'$$, job.data_table_name, 'processing'::public.import_data_state, 'analysing'::public.import_data_state);
+
+                        -- The performance index is now created when the job is generated.
+                        -- We still need to ANALYZE to update statistics after the analysis phase.
+                        RAISE DEBUG '[Job %] Running ANALYZE on data table %', job_id, job.data_table_name;
+                        EXECUTE format('ANALYZE public.%I', job.data_table_name);
+
                         job := admin.import_job_set_state(job, 'processing_data');
                         RAISE DEBUG '[Job %] Analysis complete, proceeding to processing.', job_id;
                         should_reschedule := TRUE; -- Reschedule to start processing
@@ -1951,7 +1962,13 @@ BEGIN
                 RAISE DEBUG '[Job %] Approved, transitioning to processing_data.', job_id;
                 -- Transition rows in _data table from 'analysed' to 'processing' and reset LCP
                 RAISE DEBUG '[Job %] Updating data rows from analysed to processing and resetting LCP in table % after approval', job_id, job.data_table_name;
-                EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L AND error IS NULL$$, job.data_table_name, 'processing'::public.import_data_state, 'analysed'::public.import_data_state);
+                EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L AND action = 'use'$$, job.data_table_name, 'processing'::public.import_data_state, 'analysed'::public.import_data_state);
+
+                -- The performance index is now created when the job is generated.
+                -- We still need to ANALYZE to update statistics after the analysis phase.
+                RAISE DEBUG '[Job %] Running ANALYZE on data table %', job_id, job.data_table_name;
+                EXECUTE format('ANALYZE public.%I', job.data_table_name);
+
                 job := admin.import_job_set_state(job, 'processing_data');
                 should_reschedule := TRUE; -- Reschedule immediately to start import
             END;
@@ -2012,10 +2029,31 @@ EXCEPTION WHEN OTHERS THEN
 END;
 $import_job_process$;
 
+
+CREATE PROCEDURE admin.disable_temporal_triggers()
+LANGUAGE plpgsql SECURITY DEFINER AS $procedure$
+BEGIN
+    CALL sql_saga.disable_temporal_triggers(
+        'public.legal_unit'::regclass, 'public.establishment'::regclass, 'public.activity'::regclass, 'public.location'::regclass,
+        'public.contact'::regclass, 'public.stat_for_unit'::regclass, 'public.person_for_unit'::regclass
+    );
+END;
+$procedure$;
+
+CREATE PROCEDURE admin.enable_temporal_triggers()
+LANGUAGE plpgsql SECURITY DEFINER AS $procedure$
+BEGIN
+    CALL sql_saga.enable_temporal_triggers(
+        'public.legal_unit'::regclass, 'public.establishment'::regclass, 'public.activity'::regclass, 'public.location'::regclass,
+        'public.contact'::regclass, 'public.stat_for_unit'::regclass, 'public.person_for_unit'::regclass
+    );
+END;
+$procedure$;
+
 -- Helper procedure to process a single batch through all processing steps
 CREATE PROCEDURE admin.import_job_process_batch(
     job public.import_job,
-    batch_row_ids INTEGER[]
+    batch_row_id_ranges int4multirange
 )
 LANGUAGE plpgsql AS $import_job_process_batch$
 DECLARE
@@ -2023,9 +2061,27 @@ DECLARE
     target_rec RECORD;
     proc_to_call REGPROC;
     error_message TEXT;
+    v_should_disable_triggers BOOLEAN;
 BEGIN
-    RAISE DEBUG '[Job %] Processing batch of % rows through all process steps.', job.id, array_length(batch_row_ids, 1);
+    RAISE DEBUG '[Job %] Processing batch with ranges %s through all process steps.', job.id, batch_row_id_ranges::text;
     targets := job.definition_snapshot->'import_step_list';
+
+    -- Check if the batch contains any operations that are not simple inserts.
+    -- If so, we need to disable FK triggers to allow for temporary inconsistencies.
+    EXECUTE format(
+        'SELECT EXISTS(SELECT 1 FROM public.%I WHERE row_id <@ $1 AND operation IS DISTINCT FROM %L)',
+        job.data_table_name,
+        'insert'
+    )
+    INTO v_should_disable_triggers
+    USING batch_row_id_ranges;
+
+    IF v_should_disable_triggers THEN
+        RAISE DEBUG '[Job %] Batch contains updates/replaces. Disabling FK triggers.', job.id;
+        CALL admin.disable_temporal_triggers();
+    ELSE
+        RAISE DEBUG '[Job %] Batch is insert-only. Skipping trigger disable/enable.', job.id;
+    END IF;
 
     FOR target_rec IN SELECT * FROM jsonb_populate_recordset(NULL::public.import_step, targets) ORDER BY priority
     LOOP
@@ -2035,10 +2091,17 @@ BEGIN
         END IF;
 
         RAISE DEBUG '[Job %] Batch processing: Calling % for step %', job.id, proc_to_call, target_rec.code;
-        
+
         -- Since this is one transaction, any error will roll back the entire batch.
-        EXECUTE format('CALL %s($1, $2, $3)', proc_to_call) USING job.id, batch_row_ids, target_rec.code;
+        EXECUTE format('CALL %s($1, $2, $3)', proc_to_call) USING job.id, batch_row_id_ranges, target_rec.code;
     END LOOP;
+
+    -- Re-enable triggers if they were disabled.
+    IF v_should_disable_triggers THEN
+        RAISE DEBUG '[Job %] Re-enabling FK triggers.', job.id;
+        CALL admin.enable_temporal_triggers();
+    END IF;
+
     RAISE DEBUG '[Job %] Batch processing complete.', job.id;
 END;
 $import_job_process_batch$;
@@ -2054,103 +2117,147 @@ CREATE FUNCTION admin.import_job_analysis_phase(
 ) RETURNS BOOLEAN -- Returns TRUE if any work was found/done, indicating the job should be rescheduled.
 LANGUAGE plpgsql AS $import_job_analysis_phase$
 /*
-RATIONALE for Holistic vs. Batched Steps and Transaction Model:
+RATIONALE for State Management and Control Flow:
 
-This function is the core of the step-by-step analysis logic. Each call executes ONE unit of work and then exits.
+This function manages the analysis phase of an import job. Its logic is designed
+to be robust and provide clear progress feedback, especially for long-running steps.
 
-1.  **Iterative Step Processing**: The function loops through all analysis steps for the definition in priority order. For each step, it checks if there are any rows that need processing (i.e., `last_completed_priority < step.priority`).
+The process is strictly separated into two stages across different transactions,
+driven by the worker's rescheduling mechanism:
 
-2.  **"First-Come, First-Served"**: It processes the first batch of work it finds for the first step that needs it. After processing, it immediately returns `TRUE`. This forces the worker to reschedule, ensuring each batch is a small, atomic transaction. This approach is robust and correctly handles cases where some rows have errors, as the `last_completed_priority < step.priority` condition will naturally find the next piece of work for a given row.
+1.  **Discovery & State Update Transaction**:
+    - The function scans for the next step with pending work.
+    - If found, its *only* action is to UPDATE `import_job.current_step_code` and
+      return TRUE.
+    - This commits the state change in a very fast transaction, making the UI
+      immediately aware of which step is *about to* be processed. The orchestrator
+      then reschedules the job.
 
-3.  **Status Update Correction**: The job's `current_step_code` is updated ONLY when a batch of work is found for that step, just before the step's procedure is called. This resolves the original "stuck job" UI issue, where the status would reflect the last *checked* step instead of the last *processed* step.
+2.  **Work Execution Transaction**:
+    - On the next worker run, `job.current_step_code` is now set.
+    - The function enters "execution mode" and processes one unit of work for that
+      step (one batch for batched steps, or all rows for holistic steps).
+    - If the step completes (no more rows to process), it clears `current_step_code`
+      and returns TRUE, again triggering a reschedule to return to discovery mode.
 
-4.  **Completion**: If a full loop over all steps finds no work, the function returns `FALSE`, signaling that the analysis phase is complete.
+This two-stage approach prevents a long-running step from blocking its own status
+update, ensuring the system's state is always accurate and transparent.
 */
 DECLARE
-    targets JSONB;
-    target_rec RECORD;
-    proc_to_call REGPROC;
-    batch_row_ids INTEGER[];
-    error_message TEXT;
-    current_phase_data_state public.import_data_state := 'analysing'::public.import_data_state;
+    v_steps JSONB;
+    v_step_rec RECORD;
+    v_proc_to_call REGPROC;
+    v_batch_row_id_ranges int4multirange;
+    v_error_message TEXT;
+    v_rows_exist BOOLEAN;
+    v_rows_processed INT;
+    v_current_phase_data_state public.import_data_state := 'analysing'::public.import_data_state;
 BEGIN
-    RAISE DEBUG '[Job %] Processing analysis phase.', job.id;
+    RAISE DEBUG '[Job %] ----- import_job_analysis_phase START (current step: %) -----', job.id, COALESCE(job.current_step_code, 'none');
 
-    -- Load steps from the job's snapshot
-    targets := job.definition_snapshot->'import_step_list';
-    IF targets IS NULL OR jsonb_typeof(targets) != 'array' THEN
+    v_steps := job.definition_snapshot->'import_step_list';
+    IF v_steps IS NULL OR jsonb_typeof(v_steps) != 'array' THEN
         RAISE EXCEPTION '[Job %] Failed to load valid import_step_list array from definition_snapshot', job.id;
     END IF;
 
-    -- Loop through steps (targets) in priority order
-    FOR target_rec IN SELECT * FROM jsonb_populate_recordset(NULL::public.import_step, targets)
-                      ORDER BY priority
-    LOOP
-        proc_to_call := target_rec.analyse_procedure;
+    -- STAGE 1: EXECUTION MODE
+    -- If a step is already selected, execute a unit of work for it.
+    IF job.current_step_code IS NOT NULL THEN
+        SELECT * INTO v_step_rec
+        FROM jsonb_populate_recordset(NULL::public.import_step, v_steps)
+        WHERE code = job.current_step_code;
 
-        -- Skip if no procedure defined for this target/phase
-        IF proc_to_call IS NULL THEN
-            CONTINUE;
+        IF NOT FOUND THEN
+             RAISE EXCEPTION '[Job %] Could not find current step % in job definition snapshot.', job.id, job.current_step_code;
         END IF;
 
-        RAISE DEBUG '[Job %] Checking step % (priority %) for analysis phase using procedure % (is_holistic: %)',
-            job.id, target_rec.name, target_rec.priority, proc_to_call, target_rec.is_holistic;
+        v_proc_to_call := v_step_rec.analyse_procedure;
+        v_rows_processed := 0;
 
-        -- Handle holistic vs. batched steps
-        BEGIN
-            IF COALESCE(target_rec.is_holistic, false) THEN
-                -- HOLISTIC STEP: Called once per phase. Processes all relevant rows.
-                DECLARE v_rows_exist BOOLEAN;
-                BEGIN
-                    EXECUTE format($$SELECT EXISTS(SELECT 1 FROM public.%I WHERE state = %L AND last_completed_priority < %L LIMIT 1)$$,
-                        job.data_table_name, current_phase_data_state, target_rec.priority)
+        IF v_proc_to_call IS NOT NULL THEN
+            BEGIN
+                IF COALESCE(v_step_rec.is_holistic, false) THEN
+                    -- HOLISTIC: check for work and run once.
+                    EXECUTE format($$SELECT EXISTS(SELECT 1 FROM public.%I WHERE state IN (%L, 'error') AND last_completed_priority < %L LIMIT 1)$$,
+                        job.data_table_name, v_current_phase_data_state, v_step_rec.priority)
                     INTO v_rows_exist;
 
                     IF v_rows_exist THEN
-                        -- Update the job status *before* executing, as we've found work.
-                        UPDATE public.import_job SET current_step_code = target_rec.code, current_step_priority = target_rec.priority WHERE id = job.id;
-                        RAISE DEBUG '[Job %] Calling holistic procedure % for step %.', job.id, proc_to_call, target_rec.name;
-
-                        EXECUTE format('CALL %s($1, $2, $3)', proc_to_call) USING job.id, NULL::INTEGER[], target_rec.code;
-                        -- Since work was found and done, return immediately to reschedule.
-                        RETURN TRUE;
+                        RAISE DEBUG '[Job %] Executing HOLISTIC step % (priority %)', job.id, v_step_rec.code, v_step_rec.priority;
+                        EXECUTE format('CALL %s($1, $2, $3)', v_proc_to_call) USING job.id, NULL::int4multirange, v_step_rec.code;
+                        v_rows_processed := 1; -- Mark as having done work.
                     END IF;
-                END;
-            ELSE
-                -- BATCHED STEP: Called repeatedly. Processes one batch at a time.
-                EXECUTE format(
-                    $$SELECT array_agg(row_id) FROM (
-                        SELECT row_id FROM public.%I
-                        WHERE state = %L AND last_completed_priority < %L
-                        ORDER BY row_id LIMIT %L FOR UPDATE SKIP LOCKED
-                     ) AS batch$$,
-                    job.data_table_name, current_phase_data_state, target_rec.priority, job.analysis_batch_size
-                ) INTO batch_row_ids;
+                ELSE
+                    -- BATCHED: find and process one batch.
+                    -- This is a simplified and more direct query that proved to be more reliable
+                    -- than the previous complex version with a self-join, which confused the query planner.
+                    EXECUTE format(
+                        $$
+                        WITH batch_rows AS (
+                            SELECT row_id
+                            FROM public.%1$I
+                            WHERE state IN (%2$L, 'error') AND last_completed_priority < %3$L
+                            ORDER BY row_id
+                            LIMIT %4$L
+                            FOR UPDATE SKIP LOCKED
+                        )
+                        SELECT public.array_to_int4multirange(array_agg(row_id)) FROM batch_rows
+                        $$,
+                        job.data_table_name,        /* %1$I */
+                        v_current_phase_data_state, /* %2$L */
+                        v_step_rec.priority,        /* %3$L */
+                        job.analysis_batch_size     /* %4$L */
+                    ) INTO v_batch_row_id_ranges;
 
-                IF batch_row_ids IS NOT NULL AND array_length(batch_row_ids, 1) > 0 THEN
-                    -- Update the job status *before* executing, as we've found work.
-                    UPDATE public.import_job SET current_step_code = target_rec.code, current_step_priority = target_rec.priority WHERE id = job.id;
-                    RAISE DEBUG '[Job %] Found batch of % rows for step % (priority %), calling %',
-                        job.id, array_length(batch_row_ids, 1), target_rec.name, target_rec.priority, proc_to_call;
-
-                    EXECUTE format('CALL %s($1, $2, $3)', proc_to_call) USING job.id, batch_row_ids, target_rec.code;
-
-                    -- Since work was found and done, return immediately to reschedule.
-                    RETURN TRUE;
+                    IF v_batch_row_id_ranges IS NOT NULL AND NOT isempty(v_batch_row_id_ranges) THEN
+                        RAISE DEBUG '[Job %] Executing BATCHED step % (priority %), found ranges: %s.', job.id, v_step_rec.code, v_step_rec.priority, v_batch_row_id_ranges::text;
+                        EXECUTE format('CALL %s($1, $2, $3)', v_proc_to_call) USING job.id, v_batch_row_id_ranges, v_step_rec.code;
+                        v_rows_processed := (SELECT count(*) FROM unnest(v_batch_row_id_ranges));
+                    END IF;
                 END IF;
-            END IF;
-        EXCEPTION WHEN OTHERS THEN
-            GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
-            RAISE WARNING '[Job %] Error in procedure % for step % (code: %): %', job.id, proc_to_call, target_rec.name, target_rec.code, error_message;
-            UPDATE public.import_job SET error = jsonb_build_object('error_in_analysis_step', format('Error during analysis step %s (code: %s, proc: %s): %s', target_rec.name, target_rec.code, proc_to_call::text, error_message))
-            WHERE id = job.id;
-            RAISE;
-        END;
-    END LOOP; -- End target loop
+            EXCEPTION WHEN OTHERS THEN
+                GET STACKED DIAGNOSTICS v_error_message = MESSAGE_TEXT;
+                RAISE WARNING '[Job %] Error in procedure % for step %: %', job.id, v_proc_to_call, v_step_rec.name, v_error_message;
+                UPDATE public.import_job SET error = jsonb_build_object('error_in_analysis_step', format('Error during analysis step %s (proc: %s): %s', v_step_rec.name, v_proc_to_call::text, v_error_message))
+                WHERE id = job.id;
+                RAISE;
+            END;
+        END IF;
 
-    -- If the loop completes, it means a full pass over all steps found no pending work.
-    -- The phase is therefore complete. Return false to stop rescheduling.
-    RAISE DEBUG '[Job %] Analysis phase processing pass complete. No work found.', job.id;
+        -- If no rows were processed, this step is complete. Clear current_step_code to return to discovery mode.
+        IF v_rows_processed = 0 THEN
+            RAISE DEBUG '[Job %] Step % is complete. Clearing current_step_code to find next step.', job.id, job.current_step_code;
+            UPDATE public.import_job SET current_step_code = NULL, current_step_priority = NULL WHERE id = job.id;
+        END IF;
+
+        RAISE DEBUG '[Job %] ----- import_job_analysis_phase END (rescheduling after execution) -----', job.id;
+        RETURN TRUE; -- Always reschedule after executing a step to check for more work or find the next step.
+    END IF;
+
+    -- STAGE 2: DISCOVERY MODE
+    -- If no step is being processed, find the next one with work.
+    FOR v_step_rec IN SELECT * FROM jsonb_populate_recordset(NULL::public.import_step, v_steps) ORDER BY priority
+    LOOP
+        IF v_step_rec.analyse_procedure IS NULL THEN CONTINUE; END IF;
+
+        -- Check if any rows need processing for this step.
+        EXECUTE format($$SELECT EXISTS(SELECT 1 FROM public.%I WHERE state IN (%L, 'error') AND last_completed_priority < %L LIMIT 1)$$,
+            job.data_table_name, v_current_phase_data_state, v_step_rec.priority)
+        INTO v_rows_exist;
+
+        IF v_rows_exist THEN
+            -- Found the next step. Update the job and reschedule immediately.
+            RAISE DEBUG '[Job %] Found next step: % (priority %). Updating job and rescheduling for execution.', job.id, v_step_rec.code, v_step_rec.priority;
+            UPDATE public.import_job SET current_step_code = v_step_rec.code, current_step_priority = v_step_rec.priority WHERE id = job.id;
+
+            RAISE DEBUG '[Job %] ----- import_job_analysis_phase END (rescheduling to start new step) -----', job.id;
+            RETURN TRUE; -- The next run will execute this step.
+        END IF;
+    END LOOP;
+
+    -- If the loop completes, no steps have any pending work. The phase is done.
+    RAISE DEBUG '[Job %] Analysis phase processing pass complete. No more work found.', job.id;
+    RAISE DEBUG '[Job %] ----- import_job_analysis_phase END (phase complete) -----', job.id;
     RETURN FALSE;
 END;
 $import_job_analysis_phase$;
@@ -2161,27 +2268,38 @@ CREATE FUNCTION admin.import_job_processing_phase(
 ) RETURNS BOOLEAN -- Returns TRUE if work was done and rescheduling is needed
 LANGUAGE plpgsql AS $import_job_processing_phase$
 DECLARE
-    v_batch_row_ids INTEGER[];
+    v_batch_row_id_ranges int4multirange;
 BEGIN
     RAISE DEBUG '[Job %] Processing phase: checking for a batch.', job.id;
 
+    -- This is a simplified and more direct query that is more reliable.
+    -- The previous complex version with a self-join confused the query planner.
     EXECUTE format(
-        $$SELECT array_agg(row_id) FROM (
-            SELECT row_id FROM public.%I
-            WHERE state = 'processing' AND error IS NULL AND action != 'skip'
-            ORDER BY row_id LIMIT %L FOR UPDATE SKIP LOCKED
-         ) AS batch$$,
-        job.data_table_name, job.processing_batch_size
-    ) INTO v_batch_row_ids;
+        $$
+        WITH batch_rows AS (
+            SELECT row_id
+            FROM public.%1$I
+            WHERE state = 'processing' AND action = 'use'
+            ORDER BY row_id
+            LIMIT %2$L
+            FOR UPDATE SKIP LOCKED
+        )
+        SELECT public.array_to_int4multirange(array_agg(row_id)) FROM batch_rows
+        $$,
+        job.data_table_name,        /* %1$I */
+        job.processing_batch_size   /* %2$L */
+    ) INTO v_batch_row_id_ranges;
 
-    IF v_batch_row_ids IS NOT NULL AND array_length(v_batch_row_ids, 1) > 0 THEN
-        RAISE DEBUG '[Job %] Found batch of % rows to process.', job.id, array_length(v_batch_row_ids, 1);
+    IF v_batch_row_id_ranges IS NOT NULL AND NOT isempty(v_batch_row_id_ranges) THEN
+        RAISE DEBUG '[Job %] Found batch of ranges to process: %s.', job.id, v_batch_row_id_ranges::text;
         BEGIN
-            CALL admin.import_job_process_batch(job, v_batch_row_ids);
+            CALL admin.import_job_process_batch(job, v_batch_row_id_ranges);
 
-            EXECUTE format($$UPDATE public.%1$I SET state = 'processed' WHERE row_id = ANY($1)$$,
-                           job.data_table_name /* %1$I */) USING v_batch_row_ids;
-            RAISE DEBUG '[Job %] Batch successfully processed. Marked % rows as processed.', job.id, array_length(v_batch_row_ids, 1);
+            -- Mark all rows in the batch that are not in an error state as 'processed'.
+            -- This is safe because any errors within the batch call would have already set the row state to 'error'.
+            EXECUTE format($$UPDATE public.%1$I SET state = 'processed' WHERE row_id <@ $1 AND state != 'error'$$,
+                           job.data_table_name /* %1$I */) USING v_batch_row_id_ranges;
+            RAISE DEBUG '[Job %] Batch successfully processed. Marked non-error rows in ranges %s as processed.', job.id, v_batch_row_id_ranges::text;
         EXCEPTION WHEN OTHERS THEN
             DECLARE
                 error_message TEXT;
@@ -2190,8 +2308,8 @@ BEGIN
                 GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT,
                                       error_context = PG_EXCEPTION_CONTEXT;
                 RAISE WARNING '[Job %] Error processing batch: %. Context: %. Marking batch rows as error and failing job.', job.id, error_message, error_context;
-                EXECUTE format($$UPDATE public.%1$I SET state = 'error', error = COALESCE(error, '{}'::jsonb) || %2$L WHERE row_id = ANY($1)$$,
-                               job.data_table_name /* %1$I */, jsonb_build_object('process_batch_error', error_message, 'context', error_context) /* %2$L */) USING v_batch_row_ids;
+                EXECUTE format($$UPDATE public.%1$I SET state = 'error', errors = COALESCE(errors, '{}'::jsonb) || %2$L WHERE row_id <@ $1$$,
+                               job.data_table_name /* %1$I */, jsonb_build_object('process_batch_error', error_message, 'context', error_context) /* %2$L */) USING v_batch_row_id_ranges;
                 UPDATE public.import_job SET error = jsonb_build_object('error_in_processing_batch', error_message, 'context', error_context), state = 'finished' WHERE id = job.id;
                 -- On error, do not reschedule.
                 RETURN FALSE;
@@ -2261,9 +2379,9 @@ BEGIN
                     WHEN 'now' THEN 'statement_timestamp()'
                     WHEN 'default' THEN
                         CASE current_target_data_column->>'column_name'
-                            WHEN 'valid_from' THEN format('%L', job.default_valid_from)
-                            WHEN 'valid_to' THEN format('%L', job.default_valid_to)
-                            WHEN 'data_source_code' THEN format('%L', job.default_data_source_code)
+                            WHEN 'valid_from_raw' THEN format('%L', job.default_valid_from)
+                            WHEN 'valid_to_raw' THEN format('%L', job.default_valid_to)
+                            WHEN 'data_source_code_raw' THEN format('%L', job.default_data_source_code)
                             ELSE 'NULL'
                         END
                     ELSE 'NULL'

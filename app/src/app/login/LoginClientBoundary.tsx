@@ -1,102 +1,80 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useSearchParams, usePathname } from "next/navigation";
-import { useAtomValue, useSetAtom, useAtom } from "jotai";
-import { clientMountedAtom, pendingRedirectAtom } from "@/atoms/app";
-import {
-  authStatusAtom,
-  authStatusInitiallyCheckedAtom,
-  lastKnownPathBeforeAuthChangeAtom,
-  loginActionInProgressAtom,
-  loginPageMachineAtom,
-} from "@/atoms/auth";
+import { useAtom } from "jotai";
+import { authMachineAtom } from "@/atoms/auth-machine";
+import { loginUiMachineAtom } from "@/atoms/login-ui-machine";
+import { navigationMachineAtom } from "@/atoms/navigation-machine";
 import LoginForm from "./LoginForm";
 
 /**
  * LoginClientBoundary
- * 
- * This component orchestrates the behavior of the /login page. It handles one primary case:
- * 
- * 1. Redirecting an authenticated user AWAY from the /login page.
- *    This can happen if:
- *    - A logged-in user directly navigates to /login.
- *    - A user on the /login page becomes authenticated via another tab (cross-tab sync).
- * 
- * It does NOT handle redirecting unauthenticated users TO the login page. That logic
- * is handled globally by an effect in `JotaiAppProvider`.
+ *
+ * This component orchestrates the UI of the `/login` page. It acts as a bridge,
+ * feeding context from the global `authMachine` and current URL path into the
+ * page-specific `loginMachine`. The `loginMachine` then determines whether to
+ * show the login form, a loading message, or nothing at all.
+ *
+ * Crucially, this component does **not** handle navigation or redirects itself.
+ * - Redirecting an authenticated user **away** from `/login` is handled by `navigationMachine`.
+ * - Redirecting an unauthenticated user **to** `/login` is also handled by `navigationMachine`.
+ *
+ * This separation of concerns keeps the UI logic for this specific page decoupled
+ * from the application's global routing rules.
  */
 export default function LoginClientBoundary() {
+  const [isMounted, setIsMounted] = useState(false);
+  useGuardedEffect(() => {
+    setIsMounted(true);
+  }, [], 'LoginClientBoundary:setMounted');
+
   const searchParams = useSearchParams();
   const nextPath = searchParams.get('next');
-  const authStatus = useAtomValue(authStatusAtom);
-  const initialAuthCheckCompleted = useAtomValue(authStatusInitiallyCheckedAtom);
-  const [pendingRedirect, setPendingRedirect] = useAtom(pendingRedirectAtom);
-  const [lastPathBeforeAuthChange, setLastPathBeforeAuthChange] = useAtom(lastKnownPathBeforeAuthChangeAtom);
   const pathname = usePathname();
-  const [state, send] = useAtom(loginPageMachineAtom);
-  const clientMounted = useAtomValue(clientMountedAtom);
+  const [authState, sendAuth] = useAtom(authMachineAtom);
+  const [loginPageState, sendLoginPage] = useAtom(loginUiMachineAtom);
+  const [navState] = useAtom(navigationMachineAtom);
 
-  // Effect to reset the machine to idle on mount. This ensures a clean state for every visit,
-  // which is crucial for handling React 18 Strict Mode and Fast Refresh in development.
-  useEffect(() => {
-    // Only run after the client has mounted to ensure all state is hydrated.
-    if (clientMounted) {
-      send({ type: 'RESET' });
-    }
-  }, [clientMounted, send]);
+  // The useEffect that previously sent a CHECK event has been removed.
+  // This logic is now fully centralized within the navigationMachine to
+  // prevent race conditions and infinite loops.
 
-  // Effect to send events to the state machine when dependencies change.
-  useEffect(() => {
-    // Gate this logic on clientMounted to ensure atomWithStorage has hydrated.
-    if (!clientMounted) {
-      return;
-    }
+  useGuardedEffect(() => {
+    // On every render, send the latest context to the UI state machine.
+    // This allows the machine to react to changes in auth status or path.
+    const isOnLoginPage = pathname === '/login';
+    const isAuthenticated = authState.matches('idle_authenticated');
+    const isLoggingIn = authState.matches('loggingIn');
 
-    // Once the initial auth check is done, we can evaluate.
-    // This will run on first load and again if authStatus.isAuthenticated changes.
-    if (initialAuthCheckCompleted) {
-      send({
-        type: 'EVALUATE',
-        context: {
-          isAuthenticated: authStatus.isAuthenticated,
-          isOnLoginPage: pathname === '/login',
-        },
-      });
-    }
-  }, [clientMounted, initialAuthCheckCompleted, authStatus.isAuthenticated, pathname, send, lastPathBeforeAuthChange, state.value]);
+    sendLoginPage({
+      type: 'EVALUATE',
+      context: { isOnLoginPage, isAuthenticated, isLoggingIn }
+    });
+  }, [pathname, authState, sendLoginPage], 'LoginClientBoundary:sendContextToMachine');
 
-  // Effect to handle the side-effect of redirection when the machine enters the 'redirecting' state.
-  useEffect(() => {
-    // Gate this logic on clientMounted to ensure lastPathBeforeAuthChange is hydrated.
-    if (!clientMounted) {
-      return;
-    }
+  if (!isMounted) {
+    // During SSR and initial client render, render nothing to prevent hydration mismatch.
+    // The server-rendered page will contain the static layout, but this dynamic
+    // part will be blank, matching the initial client render.
+    return null;
+  }
 
-    // If the machine wants to redirect AND no redirect is currently pending, set one.
-    if (state.matches('redirecting') && pendingRedirect === null) {
-      let targetRedirectPath: string;
-
-      // Prioritize the path stored before a cross-tab auth change.
-      if (lastPathBeforeAuthChange) {
-        targetRedirectPath = lastPathBeforeAuthChange;
-      } else {
-        // Otherwise, use the 'next' URL parameter or default to the dashboard.
-        targetRedirectPath = nextPath && nextPath.startsWith('/') ? nextPath : '/';
-      }
-
-      setPendingRedirect(targetRedirectPath);
-      // Clear the last path atom after using it for a redirect.
-      setLastPathBeforeAuthChange(null);
-    }
-  }, [clientMounted, state, nextPath, lastPathBeforeAuthChange, setLastPathBeforeAuthChange, pendingRedirect, setPendingRedirect]);
-
-  // Render content based on the machine's state.
-  if (state.matches('showingForm')) {
+  // Render content based on the local UI machine's state.
+  if (loginPageState.matches('finalizing')) {
+    return (
+      <div className="text-center text-gray-500 pt-8">
+        <p>Finalizing login...</p>
+      </div>
+    );
+  }
+  
+  if (loginPageState.matches('showingForm')) {
     return <LoginForm nextPath={nextPath} />;
   }
 
-  // While idle or checking, render nothing or a skeleton loader.
-  // Returning null is fine as the parent page provides the layout.
+  // In all other cases (e.g., 'idle', 'evaluating', or not on login page),
+  // render nothing. The central NavigationManager handles redirects.
   return null;
 }

@@ -15,18 +15,18 @@
  unit_size_id                             | integer               |           |          | 
  status_id                                | integer               |           |          | 
  count                                    | bigint                |           |          | 
- births                                   | bigint                |           |          | 
- deaths                                   | bigint                |           |          | 
- name_change_count                        | bigint                |           |          | 
- primary_activity_category_change_count   | bigint                |           |          | 
- secondary_activity_category_change_count | bigint                |           |          | 
- sector_change_count                      | bigint                |           |          | 
- legal_form_change_count                  | bigint                |           |          | 
- physical_region_change_count             | bigint                |           |          | 
- physical_country_change_count            | bigint                |           |          | 
- physical_address_change_count            | bigint                |           |          | 
- unit_size_change_count                   | bigint                |           |          | 
- status_change_count                      | bigint                |           |          | 
+ births                                   | integer               |           |          | 
+ deaths                                   | integer               |           |          | 
+ name_change_count                        | integer               |           |          | 
+ primary_activity_category_change_count   | integer               |           |          | 
+ secondary_activity_category_change_count | integer               |           |          | 
+ sector_change_count                      | integer               |           |          | 
+ legal_form_change_count                  | integer               |           |          | 
+ physical_region_change_count             | integer               |           |          | 
+ physical_country_change_count            | integer               |           |          | 
+ physical_address_change_count            | integer               |           |          | 
+ unit_size_change_count                   | integer               |           |          | 
+ status_change_count                      | integer               |           |          | 
  stats_summary                            | jsonb                 |           |          | 
 Indexes:
     "idx_gist_statistical_history_facet_physical_region_path" gist (physical_region_path)
@@ -58,5 +58,6 @@ Policies:
     POLICY "statistical_history_facet_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Typed table of type: statistical_history_facet_type
 
 ```

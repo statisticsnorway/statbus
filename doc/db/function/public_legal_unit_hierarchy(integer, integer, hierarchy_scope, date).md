@@ -15,7 +15,7 @@ AS $function$
         || CASE WHEN scope IN ('all','details') THEN (SELECT public.unit_size_hierarchy(lu.unit_size_id)) ELSE '{}'::JSONB END
         || CASE WHEN scope IN ('all','details') THEN (SELECT public.status_hierarchy(lu.status_id)) ELSE '{}'::JSONB END
         || CASE WHEN scope IN ('all','details') THEN (SELECT public.legal_form_hierarchy(lu.legal_form_id)) ELSE '{}'::JSONB END
-        || CASE WHEN scope IN ('all','details') THEN (SELECT public.contact_hierarchy(NULL,lu.id)) ELSE '{}'::JSONB END
+        || CASE WHEN scope IN ('all','details') THEN (SELECT public.contact_hierarchy(NULL,lu.id,valid_on)) ELSE '{}'::JSONB END
         || CASE WHEN scope IN ('all','details') THEN (SELECT public.data_source_hierarchy(lu.data_source_id)) ELSE '{}'::JSONB END
         || CASE WHEN scope IN ('all','details') THEN (SELECT public.notes_for_unit(NULL,lu.id,NULL,NULL)) ELSE '{}'::JSONB END
         || CASE WHEN scope IN ('all','details') THEN (SELECT public.tag_for_unit_hierarchy(NULL,lu.id,NULL,NULL)) ELSE '{}'::JSONB END
@@ -24,7 +24,7 @@ AS $function$
    WHERE (  (legal_unit_id IS NOT NULL AND lu.id = legal_unit_id)
          OR (parent_enterprise_id IS NOT NULL AND lu.enterprise_id = parent_enterprise_id)
          )
-     AND lu.valid_after < valid_on AND valid_on <= lu.valid_to
+     AND lu.valid_from <= valid_on AND valid_on < lu.valid_until
    ORDER BY lu.primary_for_enterprise DESC, lu.name
   ), data_list AS (
       SELECT jsonb_agg(data) AS data FROM ordered_data

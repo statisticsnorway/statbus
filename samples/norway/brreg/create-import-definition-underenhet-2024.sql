@@ -6,7 +6,7 @@ DECLARE
     def_id INT;
     -- Define the steps needed for an establishment linked to a legal unit import with a time context
     es_steps TEXT[] := ARRAY[
-        'external_idents', 'link_establishment_to_legal_unit', 'valid_time', 'status', 'establishment',
+        'external_idents', 'data_source', 'link_establishment_to_legal_unit', 'valid_time', 'status', 'establishment',
         'physical_location', 'postal_location', 'primary_activity', 'secondary_activity',
         'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'
     ];
@@ -16,7 +16,7 @@ DECLARE
 BEGIN
     -- 1. Create the definition record (initially invalid)
     INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id)
-    VALUES ('brreg_underenhet_2024', 'Import of BRREG Underenhet using 2024 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_replace', 'establishment_formal', 'job_provided', false, (SELECT id FROM public.data_source WHERE code = 'brreg'))
+    VALUES ('brreg_underenhet_2024', 'Import of BRREG Underenhet using 2024 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_update', 'establishment_formal', 'job_provided', false, (SELECT id FROM public.data_source WHERE code = 'brreg'))
     RETURNING id INTO def_id;
 
     -- 2. Link the required steps to the definition
@@ -89,7 +89,7 @@ BEGIN
             FROM public.import_definition_step ds
             JOIN public.import_data_column dc ON ds.step_id = dc.step_id
             WHERE ds.definition_id = def_id
-              AND dc.column_name = map_rec.target_name
+              AND dc.column_name = map_rec.target_name || '_raw'
               AND dc.purpose = 'source_input';
 
             IF v_data_col_id IS NOT NULL THEN
@@ -123,7 +123,7 @@ BEGIN
         SELECT def_id, 'default'::public.import_source_expression, dc.id
         FROM public.import_data_column dc
         WHERE dc.step_id = v_valid_time_step_id
-          AND dc.column_name IN ('valid_from', 'valid_to')
+          AND dc.column_name IN ('valid_from_raw', 'valid_to_raw')
           AND dc.purpose = 'source_input'
         ON CONFLICT DO NOTHING;
     END;
@@ -137,7 +137,7 @@ BEGIN
         UPDATE public.import_data_column
         SET is_uniquely_identifying = true
         WHERE step_id = v_idents_step_id -- Use step_id
-          AND column_name = 'tax_ident'
+          AND column_name = 'tax_ident_raw'
           AND purpose = 'source_input';
     END; -- End of the inner BEGIN/END block
 

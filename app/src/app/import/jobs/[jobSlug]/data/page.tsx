@@ -14,6 +14,7 @@ import { ColumnDef, PaginationState, SortingState, ColumnFiltersState } from "@t
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ChevronRight } from "lucide-react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useAtomValue } from "jotai";
 import { externalIdentTypesAtom } from "@/atoms/base-data";
 import { type ImportJobWithDetails as ImportJob } from "@/atoms/import";
@@ -25,8 +26,9 @@ type ImportJobDataRow = {
   name?: string | null;
   operation?: any;
   action?: any;
-  error?: any;
+  errors?: any;
   invalid_codes?: any;
+  merge_status?: any;
   [key:string]: any;
 };
 
@@ -79,12 +81,12 @@ const fetcher = async (key: string): Promise<any> => {
     }
 
     filters.forEach((values, key) => {
-      if (key === 'error' || key === 'invalid_codes') {
+      if (key === 'errors' || key === 'invalid_codes') {
         const filterValue = values[0];
         if (filterValue === 'is_null') {
-          queryBuilder = queryBuilder.is(key, null);
+          queryBuilder = queryBuilder.or(`${key}.is.null,${key}.eq.{}`);
         } else if (filterValue === 'not_null') {
-          queryBuilder = queryBuilder.not(key, 'is', null);
+          queryBuilder = queryBuilder.not(key, 'is', null).not(key, 'eq', '{}');
         }
       } else if (['operation', 'state', 'action'].includes(key)) {
         queryBuilder = queryBuilder.in(key, values);
@@ -157,7 +159,7 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
     { revalidateOnFocus: false, keepPreviousData: true }
   );
 
-  React.useEffect(() => {
+  useGuardedEffect(() => {
     if (!job?.id) return;
 
     const sseUrl = `/api/sse/import-jobs?ids=${job.id}&scope=updates_for_ids_only`;
@@ -209,7 +211,7 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
     return () => {
       eventSource.close();
     };
-  }, [job?.id, jobSlug, tableDataSWRKey, mutate]);
+  }, [job?.id, jobSlug, tableDataSWRKey, mutate], 'ImportJobDataPage:sseListener');
 
   const pageCount = React.useMemo(() => {
     return tableData?.count != null
@@ -236,21 +238,45 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
       'operation',
       'state',
       'action',
-      'error',
+      'errors',
       'invalid_codes',
+      'merge_status',
       ...externalIdentCodes,
       'name'
     ];
-    const allKeys = new Set<string>(preferredOrder);
+    const allKeys = new Set<string>();
 
     if (tableData?.data) {
         tableData.data.forEach(row => {
             Object.keys(row).forEach(key => allKeys.add(key));
         });
     }
-    let keys = Array.from(allKeys);
 
-    keys.sort((a, b) => {
+    const baseKeys = new Set<string>();
+    allKeys.forEach(key => {
+        const activityMatch = key.match(/^(.*_activity)_category_code_raw$/);
+        if (activityMatch) {
+            baseKeys.add(activityMatch[1]); // e.g. primary_activity
+        } else if (key.match(/^.*_activity_category_id$/) && allKeys.has(key.replace('_category_id', '_category_code_raw'))) {
+            baseKeys.add(key.replace('_category_id', ''));
+        } else if (key.match(/^.*_activity_id$/) && allKeys.has(key.replace('_id', '_category_code_raw'))) {
+            baseKeys.add(key.replace('_id', ''));
+        } else if (key.endsWith('_path_raw')) {
+            baseKeys.add(key.slice(0, -9)); // e.g. 'tag' from 'tag_path_raw'
+        } else if (key.endsWith('_path') && allKeys.has(key.slice(0, -5) + '_path_raw')) {
+            baseKeys.add(key.slice(0, -5));
+        } else if (key.endsWith('_code_raw')) {
+            baseKeys.add(key.slice(0, -9)); // e.g. 'sector' from 'sector_code_raw'
+        } else if (key.endsWith('_id') && (allKeys.has(key.slice(0, -3) + '_code_raw') || allKeys.has(key.slice(0, -3) + '_path_raw'))) {
+            baseKeys.add(key.slice(0, -3));
+        } else {
+            baseKeys.add(key.replace(/_raw$/, '')); // This handles `name`/`name_raw` and standalone keys like `operation`
+        }
+    });
+
+    let sortedBaseKeys = Array.from(baseKeys);
+
+    sortedBaseKeys.sort((a, b) => {
       const aIndex = preferredOrder.indexOf(a);
       const bIndex = preferredOrder.indexOf(b);
       const aPos = aIndex === -1 ? preferredOrder.length : aIndex;
@@ -259,54 +285,133 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
       return a.localeCompare(b);
     });
 
-    return keys.map(key => {
+    return sortedBaseKeys.map(baseKey => {
+      const rawKey = `${baseKey}_raw`;
+      const codeRawKey = `${baseKey}_code_raw`;
+      const idKey = `${baseKey}_id`;
+      const pathKey = `${baseKey}_path`;
+      const pathRawKey = `${baseKey}_path_raw`;
+      const activityCategoryCodeRawKey = `${baseKey}_category_code_raw`;
+      const activityCategoryIdKey = `${baseKey}_category_id`;
+
+      const hasPlain = allKeys.has(baseKey);
+      const hasRaw = allKeys.has(rawKey);
+      const hasCodeRaw = allKeys.has(codeRawKey);
+      const hasId = allKeys.has(idKey);
+      const hasPath = allKeys.has(pathKey);
+      const hasPathRaw = allKeys.has(pathRawKey);
+      const hasActivityCategoryCodeRaw = allKeys.has(activityCategoryCodeRawKey);
+      const hasActivityCategoryId = allKeys.has(activityCategoryIdKey);
+
+      const headerText = baseKey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      
       const columnDef: ColumnDef<ImportJobDataRow> = {
-        id: key,
-        accessorKey: key,
-        header: ({ column }) => <DataTableColumnHeader column={column} title={key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} />,
-        cell: ({ row }) => {
-          const value = row.getValue(key);
-          let displayValue;
-          if (value === null) {
-            displayValue = 'NULL';
-          } else if (typeof value === 'object') {
-            displayValue = JSON.stringify(value);
-          } else {
-            displayValue = String(value);
-          }
-          return <div className="text-xs truncate" title={displayValue}>{displayValue}</div>;
-        },
-        enableSorting: true,
+          id: baseKey, // Default ID, will be overridden for filters
+          header: ({ column }) => <DataTableColumnHeader column={column} title={headerText} />,
+          cell: ({ row }) => {
+              const plainValue = hasPlain ? row.original[baseKey as keyof ImportJobDataRow] : undefined;
+              const rawValue = hasRaw ? row.original[rawKey as keyof ImportJobDataRow] : undefined;
+              const codeRawValue = hasCodeRaw ? row.original[codeRawKey as keyof ImportJobDataRow] : undefined;
+              const idValue = hasId ? row.original[idKey as keyof ImportJobDataRow] : undefined;
+              const pathValue = hasPath ? row.original[pathKey as keyof ImportJobDataRow] : undefined;
+              const pathRawValue = hasPathRaw ? row.original[pathRawKey as keyof ImportJobDataRow] : undefined;
+              const activityCategoryCodeRawValue = hasActivityCategoryCodeRaw ? row.original[activityCategoryCodeRawKey as keyof ImportJobDataRow] : undefined;
+              const activityCategoryIdValue = hasActivityCategoryId ? row.original[activityCategoryIdKey as keyof ImportJobDataRow] : undefined;
+              
+              const renderSingleValue = (val: any, className: string = '') => {
+                  if (val === undefined || val === null) return null;
+                  let displayValue;
+                  if (typeof val === 'object') {
+                      displayValue = JSON.stringify(val);
+                  } else {
+                      displayValue = String(val);
+                  }
+                  return <div className={`text-xs truncate ${className}`} title={displayValue}>{displayValue}</div>;
+              };
+
+              if (hasActivityCategoryCodeRaw) {
+                return (
+                    <div className="flex items-center space-x-2">
+                      <div>
+                        {renderSingleValue(activityCategoryCodeRawValue)}
+                        {renderSingleValue(activityCategoryIdValue, 'text-gray-500')}
+                      </div>
+                      <div>
+                        {renderSingleValue(idValue, 'text-gray-500')}
+                      </div>
+                    </div>
+                );
+              }
+
+              if (hasPathRaw) {
+                return (
+                    <div>
+                        {renderSingleValue(pathRawValue)}
+                        {renderSingleValue(pathValue, 'text-gray-500')}
+                        {renderSingleValue(idValue, 'text-gray-500')}
+                    </div>
+                );
+              }
+
+              if (hasCodeRaw) {
+                return (
+                    <div>
+                        {renderSingleValue(codeRawValue)}
+                        {renderSingleValue(idValue, 'text-gray-500')}
+                    </div>
+                );
+              }
+
+              if (!hasRaw && !hasPlain) return null;
+
+              if (!hasRaw) return renderSingleValue(plainValue);
+              if (!hasPlain) return renderSingleValue(rawValue);
+
+              // If values are the same, show only one.
+              if (String(rawValue) === String(plainValue)) {
+                return renderSingleValue(rawValue);
+              }
+
+              // Paired field: raw over processed, processed is gray
+              return (
+                  <div>
+                      {renderSingleValue(rawValue)}
+                      {renderSingleValue(plainValue, 'text-gray-500')}
+                  </div>
+              );
+          },
+          enableSorting: true,
       };
       
-      if (key === 'name' || externalIdentCodes.includes(key)) {
-        columnDef.enableColumnFilter = true;
-        columnDef.meta = {
-          label: key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-          variant: 'text',
-          placeholder: `Filter by ${key.replace(/_/g, ' ')}...`
-        };
+      if (baseKey === 'name' || externalIdentCodes.includes(baseKey) || hasCodeRaw || hasPathRaw || hasActivityCategoryCodeRaw) {
+          columnDef.id = hasRaw ? rawKey : hasCodeRaw ? codeRawKey : hasPathRaw ? pathRawKey : hasActivityCategoryCodeRaw ? activityCategoryCodeRawKey : baseKey;
+          columnDef.enableColumnFilter = true;
+          columnDef.meta = {
+              label: headerText,
+              variant: 'text',
+              placeholder: `Filter by ${baseKey.replace(/_/g, ' ')}...`
+          };
       }
       
-      if (['operation', 'state', 'action'].includes(key)) {
-        columnDef.enableColumnFilter = true;
-        columnDef.meta = {
-          label: key.charAt(0).toUpperCase() + key.slice(1),
-          variant: 'multiSelect',
-          options: key === 'operation' ? operationOptions : key === 'state' ? stateOptions : actionOptions,
-        };
+      if (['operation', 'state', 'action'].includes(baseKey)) {
+          columnDef.enableColumnFilter = true;
+          columnDef.meta = {
+              label: headerText,
+              variant: 'multiSelect',
+              options: baseKey === 'operation' ? operationOptions : baseKey === 'state' ? stateOptions : actionOptions,
+          };
       }
 
-      if (['error', 'invalid_codes'].includes(key)) {
-        columnDef.enableColumnFilter = true;
-        columnDef.meta = {
-          label: key === 'error' ? 'Error' : 'Invalid Codes',
-          variant: 'select',
-          options: [
-            { label: 'Has value', value: 'not_null' },
-            { label: 'Is empty', value: 'is_null' },
-          ],
-        };
+      if (['errors', 'invalid_codes'].includes(baseKey)) {
+          columnDef.enableColumnFilter = true;
+          columnDef.meta = {
+              label: headerText,
+              variant: 'select',
+              options: [
+                  { label: 'Has value', value: 'not_null' },
+                  { label: 'Is empty', value: 'is_null' },
+              ],
+          };
       }
       
       return columnDef;
@@ -353,10 +458,10 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
             </Link>
             <ChevronRight className="h-6 w-6 text-gray-400" />
             <Link href="/import/jobs" className="text-2xl font-semibold text-gray-500 hover:underline">
-              Import Jobs
+              Jobs
             </Link>
             <ChevronRight className="h-6 w-6 text-gray-400" />
-            <h1 className="text-2xl font-semibold">Imported Data for Job: {jobSlug}</h1>
+            <h1 className="text-2xl font-semibold">Data for Job: {jobSlug}</h1>
           </div>
           <Skeleton className="mt-1 h-5 w-1/2" />
         </div>
@@ -386,10 +491,10 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
           </Link>
           <ChevronRight className="h-6 w-6 text-gray-400" />
           <Link href="/import/jobs" className="text-2xl font-semibold text-gray-500 hover:underline">
-            Import Jobs
+            Jobs
           </Link>
           <ChevronRight className="h-6 w-6 text-gray-400" />
-          <h1 className="text-2xl font-semibold">Imported Data for Job: {job.id}</h1>
+          <h1 className="text-2xl font-semibold">Data for Job: {job.id}</h1>
         </div>
         <p className="text-sm text-gray-500 mt-1">Description: {job.description ?? 'N/A'} | Table: {job.data_table_name}</p>
       </div>

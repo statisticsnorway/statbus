@@ -3,9 +3,9 @@ BEGIN;
 CREATE OR REPLACE VIEW public.timeline_enterprise_def
     ( unit_type
     , unit_id
-    , valid_after
     , valid_from
     , valid_to
+    , valid_until
     , name
     , birth_date
     , death_date
@@ -85,6 +85,9 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
     , related_legal_unit_ids
     , excluded_legal_unit_ids
     , included_legal_unit_ids
+    , related_enterprise_ids
+    , excluded_enterprise_ids
+    , included_enterprise_ids
     , enterprise_id
     --
     , primary_establishment_id
@@ -93,600 +96,150 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
     , stats_summary
     )
     AS
-      WITH timesegments_enterprise AS (
-      SELECT *
-           , en.id AS enterprise_id
-      FROM public.timesegments AS t
-      INNER JOIN public.enterprise AS en
-          ON t.unit_type = 'enterprise' AND t.unit_id = en.id
-      ), enterprise_with_primary_legal_unit AS (
-      SELECT ten.unit_type
-           , ten.unit_id
-           , ten.valid_after
-           , ten.valid_to
-           , tlu.name AS name
-           , tlu.birth_date AS birth_date
-           , tlu.death_date AS death_date
-           , tlu.search AS search
-           , tlu.primary_activity_category_id
-           , tlu.primary_activity_category_path
-           , tlu.primary_activity_category_code
-           , tlu.secondary_activity_category_id
-           , tlu.secondary_activity_category_path
-           , tlu.secondary_activity_category_code
-           , tlu.activity_category_paths
-           , tlu.sector_id
-           , tlu.sector_path
-           , tlu.sector_code
-           , tlu.sector_name
-           , tlu.data_source_ids
-           , tlu.data_source_codes
-           , tlu.legal_form_id
-           , tlu.legal_form_code
-           , tlu.legal_form_name
-           , tlu.physical_address_part1
-           , tlu.physical_address_part2
-           , tlu.physical_address_part3
-           , tlu.physical_postcode
-           , tlu.physical_postplace
-           , tlu.physical_region_id
-           , tlu.physical_region_path
-           , tlu.physical_region_code
-           , tlu.physical_country_id
-           , tlu.physical_country_iso_2
-           , tlu.physical_latitude
-           , tlu.physical_longitude
-           , tlu.physical_altitude
-           , tlu.postal_address_part1
-           , tlu.postal_address_part2
-           , tlu.postal_address_part3
-           , tlu.postal_postcode
-           , tlu.postal_postplace
-           , tlu.postal_region_id
-           , tlu.postal_region_path
-           , tlu.postal_region_code
-           , tlu.postal_country_id
-           , tlu.postal_country_iso_2
-           , tlu.postal_latitude
-           , tlu.postal_longitude
-           , tlu.postal_altitude
-           , tlu.web_address
-           , tlu.email_address
-           , tlu.phone_number
-           , tlu.landline
-           , tlu.mobile_number
-           , tlu.fax_number
-           , tlu.unit_size_id
-           , tlu.unit_size_code
-           , tlu.status_id
-           , tlu.status_code
-           , tlu.include_unit_in_reports
-           , last_edit.edit_comment AS last_edit_comment
-           , last_edit.edit_by_user_id AS last_edit_by_user_id
-           , last_edit.edit_at AS last_edit_at
-           , tlu.invalid_codes
-           , tlu.has_legal_unit
-           , ten.enterprise_id
-           , tlu.legal_unit_id AS primary_legal_unit_id
-      FROM timesegments_enterprise AS ten
-        INNER JOIN public.timeline_legal_unit AS tlu
-            ON tlu.enterprise_id = ten.enterprise_id
-            AND tlu.primary_for_enterprise = true
-            AND after_to_overlaps(ten.valid_after, ten.valid_to, tlu.valid_after, tlu.valid_to)
-        LEFT JOIN LATERAL (
-          SELECT edit_comment, edit_by_user_id, edit_at
-          FROM (
-            VALUES
-              (ten.edit_comment, ten.edit_by_user_id, ten.edit_at),
-              (tlu.last_edit_comment, tlu.last_edit_by_user_id, tlu.last_edit_at)
-          ) AS all_edits(edit_comment, edit_by_user_id, edit_at)
-          WHERE edit_at IS NOT NULL
-          ORDER BY edit_at DESC
-          LIMIT 1
-        ) AS last_edit ON TRUE
-      ), enterprise_with_primary_establishment AS (
-      SELECT ten.unit_type
-           , ten.unit_id
-           , ten.valid_after
-           , ten.valid_to
-           , tes.name AS name
-           , tes.birth_date AS birth_date
-           , tes.death_date AS death_date
-           , tes.search AS search
-           , tes.primary_activity_category_id
-           , tes.primary_activity_category_path
-           , tes.primary_activity_category_code
-           , tes.secondary_activity_category_id
-           , tes.secondary_activity_category_path
-           , tes.secondary_activity_category_code
-           , tes.activity_category_paths
-           , tes.sector_id
-           , tes.sector_path
-           , tes.sector_code
-           , tes.sector_name
-           , tes.data_source_ids
-           , tes.data_source_codes
-           , tes.legal_form_id
-           , tes.legal_form_code
-           , tes.legal_form_name
-           , tes.physical_address_part1
-           , tes.physical_address_part2
-           , tes.physical_address_part3
-           , tes.physical_postcode
-           , tes.physical_postplace
-           , tes.physical_region_id
-           , tes.physical_region_path
-           , tes.physical_region_code
-           , tes.physical_country_id
-           , tes.physical_country_iso_2
-           , tes.physical_latitude
-           , tes.physical_longitude
-           , tes.physical_altitude
-           , tes.postal_address_part1
-           , tes.postal_address_part2
-           , tes.postal_address_part3
-           , tes.postal_postcode
-           , tes.postal_postplace
-           , tes.postal_region_id
-           , tes.postal_region_path
-           , tes.postal_region_code
-           , tes.postal_country_id
-           , tes.postal_country_iso_2
-           , tes.postal_latitude
-           , tes.postal_longitude
-           , tes.postal_altitude
-           , tes.web_address
-           , tes.email_address
-           , tes.phone_number
-           , tes.landline
-           , tes.mobile_number
-           , tes.fax_number
-           , tes.unit_size_id
-           , tes.unit_size_code
-           , tes.status_id
-           , tes.status_code
-           , tes.include_unit_in_reports
-           , last_edit.edit_comment AS last_edit_comment
-           , last_edit.edit_by_user_id AS last_edit_by_user_id
-           , last_edit.edit_at AS last_edit_at
-           , tes.invalid_codes
-           , tes.has_legal_unit
-           , ten.enterprise_id
-           , tes.establishment_id AS primary_establishment_id
-      FROM timesegments_enterprise AS ten
-        INNER JOIN public.timeline_establishment AS tes
-            ON tes.enterprise_id = ten.enterprise_id
-            AND tes.primary_for_enterprise = true
-            AND after_to_overlaps(ten.valid_after, ten.valid_to, tes.valid_after, tes.valid_to)
-        LEFT JOIN LATERAL (
-          SELECT edit_comment, edit_by_user_id, edit_at
-          FROM (
-            VALUES
-              (ten.edit_comment, ten.edit_by_user_id, ten.edit_at),
-              (tes.last_edit_comment, tes.last_edit_by_user_id, tes.last_edit_at)
-          ) AS all_edits(edit_comment, edit_by_user_id, edit_at)
-          WHERE edit_at IS NOT NULL
-          ORDER BY edit_at DESC
-          LIMIT 1
-        ) AS last_edit ON TRUE
-      ), enterprise_with_primary AS (
-      SELECT ten.unit_type
-           , ten.unit_id
-           , ten.valid_after
-           , ten.valid_to
-           , COALESCE(enplu.name,enpes.name) AS name
-           , COALESCE(enplu.birth_date,enpes.birth_date) AS birth_date
-           , COALESCE(enplu.death_date,enpes.death_date) AS death_date
-           --
-           , COALESCE(enplu.primary_activity_category_id,enpes.primary_activity_category_id) AS primary_activity_category_id
-           , COALESCE(enplu.primary_activity_category_path,enpes.primary_activity_category_path) AS primary_activity_category_path
-           , COALESCE(enplu.primary_activity_category_code,enpes.primary_activity_category_code) AS primary_activity_category_code
-           --
-           , COALESCE(enplu.secondary_activity_category_id,enpes.secondary_activity_category_id) AS secondary_activity_category_id
-           , COALESCE(enplu.secondary_activity_category_path,enpes.secondary_activity_category_path) AS secondary_activity_category_path
-           , COALESCE(enplu.secondary_activity_category_code,enpes.secondary_activity_category_code) AS secondary_activity_category_code
-           --
-           , COALESCE(enplu.sector_id,enpes.sector_id) AS sector_id
-           , COALESCE(enplu.sector_path,enpes.sector_path) AS sector_path
-           , COALESCE(enplu.sector_code,enpes.sector_code) AS sector_code
-           , COALESCE(enplu.sector_name,enpes.sector_name) AS sector_name
-           --
-           , (
-               SELECT array_agg(DISTINCT id)
-               FROM (
-                   SELECT unnest(enplu.data_source_ids) AS id
-                   UNION
-                   SELECT unnest(enpes.data_source_ids) AS id
-               ) AS ids
-           ) AS data_source_ids
-           , (
-               SELECT array_agg(DISTINCT code)
-               FROM (
-                   SELECT unnest(enplu.data_source_codes) AS code
-                   UNION
-                   SELECT unnest(enpes.data_source_codes) AS code
-               ) AS codes
-           ) AS data_source_codes
-           --
-           , enplu.legal_form_id   AS legal_form_id
-           , enplu.legal_form_code AS legal_form_code
-           , enplu.legal_form_name AS legal_form_name
-           --
-           , COALESCE(enplu.physical_address_part1, enpes.physical_address_part1) AS physical_address_part1
-           , COALESCE(enplu.physical_address_part2, enpes.physical_address_part2) AS physical_address_part2
-           , COALESCE(enplu.physical_address_part3, enpes.physical_address_part3) AS physical_address_part3
-           , COALESCE(enplu.physical_postcode, enpes.physical_postcode) AS physical_postcode
-           , COALESCE(enplu.physical_postplace, enpes.physical_postplace) AS physical_postplace
-           , COALESCE(enplu.physical_region_id, enpes.physical_region_id) AS physical_region_id
-           , COALESCE(enplu.physical_region_path, enpes.physical_region_path) AS physical_region_path
-           , COALESCE(enplu.physical_region_code, enpes.physical_region_code) AS physical_region_code
-           , COALESCE(enplu.physical_country_id, enpes.physical_country_id) AS physical_country_id
-           , COALESCE(enplu.physical_country_iso_2, enpes.physical_country_iso_2) AS physical_country_iso_2
-           , COALESCE(enplu.physical_latitude, enpes.physical_latitude) AS physical_latitude
-           , COALESCE(enplu.physical_longitude, enpes.physical_longitude) AS physical_longitude
-           , COALESCE(enplu.physical_altitude, enpes.physical_altitude) AS physical_altitude
-           --
-           , COALESCE(enplu.postal_address_part1, enpes.postal_address_part1) AS postal_address_part1
-           , COALESCE(enplu.postal_address_part2, enpes.postal_address_part2) AS postal_address_part2
-           , COALESCE(enplu.postal_address_part3, enpes.postal_address_part3) AS postal_address_part3
-           , COALESCE(enplu.postal_postcode, enpes.postal_postcode) AS postal_postcode
-           , COALESCE(enplu.postal_postplace, enpes.postal_postplace) AS postal_postplace
-           , COALESCE(enplu.postal_region_id, enpes.postal_region_id) AS postal_region_id
-           , COALESCE(enplu.postal_region_path, enpes.postal_region_path) AS postal_region_path
-           , COALESCE(enplu.postal_region_code, enpes.postal_region_code) AS postal_region_code
-           , COALESCE(enplu.postal_country_id, enpes.postal_country_id) AS postal_country_id
-           , COALESCE(enplu.postal_country_iso_2, enpes.postal_country_iso_2) AS postal_country_iso_2
-           , COALESCE(enplu.postal_latitude, enpes.postal_latitude) AS postal_latitude
-           , COALESCE(enplu.postal_longitude, enpes.postal_longitude) AS postal_longitude
-           , COALESCE(enplu.postal_altitude, enpes.postal_altitude) AS postal_altitude
-           --
-           , COALESCE(enplu.web_address, enpes.web_address) AS web_address
-           , COALESCE(enplu.email_address, enpes.email_address) AS email_address
-           , COALESCE(enplu.phone_number, enpes.phone_number) AS phone_number
-           , COALESCE(enplu.landline, enpes.landline) AS landline
-           , COALESCE(enplu.mobile_number, enpes.mobile_number) AS mobile_number
-           , COALESCE(enplu.fax_number, enpes.fax_number) AS fax_number
-           --
-           , COALESCE(enplu.unit_size_id, enpes.unit_size_id) AS unit_size_id
-           , COALESCE(enplu.unit_size_code, enpes.unit_size_code) AS unit_size_code
-           --
-           , COALESCE(enplu.status_id, enpes.status_id) AS status_id
-           , COALESCE(enplu.status_code, enpes.status_code) AS status_code
-           , COALESCE(enplu.include_unit_in_reports, enpes.include_unit_in_reports) AS include_unit_in_reports
-           --
-           , last_edit.edit_comment AS last_edit_comment
-           , last_edit.edit_by_user_id AS last_edit_by_user_id
-           , last_edit.edit_at AS last_edit_at
-           --
-           , COALESCE(
-              enplu.invalid_codes || enpes.invalid_codes,
-              enplu.invalid_codes,
-              enpes.invalid_codes
-           ) AS invalid_codes
-           --
-           , GREATEST(enplu.has_legal_unit, enpes.has_legal_unit) AS has_legal_unit
-           --
-           , ten.enterprise_id AS enterprise_id
-           , enplu.primary_legal_unit_id AS primary_legal_unit_id
-           , enpes.primary_establishment_id AS primary_establishment_id
-      FROM timesegments_enterprise AS ten
-      LEFT JOIN enterprise_with_primary_legal_unit AS enplu
-             ON enplu.enterprise_id = ten.enterprise_id
-             AND ten.valid_after = enplu.valid_after
-             AND ten.valid_to = enplu.valid_to
-      LEFT JOIN enterprise_with_primary_establishment AS enpes
-             ON enpes.enterprise_id = ten.enterprise_id
-             AND ten.valid_after = enpes.valid_after
-             AND ten.valid_to = enpes.valid_to
-      LEFT JOIN LATERAL (
-        SELECT edit_comment, edit_by_user_id, edit_at
-        FROM (
-          VALUES
-            (ten.edit_comment, ten.edit_by_user_id, ten.edit_at),
-            (enplu.last_edit_comment, enplu.last_edit_by_user_id, enplu.last_edit_at),
-            (enpes.last_edit_comment, enpes.last_edit_by_user_id, enpes.last_edit_at)
-        ) AS all_edits(edit_comment, edit_by_user_id, edit_at)
-        WHERE edit_at IS NOT NULL
-        ORDER BY edit_at DESC
-        LIMIT 1
-      ) AS last_edit ON TRUE
-      ), aggregation AS (
-        SELECT ten.enterprise_id
-             , ten.valid_after
-             , ten.valid_to
-             --
-             , public.array_distinct_concat(
-                COALESCE(
-                  array_cat(tlu.data_source_ids, tes.data_source_ids),
-                  tlu.data_source_ids,
-                  tes.data_source_ids
-                )
-             )
-             AS data_source_ids
-             , public.array_distinct_concat(
-                COALESCE(
-                  array_cat(tlu.data_source_codes, tes.data_source_codes),
-                  tlu.data_source_codes,
-                  tes.data_source_codes
-                )
-             )
-             AS data_source_codes
-             --
-             , public.array_distinct_concat(
-                COALESCE(
-                  array_cat(tlu.related_establishment_ids, tes.related_establishment_ids),
-                  tlu.related_establishment_ids,
-                  tes.related_establishment_ids
-                )
-             ) AS related_establishment_ids
-             --
-             , public.array_distinct_concat(
-                COALESCE(
-                  array_cat(tlu.excluded_establishment_ids, tes.excluded_establishment_ids),
-                  tlu.excluded_establishment_ids,
-                  tes.excluded_establishment_ids
-                )
-             ) AS excluded_establishment_ids
-             --
-             , public.array_distinct_concat(
-                COALESCE(
-                  array_cat(tlu.included_establishment_ids, tes.included_establishment_ids),
-                  tlu.included_establishment_ids,
-                  tes.included_establishment_ids
-                )
-             ) AS included_establishment_ids
-             --
+      WITH aggregation AS (
+        SELECT ten.enterprise_id, ten.valid_from, ten.valid_until
+             , public.array_distinct_concat(COALESCE(array_cat(tlu.data_source_ids, tes.data_source_ids), tlu.data_source_ids, tes.data_source_ids)) AS data_source_ids
+             , public.array_distinct_concat(COALESCE(array_cat(tlu.data_source_codes, tes.data_source_codes), tlu.data_source_codes, tes.data_source_codes)) AS data_source_codes
+             , public.array_distinct_concat(COALESCE(array_cat(tlu.related_establishment_ids, tes.related_establishment_ids), tlu.related_establishment_ids, tes.related_establishment_ids)) AS related_establishment_ids
+             , public.array_distinct_concat(COALESCE(array_cat(tlu.excluded_establishment_ids, tes.excluded_establishment_ids), tlu.excluded_establishment_ids, tes.excluded_establishment_ids)) AS excluded_establishment_ids
+             , public.array_distinct_concat(COALESCE(array_cat(tlu.included_establishment_ids, tes.included_establishment_ids), tlu.included_establishment_ids, tes.included_establishment_ids)) AS included_establishment_ids
              , public.array_distinct_concat(tlu.related_legal_unit_ids) AS related_legal_unit_ids
              , public.array_distinct_concat(tlu.excluded_legal_unit_ids) AS excluded_legal_unit_ids
              , public.array_distinct_concat(tlu.included_legal_unit_ids) AS included_legal_unit_ids
-             --
-             , COALESCE(
-               public.jsonb_stats_summary_merge_agg(
-                 COALESCE(
-                   public.jsonb_stats_summary_merge(tlu.stats_summary, tes.stats_summary),
-                   tlu.stats_summary,
-                   tes.stats_summary
-                   )
-                 ),
-               '{}'::jsonb
-               ) AS stats_summary
-          FROM timesegments_enterprise AS ten
+             -- FINESSE: An enterprise's `stats_summary` is the aggregation of summaries from all its
+             -- descendant units. This is handled by two parallel aggregations which are then merged:
+             -- 1. `tlu.stats_summary`: Aggregates summaries from all child legal units. This is a multi-level
+             --    rollup, as the legal units have already rolled up their own children's stats.
+             -- 2. `tes.stats_summary`: Aggregates summaries from any establishments that are *directly*
+             --    linked to the enterprise, bypassing a legal unit.
+             -- 3. `jsonb_stats_summary_merge`: The results of these two aggregations are then merged
+             --    to create the complete summary for the enterprise.
+             , COALESCE(public.jsonb_stats_summary_merge_agg(COALESCE(public.jsonb_stats_summary_merge(tlu.stats_summary, tes.stats_summary), tlu.stats_summary, tes.stats_summary)), '{}'::jsonb) AS stats_summary
+          FROM (
+            SELECT *, en.id AS enterprise_id
+            FROM public.timesegments AS t
+            INNER JOIN public.enterprise AS en ON t.unit_type = 'enterprise' AND t.unit_id = en.id
+          ) AS ten
           LEFT JOIN LATERAL (
-              SELECT enterprise_id
-                   , ten.valid_after
-                   , ten.valid_to
-                   , public.array_distinct_concat(data_source_ids) AS data_source_ids
-                   , public.array_distinct_concat(data_source_codes) AS data_source_codes
-                   , public.array_distinct_concat(related_establishment_ids) AS related_establishment_ids
-                   , public.array_distinct_concat(excluded_establishment_ids) AS excluded_establishment_ids
-                   , public.array_distinct_concat(included_establishment_ids) AS included_establishment_ids
-                   , array_agg(DISTINCT legal_unit_id) AS related_legal_unit_ids
-                   , array_agg(DISTINCT legal_unit_id) FILTER (WHERE NOT include_unit_in_reports) AS excluded_legal_unit_ids
-                   , array_agg(DISTINCT legal_unit_id) FILTER (WHERE include_unit_in_reports) AS included_legal_unit_ids
-                   , public.jsonb_stats_summary_merge_agg(stats_summary) FILTER (WHERE include_unit_in_reports) AS stats_summary
+              SELECT enterprise_id, ten.valid_from, ten.valid_until
+                   , public.array_distinct_concat(data_source_ids) AS data_source_ids, public.array_distinct_concat(data_source_codes) AS data_source_codes, public.array_distinct_concat(related_establishment_ids) AS related_establishment_ids, public.array_distinct_concat(excluded_establishment_ids) AS excluded_establishment_ids, public.array_distinct_concat(included_establishment_ids) AS included_establishment_ids, array_agg(DISTINCT legal_unit_id) AS related_legal_unit_ids, array_agg(DISTINCT legal_unit_id) FILTER (WHERE NOT include_unit_in_reports) AS excluded_legal_unit_ids, array_agg(DISTINCT legal_unit_id) FILTER (WHERE include_unit_in_reports) AS included_legal_unit_ids, public.jsonb_stats_summary_merge_agg(stats_summary) FILTER (WHERE include_unit_in_reports) AS stats_summary
               FROM public.timeline_legal_unit
-              WHERE enterprise_id = ten.enterprise_id
-              AND after_to_overlaps(ten.valid_after, ten.valid_to, valid_after, valid_to)
-              GROUP BY enterprise_id, ten.valid_after, ten.valid_to
+              WHERE enterprise_id = ten.enterprise_id AND from_until_overlaps(ten.valid_from, ten.valid_until, valid_from, valid_until) GROUP BY enterprise_id, ten.valid_from, ten.valid_until
           ) AS tlu ON true
           LEFT JOIN LATERAL (
-              SELECT enterprise_id
-                   , ten.valid_after
-                   , ten.valid_to
-                   , public.array_distinct_concat(data_source_ids) AS data_source_ids
-                   , public.array_distinct_concat(data_source_codes) AS data_source_codes
-                   , array_agg(DISTINCT establishment_id) AS related_establishment_ids
-                   , array_agg(DISTINCT establishment_id) FILTER (WHERE NOT include_unit_in_reports) AS excluded_establishment_ids
-                   , array_agg(DISTINCT establishment_id) FILTER (WHERE include_unit_in_reports) AS included_establishment_ids
-                   , public.jsonb_stats_to_summary_agg(stats) FILTER (WHERE include_unit_in_reports) AS stats_summary
+              SELECT enterprise_id, ten.valid_from, ten.valid_until
+                   , public.array_distinct_concat(data_source_ids) AS data_source_ids, public.array_distinct_concat(data_source_codes) AS data_source_codes, array_agg(DISTINCT establishment_id) AS related_establishment_ids, array_agg(DISTINCT establishment_id) FILTER (WHERE NOT include_unit_in_reports) AS excluded_establishment_ids, array_agg(DISTINCT establishment_id) FILTER (WHERE include_unit_in_reports) AS included_establishment_ids, public.jsonb_stats_summary_merge_agg(stats_summary) FILTER (WHERE include_unit_in_reports) AS stats_summary
               FROM public.timeline_establishment
-              WHERE enterprise_id = ten.enterprise_id
-              AND after_to_overlaps(ten.valid_after, ten.valid_to, valid_after, valid_to)
-              GROUP BY enterprise_id, ten.valid_after, ten.valid_to
+              WHERE enterprise_id = ten.enterprise_id AND from_until_overlaps(ten.valid_from, ten.valid_until, valid_from, valid_until) GROUP BY enterprise_id, ten.valid_from, ten.valid_until
           ) AS tes ON true
-          GROUP BY ten.enterprise_id, ten.valid_after, ten.valid_to
+          GROUP BY ten.enterprise_id, ten.valid_from, ten.valid_until
       ), enterprise_with_primary_and_aggregation AS (
-          SELECT basis.unit_type
-               , basis.unit_id
-               , basis.valid_after
-               , basis.valid_to
-               , basis.name
-               , basis.birth_date
-               , basis.death_date
-               , basis.primary_activity_category_id
-               , basis.primary_activity_category_path
-               , basis.primary_activity_category_code
-               , basis.secondary_activity_category_id
-               , basis.secondary_activity_category_path
-               , basis.secondary_activity_category_code
-               , basis.sector_id
-               , basis.sector_path
-               , basis.sector_code
-               , basis.sector_name
-               , (
-                   SELECT array_agg(DISTINCT id)
-                   FROM (
-                       SELECT unnest(basis.data_source_ids) AS id
-                       UNION
-                       SELECT unnest(aggregation.data_source_ids) AS id
-                   ) AS ids
-               ) AS data_source_ids
-               , (
-                   SELECT array_agg(DISTINCT code)
-                   FROM (
-                       SELECT unnest(basis.data_source_codes) AS code
-                       UNION ALL
-                       SELECT unnest(aggregation.data_source_codes) AS code
-                   ) AS codes
-               ) AS data_source_codes
-               , basis.legal_form_id
-               , basis.legal_form_code
-               , basis.legal_form_name
-               , basis.physical_address_part1
-               , basis.physical_address_part2
-               , basis.physical_address_part3
-               , basis.physical_postcode
-               , basis.physical_postplace
-               , basis.physical_region_id
-               , basis.physical_region_path
-               , basis.physical_region_code
-               , basis.physical_country_id
-               , basis.physical_country_iso_2
-               , basis.physical_latitude
-               , basis.physical_longitude
-               , basis.physical_altitude
-               --
-               , basis.postal_address_part1
-               , basis.postal_address_part2
-               , basis.postal_address_part3
-               , basis.postal_postcode
-               , basis.postal_postplace
-               , basis.postal_region_id
-               , basis.postal_region_path
-               , basis.postal_region_code
-               , basis.postal_country_id
-               , basis.postal_country_iso_2
-               , basis.postal_latitude
-               , basis.postal_longitude
-               , basis.postal_altitude
-               --
-               , basis.web_address
-               , basis.email_address
-               , basis.phone_number
-               , basis.landline
-               , basis.mobile_number
-               , basis.fax_number
-               --
-               , basis.unit_size_id
-               , basis.unit_size_code
-               --
-               , basis.status_id
-               , basis.status_code
-               , basis.include_unit_in_reports
-               --
-               , basis.last_edit_comment
-               , basis.last_edit_by_user_id
-               , basis.last_edit_at
-               --
-               , basis.invalid_codes
-               , basis.has_legal_unit
-               , COALESCE(aggregation.related_establishment_ids, ARRAY[]::INT[]) AS related_establishment_ids
-               , COALESCE(aggregation.excluded_establishment_ids, ARRAY[]::INT[]) AS excluded_establishment_ids
-               , COALESCE(aggregation.included_establishment_ids, ARRAY[]::INT[]) AS included_establishment_ids
-               , COALESCE(aggregation.related_legal_unit_ids, ARRAY[]::INT[]) AS related_legal_unit_ids
-               , COALESCE(aggregation.excluded_legal_unit_ids, ARRAY[]::INT[]) AS excluded_legal_unit_ids
-               , COALESCE(aggregation.included_legal_unit_ids, ARRAY[]::INT[]) AS included_legal_unit_ids
-               , basis.enterprise_id
-               , basis.primary_establishment_id
-               , basis.primary_legal_unit_id
-               , aggregation.stats_summary
-          FROM enterprise_with_primary AS basis
-          LEFT OUTER JOIN aggregation
-                     ON basis.enterprise_id = aggregation.enterprise_id
-                     AND basis.valid_after = aggregation.valid_after
-                     AND basis.valid_to = aggregation.valid_to
-        ), enterprise_with_primary_and_aggregation_and_derived AS (
-        SELECT unit_type
-             , unit_id
-             , valid_after
-             , (valid_after + '1 day'::INTERVAL)::DATE AS valid_from
-             , valid_to
-             , name
-             , birth_date
-             , death_date
-             -- Se supported languages with `SELECT * FROM pg_ts_config`
-             , to_tsvector('simple', name) AS search
-             --
-             , primary_activity_category_id
-             , primary_activity_category_path
-             , primary_activity_category_code
-             --
-             , secondary_activity_category_id
-             , secondary_activity_category_path
-             , secondary_activity_category_code
-             --
-             , NULLIF(ARRAY_REMOVE(ARRAY[
-                primary_activity_category_path,
-                secondary_activity_category_path
-              ], NULL), '{}') AS activity_category_paths
-             --
-             , sector_id
-             , sector_path
-             , sector_code
-             , sector_name
-             --
-             , data_source_ids
-             , data_source_codes
-             --
-             , legal_form_id
-             , legal_form_code
-             , legal_form_name
-             --
-             , physical_address_part1
-             , physical_address_part2
-             , physical_address_part3
-             , physical_postcode
-             , physical_postplace
-             , physical_region_id
-             , physical_region_path
-             , physical_region_code
-             , physical_country_id
-             , physical_country_iso_2
-             , physical_latitude
-             , physical_longitude
-             , physical_altitude
-             --
-             , postal_address_part1
-             , postal_address_part2
-             , postal_address_part3
-             , postal_postcode
-             , postal_postplace
-             , postal_region_id
-             , postal_region_path
-             , postal_region_code
-             , postal_country_id
-             , postal_country_iso_2
-             , postal_latitude
-             , postal_longitude
-             , postal_altitude
-             --
-             , web_address
-             , email_address
-             , phone_number
-             , landline
-             , mobile_number
-             , fax_number
-             --
-             , unit_size_id
-             , unit_size_code
-             --
-             , status_id
-             , status_code
-             , include_unit_in_reports
-             --
-             , last_edit_comment
-             , last_edit_by_user_id
-             , last_edit_at
-             --
-             , invalid_codes
-             --
-             , has_legal_unit
-             --
-             , related_establishment_ids
-             , excluded_establishment_ids
-             , included_establishment_ids
-             , related_legal_unit_ids
-             , excluded_legal_unit_ids
-             , included_legal_unit_ids
-             --
-             , enterprise_id
-             , primary_establishment_id
-             , primary_legal_unit_id
-             , stats_summary
-          FROM enterprise_with_primary_and_aggregation
+          SELECT
+               (
+                SELECT array_agg(DISTINCT id)
+                FROM (
+                    SELECT unnest(basis.data_source_ids) AS id
+                    UNION
+                    SELECT unnest(aggregation.data_source_ids) AS id
+                ) AS ids
+               ) AS data_source_ids,
+               (
+                SELECT array_agg(DISTINCT code)
+                FROM (
+                    SELECT unnest(basis.data_source_codes) AS code
+                    UNION ALL
+                    SELECT unnest(aggregation.data_source_codes) AS code
+                ) AS codes
+               ) AS data_source_codes,
+               basis.unit_type, basis.unit_id, basis.valid_from, basis.valid_until, basis.enterprise_id,
+               basis.name,
+               basis.birth_date,
+               basis.death_date,
+               basis.primary_activity_category_id,
+               basis.primary_activity_category_path,
+               basis.primary_activity_category_code,
+               basis.secondary_activity_category_id,
+               basis.secondary_activity_category_path,
+               basis.secondary_activity_category_code,
+               basis.sector_id,
+               basis.sector_path,
+               basis.sector_code,
+               basis.sector_name,
+               basis.legal_form_id,
+               basis.legal_form_code,
+               basis.legal_form_name,
+               basis.physical_address_part1, basis.physical_address_part2, basis.physical_address_part3, basis.physical_postcode, basis.physical_postplace, basis.physical_region_id, basis.physical_region_path, basis.physical_region_code, basis.physical_country_id, basis.physical_country_iso_2, basis.physical_latitude, basis.physical_longitude, basis.physical_altitude,
+               basis.postal_address_part1, basis.postal_address_part2, basis.postal_address_part3, basis.postal_postcode, basis.postal_postplace, basis.postal_region_id, basis.postal_region_path, basis.postal_region_code, basis.postal_country_id, basis.postal_country_iso_2, basis.postal_latitude, basis.postal_longitude, basis.postal_altitude,
+               basis.web_address, basis.email_address, basis.phone_number, basis.landline, basis.mobile_number, basis.fax_number,
+               basis.unit_size_id,
+               basis.unit_size_code,
+               basis.status_id,
+               basis.status_code,
+               basis.include_unit_in_reports,
+               basis.last_edit_comment,
+               basis.last_edit_by_user_id,
+               basis.last_edit_at,
+               basis.invalid_codes,
+               basis.has_legal_unit,
+               basis.primary_legal_unit_id,
+               basis.primary_establishment_id,
+               aggregation.related_establishment_ids,
+               aggregation.excluded_establishment_ids,
+               aggregation.included_establishment_ids,
+               aggregation.related_legal_unit_ids,
+               aggregation.excluded_legal_unit_ids,
+               aggregation.included_legal_unit_ids,
+               aggregation.stats_summary
+          FROM (
+            SELECT ten.unit_type, ten.unit_id, ten.valid_from, ten.valid_until, ten.enterprise_id,
+                 COALESCE(NULLIF(ten.short_name, ''), enplu.name, enpes.name) AS name,
+                 COALESCE(enplu.birth_date, enpes.birth_date) AS birth_date,
+                 COALESCE(enplu.death_date, enpes.death_date) AS death_date,
+                 COALESCE(enplu.primary_activity_category_id, enpes.primary_activity_category_id) AS primary_activity_category_id,
+                 COALESCE(enplu.primary_activity_category_path, enpes.primary_activity_category_path) AS primary_activity_category_path,
+                 COALESCE(enplu.primary_activity_category_code, enpes.primary_activity_category_code) AS primary_activity_category_code,
+                 COALESCE(enplu.secondary_activity_category_id, enpes.secondary_activity_category_id) AS secondary_activity_category_id,
+                 COALESCE(enplu.secondary_activity_category_path, enpes.secondary_activity_category_path) AS secondary_activity_category_path,
+                 COALESCE(enplu.secondary_activity_category_code, enpes.secondary_activity_category_code) AS secondary_activity_category_code,
+                 COALESCE(enplu.sector_id, enpes.sector_id) AS sector_id,
+                 COALESCE(enplu.sector_path, enpes.sector_path) AS sector_path,
+                 COALESCE(enplu.sector_code, enpes.sector_code) AS sector_code,
+                 COALESCE(enplu.sector_name, enpes.sector_name) AS sector_name,
+                 (SELECT array_agg(DISTINCT id) FROM (SELECT unnest(enplu.data_source_ids) AS id UNION SELECT unnest(enpes.data_source_ids) AS id) AS ids) AS data_source_ids,
+                 (SELECT array_agg(DISTINCT code) FROM (SELECT unnest(enplu.data_source_codes) AS code UNION SELECT unnest(enpes.data_source_codes) AS code) AS codes) AS data_source_codes,
+                 enplu.legal_form_id, enplu.legal_form_code, enplu.legal_form_name,
+                 COALESCE(enplu.physical_address_part1, enpes.physical_address_part1) AS physical_address_part1, COALESCE(enplu.physical_address_part2, enpes.physical_address_part2) AS physical_address_part2, COALESCE(enplu.physical_address_part3, enpes.physical_address_part3) AS physical_address_part3, COALESCE(enplu.physical_postcode, enpes.physical_postcode) AS physical_postcode, COALESCE(enplu.physical_postplace, enpes.physical_postplace) AS physical_postplace, COALESCE(enplu.physical_region_id, enpes.physical_region_id) AS physical_region_id, COALESCE(enplu.physical_region_path, enpes.physical_region_path) AS physical_region_path, COALESCE(enplu.physical_region_code, enpes.physical_region_code) AS physical_region_code, COALESCE(enplu.physical_country_id, enpes.physical_country_id) AS physical_country_id, COALESCE(enplu.physical_country_iso_2, enpes.physical_country_iso_2) AS physical_country_iso_2, COALESCE(enplu.physical_latitude, enpes.physical_latitude) AS physical_latitude, COALESCE(enplu.physical_longitude, enpes.physical_longitude) AS physical_longitude, COALESCE(enplu.physical_altitude, enpes.physical_altitude) AS physical_altitude,
+                 COALESCE(enplu.postal_address_part1, enpes.postal_address_part1) AS postal_address_part1, COALESCE(enplu.postal_address_part2, enpes.postal_address_part2) AS postal_address_part2, COALESCE(enplu.postal_address_part3, enpes.postal_address_part3) AS postal_address_part3, COALESCE(enplu.postal_postcode, enpes.postal_postcode) AS postal_postcode, COALESCE(enplu.postal_postplace, enpes.postal_postplace) AS postal_postplace, COALESCE(enplu.postal_region_id, enpes.postal_region_id) AS postal_region_id, COALESCE(enplu.postal_region_path, enpes.postal_region_path) AS postal_region_path, COALESCE(enplu.postal_region_code, enpes.postal_region_code) AS postal_region_code, COALESCE(enplu.postal_country_id, enpes.postal_country_id) AS postal_country_id, COALESCE(enplu.postal_country_iso_2, enpes.postal_country_iso_2) AS postal_country_iso_2, COALESCE(enplu.postal_latitude, enpes.postal_latitude) AS postal_latitude, COALESCE(enplu.postal_longitude, enpes.postal_longitude) AS postal_longitude, COALESCE(enplu.postal_altitude, enpes.postal_altitude) AS postal_altitude,
+                 COALESCE(enplu.web_address, enpes.web_address) AS web_address, COALESCE(enplu.email_address, enpes.email_address) AS email_address, COALESCE(enplu.phone_number, enpes.phone_number) AS phone_number, COALESCE(enplu.landline, enpes.landline) AS landline, COALESCE(enplu.mobile_number, enpes.mobile_number) AS mobile_number, COALESCE(enplu.fax_number, enpes.fax_number) AS fax_number,
+                 COALESCE(enplu.unit_size_id, enpes.unit_size_id) AS unit_size_id, COALESCE(enplu.unit_size_code, enpes.unit_size_code) AS unit_size_code,
+                 COALESCE(enplu.status_id, enpes.status_id) AS status_id, COALESCE(enplu.status_code, enpes.status_code) AS status_code, COALESCE(enplu.include_unit_in_reports, enpes.include_unit_in_reports) AS include_unit_in_reports,
+                 last_edit.edit_comment AS last_edit_comment, last_edit.edit_by_user_id AS last_edit_by_user_id, last_edit.edit_at AS last_edit_at,
+                 COALESCE(enplu.invalid_codes || enpes.invalid_codes, enplu.invalid_codes, enpes.invalid_codes) AS invalid_codes,
+                 GREATEST(enplu.has_legal_unit, enpes.has_legal_unit) AS has_legal_unit,
+                 enplu.legal_unit_id AS primary_legal_unit_id, enpes.establishment_id AS primary_establishment_id
+            FROM (
+              SELECT *, en.id AS enterprise_id
+              FROM public.timesegments AS t
+              INNER JOIN public.enterprise AS en ON t.unit_type = 'enterprise' AND t.unit_id = en.id
+            ) AS ten
+            LEFT JOIN LATERAL (SELECT * FROM public.timeline_legal_unit enplu_1 WHERE enplu_1.enterprise_id = ten.enterprise_id AND from_until_overlaps(ten.valid_from, ten.valid_until, enplu_1.valid_from, enplu_1.valid_until) ORDER BY enplu_1.valid_from DESC, enplu_1.legal_unit_id DESC LIMIT 1) enplu ON true
+            LEFT JOIN LATERAL (SELECT * FROM public.timeline_establishment enpes_1 WHERE enpes_1.enterprise_id = ten.enterprise_id AND from_until_overlaps(ten.valid_from, ten.valid_until, enpes_1.valid_from, enpes_1.valid_until) ORDER BY enpes_1.valid_from DESC, enpes_1.establishment_id DESC LIMIT 1) enpes ON true
+            LEFT JOIN LATERAL (SELECT edit_comment, edit_by_user_id, edit_at FROM (VALUES (ten.edit_comment, ten.edit_by_user_id, ten.edit_at), (enplu.last_edit_comment, enplu.last_edit_by_user_id, enplu.last_edit_at), (enpes.last_edit_comment, enpes.last_edit_by_user_id, enpes.last_edit_at)) AS all_edits(edit_comment, edit_by_user_id, edit_at) WHERE edit_at IS NOT NULL ORDER BY edit_at DESC LIMIT 1) AS last_edit ON TRUE
+          ) AS basis
+          LEFT OUTER JOIN aggregation ON basis.enterprise_id = aggregation.enterprise_id AND basis.valid_from = aggregation.valid_from AND basis.valid_until = aggregation.valid_until
         )
-        SELECT * FROM enterprise_with_primary_and_aggregation_and_derived
-         ORDER BY unit_type, unit_id, valid_after
+        SELECT unit_type, unit_id, valid_from, (valid_until - '1 day'::INTERVAL)::DATE AS valid_to, valid_until, name, birth_date, death_date, to_tsvector('simple', name) AS search
+             , primary_activity_category_id, primary_activity_category_path, primary_activity_category_code
+             , secondary_activity_category_id, secondary_activity_category_path, secondary_activity_category_code
+             , NULLIF(ARRAY_REMOVE(ARRAY[primary_activity_category_path, secondary_activity_category_path], NULL), '{}') AS activity_category_paths
+             , sector_id, sector_path, sector_code, sector_name, data_source_ids, data_source_codes, legal_form_id, legal_form_code, legal_form_name, physical_address_part1, physical_address_part2, physical_address_part3, physical_postcode, physical_postplace, physical_region_id, physical_region_path, physical_region_code, physical_country_id, physical_country_iso_2, physical_latitude, physical_longitude, physical_altitude, postal_address_part1, postal_address_part2, postal_address_part3, postal_postcode, postal_postplace, postal_region_id, postal_region_path, postal_region_code, postal_country_id, postal_country_iso_2, postal_latitude, postal_longitude, postal_altitude, web_address, email_address, phone_number, landline, mobile_number, fax_number, unit_size_id, unit_size_code, status_id, status_code, include_unit_in_reports, last_edit_comment, last_edit_by_user_id, last_edit_at, invalid_codes, has_legal_unit
+             , related_establishment_ids, excluded_establishment_ids, included_establishment_ids, related_legal_unit_ids, excluded_legal_unit_ids, included_legal_unit_ids
+             , ARRAY[unit_id] AS related_enterprise_ids
+             , ARRAY[]::INT[] AS excluded_enterprise_ids
+             , CASE WHEN include_unit_in_reports THEN ARRAY[unit_id] ELSE '{}'::INT[] END AS included_enterprise_ids
+             , enterprise_id, primary_establishment_id, primary_legal_unit_id, stats_summary
+          FROM enterprise_with_primary_and_aggregation
+         ORDER BY unit_type, unit_id, valid_from
 ;
 
 
@@ -699,139 +252,57 @@ WHERE FALSE;
 
 -- Add constraints to the physical table
 ALTER TABLE public.timeline_enterprise
-    ADD PRIMARY KEY (unit_type, unit_id, valid_after),
+    ADD PRIMARY KEY (unit_type, unit_id, valid_from),
     ALTER COLUMN unit_type SET NOT NULL,
     ALTER COLUMN unit_id SET NOT NULL,
-    ALTER COLUMN valid_after SET NOT NULL,
-    ALTER COLUMN valid_from SET NOT NULL;
+    ALTER COLUMN valid_from SET NOT NULL,
+    ALTER COLUMN valid_to SET NOT NULL,
+    ALTER COLUMN valid_until SET NOT NULL;
 
 -- Create indices to optimize queries
 CREATE INDEX IF NOT EXISTS idx_timeline_enterprise_daterange ON public.timeline_enterprise
-    USING gist (daterange(valid_after, valid_to, '(]'));
+    USING gist (daterange(valid_from, valid_until, '[)'));
 CREATE INDEX IF NOT EXISTS idx_timeline_enterprise_valid_period ON public.timeline_enterprise
-    (valid_after, valid_to);
+    (valid_from, valid_until);
 CREATE INDEX IF NOT EXISTS idx_timeline_enterprise_related_establishment_ids ON public.timeline_enterprise
     USING gin (related_establishment_ids);
 CREATE INDEX IF NOT EXISTS idx_timeline_enterprise_related_legal_unit_ids ON public.timeline_enterprise
     USING gin (related_legal_unit_ids);
 
 -- Create a function to refresh the timeline_enterprise table
-CREATE OR REPLACE FUNCTION public.timeline_enterprise_refresh(
-    p_valid_after date DEFAULT NULL,
-    p_valid_to date DEFAULT NULL
-) RETURNS void LANGUAGE plpgsql AS $timeline_enterprise_refresh$
+CREATE OR REPLACE PROCEDURE public.timeline_enterprise_refresh(p_unit_id_ranges int4multirange DEFAULT NULL)
+LANGUAGE plpgsql AS $procedure$
 DECLARE
-    v_valid_after date;
-    v_valid_to date;
+    p_target_table text := 'timeline_enterprise';
+    p_unit_type public.statistical_unit_type := 'enterprise';
+    v_batch_size INT := 10000; -- Reduced batch size for enterprises
+    v_def_view_name text := p_target_table || '_def';
+    v_min_id int; v_max_id int; v_start_id int; v_end_id int;
 BEGIN
-    -- Set the time range for filtering
-    v_valid_after := COALESCE(p_valid_after, '-infinity'::date);
-    v_valid_to := COALESCE(p_valid_to, 'infinity'::date);
+    ANALYZE public.timesegments, public.enterprise, public.timeline_legal_unit, public.timeline_establishment;
 
-    -- Create a temporary table with the new data
-    CREATE TEMPORARY TABLE temp_timeline_enterprise ON COMMIT DROP AS
-    SELECT * FROM public.timeline_enterprise_def
-    WHERE after_to_overlaps(valid_after, valid_to, v_valid_after, v_valid_to);
+    IF p_unit_id_ranges IS NOT NULL THEN
+        EXECUTE format('DELETE FROM public.%I WHERE unit_type = %L AND unit_id <@ %L::int4multirange', p_target_table, p_unit_type, p_unit_id_ranges);
+        EXECUTE format('INSERT INTO public.%I SELECT * FROM public.%I WHERE unit_type = %L AND unit_id <@ %L::int4multirange',
+                       p_target_table, v_def_view_name, p_unit_type, p_unit_id_ranges);
+    ELSE
+        SELECT MIN(unit_id), MAX(unit_id) INTO v_min_id, v_max_id FROM public.timesegments WHERE unit_type = p_unit_type;
+        IF v_min_id IS NULL THEN RETURN; END IF;
 
-    -- Delete records that exist in the main table but not in the temp table
-    DELETE FROM public.timeline_enterprise te
-    WHERE after_to_overlaps(te.valid_after, te.valid_to, v_valid_after, v_valid_to)
-    AND NOT EXISTS (
-        SELECT 1 FROM temp_timeline_enterprise tte
-        WHERE tte.unit_type = te.unit_type
-        AND tte.unit_id = te.unit_id
-        AND tte.valid_after = te.valid_after
-        AND tte.valid_to = te.valid_to
-    );
+        FOR i IN v_min_id..v_max_id BY v_batch_size LOOP
+            v_start_id := i; v_end_id := i + v_batch_size - 1;
+            EXECUTE format('DELETE FROM public.%I WHERE unit_type = %L AND unit_id BETWEEN %L AND %L',
+                           p_target_table, p_unit_type, v_start_id, v_end_id);
+            EXECUTE format('INSERT INTO public.%I SELECT * FROM public.%I WHERE unit_type = %L AND unit_id BETWEEN %L AND %L',
+                           p_target_table, v_def_view_name, p_unit_type, v_start_id, v_end_id);
+        END LOOP;
+    END IF;
 
-    -- Insert or update records from the temp table into the main table
-    INSERT INTO public.timeline_enterprise
-    SELECT tte.* FROM temp_timeline_enterprise tte
-    ON CONFLICT (unit_type, unit_id, valid_after) DO UPDATE SET
-        valid_to = EXCLUDED.valid_to,
-        valid_from = EXCLUDED.valid_from,
-        name = EXCLUDED.name,
-        birth_date = EXCLUDED.birth_date,
-        death_date = EXCLUDED.death_date,
-        search = EXCLUDED.search,
-        primary_activity_category_id = EXCLUDED.primary_activity_category_id,
-        primary_activity_category_path = EXCLUDED.primary_activity_category_path,
-        primary_activity_category_code = EXCLUDED.primary_activity_category_code,
-        secondary_activity_category_id = EXCLUDED.secondary_activity_category_id,
-        secondary_activity_category_path = EXCLUDED.secondary_activity_category_path,
-        secondary_activity_category_code = EXCLUDED.secondary_activity_category_code,
-        activity_category_paths = EXCLUDED.activity_category_paths,
-        sector_id = EXCLUDED.sector_id,
-        sector_path = EXCLUDED.sector_path,
-        sector_code = EXCLUDED.sector_code,
-        sector_name = EXCLUDED.sector_name,
-        data_source_ids = EXCLUDED.data_source_ids,
-        data_source_codes = EXCLUDED.data_source_codes,
-        legal_form_id = EXCLUDED.legal_form_id,
-        legal_form_code = EXCLUDED.legal_form_code,
-        legal_form_name = EXCLUDED.legal_form_name,
-        physical_address_part1 = EXCLUDED.physical_address_part1,
-        physical_address_part2 = EXCLUDED.physical_address_part2,
-        physical_address_part3 = EXCLUDED.physical_address_part3,
-        physical_postcode = EXCLUDED.physical_postcode,
-        physical_postplace = EXCLUDED.physical_postplace,
-        physical_region_id = EXCLUDED.physical_region_id,
-        physical_region_path = EXCLUDED.physical_region_path,
-        physical_region_code = EXCLUDED.physical_region_code,
-        physical_country_id = EXCLUDED.physical_country_id,
-        physical_country_iso_2 = EXCLUDED.physical_country_iso_2,
-        physical_latitude = EXCLUDED.physical_latitude,
-        physical_longitude = EXCLUDED.physical_longitude,
-        physical_altitude = EXCLUDED.physical_altitude,
-        postal_address_part1 = EXCLUDED.postal_address_part1,
-        postal_address_part2 = EXCLUDED.postal_address_part2,
-        postal_address_part3 = EXCLUDED.postal_address_part3,
-        postal_postcode = EXCLUDED.postal_postcode,
-        postal_postplace = EXCLUDED.postal_postplace,
-        postal_region_id = EXCLUDED.postal_region_id,
-        postal_region_path = EXCLUDED.postal_region_path,
-        postal_region_code = EXCLUDED.postal_region_code,
-        postal_country_id = EXCLUDED.postal_country_id,
-        postal_country_iso_2 = EXCLUDED.postal_country_iso_2,
-        postal_latitude = EXCLUDED.postal_latitude,
-        postal_longitude = EXCLUDED.postal_longitude,
-        postal_altitude = EXCLUDED.postal_altitude,
-        web_address = EXCLUDED.web_address,
-        email_address = EXCLUDED.email_address,
-        phone_number = EXCLUDED.phone_number,
-        landline = EXCLUDED.landline,
-        mobile_number = EXCLUDED.mobile_number,
-        fax_number = EXCLUDED.fax_number,
-        unit_size_id = EXCLUDED.unit_size_id,
-        unit_size_code = EXCLUDED.unit_size_code,
-        status_id = EXCLUDED.status_id,
-        status_code = EXCLUDED.status_code,
-        include_unit_in_reports = EXCLUDED.include_unit_in_reports,
-        last_edit_comment = EXCLUDED.last_edit_comment,
-        last_edit_by_user_id = EXCLUDED.last_edit_by_user_id,
-        last_edit_at = EXCLUDED.last_edit_at,
-        invalid_codes = EXCLUDED.invalid_codes,
-        has_legal_unit = EXCLUDED.has_legal_unit,
-        related_establishment_ids = EXCLUDED.related_establishment_ids,
-        excluded_establishment_ids = EXCLUDED.excluded_establishment_ids,
-        included_establishment_ids = EXCLUDED.included_establishment_ids,
-        related_legal_unit_ids = EXCLUDED.related_legal_unit_ids,
-        excluded_legal_unit_ids = EXCLUDED.excluded_legal_unit_ids,
-        included_legal_unit_ids = EXCLUDED.included_legal_unit_ids,
-        enterprise_id = EXCLUDED.enterprise_id,
-        primary_establishment_id = EXCLUDED.primary_establishment_id,
-        primary_legal_unit_id = EXCLUDED.primary_legal_unit_id,
-        stats_summary = EXCLUDED.stats_summary;
-
-    -- Drop the temporary table
-    DROP TABLE temp_timeline_enterprise;
-
-    -- Ensure sql execution planning takes in to account table changes.
-    ANALYZE public.timeline_enterprise;
+    EXECUTE format('ANALYZE public.%I', p_target_table);
 END;
-$timeline_enterprise_refresh$;
+$procedure$;
 
 -- Initial population of the timeline_enterprise table
-SELECT public.timeline_enterprise_refresh();
+CALL public.timeline_enterprise_refresh();
 
 END;

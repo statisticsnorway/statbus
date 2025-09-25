@@ -461,7 +461,6 @@ __pycache__/
 build/
 
 # Temporary files
-/tmp/
 
 # Parcel Intermediate Files
 .parcel-cache/**
@@ -491,3 +490,4 @@ key-*.xml
 .aider*
 !.aider.conf.yml
 !.aiderignore
+

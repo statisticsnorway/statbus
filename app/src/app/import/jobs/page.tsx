@@ -2,7 +2,8 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import useSWR, { useSWRConfig } from 'swr';
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { Spinner } from "@/components/ui/spinner";
@@ -175,7 +176,7 @@ export default function ImportJobsPage() {
   // Memoize the job IDs string to prevent re-renders from creating a new SSE connection.
   const jobIdsForSSE = useMemo(() => jobsData.map(job => job.id).join(','), [jobsData]);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     // We wait for the initial load to complete before establishing the SSE connection.
     // This ensures we have the list of jobs to get UPDATES for.
     // If jobsData is empty after loading, we still connect to get INSERTs.
@@ -248,13 +249,13 @@ export default function ImportJobsPage() {
     return () => {
       eventSourceRef.current?.close();
     };
-  }, [isLoading, mutate, swrKey, jobIdsForSSE]);
+  }, [isLoading, mutate, swrKey, jobIdsForSSE], 'ImportJobsPage:sseListener');
 
   // Ref to hold the current SWR key, allows handleDeleteJobs to be stable
   const swrKeyRef = useRef(swrKey);
-  useEffect(() => {
+  useGuardedEffect(() => {
     swrKeyRef.current = swrKey;
-  }, [swrKey]);
+  }, [swrKey], 'ImportJobsPage:updateSwrKeyRef');
 
   const handleDeleteJobs = React.useCallback(async (jobIds: number[]) => {
     if (!window.confirm(`Are you sure you want to delete ${jobIds.length} job(s)? This action cannot be undone.`)) {
@@ -349,7 +350,7 @@ export default function ImportJobsPage() {
 
         const { total_rows } = job;
 
-        const rowCountDisplay = total_rows !== null && total_rows !== undefined ? (
+        const rowCountDisplay = job.state !== 'processing_data' && job.state !== 'finished' && total_rows !== null && total_rows !== undefined ? (
           <div className="text-xs text-gray-500 font-mono">
             {formatNumber(total_rows)} Rows
           </div>
@@ -420,8 +421,13 @@ export default function ImportJobsPage() {
           return <span className="text-xs text-gray-400">-</span>;
         }
 
+        const isAnalysisComplete = analysis_completed_pct === 100;
+
         return (
           <div className="w-32 space-y-1">
+            {isAnalysisComplete && (
+              <div className="text-xs font-mono">{formatNumber(total_rows)} Rows</div>
+            )}
             {stepDetails}
             {showProgress && (
               <div className="flex items-center space-x-2">
@@ -438,9 +444,24 @@ export default function ImportJobsPage() {
       header: 'Analysis (r/s)',
       accessorKey: 'analysis_rows_per_sec',
       cell: ({ row }) => {
-        const { analysis_rows_per_sec: speed, analysis_start_at, analysis_completed_pct, state } = row.original;
+        const { analysis_rows_per_sec: speed, analysis_start_at, analysis_stop_at, analysis_completed_pct, state } = row.original;
 
         const speedDisplay = speed ? <div className="text-xs font-mono">{Number(speed).toFixed(2)}</div> : <span className="text-xs text-gray-400">-</span>;
+
+        if (analysis_start_at && analysis_stop_at) {
+          const startTime = new Date(analysis_start_at).getTime();
+          const endTime = new Date(analysis_stop_at).getTime();
+          const durationSeconds = (endTime - startTime) / 1000;
+          if (durationSeconds > 0) {
+            const totalTime = formatDuration(durationSeconds);
+            return (
+              <div>
+                {speedDisplay}
+                {totalTime && <div className="text-xs text-gray-500 font-mono" title="Total analysis time">{totalTime}</div>}
+              </div>
+            );
+          }
+        }
 
         // ETR for analysis is based on wall-clock time and percentage complete, as 'analysis_rows_per_sec' is not a live metric.
         if (state === 'analysing_data' && analysis_start_at && analysis_completed_pct && analysis_completed_pct > 0 && analysis_completed_pct < 100) {
@@ -478,10 +499,14 @@ export default function ImportJobsPage() {
         const showProgress = (state === 'processing_data' || state === 'finished') &&
                              import_completed_pct !== null && import_completed_pct !== undefined;
 
+        const isProcessingComplete = state === 'finished' || import_completed_pct === 100;
+
         return (
           <div className="w-32">
             <Link href={`/import/jobs/${slug}/data`} className="underline">
-              <div className="text-xs font-mono">{formatNumber(imported_rows)}/{formatNumber(total_rows)}</div>
+              <div className="text-xs font-mono">
+                {isProcessingComplete ? formatNumber(total_rows) : `${formatNumber(imported_rows)}/${formatNumber(total_rows)}`}
+              </div>
             </Link>
             {showProgress && (
               <div className="mt-1 flex items-center space-x-2">
@@ -498,9 +523,24 @@ export default function ImportJobsPage() {
       header: 'Processing (r/s)',
       accessorKey: 'import_rows_per_sec',
       cell: ({ row }) => {
-        const { import_rows_per_sec: speed, total_rows, imported_rows, state } = row.original;
+        const { import_rows_per_sec: speed, total_rows, imported_rows, state, processing_start_at, processing_stop_at } = row.original;
 
         const speedDisplay = speed ? <div className="text-xs font-mono">{Number(speed).toFixed(2)}</div> : <span className="text-xs text-gray-400">-</span>;
+
+        if (processing_start_at && processing_stop_at) {
+          const startTime = new Date(processing_start_at).getTime();
+          const endTime = new Date(processing_stop_at).getTime();
+          const durationSeconds = (endTime - startTime) / 1000;
+          if (durationSeconds > 0) {
+            const totalTime = formatDuration(durationSeconds);
+            return (
+              <div>
+                {speedDisplay}
+                {totalTime && <div className="text-xs text-gray-500 font-mono" title="Total processing time">{totalTime}</div>}
+              </div>
+            );
+          }
+        }
 
         if (state !== 'processing_data' || !speed || speed <= 0 || !total_rows) {
           return speedDisplay;
@@ -622,7 +662,7 @@ export default function ImportJobsPage() {
           Import
         </Link>
         <ChevronRight className="h-6 w-6 text-gray-400" />
-        <h1 className="text-2xl font-semibold">Import Jobs</h1>
+        <h1 className="text-2xl font-semibold">Jobs</h1>
       </div>
       <DataTable table={table} actionBar={actionBar}>
         <DataTableToolbar table={table} />

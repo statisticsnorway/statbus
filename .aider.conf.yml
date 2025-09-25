@@ -1,4 +1,6 @@
 read: [CONVENTIONS.md, app/CONVENTIONS.md]
+file: [todo.md,tmp/journal.md]
+
 #read: [CONVENTIONS.md, anotherfile.txt]
 
 # The code quality for large SQL file edits is not great,
@@ -13,6 +15,9 @@ auto-lint: false
 watch-files: true
 
 subtree-only: true
+
+# Allow editing of tmp files that are ignored by git.
+add-gitignore-files: true 
 
 ##########################################################
 # Sample .aider.conf.yml

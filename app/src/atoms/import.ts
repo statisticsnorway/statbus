@@ -47,12 +47,13 @@
  */
 
 import { atom, useAtomValue, useSetAtom } from 'jotai'
-import { useMemo, useCallback, useEffect } from 'react'
+import { useMemo, useCallback } from 'react'
+import { useGuardedEffect } from '@/hooks/use-guarded-effect'
 
 import type { Database, Enums, Tables, TablesInsert } from '@/lib/database.types'
-import { restClientAtom } from './app'
+import { restClientAtom } from './rest-client'
 import { useBaseData } from './base-data'
-import { isAuthenticatedAtom } from './auth'
+import { isAuthenticatedStrictAtom, authStateForDataFetchingAtom } from './auth'
 
 // ============================================================================
 // TYPES
@@ -194,14 +195,18 @@ export const refreshAllUnitCountsAtom = atom(
 export const refreshPendingJobsByModeAtom = atom(
   null,
   async (get, set, mode: ImportMode) => {
-    const isAuthenticated = get(isAuthenticatedAtom);
+    const authState = get(authStateForDataFetchingAtom);
     const client = get(restClientAtom);
 
-    if (!isAuthenticated) {
-      set(allPendingJobsByModeStateAtom, (prev) => ({
-        ...prev,
-        [mode]: { ...(prev[mode] || { jobs: [], error: null, lastFetched: null }), loading: false, error: "Not authenticated" },
-      }));
+    if (authState !== 'authenticated') {
+      if (authState === 'unauthenticated') {
+        set(allPendingJobsByModeStateAtom, (prev) => ({
+          ...prev,
+          [mode]: { ...(prev[mode] || { jobs: [], error: null, lastFetched: null }), loading: false, error: "Not authenticated" },
+        }));
+      }
+      // If checking or refreshing, we just wait and do nothing. The atom will be re-evaluated
+      // by Jotai once the auth state changes to 'authenticated' or 'unauthenticated'.
       return;
     }
 
@@ -296,11 +301,15 @@ export const loadImportDefinitionsAtom = atom(
       return;
     }
 
-    // Reset previous definitions to avoid showing stale data
+    // Reset previous definitions and user selections to avoid showing stale data from another import page.
     set(importStateAtom, (prev) => ({
       ...prev,
-      selectedDefinition: null,
-      availableDefinitions: [],
+      selectedDefinition: initialImportState.selectedDefinition,
+      availableDefinitions: initialImportState.availableDefinitions,
+      useExplicitDates: initialImportState.useExplicitDates,
+      selectedImportTimeContextIdent: initialImportState.selectedImportTimeContextIdent,
+      explicitStartDate: initialImportState.explicitStartDate,
+      explicitEndDate: initialImportState.explicitEndDate,
     }));
 
     try {
@@ -316,7 +325,7 @@ export const loadImportDefinitionsAtom = atom(
       set(importStateAtom, (prev) => ({ ...prev, availableDefinitions: data }));
 
       // Set a default selected definition. Prefer 'job_provided' if available.
-      const defaultSelection = data.find(d => d.valid_time_from === 'job_provided') || data[0];
+      const defaultSelection = data.find((d: Tables<'import_definition'>) => d.valid_time_from === 'job_provided') || data[0];
       if (defaultSelection) {
         set(importStateAtom, (prev) => ({ ...prev, selectedDefinition: defaultSelection }));
       }
@@ -429,7 +438,7 @@ export const useImportManager = () => {
     );
   }, [allTimeContextsFromBase]);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     if (currentImportState.selectedImportTimeContextIdent === null && availableImportTimeContexts.length > 0) {
       let newDefaultIdent: string | null = null;
 
@@ -455,7 +464,7 @@ export const useImportManager = () => {
     currentImportState.selectedImportTimeContextIdent, 
     doSetSelectedTimeContextIdent,
     defaultTimeContextFromBase
-  ]);
+  ], 'import.ts:useImportManager:autoSelectDefaultTimeContext');
 
   const selectedImportTimeContextObject = useMemo<Tables<'time_context'> | null>(() => {
     if (!currentImportState.selectedImportTimeContextIdent || !availableImportTimeContexts) return null;
@@ -465,8 +474,7 @@ export const useImportManager = () => {
   const importTimeContextData = useMemo(() => ({
     availableContexts: availableImportTimeContexts,
     selectedContext: selectedImportTimeContextObject,
-    useExplicitDates: currentImportState.useExplicitDates,
-  }), [availableImportTimeContexts, selectedImportTimeContextObject, currentImportState.useExplicitDates]);
+  }), [availableImportTimeContexts, selectedImportTimeContextObject]);
 
   const setSelectedImportTimeContext = useCallback((timeContextIdent: string | null) => {
     doSetSelectedTimeContextIdent(timeContextIdent);
@@ -524,7 +532,7 @@ export const useImportManager = () => {
 export const usePendingJobsByMode = (mode: ImportMode) => {
   const allJobsState = useAtomValue(allPendingJobsByModeStateAtom);
   const refreshJobsForMode = useSetAtom(refreshPendingJobsByModeAtom);
-  const isAuthenticated = useAtomValue(isAuthenticatedAtom);
+  const isAuthenticated = useAtomValue(isAuthenticatedStrictAtom);
 
   const state: PendingJobsData = useMemo(() => {
     return allJobsState[mode] || { jobs: [], loading: false, error: null, lastFetched: null };
@@ -534,11 +542,11 @@ export const usePendingJobsByMode = (mode: ImportMode) => {
     refreshJobsForMode(mode);
   }, [refreshJobsForMode, mode]);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     if (isAuthenticated && state.jobs.length === 0 && !state.loading && state.lastFetched === null) {
       refreshJobs();
     }
-  }, [isAuthenticated, state.jobs.length, state.loading, state.lastFetched, refreshJobs, mode]);
+  }, [isAuthenticated, state.jobs.length, state.loading, state.lastFetched, refreshJobs, mode], 'import.ts:usePendingJobsByMode:initialFetch');
 
   return {
     ...state,

@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
+import { useRouter } from "next/navigation";
 import { useImportManager, ImportMode } from "@/atoms/import"; // Updated import
 import { Button } from "@/components/ui/button";
-import { useRouter } from "next/navigation";
 import { Spinner } from "@/components/ui/spinner";
 
 interface ImportJobCreatorProps {
@@ -25,9 +26,9 @@ export function ImportJobCreator({ importMode, uploadPath, unitType, onJobCreate
   const router = useRouter();
 
   // Load the definition for this import mode when the component mounts
-  React.useEffect(() => {
+  useGuardedEffect(() => {
     loadDefinitions(importMode);
-  }, [loadDefinitions, importMode]);
+  }, [loadDefinitions, importMode], 'ImportJobCreator:loadDefinitions');
 
   const { useExplicitDates, explicitStartDate, explicitEndDate, selectedDefinition } = importState;
   const { selectedContext } = timeContext;
@@ -49,8 +50,6 @@ export function ImportJobCreator({ importMode, uploadPath, unitType, onJobCreate
     setError(null);
 
     try {
-      // The createImportJob atom now gets the definition from the state,
-      // so it no longer needs the mode to be passed.
       const job = await createImportJob();
       if (job) {
         onJobCreated?.();

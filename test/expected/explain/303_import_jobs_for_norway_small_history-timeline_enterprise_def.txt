@@ -1,0 +1,105 @@
+                                                                                                                                                                         QUERY PLAN                                                                                                                                                                         
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Nested Loop Left Join
+   ->  Nested Loop Left Join
+         ->  Nested Loop Left Join
+               ->  Merge Left Join
+                     Merge Cond: ((en.id = en_1.id) AND (t.valid_from = t_1.valid_from) AND (t.valid_until = t_1.valid_until))
+                     ->  Sort
+                           Sort Key: t.unit_id, t.valid_from, t.valid_until
+                           ->  Hash Join
+                                 Hash Cond: (t.unit_id = en.id)
+                                 ->  Seq Scan on timesegments t
+                                       Filter: (unit_type = 'enterprise'::statistical_unit_type)
+                                 ->  Hash
+                                       ->  Seq Scan on enterprise en
+                     ->  GroupAggregate
+                           Group Key: en_1.id, t_1.valid_from, t_1.valid_until
+                           ->  Incremental Sort
+                                 Sort Key: en_1.id, t_1.valid_from, t_1.valid_until
+                                 Presorted Key: en_1.id
+                                 ->  Nested Loop Left Join
+                                       ->  Nested Loop Left Join
+                                             ->  Merge Join
+                                                   Merge Cond: (t_1.unit_id = en_1.id)
+                                                   ->  Sort
+                                                         Sort Key: t_1.unit_id
+                                                         ->  Seq Scan on timesegments t_1
+                                                               Filter: (unit_type = 'enterprise'::statistical_unit_type)
+                                                   ->  Sort
+                                                         Sort Key: en_1.id
+                                                         ->  Seq Scan on enterprise en_1
+                                             ->  GroupAggregate
+                                                   ->  Sort
+                                                         Sort Key: timeline_legal_unit.legal_unit_id
+                                                         ->  Seq Scan on timeline_legal_unit
+                                                               Filter: ((t_1.valid_from < valid_until) AND (valid_from < t_1.valid_until) AND (enterprise_id = en_1.id))
+                                       ->  GroupAggregate
+                                             ->  Sort
+                                                   Sort Key: timeline_establishment.establishment_id
+                                                   ->  Index Scan using idx_timeline_establishment_enterprise_id on timeline_establishment
+                                                         Index Cond: (enterprise_id = en_1.id)
+                                                         Filter: ((t_1.valid_from < valid_until) AND (valid_from < t_1.valid_until))
+               ->  Limit
+                     ->  Sort
+                           Sort Key: enplu_1.valid_from DESC, enplu_1.legal_unit_id DESC
+                           ->  Seq Scan on timeline_legal_unit enplu_1
+                                 Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (enterprise_id = en.id))
+         ->  Limit
+               ->  Sort
+                     Sort Key: enpes_1.valid_from DESC, enpes_1.establishment_id DESC
+                     ->  Index Scan using idx_timeline_establishment_enterprise_id on timeline_establishment enpes_1
+                           Index Cond: (enterprise_id = en.id)
+                           Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until))
+   ->  Memoize
+         Cache Key: en.edit_comment, en.edit_by_user_id, en.edit_at, enplu_1.last_edit_comment, enplu_1.last_edit_by_user_id, enplu_1.last_edit_at, enpes_1.last_edit_comment, enpes_1.last_edit_by_user_id, enpes_1.last_edit_at
+         Cache Mode: binary
+         ->  Limit
+               ->  Sort
+                     Sort Key: "*VALUES*".column3 DESC
+                     ->  Values Scan on "*VALUES*"
+                           Filter: (column3 IS NOT NULL)
+   SubPlan 2
+     ->  Aggregate
+           ->  Unique
+                 ->  Merge Append
+                       Sort Key: (unnest((InitPlan 1).col1))
+                       ->  Sort
+                             Sort Key: (unnest((InitPlan 1).col1))
+                             InitPlan 1
+                               ->  Aggregate
+                                     ->  Unique
+                                           ->  Sort
+                                                 Sort Key: (unnest(enplu_1.data_source_ids))
+                                                 ->  Append
+                                                       ->  ProjectSet
+                                                             ->  Result
+                                                       ->  ProjectSet
+                                                             ->  Result
+                             ->  ProjectSet
+                                   ->  Result
+                       ->  Sort
+                             Sort Key: (unnest((array_distinct_concat(COALESCE(array_cat((array_distinct_concat(timeline_legal_unit.data_source_ids)), (array_distinct_concat(timeline_establishment.data_source_ids))), (array_distinct_concat(timeline_legal_unit.data_source_ids)), (array_distinct_concat(timeline_establishment.data_source_ids)))))))
+                             ->  ProjectSet
+                                   ->  Result
+   SubPlan 4
+     ->  Aggregate
+           ->  Sort
+                 Sort Key: (unnest((InitPlan 3).col1))
+                 ->  Append
+                       ->  ProjectSet
+                             InitPlan 3
+                               ->  Aggregate
+                                     ->  Unique
+                                           ->  Sort
+                                                 Sort Key: (unnest(enplu_1.data_source_codes))
+                                                 ->  Append
+                                                       ->  ProjectSet
+                                                             ->  Result
+                                                       ->  ProjectSet
+                                                             ->  Result
+                             ->  Result
+                       ->  ProjectSet
+                             ->  Result
+(101 rows)
+

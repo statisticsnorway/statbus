@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useRouter } from "next/navigation";
 import { useImportManager, usePendingJobsByMode } from "@/atoms/import"; // Updated import
 import { ImportJobCreator } from "../components/import-job-creator";
@@ -20,24 +21,25 @@ import { PendingJobsList } from "../components/pending-jobs-list";
 
 export default function LegalUnitsPage() {
   const router = useRouter();
-  const { counts } = useImportManager();
+  const { counts, importState } = useImportManager();
+  const { selectedDefinition } = importState;
   // Use the generalized hook with the specific import mode for legal units
   const { jobs: pendingJobs, loading: isLoading, error, refreshJobs } = usePendingJobsByMode("legal_unit");
   const [isClient, setIsClient] = useState(false);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     setIsClient(true);
-  }, []);
+  }, [], 'UploadLegalUnitsPage:setClient');
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     if (!isLoading) {
       setHasLoadedOnce(true);
     }
-  }, [isLoading]);
+  }, [isLoading], 'UploadLegalUnitsPage:setHasLoadedOnce');
 
   // Listen for any job updates and refresh the pending list
-  useEffect(() => {
+  useGuardedEffect(() => {
     // We connect after the initial load. If there are jobs, we listen for
     // updates to them. We always listen for new INSERTs.
     if (isLoading) return;
@@ -70,12 +72,12 @@ export default function LegalUnitsPage() {
     return () => {
       eventSource.close();
     };
-  }, [refreshJobs, isLoading, pendingJobs]);
+  }, [refreshJobs, isLoading, pendingJobs], 'UploadLegalUnitsPage:sseConnector');
 
-  // The useEffect in usePendingJobsByPattern handles initial fetch.
+  // The useGuardedEffect in usePendingJobsByPattern handles initial fetch.
   // If a manual refresh on mount is still desired for some reason, it can be added here,
   // but typically the hook's internal logic should suffice.
-  // useEffect(() => {
+  // useGuardedEffect(() => {
   //   refreshJobs();
   // }, [refreshJobs]); // This might cause a double fetch if the hook also fetches.
 
@@ -155,17 +157,35 @@ export default function LegalUnitsPage() {
             <p className="mb-3">
               A Legal Units file is a CSV file containing the Legal Units you
               want to use in your analysis. The file must conform to a specific
-              format in order to be processed correctly. Have a look at this
-              example CSV file to get an idea of how the file should be
-              structured:
+              format to be processed correctly. Download an example to see the
+              structure. The correct example to use depends on the &quot;Data
+              validity period&quot; selected above.
             </p>
-            <a
-              href="/demo/legal_units_demo.csv"
-              download="legal_units.example.csv"
-              className="underline"
-            >
-              Download example CSV file
-            </a>
+            <div className="flex flex-col space-y-2 pl-4">
+              <a
+                href="/demo/legal_units_demo.csv"
+                download="legal_units_demo.csv"
+                className={`underline ${
+                  selectedDefinition?.valid_time_from === "job_provided"
+                    ? "font-bold"
+                    : ""
+                }`}
+              >
+                Example for jobs with a defined validity period
+              </a>
+              <a
+                href="/demo/legal_units_with_source_dates_demo.csv"
+                download="legal_units_with_source_dates_demo.csv"
+                className={`underline ${
+                  selectedDefinition?.valid_time_from === "source_columns"
+                    ? "font-bold"
+                    : ""
+                }`}
+              >
+                Example for jobs with validity from source file (valid_from,
+                valid_to)
+              </a>
+            </div>
           </AccordionContent>
         </AccordionItem>
       </Accordion>

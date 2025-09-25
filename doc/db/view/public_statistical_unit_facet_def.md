@@ -4,6 +4,7 @@
 --------------------------------+-----------------------+-----------+----------+---------
  valid_from                     | date                  |           |          | 
  valid_to                       | date                  |           |          | 
+ valid_until                    | date                  |           |          | 
  unit_type                      | statistical_unit_type |           |          | 
  physical_region_path           | ltree                 |           |          | 
  primary_activity_category_path | ltree                 |           |          | 

@@ -4,9 +4,9 @@
 ----------------------------------+--------------------------+-----------+----------+---------
  unit_type                        | statistical_unit_type    |           | not null | 
  unit_id                          | integer                  |           | not null | 
- valid_after                      | date                     |           | not null | 
  valid_from                       | date                     |           | not null | 
- valid_to                         | date                     |           |          | 
+ valid_to                         | date                     |           | not null | 
+ valid_until                      | date                     |           | not null | 
  name                             | character varying(256)   |           |          | 
  birth_date                       | date                     |           |          | 
  death_date                       | date                     |           |          | 
@@ -75,15 +75,25 @@
  primary_for_enterprise           | boolean                  |           |          | 
  primary_for_legal_unit           | boolean                  |           |          | 
  stats                            | jsonb                    |           |          | 
+ stats_summary                    | jsonb                    |           |          | 
+ related_establishment_ids        | integer[]                |           |          | 
+ excluded_establishment_ids       | integer[]                |           |          | 
+ included_establishment_ids       | integer[]                |           |          | 
+ related_legal_unit_ids           | integer[]                |           |          | 
+ excluded_legal_unit_ids          | integer[]                |           |          | 
+ included_legal_unit_ids          | integer[]                |           |          | 
+ related_enterprise_ids           | integer[]                |           |          | 
+ excluded_enterprise_ids          | integer[]                |           |          | 
+ included_enterprise_ids          | integer[]                |           |          | 
 Indexes:
-    "timeline_establishment_pkey" PRIMARY KEY, btree (unit_type, unit_id, valid_after)
-    "idx_timeline_establishment_daterange" gist (daterange(valid_after, valid_to, '(]'::text))
+    "timeline_establishment_pkey" PRIMARY KEY, btree (unit_type, unit_id, valid_from)
+    "idx_timeline_establishment_daterange" gist (daterange(valid_from, valid_until, '[)'::text))
     "idx_timeline_establishment_enterprise_id" btree (enterprise_id) WHERE enterprise_id IS NOT NULL
     "idx_timeline_establishment_establishment_id" btree (establishment_id) WHERE establishment_id IS NOT NULL
     "idx_timeline_establishment_legal_unit_id" btree (legal_unit_id) WHERE legal_unit_id IS NOT NULL
     "idx_timeline_establishment_primary_for_enterprise" btree (primary_for_enterprise) WHERE primary_for_enterprise = true
     "idx_timeline_establishment_primary_for_legal_unit" btree (primary_for_legal_unit) WHERE primary_for_legal_unit = true
-    "idx_timeline_establishment_valid_period" btree (valid_after, valid_to)
+    "idx_timeline_establishment_valid_period" btree (valid_from, valid_until)
 Policies:
     POLICY "timeline_establishment_admin_user_manage"
       TO admin_user

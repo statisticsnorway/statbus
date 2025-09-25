@@ -105,7 +105,7 @@ export default function UploadCustomLegalFormsPage() { // Renamed component func
             </p>
             <a
               href="/demo/legal_forms_demo.csv"
-              download="legal_form.example.csv"
+              download="legal_forms_demo.csv"
               className="underline"
             >
               Download example CSV file

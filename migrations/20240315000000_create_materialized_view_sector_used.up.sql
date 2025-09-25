@@ -26,7 +26,7 @@ CREATE FUNCTION public.sector_used_derive()
     SECURITY DEFINER AS $sector_used_derive$
 BEGIN
     RAISE DEBUG 'Running sector_used_derive()';
-    TRUNCATE TABLE public.sector_used;
+    DELETE FROM public.sector_used;
     INSERT INTO public.sector_used
     SELECT * FROM public.sector_used_def;
 END;

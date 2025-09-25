@@ -146,8 +146,8 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | pending   |     6
- import    | completed |    18
+ analytics | pending   |     5
+ import    | completed |    47
 (2 rows)
 
 \echo "Checking import job status for import_40_lu_era_b1_sector_mid"
@@ -168,8 +168,8 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |     8
- import    | completed |    18
+ analytics | completed |     7
+ import    | completed |    47
 (2 rows)
 
 SELECT
@@ -183,14 +183,14 @@ SELECT
 
 \echo "Check sector for legal units over time"
 "Check sector for legal units over time"
-SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_after, valid_from, valid_to, sector_code
+SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_from, valid_to, sector_code
 FROM public.statistical_unit
 WHERE unit_type = 'legal_unit'
 ORDER BY external_idents ->> 'tax_ident', valid_from;
- tax_ident |       name        | valid_after | valid_from |  valid_to  | sector_code 
------------+-------------------+-------------+------------+------------+-------------
- 823573673 | Kranløft Vestland | 2009-12-31  | 2010-01-01 | 2011-01-14 | 2100
- 823573673 | Kranløft Vestland | 2011-01-14  | 2011-01-15 | infinity   | 8200
+ tax_ident |       name        | valid_from |  valid_to  | sector_code 
+-----------+-------------------+------------+------------+-------------
+ 823573673 | Kranløft Vestland | 2010-01-01 | 2011-01-14 | 2100
+ 823573673 | Kranløft Vestland | 2011-01-15 | infinity   | 8200
 (2 rows)
 
 \echo "Test statistical unit history by year - sector_change_count should be 1 for year 2011"
@@ -289,8 +289,8 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | pending   |     6
- import    | completed |    18
+ analytics | pending   |     5
+ import    | completed |    47
 (2 rows)
 
 \echo "Checking import job status for import_40_lu_era_b2_sector_start_m2"
@@ -311,8 +311,8 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |     8
- import    | completed |    18
+ analytics | completed |     7
+ import    | completed |    47
 (2 rows)
 
 SELECT
@@ -326,14 +326,14 @@ SELECT
 
 \echo "Check sector for legal units over time"
 "Check sector for legal units over time"
-SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_after, valid_from, valid_to, sector_code
+SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_from, valid_to, sector_code
 FROM public.statistical_unit
 WHERE unit_type = 'legal_unit'
 ORDER BY external_idents ->> 'tax_ident', valid_from;
- tax_ident |       name        | valid_after | valid_from |  valid_to  | sector_code 
------------+-------------------+-------------+------------+------------+-------------
- 823573673 | Kranløft Vestland | 2009-12-31  | 2010-01-01 | 2011-01-31 | 2100
- 823573673 | Kranløft Vestland | 2011-01-31  | 2011-02-01 | infinity   | 8200
+ tax_ident |       name        | valid_from |  valid_to  | sector_code 
+-----------+-------------------+------------+------------+-------------
+ 823573673 | Kranløft Vestland | 2010-01-01 | 2011-01-31 | 2100
+ 823573673 | Kranløft Vestland | 2011-02-01 | infinity   | 8200
 (2 rows)
 
 \echo "Check statistical unit history by year - sector_change_count should be 1 for year 2011"
@@ -419,8 +419,8 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | pending   |     6
- import    | completed |    18
+ analytics | pending   |     5
+ import    | completed |    47
 (2 rows)
 
 \echo "Checking import job status for import_40_lu_era_b3_sector_start_y"
@@ -441,8 +441,8 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |     8
- import    | completed |    18
+ analytics | completed |     7
+ import    | completed |    47
 (2 rows)
 
 SELECT
@@ -456,15 +456,15 @@ SELECT
 
 \echo "Check sector for legal units over time"
 "Check sector for legal units over time"
-SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_after, valid_from, valid_to, sector_code
+SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_from, valid_to, sector_code
 FROM public.statistical_unit
 WHERE unit_type = 'legal_unit'
 ORDER BY external_idents ->> 'tax_ident', valid_from;
- tax_ident |       name        | valid_after | valid_from |  valid_to  | sector_code 
------------+-------------------+-------------+------------+------------+-------------
- 823573673 | Kranløft Vestland | 2009-12-31  | 2010-01-01 | 2010-12-31 | 2100
- 823573673 | Kranløft Vestland | 2010-12-31  | 2011-01-01 | 2011-12-31 | 7000
- 823573673 | Kranløft Vestland | 2011-12-31  | 2012-01-01 | infinity   | 8200
+ tax_ident |       name        | valid_from |  valid_to  | sector_code 
+-----------+-------------------+------------+------------+-------------
+ 823573673 | Kranløft Vestland | 2010-01-01 | 2010-12-31 | 2100
+ 823573673 | Kranløft Vestland | 2011-01-01 | 2011-12-31 | 7000
+ 823573673 | Kranløft Vestland | 2012-01-01 | infinity   | 8200
 (3 rows)
 
 \echo "Check statistical unit history by year - sector_change_count should be 1 for year 2011 and 2012"

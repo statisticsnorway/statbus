@@ -5,8 +5,8 @@ CREATE TYPE public.history_resolution AS ENUM('year','year-month');
 
 CREATE FUNCTION public.get_statistical_history_periods(
   p_resolution public.history_resolution DEFAULT NULL,
-  p_valid_after date DEFAULT NULL,
-  p_valid_to date DEFAULT NULL
+  p_valid_from date DEFAULT NULL,
+  p_valid_until date DEFAULT NULL
 )
 RETURNS TABLE (
   resolution public.history_resolution,
@@ -28,16 +28,17 @@ BEGIN
   DECLARE
     v_default_start date := date_trunc('year', current_date - interval '10 years')::date;
     v_default_end date := current_date;
+    v_p_valid_to date := p_valid_until - interval '1 day';
   BEGIN
     -- Initialize with parameters or defaults
     v_start_year := CASE 
-      WHEN p_valid_after IS NULL OR p_valid_after = '-infinity'::date THEN NULL
-      ELSE p_valid_after
+      WHEN p_valid_from IS NULL OR p_valid_from = '-infinity'::date THEN NULL
+      ELSE p_valid_from
     END;
     
     v_stop_year := CASE
-      WHEN p_valid_to IS NULL OR p_valid_to = 'infinity'::date THEN NULL
-      ELSE p_valid_to
+      WHEN v_p_valid_to IS NULL OR v_p_valid_to = 'infinity'::date THEN NULL
+      ELSE v_p_valid_to
     END;
     
     -- If either bound is NULL, query the database for actual min/max values

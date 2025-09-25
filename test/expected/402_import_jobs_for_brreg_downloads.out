@@ -1,0 +1,591 @@
+BEGIN;
+\i test/setup.sql
+-- While the datestyle is set for the database, the pg_regress tool sets the MDY format
+-- to ensure consistent date formatting, so we must manually override this
+SET datestyle TO 'ISO, DMY';
+\if :{?DEBUG}
+SET client_min_messages TO debug1;
+\else
+SET client_min_messages TO NOTICE;
+\endif
+-- Create temporary function to execute queries as system user
+CREATE OR REPLACE FUNCTION test.sudo_exec(
+    sql text,
+    OUT results jsonb
+) RETURNS jsonb
+SECURITY DEFINER LANGUAGE plpgsql AS $sudo_exec$
+DECLARE
+    result_rows jsonb;
+BEGIN
+    -- Check if the SQL starts with common DDL keywords
+    IF sql ~* '^\s*(CREATE|DROP|ALTER|TRUNCATE|GRANT|REVOKE|ANALYZE)' THEN
+        -- For DDL statements, execute directly
+        EXECUTE sql;
+        results := '[]'::jsonb;
+    ELSE
+        -- For DML/queries, wrap in a SELECT to capture results
+        EXECUTE format('
+            SELECT COALESCE(
+                jsonb_agg(row_to_json(t)),
+                ''[]''::jsonb
+            )
+            FROM (%s) t',
+            sql
+        ) INTO result_rows;
+        results := result_rows;
+    END IF;
+END;
+$sudo_exec$;
+-- Grant execute to public since this is for testing
+GRANT EXECUTE ON FUNCTION test.sudo_exec(text) TO PUBLIC;
+\echo Add users for testing purposes
+Add users for testing purposes
+SELECT * FROM public.user_create('test.admin@statbus.org', 'admin_user'::statbus_role, 'Admin#123!');
+         email          |  password  
+------------------------+------------
+ test.admin@statbus.org | Admin#123!
+(1 row)
+
+SELECT * FROM public.user_create('test.regular@statbus.org', 'regular_user'::statbus_role, 'Regular#123!');
+          email           |   password   
+--------------------------+--------------
+ test.regular@statbus.org | Regular#123!
+(1 row)
+
+SELECT * FROM public.user_create('test.restricted@statbus.org', 'restricted_user'::statbus_role, 'Restricted#123!');
+            email            |    password     
+-----------------------------+-----------------
+ test.restricted@statbus.org | Restricted#123!
+(1 row)
+
+\echo "Setting up Statbus (Norway) and BRREG import definitions (2025)"
+"Setting up Statbus (Norway) and BRREG import definitions (2025)"
+\i samples/norway/getting-started.sql
+\i samples/norway/activity_category/activity_category_norway.sql
+INSERT INTO settings(activity_category_standard_id,only_one_setting)
+SELECT id, true FROM activity_category_standard WHERE code = 'nace_v2.1'
+ON CONFLICT (only_one_setting)
+DO UPDATE SET
+   activity_category_standard_id =(SELECT id FROM activity_category_standard WHERE code = 'nace_v2.1')
+   WHERE settings.id = EXCLUDED.id;
+;
+\copy public.activity_category_available_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/regions/norway-regions-2024.sql
+\copy public.region_upload(path, name) FROM 'samples/norway/regions/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/sector/sector_norway.sql
+\copy public.sector_custom_only FROM 'samples/norway/sector/sector_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/legal_form/legal_form_norway.sql
+\copy public.legal_form_custom_only FROM 'samples/norway/legal_form/legal_form_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/data_source/data_source_norway.sql
+\copy public.data_source_custom (code, name) FROM 'samples/norway/data_source/data_source_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/brreg/create-import-definition-hovedenhet-2025.sql
+-- Create import definition for BRREG Hovedenhet (legal_unit) using 2025 columns
+-- This version uses the new import system with steps and helper functions.
+DO $$
+DECLARE
+    def_id INT;
+    -- Define the steps needed for a legal unit import with a time context
+    lu_steps TEXT[] := ARRAY[
+        'external_idents', 'data_source', 'enterprise_link_for_legal_unit', 'valid_time', 'status', 'legal_unit',
+        'physical_location', 'postal_location', 'primary_activity', 'secondary_activity',
+        'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'
+    ];
+    map_rec RECORD;
+    v_source_col_id INT;
+    v_data_col_id INT;
+BEGIN
+    -- 0. Drop the definition if it exists, to ensure a clean slate.
+    --    This will cascade and remove related jobs and tables.
+    DELETE FROM public.import_definition WHERE slug = 'brreg_hovedenhet_2025';
+
+    -- 1. Create the definition record (initially invalid)
+    INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id)
+    VALUES ('brreg_hovedenhet_2025', 'Import of BRREG Hovedenhet using 2025 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_update', 'legal_unit', 'job_provided', false, (SELECT id FROM public.data_source WHERE code = 'brreg'))
+    RETURNING id INTO def_id;
+
+    -- 2. Link the required steps to the definition
+    PERFORM import.link_steps_to_definition(def_id, lu_steps);
+
+    -- 3. Data columns are defined per step and generated by lifecycle callbacks.
+    --    The call to admin.create_data_columns_for_definition(def_id) is removed.
+
+    -- 4. Define source columns and mappings declaratively
+    -- Create a temporary table to hold the mapping list
+    CREATE TEMP TABLE temp_mapping_list (
+        priority INT,
+        source_name TEXT,
+        target_name TEXT
+    ) ON COMMIT DROP;
+
+    -- Populate the temporary table
+    INSERT INTO temp_mapping_list (priority, source_name, target_name)
+    SELECT ROW_NUMBER() OVER () as priority, source_name, target_name
+    FROM (VALUES
+            ('organisasjonsnummer', 'tax_ident'),
+            ('navn', 'name'),
+            ('organisasjonsform.kode', 'legal_form_code'),
+            ('organisasjonsform.beskrivelse', NULL), -- Ignored
+            ('naeringskode1.kode', 'primary_activity_category_code'),
+            ('naeringskode1.beskrivelse', NULL), -- Ignored
+            ('naeringskode2.kode', 'secondary_activity_category_code'),
+            ('naeringskode2.beskrivelse', NULL), -- Ignored
+            ('naeringskode3.kode', NULL), -- Ignored
+            ('naeringskode3.beskrivelse', NULL), -- Ignored
+            ('hjelpeenhetskode.kode', NULL), -- Ignored
+            ('hjelpeenhetskode.beskrivelse', NULL), -- Ignored
+            ('harRegistrertAntallAnsatte', NULL), -- Ignored
+            ('antallAnsatte', 'employees'),
+            ('registreringsdatoAntallAnsatteEnhetsregisteret', NULL), -- Ignored
+            ('registreringsdatoantallansatteNAVAaregisteret', NULL), -- Ignored
+            ('hjemmeside', 'web_address'),
+            ('epostadresse', NULL), -- Ignored
+            ('telefon', NULL), -- Ignored
+            ('mobil', NULL), -- Ignored
+            ('postadresse.adresse', 'postal_address_part1'),
+            ('postadresse.poststed', 'postal_postplace'),
+            ('postadresse.postnummer', 'postal_postcode'),
+            ('postadresse.kommune', NULL), -- Ignored
+            ('postadresse.kommunenummer', 'postal_region_code'),
+            ('postadresse.land', NULL), -- Ignored
+            ('postadresse.landkode', 'postal_country_iso_2'),
+            ('forretningsadresse.adresse', 'physical_address_part1'),
+            ('forretningsadresse.poststed', 'physical_postplace'),
+            ('forretningsadresse.postnummer', 'physical_postcode'),
+            ('forretningsadresse.kommune', NULL), -- Ignored
+            ('forretningsadresse.kommunenummer', 'physical_region_code'),
+            ('forretningsadresse.land', NULL), -- Ignored
+            ('forretningsadresse.landkode', 'physical_country_iso_2'),
+            ('institusjonellSektorkode.kode', 'sector_code'),
+            ('institusjonellSektorkode.beskrivelse', NULL), -- Ignored
+            ('sisteInnsendteAarsregnskap', NULL), -- Ignored
+            ('registreringsdatoenhetsregisteret', NULL), -- Ignored
+            ('stiftelsesdato', 'birth_date'),
+            ('registrertIMvaRegisteret', NULL), -- Ignored
+            ('registreringsdatoMerverdiavgiftsregisteret', NULL), -- Ignored
+            ('registreringsdatoMerverdiavgiftsregisteretEnhetsregisteret', NULL), -- Ignored
+            ('frivilligMvaRegistrertBeskrivelser', NULL), -- Ignored
+            ('registreringsdatoFrivilligMerverdiavgiftsregisteret', NULL), -- Ignored
+            ('registrertIFrivillighetsregisteret', NULL), -- Ignored
+            ('registreringsdatoFrivillighetsregisteret', NULL), -- Ignored
+            ('registrertIForetaksregisteret', NULL), -- Ignored
+            ('registreringsdatoForetaksregisteret', NULL), -- Ignored
+            ('registrertIStiftelsesregisteret', NULL), -- Ignored
+            ('registrertIPartiregisteret', NULL), -- Ignored
+            ('registreringsdatoPartiregisteret', NULL), -- Ignored
+            ('konkurs', NULL), -- Ignored
+            ('konkursdato', NULL), -- Ignored
+            ('underAvvikling', NULL), -- Ignored
+            ('underAvviklingDato', NULL), -- Ignored
+            ('underTvangsavviklingEllerTvangsopplosning', NULL), -- Ignored
+            ('tvangsopplostPgaManglendeDagligLederDato', NULL), -- Ignored
+            ('tvangsopplostPgaManglendeRevisorDato', NULL), -- Ignored
+            ('tvangsopplostPgaManglendeRegnskapDato', NULL), -- Ignored
+            ('tvangsopplostPgaMangelfulltStyreDato', NULL), -- Ignored
+            ('tvangsavvikletPgaManglendeSlettingDato', NULL), -- Ignored
+            ('overordnetEnhet', NULL), -- Ignored (Handled by link step if needed)
+            ('maalform', NULL), -- Ignored
+            ('vedtektsdato', NULL), -- Ignored
+            ('vedtektsfestetFormaal', NULL), -- Ignored
+            ('aktivitet', NULL), -- Ignored
+            ('registreringsnummerIHjemlandet', NULL), -- Ignored
+            ('paategninger', NULL) -- Ignored
+        ) AS v(source_name, target_name);
+
+    -- Loop through the temporary mapping list table
+    FOR map_rec IN SELECT * FROM temp_mapping_list ORDER BY priority LOOP
+        -- Insert the source column
+        INSERT INTO public.import_source_column (definition_id, column_name, priority)
+        VALUES (def_id, map_rec.source_name, map_rec.priority)
+        RETURNING id INTO v_source_col_id;
+
+        -- If a target is specified, create the mapping
+        IF map_rec.target_name IS NOT NULL THEN
+            -- Find the corresponding data column ID by joining through the steps linked to this definition
+            SELECT dc.id INTO v_data_col_id
+            FROM public.import_definition_step ds
+            JOIN public.import_data_column dc ON ds.step_id = dc.step_id
+            WHERE ds.definition_id = def_id
+              AND dc.column_name = map_rec.target_name
+              AND dc.purpose = 'source_input';
+
+            IF v_data_col_id IS NOT NULL THEN
+                -- Insert the mapping
+                INSERT INTO public.import_mapping (definition_id, source_column_id, target_data_column_id, target_data_column_purpose, is_ignored)
+                VALUES (def_id, v_source_col_id, v_data_col_id, 'source_input'::public.import_data_column_purpose, FALSE)
+                ON CONFLICT (definition_id, source_column_id, target_data_column_id) DO NOTHING;
+            ELSE
+                -- If target_name was specified but no data_col_id found, or if target_name was NULL initially.
+                INSERT INTO public.import_mapping (definition_id, source_column_id, is_ignored, target_data_column_id, target_data_column_purpose)
+                VALUES (def_id, v_source_col_id, TRUE, NULL, NULL)
+                ON CONFLICT (definition_id, source_column_id, target_data_column_id) WHERE target_data_column_id IS NULL
+                DO NOTHING;
+            END IF;
+        ELSE -- map_rec.target_name IS NULL
+            INSERT INTO public.import_mapping (definition_id, source_column_id, is_ignored, target_data_column_id, target_data_column_purpose)
+            VALUES (def_id, v_source_col_id, TRUE, NULL, NULL)
+            ON CONFLICT (definition_id, source_column_id, target_data_column_id) WHERE target_data_column_id IS NULL
+            DO NOTHING;
+        END IF;
+    END LOOP;
+
+    -- 4c. Add mappings for default values (valid_from, valid_to) for job_provided definitions
+    -- These source columns don't exist, so source_column_id is NULL
+    DECLARE
+        v_valid_time_step_id INT;
+    BEGIN
+        SELECT id INTO v_valid_time_step_id FROM public.import_step WHERE code = 'valid_time';
+
+        INSERT INTO public.import_mapping (definition_id, source_expression, target_data_column_id)
+        SELECT def_id, 'default'::public.import_source_expression, dc.id
+        FROM public.import_data_column dc
+        WHERE dc.step_id = v_valid_time_step_id
+          AND dc.column_name IN ('valid_from', 'valid_to')
+          AND dc.purpose = 'source_input'
+        ON CONFLICT DO NOTHING;
+    END;
+
+
+    -- 5. Set the 'tax_ident' data column as uniquely identifying for the prepare step UPSERT
+    DECLARE
+        v_idents_step_id INT;
+    BEGIN
+        SELECT id INTO v_idents_step_id FROM public.import_step WHERE code = 'external_idents';
+        UPDATE public.import_data_column
+        SET is_uniquely_identifying = true
+        WHERE step_id = v_idents_step_id -- Use step_id
+          AND column_name = 'tax_ident'
+          AND purpose = 'source_input';
+    END; -- End of the inner BEGIN/END block
+    
+    DROP TABLE temp_mapping_list;
+
+END $$; -- End of the main DO block
+-- Display the created definition details
+SELECT d.slug,
+       d.name,
+       d.note,
+       ds.code as data_source,
+       d.valid_time_from,
+       d.strategy,
+       d.valid,
+       d.validation_error
+FROM public.import_definition d
+LEFT JOIN public.data_source ds ON ds.id = d.data_source_id
+WHERE d.slug = 'brreg_hovedenhet_2025';
+         slug          |                     name                      |                    note                     | data_source | valid_time_from |     strategy     | valid | validation_error 
+-----------------------+-----------------------------------------------+---------------------------------------------+-------------+-----------------+------------------+-------+------------------
+ brreg_hovedenhet_2025 | Import of BRREG Hovedenhet using 2025 columns | Easy upload of the CSV file found at brreg. | brreg       | job_provided    | insert_or_update | t     | 
+(1 row)
+
+-- Set the definition to valid (can now be used to create jobs)
+UPDATE public.import_definition
+SET valid = true, validation_error = NULL
+WHERE slug = 'brreg_hovedenhet_2025';
+\i samples/norway/brreg/create-import-definition-underenhet-2025.sql
+-- Create import definition for BRREG Underenhet (establishment for legal unit) using 2025 columns
+-- This version uses the new import system with steps and helper functions.
+DO $$
+DECLARE
+    def_id INT;
+    -- Define the steps needed for an establishment linked to a legal unit import with a time context
+    es_steps TEXT[] := ARRAY[
+        'external_idents', 'data_source', 'link_establishment_to_legal_unit', 'valid_time', 'status', 'establishment',
+        'physical_location', 'postal_location', 'primary_activity', 'secondary_activity',
+        'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'
+    ];
+    map_rec RECORD;
+    v_source_col_id INT;
+    v_data_col_id INT;
+BEGIN
+    -- 0. Drop the definition if it exists, to ensure a clean slate.
+    --    This will cascade and remove related jobs and tables.
+    DELETE FROM public.import_definition WHERE slug = 'brreg_underenhet_2025';
+
+    -- 1. Create the definition record (initially invalid)
+    INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id)
+    VALUES ('brreg_underenhet_2025', 'Import of BRREG Underenhet using 2025 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_update', 'establishment_formal', 'job_provided', false, (SELECT id FROM public.data_source WHERE code = 'brreg'))
+    RETURNING id INTO def_id;
+
+    -- 2. Link the required steps to the definition
+    PERFORM import.link_steps_to_definition(def_id, es_steps);
+
+    -- 3. Data columns are defined per step and generated by lifecycle callbacks.
+    --    The call to admin.create_data_columns_for_definition(def_id) is removed.
+
+    -- 4. Define source columns and mappings declaratively
+    -- Create a temporary table to hold the mapping list
+    CREATE TEMP TABLE temp_mapping_list (
+        priority INT,
+        source_name TEXT,
+        target_name TEXT
+    ) ON COMMIT DROP;
+
+    -- Populate the temporary table
+    INSERT INTO temp_mapping_list (priority, source_name, target_name)
+    SELECT ROW_NUMBER() OVER () as priority, source_name, target_name
+    FROM (VALUES
+            ('organisasjonsnummer', 'tax_ident'),
+            ('navn', 'name'),
+            ('organisasjonsform.kode', NULL), -- Ignored
+            ('organisasjonsform.beskrivelse', NULL), -- Ignored
+            ('naeringskode1.kode', 'primary_activity_category_code'),
+            ('naeringskode1.beskrivelse', NULL), -- Ignored
+            ('naeringskode2.kode', 'secondary_activity_category_code'),
+            ('naeringskode2.beskrivelse', NULL), -- Ignored
+            ('naeringskode3.kode', NULL), -- Ignored
+            ('naeringskode3.beskrivelse', NULL), -- Ignored
+            ('hjelpeenhetskode.kode', NULL), -- Ignored
+            ('hjelpeenhetskode.beskrivelse', NULL), -- Ignored
+            ('harRegistrertAntallAnsatte', NULL), -- Ignored
+            ('antallAnsatte', 'employees'),
+            ('registreringsdatoAntallAnsatteEnhetsregisteret', NULL), -- Ignored
+            ('registreringsdatoantallansatteNAVAaregisteret', NULL), -- Ignored
+            ('hjemmeside', 'web_address'),
+            ('epostadresse', NULL), -- Ignored
+            ('telefon', NULL), -- Ignored
+            ('mobil', NULL), -- Ignored
+            ('postadresse.adresse', 'postal_address_part1'),
+            ('postadresse.poststed', 'postal_postplace'),
+            ('postadresse.postnummer', 'postal_postcode'),
+            ('postadresse.kommune', NULL), -- Ignored
+            ('postadresse.kommunenummer', 'postal_region_code'),
+            ('postadresse.land', NULL), -- Ignored
+            ('postadresse.landkode', 'postal_country_iso_2'),
+            ('beliggenhetsadresse.adresse', 'physical_address_part1'),
+            ('beliggenhetsadresse.poststed', 'physical_postplace'),
+            ('beliggenhetsadresse.postnummer', 'physical_postcode'),
+            ('beliggenhetsadresse.kommune', NULL), -- Ignored
+            ('beliggenhetsadresse.kommunenummer', 'physical_region_code'),
+            ('beliggenhetsadresse.land', NULL), -- Ignored
+            ('beliggenhetsadresse.landkode', 'physical_country_iso_2'),
+            ('registreringsdatoIEnhetsregisteret', NULL), -- Ignored
+            ('frivilligMvaRegistrertBeskrivelser', NULL), -- Ignored
+            ('registreringsdatoFrivilligMerverdiavgiftsregisteret', NULL), -- Ignored
+            ('registrertIMvaregisteret', NULL), -- Ignored
+            ('registreringsdatoMerverdiavgiftsregisteret', NULL), -- Ignored
+            ('registreringsdatoMerverdiavgiftsregisteretEnhetsregisteret', NULL), -- Ignored
+            ('oppstartsdato', 'birth_date'),
+            ('datoEierskifte', NULL), -- Ignored
+            ('overordnetEnhet', 'legal_unit_tax_ident'), -- Map to the dynamic column
+            ('nedleggelsesdato', 'death_date')
+        ) AS v(source_name, target_name);
+
+    -- Loop through the temporary mapping list table
+    FOR map_rec IN SELECT * FROM temp_mapping_list ORDER BY priority LOOP
+        -- Insert the source column
+        INSERT INTO public.import_source_column (definition_id, column_name, priority)
+        VALUES (def_id, map_rec.source_name, map_rec.priority)
+        RETURNING id INTO v_source_col_id;
+
+        -- If a target is specified, create the mapping
+        IF map_rec.target_name IS NOT NULL THEN
+            -- Find the corresponding data column ID by joining through the steps linked to this definition
+            SELECT dc.id INTO v_data_col_id
+            FROM public.import_definition_step ds
+            JOIN public.import_data_column dc ON ds.step_id = dc.step_id
+            WHERE ds.definition_id = def_id
+              AND dc.column_name = map_rec.target_name
+              AND dc.purpose = 'source_input';
+
+            IF v_data_col_id IS NOT NULL THEN
+                -- Insert the mapping
+                INSERT INTO public.import_mapping (definition_id, source_column_id, target_data_column_id, target_data_column_purpose, is_ignored)
+                VALUES (def_id, v_source_col_id, v_data_col_id, 'source_input'::public.import_data_column_purpose, FALSE)
+                ON CONFLICT (definition_id, source_column_id, target_data_column_id) DO NOTHING;
+            ELSE
+                -- If target_name was specified but no data_col_id found, or if target_name was NULL initially.
+                INSERT INTO public.import_mapping (definition_id, source_column_id, is_ignored, target_data_column_id, target_data_column_purpose)
+                VALUES (def_id, v_source_col_id, TRUE, NULL, NULL)
+                ON CONFLICT (definition_id, source_column_id, target_data_column_id) WHERE target_data_column_id IS NULL
+                DO NOTHING;
+            END IF;
+        ELSE -- map_rec.target_name IS NULL
+            INSERT INTO public.import_mapping (definition_id, source_column_id, is_ignored, target_data_column_id, target_data_column_purpose)
+            VALUES (def_id, v_source_col_id, TRUE, NULL, NULL)
+            ON CONFLICT (definition_id, source_column_id, target_data_column_id) WHERE target_data_column_id IS NULL
+            DO NOTHING;
+        END IF;
+    END LOOP;
+
+    -- 4c. Add mappings for default values (valid_from, valid_to) for job_provided definitions
+    -- These source columns don't exist, so source_column_id is NULL
+    DECLARE
+        v_valid_time_step_id INT;
+    BEGIN
+        SELECT id INTO v_valid_time_step_id FROM public.import_step WHERE code = 'valid_time';
+
+        INSERT INTO public.import_mapping (definition_id, source_expression, target_data_column_id)
+        SELECT def_id, 'default'::public.import_source_expression, dc.id
+        FROM public.import_data_column dc
+        WHERE dc.step_id = v_valid_time_step_id
+          AND dc.column_name IN ('valid_from', 'valid_to')
+          AND dc.purpose = 'source_input'
+        ON CONFLICT DO NOTHING;
+    END;
+
+
+    -- 5. Set the 'tax_ident' data column as uniquely identifying for the prepare step UPSERT
+    DECLARE
+        v_idents_step_id INT;
+    BEGIN
+        SELECT id INTO v_idents_step_id FROM public.import_step WHERE code = 'external_idents';
+        UPDATE public.import_data_column
+        SET is_uniquely_identifying = true
+        WHERE step_id = v_idents_step_id -- Use step_id
+          AND column_name = 'tax_ident'
+          AND purpose = 'source_input';
+    END; -- End of the inner BEGIN/END block
+
+    DROP TABLE temp_mapping_list;
+    
+END $$; -- End of the main DO block
+-- Display the created definition details
+SELECT d.slug,
+       d.name,
+       d.note,
+       ds.code as data_source,
+       d.valid_time_from,
+       d.strategy,
+       d.valid,
+       d.validation_error
+FROM public.import_definition d
+LEFT JOIN public.data_source ds ON ds.id = d.data_source_id
+WHERE d.slug = 'brreg_underenhet_2025';
+         slug          |                     name                      |                    note                     | data_source | valid_time_from |     strategy     | valid | validation_error 
+-----------------------+-----------------------------------------------+---------------------------------------------+-------------+-----------------+------------------+-------+------------------
+ brreg_underenhet_2025 | Import of BRREG Underenhet using 2025 columns | Easy upload of the CSV file found at brreg. | brreg       | job_provided    | insert_or_update | t     | 
+(1 row)
+
+-- Set the definition to valid (can now be used to create jobs)
+UPDATE public.import_definition
+SET valid = true, validation_error = NULL
+WHERE slug = 'brreg_underenhet_2025';
+\echo "Switch to test admin user"
+"Switch to test admin user"
+CALL test.set_user_from_email('test.admin@statbus.org');
+\echo "Create import jobs for BRREG full download (2025)"
+"Create import jobs for BRREG full download (2025)"
+-- Create import job for hovedenhet (legal units)
+WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2025')
+INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id)
+SELECT def.id,
+       'import_hovedenhet_2025',
+       '2025-01-01'::DATE,
+       'infinity'::DATE,
+       'Import Job for BRREG Hovedenhet 2025 (Current)',
+       'This job handles the import of current BRREG Hovedenhet data.',
+       (select id from public.user where email = 'test.admin@statbus.org')
+FROM def
+ON CONFLICT (slug) DO UPDATE SET
+    default_valid_from = '2025-01-01'::DATE,
+    default_valid_to = 'infinity'::DATE;
+-- Create import job for underenhet (establishments)
+WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2025')
+INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id)
+SELECT def.id,
+       'import_underenhet_2025',
+       '2025-01-01'::DATE,
+       'infinity'::DATE,
+       'Import Job for BRREG Underenhet 2025 (Current)',
+       'This job handles the import of current BRREG Underenhet data.',
+       (select id from public.user where email = 'test.admin@statbus.org')
+FROM def
+ON CONFLICT (slug) DO UPDATE SET
+    default_valid_from = '2025-01-01'::DATE,
+    default_valid_to = 'infinity'::DATE;
+\echo "Verify import definitions exist"
+"Verify import definitions exist"
+SELECT slug, name, mode
+  FROM public.import_definition
+ WHERE slug IN ('brreg_hovedenhet_2025','brreg_underenhet_2025')
+ ORDER BY slug;
+         slug          |                     name                      |         mode         
+-----------------------+-----------------------------------------------+----------------------
+ brreg_hovedenhet_2025 | Import of BRREG Hovedenhet using 2025 columns | legal_unit
+ brreg_underenhet_2025 | Import of BRREG Underenhet using 2025 columns | establishment_formal
+(2 rows)
+
+\echo "Verify created import jobs (BRREG download)"
+"Verify created import jobs (BRREG download)"
+SELECT slug, state, default_valid_from, default_valid_to
+  FROM public.import_job
+ WHERE slug IN ('import_hovedenhet_2025', 'import_underenhet_2025')
+ ORDER BY slug;
+          slug          |       state        | default_valid_from | default_valid_to 
+------------------------+--------------------+--------------------+------------------
+ import_hovedenhet_2025 | waiting_for_upload | 2025-01-01         | infinity
+ import_underenhet_2025 | waiting_for_upload | 2025-01-01         | infinity
+(2 rows)
+
+\echo "Loading data for BRREG full download from tmp/ files"
+"Loading data for BRREG full download from tmp/ files"
+\copy public.import_hovedenhet_2025_upload FROM 'tmp/enheter.csv' WITH CSV HEADER
+tmp/enheter.csv: No such file or directory
+\copy public.import_underenhet_2025_upload FROM 'tmp/underenheter_filtered.csv' WITH CSV HEADER
+tmp/underenheter_filtered.csv: No such file or directory
+\echo "Check import job state before calling worker"
+"Check import job state before calling worker"
+SELECT slug, state, total_rows, imported_rows FROM public.import_job WHERE slug IN ('import_hovedenhet_2025', 'import_underenhet_2025') ORDER BY slug;
+          slug          |       state        | total_rows | imported_rows 
+------------------------+--------------------+------------+---------------
+ import_hovedenhet_2025 | waiting_for_upload |            |             0
+ import_underenhet_2025 | waiting_for_upload |            |             0
+(2 rows)
+
+\echo "Run worker to process import jobs"
+"Run worker to process import jobs"
+CALL worker.process_tasks(p_queue => 'import');
+\echo "Check the states of the import job tasks"
+"Check the states of the import job tasks"
+SELECT queue, t.command, state, error
+  FROM worker.tasks AS t
+  JOIN worker.command_registry AS c on t.command = c.command
+ WHERE t.command = 'import_job_process'
+ ORDER BY priority;
+ queue | command | state | error 
+-------+---------+-------+-------
+(0 rows)
+
+\echo "Check import job state after calling worker"
+"Check import job state after calling worker"
+SELECT slug, state, error IS NOT NULL AS failed, total_rows, imported_rows, import_completed_pct
+  FROM public.import_job
+ WHERE slug IN ('import_hovedenhet_2025', 'import_underenhet_2025')
+ ORDER BY slug;
+          slug          |       state        | failed | total_rows | imported_rows | import_completed_pct 
+------------------------+--------------------+--------+------------+---------------+----------------------
+ import_hovedenhet_2025 | waiting_for_upload | f      |            |             0 |                 0.00
+ import_underenhet_2025 | waiting_for_upload | f      |            |             0 |                 0.00
+(2 rows)
+
+\echo "Check data row states after import"
+"Check data row states after import"
+SELECT state, count(*) FROM public.import_hovedenhet_2025_data GROUP BY state;
+ state | count 
+-------+-------
+(0 rows)
+
+SELECT state, count(*) FROM public.import_underenhet_2025_data GROUP BY state;
+ state | count 
+-------+-------
+(0 rows)
+
+\i test/rollback_unless_persist_is_specified.sql
+---------------------------------------------------------------------------
+-- Support development loading of the data without rollback using
+--   ./devops/manage-statbus.sh psql --variable=PERSIST=true < test/sql/01_load_web_examples.sql
+-- Ref. https://stackoverflow.com/a/32597876/1023558
+\set PERSIST :PERSIST
+-- now PERSIST is set to the string ':PERSIST' if was not already set.
+-- Checking it using a CASE statement:
+SELECT CASE
+  WHEN :'PERSIST'= ':PERSIST'
+  THEN 'false'
+  ELSE :'PERSIST'
+END::BOOL AS "PERSIST" \gset
+-- < \gset call at end of the query to set variable.
+\if :PERSIST
+COMMIT;
+\else
+ROLLBACK;
+\endif

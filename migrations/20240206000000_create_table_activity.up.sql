@@ -5,8 +5,8 @@ CREATE TYPE public.activity_type AS ENUM ('primary', 'secondary', 'ancilliary');
 CREATE TABLE public.activity (
     id SERIAL NOT NULL,
     valid_from date NOT NULL,
-    valid_after date NOT NULL,
-    valid_to date NOT NULL DEFAULT 'infinity',
+    valid_to date,
+    valid_until date,
     type public.activity_type NOT NULL,
     category_id integer NOT NULL REFERENCES public.activity_category(id) ON DELETE CASCADE,
     data_source_id integer REFERENCES public.data_source(id) ON DELETE SET NULL,
@@ -26,11 +26,54 @@ CREATE INDEX ix_activity_establishment_id ON public.activity USING btree (establ
 CREATE INDEX ix_activity_legal_unit_id ON public.activity USING btree (legal_unit_id);
 CREATE INDEX ix_activity_edit_by_user_id ON public.activity USING btree (edit_by_user_id);
 CREATE INDEX ix_activity_data_source_id ON public.activity USING btree (data_source_id);
-CREATE INDEX ix_activity_establishment_valid_after_valid_to ON public.activity USING btree (establishment_id, valid_after, valid_to);
-CREATE INDEX ix_activity_legal_unit_id_valid_range ON public.activity USING gist (legal_unit_id, daterange(valid_after, valid_to, '(]'));
+CREATE INDEX ix_activity_establishment_valid_from_valid_until ON public.activity USING btree (establishment_id, valid_from, valid_until);
+CREATE INDEX ix_activity_legal_unit_id_valid_range ON public.activity USING gist (legal_unit_id, daterange(valid_from, valid_until, '[)'));
+CREATE INDEX ix_activity_establishment_id_valid_range ON public.activity USING gist (establishment_id, daterange(valid_from, valid_until, '[)'));
 
-CREATE TRIGGER trg_activity_synchronize_valid_from_after
-    BEFORE INSERT OR UPDATE ON public.activity
-    FOR EACH ROW EXECUTE FUNCTION public.synchronize_valid_from_after();
+-- Activate era handling
+SELECT sql_saga.add_era('public.activity', synchronize_valid_to_column => 'valid_to');
+-- This creates a GIST exclusion constraint (`activity_id_valid_excl`) to ensure that there are
+-- no overlapping time periods for the same activity ID.
+SELECT sql_saga.add_unique_key(
+    table_oid => 'public.activity'::regclass,
+    key_type => 'primary',
+    column_names => ARRAY['id'],
+    unique_key_name => 'activity_id_valid'
+);
+-- This creates a GIST exclusion constraint (`activity_type_establishment_id_valid_excl`) to ensure
+-- a unit cannot have multiple activities of the same type at the same time.
+SELECT sql_saga.add_unique_key(
+    table_oid => 'public.activity'::regclass,
+    key_type => 'natural',
+    column_names => ARRAY['type', 'establishment_id'],
+    unique_key_name => 'activity_type_establishment_id_valid'
+);
+-- This creates a GIST exclusion constraint (`activity_type_legal_unit_id_valid_excl`) to ensure
+-- a unit cannot have multiple activities of the same type at the same time.
+SELECT sql_saga.add_unique_key(
+    table_oid => 'public.activity'::regclass,
+    key_type => 'natural',
+    column_names => ARRAY['type', 'legal_unit_id'],
+    unique_key_name => 'activity_type_legal_unit_id_valid'
+);
+-- This creates triggers to enforce that an activity's validity period is always contained
+-- within the validity period of its parent establishment.
+SELECT sql_saga.add_foreign_key(
+    fk_table_oid => 'public.activity'::regclass,
+    fk_column_names => ARRAY['establishment_id'],
+    fk_era_name => 'valid',
+    unique_key_name => 'establishment_id_valid'
+);
+-- This creates triggers to enforce that an activity's validity period is always contained
+-- within the validity period of its parent legal unit.
+SELECT sql_saga.add_foreign_key(
+    fk_table_oid => 'public.activity'::regclass,
+    fk_column_names => ARRAY['legal_unit_id'],
+    fk_era_name => 'valid',
+    unique_key_name => 'legal_unit_id_valid'
+);
+
+-- Add a view for portion-of updates, allowing for easier updates to specific time slices.
+SELECT sql_saga.add_for_portion_of_view('public.activity');
 
 END;

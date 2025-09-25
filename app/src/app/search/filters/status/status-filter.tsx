@@ -1,17 +1,14 @@
-import { getServerRestClient } from "@/context/RestClientStore";
+"use client";
 import StatusOptions from "@/app/search/filters/status/status-options";
+import { useSearchPageData } from "@/atoms/search";
 
-export default async function StatusFilter() {
-  const client = await getServerRestClient();
-  const { data: statuses } = await client
-    .from("status")
-    .select()
-    .filter("active", "eq", true);
+export default function StatusFilter() {
+  const { allStatuses } = useSearchPageData();
 
   return (
     <StatusOptions
       options={
-        statuses?.map(({ code, name }) => ({
+        allStatuses?.map(({ code, name }) => ({
           label: name!,
           value: code!,
           humanReadableValue: name!,

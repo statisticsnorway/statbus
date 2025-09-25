@@ -4,7 +4,8 @@ import Link from "next/link";
 import { Github, Globe } from "lucide-react";
 import { CommandPaletteTriggerButton } from "@/components/command-palette/command-palette-trigger-button";
 import { useAtomValue } from "jotai"; // Import useAtomValue
-import { isAuthenticatedAtom } from "@/atoms/auth"; // Import isAuthenticatedAtom
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
+import { isAuthenticatedStrictAtom } from "@/atoms/auth"; // Import isAuthenticatedAtom
 
 export function FooterSkeleton() {
   return (
@@ -16,16 +17,16 @@ export function FooterSkeleton() {
   );
 }
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export default function Footer() {
   const [mounted, setMounted] = useState(false);
   // Use derived isAuthenticatedAtom which handles loading state internally
-  const isAuthenticated = useAtomValue(isAuthenticatedAtom);
+  const isAuthenticated = useAtomValue(isAuthenticatedStrictAtom);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     setMounted(true);
-  }, []);
+  }, [], 'Footer:setMounted');
 
   // Determine justification based on mounted state and authentication
   // isAuthenticated is false if loading or not authenticated

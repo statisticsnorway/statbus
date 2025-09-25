@@ -4,10 +4,10 @@
 ----------------------------------+--------------------------+-----------+----------+---------
  unit_type                        | statistical_unit_type    |           |          | 
  unit_id                          | integer                  |           |          | 
- valid_after                      | date                     |           |          | 
  valid_from                       | date                     |           |          | 
  valid_to                         | date                     |           |          | 
- name                             | character varying(256)   |           |          | 
+ valid_until                      | date                     |           |          | 
+ name                             | text                     |           |          | 
  birth_date                       | date                     |           |          | 
  death_date                       | date                     |           |          | 
  search                           | tsvector                 |           |          | 
@@ -75,6 +75,9 @@
  related_legal_unit_ids           | integer[]                |           |          | 
  excluded_legal_unit_ids          | integer[]                |           |          | 
  included_legal_unit_ids          | integer[]                |           |          | 
+ related_enterprise_ids           | integer[]                |           |          | 
+ excluded_enterprise_ids          | integer[]                |           |          | 
+ included_enterprise_ids          | integer[]                |           |          | 
  enterprise_id                    | integer                  |           |          | 
  primary_establishment_id         | integer                  |           |          | 
  primary_legal_unit_id            | integer                  |           |          | 

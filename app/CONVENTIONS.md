@@ -12,6 +12,7 @@ Core conventions for the Next.js (v15) application. For project-wide, SQL, or in
 - UI Components: shadcn/ui. Group custom components by feature in `components/`.
 - Testing: Jest and ts-jest.
 - Build/Deployment: Standard Next.js scripts in `package.json`.
+- Type Checking: To run the TypeScript compiler and check for type errors without emitting files, use the following command from the project root: `cd app && pnpm run tsc`.
 - Principles:
     - Fail Fast: For functionality expected to work. Provide clear error/debug info.
     - Single Source of Truth: Avoid duplicate state.
@@ -30,7 +31,10 @@ Core conventions for the Next.js (v15) application. For project-wide, SQL, or in
 - **Imports**: Components must import atoms and hooks directly from their feature-specific source file. A barrel file is not used.
 - **Initialization**: Global state is initialized within the `<JotaiAppProvider>` component (`app/src/atoms/JotaiAppProvider.tsx`). This provider contains initializer components and hooks (like `useAppInitialization`) that manage application startup logic.
 - **Patterns**:
-    - **Atomic State**: Prefer small, independent atoms.
+    - **Atomic State**: Prefer small, independent atoms. **This is the most critical convention for preventing re-render loops.**
+        - **Avoid Monolithic State Objects**: Do not consolidate multiple, independently-updated pieces of state into a single large object within one atom. Doing so creates unstable object references, where an update to one piece of state forces components that subscribe to *other, unchanged* pieces of state to re-render. This was the root cause of the `/search` page infinite loop.
+        - **Principle of Isolation**: If a piece of state can change on its own, it **MUST** live in its own atom.
+        - **Reference Implementation**: The refactoring of the original `searchStateAtom` into four independent atoms (`queryAtom`, `filtersAtom`, `sortingAtom`, `paginationAtom`) is the canonical example of this pattern.
     - **Derived Atoms**: Compute state from other atoms for efficient re-renders.
     - **Action Atoms**: Use write-only or read/write atoms to encapsulate state update logic and side effects (e.g., API calls that modify global state).
 - **Data Fetching for Global State**:
@@ -42,9 +46,10 @@ atom awaits the completion of the core atom's refresh if subsequent logic or com
 `set(authStatusCoreAtom); await get(authStatusCoreAtom);`
         - Components performing side effects (like navigation via `router.push()`) based on Jotai state within `useEffect` hooks must ensure they react to a
 *stable* state. Check flags like `initialAuthCheckCompleted` and `authStatus.loading` to avoid acting on intermediate or stale data.
-        - For programmatic client-side redirects triggered by Jotai state changes, prefer a centralized mechanism. Use a dedicated atom (e.g.,
-`pendingRedirectAtom`) set by action atoms, and a single `RedirectHandler` component that observes this atom to perform the navigation. This avoids scattered
-`router.push()` calls and ensures redirects are a controlled reaction to state.
+        - **Programmatic Navigation**: A distinction must be made between *application-level redirects* and *local state-to-URL synchronization*.
+          - **Application-Level Redirects**: To prevent race conditions and ensure state consistency, all programmatic navigation that changes the user's location in the application flow (e.g., after login/logout, or for setup flows) **MUST** be handled by the centralized XState state machine (`navigation-machine.ts`). Components should not perform these types of redirects.
+          - **Local State-to-URL Synchronization**: For features that reflect their state in the URL's query parameters on the *current page* (e.g., search filters), it is correct and expected to use the `useRouter` hook from `next/navigation`, specifically with `router.replace()`. The `useSearchUrlSync` hook is the reference implementation for this pattern.
+          - **User-Initiated Navigation**: For direct, user-initiated navigation from within components (e.g., in a command palette or after a form submission), it is also correct to use the `useRouter` hook.
     - **Handling Complex Conditional Logic (e.g., Login Page):**
         - For UI flows with multiple conditions and potential race conditions (e.g., checking auth status, handling redirects, showing a form), use a state machine (`jotai-xstate`). This makes the logic explicit, robust, and immune to re-render loops caused by React Strict Mode or Fast Refresh.
         - The `LoginClientBoundary` is the reference implementation for this pattern. It uses a state machine to decide whether to show the login form or trigger a redirect away from the page.
@@ -61,11 +66,48 @@ atom awaits the completion of the core atom's refresh if subsequent logic or com
 - Key SWR features like revalidation on focus/interval, local mutation, and request deduplication are beneficial for such use cases.
 - **Interaction with Jotai**:
     - SWR's fetch keys can be derived from Jotai atoms (e.g., `useAtomValue(derivedParamsAtom)`). Changes in these Jotai atoms will naturally trigger SWR to re-fetch with the new key. This pattern is used in `SearchResults.tsx`.
-    - SWR-fetched data can be synced back to global Jotai atoms using `useEffect` and `setAtom` if the data needs to be globally accessible or trigger other Jotai-dependent logic (as seen in `SearchResults.tsx` with `searchResultAtom`).
+    - SWR-fetched data can be synced back to global Jotai atoms using `useGuardedEffect` and `setAtom` if the data needs to be globally accessible or trigger other Jotai-dependent logic (as seen in `SearchResults.tsx` with `searchResultAtom`).
     - Jotai action atoms can also be used to trigger SWR revalidation explicitly (e.g., by calling `mutate` from `useSWRConfig`).
 - **When to choose Jotai vs. SWR for server state**:
     - Use **Jotai** for server state that forms the foundation of your global application state (e.g., user authentication status, core application settings, base data used by many features).
     - Use **SWR** for data that is more localized to specific views/components, benefits from automatic revalidation strategies, or represents paginated/filtered lists where SWR's caching per key is advantageous.
+
+## Debugging and Diagnostics
+
+### `useGuardedEffect` for Loop Detection
+To combat "Maximum update depth exceeded" errors and other lifecycle issues, the application is instrumented with a custom hook: `useGuardedEffect`.
+
+- **Convention**: All React effects **MUST** use `useGuardedEffect` instead of the standard `useEffect`.
+- **Architectural Purpose**: This hook provides a diagnostic system to detect two classes of infinite loops:
+    1.  **Re-render loops:** When a single component instance re-renders rapidly, causing its effect to fire continuously.
+    2.  **Re-mount loops:** When a component is destroyed and re-created in a loop, often caused by a parent component's state change. The original guard was blind to this, but the new version explicitly tracks component mounts.
+- **Implementation**: `useGuardedEffect` is a drop-in replacement for `useEffect`. It accepts the same callback and dependency array, plus a third, mandatory argument: a unique string identifier.
+- **Identifier Format**: The identifier **MUST** be a unique, descriptive string, typically in the format `'FileName.tsx:purposeOfEffect'`. This is crucial for providing clear, actionable information in the diagnostics panel.
+- **Activation**: The diagnostic features are disabled by default (zero performance overhead). To activate them for a debugging session, add `NEXT_PUBLIC_ENABLE_EFFECT_GUARD=true` to your `.env.local` file and restart the server.
+- **Diagnostic Panels**: When activated, two panels become available in the `StateInspector`:
+    - **The Effect Journal**: Tracks effect call frequency to find re-render loops.
+    - **The Component Mount Journal**: Tracks mount frequency to find re-mount loops.
+- **Pattern for "Set-If-Null" Effects**:
+    - For side effects that are intended to set a default value for a state atom only if it hasn't been set yet (e.g., setting a default time context on app load), the logic **MUST** be implemented in a Jotai `atomEffect`, not a `useGuardedEffect` inside a hook.
+    - `atomEffect` decouples the side effect from the component render cycle, ensuring it runs only when its true dependencies (the source of the default value) change. Placing this logic in a hook that is consumed by frequently re-rendering components is an architectural flaw that leads to performance degradation.
+    - **Reference Implementation**: The `timeContextAutoSelectEffectAtom` is the canonical example of this pattern. It is activated by being read once in a top-level component (`HomePage`).
+- **Pattern for Subscribing to External Stores**:
+    - When using `useEffect` or `useGuardedEffect` to subscribe to an external, non-React store (like the listener pattern in `use-toast.ts`), the dependency array **MUST** be empty (`[]`).
+    - The effect should add the component's `setState` function to the listeners on mount and remove it on unmount (in the cleanup function). Including the component's `state` in the dependency array will create a feedback loop, causing the effect to re-run and re-subscribe on every state change, which is inefficient and a source of bugs.
+    - **Reference Implementation**: The `listener` effect within the `useToast` hook is the canonical example of this pattern.
+- **Pattern for Effects Reacting to State Machines**:
+    - When writing an effect that performs side-effects based on a state machine's state (e.g., from `jotai-xstate`), the dependency array **MUST NOT** depend on the entire `state` object.
+    - The `state` object from `jotai-xstate` is a new reference on every context update, even if the state *value* has not changed. Depending on the whole object will cause the effect to run on every render of the host component, leading to severe performance issues.
+    - Instead, de-structure the specific, primitive values needed from the state object *before* the effect, and use those primitives in the dependency array. You **MUST** include `state.value` as a dependency to ensure the effect re-runs when the machine transitions to a new state.
+    - **Reference Implementation**: The `performSideEffects` effect within the `NavigationManager` is the canonical example of this pattern. It depends on `stateValue`, `sideEffectAction`, and `sideEffectTargetPath` instead of the whole `state` object.
+- **Decoupling Core Logic from Dev Tools**:
+    - Core application logic (e.g., state machines, navigation managers) **MUST NOT** depend on the state of developer tools or diagnostic components (e.g., the `StateInspector`'s visibility).
+    - Creating such a dependency causes the application's core logic to re-evaluate whenever a developer interacts with the UI of the tool, leading to severe performance degradation and masking other issues.
+    - **Reference Implementation**: The `sendContextUpdates` effect in `NavigationManager` was refactored to remove its dependency on `isInspectorVisible`.
+- **Decoupling Core Logic from Dev Tools**:
+    - Core application logic (e.g., state machines, navigation managers) **MUST NOT** depend on the state of developer tools or diagnostic components (e.g., the `StateInspector`'s visibility).
+    - Creating such a dependency causes the application's core logic to re-evaluate whenever a developer interacts with the UI of the tool, leading to severe performance degradation and masking other issues.
+    - **Reference Implementation**: The `sendContextUpdates` effect in `NavigationManager` was refactored to remove its dependency on `isInspectorVisible`.
 
 ## Database Type Definitions
 The file `app/src/lib/database.types.ts` contains TypeScript types automatically generated from the PostgreSQL schema (via `./devops/manage-statbus.sh generate-types`).

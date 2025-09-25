@@ -1,0 +1,27 @@
+#!/bin/sh
+#
+# This pre-commit hook prevents committing any files from the 'tmp/' and 'app/tmp/' directories.
+# This allows these directories to be used as a scratch space for AI tools without
+# polluting the main commit history. Files in them can still be tracked
+# locally with `git add` to see diffs. An exception is made for `.gitkeep` and
+# `.gitignore` files.
+
+# Check for staged files in the tmp/ or app/tmp/ directory, ignoring .gitkeep and .gitignore files.
+STAGED_TMP_FILES=$(git diff --cached --name-only | grep -E '^(tmp|app/tmp)/' | grep -v -E '/\.(gitkeep|gitignore)$')
+
+if [ -n "$STAGED_TMP_FILES" ]; then
+    echo "COMMIT REJECTED"
+    echo "-----------------"
+    echo "Error: Committing files from the 'tmp/' or 'app/tmp/' directories is not allowed."
+    echo
+    echo "These directories are for local scratch work and AI tool interaction."
+    echo "To commit changes from files in these directories, please move them to an appropriate location."
+    echo
+    echo "The following staged files must be unstaged:"
+    # List the problematic files
+    echo "$STAGED_TMP_FILES"
+    echo
+    exit 1
+fi
+
+exit 0

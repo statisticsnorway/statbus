@@ -1,14 +1,14 @@
 "use client";
 import { OptionsFilter } from "@/app/search/components/options-filter";
-import { useSearch } from "@/atoms/search";
+import { useSearchFilters } from "@/atoms/search";
 import { useCallback, useMemo } from "react"; // Added useMemo
 import { INVALID_CODES } from "@/app/search/filters/url-search-params";
 import { SearchFilterOption } from "../search.d";
 
 export default function InvalidCodesFilter() {
-  const { searchState, updateFilters, executeSearch } = useSearch();
-  // const selected = (searchState.filters[INVALID_CODES] as string[]) || [];
-  const filterValue = searchState.filters[INVALID_CODES];
+  const { filters, updateFilters } = useSearchFilters();
+  // const selected = (filters[INVALID_CODES] as string[]) || [];
+  const filterValue = filters[INVALID_CODES];
   const selected = useMemo(() => {
     if (Array.isArray(filterValue)) {
       return filterValue as string[];
@@ -32,33 +32,30 @@ export default function InvalidCodesFilter() {
         // Or, if this scenario shouldn't happen, log an error.
         // For now, let's assume clearing is the intent if value is null.
         const newFilters = {
-          ...searchState.filters,
+          ...filters,
           [INVALID_CODES]: [],
         };
         updateFilters(newFilters);
-        await executeSearch();
         return;
       }
 
       const newSelectedValues = selected.includes(valueToToggle) ? [] : [valueToToggle];
       const newFilters = {
-        ...searchState.filters,
+        ...filters,
         [INVALID_CODES]: newSelectedValues,
       };
       updateFilters(newFilters);
-      await executeSearch();
     },
-    [searchState.filters, updateFilters, executeSearch, selected]
+    [filters, updateFilters, selected]
   );
 
   const reset = useCallback(async () => {
     const newFilters = {
-      ...searchState.filters,
+      ...filters,
       [INVALID_CODES]: [],
     };
     updateFilters(newFilters);
-    await executeSearch();
-  }, [searchState.filters, updateFilters, executeSearch]);
+  }, [filters, updateFilters]);
 
   return (
     <OptionsFilter

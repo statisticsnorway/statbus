@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ResetConfirmationDialog } from "./reset-confirmation-dialog";
-import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useRouter } from "next/navigation";
+import { ResetConfirmationDialog } from "./reset-confirmation-dialog";
 import { useAuth } from "@/atoms/auth";
 import { useSetAtom } from "jotai";
-import { stateInspectorVisibleAtom } from "@/atoms/app";
+import { debugInspectorVisibleAtom } from "@/atoms/app";
 import {
   BarChartHorizontal,
   Footprints,
@@ -39,12 +39,11 @@ import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
-  const { toast } = useToast();
   const router = useRouter();
   const { logout } = useAuth();
-  const setStateInspectorVisible = useSetAtom(stateInspectorVisibleAtom);
+  const setStateInspectorVisible = useSetAtom(debugInspectorVisibleAtom);
 
-  useEffect(() => {
+  useGuardedEffect(() => {
     const open = () => {
       setOpen(true);
     };
@@ -67,7 +66,7 @@ export function CommandPalette() {
       document.removeEventListener("keydown", keydown);
       document.removeEventListener("toggle-command-palette", open);
     };
-  }, []);
+  }, [], 'CommandPalette:setupListeners');
 
   const handleResetAll = () => {
     setOpen(false);
@@ -133,8 +132,8 @@ export function CommandPalette() {
               onSelect={async () => {
                 setOpen(false);
                 await logout();
-                // The redirect to "/login" or "/" is now handled by RedirectHandler
-                // after logoutAtom sets pendingRedirectAtom (or similar mechanism).
+                // The redirect to "/login" is handled by the navigation state machine
+                // in response to the auth state changing.
               }}
               value="Logout"
             >
@@ -252,10 +251,10 @@ export function CommandPalette() {
             </CommandItem>
             <CommandItem
               onSelect={handleToggleStateInspector}
-              value="toggle state inspector developer tool"
+              value="toggle debug inspector developer tool"
             >
               <Binary className="mr-2 h-4 w-4" />
-              <span>Toggle State Inspector</span>
+              <span>Toggle Debug Inspector</span>
             </CommandItem>
           </CommandGroup>
         </CommandList>

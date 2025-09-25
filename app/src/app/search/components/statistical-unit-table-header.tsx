@@ -2,7 +2,8 @@
 
 import { TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import SortableTableHead from "@/app/search/components/sortable-table-head";
-import { useBaseData } from "@/atoms/base-data";
+import { statDefinitionsAtom, externalIdentTypesAtom } from "@/atoms/base-data";
+import { useAtomValue } from "jotai";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useTableColumnsManager } from "@/atoms/search"; // Updated import
@@ -20,7 +21,8 @@ export function StatisticalUnitTableHeader({
   setRegionLevel,
   maxRegionLevel,
 }: StatisticalUnitTableHeaderProps) {
-  const { statDefinitions, externalIdentTypes } = useBaseData();
+  const statDefinitions = useAtomValue(statDefinitionsAtom);
+  const externalIdentTypes = useAtomValue(externalIdentTypesAtom);
   const { visibleColumns, headerRowSuffix, headerCellSuffix } =
     useTableColumnsManager();
 

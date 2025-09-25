@@ -27,7 +27,7 @@ BEGIN
     LOOP
         v_current_priority := v_current_priority + 1;
         INSERT INTO public.import_data_column (step_id, column_name, column_type, purpose, is_nullable, is_uniquely_identifying, priority)
-        VALUES (v_step_id, v_ident_type.code, 'TEXT', 'source_input', true, true, v_current_priority)
+        VALUES (v_step_id, v_ident_type.code || '_raw', 'TEXT', 'source_input', true, true, v_current_priority)
         ON CONFLICT (step_id, column_name) DO UPDATE SET
             priority = EXCLUDED.priority,
             is_uniquely_identifying = EXCLUDED.is_uniquely_identifying;
@@ -55,7 +55,7 @@ BEGIN
     DELETE FROM public.import_data_column idc
     WHERE idc.step_id = v_step_id
       AND idc.purpose = 'source_input'
-      AND idc.column_name NOT IN (
+      AND replace(idc.column_name, '_raw', '') NOT IN (
           SELECT code FROM public.external_ident_type_active
       );
 END;

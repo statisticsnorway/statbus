@@ -9,6 +9,7 @@ import {
 import { DayButton, DayPicker, getDefaultClassNames } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
+import { useGuardedEffect } from "@/hooks/use-guarded-effect"
 import { Button, buttonVariants } from "@/components/ui/button"
 
 function Calendar({
@@ -178,9 +179,9 @@ function CalendarDayButton({
   const defaultClassNames = getDefaultClassNames()
 
   const ref = React.useRef<HTMLButtonElement>(null)
-  React.useEffect(() => {
+  useGuardedEffect(() => {
     if (modifiers.focused) ref.current?.focus()
-  }, [modifiers.focused])
+  }, [modifiers.focused], 'CalendarDayButton:focusEffect')
 
   return (
     <Button

@@ -2,6 +2,7 @@
 CREATE OR REPLACE FUNCTION public.statistical_unit_history(p_unit_id integer, p_unit_type statistical_unit_type)
  RETURNS SETOF jsonb
  LANGUAGE plpgsql
+ STABLE PARALLEL SAFE
 AS $function$
 DECLARE
     dynamic_stats_sql text;
@@ -28,6 +29,7 @@ BEGIN
                 su.name,
                 su.unit_id,
                 su.valid_from,
+                su.valid_to,
                 %1$s
             FROM public.statistical_unit AS su
             WHERE su.unit_id = %2$L

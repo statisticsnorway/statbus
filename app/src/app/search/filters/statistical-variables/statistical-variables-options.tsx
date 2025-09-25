@@ -1,5 +1,5 @@
 "use client";
-import { useSearch } from "@/atoms/search"; // Changed to Jotai hook
+import { useSearchFilters } from "@/atoms/search";
 import { ConditionalFilter } from "@/app/search/components/conditional-filter";
 import { useCallback, useMemo } from "react";
 import { Tables } from "@/lib/database.types";
@@ -9,15 +9,15 @@ export default function StatisticalVariablesOptions({ statDefinition }:
   {
     readonly statDefinition: Tables<"stat_definition_ordered">;
   }) {
-  const { searchState, updateFilters, executeSearch } = useSearch();
-  const currentFilterString = searchState.filters[statDefinition.code!] as string | null;
+  const { filters, updateFilters } = useSearchFilters();
+  const currentFilterString = filters[statDefinition.code!] as string | null;
 
   const parsedValue = useMemo(() =>
     statisticalVariableParse(currentFilterString) // Parse the string value from filters
     , [currentFilterString]);
 
   const update = useCallback(async (value : {operator: string, operand: string} | null) => {
-    const newFilters = { ...searchState.filters };
+    const newFilters = { ...filters };
     if (value && value.operand !== undefined && value.operand !== null && String(value.operand).trim() !== '') {
       // Format the value as a string, e.g., "operator:operand"
       newFilters[statDefinition.code!] = `${value.operator}:${value.operand}`;
@@ -25,15 +25,13 @@ export default function StatisticalVariablesOptions({ statDefinition }:
       delete newFilters[statDefinition.code!];
     }
     updateFilters(newFilters);
-    await executeSearch();
-  }, [searchState.filters, updateFilters, executeSearch, statDefinition.code]);
+  }, [filters, updateFilters, statDefinition.code]);
 
   const reset = useCallback(async () => {
-    const newFilters = { ...searchState.filters };
+    const newFilters = { ...filters };
     delete newFilters[statDefinition.code!];
     updateFilters(newFilters);
-    await executeSearch();
-  }, [searchState.filters, updateFilters, executeSearch, statDefinition.code]);
+  }, [filters, updateFilters, statDefinition.code]);
 
   return (
     <ConditionalFilter

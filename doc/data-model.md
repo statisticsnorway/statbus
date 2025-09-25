@@ -6,7 +6,7 @@ This document provides a compact overview of the StatBus database schema, focusi
 The system revolves around four main statistical units, often with temporal validity (`valid_from`, `valid_after`, `valid_to`):
 - `enterprise_group(id, name, short_name, enterprise_group_type_id, unit_size_id, data_source_id, reorg_type_id, foreign_participation_id, valid_from, valid_after, valid_to, active, ...)` (EG) (temporal)
   - Key FKs: `enterprise_group_type_id`, `unit_size_id`, `data_source_id`, `reorg_type_id`, `foreign_participation_id`.
-- `enterprise(id, short_name, active, edit_by_user_id, ...)` (E) (temporal)
+- `enterprise(id, short_name, active, edit_by_user_id, ...)` (E)
   - Belongs to an EG implicitly. Core attributes are often linked via its Legal Units or Establishments.
 - `legal_unit(id, name, short_name, enterprise_id, sector_id, status_id, legal_form_id, unit_size_id, foreign_participation_id, data_source_id, valid_from, valid_after, valid_to, active, ...)` (LU) (temporal)
   - Belongs to one `enterprise` (E). (Relationship: E 1--* LU)
@@ -84,6 +84,12 @@ Handles the ingestion of data from external files.
 - `import_job(id, slug, definition_id, user_id, state, upload_table_name, data_table_name, total_rows, imported_rows, ...)`: Represents an instance of an import execution (state machine: waiting_for_upload, analysing, processing, completed, failed).
   - FKs: `definition_id`, `user_id`.
   - Manages temporary `upload_table_name` and `data_table_name`.
+
+## Worker System
+Handles background processing. A long-running worker process calls `worker.process_tasks()` to process tasks synchronously.
+- `worker.tasks(id, command, priority, state, created_at, processed_at, duration_ms, error, scheduled_at, worker_pid, payload)`: The main queue table. Stores tasks with their state, payload, and timing. The `worker_pid` column stores the PostgreSQL backend process ID of the session executing the task, used for cleaning up stale connections.
+- `worker.command_registry(command, handler_procedure, before_procedure, after_procedure, queue, ...)`: Maps a `command` name to a PostgreSQL `handler_procedure` and assigns it to a `queue`.
+- `worker.queue_registry(queue, concurrent, ...)`: Defines available task queues (e.g., 'analytics', 'maintenance') and concurrency rules.
 
 ## Auth & System Tables/Views
 - `auth.user(id, sub, email, statbus_role, ...)`: User accounts, stores `statbus_role` (e.g., `admin_user`, `regular_user`).

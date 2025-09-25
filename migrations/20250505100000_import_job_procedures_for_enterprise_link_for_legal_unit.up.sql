@@ -4,7 +4,7 @@
 BEGIN;
 
 -- Procedure to analyse enterprise link (find existing enterprise for existing LUs)
-CREATE OR REPLACE PROCEDURE import.analyse_enterprise_link_for_legal_unit(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_enterprise_link_for_legal_unit(p_job_id INT, p_batch_row_id_ranges int4multirange, p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_enterprise_link_for_legal_unit$
 DECLARE
     v_job public.import_job;
@@ -25,7 +25,7 @@ DECLARE
     v_resolved_enterprise_id INT;
     v_resolved_primary_for_enterprise BOOLEAN;
 BEGIN
-    RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit (Batch): Starting analysis for % rows. Batch Row IDs: %', p_job_id, array_length(p_batch_row_ids, 1), p_batch_row_ids;
+    RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit (Batch): Starting analysis for range %s', p_job_id, p_batch_row_id_ranges::text;
 
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
     v_data_table_name := v_job.data_table_name;
@@ -37,18 +37,20 @@ BEGIN
 
     IF v_job_mode != 'legal_unit' THEN
         RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Skipping, job mode is %, not ''legal_unit''.', p_job_id, v_job_mode;
-        EXECUTE format($$UPDATE public.%1$I SET last_completed_priority = %2$L WHERE row_id = ANY($1)$$, 
-                       v_data_table_name /* %1$I */, v_step.priority /* %2$L */) USING p_batch_row_ids;
+        v_sql := format($$UPDATE public.%1$I SET last_completed_priority = %2$L WHERE row_id <@ $1 AND last_completed_priority < %2$L$$, 
+                       v_data_table_name /* %1$I */, v_step.priority /* %2$L */);
+        RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Advancing priority for skipped (wrong mode) batch with SQL: %', p_job_id, v_sql;
+        EXECUTE v_sql USING p_batch_row_id_ranges;
         RETURN;
     END IF;
 
     -- Determine relevant source column names for external identifiers from the definition snapshot
-    SELECT COALESCE(jsonb_agg(idc_element->>'column_name'), '[]'::jsonb)
+    SELECT COALESCE(jsonb_agg(idc_elem.value->>'column_name'), '[]'::jsonb)
     INTO v_external_ident_source_column_names_json
-    FROM jsonb_array_elements(v_job.definition_snapshot->'import_data_column_list') AS idc_element
-    JOIN jsonb_array_elements(v_job.definition_snapshot->'import_step_list') AS isl_element
-      ON (isl_element->>'code') = 'external_idents' AND (idc_element->>'step_id')::INT = (isl_element->>'id')::INT
-    WHERE idc_element->>'purpose' = 'source_input';
+    FROM jsonb_array_elements(v_job.definition_snapshot->'import_data_column_list') AS idc_elem
+    JOIN jsonb_array_elements(v_job.definition_snapshot->'import_step_list') AS step_elem
+      ON (step_elem.value->>'code') = 'external_idents' AND (idc_elem.value->>'step_id')::INT = (step_elem.value->>'id')::INT
+    WHERE idc_elem.value->>'purpose' = 'source_input';
 
     SELECT ARRAY(SELECT jsonb_array_elements_text(v_external_ident_source_column_names_json))
     INTO v_external_ident_source_columns;
@@ -62,7 +64,7 @@ BEGIN
     END IF;
 
     -- Create a temporary table to hold analysis results for 'replace' actions
-    -- Per user guidance, explicit DROP is at the end / exception, not at the beginning for multi-call-in-one-tx test scenario.
+    IF to_regclass('pg_temp.temp_enterprise_analysis_results') IS NOT NULL THEN DROP TABLE temp_enterprise_analysis_results; END IF;
     CREATE TEMP TABLE temp_enterprise_analysis_results (
         row_id INTEGER PRIMARY KEY,
         resolved_enterprise_id INT,
@@ -75,42 +77,51 @@ BEGIN
     -- This handles potential fan-out if dt.legal_unit_id is a conceptual ID that maps to multiple
     -- temporal slices in public.legal_unit. It selects the latest temporally overlapping slice.
     v_sql := format($$
+        WITH
+        BatchLUs AS (
+            -- This procedure should not depend on the `operation` column.
+            -- An action of 'use' on a row with a non-null legal_unit_id implies
+            -- that the operation is either 'replace' or 'update'.
+            SELECT row_id, legal_unit_id
+            FROM public.%1$I
+            WHERE row_id <@ $1 AND action = 'use' AND legal_unit_id IS NOT NULL
+        ),
+        DistinctLUIDs AS (
+            SELECT DISTINCT legal_unit_id FROM BatchLUs
+        ),
+        LatestSlices AS (
+            SELECT DISTINCT ON (id)
+                id AS ref_lu_id_check,
+                enterprise_id,
+                COALESCE(primary_for_enterprise, FALSE) AS primary_for_enterprise_resolved
+            FROM public.legal_unit
+            WHERE id IN (SELECT legal_unit_id FROM DistinctLUIDs)
+            ORDER BY id, valid_from DESC, valid_until DESC
+        )
         INSERT INTO temp_enterprise_analysis_results (row_id, resolved_enterprise_id, resolved_primary_for_enterprise, is_error, error_details)
         SELECT
             dt.row_id,
-            olu.enterprise_id, -- Enterprise ID from the latest LU slice
-            olu.primary_for_enterprise_resolved, -- primary_for_enterprise from the latest LU slice
-            CASE 
-                WHEN dt.legal_unit_id IS NOT NULL AND olu.ref_lu_id_check IS NULL THEN TRUE -- legal_unit.id provided by external_idents, but no LU data row found for it in public.legal_unit
-                ELSE FALSE 
+            olu.enterprise_id,
+            olu.primary_for_enterprise_resolved,
+            CASE
+                WHEN dt.legal_unit_id IS NOT NULL AND olu.ref_lu_id_check IS NULL THEN TRUE
+                ELSE FALSE
             END AS is_error,
             CASE
-                WHEN dt.legal_unit_id IS NOT NULL AND olu.ref_lu_id_check IS NULL THEN 
+                WHEN dt.legal_unit_id IS NOT NULL AND olu.ref_lu_id_check IS NULL THEN
                     (SELECT jsonb_object_agg(col_name, jsonb_build_object(
                         'error_code', 'LU_DATA_MISSING_FOR_ID',
                         'message', 'Legal Unit was identified by an external identifier (resolving to internal ID ' || dt.legal_unit_id::TEXT || '), but no corresponding data row was found in public.legal_unit using this internal ID.',
                         'internal_lu_id', dt.legal_unit_id
-                    )) FROM unnest($2) AS col_name) -- $2 is v_external_ident_source_columns
+                    )) FROM unnest($2) AS col_name)
                 ELSE NULL
             END AS error_details
-        FROM public.%I dt -- This is v_data_table_name
-        LEFT JOIN LATERAL (
-            SELECT
-                ref_lu.id AS ref_lu_id_check, -- To confirm a legal_unit row was actually found
-                ref_lu.enterprise_id,
-                COALESCE(ref_lu.primary_for_enterprise, FALSE) AS primary_for_enterprise_resolved
-            FROM public.legal_unit ref_lu
-            WHERE ref_lu.id = dt.legal_unit_id -- Match conceptual LU ID stored in dt.legal_unit_id
-            ORDER BY ref_lu.valid_after DESC, ref_lu.valid_to DESC -- Get the latest slice
-            LIMIT 1
-        ) olu ON TRUE -- olu will have 0 or 1 row
-        WHERE dt.row_id = ANY($1) -- Process only rows in the current batch
-          AND dt.action = 'replace'
-          AND dt.legal_unit_id IS NOT NULL; -- Only attempt this for rows that have a legal_unit_id (identified by external_idents)
+        FROM BatchLUs dt
+        LEFT JOIN LatestSlices olu ON dt.legal_unit_id = olu.ref_lu_id_check;
     $$, v_data_table_name /* %1$I */);
 
-    RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Populating temp_enterprise_analysis_results for "replace" actions (using placeholder for batch_row_ids and external_ident_cols): %', p_job_id, v_sql;
-    EXECUTE v_sql USING p_batch_row_ids, v_external_ident_source_columns; -- Pass parameters via USING clause
+    RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Populating temp_enterprise_analysis_results for "replace" actions (using placeholder for batch_row_id_ranges and external_ident_cols): %', p_job_id, v_sql;
+    EXECUTE v_sql USING p_batch_row_id_ranges, v_external_ident_source_columns; -- Pass parameters via USING clause
     GET DIAGNOSTICS v_update_count = ROW_COUNT; -- Count of rows inserted into temp table
     RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Populated % rows into temp_enterprise_analysis_results.', p_job_id, v_update_count;
 
@@ -121,14 +132,14 @@ BEGIN
                 enterprise_id = tear.resolved_enterprise_id,
                 primary_for_enterprise = tear.resolved_primary_for_enterprise,
                 state = CASE WHEN tear.is_error THEN 'error'::public.import_data_state ELSE 'analysing'::public.import_data_state END,
-                error = CASE
-                            WHEN tear.is_error THEN COALESCE(dt.error, '{}'::jsonb) || tear.error_details
-                            ELSE CASE WHEN (dt.error - %2$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %3$L::TEXT[]) END
+                errors = CASE
+                            WHEN tear.is_error THEN dt.errors || tear.error_details
+                            ELSE dt.errors - %2$L::TEXT[]
                         END,
-                last_completed_priority = %4$L
+                last_completed_priority = %3$L
             FROM temp_enterprise_analysis_results tear
             WHERE dt.row_id = tear.row_id;
-        $$, v_data_table_name /* %1$I */, v_error_keys_to_clear_arr /* %2$L */, v_error_keys_to_clear_arr /* %3$L */, v_step.priority /* %4$L */);
+        $$, v_data_table_name /* %1$I */, v_error_keys_to_clear_arr /* %2$L */, v_step.priority /* %3$L */);
 
         RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Updating _data table from temp_enterprise_analysis_results: %', p_job_id, v_sql;
         EXECUTE v_sql;
@@ -136,22 +147,23 @@ BEGIN
         RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Updated % rows in _data table from temp table.', p_job_id, v_processed_non_skip_count;
 
         -- Update priority for rows not processed by the temp table logic
-        -- This includes 'insert', 'skip', and 'replace' rows where legal_unit_id was NULL (so not in temp table).
-        -- These rows are considered successful for this step's analysis phase or were already skipped/had no LU to link.
+        -- This includes 'insert' and 'replace' rows where legal_unit_id was NULL. Skipped rows are not touched.
+        -- These rows are considered successful for this step's analysis phase.
         v_sql := format($$
             UPDATE public.%1$I dt SET
                 last_completed_priority = %2$L,
                 state = 'analysing'::public.import_data_state,
-                error = CASE WHEN (dt.error - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %4$L::TEXT[]) END -- Clear this step's error if not an error from this step
-            WHERE dt.row_id = ANY($1)
+                errors = dt.errors - %3$L::TEXT[] -- Clear this step's error if not an error from this step
+            WHERE dt.row_id <@ $1
+              AND dt.action IS DISTINCT FROM 'skip'
               AND NOT EXISTS (SELECT 1 FROM temp_enterprise_analysis_results tear WHERE tear.row_id = dt.row_id);
         $$,
             v_data_table_name /* %1$I */, v_step.priority /* %2$L */,
-            v_error_keys_to_clear_arr /* %3$L */, v_error_keys_to_clear_arr /* %4$L */
+            v_error_keys_to_clear_arr /* %3$L */
         );
 
         RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Updating LCP for remaining rows: %', p_job_id, v_sql;
-        EXECUTE v_sql USING p_batch_row_ids;
+        EXECUTE v_sql USING p_batch_row_id_ranges;
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Updated LCP for % remaining rows (insert/skip/unmatched_replace).', p_job_id, v_update_count;
         v_update_count := v_processed_non_skip_count + v_update_count; -- Total rows touched by logic in this procedure for this batch
@@ -165,16 +177,32 @@ BEGIN
         WHERE id = p_job_id;
         RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Marked job as failed due to error: %', p_job_id, replace(error_message, '%', '%%');
         
-        -- Ensure cleanup on error
-        DROP TABLE IF EXISTS temp_enterprise_analysis_results;
         RAISE;
     END;
 
-    -- Propagate errors to all rows of a new entity if one fails
-    CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_row_ids, v_error_keys_to_clear_arr, 'analyse_enterprise_link_for_legal_unit');
+    -- Propagate errors to all rows of a new entity if one fails (best-effort)
+    BEGIN
+        CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_row_id_ranges, v_error_keys_to_clear_arr, 'analyse_enterprise_link_for_legal_unit');
+    EXCEPTION WHEN OTHERS THEN
+        RAISE WARNING '[Job %] analyse_enterprise_link_for_legal_unit: Non-fatal error during error propagation: %', p_job_id, SQLERRM;
+    END;
 
-    -- Ensure cleanup on successful completion of this block
-    DROP TABLE IF EXISTS temp_enterprise_analysis_results;
+    -- Unconditionally advance priority for all rows in batch to ensure progress
+    v_sql := format('UPDATE public.%1$I SET last_completed_priority = %2$L WHERE row_id <@ $1 AND last_completed_priority < %2$L',
+                   v_data_table_name, v_step.priority);
+    RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit (Batch): Unconditionally advancing priority for all batch rows with SQL: %', p_job_id, v_sql;
+    EXECUTE v_sql USING p_batch_row_id_ranges;
+
+    -- Debugging: Log state of enterprise_id for the batch after this step.
+    IF current_setting('client_min_messages') = 'debug' THEN
+        DECLARE r RECORD;
+        BEGIN
+            v_sql := format('SELECT row_id, legal_unit_id, enterprise_id FROM public.%s WHERE row_id <@ $1 ORDER BY row_id', v_data_table_name);
+            FOR r IN EXECUTE v_sql USING p_batch_row_id_ranges LOOP
+                RAISE DEBUG '[Job %][Row %] analyse_enterprise_link_for_legal_unit AFTER: lu_id=%, ent_id=%', p_job_id, r.row_id, r.legal_unit_id, r.enterprise_id;
+            END LOOP;
+        END;
+    END IF;
 
     RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit (Batch): Finished analysis successfully.', p_job_id;
 END;
@@ -182,7 +210,7 @@ $analyse_enterprise_link_for_legal_unit$;
 
 
 -- Procedure to process enterprise link (create enterprise for new LUs)
-CREATE OR REPLACE PROCEDURE import.process_enterprise_link_for_legal_unit(p_job_id INT, p_batch_row_ids INTEGER[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.process_enterprise_link_for_legal_unit(p_job_id INT, p_batch_row_id_ranges int4multirange, p_step_code TEXT)
 LANGUAGE plpgsql AS $process_enterprise_link_for_legal_unit$
 DECLARE
     v_job public.import_job;
@@ -196,7 +224,7 @@ DECLARE
     new_enterprise_id INT;
     v_job_mode public.import_mode;
 BEGIN
-    RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit (Batch): Starting operation for % rows', p_job_id, array_length(p_batch_row_ids, 1);
+    RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit (Batch): Starting operation for range %s', p_job_id, p_batch_row_id_ranges::text;
 
     -- Get job details
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
@@ -213,24 +241,26 @@ BEGIN
     END IF;
 
     -- Step 1: Identify rows needing enterprise creation (new LUs, action = 'insert')
+    IF to_regclass('pg_temp.temp_new_lu_for_enterprise_creation') IS NOT NULL THEN DROP TABLE temp_new_lu_for_enterprise_creation; END IF;
     CREATE TEMP TABLE temp_new_lu_for_enterprise_creation (
         data_row_id INTEGER PRIMARY KEY, -- This will be the founding_row_id for the new LU entity
-        lu_name TEXT,
         edit_by_user_id INT,
         edit_at TIMESTAMPTZ,
         edit_comment TEXT
     ) ON COMMIT DROP;
 
     v_sql := format($$
-        INSERT INTO temp_new_lu_for_enterprise_creation (data_row_id, lu_name, edit_by_user_id, edit_at, edit_comment)
-        SELECT dt.row_id, dt.name, dt.edit_by_user_id, dt.edit_at, dt.edit_comment
+        INSERT INTO temp_new_lu_for_enterprise_creation (data_row_id, edit_by_user_id, edit_at, edit_comment)
+        SELECT dt.row_id, dt.edit_by_user_id, dt.edit_at, dt.edit_comment
         FROM public.%1$I dt
-        WHERE dt.row_id = ANY($1) AND dt.action = 'insert' AND dt.founding_row_id = dt.row_id; -- Only process founding rows for new LUs
+        WHERE dt.row_id <@ $1 AND dt.action = 'use' AND dt.legal_unit_id IS NULL AND dt.founding_row_id = dt.row_id; -- Only process founding rows for new LUs
     $$, v_data_table_name /* %1$I */);
-    EXECUTE v_sql USING p_batch_row_ids;
+    RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit: Populating temp table for new LUs with SQL: %', p_job_id, v_sql;
+    EXECUTE v_sql USING p_batch_row_id_ranges;
 
     -- Step 2: Create new enterprises for LUs in temp_new_lu_for_enterprise_creation and map them
     -- temp_created_enterprises.data_row_id will store the founding_row_id of the LU
+    IF to_regclass('pg_temp.temp_created_enterprises') IS NOT NULL THEN DROP TABLE temp_created_enterprises; END IF;
     CREATE TEMP TABLE temp_created_enterprises (
         data_row_id INTEGER PRIMARY KEY, -- Stores the founding_row_id of the LU
         enterprise_id INT NOT NULL
@@ -238,15 +268,31 @@ BEGIN
 
     v_created_enterprise_count := 0;
     BEGIN
-        FOR rec_new_lu IN SELECT * FROM temp_new_lu_for_enterprise_creation LOOP
+        WITH new_enterprises AS (
             INSERT INTO public.enterprise (short_name, edit_by_user_id, edit_at, edit_comment)
-            VALUES (NULL, rec_new_lu.edit_by_user_id, rec_new_lu.edit_at, rec_new_lu.edit_comment) -- Set short_name to NULL
-            RETURNING id INTO new_enterprise_id;
+            SELECT
+                NULL, -- short_name is set to NULL, will be derived by trigger later
+                t.edit_by_user_id,
+                t.edit_at,
+                t.edit_comment
+            FROM temp_new_lu_for_enterprise_creation t
+            RETURNING id
+        ),
+        -- This mapping is tricky because INSERT...RETURNING doesn't give us back the source rows.
+        -- We rely on the fact that the order should be preserved and join by row_number.
+        -- This is safe as we are in a single transaction and not using parallel workers.
+        source_with_rn AS (
+            SELECT *, ROW_NUMBER() OVER () as rn FROM temp_new_lu_for_enterprise_creation
+        ),
+        created_with_rn AS (
+            SELECT id, ROW_NUMBER() OVER () as rn FROM new_enterprises
+        )
+        INSERT INTO temp_created_enterprises (data_row_id, enterprise_id)
+        SELECT s.data_row_id, c.id
+        FROM source_with_rn s
+        JOIN created_with_rn c ON s.rn = c.rn;
 
-            INSERT INTO temp_created_enterprises (data_row_id, enterprise_id)
-            VALUES (rec_new_lu.data_row_id, new_enterprise_id);
-            v_created_enterprise_count := v_created_enterprise_count + 1;
-        END LOOP;
+        GET DIAGNOSTICS v_created_enterprise_count = ROW_COUNT;
     EXCEPTION WHEN OTHERS THEN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
         RAISE WARNING '[Job %] process_enterprise_link_for_legal_unit: Programming error suspected during enterprise creation loop: %', p_job_id, replace(error_message, '%', '%%');
@@ -263,27 +309,25 @@ BEGIN
         UPDATE public.%1$I dt SET
             enterprise_id = tce.enterprise_id,
             primary_for_enterprise = TRUE, -- All slices of a new LU linked to a new Enterprise are initially primary
-            error = NULL, -- Clear previous errors if this step succeeds for the row
             state = %2$L
         FROM temp_created_enterprises tce -- tce.data_row_id is the founding_row_id
         WHERE dt.founding_row_id = tce.data_row_id -- Link all rows of the entity via founding_row_id
-          AND dt.row_id = ANY($1) -- Ensure we only update rows from the current batch
-          AND dt.state != 'error'; -- Avoid updating rows already in error from a prior step
+          AND dt.row_id <@ $1 -- Ensure we only update rows from the current batch
+          AND dt.action = 'use'; -- Only update usable rows
     $$, v_data_table_name /* %1$I */, 'processing'::public.import_data_state /* %2$L */);
     RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit: Updating _data for new enterprises and their related rows (action=insert): %', p_job_id, v_sql;
-    EXECUTE v_sql USING p_batch_row_ids;
+    EXECUTE v_sql USING p_batch_row_id_ranges;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
 
-    -- Step 4: Update rows that were already processed by analyse step (existing LUs, action = 'replace') - just advance priority
+    -- Step 4: Update rows that were already processed by analyse step (existing LUs) - just advance priority
     v_sql := format($$
         UPDATE public.%1$I dt SET
-            state = %2$L
-        WHERE dt.row_id = ANY($1)
-          AND dt.action = 'replace' -- Only update rows for existing LUs
-          AND dt.state != %3$L; -- Avoid rows already in error
+            state = %2$L::public.import_data_state
+        WHERE dt.row_id <@ $1
+          AND dt.action = 'use' AND dt.legal_unit_id IS NOT NULL; -- Only update rows for existing LUs
     $$, v_data_table_name /* %1$I */, 'processing' /* %2$L */, 'error' /* %3$L */);
      RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit: Updating existing LUs (action=replace, priority only): %', p_job_id, v_sql;
-    EXECUTE v_sql USING p_batch_row_ids;
+    EXECUTE v_sql USING p_batch_row_id_ranges;
 
     -- Step 5: Update skipped rows (action = 'skip') - no LCP update needed in processing phase.
     GET DIAGNOSTICS v_update_count = ROW_COUNT; -- Re-using v_update_count, fine for debug
@@ -291,15 +335,9 @@ BEGIN
 
     RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit (Batch): Finished operation. Linked % LUs to enterprises (includes new and existing).', p_job_id, v_update_count; -- v_update_count here is from the last UPDATE (skipped rows)
 
-    DROP TABLE IF EXISTS temp_new_lu_for_enterprise_creation;
-    DROP TABLE IF EXISTS temp_created_enterprises;
-
 EXCEPTION WHEN OTHERS THEN
     GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
     RAISE WARNING '[Job %] process_enterprise_link_for_legal_unit: Unhandled error during operation: %', p_job_id, replace(error_message, '%', '%%');
-    -- Ensure cleanup even on unexpected error
-    DROP TABLE IF EXISTS temp_new_lu_for_enterprise_creation;
-    DROP TABLE IF EXISTS temp_created_enterprises;
     -- Update job error
     UPDATE public.import_job
     SET error = jsonb_build_object('process_enterprise_link_for_legal_unit_error', error_message),

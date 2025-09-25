@@ -4,11 +4,11 @@
 ----------------------------------+--------------------------+-----------+----------+---------+----------+-------------+--------------+-------------
  unit_type                        | statistical_unit_type    |           |          |         | plain    |             |              | 
  unit_id                          | integer                  |           |          |         | plain    |             |              | 
- valid_after                      | date                     |           |          |         | plain    |             |              | 
  valid_from                       | date                     |           |          |         | plain    |             |              | 
  valid_to                         | date                     |           |          |         | plain    |             |              | 
+ valid_until                      | date                     |           |          |         | plain    |             |              | 
  external_idents                  | jsonb                    |           |          |         | extended |             |              | 
- name                             | character varying(256)   |           |          |         | extended |             |              | 
+ name                             | character varying        |           |          |         | extended |             |              | 
  birth_date                       | date                     |           |          |         | plain    |             |              | 
  death_date                       | date                     |           |          |         | plain    |             |              | 
  search                           | tsvector                 |           |          |         | extended |             |              | 
@@ -105,6 +105,9 @@ Indexes:
     "idx_statistical_unit_physical_region_path" btree (physical_region_path)
     "idx_statistical_unit_primary_activity_category_id" btree (primary_activity_category_id)
     "idx_statistical_unit_primary_activity_category_path" btree (primary_activity_category_path)
+    "idx_statistical_unit_related_enterprise_ids" gin (related_enterprise_ids)
+    "idx_statistical_unit_related_establishment_ids" gin (related_establishment_ids)
+    "idx_statistical_unit_related_legal_unit_ids" gin (related_legal_unit_ids)
     "idx_statistical_unit_search" gin (search)
     "idx_statistical_unit_secondary_activity_category_id" btree (secondary_activity_category_id)
     "idx_statistical_unit_secondary_activity_category_path" btree (secondary_activity_category_path)
@@ -112,10 +115,9 @@ Indexes:
     "idx_statistical_unit_sector_path" btree (sector_path)
     "idx_statistical_unit_tag_paths" btree (tag_paths)
     "idx_statistical_unit_unit_type" btree (unit_type)
-    "statistical_unit_after_key" UNIQUE, btree (valid_after, valid_to, unit_type, unit_id)
-    "statistical_unit_from_key" UNIQUE, btree (valid_from, valid_to, unit_type, unit_id)
-    "statistical_unit_type_id_daterange_excl" EXCLUDE USING gist (unit_type WITH =, unit_id WITH =, daterange(valid_after, valid_to, '(]'::text) WITH &&) DEFERRABLE
-    "statistical_unit_upsert_pkey" UNIQUE, btree (unit_type, unit_id, valid_after)
+    "statistical_unit_from_key" UNIQUE, btree (valid_from, valid_until, unit_type, unit_id)
+    "statistical_unit_type_id_daterange_excl" EXCLUDE USING gist (unit_type WITH =, unit_id WITH =, daterange(valid_from, valid_until, '[)'::text) WITH &&) DEFERRABLE
+    "statistical_unit_upsert_pkey" UNIQUE, btree (unit_type, unit_id, valid_from)
     "su_ei_stat_ident_idx" btree ((external_idents ->> 'stat_ident'::text))
     "su_ei_tax_ident_idx" btree ((external_idents ->> 'tax_ident'::text))
     "su_s_employees_idx" btree ((stats ->> 'employees'::text))

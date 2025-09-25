@@ -1,6 +1,7 @@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import React from "react";
+import React, { useState } from "react";
+import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 
 export function FormField({
   label,
@@ -15,6 +16,16 @@ export function FormField({
   readonly readonly?: boolean;
   readonly response: UpdateResponse;
 }) {
+  const [inputValue, setInputValue] = useState(value ?? "");
+
+  useGuardedEffect(
+    () => {
+      setInputValue(value ?? "");
+    },
+    [value],
+    "FormField:syncvalue"
+  );
+
   const error =
     response?.status === "error"
       ? response?.errors?.find((a) => a.path === name)
@@ -25,11 +36,12 @@ export function FormField({
         <span className="text-xs uppercase text-gray-600">{label}</span>
         <Input
           type="text"
-          disabled={readonly}
+          readOnly={readonly}
           name={name}
-          defaultValue={value ?? ""}
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
           autoComplete="off"
-          className="disabled:opacity-80"
+          className="read-only:opacity-80 read-only:focus:outline-none read-only:focus:ring-0 read-only:focus:shadow-none read-only:focus:border-zinc-200 bg-white"
         />
       </Label>
       {error ? (

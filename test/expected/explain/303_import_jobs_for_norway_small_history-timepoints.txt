@@ -1,0 +1,5 @@
+       QUERY PLAN       
+------------------------
+ Seq Scan on timepoints
+(1 row)
+
