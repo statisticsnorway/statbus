@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useRouter } from "next/navigation";
 import { ResetConfirmationDialog } from "./reset-confirmation-dialog";
-import { useAuth } from "@/atoms/auth";
+import { useAuth, usePermission } from "@/atoms/auth";
 import { useSetAtom } from "jotai";
 import { debugInspectorVisibleAtom } from "@/atoms/app";
 import {
@@ -42,8 +42,10 @@ export function CommandPalette() {
   const router = useRouter();
   const { logout } = useAuth();
   const setStateInspectorVisible = useSetAtom(debugInspectorVisibleAtom);
-
-  useGuardedEffect(() => {
+  const { canAccessAdminTools, canAccessGettingStarted, canImport } =
+    usePermission();
+  useGuardedEffect(
+    () => {
     const open = () => {
       setOpen(true);
     };
@@ -103,13 +105,12 @@ export function CommandPalette() {
               <Home className="mr-2 h-4 w-4" />
               <span>Start page</span>
             </CommandItem>
-            <CommandItem
-              onSelect={() => navigate("/import")}
-              value="Import"
-            >
+            {canImport && (
+              <CommandItem onSelect={() => navigate("/import")} value="Import">
               <Upload className="mr-2 h-4 w-4" />
               <span>Import</span>
             </CommandItem>
+            )}
             <CommandItem
               onSelect={() => navigate("/search")}
               value="Find statistical units"
@@ -141,7 +142,10 @@ export function CommandPalette() {
               <span>Logout</span>
             </CommandItem>
           </CommandGroup>
+          {(canAccessGettingStarted || canImport) && (
           <CommandGroup heading="Other Pages">
+              {canAccessGettingStarted && (
+                <>
             <CommandItem
               onSelect={() => navigate("/getting-started")}
               value="Getting started"
@@ -150,7 +154,9 @@ export function CommandPalette() {
               <span>Getting started</span>
             </CommandItem>
             <CommandItem
-              onSelect={() => navigate("/getting-started/activity-standard")}
+                    onSelect={() =>
+                      navigate("/getting-started/activity-standard")
+                    }
               value="Select Activity Category Standard"
             >
               <Pilcrow className="mr-2 h-4 w-4" />
@@ -192,6 +198,10 @@ export function CommandPalette() {
               <Upload className="mr-2 h-4 w-4" />
               <span>Upload Custom Activity Category Standards</span>
             </CommandItem>
+                </>
+              )}
+              {canImport && (
+                <>
             <CommandItem
               onSelect={() => navigate("/import/legal-units")}
               value="Upload Legal Units"
@@ -222,8 +232,13 @@ export function CommandPalette() {
               <FileSpreadsheet className="mr-2 h-4 w-4" />
               <span>Import Jobs</span>
             </CommandItem>
+                </>
+              )}
           </CommandGroup>
+          )}
           <CommandSeparator />
+          {canAccessAdminTools && (
+            <>
           <CommandGroup heading="Admin tools">
             <CommandItem
               onSelect={() => navigate("/doc/er")}
@@ -257,6 +272,8 @@ export function CommandPalette() {
               <span>Toggle Debug Inspector</span>
             </CommandItem>
           </CommandGroup>
+            </>
+          )}
         </CommandList>
       </CommandDialog>
       <ResetConfirmationDialog />

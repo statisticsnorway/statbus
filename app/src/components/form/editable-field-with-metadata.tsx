@@ -10,6 +10,7 @@ import { SubmissionFeedbackDebugInfo } from "./submission-feedback-debug-info";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { EditMetadataControls } from "./edit-metadata-controls";
 import { useEditableFieldState } from "./use-editable-field-state";
+import { EditButton } from "./edit-button";
 
 interface EditableFieldWithMetadataProps {
   fieldId: string;
@@ -70,16 +71,16 @@ export const EditableFieldWithMetadata = ({
     <form
       ref={formRef}
       action={formAction}
-      className={`flex flex-col space-y-2 p-3 ${isEditing && "bg-ssb-light rounded-md "}`}
+      className={`flex flex-col space-y-2 p-2 ${isEditing && "bg-ssb-light rounded-md "}`}
     >
       <div className="flex flex-col">
         <div className="flex items-center justify-between">
-          <Label className="flex justify-between items-center space-y-2 h-10">
+          <Label className="flex justify-between items-center h-10">
             <span className="text-xs uppercase text-gray-600">{label}</span>
           </Label>
-          <div className="flex space-x-2 mb-2">
+          <div className="flex space-x-2 items-center">
             {!isEditing && (
-              <Button
+              <EditButton
                 className="h-8"
                 variant="ghost"
                 size="sm"
@@ -95,7 +96,7 @@ export const EditableFieldWithMetadata = ({
                 }
               >
                 <Pencil className="text-zinc-700" />
-              </Button>
+              </EditButton>
             )}
           </div>
         </div>

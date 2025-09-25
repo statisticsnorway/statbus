@@ -10,6 +10,7 @@ import { Label } from "../ui/label";
 import { useEditManager } from "@/atoms/edits";
 import { cn } from "@/lib/utils";
 import { useEditableFieldState } from "./use-editable-field-state";
+import { EditButton } from "./edit-button";
 
 interface EditableFieldProps {
   fieldId: string;
@@ -75,12 +76,12 @@ export const EditableField = ({
   return (
     <form ref={formRef} action={formAction} className="flex flex-col">
       <div className="flex items-center justify-between">
-        <Label className="flex flex-col space-y-2">
+        <Label className="flex items-center space-y-2 h-10">
           <span className="text-xs uppercase text-gray-600">{label}</span>
         </Label>
-        <div className="flex space-x-2 mb-1">
+        <div className="flex space-x-2 items-center">
           {!isEditing ? (
-            <Button
+            <EditButton
               className="h-8"
               variant="ghost"
               size="sm"
@@ -88,7 +89,7 @@ export const EditableField = ({
               onClick={() => setEditTarget(fieldId)}
             >
               <Pencil className="text-zinc-700" />
-            </Button>
+            </EditButton>
           ) : (
             <>
               <Button

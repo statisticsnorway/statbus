@@ -17,9 +17,11 @@ import {
 import * as React from "react";
 import CombineUnits from "@/app/search/components/bulk-actions/combine-units";
 import { useSelection } from "@/atoms/search"; // Changed to Jotai hook
+import { usePermission } from '@/atoms/auth';
 
 export default function SearchBulkActionButton() {
   const { selected, clear } = useSelection(); // Use Jotai hook
+  const { canEdit } = usePermission();
 
   return (
     <Popover>
@@ -42,9 +44,7 @@ export default function SearchBulkActionButton() {
           <CommandInput placeholder="Select action" />
           <CommandList>
             <CommandEmpty>No command found.</CommandEmpty>
-            <CommandGroup>
-              <CombineUnits />
-            </CommandGroup>
+            <CommandGroup>{canEdit && <CombineUnits />}</CommandGroup>
             <CommandGroup>
               <CommandItem onSelect={clear} className="space-x-2">
                 <Trash className="h-4 w-4" />
