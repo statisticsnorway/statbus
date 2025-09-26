@@ -14,23 +14,19 @@ import { EditButton } from "./edit-button";
 
 interface EditableFieldWithMetadataProps {
   fieldId: string;
-  name?: string;
   label: string;
   value: string | number | null;
   formAction: (formData: FormData) => void;
   response: UpdateResponse;
-  statType?: "int" | "float" | "string" | "bool";
-  statDefinitionId?: number;
+  hiddenFields?: Record<string, string | number>;
 }
 export const EditableFieldWithMetadata = ({
   fieldId,
-  name,
   label,
   value,
   formAction,
   response,
-  statType,
-  statDefinitionId,
+  hiddenFields,
 }: EditableFieldWithMetadataProps) => {
   const { selectedTimeContext } = useTimeContext();
   const [showResponse, setShowResponse] = useState(false);
@@ -106,19 +102,17 @@ export const EditableFieldWithMetadata = ({
           disabled={!isEditing}
           value={currentValue}
           onChange={(e) => setCurrentValue(e.target.value)}
-          name={name && statType ? `${name}_${statType}` : fieldId}
+          name={fieldId}
           autoComplete="off"
         />
       </div>
       {isEditing && (
         <div className="space-y-2">
-          {statDefinitionId && (
-            <input
-              type="hidden"
-              name="stat_definition_id"
-              value={statDefinitionId}
-            />
-          )}
+          {hiddenFields &&
+            Object.entries(hiddenFields).map(([name, value]) => (
+              <input key={name} type="hidden" name={name} value={value} />
+            ))}
+
           <EditMetadataControls fieldId={fieldId} />
           <div className="flex justify-end space-x-2">
             <Button
