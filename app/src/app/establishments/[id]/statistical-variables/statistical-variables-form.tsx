@@ -56,6 +56,7 @@ export default function StatisticalVariablesForm({
             response={statsState}
             formAction={statsAction}
             hiddenFields={{ stat_definition_id: statDefinition.id! }}
+            metadata={stat}
           />
         );
       })}

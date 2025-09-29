@@ -37,7 +37,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
 
   return (
     <div className="space-y-8">
-      <form className="flex flex-col gap-4">
+      <div className="flex flex-col gap-8">
         <DisplayFormField label="Name" name="name" value={unit?.name} />
         <div className={"grid gap-4 grid-cols-2"}>
           {externalIdentTypes.map((type) => {
@@ -52,8 +52,8 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
             );
           })}
         </div>
-      </form>
-      <form className="flex flex-col gap-4">
+      </div>
+      <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-4">
           <span className="font-medium">Physical Location</span>
 
@@ -118,7 +118,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
             />
           </div>
         </div>
-      </form>
+      </div>
     </div>
   );
 }

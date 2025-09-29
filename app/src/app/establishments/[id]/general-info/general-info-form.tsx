@@ -71,13 +71,14 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
   }));
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       <EditableFieldWithMetadata
         label="Name"
         fieldId="name"
         value={establishment?.name || ""}
         response={state}
         formAction={formAction}
+        metadata={establishment}
       />
       <div className="grid lg:grid-cols-2 gap-4 p-3">
         {externalIdentTypes.map((type) => {
@@ -102,9 +103,10 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
           title="Physical Location"
           action={locationAction}
           response={locationState}
+          metadata={physicalLocation}
         >
           {({ isEditing }) => (
-            <>
+            <div className="flex flex-col gap-4">
               <div className="grid lg:grid-cols-2 gap-4 *:col-start-1">
                 <FormField
                   name="address_part1"
@@ -129,64 +131,62 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
                 />
               </div>
 
-              <div className="flex flex-col gap-4">
-                <div className="grid lg:grid-cols-2 gap-4">
-                  <FormField
-                    name="postcode"
-                    label="Post Code"
-                    value={physicalLocation?.postcode}
-                    response={null}
-                    readonly={!isEditing}
-                  />
-                  <FormField
-                    name="postplace"
-                    label="Post Place"
-                    value={physicalLocation?.postplace}
-                    response={null}
-                    readonly={!isEditing}
-                  />
-                  <SelectFormField
-                    name="region_id"
-                    label="Region"
-                    readonly={!isEditing}
-                    value={physicalLocation?.region?.id}
-                    options={regionOptions}
-                    placeholder="Select a region"
-                  />
-                  <SelectFormField
-                    name="country_id"
-                    label="Country"
-                    value={physicalLocation?.country?.id}
-                    options={countriesOptions}
-                    readonly={!isEditing}
-                    placeholder="Select a country"
-                  />
-                </div>
-                <div className="grid lg:grid-cols-3 gap-4">
-                  <FormField
-                    readonly={!isEditing}
-                    label="Latitude"
-                    name="latitude"
-                    value={physicalLocation?.latitude}
-                    response={null}
-                  />
-                  <FormField
-                    readonly={!isEditing}
-                    label="Longitude"
-                    name="longitude"
-                    value={physicalLocation?.longitude}
-                    response={null}
-                  />
-                  <FormField
-                    readonly={!isEditing}
-                    label="Altitude"
-                    name="altitude"
-                    value={physicalLocation?.altitude}
-                    response={null}
-                  />
-                </div>
+              <div className="grid lg:grid-cols-2 gap-4">
+                <FormField
+                  name="postcode"
+                  label="Post Code"
+                  value={physicalLocation?.postcode}
+                  response={null}
+                  readonly={!isEditing}
+                />
+                <FormField
+                  name="postplace"
+                  label="Post Place"
+                  value={physicalLocation?.postplace}
+                  response={null}
+                  readonly={!isEditing}
+                />
+                <SelectFormField
+                  name="region_id"
+                  label="Region"
+                  readonly={!isEditing}
+                  value={physicalLocation?.region?.id}
+                  options={regionOptions}
+                  placeholder="Select a region"
+                />
+                <SelectFormField
+                  name="country_id"
+                  label="Country"
+                  value={physicalLocation?.country?.id}
+                  options={countriesOptions}
+                  readonly={!isEditing}
+                  placeholder="Select a country"
+                />
               </div>
-            </>
+              <div className="grid lg:grid-cols-3 gap-4">
+                <FormField
+                  readonly={!isEditing}
+                  label="Latitude"
+                  name="latitude"
+                  value={physicalLocation?.latitude}
+                  response={null}
+                />
+                <FormField
+                  readonly={!isEditing}
+                  label="Longitude"
+                  name="longitude"
+                  value={physicalLocation?.longitude}
+                  response={null}
+                />
+                <FormField
+                  readonly={!isEditing}
+                  label="Altitude"
+                  name="altitude"
+                  value={physicalLocation?.altitude}
+                  response={null}
+                />
+              </div>
+            </div>
           )}
         </EditableFieldGroup>
       )}

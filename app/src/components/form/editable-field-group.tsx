@@ -9,12 +9,14 @@ import { useTimeContext } from "@/atoms/app-derived";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { EditMetadataControls } from "./edit-metadata-controls";
 import { EditButton } from "./edit-button";
+import { MetadataTooltip } from "./metadata-tooltip";
 
 interface EditableFieldGroupProps {
   fieldGroupId: string;
   title: string;
   action: (formData: FormData) => void;
   response: UpdateResponse;
+  metadata?: Metadata;
   children: (props: { isEditing: boolean }) => React.ReactNode;
 }
 
@@ -23,6 +25,7 @@ export function EditableFieldGroup({
   title,
   action,
   response,
+  metadata,
   children,
 }: EditableFieldGroupProps) {
   const { selectedTimeContext } = useTimeContext();
@@ -74,7 +77,10 @@ export function EditableFieldGroup({
       key={formKey}
     >
       <div className="flex justify-between items-center h-8">
-        <span className="font-medium">{title}</span>
+        <div className="flex items-center">
+          <span className="font-medium">{title}</span>
+          {metadata && <MetadataTooltip metadata={metadata} />}
+        </div>
         {!isEditing && (
           <EditButton
             variant="ghost"

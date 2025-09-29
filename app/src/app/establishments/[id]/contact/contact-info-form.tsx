@@ -45,7 +45,7 @@ export default function ContactInfoForm({ id }: { readonly id: string }) {
     label: `${country.name}`,
   }));
   return (
-    <div className="space-y-8">
+    <div className="space-y-2">
       <div className="flex flex-col gap-4">
         {establishment?.contact && (
           <EditableFieldGroup
@@ -54,6 +54,7 @@ export default function ContactInfoForm({ id }: { readonly id: string }) {
             title="Communication"
             action={contactAction}
             response={contactState}
+            metadata={establishment?.contact}
           >
             {({ isEditing }) => (
               <>
@@ -113,6 +114,7 @@ export default function ContactInfoForm({ id }: { readonly id: string }) {
           title="Postal Location"
           action={locationAction}
           response={locationState}
+          metadata={postalLocation}
         >
           {({ isEditing }) => (
             <>

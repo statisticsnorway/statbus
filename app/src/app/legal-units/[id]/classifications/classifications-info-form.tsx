@@ -60,10 +60,10 @@ export default function ClassificationsInfoForm({
   const legalUnit = data?.legal_unit?.[0];
   const primaryActivity = legalUnit?.activity?.find(
     (act) => act.type === "primary"
-  )?.activity_category;
+  );
   const secondaryActivity = legalUnit?.activity?.find(
     (act) => act.type === "secondary"
-  )?.activity_category;
+  );
 
   const activityCategoryOptions = activityCategories.map(
     (activityCategory) => ({
@@ -86,19 +86,27 @@ export default function ClassificationsInfoForm({
         label="Primary Activity category"
         fieldId={`primary_category_id`}
         name="category_id"
-        value={primaryActivity ? `${primaryActivity.id}` : null}
+        value={
+          primaryActivity ? `${primaryActivity?.activity_category.id}` : null
+        }
         formAction={primaryActivityAction}
         response={primaryActivityState}
         options={activityCategoryOptions}
+        metadata={primaryActivity}
       />
       <EditableSelectWithMetadata
         label="Secondary Activity category"
         fieldId="secondary_category_id"
         name="category_id"
-        value={secondaryActivity ? `${secondaryActivity.id}` : null}
+        value={
+          secondaryActivity
+            ? `${secondaryActivity?.activity_category.id}`
+            : null
+        }
         formAction={secondaryActivityAction}
         response={secondaryActivityState}
         options={activityCategoryOptions}
+        metadata={secondaryActivity}
       />
       <EditableSelectWithMetadata
         label="Legal Form"
@@ -108,6 +116,7 @@ export default function ClassificationsInfoForm({
         formAction={legalFormAction}
         response={legalFormState}
         options={legalFormOptions}
+        metadata={legalUnit}
       />
       <EditableSelectWithMetadata
         label="Sector"
@@ -117,29 +126,8 @@ export default function ClassificationsInfoForm({
         formAction={sectorAction}
         response={sectorState}
         options={sectorOptions}
+        metadata={legalUnit}
       />
-      {/* <FormField
-        label="Legal Form"
-        name="legal_form_id"
-        value={
-          legalUnit?.legal_form
-            ? `${legalUnit.legal_form.code} ${legalUnit.legal_form.name}`
-            : null
-        }
-        response={null}
-        readonly
-      /> */}
-      {/* <FormField
-        label="Sector"
-        name="sector_id"
-        value={
-          legalUnit?.sector
-            ? `${legalUnit.sector.code} ${legalUnit.sector.name}`
-            : null
-        }
-        response={null}
-        readonly
-      /> */}
     </div>
   );
 }

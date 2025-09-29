@@ -21,6 +21,7 @@ import {
 import { EditMetadataControls } from "./edit-metadata-controls";
 import { useEditableFieldState } from "./use-editable-field-state";
 import { EditButton } from "./edit-button";
+import { MetadataTooltip } from "./metadata-tooltip";
 
 interface Option {
   value: string | number;
@@ -36,6 +37,7 @@ interface EditableSelectWithMetadataProps {
   placeholder?: string;
   formAction: (formData: FormData) => void;
   response: UpdateResponse;
+  metadata?: Metadata;
 }
 
 export const EditableSelectWithMetadata = ({
@@ -47,6 +49,7 @@ export const EditableSelectWithMetadata = ({
   placeholder = "Select an option",
   formAction,
   response,
+  metadata,
 }: EditableSelectWithMetadataProps) => {
   const { selectedTimeContext } = useTimeContext();
 
@@ -82,6 +85,7 @@ export const EditableSelectWithMetadata = ({
         <div className="flex items-center justify-between">
           <Label className="flex justify-between items-center h-10">
             <span className="text-xs uppercase text-gray-600">{label}</span>
+            {metadata && <MetadataTooltip metadata={metadata} />}
           </Label>
           <div className="flex space-x-2 items-center">
             {!isEditing && (

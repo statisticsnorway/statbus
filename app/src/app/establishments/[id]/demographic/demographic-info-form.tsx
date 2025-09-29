@@ -38,6 +38,7 @@ export default function DemographicInfoForm({ id }: { readonly id: string }) {
       title="Demographic"
       action={formAction}
       response={state}
+      metadata={establishment}
     >
       {({ isEditing }) => (
         <div className="space-y-4">

@@ -53,8 +53,8 @@ export default function ContactInfoForm({ id }: { readonly id: string }) {
     label: `${country.name}`,
   }));
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col gap-4">
+    <div className="space-y-2">
+      <div>
         {legalUnit?.contact && (
           <EditableFieldGroup
             key={legalUnit?.contact?.id}
@@ -62,54 +62,53 @@ export default function ContactInfoForm({ id }: { readonly id: string }) {
             title="Communication"
             action={contactAction}
             response={contactState}
+            metadata={legalUnit?.contact}
           >
             {({ isEditing }) => (
-              <>
-                <div className="grid lg:grid-cols-2 gap-4">
-                  <FormField
-                    readonly={!isEditing}
-                    label="Email address"
-                    name="email_address"
-                    value={legalUnit?.contact?.email_address}
-                    response={null}
-                  />
-                  <FormField
-                    readonly={!isEditing}
-                    label="Web Address"
-                    name="web_address"
-                    value={legalUnit?.contact?.web_address}
-                    response={null}
-                  />
-                  <FormField
-                    readonly={!isEditing}
-                    label="Phone number"
-                    name="phone_number"
-                    value={legalUnit?.contact?.phone_number}
-                    response={null}
-                  />
-                  <FormField
-                    readonly={!isEditing}
-                    label="Landline"
-                    name="landline"
-                    value={legalUnit?.contact?.landline}
-                    response={null}
-                  />
-                  <FormField
-                    readonly={!isEditing}
-                    label="Mobile Number"
-                    name="mobile_number"
-                    value={legalUnit?.contact?.mobile_number}
-                    response={null}
-                  />
-                  <FormField
-                    readonly={!isEditing}
-                    label="Fax Number"
-                    name="fax_number"
-                    value={legalUnit?.contact?.fax_number}
-                    response={null}
-                  />
-                </div>
-              </>
+              <div className="grid lg:grid-cols-2 gap-4">
+                <FormField
+                  readonly={!isEditing}
+                  label="Email address"
+                  name="email_address"
+                  value={legalUnit?.contact?.email_address}
+                  response={null}
+                />
+                <FormField
+                  readonly={!isEditing}
+                  label="Web Address"
+                  name="web_address"
+                  value={legalUnit?.contact?.web_address}
+                  response={null}
+                />
+                <FormField
+                  readonly={!isEditing}
+                  label="Phone number"
+                  name="phone_number"
+                  value={legalUnit?.contact?.phone_number}
+                  response={null}
+                />
+                <FormField
+                  readonly={!isEditing}
+                  label="Landline"
+                  name="landline"
+                  value={legalUnit?.contact?.landline}
+                  response={null}
+                />
+                <FormField
+                  readonly={!isEditing}
+                  label="Mobile Number"
+                  name="mobile_number"
+                  value={legalUnit?.contact?.mobile_number}
+                  response={null}
+                />
+                <FormField
+                  readonly={!isEditing}
+                  label="Fax Number"
+                  name="fax_number"
+                  value={legalUnit?.contact?.fax_number}
+                  response={null}
+                />
+              </div>
             )}
           </EditableFieldGroup>
         )}
@@ -121,6 +120,7 @@ export default function ContactInfoForm({ id }: { readonly id: string }) {
           title="Postal Location"
           action={locationAction}
           response={locationState}
+          metadata={postalLocation}
         >
           {({ isEditing }) => (
             <>

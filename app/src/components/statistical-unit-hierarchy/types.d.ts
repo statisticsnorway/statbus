@@ -140,6 +140,10 @@ declare interface StatDefinition {
 
 declare interface StatForUnit {
   id: number;
+  data_source_id: number | null;
+  edit_comment: string;
+  edit_at: string;
+  edit_by_user_id: number | null;
   valid_to: string;
   value_int: number | null;
   value_float: number | null;
@@ -176,8 +180,10 @@ declare interface StatisticalUnit {
   stat_ident: string | null;
   valid_from: string;
   data_source: string | null;
+  data_source_id: number | null;
   edit_comment: string;
   edit_at: string;
+  edit_by_user_id: number | null;
   unit_size_id: string | null;
   invalid_codes: string | null;
   reorg_type_id: string | null;

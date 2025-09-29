@@ -11,6 +11,7 @@ import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { EditMetadataControls } from "./edit-metadata-controls";
 import { useEditableFieldState } from "./use-editable-field-state";
 import { EditButton } from "./edit-button";
+import { MetadataTooltip } from "./metadata-tooltip";
 
 interface EditableFieldWithMetadataProps {
   fieldId: string;
@@ -19,6 +20,7 @@ interface EditableFieldWithMetadataProps {
   formAction: (formData: FormData) => void;
   response: UpdateResponse;
   hiddenFields?: Record<string, string | number>;
+  metadata?: Metadata;
 }
 export const EditableFieldWithMetadata = ({
   fieldId,
@@ -27,6 +29,7 @@ export const EditableFieldWithMetadata = ({
   formAction,
   response,
   hiddenFields,
+  metadata,
 }: EditableFieldWithMetadataProps) => {
   const { selectedTimeContext } = useTimeContext();
   const [showResponse, setShowResponse] = useState(false);
@@ -73,6 +76,7 @@ export const EditableFieldWithMetadata = ({
         <div className="flex items-center justify-between">
           <Label className="flex justify-between items-center h-10">
             <span className="text-xs uppercase text-gray-600">{label}</span>
+            {metadata && <MetadataTooltip metadata={metadata} />}
           </Label>
           <div className="flex space-x-2 items-center">
             {!isEditing && (
