@@ -13,7 +13,7 @@ export default function DemographicInfoForm({ id }: { readonly id: string }) {
     updateEstablishment.bind(null, id),
     null
   );
-  const { status } = useDetailsPageData();
+  const { status, unitSizes } = useDetailsPageData();
   const { data, isLoading, error, revalidate } = useStatisticalUnitDetails(
     id,
     "establishment"
@@ -30,6 +30,10 @@ export default function DemographicInfoForm({ id }: { readonly id: string }) {
   const statusOptions = status.map((s) => ({
     value: s.id,
     label: `${s.name}`,
+  }));
+  const unitSizeOptions = unitSizes.map((unitSize) => ({
+    value: unitSize.id!,
+    label: `${unitSize.name}`,
   }));
   return (
     <EditableFieldGroup
@@ -63,6 +67,14 @@ export default function DemographicInfoForm({ id }: { readonly id: string }) {
             value={establishment?.death_date}
             response={null}
             readonly={!isEditing}
+          />
+          <SelectFormField
+            label="Unit size"
+            name="unit_size_id"
+            value={establishment?.unit_size_id}
+            options={unitSizeOptions}
+            readonly={!isEditing}
+            placeholder="Select a unit size"
           />
         </div>
       )}

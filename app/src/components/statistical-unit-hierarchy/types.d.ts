@@ -168,6 +168,16 @@ declare interface Status {
   updated_at: string;
 }
 
+declare interface UnitSize {
+  active: boolean;
+  code: string;
+  created_at: string;
+  custom: boolean;
+  id: number;
+  name: string;
+  updated_at: string;
+}
+
 declare interface StatisticalUnit {
   id: number;
   notes: string | null;
@@ -221,6 +231,7 @@ declare interface LegalUnit extends StatisticalUnit {
   legal_form: LegalForm;
   sector: Sector;
   status: Status;
+  unit_size: UnitSize;
 }
 
 declare interface Establishment extends StatisticalUnit {
@@ -234,6 +245,7 @@ declare interface Establishment extends StatisticalUnit {
   stat_for_unit?: StatForUnit[];
   contact: Contact;
   status: Status;
+  unit_size: UnitSize;
 }
 
 declare interface StatisticalUnitHierarchy {
