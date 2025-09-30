@@ -54,9 +54,9 @@ export function SelectFormField({
     "SelectFormField:syncvalue"
   );
 
-  const currentLabel =
-    options.find((option) => option.value === selectedValue)?.label ??
-    placeholder;
+  const currentOption = options.find(
+    (option) => option.value === selectedValue
+  );
 
   return (
     <div className="flex flex-col space-y-2">
@@ -73,7 +73,9 @@ export function SelectFormField({
             className="w-full justify-between font-medium disabled:opacity-80"
             disabled={readonly}
           >
-            <span className="truncate">{currentLabel}</span>
+            <span className="truncate">
+              {currentOption?.label ?? `${!readonly ? placeholder : ""}`}
+            </span>
             <ChevronsUpDown
               className={`ml-2 h-4 w-4 shrink-0  ${readonly ? "opacity-0" : "opacity-50"}`}
             />

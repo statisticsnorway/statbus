@@ -93,6 +93,7 @@ export default function ClassificationsInfoForm({
         response={primaryActivityState}
         options={activityCategoryOptions}
         metadata={primaryActivity}
+        placeholder="Select an activity category"
       />
       <EditableSelectWithMetadata
         label="Secondary Activity category"
@@ -107,6 +108,7 @@ export default function ClassificationsInfoForm({
         response={secondaryActivityState}
         options={activityCategoryOptions}
         metadata={secondaryActivity}
+        placeholder="Select an activity category"
       />
       <EditableSelectWithMetadata
         label="Legal Form"
@@ -117,6 +119,7 @@ export default function ClassificationsInfoForm({
         response={legalFormState}
         options={legalFormOptions}
         metadata={legalUnit}
+        placeholder="Select a legal form"
       />
       <EditableSelectWithMetadata
         label="Sector"
@@ -127,6 +130,7 @@ export default function ClassificationsInfoForm({
         response={sectorState}
         options={sectorOptions}
         metadata={legalUnit}
+        placeholder="Select a sector"
       />
     </div>
   );

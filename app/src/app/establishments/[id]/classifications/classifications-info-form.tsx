@@ -63,6 +63,7 @@ export default function ClassificationsInfoForm({
         response={primaryActivityState}
         options={activityCategoryOptions}
         metadata={primaryActivity}
+        placeholder="Select an activity category"
       />
       <EditableSelectWithMetadata
         label="Secondary Activity category"
@@ -77,6 +78,7 @@ export default function ClassificationsInfoForm({
         response={secondaryActivityState}
         options={activityCategoryOptions}
         metadata={secondaryActivity}
+        placeholder="Select an activity category"
       />
     </div>
   );
