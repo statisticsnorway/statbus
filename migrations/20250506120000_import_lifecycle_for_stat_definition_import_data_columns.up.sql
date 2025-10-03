@@ -72,7 +72,6 @@ CREATE OR REPLACE PROCEDURE import.cleanup_stat_var_data_columns()
 LANGUAGE plpgsql AS $$
 DECLARE
     v_step_id INT;
-    v_pk_col_name TEXT;
 BEGIN
     SELECT id INTO v_step_id FROM public.import_step WHERE code = 'statistical_variables';
     IF v_step_id IS NULL THEN
@@ -81,6 +80,19 @@ BEGIN
     END IF;
 
     RAISE DEBUG '[import.cleanup_stat_var_data_columns] For step_id % (statistical_variables), deleting columns for inactive stat definitions.', v_step_id;
+
+    -- Delete source columns that map to data columns which are about to be deleted.
+    -- This cascades to import_mapping and must run before the data columns are deleted.
+    WITH source_cols_to_delete AS (
+        SELECT isc.id
+        FROM public.import_source_column isc
+        JOIN public.import_mapping m ON isc.id = m.source_column_id
+        JOIN public.import_data_column idc ON m.target_data_column_id = idc.id
+        WHERE idc.step_id = v_step_id
+          AND idc.purpose = 'source_input'
+          AND replace(idc.column_name, '_raw', '') NOT IN (SELECT code FROM public.stat_definition_active)
+    )
+    DELETE FROM public.import_source_column WHERE id IN (SELECT id FROM source_cols_to_delete);
 
     -- Delete source_input columns for inactive stat definitions
     DELETE FROM public.import_data_column

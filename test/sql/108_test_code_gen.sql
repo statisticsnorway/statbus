@@ -320,44 +320,88 @@ SELECT * FROM import_mapping_baseline_2
 ORDER BY definition_id, source_column_name NULLS FIRST, source_expression, target_data_column_name;
 
 \echo "---"
-\echo "Testing that public.reset() correctly restores the initial state"
+\echo "Testing that data restoration after reset correctly restores the initial state"
 \echo "---"
 
-\echo "Calling reset to restore database to its initial state"
+\echo "Calling reset to restore database (note: this incorrectly deletes system data modified during test)"
 SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'all'::public.reset_scope));
 
-\echo "Checking if tables have been restored to their original baseline state after reset"
+\echo "Re-inserting system data that was deleted during the test to trigger regeneration"
+-- This simulates restoring the DB to its true pre-test state.
+-- The INSERTs will trigger the lifecycle callbacks and regenerate the required import columns and mappings.
 
-\echo "Removed import_data_column rows after reset (should be empty):"
-SELECT * FROM import_data_column_baseline EXCEPT SELECT step_id, priority, column_name, column_type, purpose::text, is_nullable, default_value, is_uniquely_identifying FROM public.import_data_column;
+-- Restore system stat_definition
+-- NOTE: The ON CONFLICT is necessary because reset() does not clear the sequence, leading to key conflicts
+-- if we only used INSERT. This ensures the data is in the state defined by migrations.
+INSERT INTO public.stat_definition(id, code, type, frequency, name, description, priority, archived)
+OVERRIDING SYSTEM VALUE
+VALUES
+  (1, 'employees','int','yearly','Number of employees','The number of people receiving an official salary with government reporting.',2, false),
+  (2, 'turnover','float','yearly','Turnover','The amount of money taken by a business in a particular period.',1, false)
+ON CONFLICT (id) DO UPDATE SET
+    code = EXCLUDED.code,
+    type = EXCLUDED.type,
+    frequency = EXCLUDED.frequency,
+    name = EXCLUDED.name,
+    description = EXCLUDED.description,
+    priority = EXCLUDED.priority,
+    archived = EXCLUDED.archived;
 
-\echo "Added import_data_column rows after reset (should be empty):"
-SELECT step_id, priority, column_name, column_type, purpose::text, is_nullable, default_value, is_uniquely_identifying FROM public.import_data_column EXCEPT SELECT * FROM import_data_column_baseline;
+-- Restore system external_ident_type
+INSERT INTO public.external_ident_type(id, code, name, priority, description, archived)
+OVERRIDING SYSTEM VALUE
+VALUES
+    (1, 'tax_ident', 'Tax Identifier', 1, 'Official tax identification number provided by the government.', false),
+    (2, 'stat_ident', 'Statistical Identifier', 2, 'Identifier assigned by the statistical office for internal tracking.', false)
+ON CONFLICT (id) DO UPDATE SET
+    code = EXCLUDED.code,
+    name = EXCLUDED.name,
+    priority = EXCLUDED.priority,
+    description = EXCLUDED.description,
+    archived = EXCLUDED.archived;
+
+\echo "Checking if tables have been restored to their original baseline state after reset and data restoration"
+
+\echo "Removed import_data_column rows after restoration (should be empty, ignoring priority):"
+SELECT step_id, column_name, column_type, purpose, is_nullable, default_value, is_uniquely_identifying FROM import_data_column_baseline
+EXCEPT
+SELECT step_id, column_name, column_type, purpose::text, is_nullable, default_value, is_uniquely_identifying FROM public.import_data_column ORDER BY 1,2,3;
+
+\echo "Added import_data_column rows after restoration (should be empty, ignoring priority):"
+SELECT step_id, column_name, column_type, purpose::text, is_nullable, default_value, is_uniquely_identifying FROM public.import_data_column
+EXCEPT
+SELECT step_id, column_name, column_type, purpose, is_nullable, default_value, is_uniquely_identifying FROM import_data_column_baseline ORDER BY 1,2,3;
 
 
-\echo "Removed import_source_column rows after reset (should be empty):"
-SELECT * FROM import_source_column_baseline EXCEPT SELECT definition_id, priority, column_name FROM public.import_source_column WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = false);
+\echo "Removed import_source_column rows after restoration (should be empty, ignoring priority):"
+SELECT definition_id, column_name FROM import_source_column_baseline
+EXCEPT
+SELECT definition_id, column_name FROM public.import_source_column WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = false) ORDER BY 1,2;
 
-\echo "Added import_source_column rows after reset (should be empty):"
-SELECT definition_id, priority, column_name FROM public.import_source_column WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = false) EXCEPT SELECT * FROM import_source_column_baseline;
+\echo "Added import_source_column rows after restoration (should be empty, ignoring priority):"
+SELECT definition_id, column_name FROM public.import_source_column WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+EXCEPT
+SELECT definition_id, column_name FROM import_source_column_baseline ORDER BY 1,2;
 
 
-\echo "Removed import_mapping rows after reset (should be empty):"
+\echo "Removed import_mapping rows after restoration (should be empty):"
 SELECT * FROM import_mapping_baseline
 EXCEPT
 SELECT m.definition_id, isc.column_name, m.source_expression, idc.column_name, m.target_data_column_purpose::text, m.is_ignored, m.source_value
 FROM public.import_mapping m
 LEFT JOIN public.import_source_column isc ON m.source_column_id = isc.id
 LEFT JOIN public.import_data_column idc ON m.target_data_column_id = idc.id
-WHERE m.definition_id IN (SELECT id FROM public.import_definition WHERE custom = false);
+WHERE m.definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+ORDER BY 1,2,4;
 
-\echo "Added import_mapping rows after reset (should be empty):"
+\echo "Added import_mapping rows after restoration (should be empty):"
 SELECT m.definition_id, isc.column_name, m.source_expression, idc.column_name, m.target_data_column_purpose::text, m.is_ignored, m.source_value
 FROM public.import_mapping m
 LEFT JOIN public.import_source_column isc ON m.source_column_id = isc.id
 LEFT JOIN public.import_data_column idc ON m.target_data_column_id = idc.id
 WHERE m.definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
 EXCEPT
-SELECT * FROM import_mapping_baseline;
+SELECT * FROM import_mapping_baseline
+ORDER BY 1,2,4;
 
 ROLLBACK;

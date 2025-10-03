@@ -111,34 +111,18 @@ BEGIN
     LOOP
         RAISE DEBUG '  [-] Checking definition ID: % for orphaned synced mappings.', v_def.id;
         FOR v_source_col IN
-            SELECT isc.id AS source_column_id, isc.column_name
+            SELECT isc.id, isc.column_name
             FROM public.import_source_column isc
             WHERE isc.definition_id = v_def.id
         LOOP
-            -- An import_source_column is an orphan ONLY if it is dynamically generated (i.e., its name
-            -- matches a code in external_ident_type or stat_definition) AND its corresponding `source_input`
-            -- data column no longer exists. Statically defined source columns are ignored.
-            v_data_column_exists := true; -- Assume not an orphan by default
-            IF v_source_col.column_name IN (SELECT code FROM public.external_ident_type) OR
-               v_source_col.column_name IN (SELECT code FROM public.stat_definition) OR
-               (v_source_col.column_name LIKE 'legal_unit_%' AND
-                replace(v_source_col.column_name, 'legal_unit_', '') IN (SELECT code FROM public.external_ident_type))
-            THEN
-                -- This appears to be a dynamically managed source column. Check if its data column still exists.
-                SELECT EXISTS (
-                    SELECT 1
-                    FROM public.import_definition_step ids
-                    JOIN public.import_data_column idc ON ids.step_id = idc.step_id
-                    WHERE ids.definition_id = v_def.id
-                      AND idc.column_name = v_source_col.column_name || '_raw'
-                      AND idc.purpose = 'source_input'
-                ) INTO v_data_column_exists;
-            END IF;
-
-            IF NOT v_data_column_exists THEN
-                RAISE DEBUG '    - Deleting orphaned source column ID % (name: "%") and its mappings for definition ID %.',
-                            v_source_col.source_column_id, v_source_col.column_name, v_def.id;
-                DELETE FROM public.import_source_column WHERE id = v_source_col.source_column_id; -- Cascades to import_mapping
+            -- A source column is an orphan if it has no mappings left. This is reliable
+            -- because other cleanup callbacks delete `import_data_column` rows, and the
+            -- foreign key constraint on `import_mapping` cascades to delete the relevant
+            -- mappings, leaving the source column with no connections.
+            IF NOT EXISTS (SELECT 1 FROM public.import_mapping WHERE source_column_id = v_source_col.id) THEN
+                RAISE DEBUG '    - Deleting orphaned source column ID % (name: "%") because it has no mappings.',
+                            v_source_col.id, v_source_col.column_name;
+                DELETE FROM public.import_source_column WHERE id = v_source_col.id;
             END IF;
         END LOOP;
         -- Re-validate the definition after potential cleanup
@@ -148,13 +132,49 @@ BEGIN
 END;
 $$;
 
--- Register lifecycle callback for synchronizing default definition mappings
--- This should run after data columns are generated/updated.
+-- Re-register lifecycle callbacks to enforce execution order.
+-- Cleanup callbacks run in descending order of priority. By adding them in this
+-- specific order, we ensure that the domain-specific cleanups run *before* the
+-- generic orphan cleanup.
+
+-- Delete existing callbacks to avoid duplicates and to allow re-ordering.
+-- Must be deleted in reverse order of creation (highest priority first).
+CALL lifecycle_callbacks.del('import_sync_default_definition_mappings');
+-- The following may or may not exist depending on migration state, but del is silent on not-found.
+-- del() has a check for higher-priority callbacks, so this order is required.
+CALL lifecycle_callbacks.del('import_stat_var_data_columns');
+CALL lifecycle_callbacks.del('import_link_lu_data_columns');
+CALL lifecycle_callbacks.del('import_external_ident_data_columns');
+
+-- Re-add callbacks. Those added first get lower priority values, so their
+-- cleanup procedures will run LAST.
+
+-- This should run last, after all data columns have been cleaned up.
 CALL lifecycle_callbacks.add(
     'import_sync_default_definition_mappings',
-    ARRAY['public.external_ident_type', 'public.stat_definition']::regclass[], -- Listen to changes on these tables
-    'import.synchronize_default_definitions_all_steps', -- Procedure to call
-    'import.cleanup_orphaned_synced_mappings' -- Cleanup procedure
+    ARRAY['public.external_ident_type', 'public.stat_definition']::regclass[],
+    'import.synchronize_default_definitions_all_steps',
+    'import.cleanup_orphaned_synced_mappings'
+);
+
+-- These should run before the orphan cleanup.
+CALL lifecycle_callbacks.add(
+    'import_external_ident_data_columns',
+    ARRAY['public.external_ident_type']::regclass[],
+    'import.generate_external_ident_data_columns',
+    'import.cleanup_external_ident_data_columns'
+);
+CALL lifecycle_callbacks.add(
+    'import_link_lu_data_columns',
+    ARRAY['public.external_ident_type']::regclass[],
+    'import.generate_link_lu_data_columns',
+    'import.cleanup_link_lu_data_columns'
+);
+CALL lifecycle_callbacks.add(
+    'import_stat_var_data_columns',
+    ARRAY['public.stat_definition']::regclass[],
+    'import.generate_stat_var_data_columns',
+    'import.cleanup_stat_var_data_columns'
 );
 
 -- Initial call to synchronize mappings for existing default definitions
