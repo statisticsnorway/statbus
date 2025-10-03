@@ -1,5 +1,0 @@
-{
-	"dependencies": {
-		"@supabase/postgrest-js": "^1.19.4"
-	}
-}
