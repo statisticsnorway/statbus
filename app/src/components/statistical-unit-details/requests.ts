@@ -141,7 +141,7 @@ export async function getStatisticalUnitDetails(
   } catch (error) {
     const postgrestError = error as PostgrestError;
     return {
-      unit: null,
+      data: null,
       error: { ...postgrestError, name: "supabase-error" },
     };
   }
@@ -178,7 +178,7 @@ export async function getStatisticalUnitHistory(
 
     if (error) {
       return {
-        unit: null,
+        data: null,
         error: { ...error, name: "supabase-error" },
       };
     }
@@ -191,7 +191,7 @@ export async function getStatisticalUnitHistory(
       };
     } else {
       return {
-        unit: null,
+        data: null,
         error: {
           message: "Invalid unit history highcharts data structure",
           name: "supabase-error",

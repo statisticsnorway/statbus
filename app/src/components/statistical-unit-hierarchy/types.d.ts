@@ -252,9 +252,13 @@ declare interface StatisticalUnitStats {
 
 declare interface StatisticalUnitHistoryHighcharts {
   series: Array<{
-    data: [number, number][];
+    code: string;
     name: string;
+    is_current: boolean;
+    priority: number;
+    data: [number, number][];
   }>;
   unit_id: number;
+  unit_type: UnitType;
   unit_name: string;
 }
