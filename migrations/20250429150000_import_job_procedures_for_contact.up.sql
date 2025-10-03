@@ -168,7 +168,7 @@ BEGIN
         CALL sql_saga.temporal_merge(
             target_table => 'public.contact'::regclass,
             source_table => v_source_view_name::regclass,
-            identity_columns => ARRAY['id'],
+            primary_identity_columns => ARRAY['id'],
             natural_identity_columns => ARRAY['legal_unit_id', 'establishment_id'],
             mode => v_merge_mode,
             row_id_column => 'row_id',

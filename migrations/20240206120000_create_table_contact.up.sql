@@ -49,6 +49,15 @@ SELECT sql_saga.add_unique_key(
     column_names => ARRAY['id'],
     unique_key_name => 'contact_id_valid'
 );
+SELECT sql_saga.add_unique_key(
+    table_oid => 'public.contact',
+    key_type => 'natural',
+    column_names => ARRAY['legal_unit_id', 'establishment_id'],
+    mutually_exclusive_columns => ARRAY['legal_unit_id', 'establishment_id'],
+    unique_key_name => 'contact_natural_key_valid'
+);
+
+
 -- This creates triggers to enforce that a contact's validity period is always contained
 -- within the validity period of its parent establishment.
 SELECT sql_saga.add_foreign_key(

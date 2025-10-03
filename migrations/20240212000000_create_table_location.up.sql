@@ -24,9 +24,6 @@ CREATE TABLE public.location (
     edit_comment character varying(512),
     edit_by_user_id integer NOT NULL REFERENCES auth.user(id) ON DELETE RESTRICT,
     edit_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
-    CONSTRAINT "One and only one statistical unit id must be set"
-    CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL
-        OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL),
     CONSTRAINT "coordinates require both latitude and longitude"
       CHECK((latitude IS NOT NULL AND longitude IS NOT NULL)
          OR (latitude IS NULL AND longitude IS NULL)),
@@ -48,7 +45,7 @@ CREATE TABLE public.location (
     )
 );
 COMMENT ON TABLE public.location IS 'Stores physical or postal addresses associated with statistical units (Legal Units or Establishments). Uses temporal validity.';
-COMMENT ON COLUMN public.location.id IS 'Primary key for the location record (not the temporal era).';
+COMMENT ON COLUMN public.location.id IS 'Entity key for the location record (not the temporal era).';
 COMMENT ON COLUMN public.location.valid_from IS 'Start date (inclusive) of the validity period for this location era.';
 COMMENT ON COLUMN public.location.valid_to IS 'End date (inclusive) of the validity period for this location era. UI-facing.';
 COMMENT ON COLUMN public.location.valid_until IS 'End date (exclusive) of the validity period for this location era. Used for temporal logic.';
@@ -87,24 +84,22 @@ CREATE INDEX ON location (establishment_id, type) WHERE legal_unit_id IS NULL;
 
 -- Activate era handling
 SELECT sql_saga.add_era('public.location', synchronize_valid_to_column => 'valid_to');
+
 SELECT sql_saga.add_unique_key(
     table_oid => 'public.location',
     key_type => 'primary',
     column_names => ARRAY['id'],
     unique_key_name => 'location_id_valid'
 );
+
 SELECT sql_saga.add_unique_key(
     table_oid => 'public.location',
     key_type => 'natural',
-    column_names => ARRAY['type', 'establishment_id'],
+    column_names => ARRAY['type', 'establishment_id','legal_unit_id'],
+    mutually_exclusive_columns => ARRAY['establishment_id','legal_unit_id'],
     unique_key_name => 'location_type_establishment_id_valid'
 );
-SELECT sql_saga.add_unique_key(
-    table_oid => 'public.location',
-    key_type => 'natural',
-    column_names => ARRAY['type', 'legal_unit_id'],
-    unique_key_name => 'location_type_legal_unit_id_valid'
-);
+
 SELECT sql_saga.add_foreign_key(
     fk_table_oid => 'public.location',
     fk_column_names => ARRAY['establishment_id'],

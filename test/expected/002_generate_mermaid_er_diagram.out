@@ -1104,7 +1104,12 @@ erDiagram
 		name era_name
 		name unique_constraint
 		name exclude_constraint
+		name check_constraint
 		text predicate
+		name[] mutually_exclusive_columns
+		name[] partial_index_names
+		name[] partial_exclude_constraint_names
+		name[] pk_consistency_constraint_names
 	}
 	sql_saga_updatable_view["sql_saga.updatable_view"] {
 		name view_schema

@@ -50,17 +50,11 @@ SELECT sql_saga.add_unique_key(
 SELECT sql_saga.add_unique_key(
     table_oid => 'public.activity'::regclass,
     key_type => 'natural',
-    column_names => ARRAY['type', 'establishment_id'],
+    column_names => ARRAY['type', 'legal_unit_id', 'establishment_id'],
+    mutually_exclusive_columns => ARRAY['legal_unit_id', 'establishment_id'],
     unique_key_name => 'activity_type_establishment_id_valid'
 );
--- This creates a GIST exclusion constraint (`activity_type_legal_unit_id_valid_excl`) to ensure
--- a unit cannot have multiple activities of the same type at the same time.
-SELECT sql_saga.add_unique_key(
-    table_oid => 'public.activity'::regclass,
-    key_type => 'natural',
-    column_names => ARRAY['type', 'legal_unit_id'],
-    unique_key_name => 'activity_type_legal_unit_id_valid'
-);
+
 -- This creates triggers to enforce that an activity's validity period is always contained
 -- within the validity period of its parent establishment.
 SELECT sql_saga.add_foreign_key(

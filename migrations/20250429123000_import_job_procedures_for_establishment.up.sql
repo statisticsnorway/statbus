@@ -316,7 +316,7 @@ BEGIN
                 CALL sql_saga.temporal_merge(
                     target_table => 'public.establishment'::regclass,
                     source_table => 'temp_es_demotion_source'::regclass,
-                    identity_columns => ARRAY['id'],
+                    primary_identity_columns => ARRAY['id'],
                     mode => 'PATCH_FOR_PORTION_OF',
                     row_id_column => 'row_id',
                     ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
@@ -343,7 +343,7 @@ BEGIN
                 CALL sql_saga.temporal_merge(
                     target_table => 'public.establishment'::regclass,
                     source_table => 'temp_es_demotion_source'::regclass,
-                    identity_columns => ARRAY['id'],
+                    primary_identity_columns => ARRAY['id'],
                     mode => 'PATCH_FOR_PORTION_OF',
                     row_id_column => 'row_id',
                     ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
@@ -367,7 +367,7 @@ BEGIN
         CALL sql_saga.temporal_merge(
             target_table => 'public.establishment'::regclass,
             source_table => 'temp_es_source_view'::regclass,
-            identity_columns => ARRAY['id'],
+            primary_identity_columns => ARRAY['id'],
             mode => v_merge_mode,
             row_id_column => 'data_row_id',
             founding_id_column => 'founding_row_id',

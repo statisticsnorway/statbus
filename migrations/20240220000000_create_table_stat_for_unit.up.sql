@@ -59,8 +59,10 @@ SELECT sql_saga.add_unique_key(
     table_oid => 'public.stat_for_unit',
     key_type => 'natural',
     column_names => ARRAY['stat_definition_id', 'legal_unit_id', 'establishment_id'],
+    mutually_exclusive_columns => ARRAY['establishment_id','legal_unit_id'],
     unique_key_name => 'stat_for_unit_natural_key_valid'
 );
+
 -- This creates triggers to enforce that a stat_for_unit's validity period is always contained
 -- within the validity period of its parent establishment.
 SELECT sql_saga.add_foreign_key(

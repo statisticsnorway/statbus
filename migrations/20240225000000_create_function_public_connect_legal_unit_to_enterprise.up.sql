@@ -108,7 +108,7 @@ BEGIN
     CALL sql_saga.temporal_merge(
       target_table => 'public.legal_unit',
       source_table => 'temp_lu_source',
-      identity_columns => ARRAY['id'],
+      primary_identity_columns => ARRAY['id'],
       mode => 'PATCH_FOR_PORTION_OF',
       row_id_column => 'row_id',
       ephemeral_columns => ARRAY[]::TEXT[]

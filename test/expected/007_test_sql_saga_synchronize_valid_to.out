@@ -68,11 +68,11 @@ SET client_min_messages TO NOTICE;
 -- Setup: Create a test table with valid_from, valid_until, and valid_to
 CREATE SCHEMA IF NOT EXISTS trigger_test;
 CREATE TABLE trigger_test.temporal_table (
-    id SERIAL PRIMARY KEY,
+    id SERIAL,
     description TEXT,
     valid_from DATE NOT NULL,
-    valid_until DATE, -- sql_saga will make it NOT NULL
-    valid_to DATE -- sql_saga will make it NOT NULL
+    valid_until DATE, -- sql_saga will enforce NOT NULL in trigger
+    valid_to DATE -- sql_saga will enforce NOT NULL in trigger
 );
 -- Register with sql_saga and enable synchronization
 -- This creates the trigger automatically.
@@ -84,6 +84,13 @@ NOTICE:  sql_saga: Created trigger "temporal_table_synchronize_temporal_columns_
  add_era 
 ---------
  t
+(1 row)
+
+SELECT sql_saga.add_unique_key('trigger_test.temporal_table',ARRAY['id'], key_type => 'primary'::sql_saga.unique_key_type);
+NOTICE:  sql_saga: altering table trigger_test.temporal_table to add constraints: ALTER COLUMN id SET NOT NULL, ADD PRIMARY KEY (id, valid_from) DEFERRABLE, ADD CONSTRAINT temporal_table_id_valid_excl EXCLUDE USING gist (id WITH =, daterange(valid_from, valid_until) WITH &&) DEFERRABLE
+     add_unique_key      
+-------------------------
+ temporal_table_id_valid
 (1 row)
 
 -- Function to display table contents
@@ -271,6 +278,12 @@ SELECT * FROM trigger_test.show_table() WHERE id = :base_update_id_id; -- Expect
 
 -- Cleanup
 -- No need to drop trigger, sql_saga does it with drop_era
+SELECT sql_saga.drop_unique_key('trigger_test.temporal_table',ARRAY['id']);
+ drop_unique_key 
+-----------------
+ 
+(1 row)
+
 SELECT sql_saga.drop_era('trigger_test.temporal_table'::regclass);
  drop_era 
 ----------

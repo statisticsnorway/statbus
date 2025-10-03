@@ -33,21 +33,16 @@ SELECT sql_saga.add_unique_key(
     column_names => ARRAY['id'],
     unique_key_name => 'person_for_unit_id_valid'
 );
--- This creates a GIST exclusion constraint (`person_for_unit_person_role_establishment_valid_excl`)
--- to ensure a person cannot have the same role for the same establishment at the same time.
+-- This creates a GIST exclusion constraint (`person_for_unit_natural_key_valid_excl`)
+-- to ensure a person cannot have the same role for the same statistical unit (either
+-- legal unit or establishment) at the same time. This single key provides the correct
+-- signature for sql_saga's temporal_merge to identify entities correctly.
 SELECT sql_saga.add_unique_key(
     table_oid => 'public.person_for_unit'::regclass,
     key_type => 'natural',
-    column_names => ARRAY['person_id', 'person_role_id', 'establishment_id'],
-    unique_key_name => 'person_for_unit_person_role_establishment_valid'
-);
--- This creates a GIST exclusion constraint (`person_for_unit_person_role_legal_unit_valid_excl`)
--- to ensure a person cannot have the same role for the same legal unit at the same time.
-SELECT sql_saga.add_unique_key(
-    table_oid => 'public.person_for_unit'::regclass,
-    key_type => 'natural',
-    column_names => ARRAY['person_id', 'person_role_id', 'legal_unit_id'],
-    unique_key_name => 'person_for_unit_person_role_legal_unit_valid'
+    column_names => ARRAY['person_id', 'person_role_id', 'legal_unit_id', 'establishment_id'],
+    mutually_exclusive_columns => ARRAY['legal_unit_id', 'establishment_id'],
+    unique_key_name => 'person_for_unit_natural_key_valid'
 );
 -- This creates triggers to enforce that a person_for_unit's validity period is always contained
 -- within the validity period of its parent establishment.

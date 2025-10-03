@@ -417,7 +417,7 @@ BEGIN
             END;
             -- Mark the job as failed
             UPDATE public.import_job
-            SET error = jsonb_build_object('analyse_location_error', format($$Unexpected error for step %1$s: %2$s$$, p_step_code /* %1$s */, error_message /* %2$s */)),
+            SET error = jsonb_build_object('analyse_location_error', format($SQL$Unexpected error for step %1$s: %2$s$SQL$, p_step_code /* %1$s */, error_message /* %2$s */)),
                 state = 'finished'
             WHERE id = p_job_id;
             RAISE DEBUG '[Job %] analyse_location: Marked job as failed due to unexpected error for step %: %', p_job_id, p_step_code, error_message;
@@ -581,7 +581,7 @@ BEGIN
         CALL sql_saga.temporal_merge(
             target_table => 'public.location'::regclass,
             source_table => v_source_view_name::regclass,
-            identity_columns => ARRAY['id'],
+            primary_identity_columns => ARRAY['id'],
             natural_identity_columns => ARRAY['legal_unit_id', 'establishment_id', 'type'],
             mode => v_merge_mode,
             row_id_column => 'row_id',
