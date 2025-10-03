@@ -394,5 +394,50 @@ export const useUser = (): User | null => {
 
 export const useIsAuthenticated = (): boolean => {
   // This hook is for UI consumption, so it uses the UI-stable atom.
-  return useAtomValue(isUserConsideredAuthenticatedForUIAtom)
-}
+  return useAtomValue(isUserConsideredAuthenticatedForUIAtom);
+};
+
+// ============================================================================
+// PERMISSIONS
+// ============================================================================
+
+export const userRoleAtom = atom(
+  (get) =>
+    get(currentUserAtom)?.statbus_role as
+      | "admin_user"
+      | "regular_user"
+      | "restricted_user"
+      | "external_user"
+);
+
+export const permissionAtom = atom((get) => {
+  const role = get(userRoleAtom);
+
+  const permissions = {
+    canEdit: false,
+    canImport: false,
+    canAccessGettingStarted: false,
+    canAccessAdminTools: false,
+  };
+  switch (role) {
+    case "admin_user":
+      permissions.canEdit = true;
+      permissions.canImport = true;
+      permissions.canAccessGettingStarted = true;
+      permissions.canAccessAdminTools = true;
+      break;
+    case "regular_user":
+      permissions.canEdit = true;
+      permissions.canImport = true;
+      break;
+    case "restricted_user":
+      break;
+    case "external_user":
+      break;
+  }
+  return permissions;
+});
+
+export const usePermission = () => {
+  return useAtomValue(permissionAtom);
+};

@@ -8,6 +8,7 @@ import { useWorkerStatus } from "@/atoms/worker_status";
 import { Spinner } from "@/components/ui/spinner";
 import { FileText, BarChart2, Building2, Store, Building } from "lucide-react";
 import type { WorkerStatus } from "@/atoms/worker_status"; // Import the type
+import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
 
 export default function ImportStatus() {
   const [mounted, setMounted] = useState(false);
@@ -35,9 +36,7 @@ export default function ImportStatus() {
 
   return (
     <nav>
-      <h2 className="text-2xl font-normal mb-12 text-center">
-        Import
-      </h2>
+      <h2 className="text-2xl font-normal mb-12 text-center">Import</h2>
       <ul className="text-sm">
         <h3 className="mb-4">Formal</h3>
         <ul className="text-sm ml-2">
@@ -47,7 +46,9 @@ export default function ImportStatus() {
               title="Upload Legal Units"
               href="/import/legal-units"
               subtitle={`${(mounted ? legalUnits : null) || 0} legal units uploaded`}
-              icon={<Building2 className="w-4 h-4" />}
+              icon={
+                <StatisticalUnitIcon type="legal_unit" className="h-4 w-4" />
+              }
               processing={false}
             />
           </li>
@@ -59,7 +60,9 @@ export default function ImportStatus() {
               subtitle={`${
                 (mounted ? establishmentsWithLegalUnit : null) || 0
               } formal establishments uploaded`}
-              icon={<Store className="w-4 h-4" />}
+              icon={
+                <StatisticalUnitIcon type="establishment" className="h-4 w-4" />
+              }
               processing={false}
             />
           </li>
@@ -74,7 +77,13 @@ export default function ImportStatus() {
               subtitle={`${
                 (mounted ? establishmentsWithoutLegalUnit : null) || 0
               } informal establishments uploaded`}
-              icon={<Building className="w-4 h-4" />}
+              icon={
+                <StatisticalUnitIcon
+                  type="establishment"
+                  className="h-4 w-4"
+                  hasLegalUnit={false}
+                />
+              }
               processing={false}
             />
           </li>
@@ -103,10 +112,7 @@ export default function ImportStatus() {
           </li>
         </ul>
         <li>
-          <NavItem 
-            title="Summary" 
-            href="/import/summary" 
-          />
+          <NavItem title="Summary" href="/import/summary" />
         </li>
       </ul>
     </nav>

@@ -296,13 +296,6 @@ export const resetSearchStateAtom = atom(null, (get, set) => {
   set(resetPaginationAtom); // Explicitly reset pagination.
   set(resetSortingAtom); // Explicitly reset sorting.
   set(resetQueryAtom); // Explicitly reset query.
-  // Optionally, reset search results as well
-  set(searchResultAtom, {
-    data: [],
-    total: 0,
-    loading: false,
-    error: null,
-  });
 });
 
 // ============================================================================
@@ -828,11 +821,20 @@ const derivedApiSearchParamsAtomUnstable = atom((get) => {
     );
 
     if (externalIdentType) {
-      params.set("order", `external_idents->>${orderName}.${orderDirection}`);
+      params.set(
+        "order",
+        `external_idents->>${orderName}.${orderDirection},unit_type.asc,unit_id.asc`
+      );
     } else if (statDefinition) {
-      params.set("order", `stats_summary->${orderName}->sum.${orderDirection}`);
+      params.set(
+        "order",
+        `stats_summary->${orderName}->sum.${orderDirection},unit_type.asc,unit_id.asc`
+      );
     } else {
-      params.set("order", `${orderName}.${orderDirection}`);
+      params.set(
+        "order",
+        `${orderName}.${orderDirection},unit_type.asc,unit_id.asc`
+      );
     }
   }
 

@@ -140,6 +140,10 @@ declare interface StatDefinition {
 
 declare interface StatForUnit {
   id: number;
+  data_source_id: number | null;
+  edit_comment: string;
+  edit_at: string;
+  edit_by_user_id: number | null;
   valid_to: string;
   value_int: number | null;
   value_float: number | null;
@@ -164,6 +168,16 @@ declare interface Status {
   updated_at: string;
 }
 
+declare interface UnitSize {
+  active: boolean;
+  code: string;
+  created_at: string;
+  custom: boolean;
+  id: number;
+  name: string;
+  updated_at: string;
+}
+
 declare interface StatisticalUnit {
   id: number;
   notes: string | null;
@@ -176,8 +190,10 @@ declare interface StatisticalUnit {
   stat_ident: string | null;
   valid_from: string;
   data_source: string | null;
+  data_source_id: number | null;
   edit_comment: string;
   edit_at: string;
+  edit_by_user_id: number | null;
   unit_size_id: string | null;
   invalid_codes: string | null;
   reorg_type_id: string | null;
@@ -215,6 +231,7 @@ declare interface LegalUnit extends StatisticalUnit {
   legal_form: LegalForm;
   sector: Sector;
   status: Status;
+  unit_size: UnitSize;
 }
 
 declare interface Establishment extends StatisticalUnit {
@@ -228,6 +245,7 @@ declare interface Establishment extends StatisticalUnit {
   stat_for_unit?: StatForUnit[];
   contact: Contact;
   status: Status;
+  unit_size: UnitSize;
 }
 
 declare interface StatisticalUnitHierarchy {

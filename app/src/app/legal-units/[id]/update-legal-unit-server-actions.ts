@@ -157,6 +157,7 @@ export async function updateLocation(
       const response = await client
         .from("location__for_portion_of_valid")
         .update({ ...validatedFields.data, ...metadata })
+        .eq("type", locationType)
         .eq(unitIdField, parseInt(id, 10));
 
       if (response.status >= 400) {

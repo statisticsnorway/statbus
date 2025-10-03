@@ -11,7 +11,7 @@ export const HistoryChart = ({
 }) => {
   const _ref = useRef<HTMLDivElement>(null);
   const _chart = useRef<Chart | null>(null);
-  console.log(history);
+
   const colors = [
     "#1A3A70",
     "#4B8B3B",

@@ -1,19 +1,29 @@
 import { cn } from "@/lib/utils";
-import React from "react";
-import DataDump from "@/components/data-dump";
+import { useEffect } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 export function SubmissionFeedbackDebugInfo({
   state,
 }: {
   state: UpdateResponse;
 }) {
-  return state?.status ? (
-    <DataDump
-      className={cn(
-        "block text-xs text-black",
-        state.status === "success" ? "bg-green-100" : "bg-red-100"
-      )}
-      data={state}
-    />
-  ) : null;
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (state?.status) {
+      const isError = state.status === "error";
+      toast({
+        variant: "default",
+        title: isError ? "Error" : "Success",
+        description: `${state.message}`,
+        className: `${
+          isError
+            ? "border-red-700 bg-red-100 text-red-700"
+            : "border-green-700 bg-green-100 text-green-700"
+        }`,
+      });
+    }
+  }, [state, toast]);
+
+  return null;
 }

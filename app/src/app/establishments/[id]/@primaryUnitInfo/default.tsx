@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useParams } from "next/navigation";
 import { useStatisticalUnitHierarchy } from "@/components/statistical-unit-details/use-unit-details";
 import UnitNotFound from '@/components/statistical-unit-details/unit-not-found';
+import { usePermission } from "@/atoms/auth";
 
 export default function PrimaryUnitInfo() {
   const params = useParams();
@@ -14,7 +15,7 @@ export default function PrimaryUnitInfo() {
     id,
     "establishment"
   );
-
+  const { canEdit } = usePermission();
   if (error) {
     throw new Error(error.message, { cause: error });
   }
@@ -89,9 +90,11 @@ export default function PrimaryUnitInfo() {
                   </Link>
                   .
                 </p>
-                <Button type="submit" variant="outline">
-                  Set as primary establishment
-                </Button>
+                {canEdit && (
+                  <Button type="submit" variant="outline">
+                    Set as primary establishment
+                  </Button>
+                )}
               </div>
             </form>
           </InfoBox>

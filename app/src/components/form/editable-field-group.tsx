@@ -8,12 +8,15 @@ import { SubmissionFeedbackDebugInfo } from "./submission-feedback-debug-info";
 import { useTimeContext } from "@/atoms/app-derived";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { EditMetadataControls } from "./edit-metadata-controls";
+import { EditButton } from "./edit-button";
+import { MetadataTooltip } from "./metadata-tooltip";
 
 interface EditableFieldGroupProps {
   fieldGroupId: string;
   title: string;
   action: (formData: FormData) => void;
   response: UpdateResponse;
+  metadata?: Metadata;
   children: (props: { isEditing: boolean }) => React.ReactNode;
 }
 
@@ -22,12 +25,12 @@ export function EditableFieldGroup({
   title,
   action,
   response,
+  metadata,
   children,
 }: EditableFieldGroupProps) {
   const { selectedTimeContext } = useTimeContext();
   const formRef = useRef<HTMLFormElement>(null);
   const [formKey, setFormKey] = useState(0);
-      
 
   const { currentEdit, setEditTarget, exitEditMode } = useEditManager();
 
@@ -70,13 +73,16 @@ export function EditableFieldGroup({
     <form
       ref={formRef}
       action={action}
-      className={`flex flex-col space-y-2  p-3 ${isEditing && "bg-ssb-light rounded-md"}`}
+      className={`flex flex-col space-y-2 p-3 ${isEditing && "bg-ssb-light rounded-md"}`}
       key={formKey}
     >
       <div className="flex justify-between items-center h-8">
-        <span className="font-medium">{title}</span>
+        <div className="flex items-center">
+          <span className="font-medium">{title}</span>
+          {metadata && <MetadataTooltip metadata={metadata} />}
+        </div>
         {!isEditing && (
-          <Button
+          <EditButton
             variant="ghost"
             size="icon"
             type="button"
@@ -92,7 +98,7 @@ export function EditableFieldGroup({
             className="h-8 w-8"
           >
             <Pencil className="h-4 w-4 text-zinc-700" />
-          </Button>
+          </EditButton>
         )}
       </div>
 

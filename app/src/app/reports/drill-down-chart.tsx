@@ -40,6 +40,9 @@ export const DrillDownChart = ({
     }
 
     const chartInstance = chart({
+      lang: {
+        thousandsSep: " ",
+      },
       chart: {
         height: BASE_HEIGHT + ROW_HEIGHT * (points?.length ?? 0),
         renderTo: chartContainerRef.current,

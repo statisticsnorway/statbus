@@ -19,9 +19,27 @@ export function EditStateResetter() {
     () => {
       exitEditMode();
     },
-    [pathname, exitEditMode, selectedTimeContext],
+    [pathname, exitEditMode, selectedTimeContext?.ident],
     "EditStateResetter:resetOnPathChange"
   );
+
+  useGuardedEffect(
+    () => {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape") {
+          exitEditMode();
+        }
+      };
+
+      document.addEventListener("keydown", handleKeyDown);
+
+      return () => {
+        document.removeEventListener("keydown", handleKeyDown);
+      };
+    },
+    [exitEditMode],
+    "EditStateResetter:handleEscapeKey"
+  );                                    
 
   return null;
 }

@@ -12,6 +12,10 @@ export const generalInfoSchema = zfd.formData({
   ),
   sector_id: z.coerce.number().optional(),
   legal_form_id: z.coerce.number().optional(),
+  unit_size_id: z.preprocess(
+    (val) => (val === "" ? null : val),
+    z.coerce.number().nullable().optional()
+  ),
   ...editMetadataSchemaFields,
 });
  
@@ -24,6 +28,9 @@ export const locationSchema = zfd.formData({
   postplace: z.string().optional(),
   region_id: z.coerce.number().optional(),
   country_id: z.coerce.number().optional(),
+  latitude: z.coerce.number().optional(),
+  longitude: z.coerce.number().optional(),
+  altitude: z.coerce.number().optional(),
   ...editMetadataSchemaFields,
 });
 

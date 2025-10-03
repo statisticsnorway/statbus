@@ -36,6 +36,11 @@ export default function DemographicInfoForm({ id }: { readonly id: string }) {
         name="death_date"
         value={primaryUnit?.death_date}
       />
+      <DisplayFormField
+        label="Unit size"
+        name="unit_size"
+        value={primaryUnit?.unit_size.name}
+      />
     </form>
   );
 }

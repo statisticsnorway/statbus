@@ -1,6 +1,5 @@
 "use client";
 import { useStatisticalUnitDetails } from "@/components/statistical-unit-details/use-unit-details";
-import { FormField } from "@/components/form/form-field";
 import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
 import { updateActivity } from "@/app/legal-units/[id]/update-legal-unit-server-actions";
 import { useActionState, useEffect } from "react";
@@ -16,7 +15,7 @@ export default function ClassificationsInfoForm({
     id,
     "establishment"
   );
-  const { activityCategories, legalForms, sectors } = useDetailsPageData();
+  const { activityCategories } = useDetailsPageData();
   const [primaryActivityState, primaryActivityAction] = useActionState(
     updateActivity.bind(null, id, "primary", "establishment"),
     null
@@ -41,10 +40,10 @@ export default function ClassificationsInfoForm({
   const establishment = data?.establishment?.[0];
   const primaryActivity = establishment?.activity?.find(
     (act) => act.type === "primary"
-  )?.activity_category;
+  );
   const secondaryActivity = establishment?.activity?.find(
     (act) => act.type === "secondary"
-  )?.activity_category;
+  );
   const activityCategoryOptions = activityCategories.map(
     (activityCategory) => ({
       value: activityCategory.id!,
@@ -57,19 +56,29 @@ export default function ClassificationsInfoForm({
         label="Primary Activity category"
         fieldId={`primary_category_id`}
         name="category_id"
-        value={primaryActivity ? `${primaryActivity.id}` : null}
+        value={
+          primaryActivity ? `${primaryActivity?.activity_category.id}` : null
+        }
         formAction={primaryActivityAction}
         response={primaryActivityState}
         options={activityCategoryOptions}
+        metadata={primaryActivity}
+        placeholder="Select an activity category"
       />
       <EditableSelectWithMetadata
         label="Secondary Activity category"
         fieldId="secondary_category_id"
         name="category_id"
-        value={secondaryActivity ? `${secondaryActivity.id}` : null}
+        value={
+          secondaryActivity
+            ? `${secondaryActivity?.activity_category.id}`
+            : null
+        }
         formAction={secondaryActivityAction}
         response={secondaryActivityState}
         options={activityCategoryOptions}
+        metadata={secondaryActivity}
+        placeholder="Select an activity category"
       />
     </div>
   );

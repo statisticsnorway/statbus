@@ -58,7 +58,7 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
           </Label>
           <Select
             name="data_source_id"
-            value={currentEdit.dataSourceId ?? ""}
+            value={currentEdit.dataSourceId ?? undefined}
             onValueChange={setEditDataSourceId}
           >
             <SelectTrigger

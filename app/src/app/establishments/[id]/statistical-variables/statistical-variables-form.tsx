@@ -1,6 +1,6 @@
 "use client";
 import { useBaseData } from "@/atoms/base-data";
-import { useStatisticalUnitStats } from "@/components/statistical-unit-details/use-unit-details";
+import { useStatisticalUnitDetails } from "@/components/statistical-unit-details/use-unit-details";
 import Loading from "@/components/statistical-unit-details/loading";
 import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
 import { useActionState, useEffect, useState } from "react";
@@ -17,11 +17,11 @@ export default function StatisticalVariablesForm({
     null
   );
   const { statDefinitions } = useBaseData();
-  const { data, isLoading, error, revalidate } = useStatisticalUnitStats(
+  const { data, isLoading, error, revalidate } = useStatisticalUnitDetails(
     id,
     "establishment"
   );
-
+  const stats = data?.establishment?.[0].stat_for_unit;
   const [isClient, setIsClient] = useState(false);
   useEffect(() => {
     setIsClient(true);
@@ -42,18 +42,21 @@ export default function StatisticalVariablesForm({
   return (
     <div>
       {statDefinitions.map((statDefinition) => {
-        const value = data?.stats?.[statDefinition.code!];
+        const stat = stats?.find(
+          (s) => s.stat_definition_id === statDefinition.id
+        );
+        const value =
+          stat?.value_int ?? stat?.value_float ?? stat?.value_string;
         return (
           <EditableFieldWithMetadata
             key={statDefinition.code}
             label={statDefinition.name ?? statDefinition.code!}
-            fieldId={`${statDefinition.code}`}
-            name="value"
+            fieldId={`value_${statDefinition.type}`}
             value={value || ""}
             response={statsState}
             formAction={statsAction}
-            statType={statDefinition.type!}
-            statDefinitionId={statDefinition.id!}
+            hiddenFields={{ stat_definition_id: statDefinition.id! }}
+            metadata={stat}
           />
         );
       })}

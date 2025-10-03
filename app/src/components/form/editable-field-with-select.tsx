@@ -4,7 +4,6 @@ import React, { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Check, ChevronsUpDown, Pencil } from "lucide-react";
 import { Label } from "../ui/label";
-import { useAuth } from "@/atoms/auth";
 import { useEditManager } from "@/atoms/edits";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { cn } from "@/lib/utils";
@@ -21,6 +20,8 @@ import {
 } from "@/components/ui/command";
 import { EditMetadataControls } from "./edit-metadata-controls";
 import { useEditableFieldState } from "./use-editable-field-state";
+import { EditButton } from "./edit-button";
+import { MetadataTooltip } from "./metadata-tooltip";
 
 interface Option {
   value: string | number;
@@ -36,6 +37,7 @@ interface EditableSelectWithMetadataProps {
   placeholder?: string;
   formAction: (formData: FormData) => void;
   response: UpdateResponse;
+  metadata?: Metadata;
 }
 
 export const EditableSelectWithMetadata = ({
@@ -47,6 +49,7 @@ export const EditableSelectWithMetadata = ({
   placeholder = "Select an option",
   formAction,
   response,
+  metadata,
 }: EditableSelectWithMetadataProps) => {
   const { selectedTimeContext } = useTimeContext();
 
@@ -75,17 +78,18 @@ export const EditableSelectWithMetadata = ({
     <form
       ref={formRef}
       action={formAction}
-      className={`flex flex-col space-y-2 p-3 ${isEditing && "bg-ssb-light rounded-md "}`}
+      className={`flex flex-col space-y-2 p-2 ${isEditing && "bg-ssb-light rounded-md "}`}
     >
       <input type="hidden" name={name} value={currentValue} />
       <div className="flex flex-col">
         <div className="flex items-center justify-between">
-          <Label className="flex justify-between items-center space-y-2 h-10">
+          <Label className="flex justify-between items-center h-10">
             <span className="text-xs uppercase text-gray-600">{label}</span>
+            {metadata && <MetadataTooltip metadata={metadata} />}
           </Label>
-          <div className="flex space-x-2 mb-2">
+          <div className="flex space-x-2 items-center">
             {!isEditing && (
-              <Button
+              <EditButton
                 className="h-8"
                 variant="ghost"
                 size="sm"
@@ -101,7 +105,7 @@ export const EditableSelectWithMetadata = ({
                 }
               >
                 <Pencil className="text-zinc-700" />
-              </Button>
+              </EditButton>
             )}
           </div>
         </div>
@@ -115,7 +119,7 @@ export const EditableSelectWithMetadata = ({
               disabled={!isEditing}
             >
               <span className="truncate">
-                {currentOption?.label ?? placeholder}
+                {currentOption?.label ?? `${isEditing ? placeholder : ""}`}
               </span>
               <ChevronsUpDown
                 className={`ml-2 h-4 w-4 shrink-0  ${!isEditing ? "opacity-0" : "opacity-50"}`}
@@ -133,14 +137,14 @@ export const EditableSelectWithMetadata = ({
                       key={option.value}
                       value={option.label}
                       onSelect={() => {
-                        setCurrentValue(option.value);
+                        setCurrentValue(option.value.toString());
                         setOpen(false);
                       }}
                     >
                       <Check
                         className={cn(
                           "mr-2 h-4 w-4",
-                          currentValue === option.value
+                          currentValue.toString() === option.value.toString()
                             ? "opacity-100"
                             : "opacity-0"
                         )}
