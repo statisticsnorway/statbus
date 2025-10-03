@@ -241,6 +241,7 @@ This document provides a compact overview of the StatBus database schema, focusi
                 SELECT 1 FROM information_schema.columns
                 WHERE table_schema = v_entity_data->>'schema'
                   AND table_name = v_entity_data->>'name'
+                  AND v_entity_data->>'name' NOT IN ('relative_period_with_time', 'time_context')
                   AND (column_name IN ('valid_from', 'valid_after') OR table_name LIKE 'timeline_%')
             ) INTO v_is_temporal;
 

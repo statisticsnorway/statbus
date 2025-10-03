@@ -142,9 +142,9 @@ Enumerated types used across the schema, with their possible values.
 - `timesegments_years(year)`
 - `relative_period(id, code, name_when_query, name_when_input, active, scope)`
   - Enums: `code` (`public.relative_period_code`), `scope` (`public.relative_period_scope`).
-- `relative_period_with_time(id, code, name_when_query, name_when_input, valid_on, valid_from, valid_to, active, scope)` (temporal)
+- `relative_period_with_time(id, code, name_when_query, name_when_input, valid_on, valid_from, valid_to, active, scope)`
   - Enums: `code` (`public.relative_period_code`), `scope` (`public.relative_period_scope`).
-- `time_context(type, ident, name_when_query, name_when_input, code, path, valid_from, valid_to, valid_on, scope)` (temporal)
+- `time_context(type, ident, name_when_query, name_when_input, code, path, valid_from, valid_to, valid_on, scope)`
   - Enums: `code` (`public.relative_period_code`), `scope` (`public.relative_period_scope`), `type` (`public.time_context_type`).
 
 ### Derivations for drilling on facets of statistical_unit (/reports)
