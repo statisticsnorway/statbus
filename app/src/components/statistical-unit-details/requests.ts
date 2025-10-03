@@ -141,7 +141,7 @@ export async function getStatisticalUnitDetails(
   } catch (error) {
     const postgrestError = error as PostgrestError;
     return {
-      data: null,
+      unit: null,
       error: { ...postgrestError, name: "supabase-error" },
     };
   }
