@@ -1,4 +1,4 @@
-read: [CONVENTIONS.md, app/CONVENTIONS.md]
+read: [CONVENTIONS.md, app/CONVENTIONS.md,doc/data-model.md]
 file: [todo.md,tmp/journal.md]
 
 #read: [CONVENTIONS.md, anotherfile.txt]

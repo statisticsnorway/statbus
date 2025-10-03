@@ -1,114 +1,178 @@
 # StatBus Data Model Summary
 
+This document is automatically generated from the database schema by `test/sql/015_generate_data_model_doc.sql`. Do not edit it manually.
+
 This document provides a compact overview of the StatBus database schema, focusing on entities, relationships, and key patterns.
+
 
 ## Core Statistical Units (Hierarchy)
 The system revolves around four main statistical units, often with temporal validity (`valid_from`, `valid_after`, `valid_to`):
-- `enterprise_group(id, name, short_name, enterprise_group_type_id, unit_size_id, data_source_id, reorg_type_id, foreign_participation_id, valid_from, valid_after, valid_to, active, ...)` (EG) (temporal)
-  - Key FKs: `enterprise_group_type_id`, `unit_size_id`, `data_source_id`, `reorg_type_id`, `foreign_participation_id`.
-- `enterprise(id, short_name, active, edit_by_user_id, ...)` (E)
-  - Belongs to an EG implicitly. Core attributes are often linked via its Legal Units or Establishments.
-- `legal_unit(id, name, short_name, enterprise_id, sector_id, status_id, legal_form_id, unit_size_id, foreign_participation_id, data_source_id, valid_from, valid_after, valid_to, active, ...)` (LU) (temporal)
-  - Belongs to one `enterprise` (E). (Relationship: E 1--* LU)
-  - Key FKs: `enterprise_id`, `sector_id`, `status_id`, `legal_form_id`, `unit_size_id`, `foreign_participation_id`, `data_source_id`.
-- `establishment(id, name, short_name, legal_unit_id, enterprise_id, sector_id, status_id, unit_size_id, data_source_id, valid_from, valid_after, valid_to, active, ...)` (EST) (temporal)
-  - Belongs to one `legal_unit` (LU) OR one `enterprise` (E) directly (if not part of an LU).
-  - Key FKs: `legal_unit_id` (opt), `enterprise_id` (opt, XOR with `legal_unit_id`), `sector_id` (if `enterprise_id` is set), `status_id`, `unit_size_id`, `data_source_id`.
 
-## Common Links for Core Units (EG, E, LU, EST)
+- `enterprise_group(id, short_name, name, enterprise_group_type_id, reorg_type_id, edit_by_user_id, unit_size_id, data_source_id, foreign_participation_id, valid_from, valid_to, valid_until, edit_at, contact_person, edit_comment, reorg_references, reorg_date)` (EG) (temporal)
+  - Key FKs: data_source_id, edit_by_user_id, enterprise_group_type_id, foreign_participation_id, reorg_type_id, unit_size_id.
+- `enterprise(id, short_name, edit_by_user_id, edit_at, active, edit_comment)` (EN)
+  - Key FKs: edit_by_user_id.
+- `legal_unit(id, short_name, name, invalid_codes, sector_id, status_id, legal_form_id, edit_by_user_id, unit_size_id, foreign_participation_id, data_source_id, enterprise_id, valid_from, valid_to, valid_until, edit_at, birth_date, death_date, free_econ_zone, edit_comment, primary_for_enterprise)` (LU) (temporal)
+  - Key FKs: data_source_id, edit_by_user_id, enterprise_id, foreign_participation_id, legal_form_id, sector_id, status_id, unit_size_id.
+- `establishment(id, short_name, name, invalid_codes, sector_id, status_id, edit_by_user_id, unit_size_id, data_source_id, enterprise_id, legal_unit_id, valid_from, valid_to, valid_until, edit_at, birth_date, death_date, free_econ_zone, edit_comment, primary_for_legal_unit, primary_for_enterprise)` (EST) (temporal)
+  - Key FKs: data_source_id, edit_by_user_id, enterprise_id, sector_id, status_id, unit_size_id.
+
+## Common Links for Core Units (EG, EN, LU, EST)
 These tables link to any of the four core statistical units:
-- `external_ident(id, ident, type_id, establishment_id, legal_unit_id, enterprise_id, enterprise_group_id, ...)`: Links a CoreUnit to an `external_ident_type`. Stores various external identifiers.
-- `tag_for_unit(id, tag_id, establishment_id, legal_unit_id, enterprise_id, enterprise_group_id, ...)`: Links a CoreUnit to a `tag`.
-- `unit_notes(id, notes, establishment_id, legal_unit_id, enterprise_id, enterprise_group_id, ...)`: Stores textual notes for a CoreUnit (1-to-1 relationship).
+
+- `external_ident(id, ident, type_id, establishment_id, legal_unit_id, enterprise_id, enterprise_group_id, edit_by_user_id, edit_at, edit_comment)`
+  - Key FKs: edit_by_user_id, enterprise_id, type_id.
+- `tag_for_unit(id, tag_id, establishment_id, legal_unit_id, enterprise_id, enterprise_group_id, edit_by_user_id, created_at, edit_at, edit_comment)`
+  - Key FKs: edit_by_user_id, enterprise_id, tag_id.
+- `unit_notes(id, notes, establishment_id, legal_unit_id, enterprise_id, enterprise_group_id, edit_by_user_id, created_at, edit_at, edit_comment)`
+  - Key FKs: edit_by_user_id, enterprise_id.
+- `enterprise_external_idents(unit_type, external_idents, unit_id, valid_from, valid_to, valid_until)` (temporal)
 
 ## Key Supporting Entities & Classifications
 
+
 ### Activity
-- `activity(id, type, category_id, establishment_id, legal_unit_id, data_source_id, valid_from, valid_after, valid_to, ...)` (temporal): Links `establishment` or `legal_unit` to an `activity_category`.
-  - FKs: `establishment_id` (opt) / `legal_unit_id` (opt), `category_id` (->`activity_category`), `data_source_id`.
-- `activity_category(id, standard_id, path, parent_id, code, name, active, custom, ...)`: Defines activity classifications (e.g., NACE sections, divisions). It is a tree structure using `path` (ltree) and `parent_id`, and has `custom`/`active` flags.
-  - FK: `standard_id` (->`activity_category_standard`).
-- `activity_category_standard(id, code, name, description, code_pattern, obsolete, ...)`: Defines activity standards (e.g., 'NACE_V2.1', 'ISIC_V4').
-- Views for specific standards & custom entries: `activity_category_nace_v2_1(standard, path, code, name, ...)` (writable), `activity_category_isic_v4(standard, path, code, name, ...)` (writable), `activity_category_available_custom(path, name, description, ...)` (writable for new custom categories).
+
+- `activity(id, type, category_id, data_source_id, edit_by_user_id, establishment_id, legal_unit_id, valid_from, valid_to, valid_until, edit_at, edit_comment)` (temporal)
+  - Key FKs: category_id, data_source_id, edit_by_user_id.
+- `activity_category(id, path, label, code, name, standard_id, parent_id, created_at, updated_at, active, level, description, custom)`
+  - Key FKs: parent_id, standard_id.
+- `activity_category_standard(id, code, name, code_pattern, description, obsolete)`
+- `activity_category_isic_v4(path, label, code, name, standard, description)`
+- `activity_category_nace_v2_1(path, label, code, name, standard, description)`
 
 ### Location & Contact
-- `location(id, type, establishment_id, legal_unit_id, region_id, country_id, data_source_id, address_part1, postcode, valid_from, valid_after, valid_to, ...)` (temporal): Links `establishment` or `legal_unit` to geographical information.
-  - FKs: `establishment_id` (opt) / `legal_unit_id` (opt), `region_id`, `country_id`, `data_source_id`.
-- `contact(id, establishment_id, legal_unit_id, data_source_id, web_address, email_address, phone_number, valid_from, valid_after, valid_to, ...)` (temporal): Stores contact information for `establishment` or `legal_unit`.
-  - FKs: `establishment_id` (opt) / `legal_unit_id` (opt), `data_source_id`.
-- `region(id, path, parent_id, code, name, ...)`: Defines administrative or geographical regions. It is a tree structure using `path` (ltree) and `parent_id`.
-- `country(id, iso_2, iso_3, iso_num, name, active, custom, ...)`: Defines countries with ISO codes.
+
+- `location(id, type, postcode, region_id, country_id, establishment_id, legal_unit_id, data_source_id, edit_by_user_id, valid_from, valid_to, valid_until, edit_at, address_part1, address_part2, address_part3, postplace, latitude, longitude, altitude, edit_comment)` (temporal)
+  - Key FKs: country_id, data_source_id, edit_by_user_id, region_id.
+- `contact(id, email_address, establishment_id, legal_unit_id, data_source_id, edit_by_user_id, valid_from, valid_to, valid_until, edit_at, web_address, phone_number, landline, mobile_number, fax_number, edit_comment)` (temporal)
+  - Key FKs: data_source_id, edit_by_user_id.
+- `region(id, path, label, code, name, parent_id, level, center_latitude, center_longitude, center_altitude)`
+  - Key FKs: parent_id.
+- `country(id, name, created_at, updated_at, active, iso_2, iso_3, iso_num, custom)`
+- `country_view(id, name, active, iso_2, iso_3, iso_num, custom)`
 
 ### Persons
-- `person(id, personal_ident, country_id, given_name, family_name, birth_date, sex, ...)`: Stores information about individuals.
-  - FK: `country_id`.
-- `person_for_unit(id, person_id, person_role_id, establishment_id, legal_unit_id, data_source_id, valid_from, valid_after, valid_to, ...)` (temporal): Links a `person` to an `establishment` or `legal_unit` with a specific `person_role`.
-  - FKs: `person_id`, `person_role_id`, `establishment_id` (opt) / `legal_unit_id` (opt), `data_source_id`.
-- `person_role(id, code, name, active, custom, ...)` (code, name, custom/active flags): Defines roles a person can have in relation to a unit.
+
+- `person(id, personal_ident, given_name, middle_name, family_name, country_id, created_at, birth_date, sex, phone_number, mobile_number, address_part1, address_part2, address_part3)`
+  - Key FKs: country_id.
+- `person_for_unit(id, person_id, person_role_id, data_source_id, establishment_id, legal_unit_id, valid_from, valid_to, valid_until)` (temporal)
+  - Key FKs: data_source_id, person_id, person_role_id.
+- `person_role(id, code, name, created_at, updated_at, active, custom)`
 
 ### Statistics
-- `stat_for_unit(id, stat_definition_id, establishment_id, legal_unit_id, data_source_id, value_int, value_float, ..., valid_from, valid_after, valid_to, ...)` (temporal): Stores statistical variable values for an `establishment` or `legal_unit`.
-  - FKs: `establishment_id` (opt) / `legal_unit_id` (opt), `stat_definition_id`, `data_source_id`.
-- `stat_definition(id, code, type, frequency, name, priority, archived, ...)`: Defines statistical variables (code, type, frequency, name).
+
+- `stat_for_unit(id, value_int, value_float, value_string, value_bool, stat_definition_id, data_source_id, establishment_id, legal_unit_id, edit_by_user_id, valid_from, valid_to, valid_until, created_at, edit_at, edit_comment)` (temporal)
+  - Key FKs: data_source_id, edit_by_user_id, stat_definition_id.
+- `stat_definition(id, code, type, name, frequency, description, priority, archived)`
 
 ### General Code/Classification Tables
 These tables typically store codes, names, and flags for `custom` and `active` status.
-- `data_source(id, code, name, active, custom, ...)`
-- `enterprise_group_type(id, code, name, active, custom, ...)`
-- `external_ident_type(id, code, name, by_tag_id, priority, archived, ...)` (can be linked to `tag.id` via `by_tag_id`)
-- `foreign_participation(id, code, name, active, custom, ...)`
-- `legal_form(id, code, name, active, custom, ...)`
-- `reorg_type(id, code, name, description, active, custom, ...)` (reorganization types)
-- `sector(id, path, parent_id, code, name, active, custom, ...)`: Defines economic sectors. It is a tree structure using `path` (ltree) and `parent_id`.
-- `status(id, code, name, assigned_by_default, include_unit_in_reports, priority, active, custom, ...)` (unit status, e.g., active, inactive; has `assigned_by_default`, `include_unit_in_reports` flags)
-- `tag(id, path, parent_id, code, name, type, active, context_valid_from, context_valid_to, ...)`: User-defined tags. It is a tree structure using `path` (ltree) and `parent_id`, and can have an optional time context `context_valid_from/to/on`.
-- `unit_size(id, code, name, active, custom, ...)` (e.g., based on employee count)
+
+- `data_source(id, code, name, created_at, updated_at, active, custom)`
+- `enterprise_group_type(id, code, name, created_at, updated_at, active, custom)`
+- `enterprise_group_role(id, code, name, created_at, updated_at, active, custom)`
+- `external_ident_type(id, code, name, by_tag_id, description, priority, archived)`
+  - Key FKs: by_tag_id.
+- `foreign_participation(id, code, name, created_at, updated_at, active, custom)`
+- `legal_form(id, code, name, created_at, updated_at, active, custom)`
+- `reorg_type(id, code, name, created_at, updated_at, active, description, custom)`
+- `sector(id, path, label, code, name, parent_id, created_at, updated_at, active, description, custom)`
+- `status(id, code, name, created_at, updated_at, active, assigned_by_default, include_unit_in_reports, priority, custom)`
+- `tag(id, path, label, code, name, type, parent_id, context_valid_on, created_at, updated_at, active, level, description, context_valid_from, context_valid_to, context_valid_until, is_scoped_tag)`
+  - Key FKs: parent_id.
+- `unit_size(id, code, name, created_at, updated_at, active, custom)`
 
 ## Temporal Data & History
-- `statistical_unit(unit_type, unit_id, valid_after, valid_to, name, external_idents, primary_activity_category_path, sector_path, legal_form_code, physical_region_path, status_code, ...)` (VIEW): The primary denormalized view providing the current state of all units (EG, E, LU, EST). Key data source for the API.
-- `timeline_establishment(unit_type, unit_id, valid_after, valid_to, name, establishment_id, legal_unit_id, enterprise_id, ...)` , `timeline_legal_unit(unit_type, unit_id, valid_after, valid_to, name, legal_unit_id, enterprise_id, ...)` , `timeline_enterprise(unit_type, unit_id, valid_after, valid_to, name, enterprise_id, ...)` (TABLES): Materialized, versioned history for specific unit types. These are derived from changes in the base tables.
-- `timesegments(unit_type, unit_id, valid_after, valid_to)` (TABLE): Tracks distinct `valid_after`/`valid_to` periods for units, used for historical queries.
-- `statistical_history(resolution, year, month, unit_type, count, births, deaths, ...)` (TABLE): Aggregated data like total counts, births, deaths, and change counts, by resolution (year, year-month) and `unit_type`.
-- `statistical_history_facet(resolution, year, month, unit_type, primary_activity_category_path, sector_path, legal_form_id, physical_region_path, count, births, deaths, ...)` (TABLE): More granular `statistical_history` including facets like activity category, sector, region, etc.
+
+
+### Derivations to create statistical_unit for a complete picture of every EN,LU,ES for every atomic segment. (/search)
+
+- `timepoints(unit_type, unit_id, timepoint)`
+- `timesegments(unit_type, unit_id, valid_from, valid_until)` (temporal)
+- `timeline_establishment, `timeline_legal_unit`, `timeline_enterprise`(unit_type, name, primary_activity_category_path, primary_activity_category_code, secondary_activity_category_path, secondary_activity_category_code, activity_category_paths, sector_path, sector_code, sector_name, data_source_codes, legal_form_code, legal_form_name, physical_postcode, physical_region_path, physical_region_code, postal_postcode, postal_region_path, postal_region_code, email_address, unit_size_code, status_code, invalid_codes, unit_id, primary_activity_category_id, secondary_activity_category_id, sector_id, legal_form_id, physical_region_id, physical_country_id, postal_region_id, postal_country_id, unit_size_id, status_id, last_edit_by_user_id, establishment_id, legal_unit_id, enterprise_id, valid_from, valid_to, valid_until, last_edit_at, birth_date, death_date, search, data_source_ids, physical_address_part1, physical_address_part2, physical_address_part3, physical_postplace, physical_country_iso_2, physical_latitude, physical_longitude, physical_altitude, postal_address_part1, postal_address_part2, postal_address_part3, postal_postplace, postal_country_iso_2, postal_latitude, postal_longitude, postal_altitude, web_address, phone_number, landline, mobile_number, fax_number, include_unit_in_reports, last_edit_comment, has_legal_unit, primary_for_enterprise, primary_for_legal_unit, stats, stats_summary, related_establishment_ids, excluded_establishment_ids, included_establishment_ids, related_legal_unit_ids, excluded_legal_unit_ids, included_legal_unit_ids, related_enterprise_ids, excluded_enterprise_ids, included_enterprise_ids)` (temporal)
+- `statistical_unit(unit_type, external_idents, name, primary_activity_category_path, primary_activity_category_code, secondary_activity_category_path, secondary_activity_category_code, activity_category_paths, sector_path, sector_code, sector_name, data_source_codes, legal_form_code, legal_form_name, physical_postcode, physical_region_path, physical_region_code, postal_postcode, postal_region_path, postal_region_code, email_address, unit_size_code, status_code, invalid_codes, tag_paths, unit_id, primary_activity_category_id, secondary_activity_category_id, sector_id, legal_form_id, physical_region_id, physical_country_id, postal_region_id, postal_country_id, unit_size_id, status_id, last_edit_by_user_id, valid_from, valid_to, valid_until, last_edit_at, birth_date, death_date, search, data_source_ids, physical_address_part1, physical_address_part2, physical_address_part3, physical_postplace, physical_country_iso_2, physical_latitude, physical_longitude, physical_altitude, postal_address_part1, postal_address_part2, postal_address_part3, postal_postplace, postal_country_iso_2, postal_latitude, postal_longitude, postal_altitude, web_address, phone_number, landline, mobile_number, fax_number, include_unit_in_reports, last_edit_comment, has_legal_unit, related_establishment_ids, excluded_establishment_ids, included_establishment_ids, related_legal_unit_ids, excluded_legal_unit_ids, included_legal_unit_ids, related_enterprise_ids, excluded_enterprise_ids, included_enterprise_ids, stats, stats_summary, included_establishment_count, included_legal_unit_count, included_enterprise_count)` (temporal)
+
+### Derivations for UI listing of relevant time periods
+
+- `timesegments_years(year)`
+- `relative_period(id, code, name_when_query, name_when_input, active, scope)`
+- `relative_period_with_time(id, code, name_when_query, name_when_input, valid_on, valid_from, valid_to, active, scope)` (temporal)
+- `time_context(type, ident, name_when_query, name_when_input, code, path, valid_from, valid_to, valid_on, scope)` (temporal)
+
+### Derivations for drilling on facets of statistical_unit (/reports)
+
+- `statistical_unit_facet(unit_type, physical_region_path, primary_activity_category_path, sector_path, legal_form_id, physical_country_id, status_id, valid_from, valid_to, valid_until, count, stats_summary)` (temporal)
+
+### Derivations to create statistical_history for reporting and statistical_history_facet for drilldown.
+
+- `statistical_history(unit_type, name_change_count, resolution, year, month, count, births, deaths, primary_activity_category_change_count, secondary_activity_category_change_count, sector_change_count, legal_form_change_count, physical_region_change_count, physical_country_change_count, physical_address_change_count, stats_summary)`
+- `statistical_history_facet(unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path, physical_region_path, name_change_count, legal_form_id, physical_country_id, unit_size_id, status_id, resolution, year, month, count, births, deaths, primary_activity_category_change_count, secondary_activity_category_change_count, sector_change_count, legal_form_change_count, physical_region_change_count, physical_country_change_count, physical_address_change_count, unit_size_change_count, status_change_count, stats_summary)`
 
 ## Import System
 Handles the ingestion of data from external files.
-- `import_definition(id, slug, name, data_source_id, user_id, strategy, mode, valid, ...)`: Defines an import process (slug, name, strategy, mode).
-  - FKs: `data_source_id`, `user_id`.
-  - `import_definition_step(definition_id, step_id)` (M:N): Links `import_definition` to `import_step`.
-- `import_step(id, code, name, priority, analyse_procedure, process_procedure, ...)`: A stage in an import process (e.g., data validation, transformation).
-  - Defines `analyse_procedure` and `process_procedure`.
-- `import_source_column(id, definition_id, column_name, priority, ...)`: Defines columns expected in the source file for an `import_definition`.
-- `import_data_column(id, step_id, column_name, column_type, purpose, ...)`: Defines columns in the temporary table used by an `import_step`.
-- `import_mapping(id, definition_id, source_column_id, source_value, source_expression, target_data_column_id, ...)`: Maps source data (columns, fixed values, expressions) to target `import_data_column`s for an `import_definition`.
-- `import_job(id, slug, definition_id, user_id, state, upload_table_name, data_table_name, total_rows, imported_rows, ...)`: Represents an instance of an import execution (state machine: waiting_for_upload, analysing, processing, completed, failed).
-  - FKs: `definition_id`, `user_id`.
-  - Manages temporary `upload_table_name` and `data_table_name`.
+
+- `import_definition(id, slug, name, data_source_id, user_id, valid_time_from, created_at, updated_at, active, note, strategy, mode, custom, valid, validation_error, default_retention_period)`
+  - Key FKs: data_source_id, user_id.
+- `import_step(id, code, name, created_at, updated_at, priority, analyse_procedure, process_procedure, is_holistic)`
+- `import_definition_step(definition_id, step_id)`
+  - Key FKs: definition_id, step_id.
+- `import_source_column(id, column_name, definition_id, created_at, updated_at, priority)`
+  - Key FKs: definition_id.
+- `import_data_column(id, column_name, column_type, default_value, is_uniquely_identifying, step_id, created_at, updated_at, priority, purpose, is_nullable)`
+  - Key FKs: step_id.
+- `import_mapping(id, source_value, definition_id, source_column_id, target_data_column_id, created_at, updated_at, source_expression, is_ignored, target_data_column_purpose)`
+  - Key FKs: definition_id, source_column_id, target_data_column_id, target_data_column_id, target_data_column_purpose.
+- `import_job(id, slug, time_context_ident, default_data_source_code, upload_table_name, data_table_name, current_step_code, definition_id, user_id, created_at, updated_at, preparing_data_at, analysis_start_at, analysis_stop_at, changes_approved_at, changes_rejected_at, processing_start_at, processing_stop_at, expires_at, description, note, default_valid_from, default_valid_to, priority, analysis_batch_size, processing_batch_size, definition_snapshot, analysis_completed_pct, analysis_rows_per_sec, current_step_priority, max_analysis_priority, total_analysis_steps_weighted, completed_analysis_steps_weighted, total_rows, imported_rows, import_completed_pct, import_rows_per_sec, last_progress_update, state, error, review, edit_comment)`
+  - Key FKs: definition_id, user_id.
 
 ## Worker System
 Handles background processing. A long-running worker process calls `worker.process_tasks()` to process tasks synchronously.
-- `worker.tasks(id, command, priority, state, created_at, processed_at, duration_ms, error, scheduled_at, worker_pid, payload)`: The main queue table. Stores tasks with their state, payload, and timing. The `worker_pid` column stores the PostgreSQL backend process ID of the session executing the task, used for cleaning up stale connections.
-- `worker.command_registry(command, handler_procedure, before_procedure, after_procedure, queue, ...)`: Maps a `command` name to a PostgreSQL `handler_procedure` and assigns it to a `queue`.
-- `worker.queue_registry(queue, concurrent, ...)`: Defines available task queues (e.g., 'analytics', 'maintenance') and concurrency rules.
+
+- `tasks(id, command, created_at, processed_at, scheduled_at, priority, state, duration_ms, error, worker_pid, payload)`
+  - Key FKs: command, command.
+- `command_registry(command, created_at, handler_procedure, before_procedure, after_procedure, description, queue)`
+  - Key FKs: queue.
+- `queue_registry(queue, description)`
+- `last_processed(table_name, transaction_id)`
 
 ## Auth & System Tables/Views
-- `auth.user(id, sub, email, statbus_role, ...)`: User accounts, stores `statbus_role` (e.g., `admin_user`, `regular_user`).
-- `auth.api_key(id, jti, user_id, token, expires_at, ...)`: API keys for users.
-- `auth.refresh_session(id, jti, user_id, expires_at, ...)`: User refresh tokens for session management.
-- `settings(id, activity_category_standard_id, only_one_setting)` (singleton table): Application-wide settings, e.g., default `activity_category_standard_id`.
-- `region_access(id, user_id, region_id)` (M:N): Links `auth.user` to `region`, controlling data access by region.
-- `activity_category_access(id, user_id, activity_category_id)` (M:N): Links `auth.user` to `activity_category`, controlling data access by activity.
-- `db.migration(id, version, filename, applied_at, ...)`: Tracks applied database schema migrations.
-- `lifecycle_callbacks.registered_callback(label, priority, table_names, generate_procedure, cleanup_procedure)` and `lifecycle_callbacks.supported_table(table_name, ...)`: Internal system for managing data generation and cleanup based on table changes.
-- **Helper Views:**
-    - `*_used_def` (e.g., `country_used_def(id, iso_2, name)`): Views showing distinct classification values currently in use (often for UI dropdowns).
-    - `*_available` (e.g., `legal_form_available(id, code, name, active, custom, ...)`): Views listing all available classification codes (system-defined + custom).
-    - `*_custom` (e.g., `sector_custom(path, name, description, ...)`): Writable views for inserting new custom classification codes.
-    - `*_system` (e.g., `data_source_system(code, name, ...)`): Writable views for inserting new system-defined classification codes (typically used during initial setup).
-    - `*_ordered` (e.g., `external_ident_type_ordered(id, code, name, priority, ...)`): Views providing a specific sort order for classifications, often for UI display.
+
+- `user(id, sub, email, email_confirmed_at, created_at, updated_at, last_sign_in_at, deleted_at, password, encrypted_password, statbus_role)`
+- `user(id, sub, email, email_confirmed_at, created_at, updated_at, last_sign_in_at, deleted_at, password, statbus_role)`
+- `api_key(id, user_id, created_at, expires_at, revoked_at, jti, description, token)`
+  - Key FKs: user_id.
+- `api_key(id, user_id, created_at, expires_at, revoked_at, jti, description, token)`
+- `refresh_session(id, user_id, created_at, last_used_at, expires_at, jti, refresh_version, user_agent, ip_address)`
+  - Key FKs: user_id.
+- `settings(id, activity_category_standard_id, only_one_setting)`
+  - Key FKs: activity_category_standard_id.
+- `region_access(id, user_id, region_id)`
+  - Key FKs: region_id, user_id.
+- `activity_category_access(id, user_id, activity_category_id)`
+  - Key FKs: activity_category_id, user_id.
+- `migration(id, filename, applied_at, version, description, duration_ms)`
+- `registered_callback and `supported_table`(label, table_names, priority, generate_procedure, cleanup_procedure)`
+
+## Helper Views & Common Patterns
+The schema includes numerous helper views, often for UI dropdowns or specific data access patterns. They follow consistent naming conventions:
+
+- `*_upload*`: Stores raw data from user file uploads for an import job. Transient.
+- `*_data*`: Intermediate data table for an import job, holding source data and analysis results. Transient.
+- `*_def*`: The definition of a view, often used as a building block for other views.
+- `*_used*`: Views showing distinct classification values currently in use.
+- `*_available*`: Views listing all available classification codes (system-defined + custom).
+- `*_custom*`: Writable views for inserting new custom classification codes.
+- `*_system*`: Writable views for inserting new system-defined classification codes (typically used during initial setup).
+- `*_ordered*`: Views providing a specific sort order for classifications, often for UI display.
+- `*_active*`: Views that filter for only the `active` records in a classification table.
+- `*__for_portion_of_valid*`: Helper view created by sql_saga for temporal REST updates (FOR PORTION OF).
+- `*_custom_only*`: Helper view for listing and loading custom classification data, separating it from system-provided data.
+
 
 ## Naming Conventions (from `CONVENTIONS.md`)
 - `x_id`: Foreign key to table `x`.
 - `x_ident`: External identifier (not originating from this database).
 - `x_at`: Timestamp with time zone (TIMESTAMPTZ).
 - `x_on`: Date (DATE).
+
