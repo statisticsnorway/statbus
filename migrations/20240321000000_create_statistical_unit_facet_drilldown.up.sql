@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE FUNCTION public.statistical_unit_facet_drilldown(
+CREATE OR REPLACE FUNCTION public.statistical_unit_facet_drilldown(
     unit_type public.statistical_unit_type DEFAULT 'enterprise',
     region_path public.ltree DEFAULT NULL,
     activity_category_path public.ltree DEFAULT NULL,
@@ -112,6 +112,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
                , ar.label
                , ar.code
                , ar.name
+        ORDER BY ar.path
     ),
     breadcrumb_activity_category AS (
         SELECT ac.path
@@ -160,6 +161,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
                , aac.label
                , aac.code
                , aac.name
+        ORDER BY aac.path
     ),
     breadcrumb_sector AS (
         SELECT s.path
@@ -200,6 +202,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
                , "as".label
                , "as".code
                , "as".name
+        ORDER BY "as".path
     ),
     breadcrumb_status AS (
         SELECT s.id
@@ -216,10 +219,11 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
         SELECT s.id
              , s.code
              , s.name
+             , s.priority
         FROM public.status AS s
         -- Every status is available, unless one is selected.
         WHERE status_id IS NULL
-        ORDER BY s.id
+        ORDER BY s.priority
     ),
     aggregated_status_counts AS (
         SELECT s.id
@@ -233,6 +237,8 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
         GROUP BY s.id
                , s.code
                , s.name
+               , s.priority
+        ORDER BY s.priority
     ),
     breadcrumb_legal_form AS (
         SELECT lf.id
@@ -252,7 +258,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
         FROM public.legal_form AS lf
         -- Every sector is available, unless one is selected.
         WHERE legal_form_id IS NULL
-        ORDER BY lf.id
+        ORDER BY lf.name
     ), aggregated_legal_form_counts AS (
         SELECT lf.id
              , lf.code
@@ -265,6 +271,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
         GROUP BY lf.id
                , lf.code
                , lf.name
+        ORDER BY lf.name
     ),
     breadcrumb_physical_country AS (
         SELECT pc.id
@@ -284,7 +291,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
         FROM public.country AS pc
         -- Every country is available, unless one is selected.
         WHERE country_id IS NULL
-        ORDER BY pc.iso_2
+        ORDER BY pc.name
     ), aggregated_physical_country_counts AS (
         SELECT pc.id
              , pc.iso_2
@@ -297,6 +304,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
         GROUP BY pc.id
                , pc.iso_2
                , pc.name
+        ORDER BY pc.name
     )
     SELECT
         jsonb_build_object(
