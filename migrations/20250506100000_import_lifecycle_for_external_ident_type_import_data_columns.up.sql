@@ -46,12 +46,22 @@ BEGIN
         RETURN;
     END IF;
 
-    RAISE DEBUG '[import.cleanup_external_ident_data_columns] For step_id % (external_idents), deleting all source_input columns.', v_step_id;
+    RAISE DEBUG '[import.cleanup_external_ident_data_columns] For step_id % (external_idents), deleting columns for inactive external ident types.', v_step_id;
 
-    -- Delete only those dynamically generated source_input columns whose
-    -- identifier type code is no longer *active*.  This preserves stable priorities
-    -- for still-active codes and avoids creating temporary orphans that could
-    -- trigger unintended side-effects in other lifecycle callbacks.
+    -- Delete source columns that map to data columns which are about to be deleted.
+    -- This cascades to import_mapping and must run before the data columns are deleted.
+    WITH source_cols_to_delete AS (
+        SELECT isc.id
+        FROM public.import_source_column isc
+        JOIN public.import_mapping m ON isc.id = m.source_column_id
+        JOIN public.import_data_column idc ON m.target_data_column_id = idc.id
+        WHERE idc.step_id = v_step_id
+          AND idc.purpose = 'source_input'
+          AND replace(idc.column_name, '_raw', '') NOT IN (SELECT code FROM public.external_ident_type_active)
+    )
+    DELETE FROM public.import_source_column WHERE id IN (SELECT id FROM source_cols_to_delete);
+
+    -- Delete data columns for inactive external ident types.
     DELETE FROM public.import_data_column idc
     WHERE idc.step_id = v_step_id
       AND idc.purpose = 'source_input'

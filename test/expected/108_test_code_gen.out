@@ -1364,4 +1364,260 @@ ORDER BY definition_id, source_column_name NULLS FIRST, source_expression, targe
              8 | pin                |                   | pin_raw                 | source_input               | f          | 
 (10 rows)
 
+\echo "---"
+"---"
+\echo "Testing that data restoration after reset correctly restores the initial state"
+"Testing that data restoration after reset correctly restores the initial state"
+\echo "---"
+"---"
+\echo "Calling reset to restore database (note: this incorrectly deletes system data modified during test)"
+"Calling reset to restore database (note: this incorrectly deletes system data modified during test)"
+SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'all'::public.reset_scope));
+NOTICE:  Dropped index su_ei_pin_idx
+NOTICE:  Dropped index su_ei_tax_ident_idx
+NOTICE:  Dropped index su_s_boy_employees_idx
+NOTICE:  Dropped index su_s_girl_employees_idx
+NOTICE:  Dropped index su_s_men_employees_idx
+NOTICE:  Dropped index su_s_turnover_idx
+NOTICE:  Dropped index su_s_women_employees_idx
+NOTICE:  Dropped index su_ss_boy_employees_count_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_idx
+NOTICE:  Dropped index su_ss_girl_employees_count_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_idx
+NOTICE:  Dropped index su_ss_men_employees_count_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_idx
+NOTICE:  Dropped index su_ss_turnover_count_idx
+NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Dropped index su_ss_women_employees_count_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_idx
+NOTICE:  Created index su_ei_tax_ident for external_ident_type
+NOTICE:  Created index su_ei_pin for external_ident_type
+NOTICE:  Created indices for stat_definition turnover
+NOTICE:  Dropped index su_ei_pin_idx
+NOTICE:  Dropped index su_ei_tax_ident_idx
+NOTICE:  Dropped index su_s_turnover_idx
+NOTICE:  Dropped index su_ss_turnover_count_idx
+NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Created index su_ei_tax_ident for external_ident_type
+NOTICE:  Created indices for stat_definition turnover
+            jsonb_pretty             
+-------------------------------------
+ {                                  +
+     "tag": {                       +
+         "deleted_count": 0         +
+     },                             +
+     "person": {                    +
+         "deleted_count": 0         +
+     },                             +
+     "region": {                    +
+         "deleted_count": 0         +
+     },                             +
+     "sector": {                    +
+         "changed_count": 0,        +
+         "deleted_count": 0         +
+     },                             +
+     "status": {                    +
+         "changed_count": 0,        +
+         "deleted_count": 0         +
+     },                             +
+     "contact": {                   +
+         "deleted_count": 0         +
+     },                             +
+     "activity": {                  +
+         "deleted_count": 0         +
+     },                             +
+     "location": {                  +
+         "deleted_count": 0         +
+     },                             +
+     "settings": {                  +
+         "deleted_count": 0         +
+     },                             +
+     "unit_size": {                 +
+         "changed_count": 0,        +
+         "deleted_count": 0         +
+     },                             +
+     "enterprise": {                +
+         "deleted_count": 0         +
+     },                             +
+     "import_job": {                +
+         "deleted_count": 0         +
+     },                             +
+     "legal_form": {                +
+         "changed_count": 0,        +
+         "deleted_count": 0         +
+     },                             +
+     "legal_unit": {                +
+         "deleted_count": 0         +
+     },                             +
+     "data_source": {               +
+         "changed_count": 0,        +
+         "deleted_count": 0         +
+     },                             +
+     "tag_for_unit": {              +
+         "deleted_count": 0         +
+     },                             +
+     "establishment": {             +
+         "deleted_count": 0         +
+     },                             +
+     "stat_for_unit": {             +
+         "deleted_count": 0         +
+     },                             +
+     "external_ident": {            +
+         "deleted_count": 0         +
+     },                             +
+     "person_for_unit": {           +
+         "deleted_count": 0         +
+     },                             +
+     "stat_definition": {           +
+         "deleted_count": 5         +
+     },                             +
+     "activity_category": {         +
+         "changed_count": 0,        +
+         "deleted_count": 0,        +
+         "changed_children_count": 0+
+     },                             +
+     "external_ident_type": {       +
+         "deleted_count": 2         +
+     }                              +
+ }
+(1 row)
+
+\echo "Re-inserting system data that was deleted during the test to trigger regeneration"
+"Re-inserting system data that was deleted during the test to trigger regeneration"
+-- This simulates restoring the DB to its true pre-test state.
+-- The INSERTs will trigger the lifecycle callbacks and regenerate the required import columns and mappings.
+-- Restore system stat_definition
+-- NOTE: The ON CONFLICT is necessary because reset() does not clear the sequence, leading to key conflicts
+-- if we only used INSERT. This ensures the data is in the state defined by migrations.
+INSERT INTO public.stat_definition(id, code, type, frequency, name, description, priority, archived)
+OVERRIDING SYSTEM VALUE
+VALUES
+  (1, 'employees','int','yearly','Number of employees','The number of people receiving an official salary with government reporting.',2, false),
+  (2, 'turnover','float','yearly','Turnover','The amount of money taken by a business in a particular period.',1, false)
+ON CONFLICT (id) DO UPDATE SET
+    code = EXCLUDED.code,
+    type = EXCLUDED.type,
+    frequency = EXCLUDED.frequency,
+    name = EXCLUDED.name,
+    description = EXCLUDED.description,
+    priority = EXCLUDED.priority,
+    archived = EXCLUDED.archived;
+NOTICE:  Dropped index su_ei_tax_ident_idx
+NOTICE:  Dropped index su_s_turnover_idx
+NOTICE:  Dropped index su_ss_turnover_count_idx
+NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Created index su_ei_tax_ident for external_ident_type
+NOTICE:  Created indices for stat_definition turnover
+NOTICE:  Created indices for stat_definition employees
+NOTICE:  Dropped index su_ei_tax_ident_idx
+NOTICE:  Dropped index su_s_employees_idx
+NOTICE:  Dropped index su_s_turnover_idx
+NOTICE:  Dropped index su_ss_employees_count_idx
+NOTICE:  Dropped index su_ss_employees_sum_idx
+NOTICE:  Dropped index su_ss_turnover_count_idx
+NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Created index su_ei_tax_ident for external_ident_type
+NOTICE:  Created indices for stat_definition turnover
+NOTICE:  Created indices for stat_definition employees
+-- Restore system external_ident_type
+INSERT INTO public.external_ident_type(id, code, name, priority, description, archived)
+OVERRIDING SYSTEM VALUE
+VALUES
+    (1, 'tax_ident', 'Tax Identifier', 1, 'Official tax identification number provided by the government.', false),
+    (2, 'stat_ident', 'Statistical Identifier', 2, 'Identifier assigned by the statistical office for internal tracking.', false)
+ON CONFLICT (id) DO UPDATE SET
+    code = EXCLUDED.code,
+    name = EXCLUDED.name,
+    priority = EXCLUDED.priority,
+    description = EXCLUDED.description,
+    archived = EXCLUDED.archived;
+NOTICE:  Dropped index su_ei_tax_ident_idx
+NOTICE:  Dropped index su_s_employees_idx
+NOTICE:  Dropped index su_s_turnover_idx
+NOTICE:  Dropped index su_ss_employees_count_idx
+NOTICE:  Dropped index su_ss_employees_sum_idx
+NOTICE:  Dropped index su_ss_turnover_count_idx
+NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Created index su_ei_tax_ident for external_ident_type
+NOTICE:  Created index su_ei_stat_ident for external_ident_type
+NOTICE:  Created indices for stat_definition turnover
+NOTICE:  Created indices for stat_definition employees
+NOTICE:  Dropped index su_ei_stat_ident_idx
+NOTICE:  Dropped index su_ei_tax_ident_idx
+NOTICE:  Dropped index su_s_employees_idx
+NOTICE:  Dropped index su_s_turnover_idx
+NOTICE:  Dropped index su_ss_employees_count_idx
+NOTICE:  Dropped index su_ss_employees_sum_idx
+NOTICE:  Dropped index su_ss_turnover_count_idx
+NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Created index su_ei_tax_ident for external_ident_type
+NOTICE:  Created index su_ei_stat_ident for external_ident_type
+NOTICE:  Created indices for stat_definition turnover
+NOTICE:  Created indices for stat_definition employees
+\echo "Checking if tables have been restored to their original baseline state after reset and data restoration"
+"Checking if tables have been restored to their original baseline state after reset and data restoration"
+\echo "Removed import_data_column rows after restoration (should be empty, ignoring priority):"
+"Removed import_data_column rows after restoration (should be empty, ignoring priority):"
+SELECT step_id, column_name, column_type, purpose, is_nullable, default_value, is_uniquely_identifying FROM import_data_column_baseline
+EXCEPT
+SELECT step_id, column_name, column_type, purpose::text, is_nullable, default_value, is_uniquely_identifying FROM public.import_data_column ORDER BY 1,2,3;
+ step_id | column_name | column_type | purpose | is_nullable | default_value | is_uniquely_identifying 
+---------+-------------+-------------+---------+-------------+---------------+-------------------------
+(0 rows)
+
+\echo "Added import_data_column rows after restoration (should be empty, ignoring priority):"
+"Added import_data_column rows after restoration (should be empty, ignoring priority):"
+SELECT step_id, column_name, column_type, purpose::text, is_nullable, default_value, is_uniquely_identifying FROM public.import_data_column
+EXCEPT
+SELECT step_id, column_name, column_type, purpose, is_nullable, default_value, is_uniquely_identifying FROM import_data_column_baseline ORDER BY 1,2,3;
+ step_id | column_name | column_type | purpose | is_nullable | default_value | is_uniquely_identifying 
+---------+-------------+-------------+---------+-------------+---------------+-------------------------
+(0 rows)
+
+\echo "Removed import_source_column rows after restoration (should be empty, ignoring priority):"
+"Removed import_source_column rows after restoration (should be empty, ignoring priority):"
+SELECT definition_id, column_name FROM import_source_column_baseline
+EXCEPT
+SELECT definition_id, column_name FROM public.import_source_column WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = false) ORDER BY 1,2;
+ definition_id | column_name 
+---------------+-------------
+(0 rows)
+
+\echo "Added import_source_column rows after restoration (should be empty, ignoring priority):"
+"Added import_source_column rows after restoration (should be empty, ignoring priority):"
+SELECT definition_id, column_name FROM public.import_source_column WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+EXCEPT
+SELECT definition_id, column_name FROM import_source_column_baseline ORDER BY 1,2;
+ definition_id | column_name 
+---------------+-------------
+(0 rows)
+
+\echo "Removed import_mapping rows after restoration (should be empty):"
+"Removed import_mapping rows after restoration (should be empty):"
+SELECT * FROM import_mapping_baseline
+EXCEPT
+SELECT m.definition_id, isc.column_name, m.source_expression, idc.column_name, m.target_data_column_purpose::text, m.is_ignored, m.source_value
+FROM public.import_mapping m
+LEFT JOIN public.import_source_column isc ON m.source_column_id = isc.id
+LEFT JOIN public.import_data_column idc ON m.target_data_column_id = idc.id
+WHERE m.definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+ORDER BY 1,2,4;
+ definition_id | source_column_name | source_expression | target_data_column_name | target_data_column_purpose | is_ignored | source_value 
+---------------+--------------------+-------------------+-------------------------+----------------------------+------------+--------------
+(0 rows)
+
+\echo "Added import_mapping rows after restoration (should be empty):"
+"Added import_mapping rows after restoration (should be empty):"
+SELECT m.definition_id, isc.column_name, m.source_expression, idc.column_name, m.target_data_column_purpose::text, m.is_ignored, m.source_value
+FROM public.import_mapping m
+LEFT JOIN public.import_source_column isc ON m.source_column_id = isc.id
+LEFT JOIN public.import_data_column idc ON m.target_data_column_id = idc.id
+WHERE m.definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+EXCEPT
+SELECT * FROM import_mapping_baseline
+ORDER BY 1,2,4;
+ definition_id | column_name | source_expression | column_name | target_data_column_purpose | is_ignored | source_value 
+---------------+-------------+-------------------+-------------+----------------------------+------------+--------------
+(0 rows)
+
 ROLLBACK;
