@@ -12,6 +12,10 @@ export const generalInfoSchema = zfd.formData({
   ),
   sector_id: z.coerce.number().optional(),
   legal_form_id: z.coerce.number().optional(),
+  unit_size_id: z.preprocess(
+    (val) => (val === "" ? null : val),
+    z.coerce.number().nullable().optional()
+  ),
   ...editMetadataSchemaFields,
 });
  
