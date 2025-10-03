@@ -299,7 +299,17 @@ export default function ImportJobsPage() {
       id: 'id',
       accessorKey: 'id',
       header: ({ column }) => <DataTableColumnHeader column={column} title="ID" />,
-      cell: ({ row }) => <div className="text-xs">{row.original.id}</div>,
+      cell: ({ row }) => {
+        const job = row.original;
+        if (job.state === 'waiting_for_upload') {
+          return (
+            <Link href={getUploadPathForJob(job)} className="text-xs hover:underline">
+              {job.id}
+            </Link>
+          );
+        }
+        return <div className="text-xs">{job.id}</div>;
+      },
       enableSorting: true,
     },
     {
@@ -308,6 +318,13 @@ export default function ImportJobsPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Description" />,
       cell: ({ row }) => {
         const job = row.original;
+        if (job.state === 'waiting_for_upload') {
+          return (
+            <Link href={getUploadPathForJob(job)} className="font-medium hover:underline">
+              {job.description}
+            </Link>
+          );
+        }
         return <div className="font-medium">{job.description}</div>;
       },
       meta: {
