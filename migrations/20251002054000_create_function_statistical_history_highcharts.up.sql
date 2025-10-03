@@ -48,29 +48,60 @@ BEGIN;
 CREATE OR REPLACE FUNCTION public.statistical_history_highcharts(
 	p_resolution public.history_resolution,
 	p_unit_type public.statistical_unit_type,
-    p_year INTEGER DEFAULT NULL)
+    p_year INTEGER DEFAULT NULL,
+    p_series_codes text[] DEFAULT NULL)
     RETURNS jsonb
     LANGUAGE 'plpgsql'
     COST 100
-    STABLE PARALLEL UNSAFE
+    -- VOLATILE is required because this function creates a temporary table.
+    -- The performance impact is negligible as the temp table is very small,
+    -- and this function is not intended to be used in a context where a STABLE
+    -- function's caching behavior would provide a benefit. The use of a temp
+    -- table is a deliberate choice to avoid code duplication for the series definitions.
+    VOLATILE PARALLEL UNSAFE
 AS $BODY$
 DECLARE
     result jsonb;
+    v_filtered_codes text[];
+    v_invalid_codes text[];
 BEGIN
-    WITH series_definition(priority, code, name) AS (
-        VALUES
-            (10, 'count'::text,                         'Unit Count'::text),
-            (20, 'births',                              'Births'),
-            (30, 'deaths',                              'Deaths'),
-            (40, 'name_change_count',                   'Name Changes'),
-            (50, 'primary_activity_category_change_count', 'Primary Activity Changes'),
-            (60, 'secondary_activity_category_change_count', 'Secondary Activity Changes'),
-            (70, 'sector_change_count',                 'Sector Changes'),
-            (80, 'legal_form_change_count',             'Legal Form Changes'),
-            (90, 'physical_region_change_count',        'Region Changes'),
-            (100, 'physical_country_change_count',      'Country Changes'),
-            (110, 'physical_address_change_count',      'Physical Address Changes')
-    ),
+    -- Use a temporary table for series definitions to avoid code duplication.
+    IF to_regclass('pg_temp.series_definition') IS NOT NULL THEN DROP TABLE series_definition; END IF;
+    CREATE TEMP TABLE series_definition(priority int, is_default boolean, code text, name text) ON COMMIT DROP;
+    INSERT INTO series_definition(priority, is_default, code, name)
+    VALUES
+        (10,  false, 'count',                                    'Unit Count'),
+        (20,  true , 'births',                                   'Births'),
+        (30,  true , 'deaths',                                   'Deaths'),
+        (40,  false, 'name_change_count',                        'Name Changes'),
+        (50,  true , 'primary_activity_category_change_count',   'Primary Activity Changes'),
+        (60,  false, 'secondary_activity_category_change_count', 'Secondary Activity Changes'),
+        (70,  false, 'sector_change_count',                      'Sector Changes'),
+        (80,  false, 'legal_form_change_count',                  'Legal Form Changes'),
+        (90,  true , 'physical_region_change_count',             'Region Changes'),
+        (100, false, 'physical_country_change_count',            'Country Changes'),
+        (110, false, 'physical_address_change_count',            'Physical Address Changes');
+
+    -- Fail fast if any requested series codes are invalid.
+    IF p_series_codes IS NOT NULL AND cardinality(p_series_codes) > 0 THEN
+        SELECT array_agg(req_code)
+        INTO v_invalid_codes
+        FROM unnest(p_series_codes) AS t(req_code)
+        WHERE NOT EXISTS (SELECT 1 FROM series_definition sd WHERE sd.code = t.req_code);
+
+        IF v_invalid_codes IS NOT NULL AND cardinality(v_invalid_codes) > 0 THEN
+            RAISE EXCEPTION 'Invalid series code(s) provided: %', array_to_string(v_invalid_codes, ', ');
+        END IF;
+    END IF;
+
+    v_filtered_codes := CASE
+        WHEN p_series_codes IS NULL OR cardinality(p_series_codes) = 0 THEN
+            (SELECT array_agg(code) FROM series_definition WHERE is_default)
+        ELSE
+            p_series_codes
+    END;
+
+    WITH 
     base AS (
         -- Prepare base data, calculating the Javascript-compatible millisecond timestamp once.
         SELECT
@@ -112,6 +143,12 @@ BEGIN
         'resolution', p_resolution,
         'unit_type', p_unit_type,
         'year', p_year,
+        'available_series', (
+            SELECT jsonb_agg(jsonb_build_object('code', code, 'name', name, 'priority', priority) ORDER BY priority)
+            FROM series_definition
+            WHERE code <> ALL(v_filtered_codes)
+        ),
+        'filtered_series', to_jsonb(v_filtered_codes),
         'series', (
             SELECT jsonb_agg(
                 jsonb_build_object(
@@ -121,6 +158,7 @@ BEGIN
                 ) ORDER BY sd.priority
             )
             FROM series_definition sd, aggregated_data ad
+            WHERE sd.code = ANY(v_filtered_codes)
         )
     ))
     INTO result

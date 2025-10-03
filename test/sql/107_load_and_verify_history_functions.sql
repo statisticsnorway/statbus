@@ -856,4 +856,44 @@ SELECT jsonb_pretty(public.statistical_history_highcharts('year-month', 'establi
 \echo "Test public.statistical_history_highcharts - no data case (enterprise_group)"
 SELECT jsonb_pretty(public.statistical_history_highcharts('year', 'enterprise_group'));
 
+\echo "Test public.statistical_history_highcharts - with custom series filter"
+SELECT jsonb_pretty(public.statistical_history_highcharts(
+    p_resolution => 'year',
+    p_unit_type => 'enterprise',
+    p_series_codes => ARRAY['count', 'deaths']
+));
+
+\echo "Test public.statistical_history_highcharts - with empty series filter (should use default)"
+SELECT jsonb_pretty(public.statistical_history_highcharts(
+    p_resolution => 'year',
+    p_unit_type => 'enterprise',
+    p_series_codes => ARRAY[]::text[]
+));
+
+\echo "Test public.statistical_history_highcharts - with all series specified"
+SELECT jsonb_pretty(public.statistical_history_highcharts(
+    p_resolution => 'year',
+    p_unit_type => 'enterprise',
+    p_series_codes => ARRAY[
+        'count',
+        'births',
+        'deaths',
+        'name_change_count',
+        'primary_activity_category_change_count',
+        'secondary_activity_category_change_count',
+        'sector_change_count',
+        'legal_form_change_count',
+        'physical_region_change_count',
+        'physical_country_change_count',
+        'physical_address_change_count'
+    ]
+));
+
+\echo "Test public.statistical_history_highcharts - with an invalid series code"
+SELECT jsonb_pretty(public.statistical_history_highcharts(
+    p_resolution => 'year',
+    p_unit_type => 'enterprise',
+    p_series_codes => ARRAY['count', 'invalid_code', 'deaths']
+));
+
 \i test/rollback_unless_persist_is_specified.sql
