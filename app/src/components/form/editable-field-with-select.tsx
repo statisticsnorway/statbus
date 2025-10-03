@@ -137,14 +137,14 @@ export const EditableSelectWithMetadata = ({
                       key={option.value}
                       value={option.label}
                       onSelect={() => {
-                        setCurrentValue(option.value);
+                        setCurrentValue(option.value.toString());
                         setOpen(false);
                       }}
                     >
                       <Check
                         className={cn(
                           "mr-2 h-4 w-4",
-                          currentValue === option.value
+                          currentValue.toString() === option.value.toString()
                             ? "opacity-100"
                             : "opacity-0"
                         )}

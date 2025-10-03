@@ -3,8 +3,8 @@ import { z } from "zod";
 export const editMetadataSchemaFields = {
   edit_comment: z.string().optional(),
   data_source_id: z.preprocess(
-    (val) => (val === "" ? undefined : val),
-    z.coerce.number().optional()
+    (val) => (val === "" ? null : val),
+    z.coerce.number().nullable().optional()
   ),
   valid_from: z.string().date(),
   valid_until: z.preprocess(
