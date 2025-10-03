@@ -42,11 +42,7 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
         name="valid_from"
         value={currentEdit.validFrom ?? ""}
       />
-      <input
-        type="hidden"
-        name="valid_until"
-        value={currentEdit.validTo ?? ""}
-      />
+      <input type="hidden" name="valid_to" value={currentEdit.validTo ?? ""} />
       <Separator className="mt-1" />
       <div className="grid grid-cols-3 gap-4">
         <div>

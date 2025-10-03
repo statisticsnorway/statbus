@@ -7,7 +7,7 @@ export const editMetadataSchemaFields = {
     z.coerce.number().nullable().optional()
   ),
   valid_from: z.string().date(),
-  valid_until: z.preprocess(
+  valid_to: z.preprocess(
     (val) => (val === "" ? "infinity" : val),
     z.union([z.string().date(), z.literal("infinity")])
   ),

@@ -48,50 +48,27 @@ export async function updateLegalUnit(
     };
   }
 
-  const { valid_from, valid_until, ...updatedFields } = validatedFields.data;
-  
+  const { valid_from, valid_to, ...updatedFields } = validatedFields.data;
+
   try {
     const { error: metadataError, metadata } = await getEditMetadata(client);
     if (metadataError) return metadataError;
 
-    const { data: exactSlice, error: exactErr } = await client
+    const payload = { ...validatedFields.data, ...metadata };
+
+    const response = await client
       .from("legal_unit__for_portion_of_valid")
-      .select("id")
+      .update(payload)
       .eq("id", parseInt(id, 10))
-      .eq("valid_from", valid_from as string)
-      .eq("valid_until", valid_until as string)
-      .limit(1);
-    if (exactErr) {
+      .gte("valid_from", valid_from)
+      .lte("valid_to", valid_to);
+
+    if (response.status >= 400) {
       return {
-        status: "error" as const,
-        message: exactErr.message,
+        status: "error",
+        message: response.error?.message || response.statusText,
       };
     }
-    if (exactSlice && exactSlice.length === 1) {
-      const response = await client
-        .from("legal_unit")
-        .update({ ...updatedFields, ...metadata })
-        .eq("id", parseInt(id, 10))
-        .eq("valid_from", valid_from as string)
-        .eq("valid_until", valid_until as string);
-
-      if (response.status >= 400) {
-        return { status: "error", message: response.statusText };
-      }
-    } else {
-      const response = await client
-        .from("legal_unit__for_portion_of_valid")
-        .update({ ...validatedFields.data, ...metadata })
-        .eq("id", parseInt(id, 10));
-
-      if (response.status >= 400) {
-        return {
-          status: "error",
-          message: response.error?.message || response.statusText,
-        };
-      }
-    }
-
     revalidatePath("/legal-units/[id]", "page");
   } catch (error) {
     return { status: "error", message: "failed to update legal unit" };
@@ -122,7 +99,7 @@ export async function updateLocation(
     };
   }
   const unitIdField = `${unitType}_id`;
-  const { valid_from, valid_until, ...updatedFields } = validatedFields.data;
+  const { valid_from, valid_to, ...updatedFields } = validatedFields.data;
   try {
     const { error: metadataError, metadata } = await getEditMetadata(client);
     if (metadataError) return metadataError;
@@ -133,7 +110,7 @@ export async function updateLocation(
       .eq(unitIdField, parseInt(id, 10))
       .eq("type", locationType)
       .eq("valid_from", valid_from as string)
-      .eq("valid_until", valid_until as string)
+      .eq("valid_to", valid_to as string)
       .limit(1);
     if (exactErr) {
       return {
@@ -148,7 +125,7 @@ export async function updateLocation(
         .eq(unitIdField, parseInt(id, 10))
         .eq("type", locationType)
         .eq("valid_from", valid_from as string)
-        .eq("valid_until", valid_until as string);
+        .eq("valid_to", valid_to as string);
 
       if (response.status >= 400) {
         return { status: "error", message: response.statusText };
@@ -197,7 +174,7 @@ export async function updateContact(
     };
   }
   const unitIdField = `${unitType}_id`;
-  const { valid_from, valid_until, ...updatedFields } = validatedFields.data;
+  const { valid_from, valid_to, ...updatedFields } = validatedFields.data;
   try {
     const { error: metadataError, metadata } = await getEditMetadata(client);
     if (metadataError) return metadataError;
@@ -207,7 +184,7 @@ export async function updateContact(
       .select(unitIdField)
       .eq(unitIdField, parseInt(id, 10))
       .eq("valid_from", valid_from as string)
-      .eq("valid_until", valid_until as string)
+      .eq("valid_to", valid_to as string)
       .limit(1);
     if (exactErr) {
       return {
@@ -221,7 +198,7 @@ export async function updateContact(
         .update({ ...updatedFields, ...metadata })
         .eq(unitIdField, parseInt(id, 10))
         .eq("valid_from", valid_from as string)
-        .eq("valid_until", valid_until as string);
+        .eq("valid_to", valid_to as string);
 
       if (response.status >= 400) {
         return { status: "error", message: response.statusText };
@@ -270,7 +247,7 @@ export async function updateActivity(
     };
   }
   const unitIdField = `${unitType}_id`;
-  const { valid_from, valid_until, ...updatedFields } = validatedFields.data;
+  const { valid_from, valid_to, ...updatedFields } = validatedFields.data;
 
   try {
     const { error: metadataError, metadata } = await getEditMetadata(client);
@@ -281,7 +258,7 @@ export async function updateActivity(
       .eq(unitIdField, parseInt(id, 10))
       .eq("type", activityType)
       .eq("valid_from", valid_from as string)
-      .eq("valid_until", valid_until as string)
+      .eq("valid_to", valid_to as string)
       .limit(1);
     if (exactErr) {
       return {
@@ -296,7 +273,7 @@ export async function updateActivity(
         .eq(unitIdField, parseInt(id, 10))
         .eq("type", activityType)
         .eq("valid_from", valid_from as string)
-        .eq("valid_until", valid_until as string);
+        .eq("valid_to", valid_to as string);
 
       if (response.status >= 400) {
         return { status: "error", message: response.statusText };
@@ -347,7 +324,7 @@ export async function updateStatisticalVariables(
     };
   }
   const unitIdField = `${unitType}_id`;
-  const { valid_from, valid_until, stat_definition_id, ...updatedFields } =
+  const { valid_from, valid_to, stat_definition_id, ...updatedFields } =
     validatedFields.data;
   try {
     const { error: metadataError, metadata } = await getEditMetadata(client);
@@ -359,7 +336,7 @@ export async function updateStatisticalVariables(
       .eq(unitIdField, parseInt(id, 10))
       .eq("stat_definition_id", stat_definition_id as number)
       .eq("valid_from", valid_from as string)
-      .eq("valid_until", valid_until as string)
+      .eq("valid_to", valid_to as string)
       .limit(1);
     if (exactErr) {
       return {
@@ -374,7 +351,7 @@ export async function updateStatisticalVariables(
         .eq(unitIdField, parseInt(id, 10))
         .eq("stat_definition_id", stat_definition_id as number)
         .eq("valid_from", valid_from as string)
-        .eq("valid_until", valid_until as string);
+        .eq("valid_to", valid_to as string);
 
       if (response.status >= 400) {
         return { status: "error", message: response.statusText };
