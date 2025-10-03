@@ -24,6 +24,9 @@ export const locationSchema = zfd.formData({
   postplace: z.string().optional(),
   region_id: z.coerce.number().optional(),
   country_id: z.coerce.number().optional(),
+  latitude: z.coerce.number().optional(),
+  longitude: z.coerce.number().optional(),
+  altitude: z.coerce.number().optional(),
   ...editMetadataSchemaFields,
 });
 
