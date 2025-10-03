@@ -14353,63 +14353,72 @@ FROM public.statistical_unit_history(
          "Turnover": 3000000,            +
          "valid_to": "2015-12-31",       +
          "Employees": 3,                 +
-         "valid_from": "2013-01-01"      +
+         "valid_from": "2013-01-01",     +
+         "Establishments": 1             +
      },                                  +
      {                                   +
          "name": "KRAN & SPESIALLØFT AS",+
          "Turnover": 12000000,           +
          "valid_to": "2018-12-31",       +
          "Employees": 9,                 +
-         "valid_from": "2016-01-01"      +
+         "valid_from": "2016-01-01",     +
+         "Establishments": 1             +
      },                                  +
      {                                   +
          "name": "KRAN & SPESIALLØFT AS",+
          "Turnover": 60000000,           +
          "valid_to": "2019-02-28",       +
          "Employees": 25,                +
-         "valid_from": "2019-01-01"      +
+         "valid_from": "2019-01-01",     +
+         "Establishments": 1             +
      },                                  +
      {                                   +
          "name": "KRAN & SPESIALLØFT AS",+
          "Turnover": 60000000,           +
          "valid_to": "2019-04-30",       +
          "Employees": 30,                +
-         "valid_from": "2019-03-01"      +
+         "valid_from": "2019-03-01",     +
+         "Establishments": 1             +
      },                                  +
      {                                   +
          "name": "KRAN & SPESIALLØFT AS",+
          "Turnover": 60000000,           +
          "valid_to": "2019-06-30",       +
          "Employees": 35,                +
-         "valid_from": "2019-05-01"      +
+         "valid_from": "2019-05-01",     +
+         "Establishments": 1             +
      },                                  +
      {                                   +
          "name": "KRAN & SPESIALLØFT AS",+
          "Turnover": 60000000,           +
          "valid_to": "2019-08-31",       +
          "Employees": 40,                +
-         "valid_from": "2019-07-01"      +
+         "valid_from": "2019-07-01",     +
+         "Establishments": 1             +
      },                                  +
      {                                   +
          "name": "KRAN & SPESIALLØFT AS",+
          "Turnover": 60000000,           +
          "valid_to": "2019-10-31",       +
          "Employees": 50,                +
-         "valid_from": "2019-09-01"      +
+         "valid_from": "2019-09-01",     +
+         "Establishments": 1             +
      },                                  +
      {                                   +
          "name": "KRAN & SPESIALLØFT AS",+
          "Turnover": 60000000,           +
          "valid_to": "2019-12-31",       +
          "Employees": 40,                +
-         "valid_from": "2019-11-01"      +
+         "valid_from": "2019-11-01",     +
+         "Establishments": 1             +
      },                                  +
      {                                   +
          "name": "KRAN & SPESIALLØFT AS",+
          "Turnover": 70000000,           +
          "valid_to": "infinity",         +
          "Employees": 45,                +
-         "valid_from": "2020-01-01"      +
+         "valid_from": "2020-01-01",     +
+         "Establishments": 1             +
      }                                   +
  ]
 (1 row)
@@ -14476,7 +14485,9 @@ SELECT jsonb_pretty(
                      45                  +
                  ]                       +
              ],                          +
-             "name": "Employees *"       +
+             "name": "Employees",        +
+             "priority": 1,              +
+             "is_current": true          +
          },                              +
          {                               +
              "data": [                   +
@@ -14517,7 +14528,52 @@ SELECT jsonb_pretty(
                      70000000            +
                  ]                       +
              ],                          +
-             "name": "Turnover *"        +
+             "name": "Turnover",         +
+             "priority": 2,              +
+             "is_current": true          +
+         },                              +
+         {                               +
+             "data": [                   +
+                 [                       +
+                     1356998400000,      +
+                     1                   +
+                 ],                      +
+                 [                       +
+                     1451606400000,      +
+                     1                   +
+                 ],                      +
+                 [                       +
+                     1546300800000,      +
+                     1                   +
+                 ],                      +
+                 [                       +
+                     1551398400000,      +
+                     1                   +
+                 ],                      +
+                 [                       +
+                     1556668800000,      +
+                     1                   +
+                 ],                      +
+                 [                       +
+                     1561939200000,      +
+                     1                   +
+                 ],                      +
+                 [                       +
+                     1567296000000,      +
+                     1                   +
+                 ],                      +
+                 [                       +
+                     1572566400000,      +
+                     1                   +
+                 ],                      +
+                 [                       +
+                     1577836800000,      +
+                     1                   +
+                 ]                       +
+             ],                          +
+             "name": "Establishments",   +
+             "priority": 9,              +
+             "is_current": true          +
          }                               +
      ],                                  +
      "unit_name": "KRAN & SPESIALLØFT AS"+

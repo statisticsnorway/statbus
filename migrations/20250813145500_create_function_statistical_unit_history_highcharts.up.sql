@@ -24,7 +24,7 @@ BEGIN
             '(stats_summary->%L->>''sum'')::%s AS %I',
             sd.code,
             sd.type,
-            COALESCE(sd.name, sd.code) -- safe alias
+            sd.code -- Use stable code as the key
         ),
         ', '
     )
@@ -94,12 +94,16 @@ BEGIN
         WHERE key NOT IN ('name', 'unit_id', 'valid_from', 'valid_to')
     ),
     metrics AS (
-        -- Join with stat_definition to get priority for sorting.
+        -- Join with stat_definition to get priority and display name for sorting and labeling series.
         SELECT
             mk.key,
+            COALESCE(sd.name, mk.key) AS display_name,
             CASE
-                WHEN mk.key = 'Establishments' THEN 9 -- Assign a fixed priority for Establishments
-                ELSE COALESCE(sd.priority, 99)
+                -- The hardcoded 'Establishments' metric is a special case and is always sorted last (high priority number).
+                WHEN mk.key = 'Establishments' THEN 999
+                -- For all other metrics, use the priority from stat_definition if available.
+                -- If not, assign a stable, sequential priority starting from 100 to ensure a consistent order.
+                ELSE COALESCE(sd.priority, 100 + row_number() OVER (PARTITION BY (sd.priority IS NULL) ORDER BY mk.key))
             END AS priority,
             -- Check if any historical record for this metric has an open-ended validity ('infinity').
             EXISTS (
@@ -108,11 +112,13 @@ BEGIN
                 WHERE j->>'valid_to' = 'infinity' AND j ? mk.key
             ) AS has_infinity
         FROM metric_keys AS mk
-        LEFT JOIN public.stat_definition AS sd ON sd.name = mk.key OR sd.code = mk.key
+        LEFT JOIN public.stat_definition AS sd ON sd.code = mk.key
     )
     SELECT jsonb_agg(
         jsonb_build_object(
-            'name', m.key || CASE WHEN m.has_infinity THEN ' *' ELSE '' END, -- Append '*' if data is current
+            'code', m.key,
+            'name', m.display_name,
+            'is_current', m.has_infinity,
             'priority', m.priority,
             'data', (
                 -- Aggregate historical data points for this metric.
