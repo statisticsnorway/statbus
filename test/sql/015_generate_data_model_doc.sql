@@ -39,6 +39,9 @@ DECLARE
         {"pattern": "%__for_portion_of_valid", "description": "Helper view created by sql_saga for temporal REST updates (FOR PORTION OF)."},
         {"pattern": "%_custom_only", "description": "Helper view for listing and loading custom classification data, separating it from system-provided data."}
     ]'::jsonb;
+    v_enum_record RECORD;
+    v_enum_markdown TEXT;
+    v_enums_str TEXT;
 
     -- Define sections and entities within them. This structure is hardcoded to match the desired output.
     c_sections CURSOR FOR
@@ -92,6 +95,7 @@ DECLARE
             '{"schema": "public", "name": "tag"}'::jsonb,
             '{"schema": "public", "name": "unit_size"}'::jsonb
         )),
+        (3, 2, 6, 'Enum Definitions', 'Enumerated types used across the schema, with their possible values.', NULL),
         (4, 1, 1, 'Temporal Data & History', NULL, NULL),
         (4, 2, 1, 'Derivations to create statistical_unit for a complete picture of every EN,LU,ES for every atomic segment. (/search)', NULL, jsonb_build_array(
             '{"schema": "public", "name": "timepoints"}'::jsonb,
@@ -166,6 +170,25 @@ This document provides a compact overview of the StatBus database schema, focusi
             LOOP
                 v_markdown := v_markdown || format('- `*%s*`: %s' || E'\n', regexp_replace(v_pattern_data->>'pattern', '%', '', 'g'), v_pattern_data->>'description');
             END LOOP;
+        END IF;
+
+        IF v_section_record.title = 'Enum Definitions' THEN
+            v_enum_markdown := E'\n';
+            FOR v_enum_record IN
+                SELECT
+                    t.typname AS enum_name,
+                    n.nspname AS enum_schema,
+                    string_agg(format('`%s`', e.enumlabel), ', ' ORDER BY e.enumsortorder) AS enum_values
+                FROM pg_type t
+                JOIN pg_enum e ON t.oid = e.enumtypid
+                JOIN pg_namespace n ON n.oid = t.typnamespace
+                WHERE t.typtype = 'e' AND n.nspname IN ('public', 'worker', 'auth', 'db', 'lifecycle_callbacks')
+                GROUP BY n.nspname, t.typname
+                ORDER BY n.nspname, t.typname
+            LOOP
+                v_enum_markdown := v_enum_markdown || format(E'- **`%s.%s`**: %s\n', v_enum_record.enum_schema, v_enum_record.enum_name, v_enum_record.enum_values);
+            END LOOP;
+            v_markdown := v_markdown || v_enum_markdown;
         END IF;
 
         IF v_section_record.entities IS NULL THEN
@@ -248,6 +271,22 @@ This document provides a compact overview of the StatBus database schema, focusi
                 END IF;
             END IF;
 
+            WITH enums AS (
+                SELECT t.typname, n.nspname
+                FROM pg_type t
+                JOIN pg_namespace n ON n.oid = t.typnamespace
+                WHERE t.typtype = 'e'
+            )
+            SELECT string_agg(format('`%s` (`%s.%s`)', c.column_name, c.udt_schema, c.udt_name), ', ' ORDER BY c.column_name)
+            INTO v_enums_str
+            FROM information_schema.columns c
+            JOIN enums ON c.udt_name = enums.typname AND c.udt_schema = enums.nspname
+            WHERE c.table_schema = v_entity_data->>'schema'
+              AND c.table_name = v_entity_data->>'name';
+
+            IF v_enums_str IS NOT NULL THEN
+                v_markdown := v_markdown || format(E'\n  - Enums: %s.', v_enums_str);
+            END IF;
         END LOOP;
     END LOOP;
     CLOSE c_sections;
