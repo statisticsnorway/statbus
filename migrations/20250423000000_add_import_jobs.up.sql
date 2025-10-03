@@ -1456,7 +1456,7 @@ BEGIN
   -- to use an `unnest`/`JOIN` strategy that leverages the much faster B-tree primary key index.
 
   -- Add GIST index on daterange(valid_from, valid_until) for efficient temporal_merge lookups.
-  EXECUTE format('CREATE INDEX ON public.%I USING GIST (daterange(valid_from, valid_until, ''[]''))', job.data_table_name);
+  EXECUTE format('CREATE INDEX ON public.%I USING GIST (daterange(valid_from, valid_until, ''[)''))', job.data_table_name);
   RAISE DEBUG '[Job %] Added GIST index on validity daterange to data table %', job.id, job.data_table_name;
 
   -- Create indexes on uniquely identifying source_input columns to speed up lookups within analysis steps.

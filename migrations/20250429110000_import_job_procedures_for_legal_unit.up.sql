@@ -22,11 +22,27 @@ BEGIN
     SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = 'legal_unit';
     IF NOT FOUND THEN RAISE EXCEPTION '[Job %] legal_unit target step not found in snapshot', p_job_id; END IF;
 
+    v_sql := format($$
+        UPDATE %1$I dt SET
+            action = 'skip'::public.import_row_action_type,
+            last_completed_priority = %2$L
+        WHERE dt.row_id <@ $1
+          AND dt.action IS DISTINCT FROM 'skip'
+          AND NULLIF(dt.name_raw, '') IS NULL
+          AND NULLIF(dt.legal_form_code_raw, '') IS NULL
+          AND NULLIF(dt.sector_code_raw, '') IS NULL
+          AND NULLIF(dt.unit_size_code_raw, '') IS NULL
+          AND NULLIF(dt.birth_date_raw, '') IS NULL
+          AND NULLIF(dt.death_date_raw, '') IS NULL
+          AND dt.status_id IS NULL; -- status_id is resolved from status_code_raw in a prior step
+    $$, v_data_table_name, v_step.priority);
+    EXECUTE v_sql USING p_batch_row_id_ranges;
+
     -- Step 1: Materialize the batch data into a temp table for performance.
     IF to_regclass('pg_temp.t_batch_data') IS NOT NULL THEN DROP TABLE t_batch_data; END IF;
     v_sql := format($$
         CREATE TEMP TABLE t_batch_data ON COMMIT DROP AS
-        SELECT dt.row_id, dt.operation, dt.name_raw, dt.status_id,
+        SELECT dt.row_id, dt.operation, dt.name_raw, dt.status_id, dt.legal_unit_id,
                dt.legal_form_code_raw, dt.sector_code_raw, dt.unit_size_code_raw,
                dt.birth_date_raw, dt.death_date_raw
         FROM %I dt
@@ -71,7 +87,7 @@ BEGIN
         WITH lookups AS (
             SELECT
                 bd.row_id as data_row_id,
-                bd.operation, bd.name_raw as name, bd.status_id,
+                bd.operation, bd.name_raw as name, bd.status_id, bd.legal_unit_id,
                 bd.legal_form_code_raw as legal_form_code,
                 bd.sector_code_raw as sector_code,
                 bd.unit_size_code_raw as unit_size_code,
@@ -99,18 +115,18 @@ BEGIN
             birth_date = l.resolved_typed_birth_date,
             death_date = l.resolved_typed_death_date,
             state = CASE
-                        WHEN l.operation != 'update' AND NULLIF(trim(l.name), '') IS NULL THEN 'error'::public.import_data_state
+                        WHEN l.legal_unit_id IS NULL AND NULLIF(trim(l.name), '') IS NULL THEN 'error'::public.import_data_state
                         WHEN l.status_id IS NULL THEN 'error'::public.import_data_state
                         ELSE 'analysing'::public.import_data_state
                     END,
             action = CASE
-                        WHEN l.operation != 'update' AND NULLIF(trim(l.name), '') IS NULL THEN 'skip'::public.import_row_action_type
+                        WHEN l.legal_unit_id IS NULL AND NULLIF(trim(l.name), '') IS NULL THEN 'skip'::public.import_row_action_type
                         WHEN l.status_id IS NULL THEN 'skip'::public.import_row_action_type
                         ELSE dt.action
                      END,
             errors = CASE
-                        WHEN l.operation != 'update' AND NULLIF(trim(l.name), '') IS NULL THEN
-                            dt.errors || jsonb_build_object('name_raw', 'Missing required name')
+                        WHEN l.legal_unit_id IS NULL AND NULLIF(trim(l.name), '') IS NULL THEN
+                            dt.errors || jsonb_build_object('name_raw', 'Missing required name for legal unit.')
                         WHEN l.status_id IS NULL THEN
                             dt.errors || jsonb_build_object('status_code_raw', 'Status code could not be resolved and is required for this operation.')
                         ELSE
@@ -335,10 +351,10 @@ BEGIN
             CALL sql_saga.temporal_merge(
                 target_table => 'public.legal_unit'::regclass,
                 source_table => 'temp_lu_demotion_source'::regclass,
-                identity_columns => ARRAY['id'],
-                ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
+                primary_identity_columns => ARRAY['id'],
                 mode => 'PATCH_FOR_PORTION_OF',
-                source_row_id_column => 'row_id'
+                row_id_column => 'row_id',
+                ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
             );
             FOR v_batch_result IN SELECT * FROM pg_temp.temporal_merge_feedback WHERE status = 'ERROR' LOOP
                  RAISE WARNING '[Job %] process_legal_unit: Error during demotion for LU ID %: %', p_job_id, (v_batch_result.target_entity_ids->0->>'id')::INT, v_batch_result.error_message;
@@ -351,10 +367,10 @@ BEGIN
         -- Determine merge mode from job strategy
         v_merge_mode := CASE v_definition.strategy
             WHEN 'insert_or_replace' THEN 'MERGE_ENTITY_REPLACE'::sql_saga.temporal_merge_mode
-            WHEN 'replace_only' THEN 'MERGE_ENTITY_REPLACE'::sql_saga.temporal_merge_mode
+            WHEN 'replace_only' THEN 'REPLACE_FOR_PORTION_OF'::sql_saga.temporal_merge_mode
             WHEN 'insert_or_update' THEN 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode
-            WHEN 'update_only' THEN 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode
-            ELSE 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode -- Default to safer patch
+            WHEN 'update_only' THEN 'UPDATE_FOR_PORTION_OF'::sql_saga.temporal_merge_mode
+            ELSE 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode -- Default to safer patch for other cases
         END;
         RAISE DEBUG '[Job %] process_legal_unit: Determined merge mode % from strategy %', p_job_id, v_merge_mode, v_definition.strategy;
 
@@ -362,17 +378,17 @@ BEGIN
         CALL sql_saga.temporal_merge(
             target_table => 'public.legal_unit'::regclass,
             source_table => 'temp_lu_source_view'::regclass,
-            identity_columns => ARRAY['id'],
-            ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at', 'invalid_codes'],
+            primary_identity_columns => ARRAY['id'],
             mode => v_merge_mode,
-            identity_correlation_column => 'founding_row_id',
+            row_id_column => 'data_row_id',
+            founding_id_column => 'founding_row_id',
             update_source_with_identity => true,
             update_source_with_feedback => true,
             feedback_status_column => 'merge_status',
             feedback_status_key => 'legal_unit',
             feedback_error_column => 'errors',
             feedback_error_key => 'legal_unit',
-            source_row_id_column => 'data_row_id'
+            ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at', 'invalid_codes']
         );
 
         -- With feedback written directly to the data table, we just need to count successes and errors.

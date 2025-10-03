@@ -417,7 +417,7 @@ BEGIN
             END;
             -- Mark the job as failed
             UPDATE public.import_job
-            SET error = jsonb_build_object('analyse_location_error', format($$Unexpected error for step %1$s: %2$s$$, p_step_code /* %1$s */, error_message /* %2$s */)),
+            SET error = jsonb_build_object('analyse_location_error', format($SQL$Unexpected error for step %1$s: %2$s$SQL$, p_step_code /* %1$s */, error_message /* %2$s */)),
                 state = 'finished'
             WHERE id = p_job_id;
             RAISE DEBUG '[Job %] analyse_location: Marked job as failed due to unexpected error for step %: %', p_job_id, p_step_code, error_message;
@@ -453,6 +453,7 @@ DECLARE
     v_select_est_id_expr TEXT;
     v_source_view_name TEXT;
     v_relevant_rows_count INT;
+    v_merge_mode sql_saga.temporal_merge_mode;
 BEGIN
     RAISE DEBUG '[Job %] process_location (Batch) for step_code %: Starting operation for range %s', p_job_id, p_step_code, p_batch_row_id_ranges::text;
 
@@ -567,21 +568,31 @@ BEGIN
     RAISE DEBUG '[Job %] process_location: Calling sql_saga.temporal_merge for % rows (step: %).', p_job_id, v_relevant_rows_count, p_step_code;
 
     BEGIN
+        -- Determine merge mode from job strategy
+        v_merge_mode := CASE v_definition.strategy
+            WHEN 'insert_or_replace' THEN 'MERGE_ENTITY_REPLACE'::sql_saga.temporal_merge_mode
+            WHEN 'replace_only' THEN 'REPLACE_FOR_PORTION_OF'::sql_saga.temporal_merge_mode
+            WHEN 'insert_or_update' THEN 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode
+            WHEN 'update_only' THEN 'UPDATE_FOR_PORTION_OF'::sql_saga.temporal_merge_mode
+            ELSE 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode -- Default to safer patch for other cases
+        END;
+        RAISE DEBUG '[Job %] process_location: Determined merge mode % from strategy %', p_job_id, v_merge_mode, v_definition.strategy;
+
         CALL sql_saga.temporal_merge(
             target_table => 'public.location'::regclass,
             source_table => v_source_view_name::regclass,
-            identity_columns => ARRAY['id'],
+            primary_identity_columns => ARRAY['id'],
             natural_identity_columns => ARRAY['legal_unit_id', 'establishment_id', 'type'],
-            ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
-            mode => 'MERGE_ENTITY_PATCH',
-            identity_correlation_column => 'founding_row_id',
+            mode => v_merge_mode,
+            row_id_column => 'row_id',
+            founding_id_column => 'founding_row_id',
             update_source_with_identity => true,
             update_source_with_feedback => true,
             feedback_status_column => 'merge_status',
             feedback_status_key => p_step_code,
             feedback_error_column => 'errors',
             feedback_error_key => p_step_code,
-            source_row_id_column => 'row_id'
+            ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
         );
 
         v_sql := format($$ SELECT count(*) FROM public.%1$I WHERE row_id <@ $1 AND errors->%2$L IS NOT NULL $$,

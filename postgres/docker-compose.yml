@@ -41,9 +41,9 @@ services:
       - "all"
       - "all_except_app"
     # Prevent the database from using too much memory
-    shm_size: 4g
-    mem_limit: 4G
-    mem_reservation: 2G
+    shm_size: ${DB_SHM_SIZE:-4g}
+    mem_limit: ${DB_MEM_LIMIT:-4G}
+    mem_reservation: ${DB_MEM_RESERVATION:-2G}
     entrypoint: /usr/local/bin/start-postgres.sh # Override entrypoint to use our script first
     # The original CMD ["postgres"] from Dockerfile is implicitly used by docker-entrypoint.sh
     # if no command is specified here after the entrypoint. Our start-postgres.sh

@@ -61,6 +61,7 @@ SELECT sql_saga.add_unique_key(
     unique_key_name => 'legal_unit_enterprise_id_primary_valid'
 );
 
+
 -- Add a view for portion-of updates, allowing for easier updates to specific time slices.
 SELECT sql_saga.add_for_portion_of_view('public.legal_unit');
 

@@ -10,11 +10,11 @@ SET client_min_messages TO NOTICE;
 CREATE SCHEMA IF NOT EXISTS trigger_test;
 
 CREATE TABLE trigger_test.temporal_table (
-    id SERIAL PRIMARY KEY,
+    id SERIAL,
     description TEXT,
     valid_from DATE NOT NULL,
-    valid_until DATE, -- sql_saga will make it NOT NULL
-    valid_to DATE -- sql_saga will make it NOT NULL
+    valid_until DATE, -- sql_saga will enforce NOT NULL in trigger
+    valid_to DATE -- sql_saga will enforce NOT NULL in trigger
 );
 
 -- Register with sql_saga and enable synchronization
@@ -23,6 +23,7 @@ SELECT sql_saga.add_era(
     'trigger_test.temporal_table'::regclass,
     synchronize_valid_to_column => 'valid_to'
 );
+SELECT sql_saga.add_unique_key('trigger_test.temporal_table',ARRAY['id'], key_type => 'primary'::sql_saga.unique_key_type);
 
 -- Function to display table contents
 CREATE OR REPLACE FUNCTION trigger_test.show_table()
@@ -138,6 +139,7 @@ SELECT * FROM trigger_test.show_table() WHERE id = :base_update_id_id; -- Expect
 
 -- Cleanup
 -- No need to drop trigger, sql_saga does it with drop_era
+SELECT sql_saga.drop_unique_key('trigger_test.temporal_table',ARRAY['id']);
 SELECT sql_saga.drop_era('trigger_test.temporal_table'::regclass);
 DROP TABLE trigger_test.temporal_table;
 DROP FUNCTION trigger_test.show_table();

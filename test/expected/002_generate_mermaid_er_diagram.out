@@ -1070,6 +1070,7 @@ erDiagram
 		text fk_helper_function
 		name uk_update_trigger
 		name uk_delete_trigger
+		name fk_index_name
 	}
 	sql_saga_system_time_era["sql_saga.system_time_era"] {
 		name table_schema
@@ -1103,7 +1104,12 @@ erDiagram
 		name era_name
 		name unique_constraint
 		name exclude_constraint
+		name check_constraint
 		text predicate
+		name[] mutually_exclusive_columns
+		name[] partial_index_names
+		name[] partial_exclude_constraint_names
+		name[] pk_consistency_constraint_names
 	}
 	sql_saga_updatable_view["sql_saga.updatable_view"] {
 		name view_schema

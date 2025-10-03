@@ -352,7 +352,7 @@ SELECT row_id, state, action, valid_from, valid_to, errors, invalid_codes, merge
  row_id | state | action | valid_from |  valid_to  |                                          errors                                           | invalid_codes | merge_status 
 --------+-------+--------+------------+------------+-------------------------------------------------------------------------------------------+---------------+--------------
       1 | error | skip   | 2023-01-01 | 2023-12-31 | {"tax_ident_raw": "No identifier specified", "stat_ident_raw": "No identifier specified"} | {}            | {}
-      2 | error | skip   | 2023-01-01 | 2023-12-31 | {"name_raw": "Missing required name"}                                                     | {}            | {}
+      2 | error | skip   | 2023-01-01 | 2023-12-31 | {"name_raw": "Missing required name for legal unit."}                                     | {}            | {}
       3 | error | skip   |            | 2023-12-31 | {"valid_from_raw": "Missing mandatory value"}                                             | {}            | {}
 (3 rows)
 
@@ -472,9 +472,9 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error FR
 \echo "Data table for import_70_06_01_lu_empty_name (expect errors in process_legal_unit from batch_replace):"
 "Data table for import_70_06_01_lu_empty_name (expect errors in process_legal_unit from batch_replace):"
 SELECT row_id, state, action, valid_from, valid_to, errors, invalid_codes, merge_status FROM public.import_70_06_01_lu_empty_name_data ORDER BY row_id;
- row_id | state | action | valid_from |  valid_to  |                errors                 | invalid_codes | merge_status 
---------+-------+--------+------------+------------+---------------------------------------+---------------+--------------
-      1 | error | skip   | 2023-01-01 | 2023-12-31 | {"name_raw": "Missing required name"} | {}            | {}
+ row_id | state | action | valid_from |  valid_to  |                        errors                         | invalid_codes | merge_status 
+--------+-------+--------+------------+------------+-------------------------------------------------------+---------------+--------------
+      1 | error | skip   | 2023-01-01 | 2023-12-31 | {"name_raw": "Missing required name for legal unit."} | {}            | {}
 (1 row)
 
 ROLLBACK TO scenario_70_6_batch_replace_errors;

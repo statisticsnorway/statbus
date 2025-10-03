@@ -25,7 +25,7 @@ BEGIN
     IF to_regclass('pg_temp.t_batch_data') IS NOT NULL THEN DROP TABLE t_batch_data; END IF;
     v_sql := format($$
         CREATE TEMP TABLE t_batch_data ON COMMIT DROP AS
-        SELECT dt.row_id, dt.operation, dt.name_raw, dt.status_id,
+        SELECT dt.row_id, dt.operation, dt.name_raw, dt.status_id, establishment_id,
                dt.sector_code_raw, dt.unit_size_code_raw, dt.birth_date_raw, dt.death_date_raw
         FROM %I dt
         JOIN unnest($1) AS r(range)
@@ -67,7 +67,7 @@ BEGIN
         WITH lookups AS (
             SELECT
                 bd.row_id as data_row_id,
-                bd.operation, bd.name_raw as name, bd.status_id,
+                bd.operation, bd.name_raw as name, bd.status_id, bd.establishment_id,
                 bd.sector_code_raw as sector_code, bd.unit_size_code_raw as unit_size_code,
                 bd.birth_date_raw as birth_date, bd.death_date_raw as death_date,
                 s.resolved_id as resolved_sector_id,
@@ -89,17 +89,17 @@ BEGIN
             birth_date = l.resolved_typed_birth_date,
             death_date = l.resolved_typed_death_date,
             state = CASE
-                        WHEN l.operation != 'update' AND NULLIF(trim(l.name), '') IS NULL THEN 'error'::public.import_data_state
+                        WHEN l.establishment_id IS NULL AND NULLIF(trim(l.name), '') IS NULL THEN 'error'::public.import_data_state
                         WHEN l.status_id IS NULL THEN 'error'::public.import_data_state
                         ELSE 'analysing'::public.import_data_state
                     END,
             action = CASE
-                        WHEN l.operation != 'update' AND NULLIF(trim(l.name), '') IS NULL THEN 'skip'::public.import_row_action_type
+                        WHEN l.establishment_id IS NULL AND NULLIF(trim(l.name), '') IS NULL THEN 'skip'::public.import_row_action_type
                         WHEN l.status_id IS NULL THEN 'skip'::public.import_row_action_type
                         ELSE dt.action
                      END,
             errors = CASE
-                        WHEN l.operation != 'update' AND NULLIF(trim(l.name), '') IS NULL THEN
+                        WHEN l.establishment_id IS NULL AND NULLIF(trim(l.name), '') IS NULL THEN
                             dt.errors || jsonb_build_object('name_raw', 'Missing required name')
                         WHEN l.status_id IS NULL THEN
                             dt.errors || jsonb_build_object('status_code_raw', 'Status code could not be resolved and is required for this operation.')
@@ -206,10 +206,6 @@ DECLARE
     error_message TEXT;
     v_batch_result RECORD;
     rec_created_est RECORD;
-    v_select_enterprise_id_expr TEXT := 'NULL::INTEGER';
-    v_select_legal_unit_id_expr TEXT := 'NULL::INTEGER';
-    v_select_primary_for_legal_unit_expr TEXT := 'NULL::BOOLEAN';
-    v_select_primary_for_enterprise_expr TEXT := 'NULL::BOOLEAN';
     v_select_list TEXT;
     v_job_mode public.import_mode;
     v_start_time TIMESTAMPTZ;
@@ -239,40 +235,48 @@ BEGIN
         RAISE EXCEPTION '[Job %] establishment target not found in snapshot', p_job_id;
     END IF;
 
-    -- Determine select expressions based on job mode
+    -- Create an updatable view over the batch data. This view will be the source for the temporal_merge.
+    -- The view's columns are conditional on the job mode. This ensures that for 'formal' establishment
+    -- imports, we only affect legal_unit_id links, and for 'informal' imports, we only affect
+    -- enterprise_id links. This prevents temporal_merge from overwriting existing links with NULLs,
+    -- which would violate the check constraint on the 'establishment' table.
     IF v_job_mode = 'establishment_formal' THEN
-        v_select_legal_unit_id_expr := 'dt.legal_unit_id';
-        v_select_primary_for_legal_unit_expr := 'dt.primary_for_legal_unit';
+        v_select_list := $$
+            row_id AS data_row_id, founding_row_id,
+            legal_unit_id,
+            primary_for_legal_unit,
+            name, birth_date, death_date,
+            valid_from, valid_to, valid_until,
+            sector_id, unit_size_id, status_id, data_source_id,
+            establishment_id AS id,
+            NULLIF(invalid_codes, '{}'::jsonb) as invalid_codes,
+            edit_by_user_id, edit_at, edit_comment,
+            errors,
+            merge_status
+        $$;
     ELSIF v_job_mode = 'establishment_informal' THEN
-        v_select_enterprise_id_expr := 'dt.enterprise_id';
-        v_select_primary_for_enterprise_expr := 'dt.primary_for_enterprise';
+        v_select_list := $$
+            row_id AS data_row_id, founding_row_id,
+            enterprise_id,
+            primary_for_enterprise,
+            name, birth_date, death_date,
+            valid_from, valid_to, valid_until,
+            sector_id, unit_size_id, status_id, data_source_id,
+            establishment_id AS id,
+            NULLIF(invalid_codes, '{}'::jsonb) as invalid_codes,
+            edit_by_user_id, edit_at, edit_comment,
+            errors,
+            merge_status
+        $$;
     END IF;
 
-    -- Create an updatable view over the batch data. This avoids copying data to a temp table
-    -- and allows sql_saga to write feedback and generated IDs directly back to the main data table.
-    v_select_list := format($$
-        row_id AS data_row_id, founding_row_id,
-        %1$s AS legal_unit_id,
-        %2$s AS primary_for_legal_unit,
-        %3$s AS enterprise_id,
-        %4$s AS primary_for_enterprise,
-        name, birth_date, death_date,
-        valid_from, valid_to, valid_until,
-        sector_id, unit_size_id, status_id, data_source_id,
-        establishment_id AS id,
-        NULLIF(invalid_codes, '{}'::jsonb) as invalid_codes,
-        edit_by_user_id, edit_at, edit_comment,
-        errors,
-        merge_status
-    $$,
-        v_select_legal_unit_id_expr,          /* %1$s */
-        v_select_primary_for_legal_unit_expr, /* %2$s */
-        v_select_enterprise_id_expr,          /* %3$s */
-        v_select_primary_for_enterprise_expr  /* %4$s */
-    );
+    -- Drop the view if it exists from a previous run in the same session, to avoid column name/type conflicts with CREATE OR REPLACE VIEW.
+    IF to_regclass('pg_temp.temp_es_source_view') IS NOT NULL THEN
+        DROP VIEW pg_temp.temp_es_source_view;
+    END IF;
 
     v_sql := format($$
-        CREATE OR REPLACE TEMP VIEW temp_es_source_view AS
+        CREATE TEMP VIEW temp_es_source_view AS
         SELECT %1$s
         FROM public.%2$I dt
         WHERE dt.row_id <@ %3$L::int4multirange AND dt.action = 'use';
@@ -312,10 +316,10 @@ BEGIN
                 CALL sql_saga.temporal_merge(
                     target_table => 'public.establishment'::regclass,
                     source_table => 'temp_es_demotion_source'::regclass,
-                    identity_columns => ARRAY['id'],
-                    ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
+                    primary_identity_columns => ARRAY['id'],
                     mode => 'PATCH_FOR_PORTION_OF',
-                    source_row_id_column => 'row_id'
+                    row_id_column => 'row_id',
+                    ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
                 );
                 FOR v_batch_result IN SELECT * FROM pg_temp.temporal_merge_feedback WHERE status = 'ERROR' LOOP RAISE WARNING '[Job %] process_establishment: Error during PFLU demotion for EST ID %: %', p_job_id, (v_batch_result.target_entity_ids->0->>'id')::INT, v_batch_result.error_message; END LOOP;
                 TRUNCATE TABLE temp_es_demotion_source;
@@ -339,10 +343,10 @@ BEGIN
                 CALL sql_saga.temporal_merge(
                     target_table => 'public.establishment'::regclass,
                     source_table => 'temp_es_demotion_source'::regclass,
-                    identity_columns => ARRAY['id'],
-                    ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
+                    primary_identity_columns => ARRAY['id'],
                     mode => 'PATCH_FOR_PORTION_OF',
-                    source_row_id_column => 'row_id'
+                    row_id_column => 'row_id',
+                    ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
                 );
                 FOR v_batch_result IN SELECT * FROM pg_temp.temporal_merge_feedback WHERE status = 'ERROR' LOOP RAISE WARNING '[Job %] process_establishment: Error during PFE demotion for EST ID %: %', p_job_id, (v_batch_result.target_entity_ids->0->>'id')::INT, v_batch_result.error_message; END LOOP;
                 TRUNCATE TABLE temp_es_demotion_source;
@@ -355,23 +359,25 @@ BEGIN
             WHEN 'insert_or_replace' THEN 'MERGE_ENTITY_REPLACE'::sql_saga.temporal_merge_mode
             WHEN 'replace_only' THEN 'MERGE_ENTITY_REPLACE'::sql_saga.temporal_merge_mode
             WHEN 'insert_or_update' THEN 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode
-            WHEN 'update_only' THEN 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode
-            ELSE 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode -- Default to safer patch
+            WHEN 'update_only' THEN 'MERGE_ENTITY_UPSERT'::sql_saga.temporal_merge_mode
+            ELSE 'MERGE_ENTITY_PATCH'::sql_saga.temporal_merge_mode -- Default to safer patch for other cases
         END;
         RAISE DEBUG '[Job %] process_establishment: Determined merge mode % from strategy %', p_job_id, v_merge_mode, v_definition.strategy;
 
         CALL sql_saga.temporal_merge(
-            target_table => 'public.establishment'::regclass, source_table => 'temp_es_source_view'::regclass,
-            identity_columns => ARRAY['id'], ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at', 'invalid_codes'],
+            target_table => 'public.establishment'::regclass,
+            source_table => 'temp_es_source_view'::regclass,
+            primary_identity_columns => ARRAY['id'],
             mode => v_merge_mode,
-            identity_correlation_column => 'founding_row_id',
+            row_id_column => 'data_row_id',
+            founding_id_column => 'founding_row_id',
             update_source_with_identity => true,
             update_source_with_feedback => true,
             feedback_status_column => 'merge_status',
             feedback_status_key => 'establishment',
             feedback_error_column => 'errors',
             feedback_error_key => 'establishment',
-            source_row_id_column => 'data_row_id'
+            ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at', 'invalid_codes']
         );
 
         -- Process feedback

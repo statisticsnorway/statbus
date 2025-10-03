@@ -247,8 +247,15 @@ BEGIN
     RAISE DEBUG '[Job %] Starting single holistic update phase.', p_job_id;
     v_sql := format($$
         UPDATE public.%1$I dt SET
-            legal_unit_id = CASE WHEN pre.errors_jsonb IS NULL THEN pre.resolved_lu_id ELSE dt.legal_unit_id END,
-            primary_for_legal_unit = CASE WHEN pre.errors_jsonb IS NULL THEN pre.primary_for_legal_unit ELSE dt.primary_for_legal_unit END,
+            legal_unit_id = CASE
+                WHEN pre.errors_jsonb IS NOT NULL THEN dt.legal_unit_id -- Preserve on error
+                ELSE COALESCE(pre.resolved_lu_id, dt.legal_unit_id) -- Use new ID if resolved, otherwise preserve existing
+            END,
+            primary_for_legal_unit = CASE
+                WHEN pre.errors_jsonb IS NOT NULL THEN dt.primary_for_legal_unit -- Preserve on error
+                WHEN pre.resolved_lu_id IS NOT NULL THEN pre.primary_for_legal_unit -- Use new primary status only if LU was resolved
+                ELSE dt.primary_for_legal_unit -- Otherwise, preserve existing
+            END,
             state = CASE WHEN pre.errors_jsonb IS NOT NULL THEN 'error'::public.import_data_state ELSE dt.state END,
             action = CASE WHEN pre.errors_jsonb IS NOT NULL THEN 'skip'::public.import_row_action_type ELSE dt.action END,
             errors = CASE WHEN pre.errors_jsonb IS NOT NULL THEN dt.errors || pre.errors_jsonb ELSE dt.errors - %2$L::TEXT[] END,

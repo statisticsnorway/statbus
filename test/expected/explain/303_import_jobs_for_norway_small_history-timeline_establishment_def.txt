@@ -10,16 +10,15 @@
                                  ->  Nested Loop Left Join
                                        ->  Hash Left Join
                                              Hash Cond: (pol.country_id = poc.id)
-                                             ->  Hash Left Join
-                                                   Hash Cond: (pol.region_id = por.id)
+                                             ->  Nested Loop Left Join
+                                                   Join Filter: (pol.region_id = por.id)
                                                    ->  Nested Loop Left Join
                                                          ->  Hash Left Join
                                                                Hash Cond: (phl.country_id = phc.id)
-                                                               ->  Hash Left Join
-                                                                     Hash Cond: (phl.region_id = phr.id)
+                                                               ->  Nested Loop Left Join
+                                                                     Join Filter: (phl.region_id = phr.id)
                                                                      ->  Nested Loop Left Join
-                                                                           ->  Hash Left Join
-                                                                                 Hash Cond: (es.sector_id = s.id)
+                                                                           ->  Nested Loop Left Join
                                                                                  ->  Nested Loop Left Join
                                                                                        ->  Nested Loop Left Join
                                                                                              ->  Nested Loop Left Join
@@ -45,12 +44,12 @@
                                                                                                                                        Sort Key: t_1.unit_id, t_1.valid_from
                                                                                                                                        ->  Nested Loop
                                                                                                                                              ->  Hash Join
-                                                                                                                                                   Hash Cond: (t_1.unit_id = sfu.establishment_id)
+                                                                                                                                                   Hash Cond: (sfu.establishment_id = t_1.unit_id)
                                                                                                                                                    Join Filter: ((t_1.valid_from < sfu.valid_until) AND (sfu.valid_from < t_1.valid_until))
-                                                                                                                                                   ->  Seq Scan on timesegments t_1
-                                                                                                                                                         Filter: (unit_type = 'establishment'::statistical_unit_type)
+                                                                                                                                                   ->  Seq Scan on stat_for_unit sfu
                                                                                                                                                    ->  Hash
-                                                                                                                                                         ->  Seq Scan on stat_for_unit sfu
+                                                                                                                                                         ->  Seq Scan on timesegments t_1
+                                                                                                                                                               Filter: (unit_type = 'establishment'::statistical_unit_type)
                                                                                                                                              ->  Index Scan using stat_definition_pkey on stat_definition sd
                                                                                                                                                    Index Cond: (id = sfu.stat_definition_id)
                                                                                                          ->  Memoize
@@ -81,8 +80,11 @@
                                                                                              Cache Mode: logical
                                                                                              ->  Index Scan using activity_category_pkey on activity_category sac
                                                                                                    Index Cond: (id = sa.category_id)
-                                                                                 ->  Hash
-                                                                                       ->  Seq Scan on sector s
+                                                                                 ->  Memoize
+                                                                                       Cache Key: es.sector_id
+                                                                                       Cache Mode: logical
+                                                                                       ->  Index Scan using sector_pkey on sector s
+                                                                                             Index Cond: (id = es.sector_id)
                                                                            ->  Memoize
                                                                                  Cache Key: es.id, t.valid_from, t.valid_until
                                                                                  Cache Mode: binary
@@ -92,8 +94,8 @@
                                                                                                    Sort Key: l.id DESC
                                                                                                    ->  Seq Scan on location l
                                                                                                          Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (establishment_id = es.id) AND (type = 'physical'::location_type))
-                                                                     ->  Hash
-                                                                           ->  Seq Scan on region phr
+                                                                     ->  Materialize
+                                                                           ->  Index Scan using region_pkey on region phr
                                                                ->  Hash
                                                                      ->  Seq Scan on country phc
                                                          ->  Memoize
@@ -105,8 +107,8 @@
                                                                                  Sort Key: l_1.id DESC
                                                                                  ->  Seq Scan on location l_1
                                                                                        Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (establishment_id = es.id) AND (type = 'postal'::location_type))
-                                                   ->  Hash
-                                                         ->  Seq Scan on region por
+                                                   ->  Materialize
+                                                         ->  Index Scan using region_pkey on region por
                                              ->  Hash
                                                    ->  Seq Scan on country poc
                                        ->  Memoize
@@ -150,5 +152,5 @@
                            Sort Key: "*VALUES*".column3 DESC
                            ->  Values Scan on "*VALUES*"
                                  Filter: (column3 IS NOT NULL)
-(150 rows)
+(152 rows)
 

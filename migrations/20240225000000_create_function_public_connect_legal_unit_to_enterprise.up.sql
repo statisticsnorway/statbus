@@ -108,10 +108,10 @@ BEGIN
     CALL sql_saga.temporal_merge(
       target_table => 'public.legal_unit',
       source_table => 'temp_lu_source',
-      identity_columns => ARRAY['id'],
-      ephemeral_columns => ARRAY[]::TEXT[],
+      primary_identity_columns => ARRAY['id'],
       mode => 'PATCH_FOR_PORTION_OF',
-      source_row_id_column => 'row_id'
+      row_id_column => 'row_id',
+      ephemeral_columns => ARRAY[]::TEXT[]
     );
 
     -- Capture the IDs of legal units that were modified.
