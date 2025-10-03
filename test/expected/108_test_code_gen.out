@@ -72,6 +72,32 @@ SELECT
     is_uniquely_identifying
 FROM public.import_data_column
 ORDER BY step_id, priority NULLS FIRST, column_name;
+\echo "Establish a baseline by capturing initial state of import_source_column for default definitions"
+"Establish a baseline by capturing initial state of import_source_column for default definitions"
+CREATE TEMP TABLE import_source_column_baseline AS
+SELECT
+    definition_id,
+    priority,
+    column_name
+FROM public.import_source_column
+WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+ORDER BY definition_id, priority, column_name;
+\echo "Establish a baseline by capturing initial state of import_mapping for default definitions"
+"Establish a baseline by capturing initial state of import_mapping for default definitions"
+CREATE TEMP TABLE import_mapping_baseline AS
+SELECT
+    m.definition_id,
+    isc.column_name AS source_column_name,
+    m.source_expression,
+    idc.column_name AS target_data_column_name,
+    m.target_data_column_purpose::text AS target_data_column_purpose,
+    m.is_ignored,
+    m.source_value
+FROM public.import_mapping m
+LEFT JOIN public.import_source_column isc ON m.source_column_id = isc.id
+LEFT JOIN public.import_data_column idc ON m.target_data_column_id = idc.id
+WHERE m.definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+ORDER BY m.definition_id, source_column_name NULLS FIRST, source_expression, target_data_column_name;
 \echo "Initial import_data_column state (stable columns):"
 "Initial import_data_column state (stable columns):"
 SELECT * FROM import_data_column_baseline;
@@ -204,6 +230,522 @@ SELECT * FROM import_data_column_baseline;
       18 |        6 | invalid_codes                        | JSONB                            | metadata     | f           | '{}'::jsonb   | f
 (125 rows)
 
+\echo "Initial import_source_column state (default definitions):"
+"Initial import_source_column state (default definitions):"
+SELECT * FROM import_source_column_baseline;
+ definition_id | priority |           column_name            
+---------------+----------+----------------------------------
+             1 |        1 | name
+             1 |        2 | birth_date
+             1 |        3 | death_date
+             1 |        4 | physical_address_part1
+             1 |        5 | physical_address_part2
+             1 |        6 | physical_address_part3
+             1 |        7 | physical_postcode
+             1 |        8 | physical_postplace
+             1 |        9 | physical_latitude
+             1 |       10 | physical_longitude
+             1 |       11 | physical_altitude
+             1 |       12 | physical_region_code
+             1 |       13 | physical_country_iso_2
+             1 |       14 | postal_address_part1
+             1 |       15 | postal_address_part2
+             1 |       16 | postal_address_part3
+             1 |       17 | postal_postcode
+             1 |       18 | postal_postplace
+             1 |       19 | postal_region_code
+             1 |       20 | postal_country_iso_2
+             1 |       21 | web_address
+             1 |       22 | email_address
+             1 |       23 | phone_number
+             1 |       24 | landline
+             1 |       25 | mobile_number
+             1 |       26 | fax_number
+             1 |       27 | primary_activity_category_code
+             1 |       28 | secondary_activity_category_code
+             1 |       29 | sector_code
+             1 |       30 | unit_size_code
+             1 |       31 | status_code
+             1 |       32 | data_source_code
+             1 |       33 | legal_form_code
+             1 |       34 | tag_path
+             1 |       35 | tax_ident
+             1 |       36 | stat_ident
+             1 |       37 | employees
+             1 |       38 | turnover
+             2 |        1 | name
+             2 |        2 | birth_date
+             2 |        3 | death_date
+             2 |        4 | physical_address_part1
+             2 |        5 | physical_address_part2
+             2 |        6 | physical_address_part3
+             2 |        7 | physical_postcode
+             2 |        8 | physical_postplace
+             2 |        9 | physical_latitude
+             2 |       10 | physical_longitude
+             2 |       11 | physical_altitude
+             2 |       12 | physical_region_code
+             2 |       13 | physical_country_iso_2
+             2 |       14 | postal_address_part1
+             2 |       15 | postal_address_part2
+             2 |       16 | postal_address_part3
+             2 |       17 | postal_postcode
+             2 |       18 | postal_postplace
+             2 |       19 | postal_region_code
+             2 |       20 | postal_country_iso_2
+             2 |       21 | web_address
+             2 |       22 | email_address
+             2 |       23 | phone_number
+             2 |       24 | landline
+             2 |       25 | mobile_number
+             2 |       26 | fax_number
+             2 |       27 | primary_activity_category_code
+             2 |       28 | secondary_activity_category_code
+             2 |       29 | sector_code
+             2 |       30 | unit_size_code
+             2 |       31 | status_code
+             2 |       32 | data_source_code
+             2 |       33 | legal_form_code
+             2 |       34 | tag_path
+             2 |       35 | valid_from
+             2 |       36 | valid_to
+             2 |       37 | tax_ident
+             2 |       38 | stat_ident
+             2 |       39 | employees
+             2 |       40 | turnover
+             3 |        1 | name
+             3 |        2 | birth_date
+             3 |        3 | death_date
+             3 |        4 | physical_address_part1
+             3 |        5 | physical_address_part2
+             3 |        6 | physical_address_part3
+             3 |        7 | physical_postcode
+             3 |        8 | physical_postplace
+             3 |        9 | physical_latitude
+             3 |       10 | physical_longitude
+             3 |       11 | physical_altitude
+             3 |       12 | physical_region_code
+             3 |       13 | physical_country_iso_2
+             3 |       14 | postal_address_part1
+             3 |       15 | postal_address_part2
+             3 |       16 | postal_address_part3
+             3 |       17 | postal_postcode
+             3 |       18 | postal_postplace
+             3 |       19 | postal_region_code
+             3 |       20 | postal_country_iso_2
+             3 |       21 | web_address
+             3 |       22 | email_address
+             3 |       23 | phone_number
+             3 |       24 | landline
+             3 |       25 | mobile_number
+             3 |       26 | fax_number
+             3 |       27 | primary_activity_category_code
+             3 |       28 | secondary_activity_category_code
+             3 |       29 | sector_code
+             3 |       30 | unit_size_code
+             3 |       31 | status_code
+             3 |       32 | data_source_code
+             3 |       33 | tag_path
+             3 |       34 | legal_unit_tax_ident
+             3 |       35 | legal_unit_stat_ident
+             3 |       36 | tax_ident
+             3 |       37 | stat_ident
+             3 |       38 | employees
+             3 |       39 | turnover
+             4 |        1 | name
+             4 |        2 | birth_date
+             4 |        3 | death_date
+             4 |        4 | physical_address_part1
+             4 |        5 | physical_address_part2
+             4 |        6 | physical_address_part3
+             4 |        7 | physical_postcode
+             4 |        8 | physical_postplace
+             4 |        9 | physical_latitude
+             4 |       10 | physical_longitude
+             4 |       11 | physical_altitude
+             4 |       12 | physical_region_code
+             4 |       13 | physical_country_iso_2
+             4 |       14 | postal_address_part1
+             4 |       15 | postal_address_part2
+             4 |       16 | postal_address_part3
+             4 |       17 | postal_postcode
+             4 |       18 | postal_postplace
+             4 |       19 | postal_region_code
+             4 |       20 | postal_country_iso_2
+             4 |       21 | web_address
+             4 |       22 | email_address
+             4 |       23 | phone_number
+             4 |       24 | landline
+             4 |       25 | mobile_number
+             4 |       26 | fax_number
+             4 |       27 | primary_activity_category_code
+             4 |       28 | secondary_activity_category_code
+             4 |       29 | sector_code
+             4 |       30 | unit_size_code
+             4 |       31 | status_code
+             4 |       32 | data_source_code
+             4 |       33 | tag_path
+             4 |       34 | legal_unit_tax_ident
+             4 |       35 | legal_unit_stat_ident
+             4 |       36 | valid_from
+             4 |       37 | valid_to
+             4 |       38 | tax_ident
+             4 |       39 | stat_ident
+             4 |       40 | employees
+             4 |       41 | turnover
+             5 |        1 | name
+             5 |        2 | birth_date
+             5 |        3 | death_date
+             5 |        4 | physical_address_part1
+             5 |        5 | physical_address_part2
+             5 |        6 | physical_address_part3
+             5 |        7 | physical_postcode
+             5 |        8 | physical_postplace
+             5 |        9 | physical_latitude
+             5 |       10 | physical_longitude
+             5 |       11 | physical_altitude
+             5 |       12 | physical_region_code
+             5 |       13 | physical_country_iso_2
+             5 |       14 | postal_address_part1
+             5 |       15 | postal_address_part2
+             5 |       16 | postal_address_part3
+             5 |       17 | postal_postcode
+             5 |       18 | postal_postplace
+             5 |       19 | postal_region_code
+             5 |       20 | postal_country_iso_2
+             5 |       21 | web_address
+             5 |       22 | email_address
+             5 |       23 | phone_number
+             5 |       24 | landline
+             5 |       25 | mobile_number
+             5 |       26 | fax_number
+             5 |       27 | primary_activity_category_code
+             5 |       28 | secondary_activity_category_code
+             5 |       29 | sector_code
+             5 |       30 | unit_size_code
+             5 |       31 | status_code
+             5 |       32 | data_source_code
+             5 |       33 | tag_path
+             5 |       34 | tax_ident
+             5 |       35 | stat_ident
+             5 |       36 | employees
+             5 |       37 | turnover
+             6 |        1 | name
+             6 |        2 | birth_date
+             6 |        3 | death_date
+             6 |        4 | physical_address_part1
+             6 |        5 | physical_address_part2
+             6 |        6 | physical_address_part3
+             6 |        7 | physical_postcode
+             6 |        8 | physical_postplace
+             6 |        9 | physical_latitude
+             6 |       10 | physical_longitude
+             6 |       11 | physical_altitude
+             6 |       12 | physical_region_code
+             6 |       13 | physical_country_iso_2
+             6 |       14 | postal_address_part1
+             6 |       15 | postal_address_part2
+             6 |       16 | postal_address_part3
+             6 |       17 | postal_postcode
+             6 |       18 | postal_postplace
+             6 |       19 | postal_region_code
+             6 |       20 | postal_country_iso_2
+             6 |       21 | web_address
+             6 |       22 | email_address
+             6 |       23 | phone_number
+             6 |       24 | landline
+             6 |       25 | mobile_number
+             6 |       26 | fax_number
+             6 |       27 | primary_activity_category_code
+             6 |       28 | secondary_activity_category_code
+             6 |       29 | sector_code
+             6 |       30 | unit_size_code
+             6 |       31 | status_code
+             6 |       32 | data_source_code
+             6 |       33 | tag_path
+             6 |       34 | valid_from
+             6 |       35 | valid_to
+             6 |       36 | tax_ident
+             6 |       37 | stat_ident
+             6 |       38 | employees
+             6 |       39 | turnover
+             7 |        1 | tax_ident
+             7 |        2 | stat_ident
+             7 |        3 | employees
+             7 |        4 | turnover
+             8 |        1 | valid_from
+             8 |        2 | valid_to
+             8 |        3 | tax_ident
+             8 |        4 | stat_ident
+             8 |        5 | employees
+             8 |        6 | turnover
+(244 rows)
+
+\echo "Initial import_mapping state (default definitions):"
+"Initial import_mapping state (default definitions):"
+SELECT * FROM import_mapping_baseline;
+ definition_id |        source_column_name        | source_expression |       target_data_column_name        | target_data_column_purpose | is_ignored | source_value 
+---------------+----------------------------------+-------------------+--------------------------------------+----------------------------+------------+--------------
+             1 |                                  | default           | valid_from_raw                       | source_input               | f          | 
+             1 |                                  | default           | valid_to_raw                         | source_input               | f          | 
+             1 | birth_date                       |                   | birth_date_raw                       | source_input               | f          | 
+             1 | data_source_code                 |                   | data_source_code_raw                 | source_input               | f          | 
+             1 | death_date                       |                   | death_date_raw                       | source_input               | f          | 
+             1 | email_address                    |                   | email_address_raw                    | source_input               | f          | 
+             1 | employees                        |                   | employees_raw                        | source_input               | f          | 
+             1 | fax_number                       |                   | fax_number_raw                       | source_input               | f          | 
+             1 | landline                         |                   | landline_raw                         | source_input               | f          | 
+             1 | legal_form_code                  |                   | legal_form_code_raw                  | source_input               | f          | 
+             1 | mobile_number                    |                   | mobile_number_raw                    | source_input               | f          | 
+             1 | name                             |                   | name_raw                             | source_input               | f          | 
+             1 | phone_number                     |                   | phone_number_raw                     | source_input               | f          | 
+             1 | physical_address_part1           |                   | physical_address_part1_raw           | source_input               | f          | 
+             1 | physical_address_part2           |                   | physical_address_part2_raw           | source_input               | f          | 
+             1 | physical_address_part3           |                   | physical_address_part3_raw           | source_input               | f          | 
+             1 | physical_altitude                |                   | physical_altitude_raw                | source_input               | f          | 
+             1 | physical_country_iso_2           |                   | physical_country_iso_2_raw           | source_input               | f          | 
+             1 | physical_latitude                |                   | physical_latitude_raw                | source_input               | f          | 
+             1 | physical_longitude               |                   | physical_longitude_raw               | source_input               | f          | 
+             1 | physical_postcode                |                   | physical_postcode_raw                | source_input               | f          | 
+             1 | physical_postplace               |                   | physical_postplace_raw               | source_input               | f          | 
+             1 | physical_region_code             |                   | physical_region_code_raw             | source_input               | f          | 
+             1 | postal_address_part1             |                   | postal_address_part1_raw             | source_input               | f          | 
+             1 | postal_address_part2             |                   | postal_address_part2_raw             | source_input               | f          | 
+             1 | postal_address_part3             |                   | postal_address_part3_raw             | source_input               | f          | 
+             1 | postal_country_iso_2             |                   | postal_country_iso_2_raw             | source_input               | f          | 
+             1 | postal_postcode                  |                   | postal_postcode_raw                  | source_input               | f          | 
+             1 | postal_postplace                 |                   | postal_postplace_raw                 | source_input               | f          | 
+             1 | postal_region_code               |                   | postal_region_code_raw               | source_input               | f          | 
+             1 | primary_activity_category_code   |                   | primary_activity_category_code_raw   | source_input               | f          | 
+             1 | secondary_activity_category_code |                   | secondary_activity_category_code_raw | source_input               | f          | 
+             1 | sector_code                      |                   | sector_code_raw                      | source_input               | f          | 
+             1 | stat_ident                       |                   | stat_ident_raw                       | source_input               | f          | 
+             1 | status_code                      |                   | status_code_raw                      | source_input               | f          | 
+             1 | tag_path                         |                   | tag_path_raw                         | source_input               | f          | 
+             1 | tax_ident                        |                   | tax_ident_raw                        | source_input               | f          | 
+             1 | turnover                         |                   | turnover_raw                         | source_input               | f          | 
+             1 | unit_size_code                   |                   | unit_size_code_raw                   | source_input               | f          | 
+             1 | web_address                      |                   | web_address_raw                      | source_input               | f          | 
+             2 | birth_date                       |                   | birth_date_raw                       | source_input               | f          | 
+             2 | data_source_code                 |                   | data_source_code_raw                 | source_input               | f          | 
+             2 | death_date                       |                   | death_date_raw                       | source_input               | f          | 
+             2 | email_address                    |                   | email_address_raw                    | source_input               | f          | 
+             2 | employees                        |                   | employees_raw                        | source_input               | f          | 
+             2 | fax_number                       |                   | fax_number_raw                       | source_input               | f          | 
+             2 | landline                         |                   | landline_raw                         | source_input               | f          | 
+             2 | legal_form_code                  |                   | legal_form_code_raw                  | source_input               | f          | 
+             2 | mobile_number                    |                   | mobile_number_raw                    | source_input               | f          | 
+             2 | name                             |                   | name_raw                             | source_input               | f          | 
+             2 | phone_number                     |                   | phone_number_raw                     | source_input               | f          | 
+             2 | physical_address_part1           |                   | physical_address_part1_raw           | source_input               | f          | 
+             2 | physical_address_part2           |                   | physical_address_part2_raw           | source_input               | f          | 
+             2 | physical_address_part3           |                   | physical_address_part3_raw           | source_input               | f          | 
+             2 | physical_altitude                |                   | physical_altitude_raw                | source_input               | f          | 
+             2 | physical_country_iso_2           |                   | physical_country_iso_2_raw           | source_input               | f          | 
+             2 | physical_latitude                |                   | physical_latitude_raw                | source_input               | f          | 
+             2 | physical_longitude               |                   | physical_longitude_raw               | source_input               | f          | 
+             2 | physical_postcode                |                   | physical_postcode_raw                | source_input               | f          | 
+             2 | physical_postplace               |                   | physical_postplace_raw               | source_input               | f          | 
+             2 | physical_region_code             |                   | physical_region_code_raw             | source_input               | f          | 
+             2 | postal_address_part1             |                   | postal_address_part1_raw             | source_input               | f          | 
+             2 | postal_address_part2             |                   | postal_address_part2_raw             | source_input               | f          | 
+             2 | postal_address_part3             |                   | postal_address_part3_raw             | source_input               | f          | 
+             2 | postal_country_iso_2             |                   | postal_country_iso_2_raw             | source_input               | f          | 
+             2 | postal_postcode                  |                   | postal_postcode_raw                  | source_input               | f          | 
+             2 | postal_postplace                 |                   | postal_postplace_raw                 | source_input               | f          | 
+             2 | postal_region_code               |                   | postal_region_code_raw               | source_input               | f          | 
+             2 | primary_activity_category_code   |                   | primary_activity_category_code_raw   | source_input               | f          | 
+             2 | secondary_activity_category_code |                   | secondary_activity_category_code_raw | source_input               | f          | 
+             2 | sector_code                      |                   | sector_code_raw                      | source_input               | f          | 
+             2 | stat_ident                       |                   | stat_ident_raw                       | source_input               | f          | 
+             2 | status_code                      |                   | status_code_raw                      | source_input               | f          | 
+             2 | tag_path                         |                   | tag_path_raw                         | source_input               | f          | 
+             2 | tax_ident                        |                   | tax_ident_raw                        | source_input               | f          | 
+             2 | turnover                         |                   | turnover_raw                         | source_input               | f          | 
+             2 | unit_size_code                   |                   | unit_size_code_raw                   | source_input               | f          | 
+             2 | valid_from                       |                   | valid_from_raw                       | source_input               | f          | 
+             2 | valid_to                         |                   | valid_to_raw                         | source_input               | f          | 
+             2 | web_address                      |                   | web_address_raw                      | source_input               | f          | 
+             3 |                                  | default           | valid_from_raw                       | source_input               | f          | 
+             3 |                                  | default           | valid_to_raw                         | source_input               | f          | 
+             3 | birth_date                       |                   | birth_date_raw                       | source_input               | f          | 
+             3 | data_source_code                 |                   | data_source_code_raw                 | source_input               | f          | 
+             3 | death_date                       |                   | death_date_raw                       | source_input               | f          | 
+             3 | email_address                    |                   | email_address_raw                    | source_input               | f          | 
+             3 | employees                        |                   | employees_raw                        | source_input               | f          | 
+             3 | fax_number                       |                   | fax_number_raw                       | source_input               | f          | 
+             3 | landline                         |                   | landline_raw                         | source_input               | f          | 
+             3 | legal_unit_stat_ident            |                   | legal_unit_stat_ident_raw            | source_input               | f          | 
+             3 | legal_unit_tax_ident             |                   | legal_unit_tax_ident_raw             | source_input               | f          | 
+             3 | mobile_number                    |                   | mobile_number_raw                    | source_input               | f          | 
+             3 | name                             |                   | name_raw                             | source_input               | f          | 
+             3 | phone_number                     |                   | phone_number_raw                     | source_input               | f          | 
+             3 | physical_address_part1           |                   | physical_address_part1_raw           | source_input               | f          | 
+             3 | physical_address_part2           |                   | physical_address_part2_raw           | source_input               | f          | 
+             3 | physical_address_part3           |                   | physical_address_part3_raw           | source_input               | f          | 
+             3 | physical_altitude                |                   | physical_altitude_raw                | source_input               | f          | 
+             3 | physical_country_iso_2           |                   | physical_country_iso_2_raw           | source_input               | f          | 
+             3 | physical_latitude                |                   | physical_latitude_raw                | source_input               | f          | 
+             3 | physical_longitude               |                   | physical_longitude_raw               | source_input               | f          | 
+             3 | physical_postcode                |                   | physical_postcode_raw                | source_input               | f          | 
+             3 | physical_postplace               |                   | physical_postplace_raw               | source_input               | f          | 
+             3 | physical_region_code             |                   | physical_region_code_raw             | source_input               | f          | 
+             3 | postal_address_part1             |                   | postal_address_part1_raw             | source_input               | f          | 
+             3 | postal_address_part2             |                   | postal_address_part2_raw             | source_input               | f          | 
+             3 | postal_address_part3             |                   | postal_address_part3_raw             | source_input               | f          | 
+             3 | postal_country_iso_2             |                   | postal_country_iso_2_raw             | source_input               | f          | 
+             3 | postal_postcode                  |                   | postal_postcode_raw                  | source_input               | f          | 
+             3 | postal_postplace                 |                   | postal_postplace_raw                 | source_input               | f          | 
+             3 | postal_region_code               |                   | postal_region_code_raw               | source_input               | f          | 
+             3 | primary_activity_category_code   |                   | primary_activity_category_code_raw   | source_input               | f          | 
+             3 | secondary_activity_category_code |                   | secondary_activity_category_code_raw | source_input               | f          | 
+             3 | sector_code                      |                   | sector_code_raw                      | source_input               | f          | 
+             3 | stat_ident                       |                   | stat_ident_raw                       | source_input               | f          | 
+             3 | status_code                      |                   | status_code_raw                      | source_input               | f          | 
+             3 | tag_path                         |                   | tag_path_raw                         | source_input               | f          | 
+             3 | tax_ident                        |                   | tax_ident_raw                        | source_input               | f          | 
+             3 | turnover                         |                   | turnover_raw                         | source_input               | f          | 
+             3 | unit_size_code                   |                   | unit_size_code_raw                   | source_input               | f          | 
+             3 | web_address                      |                   | web_address_raw                      | source_input               | f          | 
+             4 | birth_date                       |                   | birth_date_raw                       | source_input               | f          | 
+             4 | data_source_code                 |                   | data_source_code_raw                 | source_input               | f          | 
+             4 | death_date                       |                   | death_date_raw                       | source_input               | f          | 
+             4 | email_address                    |                   | email_address_raw                    | source_input               | f          | 
+             4 | employees                        |                   | employees_raw                        | source_input               | f          | 
+             4 | fax_number                       |                   | fax_number_raw                       | source_input               | f          | 
+             4 | landline                         |                   | landline_raw                         | source_input               | f          | 
+             4 | legal_unit_stat_ident            |                   | legal_unit_stat_ident_raw            | source_input               | f          | 
+             4 | legal_unit_tax_ident             |                   | legal_unit_tax_ident_raw             | source_input               | f          | 
+             4 | mobile_number                    |                   | mobile_number_raw                    | source_input               | f          | 
+             4 | name                             |                   | name_raw                             | source_input               | f          | 
+             4 | phone_number                     |                   | phone_number_raw                     | source_input               | f          | 
+             4 | physical_address_part1           |                   | physical_address_part1_raw           | source_input               | f          | 
+             4 | physical_address_part2           |                   | physical_address_part2_raw           | source_input               | f          | 
+             4 | physical_address_part3           |                   | physical_address_part3_raw           | source_input               | f          | 
+             4 | physical_altitude                |                   | physical_altitude_raw                | source_input               | f          | 
+             4 | physical_country_iso_2           |                   | physical_country_iso_2_raw           | source_input               | f          | 
+             4 | physical_latitude                |                   | physical_latitude_raw                | source_input               | f          | 
+             4 | physical_longitude               |                   | physical_longitude_raw               | source_input               | f          | 
+             4 | physical_postcode                |                   | physical_postcode_raw                | source_input               | f          | 
+             4 | physical_postplace               |                   | physical_postplace_raw               | source_input               | f          | 
+             4 | physical_region_code             |                   | physical_region_code_raw             | source_input               | f          | 
+             4 | postal_address_part1             |                   | postal_address_part1_raw             | source_input               | f          | 
+             4 | postal_address_part2             |                   | postal_address_part2_raw             | source_input               | f          | 
+             4 | postal_address_part3             |                   | postal_address_part3_raw             | source_input               | f          | 
+             4 | postal_country_iso_2             |                   | postal_country_iso_2_raw             | source_input               | f          | 
+             4 | postal_postcode                  |                   | postal_postcode_raw                  | source_input               | f          | 
+             4 | postal_postplace                 |                   | postal_postplace_raw                 | source_input               | f          | 
+             4 | postal_region_code               |                   | postal_region_code_raw               | source_input               | f          | 
+             4 | primary_activity_category_code   |                   | primary_activity_category_code_raw   | source_input               | f          | 
+             4 | secondary_activity_category_code |                   | secondary_activity_category_code_raw | source_input               | f          | 
+             4 | sector_code                      |                   | sector_code_raw                      | source_input               | f          | 
+             4 | stat_ident                       |                   | stat_ident_raw                       | source_input               | f          | 
+             4 | status_code                      |                   | status_code_raw                      | source_input               | f          | 
+             4 | tag_path                         |                   | tag_path_raw                         | source_input               | f          | 
+             4 | tax_ident                        |                   | tax_ident_raw                        | source_input               | f          | 
+             4 | turnover                         |                   | turnover_raw                         | source_input               | f          | 
+             4 | unit_size_code                   |                   | unit_size_code_raw                   | source_input               | f          | 
+             4 | valid_from                       |                   | valid_from_raw                       | source_input               | f          | 
+             4 | valid_to                         |                   | valid_to_raw                         | source_input               | f          | 
+             4 | web_address                      |                   | web_address_raw                      | source_input               | f          | 
+             5 |                                  | default           | valid_from_raw                       | source_input               | f          | 
+             5 |                                  | default           | valid_to_raw                         | source_input               | f          | 
+             5 | birth_date                       |                   | birth_date_raw                       | source_input               | f          | 
+             5 | data_source_code                 |                   | data_source_code_raw                 | source_input               | f          | 
+             5 | death_date                       |                   | death_date_raw                       | source_input               | f          | 
+             5 | email_address                    |                   | email_address_raw                    | source_input               | f          | 
+             5 | employees                        |                   | employees_raw                        | source_input               | f          | 
+             5 | fax_number                       |                   | fax_number_raw                       | source_input               | f          | 
+             5 | landline                         |                   | landline_raw                         | source_input               | f          | 
+             5 | mobile_number                    |                   | mobile_number_raw                    | source_input               | f          | 
+             5 | name                             |                   | name_raw                             | source_input               | f          | 
+             5 | phone_number                     |                   | phone_number_raw                     | source_input               | f          | 
+             5 | physical_address_part1           |                   | physical_address_part1_raw           | source_input               | f          | 
+             5 | physical_address_part2           |                   | physical_address_part2_raw           | source_input               | f          | 
+             5 | physical_address_part3           |                   | physical_address_part3_raw           | source_input               | f          | 
+             5 | physical_altitude                |                   | physical_altitude_raw                | source_input               | f          | 
+             5 | physical_country_iso_2           |                   | physical_country_iso_2_raw           | source_input               | f          | 
+             5 | physical_latitude                |                   | physical_latitude_raw                | source_input               | f          | 
+             5 | physical_longitude               |                   | physical_longitude_raw               | source_input               | f          | 
+             5 | physical_postcode                |                   | physical_postcode_raw                | source_input               | f          | 
+             5 | physical_postplace               |                   | physical_postplace_raw               | source_input               | f          | 
+             5 | physical_region_code             |                   | physical_region_code_raw             | source_input               | f          | 
+             5 | postal_address_part1             |                   | postal_address_part1_raw             | source_input               | f          | 
+             5 | postal_address_part2             |                   | postal_address_part2_raw             | source_input               | f          | 
+             5 | postal_address_part3             |                   | postal_address_part3_raw             | source_input               | f          | 
+             5 | postal_country_iso_2             |                   | postal_country_iso_2_raw             | source_input               | f          | 
+             5 | postal_postcode                  |                   | postal_postcode_raw                  | source_input               | f          | 
+             5 | postal_postplace                 |                   | postal_postplace_raw                 | source_input               | f          | 
+             5 | postal_region_code               |                   | postal_region_code_raw               | source_input               | f          | 
+             5 | primary_activity_category_code   |                   | primary_activity_category_code_raw   | source_input               | f          | 
+             5 | secondary_activity_category_code |                   | secondary_activity_category_code_raw | source_input               | f          | 
+             5 | sector_code                      |                   | sector_code_raw                      | source_input               | f          | 
+             5 | stat_ident                       |                   | stat_ident_raw                       | source_input               | f          | 
+             5 | status_code                      |                   | status_code_raw                      | source_input               | f          | 
+             5 | tag_path                         |                   | tag_path_raw                         | source_input               | f          | 
+             5 | tax_ident                        |                   | tax_ident_raw                        | source_input               | f          | 
+             5 | turnover                         |                   | turnover_raw                         | source_input               | f          | 
+             5 | unit_size_code                   |                   | unit_size_code_raw                   | source_input               | f          | 
+             5 | web_address                      |                   | web_address_raw                      | source_input               | f          | 
+             6 | birth_date                       |                   | birth_date_raw                       | source_input               | f          | 
+             6 | data_source_code                 |                   | data_source_code_raw                 | source_input               | f          | 
+             6 | death_date                       |                   | death_date_raw                       | source_input               | f          | 
+             6 | email_address                    |                   | email_address_raw                    | source_input               | f          | 
+             6 | employees                        |                   | employees_raw                        | source_input               | f          | 
+             6 | fax_number                       |                   | fax_number_raw                       | source_input               | f          | 
+             6 | landline                         |                   | landline_raw                         | source_input               | f          | 
+             6 | mobile_number                    |                   | mobile_number_raw                    | source_input               | f          | 
+             6 | name                             |                   | name_raw                             | source_input               | f          | 
+             6 | phone_number                     |                   | phone_number_raw                     | source_input               | f          | 
+             6 | physical_address_part1           |                   | physical_address_part1_raw           | source_input               | f          | 
+             6 | physical_address_part2           |                   | physical_address_part2_raw           | source_input               | f          | 
+             6 | physical_address_part3           |                   | physical_address_part3_raw           | source_input               | f          | 
+             6 | physical_altitude                |                   | physical_altitude_raw                | source_input               | f          | 
+             6 | physical_country_iso_2           |                   | physical_country_iso_2_raw           | source_input               | f          | 
+             6 | physical_latitude                |                   | physical_latitude_raw                | source_input               | f          | 
+             6 | physical_longitude               |                   | physical_longitude_raw               | source_input               | f          | 
+             6 | physical_postcode                |                   | physical_postcode_raw                | source_input               | f          | 
+             6 | physical_postplace               |                   | physical_postplace_raw               | source_input               | f          | 
+             6 | physical_region_code             |                   | physical_region_code_raw             | source_input               | f          | 
+             6 | postal_address_part1             |                   | postal_address_part1_raw             | source_input               | f          | 
+             6 | postal_address_part2             |                   | postal_address_part2_raw             | source_input               | f          | 
+             6 | postal_address_part3             |                   | postal_address_part3_raw             | source_input               | f          | 
+             6 | postal_country_iso_2             |                   | postal_country_iso_2_raw             | source_input               | f          | 
+             6 | postal_postcode                  |                   | postal_postcode_raw                  | source_input               | f          | 
+             6 | postal_postplace                 |                   | postal_postplace_raw                 | source_input               | f          | 
+             6 | postal_region_code               |                   | postal_region_code_raw               | source_input               | f          | 
+             6 | primary_activity_category_code   |                   | primary_activity_category_code_raw   | source_input               | f          | 
+             6 | secondary_activity_category_code |                   | secondary_activity_category_code_raw | source_input               | f          | 
+             6 | sector_code                      |                   | sector_code_raw                      | source_input               | f          | 
+             6 | stat_ident                       |                   | stat_ident_raw                       | source_input               | f          | 
+             6 | status_code                      |                   | status_code_raw                      | source_input               | f          | 
+             6 | tag_path                         |                   | tag_path_raw                         | source_input               | f          | 
+             6 | tax_ident                        |                   | tax_ident_raw                        | source_input               | f          | 
+             6 | turnover                         |                   | turnover_raw                         | source_input               | f          | 
+             6 | unit_size_code                   |                   | unit_size_code_raw                   | source_input               | f          | 
+             6 | valid_from                       |                   | valid_from_raw                       | source_input               | f          | 
+             6 | valid_to                         |                   | valid_to_raw                         | source_input               | f          | 
+             6 | web_address                      |                   | web_address_raw                      | source_input               | f          | 
+             7 |                                  | default           | valid_from_raw                       | source_input               | f          | 
+             7 |                                  | default           | valid_to_raw                         | source_input               | f          | 
+             7 | employees                        |                   | employees_raw                        | source_input               | f          | 
+             7 | stat_ident                       |                   | stat_ident_raw                       | source_input               | f          | 
+             7 | tax_ident                        |                   | tax_ident_raw                        | source_input               | f          | 
+             7 | turnover                         |                   | turnover_raw                         | source_input               | f          | 
+             8 | employees                        |                   | employees_raw                        | source_input               | f          | 
+             8 | stat_ident                       |                   | stat_ident_raw                       | source_input               | f          | 
+             8 | tax_ident                        |                   | tax_ident_raw                        | source_input               | f          | 
+             8 | turnover                         |                   | turnover_raw                         | source_input               | f          | 
+             8 | valid_from                       |                   | valid_from_raw                       | source_input               | f          | 
+             8 | valid_to                         |                   | valid_to_raw                         | source_input               | f          | 
+(252 rows)
+
+\echo "---"
+"---"
+\echo "Testing stat_definition lifecycle hooks for import_data_column"
+"Testing stat_definition lifecycle hooks for import_data_column"
+\echo "---"
+"---"
 \echo "Modify stat_definition"
 "Modify stat_definition"
 \echo "Delete unused stat variable".
@@ -293,6 +835,261 @@ NOTICE:  Created indices for stat_definition men_employees
 NOTICE:  Created indices for stat_definition women_employees
 NOTICE:  Created indices for stat_definition boy_employees
 NOTICE:  Created indices for stat_definition girl_employees
+\echo "Check generated code from stat_definition modifications"
+"Check generated code from stat_definition modifications"
+\echo "Removed import_data_column rows:"
+"Removed import_data_column rows:"
+SELECT * FROM import_data_column_baseline
+EXCEPT
+SELECT
+    step_id,
+    priority,
+    column_name,
+    column_type,
+    purpose::text AS purpose,
+    is_nullable,
+    default_value,
+    is_uniquely_identifying
+FROM public.import_data_column
+ORDER BY step_id, priority NULLS FIRST, column_name;
+ step_id | priority |        column_name         | column_type |   purpose    | is_nullable | default_value | is_uniquely_identifying 
+---------+----------+----------------------------+-------------+--------------+-------------+---------------+-------------------------
+      15 |        1 | employees_raw              | TEXT        | source_input | t           |               | f
+      15 |        2 | turnover_raw               | TEXT        | source_input | t           |               | f
+      15 |        3 | employees                  | INTEGER     | internal     | t           |               | f
+      15 |        4 | turnover                   | NUMERIC     | internal     | t           |               | f
+      15 |        5 | stat_for_unit_employees_id | INTEGER     | pk_id        | t           |               | f
+      15 |        6 | stat_for_unit_turnover_id  | INTEGER     | pk_id        | t           |               | f
+(6 rows)
+
+\echo "Added import_data_column rows:"
+"Added import_data_column rows:"
+SELECT
+    step_id,
+    priority,
+    column_name,
+    column_type,
+    purpose::text AS purpose,
+    is_nullable,
+    default_value,
+    is_uniquely_identifying
+FROM public.import_data_column
+EXCEPT
+SELECT * FROM import_data_column_baseline
+ORDER BY step_id, priority NULLS FIRST, column_name;
+ step_id | priority |           column_name            | column_type |   purpose    | is_nullable | default_value | is_uniquely_identifying 
+---------+----------+----------------------------------+-------------+--------------+-------------+---------------+-------------------------
+      15 |       33 | turnover_raw                     | TEXT        | source_input | t           |               | f
+      15 |       34 | men_employees_raw                | TEXT        | source_input | t           |               | f
+      15 |       35 | women_employees_raw              | TEXT        | source_input | t           |               | f
+      15 |       36 | boy_employees_raw                | TEXT        | source_input | t           |               | f
+      15 |       37 | girl_employees_raw               | TEXT        | source_input | t           |               | f
+      15 |       38 | turnover                         | NUMERIC     | internal     | t           |               | f
+      15 |       39 | men_employees                    | INTEGER     | internal     | t           |               | f
+      15 |       40 | women_employees                  | INTEGER     | internal     | t           |               | f
+      15 |       41 | boy_employees                    | INTEGER     | internal     | t           |               | f
+      15 |       42 | girl_employees                   | INTEGER     | internal     | t           |               | f
+      15 |       43 | stat_for_unit_turnover_id        | INTEGER     | pk_id        | t           |               | f
+      15 |       44 | stat_for_unit_men_employees_id   | INTEGER     | pk_id        | t           |               | f
+      15 |       45 | stat_for_unit_women_employees_id | INTEGER     | pk_id        | t           |               | f
+      15 |       46 | stat_for_unit_boy_employees_id   | INTEGER     | pk_id        | t           |               | f
+      15 |       47 | stat_for_unit_girl_employees_id  | INTEGER     | pk_id        | t           |               | f
+(15 rows)
+
+\echo "Check generated code from stat_definition modifications for source columns"
+"Check generated code from stat_definition modifications for source columns"
+\echo "Removed import_source_column rows:"
+"Removed import_source_column rows:"
+SELECT * FROM import_source_column_baseline
+EXCEPT
+SELECT
+    definition_id,
+    priority,
+    column_name
+FROM public.import_source_column
+WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+ORDER BY definition_id, priority, column_name;
+ definition_id | priority | column_name 
+---------------+----------+-------------
+(0 rows)
+
+\echo "Added import_source_column rows:"
+"Added import_source_column rows:"
+SELECT
+    definition_id,
+    priority,
+    column_name
+FROM public.import_source_column
+WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+EXCEPT
+SELECT * FROM import_source_column_baseline
+ORDER BY definition_id, priority, column_name;
+ definition_id | priority |   column_name   
+---------------+----------+-----------------
+             1 |       40 | men_employees
+             1 |       41 | women_employees
+             1 |       42 | boy_employees
+             1 |       43 | girl_employees
+             2 |       42 | men_employees
+             2 |       43 | women_employees
+             2 |       44 | boy_employees
+             2 |       45 | girl_employees
+             3 |       41 | men_employees
+             3 |       42 | women_employees
+             3 |       43 | boy_employees
+             3 |       44 | girl_employees
+             4 |       43 | men_employees
+             4 |       44 | women_employees
+             4 |       45 | boy_employees
+             4 |       46 | girl_employees
+             5 |       39 | men_employees
+             5 |       40 | women_employees
+             5 |       41 | boy_employees
+             5 |       42 | girl_employees
+             6 |       41 | men_employees
+             6 |       42 | women_employees
+             6 |       43 | boy_employees
+             6 |       44 | girl_employees
+             7 |        6 | men_employees
+             7 |        7 | women_employees
+             7 |        8 | boy_employees
+             7 |        9 | girl_employees
+             8 |        8 | men_employees
+             8 |        9 | women_employees
+             8 |       10 | boy_employees
+             8 |       11 | girl_employees
+(32 rows)
+
+\echo "Check generated code from stat_definition modifications for mappings"
+"Check generated code from stat_definition modifications for mappings"
+\echo "Removed import_mapping rows:"
+"Removed import_mapping rows:"
+SELECT * FROM import_mapping_baseline
+EXCEPT
+SELECT
+    m.definition_id,
+    isc.column_name AS source_column_name,
+    m.source_expression,
+    idc.column_name AS target_data_column_name,
+    m.target_data_column_purpose::text AS target_data_column_purpose,
+    m.is_ignored,
+    m.source_value
+FROM public.import_mapping m
+LEFT JOIN public.import_source_column isc ON m.source_column_id = isc.id
+LEFT JOIN public.import_data_column idc ON m.target_data_column_id = idc.id
+WHERE m.definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+ORDER BY definition_id, source_column_name NULLS FIRST, source_expression, target_data_column_name;
+ definition_id | source_column_name | source_expression | target_data_column_name | target_data_column_purpose | is_ignored | source_value 
+---------------+--------------------+-------------------+-------------------------+----------------------------+------------+--------------
+             1 | employees          |                   | employees_raw           | source_input               | f          | 
+             2 | employees          |                   | employees_raw           | source_input               | f          | 
+             3 | employees          |                   | employees_raw           | source_input               | f          | 
+             4 | employees          |                   | employees_raw           | source_input               | f          | 
+             5 | employees          |                   | employees_raw           | source_input               | f          | 
+             6 | employees          |                   | employees_raw           | source_input               | f          | 
+             7 | employees          |                   | employees_raw           | source_input               | f          | 
+             8 | employees          |                   | employees_raw           | source_input               | f          | 
+(8 rows)
+
+\echo "Added import_mapping rows:"
+"Added import_mapping rows:"
+SELECT
+    m.definition_id,
+    isc.column_name AS source_column_name,
+    m.source_expression,
+    idc.column_name AS target_data_column_name,
+    m.target_data_column_purpose::text AS target_data_column_purpose,
+    m.is_ignored,
+    m.source_value
+FROM public.import_mapping m
+LEFT JOIN public.import_source_column isc ON m.source_column_id = isc.id
+LEFT JOIN public.import_data_column idc ON m.target_data_column_id = idc.id
+WHERE m.definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+EXCEPT
+SELECT * FROM import_mapping_baseline
+ORDER BY definition_id, source_column_name NULLS FIRST, source_expression, target_data_column_name;
+ definition_id | source_column_name | source_expression | target_data_column_name | target_data_column_purpose | is_ignored | source_value 
+---------------+--------------------+-------------------+-------------------------+----------------------------+------------+--------------
+             1 | boy_employees      |                   | boy_employees_raw       | source_input               | f          | 
+             1 | girl_employees     |                   | girl_employees_raw      | source_input               | f          | 
+             1 | men_employees      |                   | men_employees_raw       | source_input               | f          | 
+             1 | women_employees    |                   | women_employees_raw     | source_input               | f          | 
+             2 | boy_employees      |                   | boy_employees_raw       | source_input               | f          | 
+             2 | girl_employees     |                   | girl_employees_raw      | source_input               | f          | 
+             2 | men_employees      |                   | men_employees_raw       | source_input               | f          | 
+             2 | women_employees    |                   | women_employees_raw     | source_input               | f          | 
+             3 | boy_employees      |                   | boy_employees_raw       | source_input               | f          | 
+             3 | girl_employees     |                   | girl_employees_raw      | source_input               | f          | 
+             3 | men_employees      |                   | men_employees_raw       | source_input               | f          | 
+             3 | women_employees    |                   | women_employees_raw     | source_input               | f          | 
+             4 | boy_employees      |                   | boy_employees_raw       | source_input               | f          | 
+             4 | girl_employees     |                   | girl_employees_raw      | source_input               | f          | 
+             4 | men_employees      |                   | men_employees_raw       | source_input               | f          | 
+             4 | women_employees    |                   | women_employees_raw     | source_input               | f          | 
+             5 | boy_employees      |                   | boy_employees_raw       | source_input               | f          | 
+             5 | girl_employees     |                   | girl_employees_raw      | source_input               | f          | 
+             5 | men_employees      |                   | men_employees_raw       | source_input               | f          | 
+             5 | women_employees    |                   | women_employees_raw     | source_input               | f          | 
+             6 | boy_employees      |                   | boy_employees_raw       | source_input               | f          | 
+             6 | girl_employees     |                   | girl_employees_raw      | source_input               | f          | 
+             6 | men_employees      |                   | men_employees_raw       | source_input               | f          | 
+             6 | women_employees    |                   | women_employees_raw     | source_input               | f          | 
+             7 | boy_employees      |                   | boy_employees_raw       | source_input               | f          | 
+             7 | girl_employees     |                   | girl_employees_raw      | source_input               | f          | 
+             7 | men_employees      |                   | men_employees_raw       | source_input               | f          | 
+             7 | women_employees    |                   | women_employees_raw     | source_input               | f          | 
+             8 | boy_employees      |                   | boy_employees_raw       | source_input               | f          | 
+             8 | girl_employees     |                   | girl_employees_raw      | source_input               | f          | 
+             8 | men_employees      |                   | men_employees_raw       | source_input               | f          | 
+             8 | women_employees    |                   | women_employees_raw     | source_input               | f          | 
+(32 rows)
+
+\echo "Establish a new baseline after stat_definition changes"
+"Establish a new baseline after stat_definition changes"
+CREATE TEMP TABLE import_data_column_baseline_2 AS
+SELECT
+    step_id,
+    priority,
+    column_name,
+    column_type,
+    purpose::text AS purpose,
+    is_nullable,
+    default_value,
+    is_uniquely_identifying
+FROM public.import_data_column
+ORDER BY step_id, priority NULLS FIRST, column_name;
+\echo "Establish a new baseline for source columns after stat_definition changes"
+"Establish a new baseline for source columns after stat_definition changes"
+CREATE TEMP TABLE import_source_column_baseline_2 AS
+SELECT
+    definition_id,
+    priority,
+    column_name
+FROM public.import_source_column
+WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+ORDER BY definition_id, priority, column_name;
+\echo "Establish a new baseline for mappings after stat_definition changes"
+"Establish a new baseline for mappings after stat_definition changes"
+CREATE TEMP TABLE import_mapping_baseline_2 AS
+SELECT
+    m.definition_id,
+    isc.column_name AS source_column_name,
+    m.source_expression,
+    idc.column_name AS target_data_column_name,
+    m.target_data_column_purpose::text AS target_data_column_purpose,
+    m.is_ignored,
+    m.source_value
+FROM public.import_mapping m
+LEFT JOIN public.import_source_column isc ON m.source_column_id = isc.id
+LEFT JOIN public.import_data_column idc ON m.target_data_column_id = idc.id
+WHERE m.definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+ORDER BY m.definition_id, source_column_name NULLS FIRST, source_expression, target_data_column_name;
+\echo "---"
+"---"
+\echo "Testing external_ident_type lifecycle hooks for import_data_column"
+"Testing external_ident_type lifecycle hooks for import_data_column"
+\echo "---"
+"---"
 \echo "Modify external_ident_type"
 "Modify external_ident_type"
 \echo "Delete unused stat identifier".
@@ -403,11 +1200,11 @@ NOTICE:  Created indices for stat_definition men_employees
 NOTICE:  Created indices for stat_definition women_employees
 NOTICE:  Created indices for stat_definition boy_employees
 NOTICE:  Created indices for stat_definition girl_employees
-\echo "Check new generated code"
-"Check new generated code"
-\echo "Removed import_data_column rows (stable columns):"
-"Removed import_data_column rows (stable columns):"
-SELECT * FROM import_data_column_baseline
+\echo "Check generated code from external_ident_type modifications"
+"Check generated code from external_ident_type modifications"
+\echo "Removed import_data_column rows:"
+"Removed import_data_column rows:"
+SELECT * FROM import_data_column_baseline_2
 EXCEPT
 SELECT
     step_id,
@@ -420,56 +1217,151 @@ SELECT
     is_uniquely_identifying
 FROM public.import_data_column
 ORDER BY step_id, priority NULLS FIRST, column_name;
- step_id | priority |        column_name         | column_type |   purpose    | is_nullable | default_value | is_uniquely_identifying 
----------+----------+----------------------------+-------------+--------------+-------------+---------------+-------------------------
-       2 |        7 | tax_ident_raw              | TEXT        | source_input | t           |               | t
-       2 |        8 | stat_ident_raw             | TEXT        | source_input | t           |               | t
-       5 |        2 | legal_unit_tax_ident_raw   | TEXT        | source_input | t           |               | f
-       5 |        3 | legal_unit_stat_ident_raw  | TEXT        | source_input | t           |               | f
-      15 |        1 | employees_raw              | TEXT        | source_input | t           |               | f
-      15 |        2 | turnover_raw               | TEXT        | source_input | t           |               | f
-      15 |        3 | employees                  | INTEGER     | internal     | t           |               | f
-      15 |        4 | turnover                   | NUMERIC     | internal     | t           |               | f
-      15 |        5 | stat_for_unit_employees_id | INTEGER     | pk_id        | t           |               | f
-      15 |        6 | stat_for_unit_turnover_id  | INTEGER     | pk_id        | t           |               | f
+ step_id | priority |        column_name        | column_type |   purpose    | is_nullable | default_value | is_uniquely_identifying 
+---------+----------+---------------------------+-------------+--------------+-------------+---------------+-------------------------
+       2 |        7 | tax_ident_raw             | TEXT        | source_input | t           |               | t
+       2 |        8 | stat_ident_raw            | TEXT        | source_input | t           |               | t
+       5 |        2 | legal_unit_tax_ident_raw  | TEXT        | source_input | t           |               | f
+       5 |        3 | legal_unit_stat_ident_raw | TEXT        | source_input | t           |               | f
+(4 rows)
+
+\echo "Added import_data_column rows:"
+"Added import_data_column rows:"
+SELECT
+    step_id,
+    priority,
+    column_name,
+    column_type,
+    purpose::text AS purpose,
+    is_nullable,
+    default_value,
+    is_uniquely_identifying
+FROM public.import_data_column
+EXCEPT
+SELECT * FROM import_data_column_baseline_2
+ORDER BY step_id, priority NULLS FIRST, column_name;
+ step_id | priority |       column_name        | column_type |   purpose    | is_nullable | default_value | is_uniquely_identifying 
+---------+----------+--------------------------+-------------+--------------+-------------+---------------+-------------------------
+       2 |       12 | tax_ident_raw            | TEXT        | source_input | t           |               | t
+       2 |       13 | pin_raw                  | TEXT        | source_input | t           |               | t
+       5 |        7 | legal_unit_tax_ident_raw | TEXT        | source_input | t           |               | f
+       5 |        8 | legal_unit_pin_raw       | TEXT        | source_input | t           |               | f
+(4 rows)
+
+\echo "Check generated code from external_ident_type modifications for source columns"
+"Check generated code from external_ident_type modifications for source columns"
+\echo "Removed import_source_column rows:"
+"Removed import_source_column rows:"
+SELECT * FROM import_source_column_baseline_2
+EXCEPT
+SELECT
+    definition_id,
+    priority,
+    column_name
+FROM public.import_source_column
+WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+ORDER BY definition_id, priority, column_name;
+ definition_id | priority | column_name 
+---------------+----------+-------------
+(0 rows)
+
+\echo "Added import_source_column rows:"
+"Added import_source_column rows:"
+SELECT
+    definition_id,
+    priority,
+    column_name
+FROM public.import_source_column
+WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+EXCEPT
+SELECT * FROM import_source_column_baseline_2
+ORDER BY definition_id, priority, column_name;
+ definition_id | priority |    column_name    
+---------------+----------+-------------------
+             1 |       44 | mobile
+             1 |       45 | pin
+             2 |       46 | mobile
+             2 |       47 | pin
+             3 |       45 | mobile
+             3 |       46 | pin
+             3 |       47 | legal_unit_mobile
+             3 |       48 | legal_unit_pin
+             4 |       47 | mobile
+             4 |       48 | pin
+             4 |       49 | legal_unit_mobile
+             4 |       50 | legal_unit_pin
+             5 |       43 | mobile
+             5 |       44 | pin
+             6 |       45 | mobile
+             6 |       46 | pin
+             7 |       10 | mobile
+             7 |       11 | pin
+             8 |       12 | mobile
+             8 |       13 | pin
+(20 rows)
+
+\echo "Check generated code from external_ident_type modifications for mappings"
+"Check generated code from external_ident_type modifications for mappings"
+\echo "Removed import_mapping rows:"
+"Removed import_mapping rows:"
+SELECT * FROM import_mapping_baseline_2
+EXCEPT
+SELECT
+    m.definition_id,
+    isc.column_name AS source_column_name,
+    m.source_expression,
+    idc.column_name AS target_data_column_name,
+    m.target_data_column_purpose::text AS target_data_column_purpose,
+    m.is_ignored,
+    m.source_value
+FROM public.import_mapping m
+LEFT JOIN public.import_source_column isc ON m.source_column_id = isc.id
+LEFT JOIN public.import_data_column idc ON m.target_data_column_id = idc.id
+WHERE m.definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+ORDER BY definition_id, source_column_name NULLS FIRST, source_expression, target_data_column_name;
+ definition_id |  source_column_name   | source_expression |  target_data_column_name  | target_data_column_purpose | is_ignored | source_value 
+---------------+-----------------------+-------------------+---------------------------+----------------------------+------------+--------------
+             1 | stat_ident            |                   | stat_ident_raw            | source_input               | f          | 
+             2 | stat_ident            |                   | stat_ident_raw            | source_input               | f          | 
+             3 | legal_unit_stat_ident |                   | legal_unit_stat_ident_raw | source_input               | f          | 
+             3 | stat_ident            |                   | stat_ident_raw            | source_input               | f          | 
+             4 | legal_unit_stat_ident |                   | legal_unit_stat_ident_raw | source_input               | f          | 
+             4 | stat_ident            |                   | stat_ident_raw            | source_input               | f          | 
+             5 | stat_ident            |                   | stat_ident_raw            | source_input               | f          | 
+             6 | stat_ident            |                   | stat_ident_raw            | source_input               | f          | 
+             7 | stat_ident            |                   | stat_ident_raw            | source_input               | f          | 
+             8 | stat_ident            |                   | stat_ident_raw            | source_input               | f          | 
 (10 rows)
 
-\echo "Added import_data_column rows (stable columns):"
-"Added import_data_column rows (stable columns):"
+\echo "Added import_mapping rows:"
+"Added import_mapping rows:"
 SELECT
-    step_id,
-    priority,
-    column_name,
-    column_type,
-    purpose::text AS purpose,
-    is_nullable,
-    default_value,
-    is_uniquely_identifying
-FROM public.import_data_column
+    m.definition_id,
+    isc.column_name AS source_column_name,
+    m.source_expression,
+    idc.column_name AS target_data_column_name,
+    m.target_data_column_purpose::text AS target_data_column_purpose,
+    m.is_ignored,
+    m.source_value
+FROM public.import_mapping m
+LEFT JOIN public.import_source_column isc ON m.source_column_id = isc.id
+LEFT JOIN public.import_data_column idc ON m.target_data_column_id = idc.id
+WHERE m.definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
 EXCEPT
-SELECT * FROM import_data_column_baseline
-ORDER BY step_id, priority NULLS FIRST, column_name;
- step_id | priority |           column_name            | column_type |   purpose    | is_nullable | default_value | is_uniquely_identifying 
----------+----------+----------------------------------+-------------+--------------+-------------+---------------+-------------------------
-       2 |       12 | tax_ident_raw                    | TEXT        | source_input | t           |               | t
-       2 |       13 | pin_raw                          | TEXT        | source_input | t           |               | t
-       5 |        7 | legal_unit_tax_ident_raw         | TEXT        | source_input | t           |               | f
-       5 |        8 | legal_unit_pin_raw               | TEXT        | source_input | t           |               | f
-      15 |       33 | turnover_raw                     | TEXT        | source_input | t           |               | f
-      15 |       34 | men_employees_raw                | TEXT        | source_input | t           |               | f
-      15 |       35 | women_employees_raw              | TEXT        | source_input | t           |               | f
-      15 |       36 | boy_employees_raw                | TEXT        | source_input | t           |               | f
-      15 |       37 | girl_employees_raw               | TEXT        | source_input | t           |               | f
-      15 |       38 | turnover                         | NUMERIC     | internal     | t           |               | f
-      15 |       39 | men_employees                    | INTEGER     | internal     | t           |               | f
-      15 |       40 | women_employees                  | INTEGER     | internal     | t           |               | f
-      15 |       41 | boy_employees                    | INTEGER     | internal     | t           |               | f
-      15 |       42 | girl_employees                   | INTEGER     | internal     | t           |               | f
-      15 |       43 | stat_for_unit_turnover_id        | INTEGER     | pk_id        | t           |               | f
-      15 |       44 | stat_for_unit_men_employees_id   | INTEGER     | pk_id        | t           |               | f
-      15 |       45 | stat_for_unit_women_employees_id | INTEGER     | pk_id        | t           |               | f
-      15 |       46 | stat_for_unit_boy_employees_id   | INTEGER     | pk_id        | t           |               | f
-      15 |       47 | stat_for_unit_girl_employees_id  | INTEGER     | pk_id        | t           |               | f
-(19 rows)
+SELECT * FROM import_mapping_baseline_2
+ORDER BY definition_id, source_column_name NULLS FIRST, source_expression, target_data_column_name;
+ definition_id | source_column_name | source_expression | target_data_column_name | target_data_column_purpose | is_ignored | source_value 
+---------------+--------------------+-------------------+-------------------------+----------------------------+------------+--------------
+             1 | pin                |                   | pin_raw                 | source_input               | f          | 
+             2 | pin                |                   | pin_raw                 | source_input               | f          | 
+             3 | legal_unit_pin     |                   | legal_unit_pin_raw      | source_input               | f          | 
+             3 | pin                |                   | pin_raw                 | source_input               | f          | 
+             4 | legal_unit_pin     |                   | legal_unit_pin_raw      | source_input               | f          | 
+             4 | pin                |                   | pin_raw                 | source_input               | f          | 
+             5 | pin                |                   | pin_raw                 | source_input               | f          | 
+             6 | pin                |                   | pin_raw                 | source_input               | f          | 
+             7 | pin                |                   | pin_raw                 | source_input               | f          | 
+             8 | pin                |                   | pin_raw                 | source_input               | f          | 
+(10 rows)
 
 ROLLBACK;

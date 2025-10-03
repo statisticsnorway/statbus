@@ -16,8 +16,44 @@ SELECT
 FROM public.import_data_column
 ORDER BY step_id, priority NULLS FIRST, column_name;
 
+\echo "Establish a baseline by capturing initial state of import_source_column for default definitions"
+CREATE TEMP TABLE import_source_column_baseline AS
+SELECT
+    definition_id,
+    priority,
+    column_name
+FROM public.import_source_column
+WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+ORDER BY definition_id, priority, column_name;
+
+\echo "Establish a baseline by capturing initial state of import_mapping for default definitions"
+CREATE TEMP TABLE import_mapping_baseline AS
+SELECT
+    m.definition_id,
+    isc.column_name AS source_column_name,
+    m.source_expression,
+    idc.column_name AS target_data_column_name,
+    m.target_data_column_purpose::text AS target_data_column_purpose,
+    m.is_ignored,
+    m.source_value
+FROM public.import_mapping m
+LEFT JOIN public.import_source_column isc ON m.source_column_id = isc.id
+LEFT JOIN public.import_data_column idc ON m.target_data_column_id = idc.id
+WHERE m.definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+ORDER BY m.definition_id, source_column_name NULLS FIRST, source_expression, target_data_column_name;
+
 \echo "Initial import_data_column state (stable columns):"
 SELECT * FROM import_data_column_baseline;
+
+\echo "Initial import_source_column state (default definitions):"
+SELECT * FROM import_source_column_baseline;
+
+\echo "Initial import_mapping state (default definitions):"
+SELECT * FROM import_mapping_baseline;
+
+\echo "---"
+\echo "Testing stat_definition lifecycle hooks for import_data_column"
+\echo "---"
 
 \echo "Modify stat_definition"
 
@@ -41,6 +77,141 @@ INSERT INTO public.stat_definition(code, type, frequency, name, description, pri
   ('boy_employees','int','yearly','Number of boys employed','The number of boys receiving an official salary with government reporting.',5),
   ('girl_employees','int','yearly','Number of girls employed','The number of girls receiving an official salary with government reporting.',6);
 
+\echo "Check generated code from stat_definition modifications"
+
+\echo "Removed import_data_column rows:"
+SELECT * FROM import_data_column_baseline
+EXCEPT
+SELECT
+    step_id,
+    priority,
+    column_name,
+    column_type,
+    purpose::text AS purpose,
+    is_nullable,
+    default_value,
+    is_uniquely_identifying
+FROM public.import_data_column
+ORDER BY step_id, priority NULLS FIRST, column_name;
+
+\echo "Added import_data_column rows:"
+SELECT
+    step_id,
+    priority,
+    column_name,
+    column_type,
+    purpose::text AS purpose,
+    is_nullable,
+    default_value,
+    is_uniquely_identifying
+FROM public.import_data_column
+EXCEPT
+SELECT * FROM import_data_column_baseline
+ORDER BY step_id, priority NULLS FIRST, column_name;
+
+\echo "Check generated code from stat_definition modifications for source columns"
+
+\echo "Removed import_source_column rows:"
+SELECT * FROM import_source_column_baseline
+EXCEPT
+SELECT
+    definition_id,
+    priority,
+    column_name
+FROM public.import_source_column
+WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+ORDER BY definition_id, priority, column_name;
+
+\echo "Added import_source_column rows:"
+SELECT
+    definition_id,
+    priority,
+    column_name
+FROM public.import_source_column
+WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+EXCEPT
+SELECT * FROM import_source_column_baseline
+ORDER BY definition_id, priority, column_name;
+
+\echo "Check generated code from stat_definition modifications for mappings"
+\echo "Removed import_mapping rows:"
+SELECT * FROM import_mapping_baseline
+EXCEPT
+SELECT
+    m.definition_id,
+    isc.column_name AS source_column_name,
+    m.source_expression,
+    idc.column_name AS target_data_column_name,
+    m.target_data_column_purpose::text AS target_data_column_purpose,
+    m.is_ignored,
+    m.source_value
+FROM public.import_mapping m
+LEFT JOIN public.import_source_column isc ON m.source_column_id = isc.id
+LEFT JOIN public.import_data_column idc ON m.target_data_column_id = idc.id
+WHERE m.definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+ORDER BY definition_id, source_column_name NULLS FIRST, source_expression, target_data_column_name;
+
+\echo "Added import_mapping rows:"
+SELECT
+    m.definition_id,
+    isc.column_name AS source_column_name,
+    m.source_expression,
+    idc.column_name AS target_data_column_name,
+    m.target_data_column_purpose::text AS target_data_column_purpose,
+    m.is_ignored,
+    m.source_value
+FROM public.import_mapping m
+LEFT JOIN public.import_source_column isc ON m.source_column_id = isc.id
+LEFT JOIN public.import_data_column idc ON m.target_data_column_id = idc.id
+WHERE m.definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+EXCEPT
+SELECT * FROM import_mapping_baseline
+ORDER BY definition_id, source_column_name NULLS FIRST, source_expression, target_data_column_name;
+
+\echo "Establish a new baseline after stat_definition changes"
+CREATE TEMP TABLE import_data_column_baseline_2 AS
+SELECT
+    step_id,
+    priority,
+    column_name,
+    column_type,
+    purpose::text AS purpose,
+    is_nullable,
+    default_value,
+    is_uniquely_identifying
+FROM public.import_data_column
+ORDER BY step_id, priority NULLS FIRST, column_name;
+
+\echo "Establish a new baseline for source columns after stat_definition changes"
+CREATE TEMP TABLE import_source_column_baseline_2 AS
+SELECT
+    definition_id,
+    priority,
+    column_name
+FROM public.import_source_column
+WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+ORDER BY definition_id, priority, column_name;
+
+\echo "Establish a new baseline for mappings after stat_definition changes"
+CREATE TEMP TABLE import_mapping_baseline_2 AS
+SELECT
+    m.definition_id,
+    isc.column_name AS source_column_name,
+    m.source_expression,
+    idc.column_name AS target_data_column_name,
+    m.target_data_column_purpose::text AS target_data_column_purpose,
+    m.is_ignored,
+    m.source_value
+FROM public.import_mapping m
+LEFT JOIN public.import_source_column isc ON m.source_column_id = isc.id
+LEFT JOIN public.import_data_column idc ON m.target_data_column_id = idc.id
+WHERE m.definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+ORDER BY m.definition_id, source_column_name NULLS FIRST, source_expression, target_data_column_name;
+
+\echo "---"
+\echo "Testing external_ident_type lifecycle hooks for import_data_column"
+\echo "---"
+
 \echo "Modify external_ident_type"
 
 \echo "Delete unused stat identifier".
@@ -57,10 +228,10 @@ INSERT INTO public.external_ident_type(code, name, priority, description) VALUES
 \echo "Stop using the mobile, peoples number changed to often, it can no longer be imported, but will be in statistics."
 UPDATE public.external_ident_type SET archived = true wHERE code = 'mobile';
 
-\echo "Check new generated code"
+\echo "Check generated code from external_ident_type modifications"
 
-\echo "Removed import_data_column rows (stable columns):"
-SELECT * FROM import_data_column_baseline
+\echo "Removed import_data_column rows:"
+SELECT * FROM import_data_column_baseline_2
 EXCEPT
 SELECT
     step_id,
@@ -74,7 +245,7 @@ SELECT
 FROM public.import_data_column
 ORDER BY step_id, priority NULLS FIRST, column_name;
 
-\echo "Added import_data_column rows (stable columns):"
+\echo "Added import_data_column rows:"
 SELECT
     step_id,
     priority,
@@ -86,7 +257,107 @@ SELECT
     is_uniquely_identifying
 FROM public.import_data_column
 EXCEPT
-SELECT * FROM import_data_column_baseline
+SELECT * FROM import_data_column_baseline_2
 ORDER BY step_id, priority NULLS FIRST, column_name;
+
+\echo "Check generated code from external_ident_type modifications for source columns"
+
+\echo "Removed import_source_column rows:"
+SELECT * FROM import_source_column_baseline_2
+EXCEPT
+SELECT
+    definition_id,
+    priority,
+    column_name
+FROM public.import_source_column
+WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+ORDER BY definition_id, priority, column_name;
+
+\echo "Added import_source_column rows:"
+SELECT
+    definition_id,
+    priority,
+    column_name
+FROM public.import_source_column
+WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+EXCEPT
+SELECT * FROM import_source_column_baseline_2
+ORDER BY definition_id, priority, column_name;
+
+\echo "Check generated code from external_ident_type modifications for mappings"
+\echo "Removed import_mapping rows:"
+SELECT * FROM import_mapping_baseline_2
+EXCEPT
+SELECT
+    m.definition_id,
+    isc.column_name AS source_column_name,
+    m.source_expression,
+    idc.column_name AS target_data_column_name,
+    m.target_data_column_purpose::text AS target_data_column_purpose,
+    m.is_ignored,
+    m.source_value
+FROM public.import_mapping m
+LEFT JOIN public.import_source_column isc ON m.source_column_id = isc.id
+LEFT JOIN public.import_data_column idc ON m.target_data_column_id = idc.id
+WHERE m.definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+ORDER BY definition_id, source_column_name NULLS FIRST, source_expression, target_data_column_name;
+
+\echo "Added import_mapping rows:"
+SELECT
+    m.definition_id,
+    isc.column_name AS source_column_name,
+    m.source_expression,
+    idc.column_name AS target_data_column_name,
+    m.target_data_column_purpose::text AS target_data_column_purpose,
+    m.is_ignored,
+    m.source_value
+FROM public.import_mapping m
+LEFT JOIN public.import_source_column isc ON m.source_column_id = isc.id
+LEFT JOIN public.import_data_column idc ON m.target_data_column_id = idc.id
+WHERE m.definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+EXCEPT
+SELECT * FROM import_mapping_baseline_2
+ORDER BY definition_id, source_column_name NULLS FIRST, source_expression, target_data_column_name;
+
+\echo "---"
+\echo "Testing that public.reset() correctly restores the initial state"
+\echo "---"
+
+\echo "Calling reset to restore database to its initial state"
+SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'all'::public.reset_scope));
+
+\echo "Checking if tables have been restored to their original baseline state after reset"
+
+\echo "Removed import_data_column rows after reset (should be empty):"
+SELECT * FROM import_data_column_baseline EXCEPT SELECT step_id, priority, column_name, column_type, purpose::text, is_nullable, default_value, is_uniquely_identifying FROM public.import_data_column;
+
+\echo "Added import_data_column rows after reset (should be empty):"
+SELECT step_id, priority, column_name, column_type, purpose::text, is_nullable, default_value, is_uniquely_identifying FROM public.import_data_column EXCEPT SELECT * FROM import_data_column_baseline;
+
+
+\echo "Removed import_source_column rows after reset (should be empty):"
+SELECT * FROM import_source_column_baseline EXCEPT SELECT definition_id, priority, column_name FROM public.import_source_column WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = false);
+
+\echo "Added import_source_column rows after reset (should be empty):"
+SELECT definition_id, priority, column_name FROM public.import_source_column WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = false) EXCEPT SELECT * FROM import_source_column_baseline;
+
+
+\echo "Removed import_mapping rows after reset (should be empty):"
+SELECT * FROM import_mapping_baseline
+EXCEPT
+SELECT m.definition_id, isc.column_name, m.source_expression, idc.column_name, m.target_data_column_purpose::text, m.is_ignored, m.source_value
+FROM public.import_mapping m
+LEFT JOIN public.import_source_column isc ON m.source_column_id = isc.id
+LEFT JOIN public.import_data_column idc ON m.target_data_column_id = idc.id
+WHERE m.definition_id IN (SELECT id FROM public.import_definition WHERE custom = false);
+
+\echo "Added import_mapping rows after reset (should be empty):"
+SELECT m.definition_id, isc.column_name, m.source_expression, idc.column_name, m.target_data_column_purpose::text, m.is_ignored, m.source_value
+FROM public.import_mapping m
+LEFT JOIN public.import_source_column isc ON m.source_column_id = isc.id
+LEFT JOIN public.import_data_column idc ON m.target_data_column_id = idc.id
+WHERE m.definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+EXCEPT
+SELECT * FROM import_mapping_baseline;
 
 ROLLBACK;
