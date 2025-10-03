@@ -32,11 +32,11 @@ export const HistoryChart = ({
     if (!_ref.current || !highcharts || chartSeries.length === 0) return;
     _chart.current?.destroy();
 
-    // Detect if any name has an asterisk
-    const hasAsterisk = chartSeries.some((s) => s.name.includes("*"));
+    // Detect if any series represents data that is current (no end date).
+    const isCurrent = chartSeries.some((s) => s.is_current);
 
     // Optional subtitle text
-    const subtitleText = hasAsterisk
+    const subtitleText = isCurrent
       ? "* Indicates value with no defined end date"
       : "";
 
