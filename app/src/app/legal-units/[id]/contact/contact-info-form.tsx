@@ -55,7 +55,6 @@ export default function ContactInfoForm({ id }: { readonly id: string }) {
   return (
     <div className="space-y-2">
       <div>
-        {legalUnit?.contact && (
           <EditableFieldGroup
             key={legalUnit?.contact?.id}
             fieldGroupId="contact-info"
@@ -111,11 +110,9 @@ export default function ContactInfoForm({ id }: { readonly id: string }) {
               </div>
             )}
           </EditableFieldGroup>
-        )}
       </div>
-      {postalLocation && (
         <EditableFieldGroup
-          key={postalLocation.id}
+          key={postalLocation?.id}
           fieldGroupId="postal-location"
           title="Postal Location"
           action={locationAction}
@@ -176,7 +173,6 @@ export default function ContactInfoForm({ id }: { readonly id: string }) {
             </>
           )}
         </EditableFieldGroup>
-      )}
     </div>
   );
 }
