@@ -1,20 +1,20 @@
 BEGIN;
 
 -- ================================================
--- Function: public.statistical_stats_highcharts
+-- Function: public.statistical_history_highcharts
 -- Returns JSONB rows all dates for a given resolution and uniit_type
 -- Number of Name changes, Address changes, change of activity category, births and deaths
 --
---SELECT public.statistical_stats_highcharts( 'year'::history_resolution,'enterprise'::statistical_unit_type);
---SELECT public.statistical_stats_highcharts( 'year-month'::history_resolution,'legal_unit'::statistical_unit_type);
---SELECT public.statistical_stats_highcharts( 'year-month'::history_resolution,'establishment'::statistical_unit_type);
+--SELECT public.statistical_history_highcharts( 'year'::history_resolution,'enterprise'::statistical_unit_type);
+--SELECT public.statistical_history_highcharts( 'year-month'::history_resolution,'legal_unit'::statistical_unit_type);
+--SELECT public.statistical_history_highcharts( 'year-month'::history_resolution,'establishment'::statistical_unit_type);
 --Erik Oct 2025
 
 -- ================================================
 
 
 
-CREATE OR REPLACE FUNCTION public.statistical_stats_highcharts(
+CREATE OR REPLACE FUNCTION public.statistical_history_highcharts(
 	p_resolution history_resolution,
 	p_unit_type statistical_unit_type)
     RETURNS jsonb
@@ -27,11 +27,13 @@ DECLARE
 BEGIN
     WITH base AS (
         SELECT
-			  CASE 
-            WHEN p_resolution = 'year' THEN
+			  CASE p_resolution
+            WHEN 'year' THEN
                 make_timestamp(year, 1, 1, 0, 0, 0)
-            ELSE
+            WHEN 'year-month' THEN
                 make_timestamp(year, month, 1, 0, 0, 0)
+            ELSE
+                NULL
         END AS ts,			
             name_change_count,
             primary_activity_category_change_count,
@@ -44,7 +46,7 @@ BEGIN
         FROM public.statistical_history
         WHERE resolution = p_resolution
           AND unit_type = p_unit_type
-        ORDER BY 1
+        ORDER BY ts
     ),
     series_build AS (
         SELECT
