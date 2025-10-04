@@ -24,7 +24,7 @@ export async function updateEstablishment(
     };
   }
 
-  const { valid_from, valid_until, ...updatedFields } = validatedFields.data;
+  const { valid_from, valid_to, ...updatedFields } = validatedFields.data;
 
   try {
     const { error: metadataError, metadata } = await getEditMetadata(client);
@@ -35,7 +35,7 @@ export async function updateEstablishment(
       .select("id")
       .eq("id", parseInt(id, 10))
       .eq("valid_from", valid_from as string)
-      .eq("valid_until", valid_until as string)
+      .eq("valid_to", valid_to as string)
       .limit(1);
     if (exactErr) {
       return {
@@ -49,7 +49,7 @@ export async function updateEstablishment(
         .update({ ...updatedFields, ...metadata })
         .eq("id", parseInt(id, 10))
         .eq("valid_from", valid_from as string)
-        .eq("valid_until", valid_until as string);
+        .eq("valid_to", valid_to as string);
 
       if (response.status >= 400) {
         return { status: "error", message: response.statusText };
