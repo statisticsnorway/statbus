@@ -113,9 +113,8 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     4
- analytics | completed |    99
- import    | completed |   188
-(3 rows)
+ import    | completed |    47
+(2 rows)
 
 \echo "Checking unit counts after import processing"
 "Checking unit counts after import processing"
@@ -157,8 +156,8 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   105
- import    | completed |   188
+ analytics | completed |     6
+ import    | completed |    47
 (2 rows)
 
 \echo "Checking legal unit"
@@ -185,6 +184,14 @@ SAVEPOINT before_update_on_activity;
 UPDATE activity__for_portion_of_valid
  SET category_id = '30', valid_from = '2024-01-01', valid_until = '2025-01-01'
  WHERE legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'ENTEBBE FUEL ENTERPRISES');
+TABLE pg_temp.temporal_merge_plan ORDER BY plan_op_seq;
+ plan_op_seq | row_ids | operation | update_effect | causal_id | is_new_entity |                                entity_keys                                 | identity_keys |                            lookup_keys                            | s_t_relation | b_a_relation | old_valid_from | old_valid_until | new_valid_from | new_valid_until |                                                                                                         data                                                                                                         | feedback | trace |    grouping_key    
+-------------+---------+-----------+---------------+-----------+---------------+----------------------------------------------------------------------------+---------------+-------------------------------------------------------------------+--------------+--------------+----------------+-----------------+----------------+-----------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+----------+-------+--------------------
+           1 | {1}     | INSERT    |               | 1         | f             | {"id": 1, "type": "primary", "legal_unit_id": 1, "establishment_id": null} | {"id": 1}     | {"type": "primary", "legal_unit_id": 1, "establishment_id": null} | during       | contains     | 2023-01-01     | 2026-01-01      | 2024-01-01     | 2025-01-01      | {"edit_at": "2025-10-07T03:56:18.001658-07:00", "valid_to": "2024-12-31", "category_id": 30, "edit_comment": "Test data load (315_activity_for_portion_of_valid.sql)", "data_source_id": null, "edit_by_user_id": 4} |          |       | existing_entity__1
+           2 | {1}     | INSERT    |               | 1         | f             | {"id": 1, "type": "primary", "legal_unit_id": 1, "establishment_id": null} | {"id": 1}     | {"type": "primary", "legal_unit_id": 1, "establishment_id": null} | during       | finished_by  | 2023-01-01     | 2026-01-01      | 2025-01-01     | 2026-01-01      | {"edit_at": "2025-10-07T03:56:18.001658-07:00", "valid_to": "2025-12-31", "category_id": 13, "edit_comment": "Test data load (315_activity_for_portion_of_valid.sql)", "data_source_id": null, "edit_by_user_id": 4} |          |       | existing_entity__1
+           3 | {1}     | UPDATE    | SHRINK        | 1         | f             | {"id": 1, "type": "primary", "legal_unit_id": 1, "establishment_id": null} | {"id": 1}     | {"type": "primary", "legal_unit_id": 1, "establishment_id": null} | during       | started_by   | 2023-01-01     | 2026-01-01      | 2023-01-01     | 2024-01-01      | {"edit_at": "2025-10-07T03:56:18.001658-07:00", "valid_to": "2023-12-31", "category_id": 13, "edit_comment": "Test data load (315_activity_for_portion_of_valid.sql)", "data_source_id": null, "edit_by_user_id": 4} |          |       | existing_entity__1
+(3 rows)
+
 SELECT category_id, valid_from, valid_to
  FROM activity
  ORDER BY  valid_from;
@@ -204,11 +211,20 @@ SELECT category_id, valid_from, valid_to
           13 | 2023-01-01 | 2025-12-31
 (1 row)
 
+-- SET sql_saga.temporal_merge.enable_trace = true;
 \echo "Update using valid_to"
 "Update using valid_to"
 UPDATE activity__for_portion_of_valid
  SET category_id = '30', valid_from = '2024-01-01', valid_to = '2024-12-31'
  WHERE legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'ENTEBBE FUEL ENTERPRISES');
+TABLE pg_temp.temporal_merge_plan ORDER BY plan_op_seq;
+ plan_op_seq | row_ids | operation | update_effect | causal_id | is_new_entity |                                entity_keys                                 | identity_keys |                            lookup_keys                            | s_t_relation | b_a_relation | old_valid_from | old_valid_until | new_valid_from | new_valid_until |                                                                                                         data                                                                                                         | feedback | trace |    grouping_key    
+-------------+---------+-----------+---------------+-----------+---------------+----------------------------------------------------------------------------+---------------+-------------------------------------------------------------------+--------------+--------------+----------------+-----------------+----------------+-----------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+----------+-------+--------------------
+           1 | {1}     | INSERT    |               | 1         | f             | {"id": 1, "type": "primary", "legal_unit_id": 1, "establishment_id": null} | {"id": 1}     | {"type": "primary", "legal_unit_id": 1, "establishment_id": null} | during       | contains     | 2023-01-01     | 2026-01-01      | 2024-01-01     | 2025-01-01      | {"edit_at": "2025-10-07T03:56:18.001658-07:00", "valid_to": "2024-12-31", "category_id": 30, "edit_comment": "Test data load (315_activity_for_portion_of_valid.sql)", "data_source_id": null, "edit_by_user_id": 4} |          |       | existing_entity__1
+           2 | {1}     | INSERT    |               | 1         | f             | {"id": 1, "type": "primary", "legal_unit_id": 1, "establishment_id": null} | {"id": 1}     | {"type": "primary", "legal_unit_id": 1, "establishment_id": null} | during       | finished_by  | 2023-01-01     | 2026-01-01      | 2025-01-01     | 2026-01-01      | {"edit_at": "2025-10-07T03:56:18.001658-07:00", "valid_to": "2025-12-31", "category_id": 13, "edit_comment": "Test data load (315_activity_for_portion_of_valid.sql)", "data_source_id": null, "edit_by_user_id": 4} |          |       | existing_entity__1
+           3 | {1}     | UPDATE    | SHRINK        | 1         | f             | {"id": 1, "type": "primary", "legal_unit_id": 1, "establishment_id": null} | {"id": 1}     | {"type": "primary", "legal_unit_id": 1, "establishment_id": null} | during       | started_by   | 2023-01-01     | 2026-01-01      | 2023-01-01     | 2024-01-01      | {"edit_at": "2025-10-07T03:56:18.001658-07:00", "valid_to": "2023-12-31", "category_id": 13, "edit_comment": "Test data load (315_activity_for_portion_of_valid.sql)", "data_source_id": null, "edit_by_user_id": 4} |          |       | existing_entity__1
+(3 rows)
+
 SELECT category_id, valid_from, valid_to
  FROM activity
  ORDER BY  valid_from;
