@@ -5,7 +5,7 @@
  id                       | integer                  |           | not null | nextval('enterprise_group_id_seq'::regclass)
  valid_from               | date                     |           | not null | 
  valid_to                 | date                     |           |          | 
- valid_until              | date                     |           | not null | 
+ valid_until              | date                     |           |          | 
  short_name               | character varying(16)    |           |          | 
  name                     | character varying(256)   |           |          | 
  enterprise_group_type_id | integer                  |           |          | 

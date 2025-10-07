@@ -5,7 +5,7 @@
  id               | integer                  |           | not null | nextval('contact_id_seq'::regclass)
  valid_from       | date                     |           | not null | 
  valid_to         | date                     |           |          | 
- valid_until      | date                     |           | not null | 
+ valid_until      | date                     |           |          | 
  web_address      | character varying(256)   |           |          | 
  email_address    | character varying(50)    |           |          | 
  phone_number     | character varying(50)    |           |          | 

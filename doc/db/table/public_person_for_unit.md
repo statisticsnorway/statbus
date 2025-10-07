@@ -5,7 +5,7 @@
  id               | integer |           | not null | nextval('person_for_unit_id_seq'::regclass)
  valid_from       | date    |           | not null | 
  valid_to         | date    |           |          | 
- valid_until      | date    |           | not null | 
+ valid_until      | date    |           |          | 
  person_id        | integer |           | not null | 
  person_role_id   | integer |           |          | 
  data_source_id   | integer |           |          | 

@@ -5,7 +5,7 @@
  id               | integer                  |           | not null | nextval('location_id_seq'::regclass)
  valid_from       | date                     |           | not null | 
  valid_to         | date                     |           |          | 
- valid_until      | date                     |           | not null | 
+ valid_until      | date                     |           |          | 
  type             | location_type            |           | not null | 
  address_part1    | character varying(200)   |           |          | 
  address_part2    | character varying(200)   |           |          | 

@@ -5,7 +5,7 @@
  id                       | integer                  |           | not null | nextval('legal_unit_id_seq'::regclass) | plain    |             |              | 
  valid_from               | date                     |           | not null |                                        | plain    |             |              | 
  valid_to                 | date                     |           |          |                                        | plain    |             |              | 
- valid_until              | date                     |           | not null |                                        | plain    |             |              | 
+ valid_until              | date                     |           |          |                                        | plain    |             |              | 
  short_name               | character varying(16)    |           |          |                                        | extended |             |              | 
  name                     | character varying(256)   |           | not null |                                        | extended |             |              | 
  birth_date               | date                     |           |          |                                        | plain    |             |              | 

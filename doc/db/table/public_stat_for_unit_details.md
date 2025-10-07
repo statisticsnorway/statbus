@@ -6,7 +6,7 @@
  stat_definition_id | integer                  |           | not null |                                           | plain    |             |              | 
  valid_from         | date                     |           | not null |                                           | plain    |             |              | 
  valid_to           | date                     |           |          |                                           | plain    |             |              | 
- valid_until        | date                     |           | not null |                                           | plain    |             |              | 
+ valid_until        | date                     |           |          |                                           | plain    |             |              | 
  data_source_id     | integer                  |           |          |                                           | plain    |             |              | 
  establishment_id   | integer                  |           |          |                                           | plain    |             |              | 
  legal_unit_id      | integer                  |           |          |                                           | plain    |             |              | 

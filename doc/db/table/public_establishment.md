@@ -5,7 +5,7 @@
  id                     | integer                  |           | not null | nextval('establishment_id_seq'::regclass)
  valid_from             | date                     |           | not null | 
  valid_to               | date                     |           |          | 
- valid_until            | date                     |           | not null | 
+ valid_until            | date                     |           |          | 
  short_name             | character varying(16)    |           |          | 
  name                   | character varying(256)   |           | not null | 
  birth_date             | date                     |           |          | 

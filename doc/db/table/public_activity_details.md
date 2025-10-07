@@ -5,7 +5,7 @@
  id               | integer                  |           | not null | nextval('activity_id_seq'::regclass) | plain    |             |              | 
  valid_from       | date                     |           | not null |                                      | plain    |             |              | 
  valid_to         | date                     |           |          |                                      | plain    |             |              | 
- valid_until      | date                     |           | not null |                                      | plain    |             |              | 
+ valid_until      | date                     |           |          |                                      | plain    |             |              | 
  type             | activity_type            |           | not null |                                      | plain    |             |              | 
  category_id      | integer                  |           | not null |                                      | plain    |             |              | 
  data_source_id   | integer                  |           |          |                                      | plain    |             |              | 

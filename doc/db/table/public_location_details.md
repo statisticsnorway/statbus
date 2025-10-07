@@ -5,7 +5,7 @@
  id               | integer                  |           | not null | nextval('location_id_seq'::regclass) | plain    |             |              | Entity key for the location record (not the temporal era).
  valid_from       | date                     |           | not null |                                      | plain    |             |              | Start date (inclusive) of the validity period for this location era.
  valid_to         | date                     |           |          |                                      | plain    |             |              | End date (inclusive) of the validity period for this location era. UI-facing.
- valid_until      | date                     |           | not null |                                      | plain    |             |              | End date (exclusive) of the validity period for this location era. Used for temporal logic.
+ valid_until      | date                     |           |          |                                      | plain    |             |              | End date (exclusive) of the validity period for this location era. Used for temporal logic.
  type             | location_type            |           | not null |                                      | plain    |             |              | Type of location: 'physical' or 'postal'.
  address_part1    | character varying(200)   |           |          |                                      | extended |             |              | First line of the address.
  address_part2    | character varying(200)   |           |          |                                      | extended |             |              | Second line of the address.
