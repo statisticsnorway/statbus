@@ -22,7 +22,7 @@ export type Database = {
           type: Database["public"]["Enums"]["activity_type"]
           valid_from: string
           valid_to: string | null
-          valid_until: string
+          valid_until: string | null
         }
         Insert: {
           category_id: number
@@ -36,7 +36,7 @@ export type Database = {
           type: Database["public"]["Enums"]["activity_type"]
           valid_from: string
           valid_to?: string | null
-          valid_until: string
+          valid_until?: string | null
         }
         Update: {
           category_id?: number
@@ -50,7 +50,7 @@ export type Database = {
           type?: Database["public"]["Enums"]["activity_type"]
           valid_from?: string
           valid_to?: string | null
-          valid_until?: string
+          valid_until?: string | null
         }
         Relationships: [
           {
@@ -311,7 +311,7 @@ export type Database = {
           phone_number: string | null
           valid_from: string
           valid_to: string | null
-          valid_until: string
+          valid_until: string | null
           web_address: string | null
         }
         Insert: {
@@ -329,7 +329,7 @@ export type Database = {
           phone_number?: string | null
           valid_from: string
           valid_to?: string | null
-          valid_until: string
+          valid_until?: string | null
           web_address?: string | null
         }
         Update: {
@@ -347,7 +347,7 @@ export type Database = {
           phone_number?: string | null
           valid_from?: string
           valid_to?: string | null
-          valid_until?: string
+          valid_until?: string | null
           web_address?: string | null
         }
         Relationships: [
@@ -543,7 +543,7 @@ export type Database = {
           unit_size_id: number | null
           valid_from: string
           valid_to: string | null
-          valid_until: string
+          valid_until: string | null
         }
         Insert: {
           contact_person?: string | null
@@ -562,7 +562,7 @@ export type Database = {
           unit_size_id?: number | null
           valid_from: string
           valid_to?: string | null
-          valid_until: string
+          valid_until?: string | null
         }
         Update: {
           contact_person?: string | null
@@ -581,7 +581,7 @@ export type Database = {
           unit_size_id?: number | null
           valid_from?: string
           valid_to?: string | null
-          valid_until?: string
+          valid_until?: string | null
         }
         Relationships: [
           {
@@ -787,7 +787,7 @@ export type Database = {
           unit_size_id: number | null
           valid_from: string
           valid_to: string | null
-          valid_until: string
+          valid_until: string | null
         }
         Insert: {
           birth_date?: string | null
@@ -810,7 +810,7 @@ export type Database = {
           unit_size_id?: number | null
           valid_from: string
           valid_to?: string | null
-          valid_until: string
+          valid_until?: string | null
         }
         Update: {
           birth_date?: string | null
@@ -833,7 +833,7 @@ export type Database = {
           unit_size_id?: number | null
           valid_from?: string
           valid_to?: string | null
-          valid_until?: string
+          valid_until?: string | null
         }
         Relationships: [
           {
@@ -1651,7 +1651,7 @@ export type Database = {
           unit_size_id: number | null
           valid_from: string
           valid_to: string | null
-          valid_until: string
+          valid_until: string | null
         }
         Insert: {
           birth_date?: string | null
@@ -1674,7 +1674,7 @@ export type Database = {
           unit_size_id?: number | null
           valid_from: string
           valid_to?: string | null
-          valid_until: string
+          valid_until?: string | null
         }
         Update: {
           birth_date?: string | null
@@ -1697,7 +1697,7 @@ export type Database = {
           unit_size_id?: number | null
           valid_from?: string
           valid_to?: string | null
-          valid_until?: string
+          valid_until?: string | null
         }
         Relationships: [
           {
@@ -1899,7 +1899,7 @@ export type Database = {
           type: Database["public"]["Enums"]["location_type"]
           valid_from: string
           valid_to: string | null
-          valid_until: string
+          valid_until: string | null
         }
         Insert: {
           address_part1?: string | null
@@ -1922,7 +1922,7 @@ export type Database = {
           type: Database["public"]["Enums"]["location_type"]
           valid_from: string
           valid_to?: string | null
-          valid_until: string
+          valid_until?: string | null
         }
         Update: {
           address_part1?: string | null
@@ -1945,7 +1945,7 @@ export type Database = {
           type?: Database["public"]["Enums"]["location_type"]
           valid_from?: string
           valid_to?: string | null
-          valid_until?: string
+          valid_until?: string | null
         }
         Relationships: [
           {
@@ -2103,7 +2103,7 @@ export type Database = {
           person_role_id: number | null
           valid_from: string
           valid_to: string | null
-          valid_until: string
+          valid_until: string | null
         }
         Insert: {
           data_source_id?: number | null
@@ -2114,7 +2114,7 @@ export type Database = {
           person_role_id?: number | null
           valid_from: string
           valid_to?: string | null
-          valid_until: string
+          valid_until?: string | null
         }
         Update: {
           data_source_id?: number | null
@@ -2125,7 +2125,7 @@ export type Database = {
           person_role_id?: number | null
           valid_from?: string
           valid_to?: string | null
-          valid_until?: string
+          valid_until?: string | null
         }
         Relationships: [
           {
@@ -2535,7 +2535,7 @@ export type Database = {
           stat_definition_id: number
           valid_from: string
           valid_to: string | null
-          valid_until: string
+          valid_until: string | null
           value_bool: boolean | null
           value_float: number | null
           value_int: number | null
@@ -2553,7 +2553,7 @@ export type Database = {
           stat_definition_id: number
           valid_from: string
           valid_to?: string | null
-          valid_until: string
+          valid_until?: string | null
           value_bool?: boolean | null
           value_float?: number | null
           value_int?: number | null
@@ -2571,7 +2571,7 @@ export type Database = {
           stat_definition_id?: number
           valid_from?: string
           valid_to?: string | null
-          valid_until?: string
+          valid_until?: string | null
           value_bool?: boolean | null
           value_float?: number | null
           value_int?: number | null
