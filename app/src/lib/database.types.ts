@@ -21,7 +21,7 @@ export type Database = {
           legal_unit_id: number | null
           type: Database["public"]["Enums"]["activity_type"]
           valid_from: string
-          valid_to: string
+          valid_to: string | null
           valid_until: string
         }
         Insert: {
@@ -35,7 +35,7 @@ export type Database = {
           legal_unit_id?: number | null
           type: Database["public"]["Enums"]["activity_type"]
           valid_from: string
-          valid_to: string
+          valid_to?: string | null
           valid_until: string
         }
         Update: {
@@ -49,7 +49,7 @@ export type Database = {
           legal_unit_id?: number | null
           type?: Database["public"]["Enums"]["activity_type"]
           valid_from?: string
-          valid_to?: string
+          valid_to?: string | null
           valid_until?: string
         }
         Relationships: [
@@ -310,7 +310,7 @@ export type Database = {
           mobile_number: string | null
           phone_number: string | null
           valid_from: string
-          valid_to: string
+          valid_to: string | null
           valid_until: string
           web_address: string | null
         }
@@ -328,7 +328,7 @@ export type Database = {
           mobile_number?: string | null
           phone_number?: string | null
           valid_from: string
-          valid_to: string
+          valid_to?: string | null
           valid_until: string
           web_address?: string | null
         }
@@ -346,7 +346,7 @@ export type Database = {
           mobile_number?: string | null
           phone_number?: string | null
           valid_from?: string
-          valid_to?: string
+          valid_to?: string | null
           valid_until?: string
           web_address?: string | null
         }
@@ -542,7 +542,7 @@ export type Database = {
           short_name: string | null
           unit_size_id: number | null
           valid_from: string
-          valid_to: string
+          valid_to: string | null
           valid_until: string
         }
         Insert: {
@@ -561,7 +561,7 @@ export type Database = {
           short_name?: string | null
           unit_size_id?: number | null
           valid_from: string
-          valid_to: string
+          valid_to?: string | null
           valid_until: string
         }
         Update: {
@@ -580,7 +580,7 @@ export type Database = {
           short_name?: string | null
           unit_size_id?: number | null
           valid_from?: string
-          valid_to?: string
+          valid_to?: string | null
           valid_until?: string
         }
         Relationships: [
@@ -786,7 +786,7 @@ export type Database = {
           status_id: number
           unit_size_id: number | null
           valid_from: string
-          valid_to: string
+          valid_to: string | null
           valid_until: string
         }
         Insert: {
@@ -809,7 +809,7 @@ export type Database = {
           status_id: number
           unit_size_id?: number | null
           valid_from: string
-          valid_to: string
+          valid_to?: string | null
           valid_until: string
         }
         Update: {
@@ -832,7 +832,7 @@ export type Database = {
           status_id?: number
           unit_size_id?: number | null
           valid_from?: string
-          valid_to?: string
+          valid_to?: string | null
           valid_until?: string
         }
         Relationships: [
@@ -1650,7 +1650,7 @@ export type Database = {
           status_id: number
           unit_size_id: number | null
           valid_from: string
-          valid_to: string
+          valid_to: string | null
           valid_until: string
         }
         Insert: {
@@ -1673,7 +1673,7 @@ export type Database = {
           status_id: number
           unit_size_id?: number | null
           valid_from: string
-          valid_to: string
+          valid_to?: string | null
           valid_until: string
         }
         Update: {
@@ -1696,7 +1696,7 @@ export type Database = {
           status_id?: number
           unit_size_id?: number | null
           valid_from?: string
-          valid_to?: string
+          valid_to?: string | null
           valid_until?: string
         }
         Relationships: [
@@ -1898,7 +1898,7 @@ export type Database = {
           region_id: number | null
           type: Database["public"]["Enums"]["location_type"]
           valid_from: string
-          valid_to: string
+          valid_to: string | null
           valid_until: string
         }
         Insert: {
@@ -1921,7 +1921,7 @@ export type Database = {
           region_id?: number | null
           type: Database["public"]["Enums"]["location_type"]
           valid_from: string
-          valid_to: string
+          valid_to?: string | null
           valid_until: string
         }
         Update: {
@@ -1944,7 +1944,7 @@ export type Database = {
           region_id?: number | null
           type?: Database["public"]["Enums"]["location_type"]
           valid_from?: string
-          valid_to?: string
+          valid_to?: string | null
           valid_until?: string
         }
         Relationships: [
@@ -2102,7 +2102,7 @@ export type Database = {
           person_id: number
           person_role_id: number | null
           valid_from: string
-          valid_to: string
+          valid_to: string | null
           valid_until: string
         }
         Insert: {
@@ -2113,7 +2113,7 @@ export type Database = {
           person_id: number
           person_role_id?: number | null
           valid_from: string
-          valid_to: string
+          valid_to?: string | null
           valid_until: string
         }
         Update: {
@@ -2124,7 +2124,7 @@ export type Database = {
           person_id?: number
           person_role_id?: number | null
           valid_from?: string
-          valid_to?: string
+          valid_to?: string | null
           valid_until?: string
         }
         Relationships: [
@@ -2534,7 +2534,7 @@ export type Database = {
           legal_unit_id: number | null
           stat_definition_id: number
           valid_from: string
-          valid_to: string
+          valid_to: string | null
           valid_until: string
           value_bool: boolean | null
           value_float: number | null
@@ -2552,7 +2552,7 @@ export type Database = {
           legal_unit_id?: number | null
           stat_definition_id: number
           valid_from: string
-          valid_to: string
+          valid_to?: string | null
           valid_until: string
           value_bool?: boolean | null
           value_float?: number | null
@@ -2570,7 +2570,7 @@ export type Database = {
           legal_unit_id?: number | null
           stat_definition_id?: number
           valid_from?: string
-          valid_to?: string
+          valid_to?: string | null
           valid_until?: string
           value_bool?: boolean | null
           value_float?: number | null
@@ -7149,13 +7149,6 @@ export type Database = {
           },
           {
             foreignKeyName: "location_region_id_fkey"
-            columns: ["physical_region_id"]
-            isOneToOne: false
-            referencedRelation: "region"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "location_region_id_fkey"
             columns: ["postal_region_id"]
             isOneToOne: false
             referencedRelation: "region"
@@ -7164,13 +7157,20 @@ export type Database = {
           {
             foreignKeyName: "location_region_id_fkey"
             columns: ["physical_region_id"]
+            isOneToOne: false
+            referencedRelation: "region"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_region_id_fkey"
+            columns: ["postal_region_id"]
             isOneToOne: false
             referencedRelation: "region_used_def"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "location_region_id_fkey"
-            columns: ["postal_region_id"]
+            columns: ["physical_region_id"]
             isOneToOne: false
             referencedRelation: "region_used_def"
             referencedColumns: ["id"]
@@ -7348,13 +7348,6 @@ export type Database = {
           },
           {
             foreignKeyName: "location_country_id_fkey"
-            columns: ["physical_country_id"]
-            isOneToOne: false
-            referencedRelation: "country"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "location_country_id_fkey"
             columns: ["postal_country_id"]
             isOneToOne: false
             referencedRelation: "country"
@@ -7364,7 +7357,7 @@ export type Database = {
             foreignKeyName: "location_country_id_fkey"
             columns: ["physical_country_id"]
             isOneToOne: false
-            referencedRelation: "country_used_def"
+            referencedRelation: "country"
             referencedColumns: ["id"]
           },
           {
@@ -7377,13 +7370,20 @@ export type Database = {
           {
             foreignKeyName: "location_country_id_fkey"
             columns: ["physical_country_id"]
+            isOneToOne: false
+            referencedRelation: "country_used_def"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_country_id_fkey"
+            columns: ["postal_country_id"]
             isOneToOne: false
             referencedRelation: "country_view"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "location_country_id_fkey"
-            columns: ["postal_country_id"]
+            columns: ["physical_country_id"]
             isOneToOne: false
             referencedRelation: "country_view"
             referencedColumns: ["id"]
@@ -8827,6 +8827,15 @@ export type Database = {
         Args: { p_valid_from?: string; p_valid_until?: string }
         Returns: undefined
       }
+      statistical_history_highcharts: {
+        Args: {
+          p_resolution: Database["public"]["Enums"]["history_resolution"]
+          p_series_codes?: string[]
+          p_unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+          p_year?: number
+        }
+        Returns: Json
+      }
       statistical_unit_details: {
         Args: {
           unit_id: number
@@ -8869,13 +8878,6 @@ export type Database = {
           valid_on?: string
         }
         Returns: Json
-      }
-      statistical_unit_history: {
-        Args: {
-          p_unit_id: number
-          p_unit_type: Database["public"]["Enums"]["statistical_unit_type"]
-        }
-        Returns: Json[]
       }
       statistical_unit_history_highcharts: {
         Args: {
