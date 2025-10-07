@@ -5,7 +5,7 @@
  id                 | integer                  |           | not null | nextval('stat_for_unit_id_seq'::regclass) | plain    |             |              | 
  stat_definition_id | integer                  |           | not null |                                           | plain    |             |              | 
  valid_from         | date                     |           | not null |                                           | plain    |             |              | 
- valid_to           | date                     |           | not null |                                           | plain    |             |              | 
+ valid_to           | date                     |           |          |                                           | plain    |             |              | 
  valid_until        | date                     |           | not null |                                           | plain    |             |              | 
  data_source_id     | integer                  |           |          |                                           | plain    |             |              | 
  establishment_id   | integer                  |           |          |                                           | plain    |             |              | 
@@ -19,7 +19,7 @@
  edit_by_user_id    | integer                  |           | not null |                                           | plain    |             |              | 
  edit_at            | timestamp with time zone |           | not null | statement_timestamp()                     | plain    |             |              | 
 Indexes:
-    "stat_for_unit_pkey" PRIMARY KEY, btree (id, valid_from, valid_until) DEFERRABLE
+    "stat_for_unit_pkey" PRIMARY KEY, btree (id, valid_from) DEFERRABLE
     "ix_stat_for_unit_data_source_id" btree (data_source_id)
     "ix_stat_for_unit_establishment_id" btree (establishment_id)
     "ix_stat_for_unit_establishment_id_valid_range" gist (establishment_id, daterange(valid_from, valid_until, '[)'::text))
@@ -28,12 +28,25 @@ Indexes:
     "ix_stat_for_unit_stat_definition_id" btree (stat_definition_id)
     "stat_for_unit_id_idx" btree (id)
     "stat_for_unit_id_valid_excl" EXCLUDE USING gist (id WITH =, daterange(valid_from, valid_until) WITH &&) DEFERRABLE
-    "stat_for_unit_natural_key_valid_excl" EXCLUDE USING gist (stat_definition_id WITH =, legal_unit_id WITH =, establishment_id WITH =, daterange(valid_from, valid_until) WITH &&) DEFERRABLE
-    "stat_for_unit_natural_key_valid_uniq" UNIQUE CONSTRAINT, btree (stat_definition_id, legal_unit_id, establishment_id, valid_from, valid_until) DEFERRABLE
+    "stat_for_unit_natural_ke_establishment_id_pk_consistency_excl" EXCLUDE USING gist (stat_definition_id WITH =, establishment_id WITH =, id WITH <>) WHERE (establishment_id IS NOT NULL AND legal_unit_id IS NULL)
+    "stat_for_unit_natural_key_v_legal_unit_id_pk_consistency_excl" EXCLUDE USING gist (stat_definition_id WITH =, legal_unit_id WITH =, id WITH <>) WHERE (legal_unit_id IS NOT NULL AND establishment_id IS NULL)
+    "stat_for_unit_natural_key_valid_establishment_id_excl" EXCLUDE USING gist (stat_definition_id WITH =, establishment_id WITH =, daterange(valid_from, valid_until) WITH &&) WHERE (establishment_id IS NOT NULL AND legal_unit_id IS NULL) DEFERRABLE
+    "stat_for_unit_natural_key_valid_establishment_id_idx" btree (stat_definition_id, establishment_id) WHERE establishment_id IS NOT NULL AND legal_unit_id IS NULL
+    "stat_for_unit_natural_key_valid_legal_unit_id_excl" EXCLUDE USING gist (stat_definition_id WITH =, legal_unit_id WITH =, daterange(valid_from, valid_until) WITH &&) WHERE (legal_unit_id IS NOT NULL AND establishment_id IS NULL) DEFERRABLE
+    "stat_for_unit_natural_key_valid_legal_unit_id_idx" btree (stat_definition_id, legal_unit_id) WHERE legal_unit_id IS NOT NULL AND establishment_id IS NULL
     "stat_for_unit_stat_definitio_legal_unit_id_establishment__idx" btree (stat_definition_id, legal_unit_id, establishment_id)
 Check constraints:
     "One and only one statistical unit id must be set" CHECK (establishment_id IS NOT NULL AND legal_unit_id IS NULL OR establishment_id IS NULL AND legal_unit_id IS NOT NULL)
     "stat_for_unit_check" CHECK (value_int IS NOT NULL AND value_float IS NULL AND value_string IS NULL AND value_bool IS NULL OR value_int IS NULL AND value_float IS NOT NULL AND value_string IS NULL AND value_bool IS NULL OR value_int IS NULL AND value_float IS NULL AND value_string IS NOT NULL AND value_bool IS NULL OR value_int IS NULL AND value_float IS NULL AND value_string IS NULL AND value_bool IS NOT NULL)
+    "stat_for_unit_natural_key_valid_xor_check" CHECK ((
+CASE
+    WHEN establishment_id IS NOT NULL THEN 1
+    ELSE 0
+END +
+CASE
+    WHEN legal_unit_id IS NOT NULL THEN 1
+    ELSE 0
+END) = 1)
     "stat_for_unit_valid_check" CHECK (valid_from < valid_until AND valid_from > '-infinity'::date)
 Foreign-key constraints:
     "stat_for_unit_data_source_id_fkey" FOREIGN KEY (data_source_id) REFERENCES data_source(id) ON DELETE SET NULL

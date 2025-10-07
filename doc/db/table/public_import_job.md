@@ -15,7 +15,7 @@
  upload_table_name                 | text                     |           | not null | 
  data_table_name                   | text                     |           | not null | 
  priority                          | integer                  |           |          | 
- analysis_batch_size               | integer                  |           | not null | 8192
+ analysis_batch_size               | integer                  |           | not null | 32768
  processing_batch_size             | integer                  |           | not null | 200
  definition_snapshot               | jsonb                    |           |          | 
  preparing_data_at                 | timestamp with time zone |           |          | 

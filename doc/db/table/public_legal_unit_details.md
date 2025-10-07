@@ -4,7 +4,7 @@
 --------------------------+--------------------------+-----------+----------+----------------------------------------+----------+-------------+--------------+-------------
  id                       | integer                  |           | not null | nextval('legal_unit_id_seq'::regclass) | plain    |             |              | 
  valid_from               | date                     |           | not null |                                        | plain    |             |              | 
- valid_to                 | date                     |           | not null |                                        | plain    |             |              | 
+ valid_to                 | date                     |           |          |                                        | plain    |             |              | 
  valid_until              | date                     |           | not null |                                        | plain    |             |              | 
  short_name               | character varying(16)    |           |          |                                        | extended |             |              | 
  name                     | character varying(256)   |           | not null |                                        | extended |             |              | 
@@ -24,7 +24,7 @@
  primary_for_enterprise   | boolean                  |           | not null |                                        | plain    |             |              | 
  invalid_codes            | jsonb                    |           |          |                                        | extended |             |              | 
 Indexes:
-    "legal_unit_pkey" PRIMARY KEY, btree (id, valid_from, valid_until) DEFERRABLE
+    "legal_unit_pkey" PRIMARY KEY, btree (id, valid_from) DEFERRABLE
     "ix_legal_unit_data_source_id" btree (data_source_id)
     "ix_legal_unit_edit_by_user_id" btree (edit_by_user_id)
     "ix_legal_unit_enterprise_id" btree (enterprise_id)

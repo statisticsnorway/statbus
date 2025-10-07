@@ -4,7 +4,7 @@
 ------------------+--------------------------+-----------+----------+--------------------------------------
  id               | integer                  |           | not null | nextval('activity_id_seq'::regclass)
  valid_from       | date                     |           | not null | 
- valid_to         | date                     |           | not null | 
+ valid_to         | date                     |           |          | 
  valid_until      | date                     |           | not null | 
  type             | activity_type            |           | not null | 
  category_id      | integer                  |           | not null | 
@@ -15,15 +15,19 @@
  establishment_id | integer                  |           |          | 
  legal_unit_id    | integer                  |           |          | 
 Indexes:
-    "activity_pkey" PRIMARY KEY, btree (id, valid_from, valid_until) DEFERRABLE
+    "activity_pkey" PRIMARY KEY, btree (id, valid_from) DEFERRABLE
+    "activity_establishment_id_type_idx" btree (establishment_id, type) WHERE legal_unit_id IS NULL
     "activity_id_idx" btree (id)
     "activity_id_valid_excl" EXCLUDE USING gist (id WITH =, daterange(valid_from, valid_until) WITH &&) DEFERRABLE
-    "activity_type_establishment_id_idx" btree (type, establishment_id)
-    "activity_type_establishment_id_valid_excl" EXCLUDE USING gist (type WITH =, establishment_id WITH =, daterange(valid_from, valid_until) WITH &&) DEFERRABLE
-    "activity_type_establishment_id_valid_uniq" UNIQUE CONSTRAINT, btree (type, establishment_id, valid_from, valid_until) DEFERRABLE
-    "activity_type_legal_unit_id_idx" btree (type, legal_unit_id)
-    "activity_type_legal_unit_id_valid_excl" EXCLUDE USING gist (type WITH =, legal_unit_id WITH =, daterange(valid_from, valid_until) WITH &&) DEFERRABLE
-    "activity_type_legal_unit_id_valid_uniq" UNIQUE CONSTRAINT, btree (type, legal_unit_id, valid_from, valid_until) DEFERRABLE
+    "activity_legal_unit_id_establishment_id_type_idx" btree (legal_unit_id, establishment_id, type)
+    "activity_legal_unit_id_type_idx" btree (legal_unit_id, type) WHERE establishment_id IS NULL
+    "activity_type_establishm_establishment_id_pk_consistency_excl" EXCLUDE USING gist (type WITH =, establishment_id WITH =, id WITH <>) WHERE (establishment_id IS NOT NULL AND legal_unit_id IS NULL)
+    "activity_type_establishment_id_valid_establishment_id_excl" EXCLUDE USING gist (type WITH =, establishment_id WITH =, daterange(valid_from, valid_until) WITH &&) WHERE (establishment_id IS NOT NULL AND legal_unit_id IS NULL) DEFERRABLE
+    "activity_type_establishment_id_valid_establishment_id_idx" btree (type, establishment_id) WHERE establishment_id IS NOT NULL AND legal_unit_id IS NULL
+    "activity_type_establishment_id_valid_legal_unit_id_excl" EXCLUDE USING gist (type WITH =, legal_unit_id WITH =, daterange(valid_from, valid_until) WITH &&) WHERE (legal_unit_id IS NOT NULL AND establishment_id IS NULL) DEFERRABLE
+    "activity_type_establishment_id_valid_legal_unit_id_idx" btree (type, legal_unit_id) WHERE legal_unit_id IS NOT NULL AND establishment_id IS NULL
+    "activity_type_establishment_legal_unit_id_pk_consistency_excl" EXCLUDE USING gist (type WITH =, legal_unit_id WITH =, id WITH <>) WHERE (legal_unit_id IS NOT NULL AND establishment_id IS NULL)
+    "activity_type_legal_unit_id_establishment_id_idx" btree (type, legal_unit_id, establishment_id)
     "ix_activity_category_id" btree (category_id)
     "ix_activity_data_source_id" btree (data_source_id)
     "ix_activity_edit_by_user_id" btree (edit_by_user_id)
@@ -35,6 +39,15 @@ Indexes:
     "ix_activity_type" btree (type)
 Check constraints:
     "One and only one statistical unit id must be set" CHECK (establishment_id IS NOT NULL AND legal_unit_id IS NULL OR establishment_id IS NULL AND legal_unit_id IS NOT NULL)
+    "activity_type_establishment_id_valid_xor_check" CHECK ((
+CASE
+    WHEN legal_unit_id IS NOT NULL THEN 1
+    ELSE 0
+END +
+CASE
+    WHEN establishment_id IS NOT NULL THEN 1
+    ELSE 0
+END) = 1)
     "activity_valid_check" CHECK (valid_from < valid_until AND valid_from > '-infinity'::date)
 Foreign-key constraints:
     "activity_category_id_fkey" FOREIGN KEY (category_id) REFERENCES activity_category(id) ON DELETE CASCADE

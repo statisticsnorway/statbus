@@ -8,22 +8,16 @@ DECLARE
 BEGIN
     RAISE DEBUG '[Job %] Processing phase: checking for a batch.', job.id;
 
-    -- This logic ensures that all rows belonging to the same new entity (sharing a founding_row_id) are always processed in the same batch.
+    -- This is a simplified and more direct query that is more reliable.
+    -- The previous complex version with a self-join confused the query planner.
     EXECUTE format(
         $$
-        WITH entity_batch AS (
-            SELECT DISTINCT COALESCE(founding_row_id, row_id) AS entity_root_id
+        WITH batch_rows AS (
+            SELECT row_id
             FROM public.%1$I
             WHERE state = 'processing' AND action = 'use'
-            ORDER BY entity_root_id
+            ORDER BY row_id
             LIMIT %2$L
-        ),
-        batch_rows AS (
-            SELECT dt.row_id
-            FROM public.%1$I dt
-            JOIN entity_batch eb ON COALESCE(dt.founding_row_id, dt.row_id) = eb.entity_root_id
-            WHERE dt.state = 'processing' AND dt.action = 'use'
-            ORDER BY dt.row_id
             FOR UPDATE SKIP LOCKED
         )
         SELECT public.array_to_int4multirange(array_agg(row_id)) FROM batch_rows

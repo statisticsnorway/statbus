@@ -7,10 +7,13 @@ DECLARE
     v_en_batch INT[];
     v_lu_batch INT[];
     v_es_batch INT[];
-    v_batch_size INT := 250; -- Number of enterprises to process per batch
+    v_batch_size INT := 32768; -- Number of enterprises to process per batch
     v_total_enterprises INT;
     v_processed_count INT := 0;
     v_batch_num INT := 0;
+    v_batch_start_time timestamptz;
+    v_batch_duration_ms numeric;
+    v_batch_speed numeric;
 BEGIN
     ANALYZE public.establishment, public.legal_unit, public.enterprise, public.activity, public.location, public.contact, public.stat_for_unit, public.person_for_unit;
 
@@ -25,10 +28,10 @@ BEGIN
             v_en_batch := array_append(v_en_batch, rec.id);
 
             IF array_length(v_en_batch, 1) >= v_batch_size THEN
+                v_batch_start_time := clock_timestamp();
                 -- For this batch of enterprises, find all descendant LUs and ESTs
                 v_processed_count := v_processed_count + array_length(v_en_batch, 1);
                 v_batch_num := v_batch_num + 1;
-                RAISE DEBUG 'Processing batch % (enterprises %-% of %)', v_batch_num, v_processed_count - v_batch_size + 1, v_processed_count, v_total_enterprises;
 
                 v_lu_batch := ARRAY(SELECT id FROM public.legal_unit WHERE enterprise_id = ANY(v_en_batch));
                 v_es_batch := ARRAY(
@@ -44,14 +47,18 @@ BEGIN
                     public.array_to_int4multirange(v_en_batch)
                 ) ON CONFLICT DO NOTHING;
 
+                v_batch_duration_ms := (EXTRACT(EPOCH FROM (clock_timestamp() - v_batch_start_time))) * 1000;
+                v_batch_speed := v_batch_size / (v_batch_duration_ms / 1000.0);
+                RAISE DEBUG 'Timepoints batch %/% for enterprises done. (% units, % ms, % units/s)', v_batch_num, ceil(v_total_enterprises::decimal / v_batch_size), v_batch_size, round(v_batch_duration_ms), round(v_batch_speed);
+
                 v_en_batch := '{}'; -- Reset for next batch
             END IF;
         END LOOP;
 
         -- Process the final, smaller batch
         IF array_length(v_en_batch, 1) > 0 THEN
+            v_batch_start_time := clock_timestamp();
             v_batch_num := v_batch_num + 1;
-            RAISE DEBUG 'Processing final batch % (enterprises %-% of %)', v_batch_num, v_processed_count + 1, v_total_enterprises, v_total_enterprises;
             v_lu_batch := ARRAY(SELECT id FROM public.legal_unit WHERE enterprise_id = ANY(v_en_batch));
             v_es_batch := ARRAY(
                 SELECT id FROM public.establishment WHERE legal_unit_id = ANY(v_lu_batch)
@@ -64,12 +71,15 @@ BEGIN
                 public.array_to_int4multirange(v_lu_batch),
                 public.array_to_int4multirange(v_en_batch)
             ) ON CONFLICT DO NOTHING;
+            v_batch_duration_ms := (EXTRACT(EPOCH FROM (clock_timestamp() - v_batch_start_time))) * 1000;
+            v_batch_speed := array_length(v_en_batch, 1) / (v_batch_duration_ms / 1000.0);
+            RAISE DEBUG 'Timepoints final batch %/% for enterprises done. (% units, % ms, % units/s)', v_batch_num, ceil(v_total_enterprises::decimal / v_batch_size), array_length(v_en_batch, 1), round(v_batch_duration_ms), round(v_batch_speed);
         END IF;
 
         -- Atomically swap the data
         RAISE DEBUG 'Populated staging table, now swapping data...';
         TRUNCATE public.timepoints;
-        INSERT INTO public.timepoints SELECT * FROM timepoints_new;
+        INSERT INTO public.timepoints SELECT DISTINCT * FROM timepoints_new;
         RAISE DEBUG 'Full timepoints refresh complete.';
     ELSE
         -- Partial refresh

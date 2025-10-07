@@ -4,7 +4,7 @@
 ------------------------+--------------------------+-----------+----------+-------------------------------------------+----------+-------------+--------------+-------------
  id                     | integer                  |           | not null | nextval('establishment_id_seq'::regclass) | plain    |             |              | 
  valid_from             | date                     |           | not null |                                           | plain    |             |              | 
- valid_to               | date                     |           | not null |                                           | plain    |             |              | 
+ valid_to               | date                     |           |          |                                           | plain    |             |              | 
  valid_until            | date                     |           | not null |                                           | plain    |             |              | 
  short_name             | character varying(16)    |           |          |                                           | extended |             |              | 
  name                   | character varying(256)   |           | not null |                                           | extended |             |              | 
@@ -24,7 +24,7 @@
  primary_for_enterprise | boolean                  |           |          |                                           | plain    |             |              | 
  invalid_codes          | jsonb                    |           |          |                                           | extended |             |              | 
 Indexes:
-    "establishment_pkey" PRIMARY KEY, btree (id, valid_from, valid_until) DEFERRABLE
+    "establishment_pkey" PRIMARY KEY, btree (id, valid_from) DEFERRABLE
     "establishment_enterprise_id_primary_for_enterprise_idx" btree (enterprise_id, primary_for_enterprise) WHERE enterprise_id IS NOT NULL
     "establishment_enterprise_id_primary_valid_excl" EXCLUDE USING gist (enterprise_id WITH =, daterange(valid_from, valid_until) WITH &&) WHERE (primary_for_enterprise IS TRUE) DEFERRABLE
     "establishment_enterprise_id_primary_valid_idx" UNIQUE, btree (enterprise_id, valid_from, valid_until) WHERE primary_for_enterprise IS TRUE

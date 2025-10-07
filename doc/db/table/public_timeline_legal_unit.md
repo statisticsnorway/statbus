@@ -85,7 +85,7 @@
  stats_summary                    | jsonb                    |           |          | 
 Indexes:
     "timeline_legal_unit_pkey" PRIMARY KEY, btree (unit_type, unit_id, valid_from)
-    "idx_timeline_legal_unit_daterange" gist (daterange(valid_from, valid_until, '[)'::text))
+    "idx_timeline_legal_unit_en_daterange" gist (daterange(valid_from, valid_until, '[)'::text), enterprise_id) WHERE enterprise_id IS NOT NULL
     "idx_timeline_legal_unit_enterprise_id" btree (enterprise_id)
     "idx_timeline_legal_unit_legal_unit_id" btree (legal_unit_id) WHERE legal_unit_id IS NOT NULL
     "idx_timeline_legal_unit_primary_for_enterprise" btree (primary_for_enterprise) WHERE primary_for_enterprise = true

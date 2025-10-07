@@ -94,12 +94,12 @@ BEGIN
   EXECUTE format($$CREATE INDEX ON public.%1$I (state, last_completed_priority, row_id)$$, job.data_table_name /* %1$I */);
   RAISE DEBUG '[Job %] Added composite index to data table %', job.id, job.data_table_name;
 
-  -- Add GIST index on row_id for efficient multirange operations (<@)
-  EXECUTE format('CREATE INDEX ON public.%I USING GIST (row_id)', job.data_table_name);
-  RAISE DEBUG '[Job %] Added GIST index on row_id to data table %', job.id, job.data_table_name;
+  -- The GIST index on row_id has been removed. The `analyse_valid_time` procedure,
+  -- which was the sole user of this index via the `<@` operator, has been refactored
+  -- to use an `unnest`/`JOIN` strategy that leverages the much faster B-tree primary key index.
 
   -- Add GIST index on daterange(valid_from, valid_until) for efficient temporal_merge lookups.
-  EXECUTE format('CREATE INDEX ON public.%I USING GIST (daterange(valid_from, valid_until, ''[]''))', job.data_table_name);
+  EXECUTE format('CREATE INDEX ON public.%I USING GIST (daterange(valid_from, valid_until, ''[)''))', job.data_table_name);
   RAISE DEBUG '[Job %] Added GIST index on validity daterange to data table %', job.id, job.data_table_name;
 
   -- Create indexes on uniquely identifying source_input columns to speed up lookups within analysis steps.
@@ -121,15 +121,10 @@ BEGIN
       );
       RAISE DEBUG '[Job %] Added founding_row_id index to data table %.', job.id, job.data_table_name;
 
-      -- CRITICAL PERFORMANCE FIX: Create a partial index on the entity root ID.
-      -- This index is specifically designed to make the batch selection query in the processing phase nearly instantaneous.
-      -- The query seeks distinct entity roots (`COALESCE(founding_row_id, row_id)`), so an index on that expression is optimal.
-      EXECUTE format(
-          $$ CREATE INDEX %1$I ON public.%2$I ( (COALESCE(founding_row_id, row_id)) ) WHERE state = 'processing' AND action = 'use' $$,
-          job.data_table_name || '_processing_batch_idx', /* %1$I: index name */
-          job.data_table_name                             /* %2$I: table name */
-      );
-      RAISE DEBUG '[Job %] Added processing phase performance index to data table %.', job.id, job.data_table_name;
+      -- The partial indexes on (COALESCE(founding_row_id, row_id)) have been removed.
+      -- They were specific to a previous, more complex batching strategy and are no longer
+      -- used by the simplified batch selection queries, which now efficiently use the
+      -- composite index on (state, last_completed_priority, row_id).
   END;
 
   -- Grant direct permissions to the job owner on the upload table to allow COPY FROM

@@ -4,7 +4,7 @@
 --------------------------+--------------------------+-----------+----------+----------------------------------------------
  id                       | integer                  |           | not null | nextval('enterprise_group_id_seq'::regclass)
  valid_from               | date                     |           | not null | 
- valid_to                 | date                     |           | not null | 
+ valid_to                 | date                     |           |          | 
  valid_until              | date                     |           | not null | 
  short_name               | character varying(16)    |           |          | 
  name                     | character varying(256)   |           |          | 
@@ -20,7 +20,7 @@
  reorg_type_id            | integer                  |           |          | 
  foreign_participation_id | integer                  |           |          | 
 Indexes:
-    "enterprise_group_pkey" PRIMARY KEY, btree (id, valid_from, valid_until) DEFERRABLE
+    "enterprise_group_pkey" PRIMARY KEY, btree (id, valid_from) DEFERRABLE
     "enterprise_group_id_idx" btree (id)
     "enterprise_group_id_valid_excl" EXCLUDE USING gist (id WITH =, daterange(valid_from, valid_until) WITH &&) DEFERRABLE
     "ix_enterprise_group_data_source_id" btree (data_source_id)

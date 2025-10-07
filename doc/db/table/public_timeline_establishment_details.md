@@ -87,10 +87,11 @@
  included_enterprise_ids          | integer[]                |           |          |         | extended |             |              | 
 Indexes:
     "timeline_establishment_pkey" PRIMARY KEY, btree (unit_type, unit_id, valid_from)
-    "idx_timeline_establishment_daterange" gist (daterange(valid_from, valid_until, '[)'::text))
+    "idx_timeline_establishment_en_daterange" gist (daterange(valid_from, valid_until, '[)'::text), enterprise_id) WHERE enterprise_id IS NOT NULL
     "idx_timeline_establishment_enterprise_id" btree (enterprise_id) WHERE enterprise_id IS NOT NULL
     "idx_timeline_establishment_establishment_id" btree (establishment_id) WHERE establishment_id IS NOT NULL
     "idx_timeline_establishment_legal_unit_id" btree (legal_unit_id) WHERE legal_unit_id IS NOT NULL
+    "idx_timeline_establishment_lu_daterange" gist (daterange(valid_from, valid_until, '[)'::text), legal_unit_id) WHERE legal_unit_id IS NOT NULL
     "idx_timeline_establishment_primary_for_enterprise" btree (primary_for_enterprise) WHERE primary_for_enterprise = true
     "idx_timeline_establishment_primary_for_legal_unit" btree (primary_for_legal_unit) WHERE primary_for_legal_unit = true
     "idx_timeline_establishment_valid_period" btree (valid_from, valid_until)

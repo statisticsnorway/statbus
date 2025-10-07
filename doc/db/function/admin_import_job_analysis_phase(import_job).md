@@ -65,7 +65,7 @@ BEGIN
             BEGIN
                 IF COALESCE(v_step_rec.is_holistic, false) THEN
                     -- HOLISTIC: check for work and run once.
-                    EXECUTE format($$SELECT EXISTS(SELECT 1 FROM public.%I WHERE state = %L AND last_completed_priority < %L LIMIT 1)$$,
+                    EXECUTE format($$SELECT EXISTS(SELECT 1 FROM public.%I WHERE state IN (%L, 'error') AND last_completed_priority < %L LIMIT 1)$$,
                         job.data_table_name, v_current_phase_data_state, v_step_rec.priority)
                     INTO v_rows_exist;
 
@@ -76,22 +76,16 @@ BEGIN
                     END IF;
                 ELSE
                     -- BATCHED: find and process one batch.
-                    -- This logic ensures that all rows belonging to the same new entity (sharing a founding_row_id) are always processed in the same batch.
+                    -- This is a simplified and more direct query that proved to be more reliable
+                    -- than the previous complex version with a self-join, which confused the query planner.
                     EXECUTE format(
                         $$
-                        WITH entity_batch AS (
-                            SELECT DISTINCT COALESCE(founding_row_id, row_id) AS entity_root_id
+                        WITH batch_rows AS (
+                            SELECT row_id
                             FROM public.%1$I
-                            WHERE state = %2$L AND last_completed_priority < %3$L
-                            ORDER BY entity_root_id
+                            WHERE state IN (%2$L, 'error') AND last_completed_priority < %3$L
+                            ORDER BY row_id
                             LIMIT %4$L
-                        ),
-                        batch_rows AS (
-                            SELECT dt.row_id
-                            FROM public.%1$I dt
-                            JOIN entity_batch eb ON COALESCE(dt.founding_row_id, dt.row_id) = eb.entity_root_id
-                            WHERE dt.state = %2$L AND dt.last_completed_priority < %3$L
-                            ORDER BY dt.row_id
                             FOR UPDATE SKIP LOCKED
                         )
                         SELECT public.array_to_int4multirange(array_agg(row_id)) FROM batch_rows
@@ -134,7 +128,7 @@ BEGIN
         IF v_step_rec.analyse_procedure IS NULL THEN CONTINUE; END IF;
 
         -- Check if any rows need processing for this step.
-        EXECUTE format($$SELECT EXISTS(SELECT 1 FROM public.%I WHERE state = %L AND last_completed_priority < %L LIMIT 1)$$,
+        EXECUTE format($$SELECT EXISTS(SELECT 1 FROM public.%I WHERE state IN (%L, 'error') AND last_completed_priority < %L LIMIT 1)$$,
             job.data_table_name, v_current_phase_data_state, v_step_rec.priority)
         INTO v_rows_exist;
 

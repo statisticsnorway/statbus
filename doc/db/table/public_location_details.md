@@ -2,9 +2,9 @@
                                                                                                              Table "public.location"
       Column      |           Type           | Collation | Nullable |               Default                | Storage  | Compression | Stats target |                                         Description                                         
 ------------------+--------------------------+-----------+----------+--------------------------------------+----------+-------------+--------------+---------------------------------------------------------------------------------------------
- id               | integer                  |           | not null | nextval('location_id_seq'::regclass) | plain    |             |              | Primary key for the location record (not the temporal era).
+ id               | integer                  |           | not null | nextval('location_id_seq'::regclass) | plain    |             |              | Entity key for the location record (not the temporal era).
  valid_from       | date                     |           | not null |                                      | plain    |             |              | Start date (inclusive) of the validity period for this location era.
- valid_to         | date                     |           | not null |                                      | plain    |             |              | End date (inclusive) of the validity period for this location era. UI-facing.
+ valid_to         | date                     |           |          |                                      | plain    |             |              | End date (inclusive) of the validity period for this location era. UI-facing.
  valid_until      | date                     |           | not null |                                      | plain    |             |              | End date (exclusive) of the validity period for this location era. Used for temporal logic.
  type             | location_type            |           | not null |                                      | plain    |             |              | Type of location: 'physical' or 'postal'.
  address_part1    | character varying(200)   |           |          |                                      | extended |             |              | First line of the address.
@@ -24,7 +24,7 @@
  edit_by_user_id  | integer                  |           | not null |                                      | plain    |             |              | User who last edited this record.
  edit_at          | timestamp with time zone |           | not null | statement_timestamp()                | plain    |             |              | Timestamp of the last edit.
 Indexes:
-    "location_pkey" PRIMARY KEY, btree (id, valid_from, valid_until) DEFERRABLE
+    "location_pkey" PRIMARY KEY, btree (id, valid_from) DEFERRABLE
     "ix_location_country_id" btree (country_id)
     "ix_location_data_source_id" btree (data_source_id)
     "ix_location_edit_by_user_id" btree (edit_by_user_id)
@@ -34,16 +34,19 @@ Indexes:
     "ix_location_legal_unit_id_valid_range" gist (legal_unit_id, daterange(valid_from, valid_until, '[)'::text))
     "ix_location_region_id" btree (region_id)
     "ix_location_type" btree (type)
+    "location_establishment_id_type_idx" btree (establishment_id, type) WHERE legal_unit_id IS NULL
     "location_id_idx" btree (id)
     "location_id_valid_excl" EXCLUDE USING gist (id WITH =, daterange(valid_from, valid_until) WITH &&) DEFERRABLE
-    "location_type_establishment_id_idx" btree (type, establishment_id)
-    "location_type_establishment_id_valid_excl" EXCLUDE USING gist (type WITH =, establishment_id WITH =, daterange(valid_from, valid_until) WITH &&) DEFERRABLE
-    "location_type_establishment_id_valid_uniq" UNIQUE CONSTRAINT, btree (type, establishment_id, valid_from, valid_until) DEFERRABLE
-    "location_type_legal_unit_id_idx" btree (type, legal_unit_id)
-    "location_type_legal_unit_id_valid_excl" EXCLUDE USING gist (type WITH =, legal_unit_id WITH =, daterange(valid_from, valid_until) WITH &&) DEFERRABLE
-    "location_type_legal_unit_id_valid_uniq" UNIQUE CONSTRAINT, btree (type, legal_unit_id, valid_from, valid_until) DEFERRABLE
+    "location_legal_unit_id_establishment_id_type_idx" btree (legal_unit_id, establishment_id, type)
+    "location_legal_unit_id_type_idx" btree (legal_unit_id, type) WHERE establishment_id IS NULL
+    "location_type_establishm_establishment_id_pk_consistency_excl" EXCLUDE USING gist (type WITH =, establishment_id WITH =, id WITH <>) WHERE (establishment_id IS NOT NULL AND legal_unit_id IS NULL)
+    "location_type_establishment_id_legal_unit_id_idx" btree (type, establishment_id, legal_unit_id)
+    "location_type_establishment_id_valid_establishment_id_excl" EXCLUDE USING gist (type WITH =, establishment_id WITH =, daterange(valid_from, valid_until) WITH &&) WHERE (establishment_id IS NOT NULL AND legal_unit_id IS NULL) DEFERRABLE
+    "location_type_establishment_id_valid_establishment_id_idx" btree (type, establishment_id) WHERE establishment_id IS NOT NULL AND legal_unit_id IS NULL
+    "location_type_establishment_id_valid_legal_unit_id_excl" EXCLUDE USING gist (type WITH =, legal_unit_id WITH =, daterange(valid_from, valid_until) WITH &&) WHERE (legal_unit_id IS NOT NULL AND establishment_id IS NULL) DEFERRABLE
+    "location_type_establishment_id_valid_legal_unit_id_idx" btree (type, legal_unit_id) WHERE legal_unit_id IS NOT NULL AND establishment_id IS NULL
+    "location_type_establishment_legal_unit_id_pk_consistency_excl" EXCLUDE USING gist (type WITH =, legal_unit_id WITH =, id WITH <>) WHERE (legal_unit_id IS NOT NULL AND establishment_id IS NULL)
 Check constraints:
-    "One and only one statistical unit id must be set" CHECK (establishment_id IS NOT NULL AND legal_unit_id IS NULL OR establishment_id IS NULL AND legal_unit_id IS NOT NULL)
     "altitude requires coordinates" CHECK (
 CASE
     WHEN altitude IS NOT NULL THEN latitude IS NOT NULL AND longitude IS NOT NULL
@@ -52,6 +55,15 @@ END)
     "altitude_must_be_positive" CHECK (altitude >= 0::numeric)
     "coordinates require both latitude and longitude" CHECK (latitude IS NOT NULL AND longitude IS NOT NULL OR latitude IS NULL AND longitude IS NULL)
     "latitude_must_be_from_minus_90_to_90_degrees" CHECK (latitude >= '-90'::integer::numeric AND latitude <= 90::numeric)
+    "location_type_establishment_id_valid_xor_check" CHECK ((
+CASE
+    WHEN establishment_id IS NOT NULL THEN 1
+    ELSE 0
+END +
+CASE
+    WHEN legal_unit_id IS NOT NULL THEN 1
+    ELSE 0
+END) = 1)
     "location_valid_check" CHECK (valid_from < valid_until AND valid_from > '-infinity'::date)
     "longitude_must_be_from_minus_180_to_180_degrees" CHECK (longitude >= '-180'::integer::numeric AND longitude <= 180::numeric)
     "postal_locations_cannot_have_coordinates" CHECK (

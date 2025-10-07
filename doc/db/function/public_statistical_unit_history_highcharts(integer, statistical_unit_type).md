@@ -5,98 +5,100 @@ CREATE OR REPLACE FUNCTION public.statistical_unit_history_highcharts(p_unit_id 
  STABLE PARALLEL SAFE
 AS $function$
 DECLARE
-    col text;                 -- metric key name
-    keys text[];              -- array of metric keys
-    sql text;                 -- dynamic SQL for metric data
-    series jsonb;             -- single metric's JSON
-    all_series jsonb := '[]'::jsonb; -- accumulated series
-    latest_name text;         -- latest unit name
-    latest_valid_to text;     -- latest valid_to for unit name
-    original_col text;        -- original column name without '*'
+    latest_name text;
+    series_data jsonb;
 BEGIN
-    -- 1. Get the latest name and valid_to from statistical_unit_history()
-    SELECT j->>'name',
-           j->>'valid_to'
-    INTO latest_name, latest_valid_to
-    FROM public.statistical_unit_history(p_unit_id, p_unit_type) AS t(j)
-    ORDER BY (j->>'valid_from')::date DESC
-    LIMIT 1;
+    WITH history_segments AS (
+        -- 1. Select all historical segments for the given unit.
+        SELECT
+            name,
+            valid_from,
+            valid_to,
+            stats_summary,
+            included_establishment_count
+        FROM public.statistical_unit
+        WHERE unit_id = p_unit_id AND unit_type = p_unit_type
+    ),
+    long_format_metrics AS (
+        -- 2. Unpivot all metrics into a long, normalized format.
+        -- Unpivot from the JSONB stats_summary column
+        SELECT
+            s.valid_from,
+            s.valid_to,
+            j.key AS metric_code,
+            (j.value->>'sum')::float AS metric_value
+        FROM history_segments s,
+             LATERAL jsonb_each(s.stats_summary) AS j
+        WHERE j.value->>'sum' IS NOT NULL AND j.value->>'sum' ~ '^-?[0-9]+(\.[0-9]+)?$'
 
-    -- Append " *" if unit name's valid_to is 'infinity'
-	--works but too much, and may not be all variables..?
-    --IF latest_valid_to = 'infinity' THEN
-    --    latest_name := latest_name || ' *';
-    --END IF;
+        UNION ALL
 
-    -- 2. Get all metric keys except metadata fields
-    SELECT array_agg(key ORDER BY key)
-    INTO keys
-    FROM (
-        SELECT DISTINCT jsonb_object_keys(j) AS key
-        FROM statistical_unit_history(p_unit_id, p_unit_type) AS t(j)
-    ) AS sub
-    WHERE key NOT IN ('name', 'unit_id', 'valid_from', 'valid_to');
+        -- Unpivot from the dedicated establishment count column
+        SELECT
+            s.valid_from,
+            s.valid_to,
+            'establishment_count' AS metric_code,
+            s.included_establishment_count::float AS metric_value
+        FROM history_segments s
+        WHERE s.included_establishment_count IS NOT NULL
+    ),
+    metrics_with_defs AS (
+        -- 3. Join with stat_definition to get display names and priorities.
+        SELECT
+            lf.valid_from,
+            lf.valid_to,
+            lf.metric_code,
+            lf.metric_value,
+            CASE
+                WHEN lf.metric_code = 'establishment_count' THEN 'Establishments'
+                ELSE COALESCE(sd.name, lf.metric_code)
+            END AS display_name,
+            CASE
+                -- The 'establishment_count' metric is always sorted last.
+                WHEN lf.metric_code = 'establishment_count' THEN 999
+                -- For others, use defined priority or generate a stable one.
+                ELSE COALESCE(sd.priority, 100 + row_number() OVER (PARTITION BY sd.priority IS NULL ORDER BY lf.metric_code))
+            END AS priority
+        FROM long_format_metrics lf
+        LEFT JOIN public.stat_definition sd ON sd.code = lf.metric_code
+        WHERE sd.archived IS DISTINCT FROM true -- Exclude archived stats, allow non-matches
+    )
+    SELECT
+        -- 4a. Get the latest name of the unit for the chart title.
+        (SELECT name FROM history_segments ORDER BY valid_from DESC LIMIT 1),
 
-    -- 3. Loop through metrics and build series
-    FOREACH col IN ARRAY keys
-    LOOP
-        original_col := col; -- store original key for JSON lookup
+        -- 4b. Aggregate the long-format metrics into the final series structure.
+        (
+            SELECT jsonb_agg(series ORDER BY priority, display_name)
+            FROM (
+                SELECT
+                    m.display_name,
+                    m.priority,
+                    jsonb_build_object(
+                        'code', m.metric_code,
+                        'name', m.display_name,
+                        'is_current', bool_or(m.valid_to = 'infinity'),
+                        'priority', m.priority,
+                        'data', jsonb_agg(
+                            jsonb_build_array(
+                                extract(epoch from m.valid_from)::bigint * 1000,
+                                m.metric_value
+                            )
+                            ORDER BY m.valid_from
+                        )
+                    ) AS series
+                FROM metrics_with_defs AS m
+                GROUP BY m.metric_code, m.display_name, m.priority
+            ) AS final_series
+        )
+    INTO latest_name, series_data;
 
-        -- Check if this metric has any 'infinity' valid_to
-        PERFORM 1
-        FROM statistical_unit_history(p_unit_id, p_unit_type) AS t(j)
-        WHERE j->>'valid_to' = 'infinity'
-          AND j ? original_col; -- ensure key exists
-
-        -- Append * if any infinity found
-        IF FOUND THEN
-            col := col || ' *';
-        END IF;
-
-        -- Build the JSON for this metric
-        sql := format($SQL$
-            SELECT jsonb_build_object(
-                'name', %1$L,
-                'data', jsonb_agg(
-                    jsonb_build_array(
-                        extract(epoch from (j->>'valid_from')::date) * 1000,
-                        NULLIF(
-                            CASE
-                                WHEN j->>%2$L ~ '^-?[0-9]+(\.[0-9]+)?$'
-                                THEN j->>%2$L
-                                ELSE NULL
-                            END, ''
-                        )::float
-                    )
-                    ORDER BY (j->>'valid_from')::date
-                )
-            )
-            FROM statistical_unit_history(%3$L, %4$L) AS t(j)
-        $SQL$,
-        col,               -- %1$L: name in chart (may have *)
-        original_col,      -- %2$L: original key for lookup
-        p_unit_id,         -- %3$L
-        p_unit_type        -- %4$L
-        );
-
-        EXECUTE sql INTO series;
-
-        IF series IS NOT NULL THEN
-            all_series := all_series || jsonb_build_array(series);
-        END IF;
-
-        -- Reset col for next loop iteration
-        col := original_col;
-    END LOOP;
-
-    -- 4. Return object with unit_id, adjusted latest name, and sorted series
+    -- 5. Return the final JSONB object, ready for Highcharts.
     RETURN jsonb_build_object(
         'unit_id', p_unit_id,
+        'unit_type', p_unit_type,
         'unit_name', latest_name,
-        'series', (
-            SELECT jsonb_agg(s ORDER BY s->>'name')
-            FROM jsonb_array_elements(all_series) AS s
-        )
+        'series', COALESCE(series_data, '[]'::jsonb)
     );
 END;
 $function$

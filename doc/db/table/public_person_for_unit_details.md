@@ -4,7 +4,7 @@
 ------------------+---------+-----------+----------+---------------------------------------------+---------+-------------+--------------+-------------
  id               | integer |           | not null | nextval('person_for_unit_id_seq'::regclass) | plain   |             |              | 
  valid_from       | date    |           | not null |                                             | plain   |             |              | 
- valid_to         | date    |           | not null |                                             | plain   |             |              | 
+ valid_to         | date    |           |          |                                             | plain   |             |              | 
  valid_until      | date    |           | not null |                                             | plain   |             |              | 
  person_id        | integer |           | not null |                                             | plain   |             |              | 
  person_role_id   | integer |           |          |                                             | plain   |             |              | 
@@ -12,7 +12,7 @@
  establishment_id | integer |           |          |                                             | plain   |             |              | 
  legal_unit_id    | integer |           |          |                                             | plain   |             |              | 
 Indexes:
-    "person_for_unit_pkey" PRIMARY KEY, btree (id, valid_from, valid_until) DEFERRABLE
+    "person_for_unit_pkey" PRIMARY KEY, btree (id, valid_from) DEFERRABLE
     "ix_person_for_unit_data_source_id" btree (data_source_id)
     "ix_person_for_unit_establishment_id" btree (establishment_id)
     "ix_person_for_unit_establishment_id_valid_range" gist (establishment_id, daterange(valid_from, valid_until, '[)'::text))
@@ -20,16 +20,26 @@ Indexes:
     "ix_person_for_unit_legal_unit_id_valid_range" gist (legal_unit_id, daterange(valid_from, valid_until, '[)'::text))
     "ix_person_for_unit_person_id" btree (person_id)
     "ix_person_for_unit_person_role_id" btree (person_role_id)
+    "person_for__person_id_person_role_legal_unit__establishme_idx" btree (person_id, person_role_id, legal_unit_id, establishment_id)
     "person_for_unit_id_idx" btree (id)
     "person_for_unit_id_valid_excl" EXCLUDE USING gist (id WITH =, daterange(valid_from, valid_until) WITH &&) DEFERRABLE
-    "person_for_unit_person_id_person_role_id_establishment_id_idx" btree (person_id, person_role_id, establishment_id)
-    "person_for_unit_person_id_person_role_id_legal_unit_id_idx" btree (person_id, person_role_id, legal_unit_id)
-    "person_for_unit_person_role_establishment_valid_excl" EXCLUDE USING gist (person_id WITH =, person_role_id WITH =, establishment_id WITH =, daterange(valid_from, valid_until) WITH &&) DEFERRABLE
-    "person_for_unit_person_role_establishment_valid_uniq" UNIQUE CONSTRAINT, btree (person_id, person_role_id, establishment_id, valid_from, valid_until) DEFERRABLE
-    "person_for_unit_person_role_legal_unit_valid_excl" EXCLUDE USING gist (person_id WITH =, person_role_id WITH =, legal_unit_id WITH =, daterange(valid_from, valid_until) WITH &&) DEFERRABLE
-    "person_for_unit_person_role_legal_unit_valid_uniq" UNIQUE CONSTRAINT, btree (person_id, person_role_id, legal_unit_id, valid_from, valid_until) DEFERRABLE
+    "person_for_unit_natural__establishment_id_pk_consistency_excl" EXCLUDE USING gist (person_id WITH =, person_role_id WITH =, establishment_id WITH =, id WITH <>) WHERE (establishment_id IS NOT NULL AND legal_unit_id IS NULL)
+    "person_for_unit_natural_key_legal_unit_id_pk_consistency_excl" EXCLUDE USING gist (person_id WITH =, person_role_id WITH =, legal_unit_id WITH =, id WITH <>) WHERE (legal_unit_id IS NOT NULL AND establishment_id IS NULL)
+    "person_for_unit_natural_key_valid_establishment_id_excl" EXCLUDE USING gist (person_id WITH =, person_role_id WITH =, establishment_id WITH =, daterange(valid_from, valid_until) WITH &&) WHERE (establishment_id IS NOT NULL AND legal_unit_id IS NULL) DEFERRABLE
+    "person_for_unit_natural_key_valid_establishment_id_idx" btree (person_id, person_role_id, establishment_id) WHERE establishment_id IS NOT NULL AND legal_unit_id IS NULL
+    "person_for_unit_natural_key_valid_legal_unit_id_excl" EXCLUDE USING gist (person_id WITH =, person_role_id WITH =, legal_unit_id WITH =, daterange(valid_from, valid_until) WITH &&) WHERE (legal_unit_id IS NOT NULL AND establishment_id IS NULL) DEFERRABLE
+    "person_for_unit_natural_key_valid_legal_unit_id_idx" btree (person_id, person_role_id, legal_unit_id) WHERE legal_unit_id IS NOT NULL AND establishment_id IS NULL
 Check constraints:
     "One and only one statistical unit id must be set" CHECK (establishment_id IS NOT NULL AND legal_unit_id IS NULL OR establishment_id IS NULL AND legal_unit_id IS NOT NULL)
+    "person_for_unit_natural_key_valid_xor_check" CHECK ((
+CASE
+    WHEN legal_unit_id IS NOT NULL THEN 1
+    ELSE 0
+END +
+CASE
+    WHEN establishment_id IS NOT NULL THEN 1
+    ELSE 0
+END) = 1)
     "person_for_unit_valid_check" CHECK (valid_from < valid_until AND valid_from > '-infinity'::date)
 Foreign-key constraints:
     "person_for_unit_data_source_id_fkey" FOREIGN KEY (data_source_id) REFERENCES data_source(id) ON DELETE RESTRICT
