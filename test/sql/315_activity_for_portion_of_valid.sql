@@ -93,7 +93,8 @@ UPDATE activity__for_portion_of_valid
  SET category_id = '30', valid_from = '2024-01-01', valid_until = '2025-01-01'
  WHERE legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'ENTEBBE FUEL ENTERPRISES');
 
-TABLE pg_temp.temporal_merge_plan ORDER BY plan_op_seq;
+-- SET sql_saga.temporal_merge.enable_trace = true;
+-- TABLE pg_temp.temporal_merge_plan ORDER BY plan_op_seq;
 
 SELECT category_id, valid_from, valid_to
  FROM activity
@@ -105,13 +106,13 @@ SELECT category_id, valid_from, valid_to
  FROM activity
  ORDER BY  valid_from;
 
--- SET sql_saga.temporal_merge.enable_trace = true;
 \echo "Update using valid_to"
 UPDATE activity__for_portion_of_valid
  SET category_id = '30', valid_from = '2024-01-01', valid_to = '2024-12-31'
  WHERE legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'ENTEBBE FUEL ENTERPRISES');
 
-TABLE pg_temp.temporal_merge_plan ORDER BY plan_op_seq;
+-- SET sql_saga.temporal_merge.enable_trace = true;
+-- TABLE pg_temp.temporal_merge_plan ORDER BY plan_op_seq;
 
 SELECT category_id, valid_from, valid_to
  FROM activity
