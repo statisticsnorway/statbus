@@ -5,7 +5,10 @@ import { zfd } from "zod-form-data";
 export const generalInfoSchema = zfd.formData({
   name: z.string().optional(),
   status_id: z.coerce.number().optional(),
-  birth_date: z.string().date().optional(),
+  birth_date: z.preprocess(
+    (val) => (val === "" ? undefined : val),
+    z.string().date().optional()
+  ),
   death_date: z.preprocess(
     (val) => (val === "" ? undefined : val),
     z.string().date().optional()
