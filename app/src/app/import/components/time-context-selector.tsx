@@ -51,20 +51,20 @@ export function TimeContextSelector({ unitType }: TimeContextSelectorProps) {
     const options: ValidityOption[] = [];
     const jobProvidedDef = availableDefinitions.find(d => d.valid_time_from === 'job_provided');
     if (jobProvidedDef) {
-        options.push({
-            id: 'job_provided_time_context',
-            label: 'Apply a validity period to all records',
-            description: 'Select a predefined validity period to apply to all imported records.',
-            definition: jobProvidedDef,
-            useExplicitDates: false,
-        });
-        options.push({
-            id: 'job_provided_explicit_dates',
-            label: 'Provide an explicit start and end date',
-            description: 'These dates will be used as the default validity for all imported records.',
-            definition: jobProvidedDef,
-            useExplicitDates: true,
-        });
+      options.push({
+        id: 'job_provided_time_context',
+        label: 'Apply a validity period to all records',
+        description: 'Select a predefined validity period to apply to all imported records.',
+        definition: jobProvidedDef,
+        useExplicitDates: false,
+      });
+      // options.push({
+      //     id: 'job_provided_explicit_dates',
+      //     label: 'Provide an explicit start and end date',
+      //     description: 'These dates will be used as the default validity for all imported records.',
+      //     definition: jobProvidedDef,
+      //     useExplicitDates: true,
+      // });
     }
     const sourceColumnsDefs = availableDefinitions.filter(d => d.valid_time_from === 'source_columns');
     sourceColumnsDefs.forEach(def => {
