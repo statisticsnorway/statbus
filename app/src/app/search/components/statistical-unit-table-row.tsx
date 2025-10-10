@@ -160,10 +160,11 @@ export const StatisticalUnitTableRow = ({
                       <span className="font-medium">{unit.name}</span>
                     )}
                     <small className="text-gray-700 flex items-center space-x-1">
-                      <span className="flex">
+                      <span className="flex text-wrap">
                         {externalIdentTypes
                           ?.map(
-                            ({ code }: Tables<'external_ident_type_active'>) => unit.external_idents[code!] || "-"
+                            ({ code }: Tables<"external_ident_type_active">) =>
+                              unit.external_idents[code!] || "-"
                           )
                           .join(" | ")}
                       </span>
