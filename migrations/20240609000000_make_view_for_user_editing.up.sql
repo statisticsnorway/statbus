@@ -7,6 +7,7 @@ BEGIN;
 CREATE VIEW public.user WITH (security_barrier = true) AS
 SELECT u.id
      , u.sub
+     , u.display_name
      , u.email
      , u.password
      , u.statbus_role
@@ -43,6 +44,7 @@ BEGIN
         'role', v_user.email,
         'statbus_role', v_user.statbus_role,
         'sub', v_user.sub::text,
+        'display_name', v_user.display_name,
         'email', v_user.email,
         'type', 'access',
         'exp', extract(epoch from (now() + interval '1 hour'))::integer
@@ -72,10 +74,11 @@ GRANT USAGE ON SCHEMA test TO authenticated;
 -- relying on RLS policies on auth.user and the auth triggers
 -- (check_role_permission_trigger, sync_user_credentials_and_roles_trigger).
 GRANT SELECT ON public.user TO authenticated;
-GRANT UPDATE (email, statbus_role, password) ON public.user TO authenticated;
+GRANT UPDATE (display_name, email, statbus_role, password) ON public.user TO authenticated;
 
 -- Function to create a new user
 CREATE FUNCTION public.user_create(
+    p_display_name text,
     p_email text,
     p_statbus_role public.statbus_role,
     p_password text DEFAULT NULL
@@ -107,11 +110,13 @@ BEGIN
 
     -- Insert or update auth.user
     INSERT INTO auth.user (
+        display_name,
         email,
         password, -- Plain text password; will be encrypted by the sync_user_credentials_and_roles_trigger
         statbus_role,
         email_confirmed_at
     ) VALUES (
+        p_display_name,
         v_email,
         v_password,
         p_statbus_role,
@@ -120,6 +125,7 @@ BEGIN
     -- Specify the constraint name to resolve ambiguity.
     ON CONFLICT ON CONSTRAINT user_email_key DO UPDATE
     SET
+        display_name = EXCLUDED.display_name,
         password = EXCLUDED.password, -- Pass on the NULL password.
         encrypted_password = EXCLUDED.encrypted_password, -- The EXCLUDED.password is cleared by a before trigger that populated EXCLUDED.encrypted_password
         statbus_role = EXCLUDED.statbus_role,

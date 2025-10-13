@@ -193,9 +193,9 @@ Handles background processing. A long-running worker process calls `worker.proce
 
 ## Auth & System Tables/Views
 
-- `user(id, sub, email, email_confirmed_at, created_at, updated_at, last_sign_in_at, deleted_at, password, encrypted_password, statbus_role)`
+- `user(id, sub, display_name, email, email_confirmed_at, created_at, updated_at, last_sign_in_at, deleted_at, password, encrypted_password, statbus_role)`
   - Enums: `statbus_role` (`public.statbus_role`).
-- `user(id, sub, email, email_confirmed_at, created_at, updated_at, last_sign_in_at, deleted_at, password, statbus_role)`
+- `user(id, sub, display_name, email, email_confirmed_at, created_at, updated_at, last_sign_in_at, deleted_at, password, statbus_role)`
   - Enums: `statbus_role` (`public.statbus_role`).
 - `api_key(id, user_id, created_at, expires_at, revoked_at, jti, description, token)`
   - Key FKs: user_id.

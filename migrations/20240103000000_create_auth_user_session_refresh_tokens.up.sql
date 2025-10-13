@@ -61,6 +61,7 @@ $$;
 CREATE TABLE IF NOT EXISTS auth.user (
   id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   sub uuid UNIQUE NOT NULL DEFAULT gen_random_uuid(),
+  display_name text UNIQUE NOT NULL CHECK (display_name <> ''),
   email text UNIQUE NOT NULL,
   password text,
   encrypted_password text NOT NULL,
@@ -1416,6 +1417,7 @@ BEGIN
     'statbus_role', v_user.statbus_role::text,
     'sub', v_user.sub::text,
     'uid', v_user.id, -- Add the integer user ID
+    'display_name', v_user.display_name,
     'email', v_user.email,
     'type', p_type,
     'iat', extract(epoch from clock_timestamp())::integer,

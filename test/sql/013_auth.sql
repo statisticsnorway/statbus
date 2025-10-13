@@ -30,8 +30,8 @@ $$;
 GRANT EXECUTE ON FUNCTION auth_test.reset_request_gucs() TO CURRENT_USER;
 
 -- Create additional test users not covered by setup.sql, using the @statbus.org domain for consistency.
-SELECT * FROM public.user_create('test.external@statbus.org', 'external_user'::statbus_role, 'External#123!');
-SELECT * FROM public.user_create('test.unconfirmed@statbus.org', 'regular_user'::statbus_role, 'Unconfirmed#123!');
+SELECT * FROM public.user_create(p_display_name => 'Test External', p_email => 'test.external@statbus.org', p_statbus_role => 'external_user'::statbus_role, p_password => 'External#123!');
+SELECT * FROM public.user_create(p_display_name => 'Test Unconfirmed', p_email => 'test.unconfirmed@statbus.org', p_statbus_role => 'regular_user'::statbus_role, p_password => 'Unconfirmed#123!');
 -- Ensure the unconfirmed user is actually unconfirmed as public.user_create confirms them by default.
 UPDATE auth.user SET email_confirmed_at = NULL WHERE email = 'test.unconfirmed@statbus.org';
 
@@ -849,7 +849,7 @@ DECLARE
 BEGIN
     PERFORM auth_test.reset_request_gucs();
     -- Create and then delete a user for this test
-    PERFORM public.user_create(deleted_user_email, 'regular_user'::public.statbus_role, 'Deleted#123!');
+    PERFORM public.user_create(p_display_name => 'Test Deleted User', p_email => deleted_user_email, p_statbus_role => 'regular_user'::public.statbus_role, p_password => 'Deleted#123!');
     UPDATE auth.user SET deleted_at = now() WHERE email = deleted_user_email;
 
     BEGIN -- Inner BEGIN/EXCEPTION/END for savepoint-like behavior
@@ -2668,7 +2668,7 @@ BEGIN
     -- First creation
     RAISE DEBUG '[Test 16] Calling public.user_create for the first time with email: %, role: %, password: (hidden)', test_email, test_role;
     SELECT * INTO first_creation_result 
-    FROM public.user_create(test_email, test_role, test_password);
+    FROM public.user_create(p_display_name => 'Test Idempotent', p_email => test_email, p_statbus_role => test_role, p_password => test_password);
     
     -- Debug the first creation result
     RAISE DEBUG '[Test 16] First creation result: %', first_creation_result;
@@ -2691,7 +2691,7 @@ BEGIN
     -- Second creation with same email but different password and role
     RAISE DEBUG '[Test 16] Calling public.user_create for the second time with email: %, role: admin_user, password: (hidden)', test_email;
     SELECT * INTO second_creation_result 
-    FROM public.user_create(test_email, 'admin_user'::public.statbus_role, 'newpassword123');
+    FROM public.user_create(p_display_name => 'Test Idempotent', p_email => test_email, p_statbus_role => 'admin_user'::public.statbus_role, p_password => 'newpassword123');
     
     -- Debug the second creation result
     RAISE DEBUG '[Test 16] Second creation result: %', second_creation_result;
@@ -2748,7 +2748,7 @@ DECLARE
 BEGIN
     BEGIN -- Inner BEGIN/EXCEPTION/END for savepoint-like behavior
         -- Create a test user with regular_user role
-    PERFORM public.user_create(test_email, 'regular_user'::public.statbus_role, test_password);
+    PERFORM public.user_create(p_display_name => 'Test Role Change', p_email => test_email, p_statbus_role => 'regular_user'::public.statbus_role, p_password => test_password);
     
     -- Get the user's sub
     SELECT sub INTO user_sub FROM auth.user WHERE email = test_email;

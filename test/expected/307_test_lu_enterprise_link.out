@@ -42,19 +42,19 @@ $sudo_exec$;
 GRANT EXECUTE ON FUNCTION test.sudo_exec(text) TO PUBLIC;
 \echo Add users for testing purposes
 Add users for testing purposes
-SELECT * FROM public.user_create('test.admin@statbus.org', 'admin_user'::statbus_role, 'Admin#123!');
+SELECT * FROM public.user_create(p_display_name => 'Test Admin', p_email => 'test.admin@statbus.org', p_statbus_role => 'admin_user'::statbus_role, p_password => 'Admin#123!');
          email          |  password  
 ------------------------+------------
  test.admin@statbus.org | Admin#123!
 (1 row)
 
-SELECT * FROM public.user_create('test.regular@statbus.org', 'regular_user'::statbus_role, 'Regular#123!');
+SELECT * FROM public.user_create(p_display_name => 'Test Regular', p_email => 'test.regular@statbus.org', p_statbus_role => 'regular_user'::statbus_role, p_password => 'Regular#123!');
           email           |   password   
 --------------------------+--------------
  test.regular@statbus.org | Regular#123!
 (1 row)
 
-SELECT * FROM public.user_create('test.restricted@statbus.org', 'restricted_user'::statbus_role, 'Restricted#123!');
+SELECT * FROM public.user_create(p_display_name => 'Test Restricted', p_email => 'test.restricted@statbus.org', p_statbus_role => 'restricted_user'::statbus_role, p_password => 'Restricted#123!');
             email            |    password     
 -----------------------------+-----------------
  test.restricted@statbus.org | Restricted#123!

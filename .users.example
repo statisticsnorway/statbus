@@ -1,12 +1,16 @@
-- email: admin@example.com
+- display_name: Super User
+  email: admin@example.com
   password: adminSecret123
   role: super_user
-- email: user@example.com
+- display_name: Regular User
+  email: user@example.com
   password: userSecret456
   role: regular_user
-- email: restricted@example.com
+- display_name: Restricted User
+  email: restricted@example.com
   password: restrictedSecret789
   role: restricted_user
-- email: external@example.com
+- display_name: External User
+  email: external@example.com
   password: externalSecret012
   role: external_user

@@ -32,6 +32,7 @@ erDiagram
 	auth_user["auth.user"] {
 		integer id
 		uuid sub
+		text display_name
 		text email
 		text password
 		text encrypted_password

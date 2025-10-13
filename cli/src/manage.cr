@@ -115,14 +115,15 @@ module Statbus
 
           users.as_a.each do |user|
             email = user["email"].as_s
+            display_name = user["display_name"]?.try(&.as_s)
+            if display_name.nil? || display_name.empty?
+              STDERR.puts "Error: 'display_name' is required and cannot be empty for user with email '#{email}' in .users.yml"
+              exit(1)
+            end
+
             password = user["password"].as_s
             # Default to regular_user if role not specified
             role = user["role"]?.try(&.as_s) || "regular_user"
-            # Gracefully change from old name to new name, to avoid too many changes.
-            if role == "admin_user"
-              role = "admin_user"
-            end
-
             # Validate role
             if !available_roles.includes?(role)
               STDERR.puts "Error: Invalid role '#{role}' for user #{email}"
@@ -133,7 +134,8 @@ module Statbus
             puts "Creating user: #{email} with role: #{role}" if @config.verbose
 
             db.exec(
-              "SELECT * FROM public.user_create($1, $2, $3)",
+              "SELECT * FROM public.user_create(p_display_name => $1, p_email => $2, p_statbus_role => $3, p_password => $4)",
+              display_name,
               email,
               role,
               password

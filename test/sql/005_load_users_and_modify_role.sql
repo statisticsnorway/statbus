@@ -3,9 +3,9 @@ BEGIN;
 \i test/setup.sql
 
 -- Create test users with different roles
-SELECT public.user_create('test.admin@example.com', 'admin_user'::statbus_role, 'AdminPass123!');
-SELECT public.user_create('test.regular@example.com', 'regular_user'::statbus_role, 'RegularPass123!');
-SELECT public.user_create('test.restricted@example.com', 'restricted_user'::statbus_role, 'RestrictedPass123!');
+SELECT public.user_create(p_display_name => 'Example Admin', p_email => 'test.admin@example.com', p_statbus_role => 'admin_user'::statbus_role, p_password => 'AdminPass123!');
+SELECT public.user_create(p_display_name => 'Example Regular', p_email => 'test.regular@example.com', p_statbus_role => 'regular_user'::statbus_role, p_password => 'RegularPass123!');
+SELECT public.user_create(p_display_name => 'Example Restricted', p_email => 'test.restricted@example.com', p_statbus_role => 'restricted_user'::statbus_role, p_password => 'RestrictedPass123!');
 
 -- Verify users were created with correct roles
 DO $$
