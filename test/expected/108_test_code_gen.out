@@ -1364,4 +1364,178 @@ ORDER BY definition_id, source_column_name NULLS FIRST, source_expression, targe
              8 | pin                |                   | pin_raw                 | source_input               | f          | 
 (10 rows)
 
+\echo "---"
+"---"
+\echo "Testing that public.reset() correctly restores the initial state"
+"Testing that public.reset() correctly restores the initial state"
+\echo "---"
+"---"
+\echo "Calling reset to restore database to its initial state"
+"Calling reset to restore database to its initial state"
+SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'all'::public.reset_scope));
+NOTICE:  Dropped index su_ei_pin_idx
+NOTICE:  Dropped index su_ei_tax_ident_idx
+NOTICE:  Dropped index su_s_boy_employees_idx
+NOTICE:  Dropped index su_s_girl_employees_idx
+NOTICE:  Dropped index su_s_men_employees_idx
+NOTICE:  Dropped index su_s_turnover_idx
+NOTICE:  Dropped index su_s_women_employees_idx
+NOTICE:  Dropped index su_ss_boy_employees_count_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_idx
+NOTICE:  Dropped index su_ss_girl_employees_count_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_idx
+NOTICE:  Dropped index su_ss_men_employees_count_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_idx
+NOTICE:  Dropped index su_ss_turnover_count_idx
+NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Dropped index su_ss_women_employees_count_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_idx
+NOTICE:  Created index su_ei_tax_ident for external_ident_type
+NOTICE:  Created index su_ei_pin for external_ident_type
+NOTICE:  Created indices for stat_definition turnover
+NOTICE:  Dropped index su_ei_pin_idx
+NOTICE:  Dropped index su_ei_tax_ident_idx
+NOTICE:  Dropped index su_s_turnover_idx
+NOTICE:  Dropped index su_ss_turnover_count_idx
+NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Created index su_ei_tax_ident for external_ident_type
+NOTICE:  Created indices for stat_definition turnover
+            jsonb_pretty             
+-------------------------------------
+ {                                  +
+     "tag": {                       +
+         "deleted_count": 0         +
+     },                             +
+     "person": {                    +
+         "deleted_count": 0         +
+     },                             +
+     "region": {                    +
+         "deleted_count": 0         +
+     },                             +
+     "sector": {                    +
+         "changed_count": 0,        +
+         "deleted_count": 0         +
+     },                             +
+     "status": {                    +
+         "changed_count": 0,        +
+         "deleted_count": 0         +
+     },                             +
+     "contact": {                   +
+         "deleted_count": 0         +
+     },                             +
+     "activity": {                  +
+         "deleted_count": 0         +
+     },                             +
+     "location": {                  +
+         "deleted_count": 0         +
+     },                             +
+     "settings": {                  +
+         "deleted_count": 0         +
+     },                             +
+     "unit_size": {                 +
+         "changed_count": 0,        +
+         "deleted_count": 0         +
+     },                             +
+     "enterprise": {                +
+         "deleted_count": 0         +
+     },                             +
+     "import_job": {                +
+         "deleted_count": 0         +
+     },                             +
+     "legal_form": {                +
+         "changed_count": 0,        +
+         "deleted_count": 0         +
+     },                             +
+     "legal_unit": {                +
+         "deleted_count": 0         +
+     },                             +
+     "data_source": {               +
+         "changed_count": 0,        +
+         "deleted_count": 0         +
+     },                             +
+     "tag_for_unit": {              +
+         "deleted_count": 0         +
+     },                             +
+     "establishment": {             +
+         "deleted_count": 0         +
+     },                             +
+     "stat_for_unit": {             +
+         "deleted_count": 0         +
+     },                             +
+     "external_ident": {            +
+         "deleted_count": 0         +
+     },                             +
+     "person_for_unit": {           +
+         "deleted_count": 0         +
+     },                             +
+     "stat_definition": {           +
+         "deleted_count": 5         +
+     },                             +
+     "activity_category": {         +
+         "changed_count": 0,        +
+         "deleted_count": 0,        +
+         "changed_children_count": 0+
+     },                             +
+     "external_ident_type": {       +
+         "deleted_count": 2         +
+     }                              +
+ }
+(1 row)
+
+\echo "Checking if tables have been restored to their original baseline state after reset"
+"Checking if tables have been restored to their original baseline state after reset"
+\echo "Removed import_data_column rows after reset (should be empty):"
+"Removed import_data_column rows after reset (should be empty):"
+SELECT * FROM import_data_column_baseline EXCEPT SELECT step_id, priority, column_name, column_type, purpose::text, is_nullable, default_value, is_uniquely_identifying FROM public.import_data_column;
+ step_id | priority |        column_name         | column_type |   purpose    | is_nullable | default_value | is_uniquely_identifying 
+---------+----------+----------------------------+-------------+--------------+-------------+---------------+-------------------------
+(0 rows)
+
+\echo "Added import_data_column rows after reset (should be empty):"
+"Added import_data_column rows after reset (should be empty):"
+SELECT step_id, priority, column_name, column_type, purpose::text, is_nullable, default_value, is_uniquely_identifying FROM public.import_data_column EXCEPT SELECT * FROM import_data_column_baseline;
+ step_id | priority |        column_name        | column_type |   purpose    | is_nullable | default_value | is_uniquely_identifying 
+---------+----------+---------------------------+-------------+--------------+-------------+---------------+-------------------------
+(0 rows)
+
+\echo "Removed import_source_column rows after reset (should be empty):"
+"Removed import_source_column rows after reset (should be empty):"
+SELECT * FROM import_source_column_baseline EXCEPT SELECT definition_id, priority, column_name FROM public.import_source_column WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = false);
+ definition_id | priority | column_name 
+---------------+----------+-------------
+(0 rows)
+
+\echo "Added import_source_column rows after reset (should be empty):"
+"Added import_source_column rows after reset (should be empty):"
+SELECT definition_id, priority, column_name FROM public.import_source_column WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = false) EXCEPT SELECT * FROM import_source_column_baseline;
+ definition_id | priority |   column_name   
+---------------+----------+-----------------
+(0 rows)
+
+\echo "Removed import_mapping rows after reset (should be empty):"
+"Removed import_mapping rows after reset (should be empty):"
+SELECT * FROM import_mapping_baseline
+EXCEPT
+SELECT m.definition_id, isc.column_name, m.source_expression, idc.column_name, m.target_data_column_purpose::text, m.is_ignored, m.source_value
+FROM public.import_mapping m
+LEFT JOIN public.import_source_column isc ON m.source_column_id = isc.id
+LEFT JOIN public.import_data_column idc ON m.target_data_column_id = idc.id
+WHERE m.definition_id IN (SELECT id FROM public.import_definition WHERE custom = false);
+ definition_id |  source_column_name   | source_expression |  target_data_column_name  | target_data_column_purpose | is_ignored | source_value 
+---------------+-----------------------+-------------------+---------------------------+----------------------------+------------+--------------
+(0 rows)
+
+\echo "Added import_mapping rows after reset (should be empty):"
+"Added import_mapping rows after reset (should be empty):"
+SELECT m.definition_id, isc.column_name, m.source_expression, idc.column_name, m.target_data_column_purpose::text, m.is_ignored, m.source_value
+FROM public.import_mapping m
+LEFT JOIN public.import_source_column isc ON m.source_column_id = isc.id
+LEFT JOIN public.import_data_column idc ON m.target_data_column_id = idc.id
+WHERE m.definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+EXCEPT
+SELECT * FROM import_mapping_baseline;
+ definition_id | column_name | source_expression | column_name | target_data_column_purpose | is_ignored | source_value 
+---------------+-------------+-------------------+-------------+----------------------------+------------+--------------
+(0 rows)
+
 ROLLBACK;
