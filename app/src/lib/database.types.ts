@@ -2802,7 +2802,6 @@ export type Database = {
           external_idents: Json | null
           fax_number: string | null
           has_legal_unit: boolean | null
-          used_for_counting: boolean | null
           included_enterprise_count: number | null
           included_enterprise_ids: number[] | null
           included_establishment_count: number | null
@@ -2869,6 +2868,7 @@ export type Database = {
           unit_size_code: string | null
           unit_size_id: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
+          used_for_counting: boolean | null
           valid_from: string | null
           valid_to: string | null
           valid_until: string | null
@@ -2887,7 +2887,6 @@ export type Database = {
           external_idents?: Json | null
           fax_number?: string | null
           has_legal_unit?: boolean | null
-          used_for_counting?: boolean | null
           included_enterprise_count?: number | null
           included_enterprise_ids?: number[] | null
           included_establishment_count?: number | null
@@ -2956,6 +2955,7 @@ export type Database = {
           unit_type?:
             | Database["public"]["Enums"]["statistical_unit_type"]
             | null
+          used_for_counting?: boolean | null
           valid_from?: string | null
           valid_to?: string | null
           valid_until?: string | null
@@ -2974,7 +2974,6 @@ export type Database = {
           external_idents?: Json | null
           fax_number?: string | null
           has_legal_unit?: boolean | null
-          used_for_counting?: boolean | null
           included_enterprise_count?: number | null
           included_enterprise_ids?: number[] | null
           included_establishment_count?: number | null
@@ -3043,6 +3042,7 @@ export type Database = {
           unit_type?:
             | Database["public"]["Enums"]["statistical_unit_type"]
             | null
+          used_for_counting?: boolean | null
           valid_from?: string | null
           valid_to?: string | null
           valid_until?: string | null
@@ -3107,10 +3107,10 @@ export type Database = {
           created_at: string
           custom: boolean
           id: number
-          used_for_counting: boolean
           name: string
           priority: number
           updated_at: string
+          used_for_counting: boolean
         }
         Insert: {
           active: boolean
@@ -3119,10 +3119,10 @@ export type Database = {
           created_at?: string
           custom?: boolean
           id?: never
-          used_for_counting: boolean
           name: string
           priority: number
           updated_at?: string
+          used_for_counting: boolean
         }
         Update: {
           active?: boolean
@@ -3131,10 +3131,10 @@ export type Database = {
           created_at?: string
           custom?: boolean
           id?: never
-          used_for_counting?: boolean
           name?: string
           priority?: number
           updated_at?: string
+          used_for_counting?: boolean
         }
         Relationships: []
       }
@@ -3288,7 +3288,6 @@ export type Database = {
           excluded_legal_unit_ids: number[] | null
           fax_number: string | null
           has_legal_unit: boolean | null
-          used_for_counting: boolean | null
           included_enterprise_ids: number[] | null
           included_establishment_ids: number[] | null
           included_legal_unit_ids: number[] | null
@@ -3352,6 +3351,7 @@ export type Database = {
           unit_size_code: string | null
           unit_size_id: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+          used_for_counting: boolean | null
           valid_from: string
           valid_to: string
           valid_until: string
@@ -3370,7 +3370,6 @@ export type Database = {
           excluded_legal_unit_ids?: number[] | null
           fax_number?: string | null
           has_legal_unit?: boolean | null
-          used_for_counting?: boolean | null
           included_enterprise_ids?: number[] | null
           included_establishment_ids?: number[] | null
           included_legal_unit_ids?: number[] | null
@@ -3434,6 +3433,7 @@ export type Database = {
           unit_size_code?: string | null
           unit_size_id?: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+          used_for_counting?: boolean | null
           valid_from: string
           valid_to: string
           valid_until: string
@@ -3452,7 +3452,6 @@ export type Database = {
           excluded_legal_unit_ids?: number[] | null
           fax_number?: string | null
           has_legal_unit?: boolean | null
-          used_for_counting?: boolean | null
           included_enterprise_ids?: number[] | null
           included_establishment_ids?: number[] | null
           included_legal_unit_ids?: number[] | null
@@ -3516,6 +3515,7 @@ export type Database = {
           unit_size_code?: string | null
           unit_size_id?: number | null
           unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
+          used_for_counting?: boolean | null
           valid_from?: string
           valid_to?: string
           valid_until?: string
@@ -3538,7 +3538,6 @@ export type Database = {
           excluded_legal_unit_ids: number[] | null
           fax_number: string | null
           has_legal_unit: boolean | null
-          used_for_counting: boolean | null
           included_enterprise_ids: number[] | null
           included_establishment_ids: number[] | null
           included_legal_unit_ids: number[] | null
@@ -3604,6 +3603,7 @@ export type Database = {
           unit_size_code: string | null
           unit_size_id: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+          used_for_counting: boolean | null
           valid_from: string
           valid_to: string
           valid_until: string
@@ -3623,7 +3623,6 @@ export type Database = {
           excluded_legal_unit_ids?: number[] | null
           fax_number?: string | null
           has_legal_unit?: boolean | null
-          used_for_counting?: boolean | null
           included_enterprise_ids?: number[] | null
           included_establishment_ids?: number[] | null
           included_legal_unit_ids?: number[] | null
@@ -3689,6 +3688,7 @@ export type Database = {
           unit_size_code?: string | null
           unit_size_id?: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+          used_for_counting?: boolean | null
           valid_from: string
           valid_to: string
           valid_until: string
@@ -3708,7 +3708,6 @@ export type Database = {
           excluded_legal_unit_ids?: number[] | null
           fax_number?: string | null
           has_legal_unit?: boolean | null
-          used_for_counting?: boolean | null
           included_enterprise_ids?: number[] | null
           included_establishment_ids?: number[] | null
           included_legal_unit_ids?: number[] | null
@@ -3774,6 +3773,7 @@ export type Database = {
           unit_size_code?: string | null
           unit_size_id?: number | null
           unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
+          used_for_counting?: boolean | null
           valid_from?: string
           valid_to?: string
           valid_until?: string
@@ -3795,7 +3795,6 @@ export type Database = {
           excluded_legal_unit_ids: number[] | null
           fax_number: string | null
           has_legal_unit: boolean | null
-          used_for_counting: boolean | null
           included_enterprise_ids: number[] | null
           included_establishment_ids: number[] | null
           included_legal_unit_ids: number[] | null
@@ -3860,6 +3859,7 @@ export type Database = {
           unit_size_code: string | null
           unit_size_id: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+          used_for_counting: boolean | null
           valid_from: string
           valid_to: string
           valid_until: string
@@ -3878,7 +3878,6 @@ export type Database = {
           excluded_legal_unit_ids?: number[] | null
           fax_number?: string | null
           has_legal_unit?: boolean | null
-          used_for_counting?: boolean | null
           included_enterprise_ids?: number[] | null
           included_establishment_ids?: number[] | null
           included_legal_unit_ids?: number[] | null
@@ -3943,6 +3942,7 @@ export type Database = {
           unit_size_code?: string | null
           unit_size_id?: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+          used_for_counting?: boolean | null
           valid_from: string
           valid_to: string
           valid_until: string
@@ -3961,7 +3961,6 @@ export type Database = {
           excluded_legal_unit_ids?: number[] | null
           fax_number?: string | null
           has_legal_unit?: boolean | null
-          used_for_counting?: boolean | null
           included_enterprise_ids?: number[] | null
           included_establishment_ids?: number[] | null
           included_legal_unit_ids?: number[] | null
@@ -4026,6 +4025,7 @@ export type Database = {
           unit_size_code?: string | null
           unit_size_id?: number | null
           unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
+          used_for_counting?: boolean | null
           valid_from?: string
           valid_to?: string
           valid_until?: string
@@ -6743,7 +6743,6 @@ export type Database = {
           external_idents: Json | null
           fax_number: string | null
           has_legal_unit: boolean | null
-          used_for_counting: boolean | null
           included_enterprise_count: number | null
           included_enterprise_ids: number[] | null
           included_establishment_count: number | null
@@ -6810,6 +6809,7 @@ export type Database = {
           unit_size_code: string | null
           unit_size_id: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
+          used_for_counting: boolean | null
           valid_from: string | null
           valid_to: string | null
           valid_until: string | null
@@ -6863,7 +6863,6 @@ export type Database = {
           excluded_legal_unit_ids: number[] | null
           fax_number: string | null
           has_legal_unit: boolean | null
-          used_for_counting: boolean | null
           included_enterprise_ids: number[] | null
           included_establishment_ids: number[] | null
           included_legal_unit_ids: number[] | null
@@ -6927,6 +6926,7 @@ export type Database = {
           unit_size_code: string | null
           unit_size_id: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
+          used_for_counting: boolean | null
           valid_from: string | null
           valid_to: string | null
           valid_until: string | null
@@ -6949,7 +6949,6 @@ export type Database = {
           excluded_legal_unit_ids: number[] | null
           fax_number: string | null
           has_legal_unit: boolean | null
-          used_for_counting: boolean | null
           included_enterprise_ids: number[] | null
           included_establishment_ids: number[] | null
           included_legal_unit_ids: number[] | null
@@ -7015,6 +7014,7 @@ export type Database = {
           unit_size_code: string | null
           unit_size_id: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
+          used_for_counting: boolean | null
           valid_from: string | null
           valid_to: string | null
           valid_until: string | null
@@ -7107,13 +7107,6 @@ export type Database = {
           },
           {
             foreignKeyName: "location_country_id_fkey"
-            columns: ["postal_country_id"]
-            isOneToOne: false
-            referencedRelation: "country"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "location_country_id_fkey"
             columns: ["physical_country_id"]
             isOneToOne: false
             referencedRelation: "country"
@@ -7123,7 +7116,7 @@ export type Database = {
             foreignKeyName: "location_country_id_fkey"
             columns: ["postal_country_id"]
             isOneToOne: false
-            referencedRelation: "country_used_def"
+            referencedRelation: "country"
             referencedColumns: ["id"]
           },
           {
@@ -7136,13 +7129,20 @@ export type Database = {
           {
             foreignKeyName: "location_country_id_fkey"
             columns: ["postal_country_id"]
+            isOneToOne: false
+            referencedRelation: "country_used_def"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_country_id_fkey"
+            columns: ["physical_country_id"]
             isOneToOne: false
             referencedRelation: "country_view"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "location_country_id_fkey"
-            columns: ["physical_country_id"]
+            columns: ["postal_country_id"]
             isOneToOne: false
             referencedRelation: "country_view"
             referencedColumns: ["id"]
@@ -7191,7 +7191,6 @@ export type Database = {
           excluded_legal_unit_ids: number[] | null
           fax_number: string | null
           has_legal_unit: boolean | null
-          used_for_counting: boolean | null
           included_enterprise_ids: number[] | null
           included_establishment_ids: number[] | null
           included_legal_unit_ids: number[] | null
@@ -7256,6 +7255,7 @@ export type Database = {
           unit_size_code: string | null
           unit_size_id: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
+          used_for_counting: boolean | null
           valid_from: string | null
           valid_to: string | null
           valid_until: string | null
@@ -7390,13 +7390,6 @@ export type Database = {
           },
           {
             foreignKeyName: "location_region_id_fkey"
-            columns: ["postal_region_id"]
-            isOneToOne: false
-            referencedRelation: "region"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "location_region_id_fkey"
             columns: ["physical_region_id"]
             isOneToOne: false
             referencedRelation: "region"
@@ -7405,13 +7398,20 @@ export type Database = {
           {
             foreignKeyName: "location_region_id_fkey"
             columns: ["postal_region_id"]
+            isOneToOne: false
+            referencedRelation: "region"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_region_id_fkey"
+            columns: ["physical_region_id"]
             isOneToOne: false
             referencedRelation: "region_used_def"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "location_region_id_fkey"
-            columns: ["physical_region_id"]
+            columns: ["postal_region_id"]
             isOneToOne: false
             referencedRelation: "region_used_def"
             referencedColumns: ["id"]
@@ -8650,7 +8650,6 @@ export type Database = {
           external_idents: Json | null
           fax_number: string | null
           has_legal_unit: boolean | null
-          used_for_counting: boolean | null
           included_enterprise_count: number | null
           included_enterprise_ids: number[] | null
           included_establishment_count: number | null
@@ -8717,6 +8716,7 @@ export type Database = {
           unit_size_code: string | null
           unit_size_id: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
+          used_for_counting: boolean | null
           valid_from: string | null
           valid_to: string | null
           valid_until: string | null
