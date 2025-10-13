@@ -196,7 +196,7 @@ WHERE used_for_counting
 AND valid_to = 'infinity'
 ORDER BY unit_type, valid_from;
  valid_from | valid_to |       name       |   unit_type   |                stats_summary                 | status_code | used_for_counting 
-------------+----------+------------------+---------------+----------------------------------------------+-------------+-------------------------
+------------+----------+------------------+---------------+----------------------------------------------+-------------+-------------------
  2010-01-01 | infinity | Kranløft Oslo    | establishment | {                                           +| active      | t
             |          |                  |               |     "turnover": {                           +|             | 
             |          |                  |               |         "max": 25000000,                    +|             | 

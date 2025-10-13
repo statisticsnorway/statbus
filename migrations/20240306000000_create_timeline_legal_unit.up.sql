@@ -390,13 +390,24 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
            , basis.primary_for_enterprise
            -- Expose the stats for just this entry.
            , basis.stats AS stats
-           -- FINESSE: The `stats_summary` for a legal unit is a two-step process that forms the core
-           -- of the hierarchical roll-up logic.
-           -- 1. `basis.stats_summary`: The legal unit's *own* `stats` are summarized. This was calculated in the `basis` CTE.
-           -- 2. `esa.stats_summary`: The pre-calculated summaries from all child establishments (`esa`) are aggregated.
-           -- 3. `jsonb_stats_summary_merge`: The legal unit's own summary is then merged with the aggregated summary
-           --    of its children. This ensures a complete and correct roll-up.
-           , COALESCE(public.jsonb_stats_summary_merge(esa.stats_summary, basis.stats_summary), basis.stats_summary, esa.stats_summary, '{}'::jsonb) AS stats_summary
+           -- FINESSE: The `stats_summary` for a legal unit is a critical part of the hierarchical roll-up logic,
+           -- governed by the `used_for_counting` flag.
+           -- 1. If `used_for_counting` is TRUE:
+           --    - `basis.stats_summary`: The legal unit's *own* `stats` are summarized.
+           --    - `esa.stats_summary`: Pre-calculated summaries from all child establishments are aggregated.
+           --    - `jsonb_stats_summary_merge`: The legal unit's summary is merged with its children's, ensuring a complete roll-up.
+           -- 2. If `used_for_counting` is FALSE:
+           --    - The unit's `stats_summary` is an empty object (`'{}'`). This intentionally stops the roll-up.
+           --    - This unit, and by extension its entire sub-tree of establishments, will not contribute to the parent's
+           --      statistical summary. The parent entity (e.g., an enterprise) makes the final decision on which units to include.
+           , CASE
+               WHEN basis.used_for_counting THEN
+                 -- If this legal unit is counted, merge its own stats with the rolled-up stats from its children.
+                 COALESCE(public.jsonb_stats_summary_merge(esa.stats_summary, basis.stats_summary), basis.stats_summary, esa.stats_summary, '{}'::jsonb)
+               ELSE
+                 -- If this unit is not counted, it contributes no stats upwards. This stops the roll-up for this sub-tree.
+                 '{}'::jsonb
+             END AS stats_summary
       FROM basis
       LEFT JOIN LATERAL (
           SELECT

@@ -122,13 +122,26 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
           ) AS ten
           LEFT JOIN LATERAL (
               SELECT enterprise_id, ten.valid_from, ten.valid_until
-                   , public.array_distinct_concat(data_source_ids) AS data_source_ids, public.array_distinct_concat(data_source_codes) AS data_source_codes, public.array_distinct_concat(related_establishment_ids) AS related_establishment_ids, public.array_distinct_concat(excluded_establishment_ids) AS excluded_establishment_ids, public.array_distinct_concat(included_establishment_ids) AS included_establishment_ids, array_agg(DISTINCT legal_unit_id) AS related_legal_unit_ids, array_agg(DISTINCT legal_unit_id) FILTER (WHERE NOT used_for_counting) AS excluded_legal_unit_ids, array_agg(DISTINCT legal_unit_id) FILTER (WHERE used_for_counting) AS included_legal_unit_ids, public.jsonb_stats_summary_merge_agg(stats_summary) FILTER (WHERE used_for_counting) AS stats_summary
+                   , public.array_distinct_concat(data_source_ids) AS data_source_ids
+                   , public.array_distinct_concat(data_source_codes) AS data_source_codes
+                   , public.array_distinct_concat(related_establishment_ids) AS related_establishment_ids
+                   , public.array_distinct_concat(excluded_establishment_ids) AS excluded_establishment_ids
+                   , public.array_distinct_concat(included_establishment_ids) AS included_establishment_ids
+                   , array_agg(DISTINCT legal_unit_id) AS related_legal_unit_ids
+                   , array_agg(DISTINCT legal_unit_id) FILTER (WHERE NOT used_for_counting) AS excluded_legal_unit_ids
+                   , array_agg(DISTINCT legal_unit_id) FILTER (WHERE used_for_counting) AS included_legal_unit_ids
+                   , public.jsonb_stats_summary_merge_agg(stats_summary) FILTER (WHERE used_for_counting) AS stats_summary
               FROM public.timeline_legal_unit
               WHERE enterprise_id = ten.enterprise_id AND from_until_overlaps(ten.valid_from, ten.valid_until, valid_from, valid_until) GROUP BY enterprise_id, ten.valid_from, ten.valid_until
           ) AS tlu ON true
           LEFT JOIN LATERAL (
-              SELECT enterprise_id, ten.valid_from, ten.valid_until
-                   , public.array_distinct_concat(data_source_ids) AS data_source_ids, public.array_distinct_concat(data_source_codes) AS data_source_codes, array_agg(DISTINCT establishment_id) AS related_establishment_ids, array_agg(DISTINCT establishment_id) FILTER (WHERE NOT used_for_counting) AS excluded_establishment_ids, array_agg(DISTINCT establishment_id) FILTER (WHERE used_for_counting) AS included_establishment_ids, public.jsonb_stats_summary_merge_agg(stats_summary) FILTER (WHERE used_for_counting) AS stats_summary
+              SELECT enterprise_id, ten.valid_from, ten.valid_until                   
+              , public.array_distinct_concat(data_source_ids) AS data_source_ids
+              , public.array_distinct_concat(data_source_codes) AS data_source_codes
+              , array_agg(DISTINCT establishment_id) AS related_establishment_ids
+              , array_agg(DISTINCT establishment_id) FILTER (WHERE NOT used_for_counting) AS excluded_establishment_ids
+              , array_agg(DISTINCT establishment_id) FILTER (WHERE used_for_counting) AS included_establishment_ids
+              , public.jsonb_stats_summary_merge_agg(stats_summary) FILTER (WHERE used_for_counting) AS stats_summary
               FROM public.timeline_establishment
               WHERE enterprise_id = ten.enterprise_id AND from_until_overlaps(ten.valid_from, ten.valid_until, valid_from, valid_until) GROUP BY enterprise_id, ten.valid_from, ten.valid_until
           ) AS tes ON true

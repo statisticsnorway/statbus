@@ -257,8 +257,8 @@ SELECT jsonb_pretty(
                      "active": true,                                                                                              +
                      "custom": false,                                                                                             +
                      "priority": 1,                                                                                               +
-                     "assigned_by_default": true,                                                                                 +
-                     "used_for_counting": true                                                                              +
+                     "used_for_counting": true,                                                                                   +
+                     "assigned_by_default": true                                                                                  +
                  },                                                                                                               +
                  "activity": [                                                                                                    +
                      {                                                                                                            +
@@ -361,8 +361,8 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false,                                                                                     +
                              "priority": 1,                                                                                       +
-                             "assigned_by_default": true,                                                                         +
-                             "used_for_counting": true                                                                      +
+                             "used_for_counting": true,                                                                           +
+                             "assigned_by_default": true                                                                          +
                          },                                                                                                       +
                          "activity": [                                                                                            +
                              {                                                                                                    +
@@ -613,8 +613,8 @@ SELECT jsonb_pretty(
                      "active": true,                                                                                      +
                      "custom": false,                                                                                     +
                      "priority": 1,                                                                                       +
-                     "assigned_by_default": true,                                                                         +
-                     "used_for_counting": true                                                                      +
+                     "used_for_counting": true,                                                                           +
+                     "assigned_by_default": true                                                                          +
                  },                                                                                                       +
                  "activity": [                                                                                            +
                      {                                                                                                    +
@@ -899,8 +899,8 @@ SELECT jsonb_pretty(
                      "active": true,                                                                                              +
                      "custom": false,                                                                                             +
                      "priority": 1,                                                                                               +
-                     "assigned_by_default": true,                                                                                 +
-                     "used_for_counting": true                                                                              +
+                     "used_for_counting": true,                                                                                   +
+                     "assigned_by_default": true                                                                                  +
                  },                                                                                                               +
                  "activity": [                                                                                                    +
                      {                                                                                                            +
@@ -1003,8 +1003,8 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false,                                                                                     +
                              "priority": 1,                                                                                       +
-                             "assigned_by_default": true,                                                                         +
-                             "used_for_counting": true                                                                      +
+                             "used_for_counting": true,                                                                           +
+                             "assigned_by_default": true                                                                          +
                          },                                                                                                       +
                          "activity": [                                                                                            +
                              {                                                                                                    +
@@ -1226,8 +1226,8 @@ SELECT jsonb_pretty(
                      "active": true,                                                                                              +
                      "custom": false,                                                                                             +
                      "priority": 1,                                                                                               +
-                     "assigned_by_default": true,                                                                                 +
-                     "used_for_counting": true                                                                              +
+                     "used_for_counting": true,                                                                                   +
+                     "assigned_by_default": true                                                                                  +
                  },                                                                                                               +
                  "activity": [                                                                                                    +
                      {                                                                                                            +
@@ -1422,8 +1422,8 @@ SELECT jsonb_pretty(
                      "active": true,                                                                                              +
                      "custom": false,                                                                                             +
                      "priority": 1,                                                                                               +
-                     "assigned_by_default": true,                                                                                 +
-                     "used_for_counting": true                                                                              +
+                     "used_for_counting": true,                                                                                   +
+                     "assigned_by_default": true                                                                                  +
                  },                                                                                                               +
                  "activity": [                                                                                                    +
                      {                                                                                                            +
@@ -1526,8 +1526,8 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false,                                                                                     +
                              "priority": 1,                                                                                       +
-                             "assigned_by_default": true,                                                                         +
-                             "used_for_counting": true                                                                      +
+                             "used_for_counting": true,                                                                           +
+                             "assigned_by_default": true                                                                          +
                          },                                                                                                       +
                          "activity": [                                                                                            +
                              {                                                                                                    +
@@ -1749,8 +1749,8 @@ SELECT jsonb_pretty(
                      "active": true,                                                                                              +
                      "custom": false,                                                                                             +
                      "priority": 1,                                                                                               +
-                     "assigned_by_default": true,                                                                                 +
-                     "used_for_counting": true                                                                              +
+                     "used_for_counting": true,                                                                                   +
+                     "assigned_by_default": true                                                                                  +
                  },                                                                                                               +
                  "activity": [                                                                                                    +
                      {                                                                                                            +
@@ -1945,8 +1945,8 @@ SELECT jsonb_pretty(
                      "active": true,                                                                                              +
                      "custom": false,                                                                                             +
                      "priority": 1,                                                                                               +
-                     "assigned_by_default": true,                                                                                 +
-                     "used_for_counting": true                                                                              +
+                     "used_for_counting": true,                                                                                   +
+                     "assigned_by_default": true                                                                                  +
                  },                                                                                                               +
                  "activity": [                                                                                                    +
                      {                                                                                                            +
@@ -2049,8 +2049,8 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false,                                                                                     +
                              "priority": 1,                                                                                       +
-                             "assigned_by_default": true,                                                                         +
-                             "used_for_counting": true                                                                      +
+                             "used_for_counting": true,                                                                           +
+                             "assigned_by_default": true                                                                          +
                          },                                                                                                       +
                          "activity": [                                                                                            +
                              {                                                                                                    +
@@ -2272,8 +2272,8 @@ SELECT jsonb_pretty(
                      "active": true,                                                                                              +
                      "custom": false,                                                                                             +
                      "priority": 1,                                                                                               +
-                     "assigned_by_default": true,                                                                                 +
-                     "used_for_counting": true                                                                              +
+                     "used_for_counting": true,                                                                                   +
+                     "assigned_by_default": true                                                                                  +
                  },                                                                                                               +
                  "activity": [                                                                                                    +
                      {                                                                                                            +
