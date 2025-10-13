@@ -15,6 +15,7 @@ import DataSourceFilter from "../filters/data-source/data-source-filter";
 import { ColumnSelectorButton } from "./column-selector-button";
 import StatusFilter from "../filters/status/status-filter";
 import UnitSizeFilter from "../filters/unit-size/unit-size-filter";
+import LastEditByUserFilter from "../filters/last-edit-by-user/last-edit-by-user-filter";
 
 export default function TableToolbar() {
   return (
@@ -44,6 +45,9 @@ export default function TableToolbar() {
       </FilterWrapper>
       <FilterWrapper columnCode="data_sources">
         <DataSourceFilter />
+      </FilterWrapper>
+      <FilterWrapper columnCode="last_edit">
+        <LastEditByUserFilter />
       </FilterWrapper>
       <StatisticalVariablesFilter />
       <InvalidCodesFilter />

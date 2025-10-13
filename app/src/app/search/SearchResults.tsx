@@ -20,6 +20,7 @@ import {
   regionDeriveStateUpdateFromSearchParams,
   sectorDeriveStateUpdateFromSearchParams,
   statusDeriveStateUpdateFromSearchParams,
+  lastEditByUserDeriveStateUpdateFromSearchParams,
   statisticalVariablesDeriveStateUpdateFromSearchParams,
   unitSizeDeriveStateUpdateFromSearchParams,
   unitTypeDeriveStateUpdateFromSearchParams,
@@ -55,15 +56,34 @@ const deriveStateFromUrl = (
   const sectorAction = sectorDeriveStateUpdateFromSearchParams(urlSearchParams);
   const activityCategoryAction = activityCategoryDeriveStateUpdateFromSearchParams(urlSearchParams);
   const statusAction = statusDeriveStateUpdateFromSearchParams(urlSearchParams);
-  const unitSizeAction = unitSizeDeriveStateUpdateFromSearchParams(urlSearchParams);
-  const dataSourceAction = dataSourceDeriveStateUpdateFromSearchParams(urlSearchParams);
-  const externalIdentActions = externalIdentTypes.map((extType) => externalIdentDeriveStateUpdateFromSearchParams(extType, urlSearchParams));
-  const statVarActions = statisticalVariablesDeriveStateUpdateFromSearchParams(statDefinitions, urlSearchParams);
+  const lastEditByUserAction =
+    lastEditByUserDeriveStateUpdateFromSearchParams(urlSearchParams);
+  const unitSizeAction =
+    unitSizeDeriveStateUpdateFromSearchParams(urlSearchParams);
+  const dataSourceAction =
+    dataSourceDeriveStateUpdateFromSearchParams(urlSearchParams);
+  const externalIdentActions = externalIdentTypes.map((extType) =>
+    externalIdentDeriveStateUpdateFromSearchParams(extType, urlSearchParams)
+  );
+  const statVarActions = statisticalVariablesDeriveStateUpdateFromSearchParams(
+    statDefinitions,
+    urlSearchParams
+  );
 
   const allActions = [
-    ftsAction, unitTypeAction, invalidCodesAction, legalFormAction, regionAction,
-    sectorAction, activityCategoryAction, statusAction, unitSizeAction, dataSourceAction,
-    ...externalIdentActions, ...statVarActions,
+    ftsAction,
+    unitTypeAction,
+    invalidCodesAction,
+    legalFormAction,
+    regionAction,
+    sectorAction,
+    activityCategoryAction,
+    statusAction,
+    lastEditByUserAction,
+    unitSizeAction,
+    dataSourceAction,
+    ...externalIdentActions,
+    ...statVarActions,
   ].filter(Boolean) as SearchAction[];
 
   let newInitialQuery = '';

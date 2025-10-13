@@ -34,6 +34,7 @@ import {
   regionDeriveStateUpdateFromSearchParams,
   sectorDeriveStateUpdateFromSearchParams,
   statusDeriveStateUpdateFromSearchParams,
+  lastEditByUserDeriveStateUpdateFromSearchParams,
   statisticalVariablesDeriveStateUpdateFromSearchParams,
   unitSizeDeriveStateUpdateFromSearchParams,
   unitTypeDeriveStateUpdateFromSearchParams,
@@ -142,6 +143,7 @@ export function useSearchUrlSync() {
       sectorDeriveStateUpdateFromSearchParams(urlParams),
       activityCategoryDeriveStateUpdateFromSearchParams(urlParams),
       statusDeriveStateUpdateFromSearchParams(urlParams),
+      lastEditByUserDeriveStateUpdateFromSearchParams(urlParams),
       unitSizeDeriveStateUpdateFromSearchParams(urlParams),
       dataSourceDeriveStateUpdateFromSearchParams(urlParams),
     ];
