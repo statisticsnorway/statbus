@@ -4,6 +4,7 @@
 --------------------+--------------------------+-----------+----------+---------
  id                 | integer                  |           |          | 
  sub                | uuid                     |           |          | 
+ display_name       | text                     |           |          | 
  email              | text                     |           |          | 
  password           | text                     |           |          | 
  statbus_role       | statbus_role             |           |          | 

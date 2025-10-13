@@ -1,5 +1,5 @@
 ```sql
-CREATE OR REPLACE FUNCTION public.user_create(p_email text, p_statbus_role statbus_role, p_password text DEFAULT NULL::text)
+CREATE OR REPLACE FUNCTION public.user_create(p_display_name text, p_email text, p_statbus_role statbus_role, p_password text DEFAULT NULL::text)
  RETURNS TABLE(email text, password text)
  LANGUAGE plpgsql
 AS $function$
@@ -24,11 +24,13 @@ BEGIN
 
     -- Insert or update auth.user
     INSERT INTO auth.user (
+        display_name,
         email,
         password, -- Plain text password; will be encrypted by the sync_user_credentials_and_roles_trigger
         statbus_role,
         email_confirmed_at
     ) VALUES (
+        p_display_name,
         v_email,
         v_password,
         p_statbus_role,
@@ -37,6 +39,7 @@ BEGIN
     -- Specify the constraint name to resolve ambiguity.
     ON CONFLICT ON CONSTRAINT user_email_key DO UPDATE
     SET
+        display_name = EXCLUDED.display_name,
         password = EXCLUDED.password, -- Pass on the NULL password.
         encrypted_password = EXCLUDED.encrypted_password, -- The EXCLUDED.password is cleared by a before trigger that populated EXCLUDED.encrypted_password
         statbus_role = EXCLUDED.statbus_role,

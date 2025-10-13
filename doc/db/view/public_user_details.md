@@ -4,6 +4,7 @@
 --------------------+--------------------------+-----------+----------+---------+----------+-------------
  id                 | integer                  |           |          |         | plain    | 
  sub                | uuid                     |           |          |         | plain    | 
+ display_name       | text                     |           |          |         | extended | 
  email              | text                     |           |          |         | extended | 
  password           | text                     |           |          |         | extended | 
  statbus_role       | statbus_role             |           |          |         | plain    | 
@@ -15,6 +16,7 @@
 View definition:
  SELECT id,
     sub,
+    display_name,
     email,
     password,
     statbus_role,

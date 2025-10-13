@@ -4,6 +4,7 @@
 --------------------+--------------------------+-----------+----------+------------------------------
  id                 | integer                  |           | not null | generated always as identity
  sub                | uuid                     |           | not null | gen_random_uuid()
+ display_name       | text                     |           | not null | 
  email              | text                     |           | not null | 
  password           | text                     |           |          | 
  encrypted_password | text                     |           | not null | 
@@ -15,8 +16,11 @@
  deleted_at         | timestamp with time zone |           |          | 
 Indexes:
     "user_pkey" PRIMARY KEY, btree (id)
+    "user_display_name_key" UNIQUE CONSTRAINT, btree (display_name)
     "user_email_key" UNIQUE CONSTRAINT, btree (email)
     "user_sub_key" UNIQUE CONSTRAINT, btree (sub)
+Check constraints:
+    "user_display_name_check" CHECK (display_name <> ''::text)
 Referenced by:
     TABLE "activity_category_access" CONSTRAINT "activity_category_access_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth."user"(id) ON DELETE CASCADE
     TABLE "activity" CONSTRAINT "activity_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT
