@@ -63,7 +63,7 @@
  unit_size_code                   | text                     |           |          |         | extended | 
  status_id                        | integer                  |           |          |         | plain    | 
  status_code                      | character varying        |           |          |         | extended | 
- used_for_counting          | boolean                  |           |          |         | plain    | 
+ used_for_counting                | boolean                  |           |          |         | plain    | 
  last_edit_comment                | character varying(512)   |           |          |         | extended | 
  last_edit_by_user_id             | integer                  |           |          |         | plain    | 
  last_edit_at                     | timestamp with time zone |           |          |         | plain    | 
@@ -419,7 +419,10 @@ View definition:
     basis.enterprise_id,
     basis.primary_for_enterprise,
     basis.stats,
-    COALESCE(jsonb_stats_summary_merge(esa.stats_summary, basis.stats_summary), basis.stats_summary, esa.stats_summary, '{}'::jsonb) AS stats_summary
+        CASE
+            WHEN basis.used_for_counting THEN COALESCE(jsonb_stats_summary_merge(esa.stats_summary, basis.stats_summary), basis.stats_summary, esa.stats_summary, '{}'::jsonb)
+            ELSE '{}'::jsonb
+        END AS stats_summary
    FROM basis
      LEFT JOIN LATERAL ( SELECT tes.legal_unit_id,
             array_distinct_concat(tes.data_source_ids) AS data_source_ids,

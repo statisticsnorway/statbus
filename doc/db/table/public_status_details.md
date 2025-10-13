@@ -1,17 +1,17 @@
 ```sql
-                                                                     Table "public.status"
-         Column          |           Type           | Collation | Nullable |           Default            | Storage  | Compression | Stats target | Description 
--------------------------+--------------------------+-----------+----------+------------------------------+----------+-------------+--------------+-------------
- id                      | integer                  |           | not null | generated always as identity | plain    |             |              | 
- code                    | character varying        |           | not null |                              | extended |             |              | 
- name                    | text                     |           | not null |                              | extended |             |              | 
- assigned_by_default     | boolean                  |           | not null |                              | plain    |             |              | 
- used_for_counting | boolean                  |           | not null |                              | plain    |             |              | 
- priority                | integer                  |           | not null |                              | plain    |             |              | 
- active                  | boolean                  |           | not null |                              | plain    |             |              | 
- custom                  | boolean                  |           | not null | false                        | plain    |             |              | 
- created_at              | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
- updated_at              | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
+                                                                   Table "public.status"
+       Column        |           Type           | Collation | Nullable |           Default            | Storage  | Compression | Stats target | Description 
+---------------------+--------------------------+-----------+----------+------------------------------+----------+-------------+--------------+-------------
+ id                  | integer                  |           | not null | generated always as identity | plain    |             |              | 
+ code                | character varying        |           | not null |                              | extended |             |              | 
+ name                | text                     |           | not null |                              | extended |             |              | 
+ assigned_by_default | boolean                  |           | not null |                              | plain    |             |              | 
+ used_for_counting   | boolean                  |           | not null |                              | plain    |             |              | 
+ priority            | integer                  |           | not null |                              | plain    |             |              | 
+ active              | boolean                  |           | not null |                              | plain    |             |              | 
+ custom              | boolean                  |           | not null | false                        | plain    |             |              | 
+ created_at          | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
+ updated_at          | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
 Indexes:
     "status_pkey" PRIMARY KEY, btree (id)
     "ix_status_active" btree (active)

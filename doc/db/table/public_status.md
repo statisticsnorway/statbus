@@ -1,17 +1,17 @@
 ```sql
-                                          Table "public.status"
-         Column          |           Type           | Collation | Nullable |           Default            
--------------------------+--------------------------+-----------+----------+------------------------------
- id                      | integer                  |           | not null | generated always as identity
- code                    | character varying        |           | not null | 
- name                    | text                     |           | not null | 
- assigned_by_default     | boolean                  |           | not null | 
- used_for_counting | boolean                  |           | not null | 
- priority                | integer                  |           | not null | 
- active                  | boolean                  |           | not null | 
- custom                  | boolean                  |           | not null | false
- created_at              | timestamp with time zone |           | not null | statement_timestamp()
- updated_at              | timestamp with time zone |           | not null | statement_timestamp()
+                                        Table "public.status"
+       Column        |           Type           | Collation | Nullable |           Default            
+---------------------+--------------------------+-----------+----------+------------------------------
+ id                  | integer                  |           | not null | generated always as identity
+ code                | character varying        |           | not null | 
+ name                | text                     |           | not null | 
+ assigned_by_default | boolean                  |           | not null | 
+ used_for_counting   | boolean                  |           | not null | 
+ priority            | integer                  |           | not null | 
+ active              | boolean                  |           | not null | 
+ custom              | boolean                  |           | not null | false
+ created_at          | timestamp with time zone |           | not null | statement_timestamp()
+ updated_at          | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
     "status_pkey" PRIMARY KEY, btree (id)
     "ix_status_active" btree (active)

@@ -64,7 +64,7 @@
  unit_size_code                   | text                     |           |          |         | extended |             |              | 
  status_id                        | integer                  |           |          |         | plain    |             |              | 
  status_code                      | character varying        |           |          |         | extended |             |              | 
- used_for_counting          | boolean                  |           |          |         | plain    |             |              | 
+ used_for_counting                | boolean                  |           |          |         | plain    |             |              | 
  last_edit_comment                | character varying(512)   |           |          |         | extended |             |              | 
  last_edit_by_user_id             | integer                  |           |          |         | plain    |             |              | 
  last_edit_at                     | timestamp with time zone |           |          |         | plain    |             |              | 
