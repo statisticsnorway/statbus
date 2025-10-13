@@ -28,7 +28,7 @@ View definition:
     count(*) AS count,
     jsonb_stats_summary_merge_agg(stats_summary) AS stats_summary
    FROM statistical_unit
-  WHERE include_unit_in_reports
+  WHERE used_for_counting
   GROUP BY valid_from, valid_to, valid_until, unit_type, physical_region_path, primary_activity_category_path, sector_path, legal_form_id, physical_country_id, status_id;
 
 ```

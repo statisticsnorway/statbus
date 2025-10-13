@@ -63,7 +63,7 @@
  unit_size_code                   | text                     |           |          | 
  status_id                        | integer                  |           |          | 
  status_code                      | character varying        |           |          | 
- include_unit_in_reports          | boolean                  |           |          | 
+ used_for_counting          | boolean                  |           |          | 
  last_edit_comment                | character varying(512)   |           |          | 
  last_edit_by_user_id             | integer                  |           |          | 
  last_edit_at                     | timestamp with time zone |           |          | 

@@ -64,7 +64,7 @@
  unit_size_code                   | text                     |           |          |         | extended | 
  status_id                        | integer                  |           |          |         | plain    | 
  status_code                      | character varying        |           |          |         | extended | 
- include_unit_in_reports          | boolean                  |           |          |         | plain    | 
+ used_for_counting          | boolean                  |           |          |         | plain    | 
  last_edit_comment                | character varying(512)   |           |          |         | extended | 
  last_edit_by_user_id             | integer                  |           |          |         | plain    | 
  last_edit_at                     | timestamp with time zone |           |          |         | plain    | 
@@ -216,7 +216,7 @@ View definition:
             timeline_establishment.unit_size_code,
             timeline_establishment.status_id,
             timeline_establishment.status_code,
-            timeline_establishment.include_unit_in_reports,
+            timeline_establishment.used_for_counting,
             timeline_establishment.last_edit_comment,
             timeline_establishment.last_edit_by_user_id,
             timeline_establishment.last_edit_at,
@@ -298,7 +298,7 @@ View definition:
             timeline_legal_unit.unit_size_code,
             timeline_legal_unit.status_id,
             timeline_legal_unit.status_code,
-            timeline_legal_unit.include_unit_in_reports,
+            timeline_legal_unit.used_for_counting,
             timeline_legal_unit.last_edit_comment,
             timeline_legal_unit.last_edit_by_user_id,
             timeline_legal_unit.last_edit_at,
@@ -380,7 +380,7 @@ View definition:
             timeline_enterprise.unit_size_code,
             timeline_enterprise.status_id,
             timeline_enterprise.status_code,
-            timeline_enterprise.include_unit_in_reports,
+            timeline_enterprise.used_for_counting,
             timeline_enterprise.last_edit_comment,
             timeline_enterprise.last_edit_by_user_id,
             timeline_enterprise.last_edit_at,
@@ -463,7 +463,7 @@ View definition:
     data.unit_size_code,
     data.status_id,
     data.status_code,
-    data.include_unit_in_reports,
+    data.used_for_counting,
     data.last_edit_comment,
     data.last_edit_by_user_id,
     data.last_edit_at,

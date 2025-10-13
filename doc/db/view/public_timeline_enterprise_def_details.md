@@ -63,7 +63,7 @@
  unit_size_code                   | text                     |           |          |         | extended | 
  status_id                        | integer                  |           |          |         | plain    | 
  status_code                      | character varying        |           |          |         | extended | 
- include_unit_in_reports          | boolean                  |           |          |         | plain    | 
+ used_for_counting          | boolean                  |           |          |         | plain    | 
  last_edit_comment                | character varying(512)   |           |          |         | extended | 
  last_edit_by_user_id             | integer                  |           |          |         | plain    | 
  last_edit_at                     | timestamp with time zone |           |          |         | plain    | 
@@ -118,9 +118,9 @@ View definition:
                     array_distinct_concat(timeline_legal_unit.excluded_establishment_ids) AS excluded_establishment_ids,
                     array_distinct_concat(timeline_legal_unit.included_establishment_ids) AS included_establishment_ids,
                     array_agg(DISTINCT timeline_legal_unit.legal_unit_id) AS related_legal_unit_ids,
-                    array_agg(DISTINCT timeline_legal_unit.legal_unit_id) FILTER (WHERE NOT timeline_legal_unit.include_unit_in_reports) AS excluded_legal_unit_ids,
-                    array_agg(DISTINCT timeline_legal_unit.legal_unit_id) FILTER (WHERE timeline_legal_unit.include_unit_in_reports) AS included_legal_unit_ids,
-                    jsonb_stats_summary_merge_agg(timeline_legal_unit.stats_summary) FILTER (WHERE timeline_legal_unit.include_unit_in_reports) AS stats_summary
+                    array_agg(DISTINCT timeline_legal_unit.legal_unit_id) FILTER (WHERE NOT timeline_legal_unit.used_for_counting) AS excluded_legal_unit_ids,
+                    array_agg(DISTINCT timeline_legal_unit.legal_unit_id) FILTER (WHERE timeline_legal_unit.used_for_counting) AS included_legal_unit_ids,
+                    jsonb_stats_summary_merge_agg(timeline_legal_unit.stats_summary) FILTER (WHERE timeline_legal_unit.used_for_counting) AS stats_summary
                    FROM timeline_legal_unit
                   WHERE timeline_legal_unit.enterprise_id = ten.enterprise_id AND from_until_overlaps(ten.valid_from, ten.valid_until, timeline_legal_unit.valid_from, timeline_legal_unit.valid_until)
                   GROUP BY timeline_legal_unit.enterprise_id, ten.valid_from, ten.valid_until) tlu ON true
@@ -130,9 +130,9 @@ View definition:
                     array_distinct_concat(timeline_establishment.data_source_ids) AS data_source_ids,
                     array_distinct_concat(timeline_establishment.data_source_codes) AS data_source_codes,
                     array_agg(DISTINCT timeline_establishment.establishment_id) AS related_establishment_ids,
-                    array_agg(DISTINCT timeline_establishment.establishment_id) FILTER (WHERE NOT timeline_establishment.include_unit_in_reports) AS excluded_establishment_ids,
-                    array_agg(DISTINCT timeline_establishment.establishment_id) FILTER (WHERE timeline_establishment.include_unit_in_reports) AS included_establishment_ids,
-                    jsonb_stats_summary_merge_agg(timeline_establishment.stats_summary) FILTER (WHERE timeline_establishment.include_unit_in_reports) AS stats_summary
+                    array_agg(DISTINCT timeline_establishment.establishment_id) FILTER (WHERE NOT timeline_establishment.used_for_counting) AS excluded_establishment_ids,
+                    array_agg(DISTINCT timeline_establishment.establishment_id) FILTER (WHERE timeline_establishment.used_for_counting) AS included_establishment_ids,
+                    jsonb_stats_summary_merge_agg(timeline_establishment.stats_summary) FILTER (WHERE timeline_establishment.used_for_counting) AS stats_summary
                    FROM timeline_establishment
                   WHERE timeline_establishment.enterprise_id = ten.enterprise_id AND from_until_overlaps(ten.valid_from, ten.valid_until, timeline_establishment.valid_from, timeline_establishment.valid_until)
                   GROUP BY timeline_establishment.enterprise_id, ten.valid_from, ten.valid_until) tes ON true
@@ -203,7 +203,7 @@ View definition:
             basis.unit_size_code,
             basis.status_id,
             basis.status_code,
-            basis.include_unit_in_reports,
+            basis.used_for_counting,
             basis.last_edit_comment,
             basis.last_edit_by_user_id,
             basis.last_edit_at,
@@ -283,7 +283,7 @@ View definition:
                     COALESCE(enplu.unit_size_code, enpes.unit_size_code) AS unit_size_code,
                     COALESCE(enplu.status_id, enpes.status_id) AS status_id,
                     COALESCE(enplu.status_code, enpes.status_code) AS status_code,
-                    COALESCE(enplu.include_unit_in_reports, enpes.include_unit_in_reports) AS include_unit_in_reports,
+                    COALESCE(enplu.used_for_counting, enpes.used_for_counting) AS used_for_counting,
                     last_edit.edit_comment AS last_edit_comment,
                     last_edit.edit_by_user_id AS last_edit_by_user_id,
                     last_edit.edit_at AS last_edit_at,
@@ -365,7 +365,7 @@ View definition:
                             enplu_1.unit_size_code,
                             enplu_1.status_id,
                             enplu_1.status_code,
-                            enplu_1.include_unit_in_reports,
+                            enplu_1.used_for_counting,
                             enplu_1.last_edit_comment,
                             enplu_1.last_edit_by_user_id,
                             enplu_1.last_edit_at,
@@ -450,7 +450,7 @@ View definition:
                             enpes_1.unit_size_code,
                             enpes_1.status_id,
                             enpes_1.status_code,
-                            enpes_1.include_unit_in_reports,
+                            enpes_1.used_for_counting,
                             enpes_1.last_edit_comment,
                             enpes_1.last_edit_by_user_id,
                             enpes_1.last_edit_at,
@@ -546,7 +546,7 @@ View definition:
     unit_size_code,
     status_id,
     status_code,
-    include_unit_in_reports,
+    used_for_counting,
     last_edit_comment,
     last_edit_by_user_id,
     last_edit_at,
@@ -561,7 +561,7 @@ View definition:
     ARRAY[unit_id] AS related_enterprise_ids,
     ARRAY[]::integer[] AS excluded_enterprise_ids,
         CASE
-            WHEN include_unit_in_reports THEN ARRAY[unit_id]
+            WHEN used_for_counting THEN ARRAY[unit_id]
             ELSE '{}'::integer[]
         END AS included_enterprise_ids,
     enterprise_id,

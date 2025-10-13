@@ -68,7 +68,7 @@ CREATE OR REPLACE VIEW public.statistical_unit_def
     --
     , status_id
     , status_code
-    , include_unit_in_reports
+    , used_for_counting
     --
     , last_edit_comment
     , last_edit_by_user_id
@@ -223,7 +223,7 @@ CREATE OR REPLACE VIEW public.statistical_unit_def
            --
            , status_id
            , status_code
-           , include_unit_in_reports
+           , used_for_counting
            --
            , last_edit_comment
            , last_edit_by_user_id
@@ -312,7 +312,7 @@ CREATE OR REPLACE VIEW public.statistical_unit_def
            --
            , status_id
            , status_code
-           , include_unit_in_reports
+           , used_for_counting
            --
            , last_edit_comment
            , last_edit_by_user_id
@@ -401,7 +401,7 @@ CREATE OR REPLACE VIEW public.statistical_unit_def
            --
            , status_id
            , status_code
-           , include_unit_in_reports
+           , used_for_counting
            --
            , last_edit_comment
            , last_edit_by_user_id
@@ -503,7 +503,7 @@ CREATE OR REPLACE VIEW public.statistical_unit_def
          --
          , data.status_id
          , data.status_code
-         , data.include_unit_in_reports
+         , data.used_for_counting
          --
          , data.last_edit_comment
          , data.last_edit_by_user_id

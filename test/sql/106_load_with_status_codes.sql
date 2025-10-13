@@ -84,14 +84,14 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
 \echo "Checking current statistical units that are included in reports"
-SELECT valid_from, valid_to, name, unit_type,  jsonb_pretty(stats_summary) AS stats_summary, status_code, include_unit_in_reports
+SELECT valid_from, valid_to, name, unit_type,  jsonb_pretty(stats_summary) AS stats_summary, status_code, used_for_counting
 FROM public.statistical_unit
-WHERE include_unit_in_reports
+WHERE used_for_counting
 AND valid_to = 'infinity'
 ORDER BY unit_type, valid_from;
 
 
-\echo "Testing statistical unit drilldown - should only include units that have include_unit_in_reports set to true"
+\echo "Testing statistical unit drilldown - should only include units that have used_for_counting set to true"
 SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistical_unit_facet_drilldown(
      valid_on := '2025-01-01'
 )))

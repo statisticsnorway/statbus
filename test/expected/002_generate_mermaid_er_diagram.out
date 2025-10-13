@@ -673,7 +673,7 @@ erDiagram
 		text unit_size_code
 		integer status_id
 		character_varying status_code
-		boolean include_unit_in_reports
+		boolean used_for_counting
 		character_varying(512) last_edit_comment
 		integer last_edit_by_user_id
 		timestamp_with_time_zone last_edit_at
@@ -714,7 +714,7 @@ erDiagram
 		character_varying code
 		text name
 		boolean assigned_by_default
-		boolean include_unit_in_reports
+		boolean used_for_counting
 		integer priority
 		boolean active
 		boolean custom
@@ -814,7 +814,7 @@ erDiagram
 		text unit_size_code
 		integer status_id
 		character_varying status_code
-		boolean include_unit_in_reports
+		boolean used_for_counting
 		character_varying(512) last_edit_comment
 		integer last_edit_by_user_id
 		timestamp_with_time_zone last_edit_at
@@ -896,7 +896,7 @@ erDiagram
 		text unit_size_code
 		integer status_id
 		character_varying status_code
-		boolean include_unit_in_reports
+		boolean used_for_counting
 		character_varying(512) last_edit_comment
 		integer last_edit_by_user_id
 		timestamp_with_time_zone last_edit_at
@@ -981,7 +981,7 @@ erDiagram
 		text unit_size_code
 		integer status_id
 		character_varying status_code
-		boolean include_unit_in_reports
+		boolean used_for_counting
 		character_varying(512) last_edit_comment
 		integer last_edit_by_user_id
 		timestamp_with_time_zone last_edit_at

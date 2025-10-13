@@ -5271,7 +5271,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "R.90.0.1.1"                                                   +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": null,                                 +
                       |     "included_establishment_count": 1,                                 +
@@ -5341,7 +5341,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": null,                                 +
                       |     "included_establishment_count": 1,                                 +
@@ -5424,7 +5424,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "H.49.4.1"                                                     +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": null,                                 +
                       |     "included_establishment_count": 1,                                 +
@@ -5506,7 +5506,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -5587,7 +5587,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "R.90.0.1.1"                                                   +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -5656,7 +5656,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "H.49.4.1"                                                     +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -5738,7 +5738,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -5818,7 +5818,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "R.90.0.1.1"                                                   +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -5886,7 +5886,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "H.49.4.1"                                                     +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -5967,7 +5967,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.45.1.1.2"                                                   +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": null,                                 +
                       |     "included_establishment_count": 1,                                 +
@@ -6036,7 +6036,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.45.1.1.2"                                                   +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -6105,7 +6105,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.45.1.1.2"                                                   +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -6174,7 +6174,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.47.9.1.2"                                                   +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": null,                                 +
                       |     "included_establishment_count": 1,                                 +
@@ -6244,7 +6244,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.47.7.5"                                                     +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": null,                                 +
                       |     "included_establishment_count": 1,                                 +
@@ -6326,7 +6326,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.47.9.1.2"                                                   +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -6395,7 +6395,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.47.7.5"                                                     +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -6477,7 +6477,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.47.9.1.2"                                                   +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -6545,7 +6545,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.47.7.5"                                                     +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -6626,7 +6626,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": null,                                 +
                       |     "included_establishment_count": 1,                                 +
@@ -6708,7 +6708,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -6789,7 +6789,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -6871,7 +6871,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -6951,7 +6951,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -7032,7 +7032,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "R.90.0.1.1"                                                   +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": null,                                 +
                       |     "included_establishment_count": 1,                                 +
@@ -7102,7 +7102,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": null,                                 +
                       |     "included_establishment_count": 1,                                 +
@@ -7184,7 +7184,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "R.90.0.1.1"                                                   +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -7253,7 +7253,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "R.90.0.1.1"                                                   +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -7322,7 +7322,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "L.68.2.0.9"                                                   +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": null,                                 +
                       |     "included_establishment_count": 1,                                 +
@@ -7392,7 +7392,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.47.9.1.2"                                                   +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": null,                                 +
                       |     "included_establishment_count": 1,                                 +
@@ -7461,7 +7461,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.45.1.1.2"                                                   +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -7530,7 +7530,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "L.68.2.0.9"                                                   +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -7599,7 +7599,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.47.7.1"                                                     +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -7681,7 +7681,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.45.1.1.2"                                                   +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -7749,7 +7749,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "L.68.2.0.9"                                                   +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -7817,7 +7817,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.47.7.1"                                                     +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -7898,7 +7898,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.47.7.1"                                                     +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": null,                                 +
                       |     "included_establishment_count": 1,                                 +
@@ -7981,7 +7981,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.47.9.1.2"                                                   +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": null,                                 +
                       |     "included_establishment_count": 1,                                 +
@@ -8051,7 +8051,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.45.1.1.2"                                                   +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": null,                                 +
                       |     "included_establishment_count": 1,                                 +
@@ -8121,7 +8121,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": null,                                 +
                       |     "included_establishment_count": 1,                                 +
@@ -8203,7 +8203,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.45.1.1.2"                                                   +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -8272,7 +8272,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -8353,7 +8353,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "L.68.2.0.9"                                                   +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -8422,7 +8422,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.47.7.1"                                                     +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -8504,7 +8504,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -8586,7 +8586,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.45.1.1.2"                                                   +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -8654,7 +8654,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -8734,7 +8734,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "L.68.2.0.9"                                                   +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -8802,7 +8802,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.47.7.1"                                                     +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +
@@ -8882,7 +8882,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
+                      |     "used_for_counting": true,                                   +
                       |     "included_enterprise_count": 1,                                    +
                       |     "included_legal_unit_count": 1,                                    +
                       |     "included_establishment_count": 1,                                 +

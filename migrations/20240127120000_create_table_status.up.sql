@@ -6,7 +6,7 @@ CREATE TABLE public.status (
     code varchar NOT NULL,
     name text NOT NULL,
     assigned_by_default BOOLEAN NOT NULL,
-    include_unit_in_reports boolean NOT NULL,
+    used_for_counting boolean NOT NULL,
     priority integer NOT NULL,
     active boolean NOT NULL,
     custom boolean NOT NULL DEFAULT false,
@@ -19,7 +19,7 @@ CREATE INDEX ix_status_active ON public.status USING btree (active);
 CREATE UNIQUE INDEX ix_status_only_one_assigned_by_default ON public.status USING btree (assigned_by_default) WHERE active AND assigned_by_default;
 
 -- Insert default statuses
-INSERT INTO public.status (code, name, include_unit_in_reports, assigned_by_default, priority, active, custom) VALUES
+INSERT INTO public.status (code, name, used_for_counting, assigned_by_default, priority, active, custom) VALUES
     ('active', 'Active', true, true, 1, true, false),
     ('passive', 'Passive', false, false, 2, true, false);
 

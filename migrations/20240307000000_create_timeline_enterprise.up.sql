@@ -71,7 +71,7 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
     --
     , status_id
     , status_code
-    , include_unit_in_reports
+    , used_for_counting
     --
     , last_edit_comment
     , last_edit_by_user_id
@@ -122,13 +122,13 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
           ) AS ten
           LEFT JOIN LATERAL (
               SELECT enterprise_id, ten.valid_from, ten.valid_until
-                   , public.array_distinct_concat(data_source_ids) AS data_source_ids, public.array_distinct_concat(data_source_codes) AS data_source_codes, public.array_distinct_concat(related_establishment_ids) AS related_establishment_ids, public.array_distinct_concat(excluded_establishment_ids) AS excluded_establishment_ids, public.array_distinct_concat(included_establishment_ids) AS included_establishment_ids, array_agg(DISTINCT legal_unit_id) AS related_legal_unit_ids, array_agg(DISTINCT legal_unit_id) FILTER (WHERE NOT include_unit_in_reports) AS excluded_legal_unit_ids, array_agg(DISTINCT legal_unit_id) FILTER (WHERE include_unit_in_reports) AS included_legal_unit_ids, public.jsonb_stats_summary_merge_agg(stats_summary) FILTER (WHERE include_unit_in_reports) AS stats_summary
+                   , public.array_distinct_concat(data_source_ids) AS data_source_ids, public.array_distinct_concat(data_source_codes) AS data_source_codes, public.array_distinct_concat(related_establishment_ids) AS related_establishment_ids, public.array_distinct_concat(excluded_establishment_ids) AS excluded_establishment_ids, public.array_distinct_concat(included_establishment_ids) AS included_establishment_ids, array_agg(DISTINCT legal_unit_id) AS related_legal_unit_ids, array_agg(DISTINCT legal_unit_id) FILTER (WHERE NOT used_for_counting) AS excluded_legal_unit_ids, array_agg(DISTINCT legal_unit_id) FILTER (WHERE used_for_counting) AS included_legal_unit_ids, public.jsonb_stats_summary_merge_agg(stats_summary) FILTER (WHERE used_for_counting) AS stats_summary
               FROM public.timeline_legal_unit
               WHERE enterprise_id = ten.enterprise_id AND from_until_overlaps(ten.valid_from, ten.valid_until, valid_from, valid_until) GROUP BY enterprise_id, ten.valid_from, ten.valid_until
           ) AS tlu ON true
           LEFT JOIN LATERAL (
               SELECT enterprise_id, ten.valid_from, ten.valid_until
-                   , public.array_distinct_concat(data_source_ids) AS data_source_ids, public.array_distinct_concat(data_source_codes) AS data_source_codes, array_agg(DISTINCT establishment_id) AS related_establishment_ids, array_agg(DISTINCT establishment_id) FILTER (WHERE NOT include_unit_in_reports) AS excluded_establishment_ids, array_agg(DISTINCT establishment_id) FILTER (WHERE include_unit_in_reports) AS included_establishment_ids, public.jsonb_stats_summary_merge_agg(stats_summary) FILTER (WHERE include_unit_in_reports) AS stats_summary
+                   , public.array_distinct_concat(data_source_ids) AS data_source_ids, public.array_distinct_concat(data_source_codes) AS data_source_codes, array_agg(DISTINCT establishment_id) AS related_establishment_ids, array_agg(DISTINCT establishment_id) FILTER (WHERE NOT used_for_counting) AS excluded_establishment_ids, array_agg(DISTINCT establishment_id) FILTER (WHERE used_for_counting) AS included_establishment_ids, public.jsonb_stats_summary_merge_agg(stats_summary) FILTER (WHERE used_for_counting) AS stats_summary
               FROM public.timeline_establishment
               WHERE enterprise_id = ten.enterprise_id AND from_until_overlaps(ten.valid_from, ten.valid_until, valid_from, valid_until) GROUP BY enterprise_id, ten.valid_from, ten.valid_until
           ) AS tes ON true
@@ -175,7 +175,7 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
                basis.unit_size_code,
                basis.status_id,
                basis.status_code,
-               basis.include_unit_in_reports,
+               basis.used_for_counting,
                basis.last_edit_comment,
                basis.last_edit_by_user_id,
                basis.last_edit_at,
@@ -212,7 +212,7 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
                  COALESCE(enplu.postal_address_part1, enpes.postal_address_part1) AS postal_address_part1, COALESCE(enplu.postal_address_part2, enpes.postal_address_part2) AS postal_address_part2, COALESCE(enplu.postal_address_part3, enpes.postal_address_part3) AS postal_address_part3, COALESCE(enplu.postal_postcode, enpes.postal_postcode) AS postal_postcode, COALESCE(enplu.postal_postplace, enpes.postal_postplace) AS postal_postplace, COALESCE(enplu.postal_region_id, enpes.postal_region_id) AS postal_region_id, COALESCE(enplu.postal_region_path, enpes.postal_region_path) AS postal_region_path, COALESCE(enplu.postal_region_code, enpes.postal_region_code) AS postal_region_code, COALESCE(enplu.postal_country_id, enpes.postal_country_id) AS postal_country_id, COALESCE(enplu.postal_country_iso_2, enpes.postal_country_iso_2) AS postal_country_iso_2, COALESCE(enplu.postal_latitude, enpes.postal_latitude) AS postal_latitude, COALESCE(enplu.postal_longitude, enpes.postal_longitude) AS postal_longitude, COALESCE(enplu.postal_altitude, enpes.postal_altitude) AS postal_altitude,
                  COALESCE(enplu.web_address, enpes.web_address) AS web_address, COALESCE(enplu.email_address, enpes.email_address) AS email_address, COALESCE(enplu.phone_number, enpes.phone_number) AS phone_number, COALESCE(enplu.landline, enpes.landline) AS landline, COALESCE(enplu.mobile_number, enpes.mobile_number) AS mobile_number, COALESCE(enplu.fax_number, enpes.fax_number) AS fax_number,
                  COALESCE(enplu.unit_size_id, enpes.unit_size_id) AS unit_size_id, COALESCE(enplu.unit_size_code, enpes.unit_size_code) AS unit_size_code,
-                 COALESCE(enplu.status_id, enpes.status_id) AS status_id, COALESCE(enplu.status_code, enpes.status_code) AS status_code, COALESCE(enplu.include_unit_in_reports, enpes.include_unit_in_reports) AS include_unit_in_reports,
+                 COALESCE(enplu.status_id, enpes.status_id) AS status_id, COALESCE(enplu.status_code, enpes.status_code) AS status_code, COALESCE(enplu.used_for_counting, enpes.used_for_counting) AS used_for_counting,
                  last_edit.edit_comment AS last_edit_comment, last_edit.edit_by_user_id AS last_edit_by_user_id, last_edit.edit_at AS last_edit_at,
                  COALESCE(enplu.invalid_codes || enpes.invalid_codes, enplu.invalid_codes, enpes.invalid_codes) AS invalid_codes,
                  GREATEST(enplu.has_legal_unit, enpes.has_legal_unit) AS has_legal_unit,
@@ -232,11 +232,11 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
              , primary_activity_category_id, primary_activity_category_path, primary_activity_category_code
              , secondary_activity_category_id, secondary_activity_category_path, secondary_activity_category_code
              , NULLIF(ARRAY_REMOVE(ARRAY[primary_activity_category_path, secondary_activity_category_path], NULL), '{}') AS activity_category_paths
-             , sector_id, sector_path, sector_code, sector_name, data_source_ids, data_source_codes, legal_form_id, legal_form_code, legal_form_name, physical_address_part1, physical_address_part2, physical_address_part3, physical_postcode, physical_postplace, physical_region_id, physical_region_path, physical_region_code, physical_country_id, physical_country_iso_2, physical_latitude, physical_longitude, physical_altitude, postal_address_part1, postal_address_part2, postal_address_part3, postal_postcode, postal_postplace, postal_region_id, postal_region_path, postal_region_code, postal_country_id, postal_country_iso_2, postal_latitude, postal_longitude, postal_altitude, web_address, email_address, phone_number, landline, mobile_number, fax_number, unit_size_id, unit_size_code, status_id, status_code, include_unit_in_reports, last_edit_comment, last_edit_by_user_id, last_edit_at, invalid_codes, has_legal_unit
+             , sector_id, sector_path, sector_code, sector_name, data_source_ids, data_source_codes, legal_form_id, legal_form_code, legal_form_name, physical_address_part1, physical_address_part2, physical_address_part3, physical_postcode, physical_postplace, physical_region_id, physical_region_path, physical_region_code, physical_country_id, physical_country_iso_2, physical_latitude, physical_longitude, physical_altitude, postal_address_part1, postal_address_part2, postal_address_part3, postal_postcode, postal_postplace, postal_region_id, postal_region_path, postal_region_code, postal_country_id, postal_country_iso_2, postal_latitude, postal_longitude, postal_altitude, web_address, email_address, phone_number, landline, mobile_number, fax_number, unit_size_id, unit_size_code, status_id, status_code, used_for_counting, last_edit_comment, last_edit_by_user_id, last_edit_at, invalid_codes, has_legal_unit
              , related_establishment_ids, excluded_establishment_ids, included_establishment_ids, related_legal_unit_ids, excluded_legal_unit_ids, included_legal_unit_ids
              , ARRAY[unit_id] AS related_enterprise_ids
              , ARRAY[]::INT[] AS excluded_enterprise_ids
-             , CASE WHEN include_unit_in_reports THEN ARRAY[unit_id] ELSE '{}'::INT[] END AS included_enterprise_ids
+             , CASE WHEN used_for_counting THEN ARRAY[unit_id] ELSE '{}'::INT[] END AS included_enterprise_ids
              , enterprise_id, primary_establishment_id, primary_legal_unit_id, stats_summary
           FROM enterprise_with_primary_and_aggregation
          ORDER BY unit_type, unit_id, valid_from

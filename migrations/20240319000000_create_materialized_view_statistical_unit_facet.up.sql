@@ -14,7 +14,7 @@ SELECT valid_from
      , count(*) AS count
      , public.jsonb_stats_summary_merge_agg(stats_summary) AS stats_summary
 FROM public.statistical_unit
-WHERE include_unit_in_reports
+WHERE used_for_counting
 GROUP BY valid_from
        , valid_to
        , valid_until

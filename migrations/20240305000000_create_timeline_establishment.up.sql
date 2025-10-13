@@ -67,7 +67,7 @@ CREATE OR REPLACE VIEW public.timeline_establishment_def
     --
     , status_id
     , status_code
-    , include_unit_in_reports
+    , used_for_counting
     --
     , last_edit_comment
     , last_edit_by_user_id
@@ -190,7 +190,7 @@ CREATE OR REPLACE VIEW public.timeline_establishment_def
            --
            , es.status_id AS status_id
            , st.code AS status_code
-           , st.include_unit_in_reports AS include_unit_in_reports
+           , st.used_for_counting AS used_for_counting
            --
            , last_edit.edit_comment AS last_edit_comment
            , last_edit.edit_by_user_id AS last_edit_by_user_id
@@ -218,7 +218,7 @@ CREATE OR REPLACE VIEW public.timeline_establishment_def
            -- A child NEVER includes its parent's ID in this array. This prevents double-counting stats during roll-ups.
            , ARRAY[t.unit_id] AS related_establishment_ids
            , ARRAY[]::INT[] AS excluded_establishment_ids
-           , CASE WHEN st.include_unit_in_reports THEN ARRAY[t.unit_id] ELSE '{}'::INT[] END AS included_establishment_ids
+           , CASE WHEN st.used_for_counting THEN ARRAY[t.unit_id] ELSE '{}'::INT[] END AS included_establishment_ids
            , CASE WHEN es.legal_unit_id IS NOT NULL THEN ARRAY[es.legal_unit_id] ELSE ARRAY[]::INT[] END AS related_legal_unit_ids
            , ARRAY[]::INT[] AS excluded_legal_unit_ids
            , ARRAY[]::INT[] AS included_legal_unit_ids

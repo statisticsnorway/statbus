@@ -56,7 +56,7 @@ BEGIN
         -- A unit dying *on* the last day of the period is therefore correctly excluded from the final stock count.
         SELECT * FROM latest_versions_curr lvc
         WHERE lvc.valid_until > v_curr_stop
-          AND lvc.include_unit_in_reports
+          AND lvc.used_for_counting
           AND COALESCE(lvc.birth_date, lvc.valid_from) <= v_curr_stop
           AND (lvc.death_date IS NULL OR lvc.death_date > v_curr_stop)
     ),
@@ -69,7 +69,7 @@ BEGIN
     units_at_end_of_prev AS (
         SELECT * FROM latest_versions_prev lvp
         WHERE lvp.valid_until > v_prev_stop
-          AND lvp.include_unit_in_reports
+          AND lvp.used_for_counting
           AND COALESCE(lvp.birth_date, lvp.valid_from) <= v_prev_stop
           AND (lvp.death_date IS NULL OR lvp.death_date > v_prev_stop)
     ),
@@ -165,7 +165,7 @@ BEGIN
         SELECT COALESCE(public.jsonb_stats_summary_merge_agg(lvc.stats_summary), '{}'::jsonb) AS stats_summary
          FROM latest_versions_curr lvc
          WHERE lvc.unit_type = d.unit_type
-           AND lvc.include_unit_in_reports
+           AND lvc.used_for_counting
            AND lvc.primary_activity_category_path IS NOT DISTINCT FROM d.primary_activity_category_path
            AND lvc.secondary_activity_category_path IS NOT DISTINCT FROM d.secondary_activity_category_path
            AND lvc.sector_path IS NOT DISTINCT FROM d.sector_path

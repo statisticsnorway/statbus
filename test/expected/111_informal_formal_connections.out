@@ -258,7 +258,7 @@ SELECT jsonb_pretty(
                      "custom": false,                                                                                             +
                      "priority": 1,                                                                                               +
                      "assigned_by_default": true,                                                                                 +
-                     "include_unit_in_reports": true                                                                              +
+                     "used_for_counting": true                                                                              +
                  },                                                                                                               +
                  "activity": [                                                                                                    +
                      {                                                                                                            +
@@ -362,7 +362,7 @@ SELECT jsonb_pretty(
                              "custom": false,                                                                                     +
                              "priority": 1,                                                                                       +
                              "assigned_by_default": true,                                                                         +
-                             "include_unit_in_reports": true                                                                      +
+                             "used_for_counting": true                                                                      +
                          },                                                                                                       +
                          "activity": [                                                                                            +
                              {                                                                                                    +
@@ -614,7 +614,7 @@ SELECT jsonb_pretty(
                      "custom": false,                                                                                     +
                      "priority": 1,                                                                                       +
                      "assigned_by_default": true,                                                                         +
-                     "include_unit_in_reports": true                                                                      +
+                     "used_for_counting": true                                                                      +
                  },                                                                                                       +
                  "activity": [                                                                                            +
                      {                                                                                                    +
@@ -900,7 +900,7 @@ SELECT jsonb_pretty(
                      "custom": false,                                                                                             +
                      "priority": 1,                                                                                               +
                      "assigned_by_default": true,                                                                                 +
-                     "include_unit_in_reports": true                                                                              +
+                     "used_for_counting": true                                                                              +
                  },                                                                                                               +
                  "activity": [                                                                                                    +
                      {                                                                                                            +
@@ -1004,7 +1004,7 @@ SELECT jsonb_pretty(
                              "custom": false,                                                                                     +
                              "priority": 1,                                                                                       +
                              "assigned_by_default": true,                                                                         +
-                             "include_unit_in_reports": true                                                                      +
+                             "used_for_counting": true                                                                      +
                          },                                                                                                       +
                          "activity": [                                                                                            +
                              {                                                                                                    +
@@ -1227,7 +1227,7 @@ SELECT jsonb_pretty(
                      "custom": false,                                                                                             +
                      "priority": 1,                                                                                               +
                      "assigned_by_default": true,                                                                                 +
-                     "include_unit_in_reports": true                                                                              +
+                     "used_for_counting": true                                                                              +
                  },                                                                                                               +
                  "activity": [                                                                                                    +
                      {                                                                                                            +
@@ -1423,7 +1423,7 @@ SELECT jsonb_pretty(
                      "custom": false,                                                                                             +
                      "priority": 1,                                                                                               +
                      "assigned_by_default": true,                                                                                 +
-                     "include_unit_in_reports": true                                                                              +
+                     "used_for_counting": true                                                                              +
                  },                                                                                                               +
                  "activity": [                                                                                                    +
                      {                                                                                                            +
@@ -1527,7 +1527,7 @@ SELECT jsonb_pretty(
                              "custom": false,                                                                                     +
                              "priority": 1,                                                                                       +
                              "assigned_by_default": true,                                                                         +
-                             "include_unit_in_reports": true                                                                      +
+                             "used_for_counting": true                                                                      +
                          },                                                                                                       +
                          "activity": [                                                                                            +
                              {                                                                                                    +
@@ -1750,7 +1750,7 @@ SELECT jsonb_pretty(
                      "custom": false,                                                                                             +
                      "priority": 1,                                                                                               +
                      "assigned_by_default": true,                                                                                 +
-                     "include_unit_in_reports": true                                                                              +
+                     "used_for_counting": true                                                                              +
                  },                                                                                                               +
                  "activity": [                                                                                                    +
                      {                                                                                                            +
@@ -1946,7 +1946,7 @@ SELECT jsonb_pretty(
                      "custom": false,                                                                                             +
                      "priority": 1,                                                                                               +
                      "assigned_by_default": true,                                                                                 +
-                     "include_unit_in_reports": true                                                                              +
+                     "used_for_counting": true                                                                              +
                  },                                                                                                               +
                  "activity": [                                                                                                    +
                      {                                                                                                            +
@@ -2050,7 +2050,7 @@ SELECT jsonb_pretty(
                              "custom": false,                                                                                     +
                              "priority": 1,                                                                                       +
                              "assigned_by_default": true,                                                                         +
-                             "include_unit_in_reports": true                                                                      +
+                             "used_for_counting": true                                                                      +
                          },                                                                                                       +
                          "activity": [                                                                                            +
                              {                                                                                                    +
@@ -2273,7 +2273,7 @@ SELECT jsonb_pretty(
                      "custom": false,                                                                                             +
                      "priority": 1,                                                                                               +
                      "assigned_by_default": true,                                                                                 +
-                     "include_unit_in_reports": true                                                                              +
+                     "used_for_counting": true                                                                              +
                  },                                                                                                               +
                  "activity": [                                                                                                    +
                      {                                                                                                            +

@@ -69,7 +69,7 @@ set active = FALSE where custom=FALSE;
 
 
 delete from status where id >2 and custom=TRUE;
-INSERT INTO status (code, name, assigned_by_default, include_unit_in_reports,priority, active, custom)
+INSERT INTO status (code, name, assigned_by_default, used_for_counting,priority, active, custom)
 VALUES
 ('act', 'Active', TRUE, TRUE,3,TRUE,TRUE),
 ('inact', 'Inactive', FALSE, TRUE,4,TRUE,TRUE),

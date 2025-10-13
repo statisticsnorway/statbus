@@ -162,7 +162,7 @@ declare interface Status {
   created_at: string;
   custom: boolean;
   id: number;
-  include_unit_in_reports: boolean;
+  used_for_counting: boolean;
   name: string;
   priority: number;
   updated_at: string;

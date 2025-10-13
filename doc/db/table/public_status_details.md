@@ -6,7 +6,7 @@
  code                    | character varying        |           | not null |                              | extended |             |              | 
  name                    | text                     |           | not null |                              | extended |             |              | 
  assigned_by_default     | boolean                  |           | not null |                              | plain    |             |              | 
- include_unit_in_reports | boolean                  |           | not null |                              | plain    |             |              | 
+ used_for_counting | boolean                  |           | not null |                              | plain    |             |              | 
  priority                | integer                  |           | not null |                              | plain    |             |              | 
  active                  | boolean                  |           | not null |                              | plain    |             |              | 
  custom                  | boolean                  |           | not null | false                        | plain    |             |              | 

@@ -71,7 +71,7 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
     --
     , status_id
     , status_code
-    , include_unit_in_reports
+    , used_for_counting
     --
     , last_edit_comment
     , last_edit_by_user_id
@@ -193,7 +193,7 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
            --
            , lu.status_id AS status_id
            , st.code AS status_code
-           , st.include_unit_in_reports AS include_unit_in_reports
+           , st.used_for_counting AS used_for_counting
            --
            , last_edit.edit_comment AS last_edit_comment
            , last_edit.edit_by_user_id AS last_edit_by_user_id
@@ -363,7 +363,7 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
            --
            , basis.status_id
            , basis.status_code
-           , basis.include_unit_in_reports
+           , basis.used_for_counting
            --
            , basis.last_edit_comment
            , basis.last_edit_by_user_id
@@ -376,7 +376,7 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
            , COALESCE(esa.included_establishment_ids, ARRAY[]::INT[]) AS included_establishment_ids
            , ARRAY[basis.unit_id] AS related_legal_unit_ids
            , ARRAY[]::INT[] AS excluded_legal_unit_ids
-           , CASE WHEN basis.include_unit_in_reports THEN ARRAY[basis.unit_id] ELSE '{}'::INT[] END AS included_legal_unit_ids
+           , CASE WHEN basis.used_for_counting THEN ARRAY[basis.unit_id] ELSE '{}'::INT[] END AS included_legal_unit_ids
            , CASE WHEN basis.enterprise_id IS NOT NULL THEN ARRAY[basis.enterprise_id] ELSE ARRAY[]::INT[] END AS related_enterprise_ids
            , ARRAY[]::INT[] AS excluded_enterprise_ids
            -- 'included_*' arrays form a directed acyclic graph (DAG) for statistical roll-ups.
@@ -404,9 +404,9 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
                  public.array_distinct_concat(tes.data_source_ids) AS data_source_ids,
                  public.array_distinct_concat(tes.data_source_codes) AS data_source_codes,
                  array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL) AS related_establishment_ids,
-                 array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL AND NOT tes.include_unit_in_reports) AS excluded_establishment_ids,
-                 array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL AND tes.include_unit_in_reports) AS included_establishment_ids,
-                 public.jsonb_stats_summary_merge_agg(tes.stats_summary) FILTER (WHERE tes.include_unit_in_reports) AS stats_summary
+                 array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL AND NOT tes.used_for_counting) AS excluded_establishment_ids,
+                 array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL AND tes.used_for_counting) AS included_establishment_ids,
+                 public.jsonb_stats_summary_merge_agg(tes.stats_summary) FILTER (WHERE tes.used_for_counting) AS stats_summary
           FROM public.timeline_establishment tes
           WHERE tes.legal_unit_id = basis.legal_unit_id AND from_until_overlaps(basis.valid_from, basis.valid_until, tes.valid_from, tes.valid_until)
           GROUP BY tes.legal_unit_id

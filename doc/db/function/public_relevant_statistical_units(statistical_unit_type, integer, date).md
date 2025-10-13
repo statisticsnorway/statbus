@@ -102,7 +102,7 @@ AS $function$
          --
          , status_id
          , status_code
-         , include_unit_in_reports
+         , used_for_counting
          --
          , last_edit_comment
          , last_edit_by_user_id

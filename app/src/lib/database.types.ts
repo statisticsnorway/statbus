@@ -2802,7 +2802,7 @@ export type Database = {
           external_idents: Json | null
           fax_number: string | null
           has_legal_unit: boolean | null
-          include_unit_in_reports: boolean | null
+          used_for_counting: boolean | null
           included_enterprise_count: number | null
           included_enterprise_ids: number[] | null
           included_establishment_count: number | null
@@ -2887,7 +2887,7 @@ export type Database = {
           external_idents?: Json | null
           fax_number?: string | null
           has_legal_unit?: boolean | null
-          include_unit_in_reports?: boolean | null
+          used_for_counting?: boolean | null
           included_enterprise_count?: number | null
           included_enterprise_ids?: number[] | null
           included_establishment_count?: number | null
@@ -2974,7 +2974,7 @@ export type Database = {
           external_idents?: Json | null
           fax_number?: string | null
           has_legal_unit?: boolean | null
-          include_unit_in_reports?: boolean | null
+          used_for_counting?: boolean | null
           included_enterprise_count?: number | null
           included_enterprise_ids?: number[] | null
           included_establishment_count?: number | null
@@ -3107,7 +3107,7 @@ export type Database = {
           created_at: string
           custom: boolean
           id: number
-          include_unit_in_reports: boolean
+          used_for_counting: boolean
           name: string
           priority: number
           updated_at: string
@@ -3119,7 +3119,7 @@ export type Database = {
           created_at?: string
           custom?: boolean
           id?: never
-          include_unit_in_reports: boolean
+          used_for_counting: boolean
           name: string
           priority: number
           updated_at?: string
@@ -3131,7 +3131,7 @@ export type Database = {
           created_at?: string
           custom?: boolean
           id?: never
-          include_unit_in_reports?: boolean
+          used_for_counting?: boolean
           name?: string
           priority?: number
           updated_at?: string
@@ -3288,7 +3288,7 @@ export type Database = {
           excluded_legal_unit_ids: number[] | null
           fax_number: string | null
           has_legal_unit: boolean | null
-          include_unit_in_reports: boolean | null
+          used_for_counting: boolean | null
           included_enterprise_ids: number[] | null
           included_establishment_ids: number[] | null
           included_legal_unit_ids: number[] | null
@@ -3370,7 +3370,7 @@ export type Database = {
           excluded_legal_unit_ids?: number[] | null
           fax_number?: string | null
           has_legal_unit?: boolean | null
-          include_unit_in_reports?: boolean | null
+          used_for_counting?: boolean | null
           included_enterprise_ids?: number[] | null
           included_establishment_ids?: number[] | null
           included_legal_unit_ids?: number[] | null
@@ -3452,7 +3452,7 @@ export type Database = {
           excluded_legal_unit_ids?: number[] | null
           fax_number?: string | null
           has_legal_unit?: boolean | null
-          include_unit_in_reports?: boolean | null
+          used_for_counting?: boolean | null
           included_enterprise_ids?: number[] | null
           included_establishment_ids?: number[] | null
           included_legal_unit_ids?: number[] | null
@@ -3538,7 +3538,7 @@ export type Database = {
           excluded_legal_unit_ids: number[] | null
           fax_number: string | null
           has_legal_unit: boolean | null
-          include_unit_in_reports: boolean | null
+          used_for_counting: boolean | null
           included_enterprise_ids: number[] | null
           included_establishment_ids: number[] | null
           included_legal_unit_ids: number[] | null
@@ -3623,7 +3623,7 @@ export type Database = {
           excluded_legal_unit_ids?: number[] | null
           fax_number?: string | null
           has_legal_unit?: boolean | null
-          include_unit_in_reports?: boolean | null
+          used_for_counting?: boolean | null
           included_enterprise_ids?: number[] | null
           included_establishment_ids?: number[] | null
           included_legal_unit_ids?: number[] | null
@@ -3708,7 +3708,7 @@ export type Database = {
           excluded_legal_unit_ids?: number[] | null
           fax_number?: string | null
           has_legal_unit?: boolean | null
-          include_unit_in_reports?: boolean | null
+          used_for_counting?: boolean | null
           included_enterprise_ids?: number[] | null
           included_establishment_ids?: number[] | null
           included_legal_unit_ids?: number[] | null
@@ -3795,7 +3795,7 @@ export type Database = {
           excluded_legal_unit_ids: number[] | null
           fax_number: string | null
           has_legal_unit: boolean | null
-          include_unit_in_reports: boolean | null
+          used_for_counting: boolean | null
           included_enterprise_ids: number[] | null
           included_establishment_ids: number[] | null
           included_legal_unit_ids: number[] | null
@@ -3878,7 +3878,7 @@ export type Database = {
           excluded_legal_unit_ids?: number[] | null
           fax_number?: string | null
           has_legal_unit?: boolean | null
-          include_unit_in_reports?: boolean | null
+          used_for_counting?: boolean | null
           included_enterprise_ids?: number[] | null
           included_establishment_ids?: number[] | null
           included_legal_unit_ids?: number[] | null
@@ -3961,7 +3961,7 @@ export type Database = {
           excluded_legal_unit_ids?: number[] | null
           fax_number?: string | null
           has_legal_unit?: boolean | null
-          include_unit_in_reports?: boolean | null
+          used_for_counting?: boolean | null
           included_enterprise_ids?: number[] | null
           included_establishment_ids?: number[] | null
           included_legal_unit_ids?: number[] | null
@@ -6743,7 +6743,7 @@ export type Database = {
           external_idents: Json | null
           fax_number: string | null
           has_legal_unit: boolean | null
-          include_unit_in_reports: boolean | null
+          used_for_counting: boolean | null
           included_enterprise_count: number | null
           included_enterprise_ids: number[] | null
           included_establishment_count: number | null
@@ -6863,7 +6863,7 @@ export type Database = {
           excluded_legal_unit_ids: number[] | null
           fax_number: string | null
           has_legal_unit: boolean | null
-          include_unit_in_reports: boolean | null
+          used_for_counting: boolean | null
           included_enterprise_ids: number[] | null
           included_establishment_ids: number[] | null
           included_legal_unit_ids: number[] | null
@@ -6949,7 +6949,7 @@ export type Database = {
           excluded_legal_unit_ids: number[] | null
           fax_number: string | null
           has_legal_unit: boolean | null
-          include_unit_in_reports: boolean | null
+          used_for_counting: boolean | null
           included_enterprise_ids: number[] | null
           included_establishment_ids: number[] | null
           included_legal_unit_ids: number[] | null
@@ -7191,7 +7191,7 @@ export type Database = {
           excluded_legal_unit_ids: number[] | null
           fax_number: string | null
           has_legal_unit: boolean | null
-          include_unit_in_reports: boolean | null
+          used_for_counting: boolean | null
           included_enterprise_ids: number[] | null
           included_establishment_ids: number[] | null
           included_legal_unit_ids: number[] | null
@@ -8650,7 +8650,7 @@ export type Database = {
           external_idents: Json | null
           fax_number: string | null
           has_legal_unit: boolean | null
-          include_unit_in_reports: boolean | null
+          used_for_counting: boolean | null
           included_enterprise_count: number | null
           included_enterprise_ids: number[] | null
           included_establishment_count: number | null
