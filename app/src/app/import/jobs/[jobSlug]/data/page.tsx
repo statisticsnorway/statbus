@@ -1,16 +1,19 @@
 "use client";
 
 import React from "react";
+import { useParams } from 'next/navigation';
 import useSWR, { useSWRConfig } from 'swr';
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { DataTableSkeleton } from "@/components/data-table/data-table-skeleton";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tables } from '@/lib/database.types';
-import { useDataTable } from "@/hooks/use-data-table";
 import { DataTable } from "@/components/data-table/data-table";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
-import { ColumnDef, PaginationState, SortingState, ColumnFiltersState } from "@tanstack/react-table";
+import { 
+  ColumnDef, PaginationState, SortingState, ColumnFiltersState, FilterFn, Row,
+  useReactTable, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, getFacetedRowModel, getFacetedUniqueValues, getFacetedMinMaxValues 
+} from "@tanstack/react-table";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ChevronRight } from "lucide-react";
@@ -31,6 +34,15 @@ type ImportJobDataRow = {
   merge_status?: any;
   [key:string]: any;
 };
+
+// For manual filtering, tanstack-table's `getCanFilter()` returns true only if a `filterFn` is defined.
+// The function itself is never called, but its presence (with the correct signature) is required to enable the UI.
+const placeholderFilterFn: FilterFn<ImportJobDataRow> = (
+  row: Row<ImportJobDataRow>,
+  columnId: string,
+  value: any,
+  addMeta: (meta: any) => void
+) => true;
 
 const fetcher = async (key: string): Promise<any> => {
   const client = await getBrowserRestClient();
@@ -106,8 +118,10 @@ const fetcher = async (key: string): Promise<any> => {
 };
 
 
-export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlug:string }> }) {
-  const { jobSlug } = React.use(params);
+export default function ImportJobDataPage() {
+  const params = useParams();
+  const jobSlug = typeof params.jobSlug === 'string' ? params.jobSlug : undefined;
+
   const { mutate } = useSWRConfig();
   const externalIdentTypes = useAtomValue(externalIdentTypesAtom);
 
@@ -158,6 +172,7 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
     fetcher,
     { revalidateOnFocus: false, keepPreviousData: true }
   );
+
 
   useGuardedEffect(() => {
     if (!job?.id) return;
@@ -285,7 +300,7 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
       return a.localeCompare(b);
     });
 
-    return sortedBaseKeys.map(baseKey => {
+    const finalColumns = sortedBaseKeys.map(baseKey => {
       const rawKey = `${baseKey}_raw`;
       const codeRawKey = `${baseKey}_code_raw`;
       const idKey = `${baseKey}_id`;
@@ -302,6 +317,7 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
       const hasPathRaw = allKeys.has(pathRawKey);
       const hasActivityCategoryCodeRaw = allKeys.has(activityCategoryCodeRawKey);
       const hasActivityCategoryId = allKeys.has(activityCategoryIdKey);
+
 
       const headerText = baseKey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
       
@@ -381,29 +397,42 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
               );
           },
           enableSorting: true,
+          enableHiding: baseKey !== 'row_id',
       };
       
-      if (baseKey === 'name' || externalIdentCodes.includes(baseKey) || hasCodeRaw || hasPathRaw || hasActivityCategoryCodeRaw) {
+      // Enable text filtering on any field with a `_raw` version, name, external IDs, and special composite fields.
+      // Filtering was "lost" because the condition was too specific and missed generic `_raw` fields.
+      if (hasRaw || baseKey === 'name' || externalIdentCodes.includes(baseKey) || hasCodeRaw || hasPathRaw || hasActivityCategoryCodeRaw) {
+          // For filtering, we must use the column that holds the raw text (e.g., `name_raw` instead of `name`).
+          // The `id` is used by the fetcher to query the correct database column.
           columnDef.id = hasRaw ? rawKey : hasCodeRaw ? codeRawKey : hasPathRaw ? pathRawKey : hasActivityCategoryCodeRaw ? activityCategoryCodeRawKey : baseKey;
           columnDef.enableColumnFilter = true;
+          // The `getCanFilter()` method on the column instance checks for the presence of a `filterFn`.
+          // Even with manual filtering, this function needs to exist for the UI to show the filter input.
+          // Since filtering is manual, the function itself is never called.
+          columnDef.filterFn = placeholderFilterFn;
           columnDef.meta = {
               label: headerText,
               variant: 'text',
-              placeholder: `Filter by ${baseKey.replace(/_/g, ' ')}...`
+              placeholder: `Filter by ${baseKey.replace(/_/g, ' ')}...`,
+              isPrimary: baseKey === 'name',
           };
       }
       
       if (['operation', 'state', 'action'].includes(baseKey)) {
           columnDef.enableColumnFilter = true;
+          columnDef.filterFn = placeholderFilterFn;
           columnDef.meta = {
               label: headerText,
               variant: 'multiSelect',
               options: baseKey === 'operation' ? operationOptions : baseKey === 'state' ? stateOptions : actionOptions,
+              isPrimary: true,
           };
       }
 
       if (['errors', 'invalid_codes'].includes(baseKey)) {
           columnDef.enableColumnFilter = true;
+          columnDef.filterFn = placeholderFilterFn;
           columnDef.meta = {
               label: headerText,
               variant: 'select',
@@ -411,29 +440,43 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
                   { label: 'Has value', value: 'not_null' },
                   { label: 'Is empty', value: 'is_null' },
               ],
+              isPrimary: true,
           };
       }
       
       return columnDef;
     });
+
+    return finalColumns;
   }, [tableData?.data, externalIdentTypes]);
 
-  const { table } = useDataTable({
+  const table = useReactTable({
     data: tableData?.data ?? [],
     columns,
-    manualPagination: true,
-    manualFiltering: true,
-    debounceMs: 500,
     pageCount,
     state: {
       pagination,
       sorting,
       columnFilters,
     },
+    enableFilters: true,
+    enableColumnFilters: true,
+    enableRowSelection: true,
     onPaginationChange: setPagination,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     getRowId: (row) => String(row.row_id),
+    manualPagination: true,
+    manualSorting: true,
+    manualFiltering: true,
+    // The following options were previously supplied by the useDataTable hook
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFacetedRowModel: getFacetedRowModel(),
+    getFacetedUniqueValues: getFacetedUniqueValues(),
+    getFacetedMinMaxValues: getFacetedMinMaxValues(),
   });
 
   const isLoading = isJobLoading || (isTableDataLoading && !tableData);

@@ -1,9 +1,13 @@
 "use client";
 
 import type { Column, Table } from "@tanstack/react-table";
-import { X } from "lucide-react";
+import { ChevronsUpDown, X } from "lucide-react";
 import * as React from "react";
 
+import {
+  Collapsible,
+  CollapsibleContent,
+} from "@/components/ui/collapsible";
 import { DataTableDateFilter } from "@/components/data-table/data-table-date-filter";
 import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter";
 import { DataTableSliderFilter } from "@/components/data-table/data-table-slider-filter";
@@ -24,10 +28,18 @@ export function DataTableToolbar<TData>({
 }: DataTableToolbarProps<TData>) {
   const isFiltered = table.getState().columnFilters.length > 0;
 
-  const columns = React.useMemo(
-    () => table.getAllColumns().filter((column) => column.getCanFilter()),
-    [table],
+  const allFilterableColumns = table
+    .getAllColumns()
+    .filter((column) => !!column.columnDef.enableColumnFilter);
+
+  const primaryFilters = allFilterableColumns.filter(
+    (c) => c.columnDef.meta?.isPrimary,
   );
+  const secondaryFilters = allFilterableColumns.filter(
+    (c) => !c.columnDef.meta?.isPrimary,
+  );
+
+  const [isAdvancedSearchOpen, setIsAdvancedSearchOpen] = React.useState(false);
 
   const onReset = React.useCallback(() => {
     table.resetColumnFilters();
@@ -36,34 +48,60 @@ export function DataTableToolbar<TData>({
   return (
     <div
       role="toolbar"
-      aria-orientation="horizontal"
-      className={cn(
-        "flex w-full items-start justify-between gap-2 p-1",
-        className,
-      )}
+      aria-orientation="vertical"
+      className={cn("flex w-full flex-col items-start gap-2 p-1", className)}
       {...props}
     >
-      <div className="flex flex-1 flex-wrap items-center gap-2">
-        {columns.map((column) => (
-          <DataTableToolbarFilter key={column.id} column={column} />
-        ))}
-        {isFiltered && (
-          <Button
-            aria-label="Reset filters"
-            variant="outline"
-            size="sm"
-            className="border-dashed"
-            onClick={onReset}
-          >
-            <X />
-            Reset
-          </Button>
-        )}
+      <div className="flex w-full items-start justify-between gap-2">
+        <div className="flex flex-1 flex-wrap items-center gap-2">
+          {primaryFilters.map((column) => (
+            <DataTableToolbarFilter key={column.id} column={column} />
+          ))}
+
+          {secondaryFilters.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 border-dashed"
+              onClick={() => setIsAdvancedSearchOpen((prev) => !prev)}
+            >
+              <ChevronsUpDown className="mr-2 h-4 w-4" />
+              More Filters
+              <span className="ml-2 rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-900 dark:bg-zinc-800 dark:text-zinc-50">
+                {secondaryFilters.length}
+              </span>
+            </Button>
+          )}
+
+          {isFiltered && (
+            <Button
+              aria-label="Reset filters"
+              variant="outline"
+              size="sm"
+              className="border-dashed"
+              onClick={onReset}
+            >
+              <X />
+              Reset
+            </Button>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {children}
+          <DataTableViewOptions table={table} />
+        </div>
       </div>
-      <div className="flex items-center gap-2">
-        {children}
-        <DataTableViewOptions table={table} />
-      </div>
+      {secondaryFilters.length > 0 && (
+        <Collapsible open={isAdvancedSearchOpen} className="w-full">
+          <CollapsibleContent>
+            <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed p-2">
+              {secondaryFilters.map((column) => (
+                <DataTableToolbarFilter key={column.id} column={column} />
+              ))}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
     </div>
   );
 }
