@@ -15,6 +15,7 @@ import { MetadataTooltip } from "./metadata-tooltip";
 
 interface EditableFieldWithMetadataProps {
   fieldId: string;
+  fieldName?: string;
   label: string;
   value: string | number | null;
   formAction: (formData: FormData) => void;
@@ -24,6 +25,7 @@ interface EditableFieldWithMetadataProps {
 }
 export const EditableFieldWithMetadata = ({
   fieldId,
+  fieldName,
   label,
   value,
   formAction,
@@ -106,7 +108,7 @@ export const EditableFieldWithMetadata = ({
           disabled={!isEditing}
           value={currentValue}
           onChange={(e) => setCurrentValue(e.target.value)}
-          name={fieldId}
+          name={fieldName || fieldId}
           autoComplete="off"
         />
       </div>

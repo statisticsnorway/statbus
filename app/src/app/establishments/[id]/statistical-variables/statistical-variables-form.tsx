@@ -51,7 +51,8 @@ export default function StatisticalVariablesForm({
           <EditableFieldWithMetadata
             key={statDefinition.code}
             label={statDefinition.name ?? statDefinition.code!}
-            fieldId={`value_${statDefinition.type}`}
+            fieldId={statDefinition.code!}
+            fieldName={`value_${statDefinition.type}`}
             value={value || ""}
             response={statsState}
             formAction={statsAction}
