@@ -45,10 +45,9 @@ export const DashboardClientContent = ({
     : null;
 
   const lastEditBy = data?.last_edit_by_user_id
-    ? statbusUsers
-        .find((u: Tables<"user">) => u.id === editInfo.data?.last_edit_by_user_id)
-        ?.email?.split("@")[0]
-        .replace(/\./, " ")
+    ? statbusUsers.find(
+        (u: Tables<"user">) => u.id === editInfo.data?.last_edit_by_user_id
+      )?.display_name
     : null;
 
   return (

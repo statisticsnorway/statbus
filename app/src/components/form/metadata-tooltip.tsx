@@ -41,10 +41,7 @@ export const MetadataTooltip = ({ metadata }: MetadataTooltipProps) => {
 
   const userMap = useMemo(() => {
     return new Map(
-      statbusUsers.map((user: Tables<"user">) => [
-        user.id,
-        user.email?.split("@")[0].replace(/\./, " "),
-      ])
+      statbusUsers.map((user: Tables<"user">) => [user.id, user.display_name])
     );
   }, [statbusUsers]);
   const editByUser = edit_by_user_id ? userMap.get(edit_by_user_id) : null;

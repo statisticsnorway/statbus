@@ -5,10 +5,16 @@ import { cn } from "@/lib/utils";
 import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
 import { StatisticalUnitDetailsLinkWithSubPath } from "@/components/statistical-unit-details-link-with-sub-path";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Asterisk } from "lucide-react";
+import { Asterisk, Info } from "lucide-react";
 import { thousandSeparator } from "@/lib/number-utils";
-import { useBaseData } from '@/atoms/base-data';
-import { Tables } from '@/lib/database.types';
+import { useBaseData } from "@/atoms/base-data";
+import { Tables } from "@/lib/database.types";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../ui/tooltip";
 
 interface TopologyItemProps {
   readonly active?: boolean;
@@ -55,7 +61,27 @@ export function TopologyItem({
               active && "bg-gray-300"
             )}
           >
-            <CardTitle className="text-xs font-medium">{unit.name}</CardTitle>
+            <div className="flex">
+              <CardTitle className="text-xs font-medium">{unit.name}</CardTitle>
+              {unit.status?.used_for_counting === false && (
+                <div className="self-center pl-1">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-4 w-4 fill-blue-300 stroke-gray-700" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <span className="text-sm">
+                          This unit has status{" "}
+                          <strong>{unit.status?.name}</strong> and is therefore
+                          not included in aggregates.
+                        </span>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              )}
+            </div>
             <div className="flex items-center space-x-1">
               {primary && (
                 <div title="This is a primary unit">
@@ -82,29 +108,34 @@ export function TopologyItem({
                 title="Country"
                 value={location?.country?.name}
               />
-              {statDefinitions.map((statDefinition: Tables<'stat_definition_active'>) => {
-                const statsSum =
-                  stats?.stats_summary?.[statDefinition.code]?.sum;
-                const stat = unit.stat_for_unit?.find(
-                  (s) => s.stat_definition_id === statDefinition.id
-                );
-                const value =
-                  stat?.value_int ??
-                  stat?.value_bool ??
-                  stat?.value_float ??
-                  stat?.value_string;
-                const formattedValue =
-                  typeof value === "number" ? thousandSeparator(value) : value;
-                return (
-                  <TopologyItemInfo
-                    key={statDefinition.id}
-                    className="flex-1"
-                    title={statDefinition.name!}
-                    value={type !== "enterprise" && formattedValue}
-                    sum={thousandSeparator(statsSum)}
-                  />
-                );
-              })}
+              {statDefinitions.map(
+                (statDefinition: Tables<"stat_definition_active">) => {
+                  const statsSum =
+                    stats?.stats_summary?.[statDefinition.code]?.sum;
+                  const stat = unit.stat_for_unit?.find(
+                    (s) => s.stat_definition_id === statDefinition.id
+                  );
+                  const value =
+                    stat?.value_int ??
+                    stat?.value_bool ??
+                    stat?.value_float ??
+                    stat?.value_string;
+                  const formattedValue =
+                    typeof value === "number"
+                      ? thousandSeparator(value)
+                      : value;
+                  return (
+                    <TopologyItemInfo
+                      key={statDefinition.id}
+                      className="flex-1"
+                      title={statDefinition.name!}
+                      value={type !== "enterprise" && formattedValue}
+                      sum={thousandSeparator(statsSum)}
+                      status={unit.status}
+                    />
+                  );
+                }
+              )}
             </div>
             <TopologyItemInfo
               title="Primary Activity"
@@ -128,6 +159,7 @@ interface TopologyItemInfoProps {
   fallbackValue?: string;
   className?: string;
   sum?: string | number | boolean | null;
+  status?: Status;
 }
 
 const TopologyItemInfo = ({
@@ -136,10 +168,16 @@ const TopologyItemInfo = ({
   fallbackValue = "-",
   className,
   sum,
+  status,
 }: TopologyItemInfoProps) => (
   <div className={cn("flex flex-col space-y-0 text-left", className)}>
     <span className="text-xs font-medium uppercase text-gray-500">{title}</span>
-    <span className="text-sm">{value ?? fallbackValue}</span>
+    <span
+      className={`text-sm ${status?.used_for_counting === false && "italic text-stone-500"}`}
+      title={`This unit has status ${status?.name}, therefore this value is not included in aggregates.`}
+    >
+      {value ?? fallbackValue}
+    </span>
     {sum && (
       <div className="inline-flex items-center font-semibold">
         <span className="text-xs mr-1">&#8721;</span>

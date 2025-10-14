@@ -229,6 +229,31 @@ export function unitSizeDeriveStateUpdateFromValues(
   return result;
 }
 
+export const LAST_EDIT_BY_USER = "last_edit_by_user_id";
+
+export function lastEditByUserDeriveStateUpdateFromSearchParams(
+  urlSearchParams: URLSearchParams
+): SearchAction {
+  const initialValue = urlSearchParams.get(LAST_EDIT_BY_USER);
+  const initialValues = parseInitialValues(initialValue);
+  return lastEditByUserDeriveStateUpdateFromValues(initialValues);
+}
+
+export function lastEditByUserDeriveStateUpdateFromValues(
+  values: (string | null)[]
+): SearchAction {
+  let result = {
+    type: "set_query",
+    payload: {
+      app_param_name: LAST_EDIT_BY_USER,
+      api_param_name: LAST_EDIT_BY_USER,
+      api_param_value: values.length ? `in.(${values.join(",")})` : null,
+      app_param_values: values,
+    },
+  } as SearchAction;
+  return result;
+}                               
+
 export const DATA_SOURCE = "data_source";
 
 export function dataSourceDeriveStateUpdateFromSearchParams(urlSearchParams: URLSearchParams): SearchAction {

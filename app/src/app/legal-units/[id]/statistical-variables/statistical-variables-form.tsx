@@ -7,6 +7,7 @@ import { Tables } from "@/lib/database.types";
 import { useActionState, useEffect, useState } from "react";
 import { EditableFieldWithMetadata } from "@/components/form/editable-field-with-metadata";
 import { updateStatisticalVariables } from "../update-legal-unit-server-actions";
+import { InfoBox } from "@/components/info-box";
 
 export default function StatisticalVariablesForm({
   id,
@@ -40,6 +41,15 @@ export default function StatisticalVariablesForm({
   }
   return (
     <div>
+      {data?.legal_unit?.[0].status?.used_for_counting === false && (
+        <InfoBox>
+          <p className="text-sm">
+            This unit has status{" "}
+            <strong>{data?.legal_unit?.[0].status?.name}</strong>, therefore the
+            statistical variables are not included in aggregates.
+          </p>
+        </InfoBox>
+      )}
       {statDefinitions.map(
         (statDefinition: Tables<"stat_definition_active">) => {
           const stat = stats?.find(
@@ -51,7 +61,8 @@ export default function StatisticalVariablesForm({
             <EditableFieldWithMetadata
               key={statDefinition.code}
               label={statDefinition.name ?? statDefinition.code!}
-              fieldId={`value_${statDefinition.type}`}
+              fieldId={statDefinition.code!}
+              fieldName={`value_${statDefinition.type}`}
               value={value || ""}
               response={statsState}
               formAction={statsAction}

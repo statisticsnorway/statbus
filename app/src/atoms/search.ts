@@ -26,6 +26,7 @@ import {
   sectorDeriveStateUpdateFromValues,
   activityCategoryDeriveStateUpdateFromValues,
   statusDeriveStateUpdateFromValues,
+  lastEditByUserDeriveStateUpdateFromValues,
   unitSizeDeriveStateUpdateFromValues,
   dataSourceDeriveStateUpdateFromValues,
   externalIdentDeriveStateUpdateFromValues,
@@ -38,6 +39,7 @@ import {
   SECTOR,
   ACTIVITY_CATEGORY_PATH,
   STATUS,
+  LAST_EDIT_BY_USER,
   UNIT_SIZE,
   DATA_SOURCE,
 } from '../app/search/filters/url-search-params'
@@ -733,6 +735,18 @@ const derivedApiSearchParamsAtomUnstable = atom((get) => {
         );
         if (unitSizeAction.type === "set_query")
           actionPayloadPart = unitSizeAction.payload;
+        break;
+      case LAST_EDIT_BY_USER:
+        const ensuredLastEditByUserValues = Array.isArray(appParamValue)
+          ? appParamValue.map((v) => (v == null ? null : String(v)))
+          : appParamValue != null
+            ? [String(appParamValue)]
+            : [];
+        const lastEditByUserAction = lastEditByUserDeriveStateUpdateFromValues(
+          ensuredLastEditByUserValues
+        );
+        if (lastEditByUserAction.type === "set_query")
+          actionPayloadPart = lastEditByUserAction.payload;
         break;
       case DATA_SOURCE:
         const ensuredDataSourceValues = Array.isArray(appParamValue)
