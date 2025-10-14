@@ -105,8 +105,7 @@ export const StatisticalUnitTableRow = ({
 
   const lastEditBy = statbusUsers
     .find((user: Tables<'user'>) => user.id === unit.last_edit_by_user_id)
-    ?.email?.split("@")[0]
-    .replace(/\./, " ");
+    ?.display_name
 
   const getCellClassName = (column: TableColumn) => {
     return cn(
