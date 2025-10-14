@@ -58,6 +58,44 @@ SELECT * FROM public.user_create(p_display_name => 'Test Restricted', p_email =>
  test.restricted@statbus.org | Restricted#123!
 (1 row)
 
+CREATE OR REPLACE PROCEDURE test.remove_pg_temp_for_tx_user_switch(p_keep_tables text[] DEFAULT '{}')
+LANGUAGE plpgsql
+AS $remove_pg_temp_for_tx_user_switch$
+DECLARE
+    rec record;
+    v_found_count integer := 0;
+BEGIN
+    RAISE DEBUG 'Running test.remove_pg_temp_for_tx_user_switch(p_keep_tables => %)...', p_keep_tables;
+    -- Remove temporary cache tables used by import, as we switch user inside the *same* transaction,
+    -- and the new user can not modify tables owned by the previous import.
+    -- This generic loop cleans up all tables and views in the pg_temp schema, except those specified to keep.
+    FOR rec IN
+        SELECT
+            c.relname,
+            c.relkind
+        FROM pg_catalog.pg_class AS c
+        LEFT JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+        WHERE c.relkind IN ('r', 'p', 'v', 'm') AND n.oid = pg_my_temp_schema() -- r=table, p=partitioned, v=view, m=materialized
+          AND c.relname <> ALL(p_keep_tables)
+    LOOP
+        v_found_count := v_found_count + 1;
+        IF rec.relkind IN ('r', 'p', 'm') THEN
+            RAISE DEBUG '  -> Dropping temp TABLE %', rec.relname;
+            EXECUTE format('DROP TABLE IF EXISTS pg_temp.%I CASCADE', rec.relname);
+        ELSIF rec.relkind = 'v' THEN
+            RAISE DEBUG '  -> Dropping temp VIEW %', rec.relname;
+            EXECUTE format('DROP VIEW IF EXISTS pg_temp.%I CASCADE', rec.relname);
+        END IF;
+    END LOOP;
+
+    RAISE DEBUG '...finished test.remove_pg_temp_for_tx_user_switch(). Found and dropped % objects.', v_found_count;
+
+    -- This procedure is part of the sql_saga extension and has its own cleanup logic.
+    -- While the loop above handles tables/views, this call ensures any other temporary
+    -- objects it creates are also cleaned up.
+    CALL sql_saga.temporal_merge_drop_temp_tables();
+END;
+$remove_pg_temp_for_tx_user_switch$;
 -- Create test users with different roles
 SELECT public.user_create(p_display_name => 'Example Admin', p_email => 'test.admin@example.com', p_statbus_role => 'admin_user'::statbus_role, p_password => 'AdminPass123!');
               user_create               

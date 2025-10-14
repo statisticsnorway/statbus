@@ -75,6 +75,11 @@ WHERE daterange(sfu.valid_from, sfu.valid_until) && daterange('2023-01-01', '202
 ORDER BY est_map.stat_ident::int, sd.code, sfu.valid_from;
 \x auto
 
+CALL test.remove_pg_temp_for_tx_user_switch(p_keep_tables => ARRAY['stats_before_update', 'temp_source_for_update']);
+GRANT SELECT ON TABLE stats_before_update TO regular_user;
+\echo "Switching to regular user for partial update"
+CALL test.set_user_from_email('test.regular@statbus.org');
+
 \echo "Create Import Job for Partial Establishment Update using a REGULAR import definition"
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
 SELECT
@@ -83,6 +88,7 @@ SELECT
     'Import EST Partial Update (312_partial_update_establishment_with_regular_import.sql)',
     'Import job for partial establishment update using a REGULAR definition.',
     'Test data load (312_partial_update_establishment_with_regular_import.sql)';
+
 \echo "User uploads the establishments turnover update file to a regular import job (import_312_est_partial_update)"
 \copy public.import_312_est_partial_update_upload(tax_ident,stat_ident,turnover,valid_from,valid_to) FROM 'app/public/demo/formal_establishments_turnover_update_with_source_dates.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
@@ -104,15 +110,39 @@ FROM public.import_312_est_partial_update_data
 ORDER BY row_id;
 \x auto
 
-\echo "Checking raw stat_for_unit data AFTER partial update to verify the merge"
+\echo "Checking last_edit_by_user_id on statistical_unit to confirm it changed after partial update"
+\x off
+WITH updated_unit AS (
+    SELECT establishment_id AS unit_id
+    FROM public.import_312_est_partial_update_data
+    WHERE state = 'processed' AND establishment_id IS NOT NULL
+    LIMIT 1
+)
+SELECT
+    su.external_idents ->> 'stat_ident' AS stat_ident,
+    su.valid_from,
+    su.valid_to,
+    u.email AS last_edit_by,
+    su.stats
+FROM public.statistical_unit su
+JOIN public.user u ON su.last_edit_by_user_id = u.id
+WHERE su.unit_id = (SELECT unit_id FROM updated_unit)
+  AND su.unit_type = 'establishment'
+ORDER BY su.valid_from;
+\x auto
+
+
+\echo "Checking raw stat_for_unit data AFTER partial update to verify the merge and edit user"
 \x off
 SELECT
     idt.stat_ident,
     sfu.valid_from, sfu.valid_to,
     sd.code AS stat_code,
-    sfu.value_int, sfu.value_float, sfu.value_string, sfu.value_bool
+    sfu.value_int, sfu.value_float, sfu.value_string, sfu.value_bool,
+    u.email AS edit_by
 FROM public.stat_for_unit sfu
 JOIN public.stat_definition sd ON sfu.stat_definition_id = sd.id
+JOIN public.user u ON sfu.edit_by_user_id = u.id
 JOIN (
     SELECT DISTINCT establishment_id, stat_ident_raw AS stat_ident
     FROM public.import_312_est_partial_update_data

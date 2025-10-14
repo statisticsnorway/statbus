@@ -267,7 +267,15 @@ CREATE OR REPLACE VIEW public.timeline_establishment_def
             FROM public.stat_for_unit AS sfu
             WHERE sfu.establishment_id = es.id
               AND from_until_overlaps(t.valid_from, t.valid_until, sfu.valid_from, sfu.valid_until)
-        ) AS sfu ON TRUE
+        ) AS sfu_ds ON TRUE
+      LEFT JOIN LATERAL (
+            SELECT sfu.edit_comment, sfu.edit_by_user_id, sfu.edit_at
+            FROM public.stat_for_unit AS sfu
+            WHERE sfu.establishment_id = es.id
+              AND from_until_overlaps(t.valid_from, t.valid_until, sfu.valid_from, sfu.valid_until)
+            ORDER BY sfu.edit_at DESC
+            LIMIT 1
+        ) AS sfu_le ON TRUE
       LEFT JOIN LATERAL (
         SELECT array_agg(ds.id) AS ids
              , array_agg(ds.code) AS codes
@@ -277,7 +285,7 @@ CREATE OR REPLACE VIEW public.timeline_establishment_def
            OR COALESCE(ds.id = sa.data_source_id       , FALSE)
            OR COALESCE(ds.id = phl.data_source_id      , FALSE)
            OR COALESCE(ds.id = pol.data_source_id      , FALSE)
-           OR COALESCE(ds.id = ANY(sfu.data_source_ids), FALSE)
+           OR COALESCE(ds.id = ANY(sfu_ds.data_source_ids), FALSE)
         ) AS ds ON TRUE
       LEFT JOIN LATERAL (
         SELECT edit_comment, edit_by_user_id, edit_at
@@ -288,7 +296,8 @@ CREATE OR REPLACE VIEW public.timeline_establishment_def
             (sa.edit_comment, sa.edit_by_user_id, sa.edit_at),
             (phl.edit_comment, phl.edit_by_user_id, phl.edit_at),
             (pol.edit_comment, pol.edit_by_user_id, pol.edit_at),
-            (c.edit_comment, c.edit_by_user_id, c.edit_at)
+            (c.edit_comment, c.edit_by_user_id, c.edit_at),
+            (sfu_le.edit_comment, sfu_le.edit_by_user_id, sfu_le.edit_at)
         ) AS all_edits(edit_comment, edit_by_user_id, edit_at)
         WHERE edit_at IS NOT NULL
         ORDER BY edit_at DESC
