@@ -6,6 +6,7 @@ import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
 import { useActionState, useEffect, useState } from "react";
 import { updateStatisticalVariables } from "@/app/legal-units/[id]/update-legal-unit-server-actions";
 import { EditableFieldWithMetadata } from "@/components/form/editable-field-with-metadata";
+import { InfoBox } from "@/components/info-box";
 
 export default function StatisticalVariablesForm({
   id,
@@ -41,6 +42,15 @@ export default function StatisticalVariablesForm({
 
   return (
     <div>
+      {data?.establishment?.[0].status?.used_for_counting === false && (
+        <InfoBox>
+          <p className="text-sm">
+            This unit has status{" "}
+            <strong>{data?.establishment?.[0].status?.name}</strong>, therefore
+            the statistical variables are not included in aggregates.
+          </p>
+        </InfoBox>
+      )}
       {statDefinitions.map((statDefinition) => {
         const stat = stats?.find(
           (s) => s.stat_definition_id === statDefinition.id
