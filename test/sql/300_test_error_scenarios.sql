@@ -76,7 +76,12 @@ INSERT INTO public.import_70_01_01_lu_analysis_errors_upload(
 -- New soft error test cases
 ('700100026','LU Invalid Status (Default Active)','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'sleeping_unknown',NULL,NULL,NULL,NULL,NULL), -- invalid_codes: {status_code}, uses default
 ('700100028','LU Invalid PostalRegion','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'active',NULL,NULL,NULL,'POSTAL_XX',NULL), -- invalid_codes: {postal_region_code}
-('700100029','LU Invalid PostalCountry NF','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'active',NULL,NULL,NULL,NULL,'P_ZZ'); -- invalid_codes: {postal_country_iso_2}
+('700100029','LU Invalid PostalCountry NF','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'active',NULL,NULL,NULL,NULL,'P_ZZ'), -- invalid_codes: {postal_country_iso_2}
+-- Country/region validation
+('700100030','LU domestic missing region warning','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,'NO',NULL,'active',NULL,NULL,NULL,NULL,NULL), -- invalid_codes: {physical_region_code: NULL}
+('700100031','LU foreign missing region ok','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,'UN',NULL,'active',NULL,NULL,NULL,NULL,NULL),
+('700100032','LU foreign domestic region err','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,'Street 1','01','UN',NULL,'active',NULL,NULL,NULL,NULL,NULL), -- invalid_codes: {physical_region_code: 01}
+('700100033','LU foreign unknown domestic region error','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,'Street 1','ZZ','UN',NULL,'active',NULL,NULL,NULL,NULL,NULL); -- invalid_codes: {physical_region_code: ZZ}
 
 CALL worker.process_tasks(p_queue => 'import');
 \echo "Job status for import_70_01_01_lu_analysis_errors:"
