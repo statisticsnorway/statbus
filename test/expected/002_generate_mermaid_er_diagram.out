@@ -665,6 +665,7 @@ erDiagram
 		numeric(9_6) physical_latitude
 		numeric(9_6) physical_longitude
 		numeric(6_1) physical_altitude
+		boolean domestic
 		character_varying(200) postal_address_part1
 		character_varying(200) postal_address_part2
 		character_varying(200) postal_address_part3
@@ -806,6 +807,7 @@ erDiagram
 		numeric(9_6) physical_latitude
 		numeric(9_6) physical_longitude
 		numeric(6_1) physical_altitude
+		boolean domestic
 		character_varying(200) postal_address_part1
 		character_varying(200) postal_address_part2
 		character_varying(200) postal_address_part3
@@ -888,6 +890,7 @@ erDiagram
 		numeric(9_6) physical_latitude
 		numeric(9_6) physical_longitude
 		numeric(6_1) physical_altitude
+		boolean domestic
 		character_varying(200) postal_address_part1
 		character_varying(200) postal_address_part2
 		character_varying(200) postal_address_part3
@@ -973,6 +976,7 @@ erDiagram
 		numeric(9_6) physical_latitude
 		numeric(9_6) physical_longitude
 		numeric(6_1) physical_altitude
+		boolean domestic
 		character_varying(200) postal_address_part1
 		character_varying(200) postal_address_part2
 		character_varying(200) postal_address_part3

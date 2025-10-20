@@ -5264,6 +5264,7 @@ external_idents       | {"tax_ident": "929554205"}
 statistical_unit_data | {                                                                      +
                       |     "name": "REPPE GEIR RYTMISKE TJENESTER",                           +
                       |     "search": "'geir':2 'reppe':1 'rytmiske':3 'tjenester':4",         +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -5334,6 +5335,7 @@ external_idents       | {"tax_ident": "992603216"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BYGGMESTER RICHARD FOSSER MINGE AS",                      +
                       |     "search": "'as':5 'byggmester':1 'fosser':3 'minge':4 'richard':2",+
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -5417,6 +5419,7 @@ external_idents       | {"tax_ident": "996464415"}
 statistical_unit_data | {                                                                      +
                       |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
                       |     "search": "'anlegg':2 'as':4 'industri':3 'myhre':1",              +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -5500,6 +5503,7 @@ external_idents       | {"tax_ident": "918420533"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BYGGMESTER RICHARD FOSSER MINGE AS",                      +
                       |     "search": "'as':5 'byggmester':1 'fosser':3 'minge':4 'richard':2",+
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -5581,6 +5585,7 @@ external_idents       | {"tax_ident": "929267486"}
 statistical_unit_data | {                                                                      +
                       |     "name": "REPPE GEIR RYTMISKE TJENESTER",                           +
                       |     "search": "'geir':2 'reppe':1 'rytmiske':3 'tjenester':4",         +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -5650,6 +5655,7 @@ external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
                       |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
                       |     "search": "'anlegg':2 'as':4 'industri':3 'myhre':1",              +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -5732,6 +5738,7 @@ external_idents       | {"tax_ident": "918420533"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BYGGMESTER RICHARD FOSSER MINGE AS",                      +
                       |     "search": "'as':5 'byggmester':1 'fosser':3 'minge':4 'richard':2",+
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -5812,6 +5819,7 @@ external_idents       | {"tax_ident": "929267486"}
 statistical_unit_data | {                                                                      +
                       |     "name": "REPPE GEIR RYTMISKE TJENESTER",                           +
                       |     "search": "'geir':2 'reppe':1 'rytmiske':3 'tjenester':4",         +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -5880,6 +5888,7 @@ external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
                       |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
                       |     "search": "'anlegg':2 'as':4 'industri':3 'myhre':1",              +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -5960,6 +5969,7 @@ external_idents       | {"tax_ident": "929895711"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BOBILER AS",                                              +
                       |     "search": "'as':2 'bobiler':1",                                    +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -6030,6 +6040,7 @@ external_idents       | {"tax_ident": "876278812"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BOBILER AS",                                              +
                       |     "search": "'as':2 'bobiler':1",                                    +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -6099,6 +6110,7 @@ external_idents       | {"tax_ident": "876278812"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BOBILER AS",                                              +
                       |     "search": "'as':2 'bobiler':1",                                    +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -6167,6 +6179,7 @@ external_idents       | {"tax_ident": "928719510"}
 statistical_unit_data | {                                                                      +
                       |     "name": "ENGEN DETALJHANDEL",                                      +
                       |     "search": "'detaljhandel':2 'engen':1",                            +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -6237,6 +6250,7 @@ external_idents       | {"tax_ident": "972287091"}
 statistical_unit_data | {                                                                      +
                       |     "name": "DONNA CLASSICA AS",                                       +
                       |     "search": "'as':3 'classica':2 'donna':1",                         +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -6320,6 +6334,7 @@ external_idents       | {"tax_ident": "928554198"}
 statistical_unit_data | {                                                                      +
                       |     "name": "ENGEN DETALJHANDEL",                                      +
                       |     "search": "'detaljhandel':2 'engen':1",                            +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -6389,6 +6404,7 @@ external_idents       | {"tax_ident": "976126637"}
 statistical_unit_data | {                                                                      +
                       |     "name": "DONNA CLASSICA AS",                                       +
                       |     "search": "'as':3 'classica':2 'donna':1",                         +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -6471,6 +6487,7 @@ external_idents       | {"tax_ident": "928554198"}
 statistical_unit_data | {                                                                      +
                       |     "name": "ENGEN DETALJHANDEL",                                      +
                       |     "search": "'detaljhandel':2 'engen':1",                            +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -6539,6 +6556,7 @@ external_idents       | {"tax_ident": "976126637"}
 statistical_unit_data | {                                                                      +
                       |     "name": "DONNA CLASSICA AS",                                       +
                       |     "search": "'as':3 'classica':2 'donna':1",                         +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -6619,6 +6637,7 @@ external_idents       | {"tax_ident": "992603216"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BYGGMESTER RICHARD FOSSER MINGE AS",                      +
                       |     "search": "'as':5 'byggmester':1 'fosser':3 'minge':4 'richard':2",+
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -6702,6 +6721,7 @@ external_idents       | {"tax_ident": "918420533"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BYGGMESTER RICHARD FOSSER MINGE AS",                      +
                       |     "search": "'as':5 'byggmester':1 'fosser':3 'minge':4 'richard':2",+
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -6783,6 +6803,7 @@ external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
                       |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
                       |     "search": "'anlegg':2 'as':4 'industri':3 'myhre':1",              +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -6865,6 +6886,7 @@ external_idents       | {"tax_ident": "918420533"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BYGGMESTER RICHARD FOSSER MINGE AS",                      +
                       |     "search": "'as':5 'byggmester':1 'fosser':3 'minge':4 'richard':2",+
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -6945,6 +6967,7 @@ external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
                       |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
                       |     "search": "'anlegg':2 'as':4 'industri':3 'myhre':1",              +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -7025,6 +7048,7 @@ external_idents       | {"tax_ident": "929554205"}
 statistical_unit_data | {                                                                      +
                       |     "name": "REPPE GEIR RYTMISKE TJENESTER",                           +
                       |     "search": "'geir':2 'reppe':1 'rytmiske':3 'tjenester':4",         +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -7095,6 +7119,7 @@ external_idents       | {"tax_ident": "996464415"}
 statistical_unit_data | {                                                                      +
                       |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
                       |     "search": "'anlegg':2 'as':4 'industri':3 'myhre':1",              +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -7178,6 +7203,7 @@ external_idents       | {"tax_ident": "929267486"}
 statistical_unit_data | {                                                                      +
                       |     "name": "REPPE GEIR RYTMISKE TJENESTER",                           +
                       |     "search": "'geir':2 'reppe':1 'rytmiske':3 'tjenester':4",         +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -7247,6 +7273,7 @@ external_idents       | {"tax_ident": "929267486"}
 statistical_unit_data | {                                                                      +
                       |     "name": "REPPE GEIR RYTMISKE TJENESTER",                           +
                       |     "search": "'geir':2 'reppe':1 'rytmiske':3 'tjenester':4",         +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -7315,6 +7342,7 @@ external_idents       | {"tax_ident": "928719510"}
 statistical_unit_data | {                                                                      +
                       |     "name": "ENGEN DETALJHANDEL",                                      +
                       |     "search": "'detaljhandel':2 'engen':1",                            +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -7385,6 +7413,7 @@ external_idents       | {"tax_ident": "929895711"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BOBILER AS",                                              +
                       |     "search": "'as':2 'bobiler':1",                                    +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -7455,6 +7484,7 @@ external_idents       | {"tax_ident": "876278812"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BOBILER AS",                                              +
                       |     "search": "'as':2 'bobiler':1",                                    +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -7524,6 +7554,7 @@ external_idents       | {"tax_ident": "928554198"}
 statistical_unit_data | {                                                                      +
                       |     "name": "ENGEN DETALJHANDEL",                                      +
                       |     "search": "'detaljhandel':2 'engen':1",                            +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -7593,6 +7624,7 @@ external_idents       | {"tax_ident": "976126637"}
 statistical_unit_data | {                                                                      +
                       |     "name": "DONNA CLASSICA AS",                                       +
                       |     "search": "'as':3 'classica':2 'donna':1",                         +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -7675,6 +7707,7 @@ external_idents       | {"tax_ident": "876278812"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BOBILER AS",                                              +
                       |     "search": "'as':2 'bobiler':1",                                    +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -7743,6 +7776,7 @@ external_idents       | {"tax_ident": "928554198"}
 statistical_unit_data | {                                                                      +
                       |     "name": "ENGEN DETALJHANDEL",                                      +
                       |     "search": "'detaljhandel':2 'engen':1",                            +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -7811,6 +7845,7 @@ external_idents       | {"tax_ident": "976126637"}
 statistical_unit_data | {                                                                      +
                       |     "name": "DONNA CLASSICA AS",                                       +
                       |     "search": "'as':3 'classica':2 'donna':1",                         +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -7891,6 +7926,7 @@ external_idents       | {"tax_ident": "972287091"}
 statistical_unit_data | {                                                                      +
                       |     "name": "DONNA CLASSICA AS",                                       +
                       |     "search": "'as':3 'classica':2 'donna':1",                         +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -7974,6 +8010,7 @@ external_idents       | {"tax_ident": "928719510"}
 statistical_unit_data | {                                                                      +
                       |     "name": "ENGEN DETALJHANDEL",                                      +
                       |     "search": "'detaljhandel':2 'engen':1",                            +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -8044,6 +8081,7 @@ external_idents       | {"tax_ident": "929895711"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BOBILER AS",                                              +
                       |     "search": "'as':2 'bobiler':1",                                    +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -8114,6 +8152,7 @@ external_idents       | {"tax_ident": "992603216"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BYGGMESTER RICHARD FOSSER MINGE AS",                      +
                       |     "search": "'as':5 'byggmester':1 'fosser':3 'minge':4 'richard':2",+
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -8197,6 +8236,7 @@ external_idents       | {"tax_ident": "876278812"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BOBILER AS",                                              +
                       |     "search": "'as':2 'bobiler':1",                                    +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -8266,6 +8306,7 @@ external_idents       | {"tax_ident": "918420533"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BYGGMESTER RICHARD FOSSER MINGE AS",                      +
                       |     "search": "'as':5 'byggmester':1 'fosser':3 'minge':4 'richard':2",+
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -8347,6 +8388,7 @@ external_idents       | {"tax_ident": "928554198"}
 statistical_unit_data | {                                                                      +
                       |     "name": "ENGEN DETALJHANDEL",                                      +
                       |     "search": "'detaljhandel':2 'engen':1",                            +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -8416,6 +8458,7 @@ external_idents       | {"tax_ident": "976126637"}
 statistical_unit_data | {                                                                      +
                       |     "name": "DONNA CLASSICA AS",                                       +
                       |     "search": "'as':3 'classica':2 'donna':1",                         +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -8498,6 +8541,7 @@ external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
                       |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
                       |     "search": "'anlegg':2 'as':4 'industri':3 'myhre':1",              +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -8580,6 +8624,7 @@ external_idents       | {"tax_ident": "876278812"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BOBILER AS",                                              +
                       |     "search": "'as':2 'bobiler':1",                                    +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -8648,6 +8693,7 @@ external_idents       | {"tax_ident": "918420533"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BYGGMESTER RICHARD FOSSER MINGE AS",                      +
                       |     "search": "'as':5 'byggmester':1 'fosser':3 'minge':4 'richard':2",+
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -8728,6 +8774,7 @@ external_idents       | {"tax_ident": "928554198"}
 statistical_unit_data | {                                                                      +
                       |     "name": "ENGEN DETALJHANDEL",                                      +
                       |     "search": "'detaljhandel':2 'engen':1",                            +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -8796,6 +8843,7 @@ external_idents       | {"tax_ident": "976126637"}
 statistical_unit_data | {                                                                      +
                       |     "name": "DONNA CLASSICA AS",                                       +
                       |     "search": "'as':3 'classica':2 'donna':1",                         +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
@@ -8876,6 +8924,7 @@ external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
                       |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
                       |     "search": "'anlegg':2 'as':4 'industri':3 'myhre':1",              +
+                      |     "domestic": true,                                                  +
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
