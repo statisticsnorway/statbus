@@ -1,6 +1,7 @@
 code,name
-skatt,Skatteetaten
-brreg,Brønnøysundregistrene
-spør,Spørreskjema fra SSB
 annet,Annen ekstern kilde
+brreg,Brønnøysundregistrene
+nav,Arbeids- og velferdsforvaltninga
+skatt,Skatteetaten
+spør,Spørreskjema fra SSB
 mi,Manuell Inntasting

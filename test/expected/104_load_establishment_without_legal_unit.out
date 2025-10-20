@@ -100,60 +100,6 @@ $remove_pg_temp_for_tx_user_switch$;
 "Setting up Statbus to load establishments without legal units"
 -- A Super User configures statbus.
 CALL test.set_user_from_email('test.admin@statbus.org');
-\echo "User selected the Activity Category Standard"
-"User selected the Activity Category Standard"
-INSERT INTO settings(activity_category_standard_id,only_one_setting)
-SELECT id, true FROM activity_category_standard WHERE code = 'nace_v2.1'
-ON CONFLICT (only_one_setting)
-DO UPDATE SET
-   activity_category_standard_id =(SELECT id FROM activity_category_standard WHERE code = 'nace_v2.1')
-   WHERE settings.id = EXCLUDED.id;
-;
-SELECT acs.code
-  FROM public.settings AS s
-  JOIN activity_category_standard AS acs
-    ON s.activity_category_standard_id = acs.id;
-   code    
------------
- nace_v2.1
-(1 row)
-
-\echo "User uploads the sample activity categories"
-"User uploads the sample activity categories"
-\copy public.activity_category_available_custom(path,name,description) FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-SELECT count(*) FROM public.activity_category_available;
- count 
--------
-  2215
-(1 row)
-
-\echo "User uploads the sample regions"
-"User uploads the sample regions"
-\copy public.region_upload(path, name) FROM 'samples/norway/regions/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-SELECT count(*) FROM public.region;
- count 
--------
-   417
-(1 row)
-
-\echo "User uploads the sample legal forms"
-"User uploads the sample legal forms"
-\copy public.legal_form_custom_only(code,name) FROM 'samples/norway/legal_form/legal_form_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-SELECT count(*) FROM public.legal_form_available;
- count 
--------
-    46
-(1 row)
-
-\echo "User uploads the sample sectors"
-"User uploads the sample sectors"
-\copy public.sector_custom_only(path,name,description) FROM 'samples/norway/sector/sector_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-SELECT count(*) FROM public.sector_available;
- count 
--------
-    33
-(1 row)
-
 SELECT code, name, active, custom FROM public.data_source_available;
   code  |               name               | active | custom 
 --------+----------------------------------+--------+--------
@@ -165,22 +111,76 @@ SELECT code, name, active, custom FROM public.data_source_available;
  survey | Survey Data                      | t      | f
 (6 rows)
 
-\echo "User uploads the sample data sources"
-"User uploads the sample data sources"
-\copy public.data_source_custom(code,name) FROM 'test/data/02_norwegian_data_source.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-SELECT code, name, active, custom FROM public.data_source_available;
- code  |               name               | active | custom 
--------+----------------------------------+--------+--------
- brreg | Brønnøysundregistrene            | t      | t
- mi    | Manuell inntasting               | t      | t
- nav   | Arbeids- og velferdsforvaltninga | t      | t
-(3 rows)
+\i samples/norway/getting-started.sql
+\i samples/norway/settings.sql
+INSERT INTO settings(activity_category_standard_id,country_id)
+SELECT (SELECT id FROM activity_category_standard WHERE code = 'nace_v2.1')
+     , (SELECT id FROM public.country WHERE iso_2 = 'NO')
+ON CONFLICT (only_one_setting)
+DO UPDATE SET
+   activity_category_standard_id = EXCLUDED.activity_category_standard_id,
+   country_id = EXCLUDED.country_id
+   WHERE settings.only_one_setting = EXCLUDED.only_one_setting;
+;
+\i samples/norway/activity_category/activity_category_norway.sql
+\copy public.activity_category_available_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/regions/norway-regions-2024.sql
+\copy public.region_upload(path, name) FROM 'samples/norway/regions/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/sector/sector_norway.sql
+\copy public.sector_custom_only FROM 'samples/norway/sector/sector_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/legal_form/legal_form_norway.sql
+\copy public.legal_form_custom_only FROM 'samples/norway/legal_form/legal_form_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/data_source/data_source_norway.sql
+\copy public.data_source_custom (code, name) FROM 'samples/norway/data_source/data_source_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+SELECT acs.code
+  FROM public.settings AS s
+  JOIN activity_category_standard AS acs
+    ON s.activity_category_standard_id = acs.id;
+   code    
+-----------
+ nace_v2.1
+(1 row)
+
+SELECT count(*) FROM public.activity_category_available;
+ count 
+-------
+  2215
+(1 row)
+
+SELECT count(*) FROM public.region;
+ count 
+-------
+   417
+(1 row)
+
+SELECT count(*) FROM public.legal_form_available;
+ count 
+-------
+    46
+(1 row)
+
+SELECT count(*) FROM public.sector_available;
+ count 
+-------
+    33
+(1 row)
 
 SELECT count(*) FROM public.data_source_available;
  count 
 -------
-     3
+     6
 (1 row)
+
+SELECT code, name, active, custom FROM public.data_source_available;
+ code  |               name               | active | custom 
+-------+----------------------------------+--------+--------
+ annet | Annen ekstern kilde              | t      | t
+ brreg | Brønnøysundregistrene            | t      | t
+ mi    | Manuell Inntasting               | t      | t
+ nav   | Arbeids- og velferdsforvaltninga | t      | t
+ skatt | Skatteetaten                     | t      | t
+ spør  | Spørreskjema fra SSB             | t      | t
+(6 rows)
 
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,

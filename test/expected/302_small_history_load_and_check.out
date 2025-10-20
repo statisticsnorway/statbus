@@ -100,14 +100,17 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 \echo "Setting up Statbus for Norway"
 "Setting up Statbus for Norway"
 \i samples/norway/getting-started.sql
-\i samples/norway/activity_category/activity_category_norway.sql
-INSERT INTO settings(activity_category_standard_id,only_one_setting)
-SELECT id, true FROM activity_category_standard WHERE code = 'nace_v2.1'
+\i samples/norway/settings.sql
+INSERT INTO settings(activity_category_standard_id,country_id)
+SELECT (SELECT id FROM activity_category_standard WHERE code = 'nace_v2.1')
+     , (SELECT id FROM public.country WHERE iso_2 = 'NO')
 ON CONFLICT (only_one_setting)
 DO UPDATE SET
-   activity_category_standard_id =(SELECT id FROM activity_category_standard WHERE code = 'nace_v2.1')
-   WHERE settings.id = EXCLUDED.id;
+   activity_category_standard_id = EXCLUDED.activity_category_standard_id,
+   country_id = EXCLUDED.country_id
+   WHERE settings.only_one_setting = EXCLUDED.only_one_setting;
 ;
+\i samples/norway/activity_category/activity_category_norway.sql
 \copy public.activity_category_available_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \i samples/norway/regions/norway-regions-2024.sql
 \copy public.region_upload(path, name) FROM 'samples/norway/regions/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
