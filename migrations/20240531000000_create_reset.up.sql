@@ -134,10 +134,26 @@ BEGIN
         -- Add delete for public.stat_definition WHERE code NOT IN ('employees','turnover')
         WITH deleted_stat_definition AS (
             DELETE FROM public.stat_definition WHERE code NOT IN ('employees','turnover') RETURNING *
+        ), restored_stat_definition AS (
+            INSERT INTO public.stat_definition(id, code, type, frequency, name, description, priority, archived)
+            OVERRIDING SYSTEM VALUE
+            VALUES
+              (1, 'employees','int','yearly','Number of employees','The number of people receiving an official salary with government reporting.',2, false),
+              (2, 'turnover','float','yearly','Turnover','The amount of money taken by a business in a particular period.',1, false)
+            ON CONFLICT (id) DO UPDATE SET
+                code = EXCLUDED.code,
+                type = EXCLUDED.type,
+                frequency = EXCLUDED.frequency,
+                name = EXCLUDED.name,
+                description = EXCLUDED.description,
+                priority = EXCLUDED.priority,
+                archived = EXCLUDED.archived
+            RETURNING *
         )
         SELECT jsonb_build_object(
             'stat_definition', jsonb_build_object(
-                'deleted_count', (SELECT COUNT(*) FROM deleted_stat_definition)
+                'deleted_count', (SELECT COUNT(*) FROM deleted_stat_definition),
+                'restored_count', (SELECT COUNT(*) FROM restored_stat_definition)
             )
         ) INTO changed;
         result := result || changed;
@@ -160,10 +176,24 @@ BEGIN
         -- Add delete for public.external_ident_type not added by the system
         WITH deleted_external_ident_type AS (
             DELETE FROM public.external_ident_type WHERE code NOT IN ('stat_ident','tax_ident') RETURNING *
+        ), restored_external_ident_type AS (
+            INSERT INTO public.external_ident_type(id, code, name, priority, description, archived)
+            OVERRIDING SYSTEM VALUE
+            VALUES
+                (1, 'tax_ident', 'Tax Identifier', 1, 'Official tax identification number provided by the government.', false),
+                (2, 'stat_ident', 'Statistical Identifier', 2, 'Identifier assigned by the statistical office for internal tracking.', false)
+            ON CONFLICT (id) DO UPDATE SET
+                code = EXCLUDED.code,
+                name = EXCLUDED.name,
+                priority = EXCLUDED.priority,
+                description = EXCLUDED.description,
+                archived = EXCLUDED.archived
+            RETURNING *
         )
         SELECT jsonb_build_object(
             'external_ident_type', jsonb_build_object(
-                'deleted_count', (SELECT COUNT(*) FROM deleted_external_ident_type)
+                'deleted_count', (SELECT COUNT(*) FROM deleted_external_ident_type),
+                'restored_count', (SELECT COUNT(*) FROM restored_external_ident_type)
             )
         ) INTO changed;
         result := result || changed;
