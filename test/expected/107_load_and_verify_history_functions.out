@@ -1684,6 +1684,7 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRANLØFT ENK",                                                          +
                       |     "search": "'enk':2 'kranløft':1",                                                +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -1781,6 +1782,7 @@ external_idents       | {"tax_ident": "823573673"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRANLØFT ENK",                                                          +
                       |     "search": "'enk':2 'kranløft':1",                                                +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -1877,6 +1879,7 @@ external_idents       | {"tax_ident": "823573673"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRANLØFT ENK",                                                          +
                       |     "search": "'enk':2 'kranløft':1",                                                +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -1972,6 +1975,7 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -2069,6 +2073,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -2165,6 +2170,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -2260,6 +2266,7 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -2357,6 +2364,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -2453,6 +2461,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -2548,6 +2557,7 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -2645,6 +2655,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -2741,6 +2752,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -2836,6 +2848,7 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -2933,6 +2946,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -3029,6 +3043,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -3124,6 +3139,7 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -3221,6 +3237,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -3317,6 +3334,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -3412,6 +3430,7 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -3509,6 +3528,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -3605,6 +3625,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -3700,6 +3721,7 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -3797,6 +3819,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -3893,6 +3916,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -3988,6 +4012,7 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -4085,6 +4110,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -4181,6 +4207,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -4276,6 +4303,7 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -4373,6 +4401,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -4469,6 +4498,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +

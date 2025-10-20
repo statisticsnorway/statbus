@@ -36,6 +36,8 @@ CREATE INDEX idx_statistical_unit_physical_region_id ON public.statistical_unit 
 CREATE INDEX idx_statistical_unit_physical_country_id ON public.statistical_unit (physical_country_id);
 CREATE INDEX idx_statistical_unit_sector_id ON public.statistical_unit (sector_id);
 
+CREATE INDEX idx_statistical_unit_domestic ON public.statistical_unit (domestic);
+
 CREATE INDEX idx_statistical_unit_data_source_ids ON public.statistical_unit USING GIN (data_source_ids);
 
 CREATE INDEX idx_statistical_unit_sector_path ON public.statistical_unit(sector_path);

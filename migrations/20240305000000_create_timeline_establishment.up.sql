@@ -41,6 +41,8 @@ CREATE OR REPLACE VIEW public.timeline_establishment_def
     , physical_longitude
     , physical_altitude
     --
+    , domestic
+    --
     , postal_address_part1
     , postal_address_part2
     , postal_address_part3
@@ -163,6 +165,8 @@ CREATE OR REPLACE VIEW public.timeline_establishment_def
            , phl.latitude  AS physical_latitude
            , phl.longitude AS physical_longitude
            , phl.altitude  AS physical_altitude
+           --
+           , current_settings.country_id = phl.country_id AS domestic
            --
            , pol.address_part1 AS postal_address_part1
            , pol.address_part2 AS postal_address_part2
@@ -303,6 +307,8 @@ CREATE OR REPLACE VIEW public.timeline_establishment_def
         ORDER BY edit_at DESC
         LIMIT 1
       ) AS last_edit ON TRUE
+      --
+      , public.settings AS current_settings -- Only one row is allowed, so that is the only one selected.
       --
       ORDER BY t.unit_type, t.unit_id, t.valid_from
 ;
