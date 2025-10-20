@@ -7,22 +7,13 @@ BEGIN;
 -- A Super User configures statbus.
 CALL test.set_user_from_email('test.admin@statbus.org');
 
-\echo "User selected the Activity Category Standard"
-INSERT INTO settings(activity_category_standard_id,only_one_setting)
-SELECT id, true FROM activity_category_standard WHERE code = 'isic_v4'
-ON CONFLICT (only_one_setting)
-DO UPDATE SET
-   activity_category_standard_id =(SELECT id FROM activity_category_standard WHERE code = 'isic_v4')
-   WHERE settings.id = EXCLUDED.id;
-;
+\i samples/demo/getting-started.sql
 
 SELECT acs.code
   FROM public.settings AS s
   JOIN activity_category_standard AS acs
     ON s.activity_category_standard_id = acs.id;
 
-\echo "User uploads the sample activity categories"
-\copy public.activity_category_available_custom(path,name) FROM 'app/public/demo/activity_custom_isic_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 SELECT standard_code
      , code
      , path
@@ -31,8 +22,7 @@ SELECT standard_code
      , name
 FROM public.activity_category_available
 ORDER BY standard_code, path;
-\echo "User uploads the sample regions"
-\copy public.region_upload(path, name) FROM 'app/public/demo/regions_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+
 SELECT path
      , level
      , label
@@ -40,16 +30,14 @@ SELECT path
      , name
  FROM public.region
  ORDER BY path;
-\echo "User uploads the sample legal forms"
-\copy public.legal_form_custom_only(code,name) FROM 'app/public/demo/legal_forms_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-SELECT code
+
+ SELECT code
      , name
      , custom
  FROM public.legal_form_available
  ORDER BY code COLLATE "nb-NO-x-icu";
-\echo "User uploads the sample sectors"
-\copy public.sector_custom_only(path,name,description) FROM 'app/public/demo/sectors_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-SELECT path
+
+ SELECT path
      , name
      , custom
  FROM public.sector_available;

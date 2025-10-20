@@ -101,27 +101,31 @@ $remove_pg_temp_for_tx_user_switch$;
 "Setting up Statbus using the web provided examples"
 -- A Super User configures statbus.
 CALL test.set_user_from_email('test.admin@statbus.org');
+\i samples/demo/getting-started.sql
+-- Set the activity category standard to ISIC v4 for the demo data.
 \echo "User selected the Activity Category Standard"
 "User selected the Activity Category Standard"
-INSERT INTO settings(activity_category_standard_id,only_one_setting)
-SELECT id, true FROM activity_category_standard WHERE code = 'isic_v4'
+INSERT INTO settings(activity_category_standard_id,country_id)
+SELECT (SELECT id FROM activity_category_standard WHERE code = 'isic_v4')
+     , (SELECT id FROM public.country WHERE iso_2 = 'UN')
 ON CONFLICT (only_one_setting)
 DO UPDATE SET
-   activity_category_standard_id =(SELECT id FROM activity_category_standard WHERE code = 'isic_v4')
-   WHERE settings.id = EXCLUDED.id;
-;
-\echo "User uploads the sample activity categories"
-"User uploads the sample activity categories"
+    activity_category_standard_id = EXCLUDED.activity_category_standard_id,
+    country_id = EXCLUDED.country_id;
+\echo "User uploads the demo activity categories"
+"User uploads the demo activity categories"
 \copy public.activity_category_available_custom(path,name) FROM 'app/public/demo/activity_custom_isic_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-\echo "User uploads the sample regions"
-"User uploads the sample regions"
+\echo "User uploads the demo regions"
+"User uploads the demo regions"
 \copy public.region_upload(path, name) FROM 'app/public/demo/regions_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-\echo "User uploads the sample legal forms"
-"User uploads the sample legal forms"
-\copy public.legal_form_custom_only(code,name) FROM 'app/public/demo/legal_forms_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-\echo "User uploads the sample sectors"
-"User uploads the sample sectors"
+\echo "User uploads the demo sectors"
+"User uploads the demo sectors"
 \copy public.sector_custom_only(path,name,description) FROM 'app/public/demo/sectors_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo "User uploads the demo legal forms"
+"User uploads the demo legal forms"
+\copy public.legal_form_custom_only(code,name) FROM 'app/public/demo/legal_forms_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+-- The demo data uses data sources that are part of the core database seed.
+-- This file is included for structural consistency with other sample data sets.
 -- Create Import Job for Legal Units (Demo CSV with source dates)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
 SELECT

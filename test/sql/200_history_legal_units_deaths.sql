@@ -9,34 +9,7 @@ BEGIN;
 -- A Super User configures statbus.
 CALL test.set_user_from_email('test.admin@statbus.org');
 
-\echo "User selected the Activity Category Standard"
-INSERT INTO settings(activity_category_standard_id,only_one_setting)
-SELECT id, true FROM activity_category_standard WHERE code = 'nace_v2.1'
-ON CONFLICT (only_one_setting)
-DO UPDATE SET
-   activity_category_standard_id =(SELECT id FROM activity_category_standard WHERE code = 'nace_v2.1')
-   WHERE settings.id = EXCLUDED.id;
-;
-SELECT acs.code
-  FROM public.settings AS s
-  JOIN activity_category_standard AS acs
-    ON s.activity_category_standard_id = acs.id;
-
-\echo "User uploads the sample activity categories"
-\copy public.activity_category_available_custom(path,name,description) FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-SELECT count(*) FROM public.activity_category_available;
-
-\echo "User uploads the sample regions"
-\copy public.region_upload(path, name) FROM 'samples/norway/regions/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-SELECT count(*) FROM public.region;
-
-\echo "User uploads the sample legal forms"
-\copy public.legal_form_custom_only(code,name) FROM 'samples/norway/legal_form/legal_form_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-SELECT count(*) FROM public.legal_form_available;
-
-\echo "User uploads the sample sectors"
-\copy public.sector_custom_only(path,name,description) FROM 'samples/norway/sector/sector_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-SELECT count(*) FROM public.sector_available;
+\i samples/norway/getting-started.sql
 
 SAVEPOINT before_loading_units;
 

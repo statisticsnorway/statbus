@@ -1,3 +1,3 @@
 valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code,data_source_code
-2010-01-01,2012-12-31,823573673,KRANLØFT ENK,2010-01-01,2012-12-31,Vestlyvegen 219,4347,LYE,1121,NO,,,,,,49.410,,2100,ENK,ntr
-2013-01-01,infinity,921835809,KRAN & SPESIALLØFT AS,2013-01-01,,Vestlyvegen 219,4347,LYE,1121,NO,,,,,,49.410,,2100,AS,ntr
+2010-01-01,2012-12-31,823573673,KRANLØFT ENK,2010-01-01,2012-12-31,Vestlyvegen 219,4347,LYE,1121,NO,,,,,,49.410,,2100,ENK,skatt
+2013-01-01,infinity,921835809,KRAN & SPESIALLØFT AS,2013-01-01,,Vestlyvegen 219,4347,LYE,1121,NO,,,,,,49.410,,2100,AS,skatt

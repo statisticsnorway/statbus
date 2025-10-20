@@ -100,15 +100,27 @@ $remove_pg_temp_for_tx_user_switch$;
 "Setting up Statbus using the web provided examples"
 -- A Super User configures statbus.
 CALL test.set_user_from_email('test.admin@statbus.org');
-\echo "User selected the Activity Category Standard"
-"User selected the Activity Category Standard"
-INSERT INTO settings(activity_category_standard_id,only_one_setting)
-SELECT id, true FROM activity_category_standard WHERE code = 'nace_v2.1'
+\i samples/norway/getting-started.sql
+\i samples/norway/settings.sql
+INSERT INTO settings(activity_category_standard_id,country_id)
+SELECT (SELECT id FROM activity_category_standard WHERE code = 'nace_v2.1')
+     , (SELECT id FROM public.country WHERE iso_2 = 'NO')
 ON CONFLICT (only_one_setting)
 DO UPDATE SET
-   activity_category_standard_id =(SELECT id FROM activity_category_standard WHERE code = 'nace_v2.1')
-   WHERE settings.id = EXCLUDED.id;
+   activity_category_standard_id = EXCLUDED.activity_category_standard_id,
+   country_id = EXCLUDED.country_id
+   WHERE settings.only_one_setting = EXCLUDED.only_one_setting;
 ;
+\i samples/norway/activity_category/activity_category_norway.sql
+\copy public.activity_category_available_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/regions/norway-regions-2024.sql
+\copy public.region_upload(path, name) FROM 'samples/norway/regions/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/sector/sector_norway.sql
+\copy public.sector_custom_only FROM 'samples/norway/sector/sector_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/legal_form/legal_form_norway.sql
+\copy public.legal_form_custom_only FROM 'samples/norway/legal_form/legal_form_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/data_source/data_source_norway.sql
+\copy public.data_source_custom (code, name) FROM 'samples/norway/data_source/data_source_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 SELECT acs.code
   FROM public.settings AS s
   JOIN activity_category_standard AS acs
@@ -118,9 +130,6 @@ SELECT acs.code
  nace_v2.1
 (1 row)
 
-\echo "User uploads the sample activity categories"
-"User uploads the sample activity categories"
-\copy public.activity_category_available_custom(path,name,description) FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 SELECT standard_code
      , code
      , path
@@ -2348,9 +2357,6 @@ ORDER BY standard_code, path;
  nace_v2.1     | 99.00  | V.99.0.0   | V.99.0      | V9900  | Activities of extraterritorial organisations and bodies
 (2215 rows)
 
-\echo "User uploads the sample regions"
-"User uploads the sample regions"
-\copy public.region_upload(path, name) FROM 'samples/norway/regions/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 SELECT path
      , level
      , label
@@ -2779,9 +2785,6 @@ SELECT path
  99.99 |     2 | 9999  | 9999 | Uoppgitt
 (417 rows)
 
-\echo "User uploads the sample legal forms"
-"User uploads the sample legal forms"
-\copy public.legal_form_custom_only(code,name) FROM 'samples/norway/legal_form/legal_form_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 SELECT code
      , name
      , custom
@@ -2837,9 +2840,6 @@ SELECT code
  AAFY | Underenhet til ikke-næringsdrivende                     | t
 (46 rows)
 
-\echo "User uploads the sample sectors"
-"User uploads the sample sectors"
-\copy public.sector_custom_only(path,name,description) FROM 'samples/norway/sector/sector_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 SELECT path
      , name
      , custom
@@ -2881,19 +2881,19 @@ SELECT path
  utl.f_utl.9000       | Utlandet                                                      | t
 (33 rows)
 
-\echo "User uploads the sample data sources"
-"User uploads the sample data sources"
-\copy public.data_source_custom(code,name) FROM 'test/data/01_norwegian_data_source.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 SELECT code
      , name
      , custom
 FROM public.data_source_available;
  code  |               name               | custom 
 -------+----------------------------------+--------
+ annet | Annen ekstern kilde              | t
  brreg | Brønnøysundregistrene            | t
- mi    | Manuell inntasting               | t
+ mi    | Manuell Inntasting               | t
  nav   | Arbeids- og velferdsforvaltninga | t
-(3 rows)
+ skatt | Skatteetaten                     | t
+ spør  | Spørreskjema fra SSB             | t
+(6 rows)
 
 \echo "Supress invalid code warnings, they are tested later, and the debug output contains the current date, that changes with time."
 "Supress invalid code warnings, they are tested later, and the debug output contains the current date, that changes with time."
@@ -3222,7 +3222,7 @@ reset_getting_started
     },
     "data_source": {
         "changed_count": 6,
-        "deleted_count": 3
+        "deleted_count": 6
     },
     "tag_for_unit": {
         "deleted_count": 0
