@@ -11,7 +11,7 @@ import { DataTable } from "@/components/data-table/data-table";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
 import { 
-  ColumnDef, PaginationState, SortingState, ColumnFiltersState, FilterFn, Row,
+  ColumnDef, PaginationState, SortingState, ColumnFiltersState, FilterFn, Row, VisibilityState,
   useReactTable, getCoreRowModel, getFilteredRowModel, getPaginationRowModel, getSortedRowModel, getFacetedRowModel, getFacetedUniqueValues, getFacetedMinMaxValues 
 } from "@tanstack/react-table";
 import Link from "next/link";
@@ -135,6 +135,7 @@ export default function ImportJobDataPage() {
   ]);
 
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
 
   const { data: job, error: jobError, isLoading: isJobLoading } = useSWR<ImportJob>(
     `import-job/${jobSlug}`,
@@ -458,6 +459,7 @@ export default function ImportJobDataPage() {
       pagination,
       sorting,
       columnFilters,
+      columnVisibility,
     },
     enableFilters: true,
     enableColumnFilters: true,
@@ -465,6 +467,7 @@ export default function ImportJobDataPage() {
     onPaginationChange: setPagination,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
+    onColumnVisibilityChange: setColumnVisibility,
     getRowId: (row) => String(row.row_id),
     manualPagination: true,
     manualSorting: true,
