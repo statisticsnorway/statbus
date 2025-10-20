@@ -4,6 +4,7 @@ SELECT id, true FROM activity_category_standard WHERE code = 'isic_v4'
 ON CONFLICT (only_one_setting)
 DO UPDATE SET
    activity_category_standard_id =(SELECT id FROM activity_category_standard WHERE code = 'isic_v4')
+   country_id =(SELECT id FROM public.country WHERE iso_2 = 'un')
    WHERE settings.id = EXCLUDED.id;
 
 -- Load custom activity categories for the demo.
