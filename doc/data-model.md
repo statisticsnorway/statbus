@@ -202,8 +202,8 @@ Handles background processing. A long-running worker process calls `worker.proce
 - `api_key(id, user_id, created_at, expires_at, revoked_at, jti, description, token)`
 - `refresh_session(id, user_id, created_at, last_used_at, expires_at, jti, refresh_version, user_agent, ip_address)`
   - Key FKs: user_id.
-- `settings(id, activity_category_standard_id, only_one_setting)`
-  - Key FKs: activity_category_standard_id.
+- `settings(id, activity_category_standard_id, country_id, only_one_setting)`
+  - Key FKs: activity_category_standard_id, country_id.
 - `region_access(id, user_id, region_id)`
   - Key FKs: region_id, user_id.
 - `activity_category_access(id, user_id, activity_category_id)`
