@@ -6,7 +6,11 @@ if test -n "${DEBUG:-}"; then
   set -x
 fi
 
-# TODO: if the `choose` command is not available suggest installation with `brew install choose-rust`
+if ! command -v choose &> /dev/null; then
+  echo "Error: The 'choose' command is not available. Please install it, e.g. with:" >&2
+  echo "  brew install choose-rust" >&2
+  exit 1
+fi
 
 # Get all branches matching the pattern devops/deploy-to-(.*) except production
 SUFFIXES=$(git branch -a | grep 'remotes/origin/devops/deploy-to-' | grep -v 'production' | sd 'remotes/origin/devops/deploy-to-(.*?)' '$1')
@@ -29,6 +33,7 @@ ${statbus_users}
 API: ${NEXT_PUBLIC_BROWSER_REST_URL}
 API Username ${DASHBOARD_USERNAME}
 API Password ${DASHBOARD_PASSWORD}
+PostgreSQL: postgresql://postgres:${POSTGRES_ADMIN_PASSWORD}@localhost:${DB_PUBLIC_LOCALHOST_PORT}/${POSTGRES_DB}
 Shell Access: 'ssh ${USER}@niue.statbus.org'
 ############################################################
 
