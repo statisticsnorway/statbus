@@ -3,10 +3,10 @@
 #   docker build -t statbus_postgres -f postgres/Dockerfile postgres
 # To see all output use
 #   docker build --progress=plain -t statbus_postgres -f postgres/Dockerfile postgres
-# Using PostgreSQL 17 on Ubuntu lastest LTS
+# Using PostgreSQL 18 on Ubuntu lastest LTS
 
 # Set PostgreSQL version
-ARG postgresql_major=17
+ARG postgresql_major=18
 
 # Set extension versions
 ARG pgtap_release=v1.3.3
@@ -16,9 +16,9 @@ ARG wal2json_release=wal2json_2_6
 ARG pg_hashids_release=cd0e1b31d52b394a0df64079406a14a4f7387cd6
 ARG pgsql_http_release=v1.6.3
 ARG pg_trgm_release=1.6
-ARG sql_saga_release=acb8531fe396
-ARG pg_stat_monitor_release=2.1.1
 ARG pg_repack_release=ver_1.5.2
+ARG sql_saga_release=958ef0b8427d
+ARG pg_stat_monitor_release=cd0feaf215e7236e3ffbe03458ce84c98b883a3f
 ARG hypopg_release=1.4.1
 ARG index_advisor_release=v0.2.0
 ARG pgjwt_release=f3d82fd
@@ -317,7 +317,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && rm -rf /var/lib/apt/lists/*
 
 # Create directory for PostgreSQL configuration
-RUN wget -O /usr/local/bin/docker-entrypoint.sh https://raw.githubusercontent.com/docker-library/postgres/master/17/bookworm/docker-entrypoint.sh
+RUN wget -O /usr/local/bin/docker-entrypoint.sh https://raw.githubusercontent.com/docker-library/postgres/master/18/bookworm/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Database configuration variables
