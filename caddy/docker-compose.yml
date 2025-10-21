@@ -2,7 +2,9 @@
 services:
   proxy:
     container_name: ${COMPOSE_INSTANCE_NAME:?COMPOSE_INSTANCE_NAME must be set in the generated .env}-proxy
-    image: caddy:2-alpine
+    build:
+      context: .
+      dockerfile: Dockerfile
     restart: unless-stopped
     ports:
       - "${CADDY_HTTP_BIND_ADDRESS:?CADDY_HTTP_BIND_ADDRESS must be set in the generated .env}:80/tcp"
