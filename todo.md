@@ -30,3 +30,11 @@
     2. [ ] Refactor the subqueries for `activity`, `location`, `contact`, and `stat_for_unit` to use `daterange` operators.
     3. [ ] Verify the query plans are updated to use Index Scans.
 
+- [ ] **Security: Upgrade to PostgreSQL 18 and implement OAuth authentication for safer public exposure**
+  - **Plan**:
+    1. [x] Update postgres/Dockerfile to build PG18.
+    2. [x] Configure pg_hba.conf for OAuth on public connections, keeping password auth for internal networks.
+    3. [x] Integrate caddy-l4 module into Caddy for future TCP multiplexing.
+    4. [ ] Implement custom OAuth validator module in C to validate Statbus JWTs.
+    5. [ ] Test direct DB connection using psql with an OAuth token.
+
