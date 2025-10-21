@@ -1,0 +1,6 @@
+comment = 'pg_jwt_validator:  Created by pgrx'
+default_version = '@CARGO_VERSION@'
+module_pathname = 'pg_jwt_validator'
+relocatable = false
+superuser = true
+trusted = false
