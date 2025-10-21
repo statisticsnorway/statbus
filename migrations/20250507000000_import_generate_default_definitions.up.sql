@@ -1,6 +1,8 @@
 -- Migration
 BEGIN;
 
+CREATE OR REPLACE PROCEDURE admin.noop() LANGUAGE plpgsql AS $noop$ BEGIN END; $noop$;
+
 -- Procedure to synchronize source columns and mappings for a specific step in a definition
 CREATE OR REPLACE PROCEDURE import.synchronize_definition_step_mappings(p_definition_id INT, p_step_code TEXT)
 LANGUAGE plpgsql AS $$
@@ -73,6 +75,12 @@ LANGUAGE plpgsql AS $$
 DECLARE
     v_def RECORD;
 BEGIN
+    -- Cleanup must run before generation. Since this procedure is now part of a
+    -- high-priority "generate" callback, it effectively runs after all the
+    -- lower-priority "cleanup" callbacks have finished. This is the correct
+    -- time to clean up orphaned source columns left behind by those callbacks.
+    CALL import.cleanup_orphaned_synced_mappings();
+
     RAISE DEBUG '--> Running import.synchronize_default_definitions_all_steps...';
     FOR v_def IN
         SELECT id FROM public.import_definition WHERE active = TRUE AND custom = FALSE
@@ -146,18 +154,11 @@ CALL lifecycle_callbacks.del('import_stat_var_data_columns');
 CALL lifecycle_callbacks.del('import_link_lu_data_columns');
 CALL lifecycle_callbacks.del('import_external_ident_data_columns');
 
--- Re-add callbacks. Those added first get lower priority values, so their
--- cleanup procedures will run LAST.
+-- Re-add callbacks. Those added first get lower priority values.
+-- Their cleanup procedures will run in reverse order of priority (LIFO).
+-- Their generate procedures will run in order of priority (FIFO).
 
--- This should run last, after all data columns have been cleaned up.
-CALL lifecycle_callbacks.add(
-    'import_sync_default_definition_mappings',
-    ARRAY['public.external_ident_type', 'public.stat_definition']::regclass[],
-    'import.synchronize_default_definitions_all_steps',
-    'import.cleanup_orphaned_synced_mappings'
-);
-
--- These should run before the orphan cleanup.
+-- Data column generators should run first (lower priority)
 CALL lifecycle_callbacks.add(
     'import_external_ident_data_columns',
     ARRAY['public.external_ident_type']::regclass[],
@@ -175,6 +176,17 @@ CALL lifecycle_callbacks.add(
     ARRAY['public.stat_definition']::regclass[],
     'import.generate_stat_var_data_columns',
     'import.cleanup_stat_var_data_columns'
+);
+
+-- The synchronizer runs last during generation (highest priority) to ensure all data columns exist.
+-- Its cleanup logic is now handled at the start of its own generation procedure,
+-- so its dedicated cleanup callback is a no-op. This ensures that the orphan
+-- cleanup runs *after* all the domain-specific data column cleanups.
+CALL lifecycle_callbacks.add(
+    'import_sync_default_definition_mappings',
+    ARRAY['public.external_ident_type', 'public.stat_definition']::regclass[],
+    'import.synchronize_default_definitions_all_steps',
+    'admin.noop' -- Cleanup is handled by the generate procedure.
 );
 
 -- Initial call to synchronize mappings for existing default definitions

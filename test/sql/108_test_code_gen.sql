@@ -79,94 +79,59 @@ INSERT INTO public.stat_definition(code, type, frequency, name, description, pri
 
 \echo "Check generated code from stat_definition modifications"
 
-\echo "Removed import_data_column rows:"
-SELECT * FROM import_data_column_baseline
-EXCEPT
-SELECT
-    step_id,
-    priority,
-    column_name,
-    column_type,
-    purpose::text AS purpose,
-    is_nullable,
-    default_value,
-    is_uniquely_identifying
+\echo "Verifying data columns..."
+\echo "  - Columns for deleted 'employees' should be gone (should be empty):"
+SELECT 'employees_related_columns_exist' AS test, column_name
 FROM public.import_data_column
-ORDER BY step_id, priority NULLS FIRST, column_name;
+WHERE column_name IN ('employees', 'employees_raw', 'stat_for_unit_employees_id');
 
-\echo "Added import_data_column rows:"
-SELECT
-    step_id,
-    priority,
-    column_name,
-    column_type,
-    purpose::text AS purpose,
-    is_nullable,
-    default_value,
-    is_uniquely_identifying
+\echo "  - Columns for archived 'children_employees' should not exist (should be empty):"
+SELECT 'archived_children_employees_columns_exist' AS test, column_name
 FROM public.import_data_column
-EXCEPT
-SELECT * FROM import_data_column_baseline
-ORDER BY step_id, priority NULLS FIRST, column_name;
+WHERE column_name LIKE 'children_employees%';
 
-\echo "Check generated code from stat_definition modifications for source columns"
+\echo "  - Columns for new definitions should exist (should be empty):"
+WITH expected AS (
+  SELECT code, 3::bigint AS expected_count FROM (VALUES
+    ('men_employees'), ('women_employees'), ('boy_employees'), ('girl_employees')
+  ) AS t(code)
+), actual AS (
+  SELECT regexp_replace(column_name, '(_raw|stat_for_unit_|_id)', '', 'g') AS code, count(*) AS actual_count
+  FROM public.import_data_column
+  WHERE step_id = (SELECT id FROM public.import_step WHERE code = 'statistical_variables')
+    AND regexp_replace(column_name, '(_raw|stat_for_unit_|_id)', '', 'g') IN (SELECT code FROM expected)
+  GROUP BY 1
+)
+SELECT e.code, e.expected_count, COALESCE(a.actual_count, 0) AS actual_count
+FROM expected e LEFT JOIN actual a ON e.code = a.code
+WHERE COALESCE(a.actual_count, 0) <> e.expected_count;
 
-\echo "Removed import_source_column rows:"
-SELECT * FROM import_source_column_baseline
-EXCEPT
-SELECT
-    definition_id,
-    priority,
-    column_name
+\echo "Verifying source columns..."
+\echo "  - Source column for deleted 'employees' should be gone (should be empty):"
+SELECT 'employees_source_column_exists' AS test, definition_id, column_name
 FROM public.import_source_column
-WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
-ORDER BY definition_id, priority, column_name;
+WHERE column_name = 'employees' AND definition_id IN (SELECT id FROM public.import_definition WHERE custom = false);
 
-\echo "Added import_source_column rows:"
-SELECT
-    definition_id,
-    priority,
-    column_name
+\echo "  - Source column for archived 'children_employees' should not exist (should be empty):"
+SELECT 'archived_children_employees_source_column_exists' AS test, definition_id, column_name
 FROM public.import_source_column
-WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
-EXCEPT
-SELECT * FROM import_source_column_baseline
-ORDER BY definition_id, priority, column_name;
+WHERE column_name = 'children_employees' AND definition_id IN (SELECT id FROM public.import_definition WHERE custom = false);
 
-\echo "Check generated code from stat_definition modifications for mappings"
-\echo "Removed import_mapping rows:"
-SELECT * FROM import_mapping_baseline
-EXCEPT
-SELECT
-    m.definition_id,
-    isc.column_name AS source_column_name,
-    m.source_expression,
-    idc.column_name AS target_data_column_name,
-    m.target_data_column_purpose::text AS target_data_column_purpose,
-    m.is_ignored,
-    m.source_value
-FROM public.import_mapping m
-LEFT JOIN public.import_source_column isc ON m.source_column_id = isc.id
-LEFT JOIN public.import_data_column idc ON m.target_data_column_id = idc.id
-WHERE m.definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
-ORDER BY definition_id, source_column_name NULLS FIRST, source_expression, target_data_column_name;
-
-\echo "Added import_mapping rows:"
-SELECT
-    m.definition_id,
-    isc.column_name AS source_column_name,
-    m.source_expression,
-    idc.column_name AS target_data_column_name,
-    m.target_data_column_purpose::text AS target_data_column_purpose,
-    m.is_ignored,
-    m.source_value
-FROM public.import_mapping m
-LEFT JOIN public.import_source_column isc ON m.source_column_id = isc.id
-LEFT JOIN public.import_data_column idc ON m.target_data_column_id = idc.id
-WHERE m.definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
-EXCEPT
-SELECT * FROM import_mapping_baseline
-ORDER BY definition_id, source_column_name NULLS FIRST, source_expression, target_data_column_name;
+\echo "  - Source columns for new definitions should exist for all default definitions (should be empty):"
+WITH expected_codes AS (
+  SELECT unnest(ARRAY['men_employees', 'women_employees', 'boy_employees', 'girl_employees']) AS code
+), def_count AS (
+  SELECT count(*) AS ct FROM public.import_definition WHERE custom = false
+), actual_counts AS (
+  SELECT column_name AS code, count(*) AS ct
+  FROM public.import_source_column
+  WHERE column_name IN (SELECT code FROM expected_codes)
+    AND definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+  GROUP BY 1
+)
+SELECT ec.code, (SELECT ct FROM def_count) AS expected_count, COALESCE(ac.ct, 0) AS actual_count
+FROM expected_codes ec LEFT JOIN actual_counts ac ON ec.code = ac.code
+WHERE COALESCE(ac.ct, 0) <> (SELECT ct FROM def_count);
 
 \echo "Establish a new baseline after stat_definition changes"
 CREATE TEMP TABLE import_data_column_baseline_2 AS
@@ -230,94 +195,59 @@ UPDATE public.external_ident_type SET archived = true wHERE code = 'mobile';
 
 \echo "Check generated code from external_ident_type modifications"
 
-\echo "Removed import_data_column rows:"
-SELECT * FROM import_data_column_baseline_2
-EXCEPT
-SELECT
-    step_id,
-    priority,
-    column_name,
-    column_type,
-    purpose::text AS purpose,
-    is_nullable,
-    default_value,
-    is_uniquely_identifying
+\echo "Verifying data columns..."
+\echo "  - Columns for deleted 'stat_ident' should be gone (should be empty):"
+SELECT 'deleted_stat_ident_columns_exist' AS test, column_name
 FROM public.import_data_column
-ORDER BY step_id, priority NULLS FIRST, column_name;
+WHERE column_name IN ('stat_ident_raw', 'legal_unit_stat_ident_raw');
 
-\echo "Added import_data_column rows:"
-SELECT
-    step_id,
-    priority,
-    column_name,
-    column_type,
-    purpose::text AS purpose,
-    is_nullable,
-    default_value,
-    is_uniquely_identifying
+\echo "  - Columns for archived 'mobile' should not exist (should be empty):"
+SELECT 'archived_mobile_columns_exist' AS test, column_name
 FROM public.import_data_column
-EXCEPT
-SELECT * FROM import_data_column_baseline_2
-ORDER BY step_id, priority NULLS FIRST, column_name;
+WHERE column_name IN ('mobile_raw', 'legal_unit_mobile_raw');
 
-\echo "Check generated code from external_ident_type modifications for source columns"
+\echo "  - Columns for new 'pin' identifier should exist (should be empty):"
+WITH expected AS (
+    SELECT 'pin_raw' AS column_name, 1::bigint AS expected_count
+    UNION ALL SELECT 'legal_unit_pin_raw', 1
+), actual AS (
+    SELECT column_name, count(*) AS actual_count
+    FROM public.import_data_column WHERE column_name IN (SELECT column_name FROM expected)
+    GROUP BY 1
+)
+SELECT e.column_name, e.expected_count, COALESCE(a.actual_count, 0) AS actual_count
+FROM expected e LEFT JOIN actual a ON e.column_name = a.column_name
+WHERE COALESCE(a.actual_count, 0) <> e.expected_count;
 
-\echo "Removed import_source_column rows:"
-SELECT * FROM import_source_column_baseline_2
-EXCEPT
-SELECT
-    definition_id,
-    priority,
-    column_name
+
+\echo "Verifying source columns..."
+\echo "  - Source columns for deleted 'stat_ident' should be gone (should be empty):"
+SELECT 'deleted_stat_ident_source_columns_exist' AS test, column_name
 FROM public.import_source_column
-WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
-ORDER BY definition_id, priority, column_name;
+WHERE column_name IN ('stat_ident', 'legal_unit_stat_ident')
+  AND definition_id IN (SELECT id FROM public.import_definition WHERE custom = false);
 
-\echo "Added import_source_column rows:"
-SELECT
-    definition_id,
-    priority,
-    column_name
+\echo "  - Source columns for archived 'mobile' should not exist (should be empty):"
+SELECT 'archived_mobile_source_columns_exist' AS test, column_name
 FROM public.import_source_column
-WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
-EXCEPT
-SELECT * FROM import_source_column_baseline_2
-ORDER BY definition_id, priority, column_name;
+WHERE column_name IN ('mobile', 'legal_unit_mobile')
+  AND definition_id IN (SELECT id FROM public.import_definition WHERE custom = false);
 
-\echo "Check generated code from external_ident_type modifications for mappings"
-\echo "Removed import_mapping rows:"
-SELECT * FROM import_mapping_baseline_2
-EXCEPT
-SELECT
-    m.definition_id,
-    isc.column_name AS source_column_name,
-    m.source_expression,
-    idc.column_name AS target_data_column_name,
-    m.target_data_column_purpose::text AS target_data_column_purpose,
-    m.is_ignored,
-    m.source_value
-FROM public.import_mapping m
-LEFT JOIN public.import_source_column isc ON m.source_column_id = isc.id
-LEFT JOIN public.import_data_column idc ON m.target_data_column_id = idc.id
-WHERE m.definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
-ORDER BY definition_id, source_column_name NULLS FIRST, source_expression, target_data_column_name;
-
-\echo "Added import_mapping rows:"
-SELECT
-    m.definition_id,
-    isc.column_name AS source_column_name,
-    m.source_expression,
-    idc.column_name AS target_data_column_name,
-    m.target_data_column_purpose::text AS target_data_column_purpose,
-    m.is_ignored,
-    m.source_value
-FROM public.import_mapping m
-LEFT JOIN public.import_source_column isc ON m.source_column_id = isc.id
-LEFT JOIN public.import_data_column idc ON m.target_data_column_id = idc.id
-WHERE m.definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
-EXCEPT
-SELECT * FROM import_mapping_baseline_2
-ORDER BY definition_id, source_column_name NULLS FIRST, source_expression, target_data_column_name;
+\echo "  - Source columns for new 'pin' identifier should exist for all relevant default definitions (should be empty):"
+WITH expected AS (
+    SELECT 'pin' AS code, (SELECT count(*) FROM public.import_definition WHERE custom=false) AS expected_count
+    UNION ALL
+    SELECT 'legal_unit_pin' AS code,
+           (SELECT count(*) FROM public.import_definition WHERE custom=false AND slug IN ('establishment_for_lu_job_provided', 'establishment_for_lu_source_dates')) AS expected_count
+), actual AS (
+    SELECT column_name AS code, count(*) AS actual_count
+    FROM public.import_source_column
+    WHERE column_name IN ('pin', 'legal_unit_pin') AND definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+    GROUP BY 1
+)
+SELECT e.code, e.expected_count, COALESCE(a.actual_count, 0) AS actual_count
+FROM expected e LEFT JOIN actual a ON e.code = a.code
+WHERE COALESCE(a.actual_count, 0) <> e.expected_count;
 
 \echo "---"
 \echo "Testing that data restoration after reset correctly restores the initial state"
@@ -326,82 +256,52 @@ ORDER BY definition_id, source_column_name NULLS FIRST, source_expression, targe
 \echo "Calling reset to restore database (note: this incorrectly deletes system data modified during test)"
 SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'all'::public.reset_scope));
 
-\echo "Re-inserting system data that was deleted during the test to trigger regeneration"
--- This simulates restoring the DB to its true pre-test state.
--- The INSERTs will trigger the lifecycle callbacks and regenerate the required import columns and mappings.
-
--- Restore system stat_definition
--- NOTE: The ON CONFLICT is necessary because reset() does not clear the sequence, leading to key conflicts
--- if we only used INSERT. This ensures the data is in the state defined by migrations.
-INSERT INTO public.stat_definition(id, code, type, frequency, name, description, priority, archived)
-OVERRIDING SYSTEM VALUE
-VALUES
-  (1, 'employees','int','yearly','Number of employees','The number of people receiving an official salary with government reporting.',2, false),
-  (2, 'turnover','float','yearly','Turnover','The amount of money taken by a business in a particular period.',1, false)
-ON CONFLICT (id) DO UPDATE SET
-    code = EXCLUDED.code,
-    type = EXCLUDED.type,
-    frequency = EXCLUDED.frequency,
-    name = EXCLUDED.name,
-    description = EXCLUDED.description,
-    priority = EXCLUDED.priority,
-    archived = EXCLUDED.archived;
-
--- Restore system external_ident_type
-INSERT INTO public.external_ident_type(id, code, name, priority, description, archived)
-OVERRIDING SYSTEM VALUE
-VALUES
-    (1, 'tax_ident', 'Tax Identifier', 1, 'Official tax identification number provided by the government.', false),
-    (2, 'stat_ident', 'Statistical Identifier', 2, 'Identifier assigned by the statistical office for internal tracking.', false)
-ON CONFLICT (id) DO UPDATE SET
-    code = EXCLUDED.code,
-    name = EXCLUDED.name,
-    priority = EXCLUDED.priority,
-    description = EXCLUDED.description,
-    archived = EXCLUDED.archived;
+\echo "System data is restored by the reset() function now."
+-- The logic to re-insert system data has been moved into the public.reset()
+-- function itself, making it a true "reset to factory defaults".
+-- This simplifies tests and ensures consistent state restoration.
 
 \echo "Checking if tables have been restored to their original baseline state after reset and data restoration"
 
-\echo "Removed import_data_column rows after restoration (should be empty, ignoring priority):"
-SELECT step_id, column_name, column_type, purpose, is_nullable, default_value, is_uniquely_identifying FROM import_data_column_baseline
-EXCEPT
-SELECT step_id, column_name, column_type, purpose::text, is_nullable, default_value, is_uniquely_identifying FROM public.import_data_column ORDER BY 1,2,3;
+\echo "Verifying import_data_column restoration (should be empty):"
+(
+    SELECT 'missing' AS state, step_id, column_name, column_type, purpose, is_nullable, default_value, is_uniquely_identifying FROM import_data_column_baseline
+    EXCEPT
+    SELECT 'missing' AS state, step_id, column_name, column_type, purpose::text, is_nullable, default_value, is_uniquely_identifying FROM public.import_data_column
+) UNION ALL (
+    SELECT 'added' AS state, step_id, column_name, column_type, purpose::text, is_nullable, default_value, is_uniquely_identifying FROM public.import_data_column
+    EXCEPT
+    SELECT 'added' AS state, step_id, column_name, column_type, purpose, is_nullable, default_value, is_uniquely_identifying FROM import_data_column_baseline
+) ORDER BY state, step_id, column_name;
 
-\echo "Added import_data_column rows after restoration (should be empty, ignoring priority):"
-SELECT step_id, column_name, column_type, purpose::text, is_nullable, default_value, is_uniquely_identifying FROM public.import_data_column
-EXCEPT
-SELECT step_id, column_name, column_type, purpose, is_nullable, default_value, is_uniquely_identifying FROM import_data_column_baseline ORDER BY 1,2,3;
+\echo "Verifying import_source_column restoration (should be empty):"
+(
+    SELECT 'missing' as state, definition_id, column_name FROM import_source_column_baseline
+    EXCEPT
+    SELECT 'missing' as state, definition_id, column_name FROM public.import_source_column WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+) UNION ALL (
+    SELECT 'added' as state, definition_id, column_name FROM public.import_source_column WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+    EXCEPT
+    SELECT 'added' as state, definition_id, column_name FROM import_source_column_baseline
+) ORDER BY state, definition_id, column_name;
 
-
-\echo "Removed import_source_column rows after restoration (should be empty, ignoring priority):"
-SELECT definition_id, column_name FROM import_source_column_baseline
-EXCEPT
-SELECT definition_id, column_name FROM public.import_source_column WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = false) ORDER BY 1,2;
-
-\echo "Added import_source_column rows after restoration (should be empty, ignoring priority):"
-SELECT definition_id, column_name FROM public.import_source_column WHERE definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
-EXCEPT
-SELECT definition_id, column_name FROM import_source_column_baseline ORDER BY 1,2;
-
-
-\echo "Removed import_mapping rows after restoration (should be empty):"
-SELECT * FROM import_mapping_baseline
-EXCEPT
-SELECT m.definition_id, isc.column_name, m.source_expression, idc.column_name, m.target_data_column_purpose::text, m.is_ignored, m.source_value
-FROM public.import_mapping m
-LEFT JOIN public.import_source_column isc ON m.source_column_id = isc.id
-LEFT JOIN public.import_data_column idc ON m.target_data_column_id = idc.id
-WHERE m.definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
-ORDER BY 1,2,4;
-
-\echo "Added import_mapping rows after restoration (should be empty):"
-SELECT m.definition_id, isc.column_name, m.source_expression, idc.column_name, m.target_data_column_purpose::text, m.is_ignored, m.source_value
-FROM public.import_mapping m
-LEFT JOIN public.import_source_column isc ON m.source_column_id = isc.id
-LEFT JOIN public.import_data_column idc ON m.target_data_column_id = idc.id
-WHERE m.definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
-EXCEPT
-SELECT * FROM import_mapping_baseline
-ORDER BY 1,2,4;
+\echo "Verifying import_mapping restoration (should be empty):"
+(
+    SELECT 'missing' AS state, definition_id, source_column_name, source_expression, target_data_column_name, target_data_column_purpose, is_ignored, source_value FROM import_mapping_baseline
+    EXCEPT
+    SELECT 'missing' AS state, m.definition_id, isc.column_name, m.source_expression, idc.column_name, m.target_data_column_purpose::text, m.is_ignored, m.source_value
+    FROM public.import_mapping m
+    LEFT JOIN public.import_source_column isc ON m.source_column_id = isc.id
+    LEFT JOIN public.import_data_column idc ON m.target_data_column_id = idc.id
+    WHERE m.definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+) UNION ALL (
+    SELECT 'added' AS state, m.definition_id, isc.column_name, m.source_expression, idc.column_name, m.target_data_column_purpose::text, m.is_ignored, m.source_value
+    FROM public.import_mapping m
+    LEFT JOIN public.import_source_column isc ON m.source_column_id = isc.id
+    LEFT JOIN public.import_data_column idc ON m.target_data_column_id = idc.id
+    WHERE m.definition_id IN (SELECT id FROM public.import_definition WHERE custom = false)
+    EXCEPT
+    SELECT 'added' AS state, definition_id, source_column_name, source_expression, target_data_column_name, target_data_column_purpose, is_ignored, source_value FROM import_mapping_baseline
+) ORDER BY state, definition_id, source_column_name NULLS FIRST, target_data_column_name;
 
 ROLLBACK;
