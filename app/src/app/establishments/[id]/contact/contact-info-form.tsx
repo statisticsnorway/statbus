@@ -13,7 +13,7 @@ import { SelectFormField } from "@/components/form/select-form-field";
 
 export default function ContactInfoForm({ id }: { readonly id: string }) {
   const [locationState, locationAction] = useActionState(
-    updateLocation.bind(null, id, "postal", "establishment"),
+    updateLocation.bind(null, id, "establishment"),
     null
   );
   const [contactState, contactAction] = useActionState(
@@ -112,6 +112,7 @@ export default function ContactInfoForm({ id }: { readonly id: string }) {
         action={locationAction}
         response={locationState}
         metadata={postalLocation}
+        hiddenFields={{ type: "postal" }}
       >
         {({ isEditing }) => (
           <>

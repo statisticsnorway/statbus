@@ -18,6 +18,7 @@ export const locationSchema = zfd.formData({
   latitude: z.coerce.number().optional(),
   longitude: z.coerce.number().optional(),
   altitude: z.coerce.number().optional(),
+  type: z.enum(["physical", "postal"]),
   ...editMetadataSchemaFields,
 });
 

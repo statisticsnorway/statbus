@@ -4,6 +4,7 @@ import { zfd } from "zod-form-data";
 
 export const activitySchema = zfd.formData({
   category_id: z.coerce.number(),
+  type: z.enum(["primary", "secondary", "ancilliary"]),
   ...editMetadataSchemaFields,
 });
 

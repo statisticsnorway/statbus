@@ -26,7 +26,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
     null
   );
   const [locationState, locationAction] = useActionState(
-    updateLocation.bind(null, id, "physical", "establishment"),
+    updateLocation.bind(null, id, "establishment"),
     null
   );
   const { externalIdentTypes } = useBaseData();
@@ -103,6 +103,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
         action={locationAction}
         response={locationState}
         metadata={physicalLocation}
+        hiddenFields={{ type: "physical" }}
       >
         {({ isEditing }) => (
           <div className="flex flex-col gap-4">

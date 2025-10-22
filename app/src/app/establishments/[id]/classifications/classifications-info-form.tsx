@@ -17,12 +17,12 @@ export default function ClassificationsInfoForm({
   );
   const { activityCategories } = useDetailsPageData();
   const [primaryActivityState, primaryActivityAction] = useActionState(
-    updateActivity.bind(null, id, "primary", "establishment"),
+    updateActivity.bind(null, id, "establishment"),
     null
   );
 
   const [secondaryActivityState, secondaryActivityAction] = useActionState(
-    updateActivity.bind(null, id, "secondary", "establishment"),
+    updateActivity.bind(null, id, "establishment"),
     null
   );
 
@@ -64,6 +64,7 @@ export default function ClassificationsInfoForm({
         options={activityCategoryOptions}
         metadata={primaryActivity}
         placeholder="Select an activity category"
+        hiddenFields={{ type: "primary" }}
       />
       <EditableSelectWithMetadata
         label="Secondary Activity category"
@@ -79,6 +80,7 @@ export default function ClassificationsInfoForm({
         options={activityCategoryOptions}
         metadata={secondaryActivity}
         placeholder="Select an activity category"
+        hiddenFields={{ type: "secondary" }}
       />
     </div>
   );

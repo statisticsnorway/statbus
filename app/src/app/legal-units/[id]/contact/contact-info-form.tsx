@@ -16,7 +16,7 @@ import { SelectFormField } from "@/components/form/select-form-field";
 
 export default function ContactInfoForm({ id }: { readonly id: string }) {
   const [locationState, locationAction] = useActionState(
-    updateLocation.bind(null, id, "postal", "legal_unit"),
+    updateLocation.bind(null, id, "legal_unit"),
     null
   );
   const [contactState, contactAction] = useActionState(
@@ -55,124 +55,125 @@ export default function ContactInfoForm({ id }: { readonly id: string }) {
   return (
     <div className="space-y-2">
       <div>
-          <EditableFieldGroup
-            key={legalUnit?.contact?.id}
-            fieldGroupId="contact-info"
-            title="Communication"
-            action={contactAction}
-            response={contactState}
-            metadata={legalUnit?.contact}
-          >
-            {({ isEditing }) => (
+        <EditableFieldGroup
+          key={legalUnit?.contact?.id}
+          fieldGroupId="contact-info"
+          title="Communication"
+          action={contactAction}
+          response={contactState}
+          metadata={legalUnit?.contact}
+        >
+          {({ isEditing }) => (
+            <div className="grid lg:grid-cols-2 gap-4">
+              <FormField
+                readonly={!isEditing}
+                label="Email address"
+                name="email_address"
+                value={legalUnit?.contact?.email_address}
+                response={null}
+              />
+              <FormField
+                readonly={!isEditing}
+                label="Web Address"
+                name="web_address"
+                value={legalUnit?.contact?.web_address}
+                response={null}
+              />
+              <FormField
+                readonly={!isEditing}
+                label="Phone number"
+                name="phone_number"
+                value={legalUnit?.contact?.phone_number}
+                response={null}
+              />
+              <FormField
+                readonly={!isEditing}
+                label="Landline"
+                name="landline"
+                value={legalUnit?.contact?.landline}
+                response={null}
+              />
+              <FormField
+                readonly={!isEditing}
+                label="Mobile Number"
+                name="mobile_number"
+                value={legalUnit?.contact?.mobile_number}
+                response={null}
+              />
+              <FormField
+                readonly={!isEditing}
+                label="Fax Number"
+                name="fax_number"
+                value={legalUnit?.contact?.fax_number}
+                response={null}
+              />
+            </div>
+          )}
+        </EditableFieldGroup>
+      </div>
+      <EditableFieldGroup
+        key={postalLocation?.id}
+        fieldGroupId="postal-location"
+        title="Postal Location"
+        action={locationAction}
+        response={locationState}
+        metadata={postalLocation}
+        hiddenFields={{ type: "postal" }}
+      >
+        {({ isEditing }) => (
+          <>
+            <div className="flex flex-col gap-4">
+              <div className="grid lg:grid-cols-2 gap-4 *:col-start-1">
+                <FormField
+                  readonly={!isEditing}
+                  label="Address part1"
+                  name="address_part1"
+                  value={postalLocation?.address_part1}
+                  response={null}
+                />
+                <FormField
+                  readonly={!isEditing}
+                  label="Address part2"
+                  name="address_part2"
+                  value={postalLocation?.address_part2}
+                  response={null}
+                />
+                <FormField
+                  readonly={!isEditing}
+                  label="Address part3"
+                  name="address_part3"
+                  value={postalLocation?.address_part3}
+                  response={null}
+                />
+              </div>
               <div className="grid lg:grid-cols-2 gap-4">
                 <FormField
                   readonly={!isEditing}
-                  label="Email address"
-                  name="email_address"
-                  value={legalUnit?.contact?.email_address}
+                  label="Post code"
+                  name="postcode"
+                  value={postalLocation?.postcode}
                   response={null}
                 />
                 <FormField
                   readonly={!isEditing}
-                  label="Web Address"
-                  name="web_address"
-                  value={legalUnit?.contact?.web_address}
+                  label="Post place"
+                  name="postplace"
+                  value={postalLocation?.postplace}
                   response={null}
                 />
-                <FormField
+                <SelectFormField
                   readonly={!isEditing}
-                  label="Phone number"
-                  name="phone_number"
-                  value={legalUnit?.contact?.phone_number}
-                  response={null}
-                />
-                <FormField
-                  readonly={!isEditing}
-                  label="Landline"
-                  name="landline"
-                  value={legalUnit?.contact?.landline}
-                  response={null}
-                />
-                <FormField
-                  readonly={!isEditing}
-                  label="Mobile Number"
-                  name="mobile_number"
-                  value={legalUnit?.contact?.mobile_number}
-                  response={null}
-                />
-                <FormField
-                  readonly={!isEditing}
-                  label="Fax Number"
-                  name="fax_number"
-                  value={legalUnit?.contact?.fax_number}
-                  response={null}
+                  label="Country"
+                  name="country_id"
+                  value={postalLocation?.country?.id}
+                  options={countriesOptions}
+                  placeholder="Select a country"
                 />
               </div>
-            )}
-          </EditableFieldGroup>
-      </div>
-        <EditableFieldGroup
-          key={postalLocation?.id}
-          fieldGroupId="postal-location"
-          title="Postal Location"
-          action={locationAction}
-          response={locationState}
-          metadata={postalLocation}
-        >
-          {({ isEditing }) => (
-            <>
-              <div className="flex flex-col gap-4">
-                <div className="grid lg:grid-cols-2 gap-4 *:col-start-1">
-                  <FormField
-                    readonly={!isEditing}
-                    label="Address part1"
-                    name="address_part1"
-                    value={postalLocation?.address_part1}
-                    response={null}
-                  />
-                  <FormField
-                    readonly={!isEditing}
-                    label="Address part2"
-                    name="address_part2"
-                    value={postalLocation?.address_part2}
-                    response={null}
-                  />
-                  <FormField
-                    readonly={!isEditing}
-                    label="Address part3"
-                    name="address_part3"
-                    value={postalLocation?.address_part3}
-                    response={null}
-                  />
-                </div>
-                <div className="grid lg:grid-cols-2 gap-4">
-                  <FormField
-                    readonly={!isEditing}
-                    label="Post code"
-                    name="postcode"
-                    value={postalLocation?.postcode}
-                    response={null}
-                  />
-                  <FormField
-                    readonly={!isEditing}
-                    label="Post place"
-                    name="postplace"
-                    value={postalLocation?.postplace}
-                    response={null}
-                  />
-                  <SelectFormField
-                    readonly={!isEditing}
-                    label="Country"
-                    name="country_id"
-                    value={postalLocation?.country?.id}
-                    options={countriesOptions}
-                    placeholder="Select a country"
-                  />
-                </div>
-              </div>
-            </>
-          )}
-        </EditableFieldGroup>
+            </div>
+          </>
+        )}
+      </EditableFieldGroup>
     </div>
   );
 }

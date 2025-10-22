@@ -10,7 +10,9 @@ import { _parseAuthStatusRpcResponseToAuthStatus } from "@/lib/auth.types";
 import { contactInfoSchema } from "./contact/validation";
 import {
   resolveSchemaByType,
+  checkValidityBounds,
 } from "@/components/form/helper-functions";
+import { z } from "zod";
 
 export async function getEditMetadata(client: any) {
   const { data } = await client.rpc("auth_status", {}, { get: true });
@@ -52,25 +54,48 @@ export async function updateLegalUnit(
     };
   }
 
-  const { valid_from, valid_to, ...updatedFields } = validatedFields.data;
+  const { valid_from, valid_to } = validatedFields.data;
 
   try {
     const { error: metadataError, metadata } = await getEditMetadata(client);
     if (metadataError) return metadataError;
 
     const payload = { ...validatedFields.data, ...metadata };
-
-    const response = await client
-      .from("legal_unit__for_portion_of_valid")
-      .update(payload)
+    const { data: overlappingRows, error: overlapError } = await client
+      .from("legal_unit")
+      .select("*")
       .eq("id", parseInt(id, 10))
-      .gte("valid_from", valid_from)
-      .lte("valid_to", valid_to);
+      .lte("valid_from", valid_to)
+      .gte("valid_to", valid_from);
 
-    if (response.status >= 400) {
+    if (overlapError) {
+      return { status: "error", message: overlapError.message };
+    }
+
+    if (overlappingRows && overlappingRows.length > 0) {
+      const boundsError = checkValidityBounds(
+        overlappingRows,
+        valid_from,
+        valid_to,
+        "legal unit"
+      );
+      if (boundsError) return boundsError;
+      const response = await client
+        .from("legal_unit__for_portion_of_valid")
+        .update(payload)
+        .eq("id", parseInt(id, 10));
+
+      if (response.status >= 400) {
+        return {
+          status: "error",
+          message: response.error?.message || response.statusText,
+        };
+      }
+    } else {
       return {
         status: "error",
-        message: response.error?.message || response.statusText,
+        message:
+          "Cannot insert legal unit. Only updates within the existing date range are allowed.",
       };
     }
     revalidatePath("/legal-units/[id]", "page");
@@ -83,78 +108,19 @@ export async function updateLegalUnit(
 
 export async function updateLocation(
   id: string,
-  locationType: "physical" | "postal",
   unitType: "establishment" | "legal_unit",
   _prevState: any,
   formData: FormData
 ): Promise<UpdateResponse> {
-  "use server";
-  const client = await getServerRestClient();
-  const validatedFields = locationSchema.safeParse(formData);
-
-  if (!validatedFields.success) {
-    return {
-      status: "error",
-      message: "failed to parse location form data",
-      errors: validatedFields.error.issues.map((issue) => ({
-        path: issue.path.join("."),
-        message: issue.message,
-      })),
-    };
-  }
-  const unitIdField = `${unitType}_id`;
-  const { valid_from, valid_to, ...updatedFields } = validatedFields.data;
-  try {
-    const { error: metadataError, metadata } = await getEditMetadata(client);
-    if (metadataError) return metadataError;
-
-    const { data: exactSlice, error: exactErr } = await client
-      .from("location__for_portion_of_valid")
-      .select(unitIdField)
-      .eq(unitIdField, parseInt(id, 10))
-      .eq("type", locationType)
-      .eq("valid_from", valid_from as string)
-      .eq("valid_to", valid_to as string)
-      .limit(1);
-    if (exactErr) {
-      return {
-        status: "error" as const,
-        message: exactErr.message,
-      };
-    }
-    if (exactSlice && exactSlice.length === 1) {
-      const response = await client
-        .from("location")
-        .update({ ...updatedFields, ...metadata })
-        .eq(unitIdField, parseInt(id, 10))
-        .eq("type", locationType)
-        .eq("valid_from", valid_from as string)
-        .eq("valid_to", valid_to as string);
-
-      if (response.status >= 400) {
-        return { status: "error", message: response.statusText };
-      }
-    } else {
-      const response = await client
-        .from("location__for_portion_of_valid")
-        .update({ ...validatedFields.data, ...metadata })
-        .eq("type", locationType)
-        .eq(unitIdField, parseInt(id, 10));
-
-      if (response.status >= 400) {
-        return {
-          status: "error",
-          message: response.error?.message || response.statusText,
-        };
-      }
-    }
-
-    revalidatePath(`/${unitType.replace("_", "-")}/[id]", "page`);
-  } catch (error) {
-    return { status: "error", message: "failed to update location" };
-  }
-
-  return { status: "success", message: "Location successfully updated" };
+  return upsertTemporalRecord({
+    id: id,
+    unitType: unitType,
+    tableName: "location",
+    schemaType: locationSchema,
+    formData,
+    naturalKeys: ["type"],
+    revalidationPath: ``,
+  });
 }
 
 export async function updateContact(
@@ -163,148 +129,31 @@ export async function updateContact(
   _prevState: any,
   formData: FormData
 ): Promise<UpdateResponse> {
-  "use server";
-  const client = await getServerRestClient();
-  const validatedFields = contactInfoSchema.safeParse(formData);
-
-  if (!validatedFields.success) {
-    return {
-      status: "error",
-      message: "failed to parse location form data",
-      errors: validatedFields.error.issues.map((issue) => ({
-        path: issue.path.join("."),
-        message: issue.message,
-      })),
-    };
-  }
-  const unitIdField = `${unitType}_id`;
-  const { valid_from, valid_to, ...updatedFields } = validatedFields.data;
-  try {
-    const { error: metadataError, metadata } = await getEditMetadata(client);
-    if (metadataError) return metadataError;
-
-    const { data: exactSlice, error: exactErr } = await client
-      .from("contact__for_portion_of_valid")
-      .select(unitIdField)
-      .eq(unitIdField, parseInt(id, 10))
-      .eq("valid_from", valid_from as string)
-      .eq("valid_to", valid_to as string)
-      .limit(1);
-    if (exactErr) {
-      return {
-        status: "error" as const,
-        message: exactErr.message,
-      };
-    }
-    if (exactSlice && exactSlice.length === 1) {
-      const response = await client
-        .from("contact")
-        .update({ ...updatedFields, ...metadata })
-        .eq(unitIdField, parseInt(id, 10))
-        .eq("valid_from", valid_from as string)
-        .eq("valid_to", valid_to as string);
-
-      if (response.status >= 400) {
-        return { status: "error", message: response.statusText };
-      }
-    } else {
-      const response = await client
-        .from("contact__for_portion_of_valid")
-        .update({ ...validatedFields.data, ...metadata })
-        .eq(unitIdField, parseInt(id, 10));
-
-      if (response.status >= 400) {
-        return {
-          status: "error",
-          message: response.error?.message || response.statusText,
-        };
-      }
-    }
-
-    revalidatePath(`/${unitType.replace("_", "-")}/[id]/contact", "page`);
-  } catch (error) {
-    return { status: "error", message: "failed to update contact" };
-  }
-
-  return { status: "success", message: "Contact successfully updated" };
+  return upsertTemporalRecord({
+    id: id,
+    unitType: unitType,
+    tableName: "contact",
+    schemaType: contactInfoSchema,
+    formData,
+    revalidationPath: `contact`,
+  });
 }
 
 export async function updateActivity(
   id: string,
-  activityType: "primary" | "secondary" | "ancilliary",
   unitType: "establishment" | "legal_unit",
   _prevState: any,
   formData: FormData
 ): Promise<UpdateResponse> {
-  "use server";
-  const client = await getServerRestClient();
-  const validatedFields = activitySchema.safeParse(formData);
-
-  if (!validatedFields.success) {
-    return {
-      status: "error",
-      message: "failed to parse activity form data",
-      errors: validatedFields.error.issues.map((issue) => ({
-        path: issue.path.join("."),
-        message: issue.message,
-      })),
-    };
-  }
-  const unitIdField = `${unitType}_id`;
-  const { valid_from, valid_to, ...updatedFields } = validatedFields.data;
-
-  try {
-    const { error: metadataError, metadata } = await getEditMetadata(client);
-    if (metadataError) return metadataError;
-    const { data: exactSlice, error: exactErr } = await client
-      .from("activity__for_portion_of_valid")
-      .select(unitIdField)
-      .eq(unitIdField, parseInt(id, 10))
-      .eq("type", activityType)
-      .eq("valid_from", valid_from as string)
-      .eq("valid_to", valid_to as string)
-      .limit(1);
-    if (exactErr) {
-      return {
-        status: "error" as const,
-        message: exactErr.message,
-      };
-    }
-    if (exactSlice && exactSlice.length === 1) {
-      const response = await client
-        .from("activity")
-        .update({ ...updatedFields, ...metadata })
-        .eq(unitIdField, parseInt(id, 10))
-        .eq("type", activityType)
-        .eq("valid_from", valid_from as string)
-        .eq("valid_to", valid_to as string);
-
-      if (response.status >= 400) {
-        return { status: "error", message: response.statusText };
-      }
-    } else {
-      const response = await client
-        .from("activity__for_portion_of_valid")
-        .update({ ...validatedFields.data, ...metadata })
-        .eq("type", activityType)
-        .eq(unitIdField, parseInt(id, 10));
-
-      if (response.status >= 400) {
-        return {
-          status: "error",
-          message: response.error?.message || response.statusText,
-        };
-      }
-    }
-
-    revalidatePath(
-      `/${unitType.replace("_", "-")}/[id]/classifications", "page`
-    );
-  } catch (error) {
-    return { status: "error", message: "failed to update activity" };
-  }
-
-  return { status: "success", message: "Activity successfully updated" };
+  return upsertTemporalRecord({
+    id: id,
+    unitType: unitType,
+    tableName: "activity",
+    schemaType: activitySchema,
+    formData,
+    naturalKeys: ["type"],
+    revalidationPath: `classifications`,
+  });
 }
 
 export async function updateStatisticalVariables(
@@ -313,59 +162,122 @@ export async function updateStatisticalVariables(
   _prevState: any,
   formData: FormData
 ): Promise<UpdateResponse> {
-  "use server";
+  return upsertTemporalRecord({
+    id: id,
+    unitType: unitType,
+    tableName: "stat_for_unit",
+    schemaType: statsSchema,
+    formData,
+    naturalKeys: ["stat_definition_id"],
+    revalidationPath: "statistical-variables",
+  });
+}
+
+interface upsertTemporalRecordParams {
+  id: string;
+  unitType: "establishment" | "legal_unit";
+  tableName: "activity" | "location" | "stat_for_unit" | "contact";
+  schemaType: z.Schema;
+  formData: FormData;
+  naturalKeys?: string[];
+  revalidationPath: string;
+}
+
+export async function upsertTemporalRecord({
+  id,
+  unitType,
+  tableName,
+  schemaType,
+  formData,
+  revalidationPath,
+  naturalKeys = [],
+}: upsertTemporalRecordParams): Promise<UpdateResponse> {
   const client = await getServerRestClient();
-  const validatedFields = statsSchema.safeParse(formData);
+  const validatedFields = schemaType.safeParse(formData);
 
   if (!validatedFields.success) {
     return {
       status: "error",
-      message: "failed to parse location form data",
+      message: `failed to parse form data for ${tableName}`,
       errors: validatedFields.error.issues.map((issue) => ({
         path: issue.path.join("."),
         message: issue.message,
       })),
     };
   }
-  const unitIdField = `${unitType}_id`;
-  const { valid_from, valid_to, stat_definition_id, ...updatedFields } =
-    validatedFields.data;
+  const unitIdFieldName = `${unitType}_id`;
+  const unitId = parseInt(id, 10);
+  const { valid_from, valid_to } = validatedFields.data;
+  const naturalKeyValues: { [key: string]: any } = {
+    [unitIdFieldName]: unitId,
+  };
+  for (const key of naturalKeys) {
+    if (key in validatedFields.data) {
+      naturalKeyValues[key] = validatedFields.data[key];
+    }
+  }
   try {
     const { error: metadataError, metadata } = await getEditMetadata(client);
     if (metadataError) return metadataError;
-
-    const { data: exactSlice, error: exactErr } = await client
-      .from("stat_for_unit__for_portion_of_valid")
-      .select(unitIdField)
-      .eq(unitIdField, parseInt(id, 10))
-      .eq("stat_definition_id", stat_definition_id as number)
-      .eq("valid_from", valid_from as string)
-      .eq("valid_to", valid_to as string)
-      .limit(1);
-    if (exactErr) {
+    const payload = { ...validatedFields.data, ...metadata };
+    let overlapQuery = client
+      .from(tableName)
+      .select("*")
+      .lte("valid_from", valid_to)
+      .gte("valid_to", valid_from);
+    for (const key in naturalKeyValues) {
+      overlapQuery = overlapQuery.eq(key, naturalKeyValues[key]);
+    }
+    const { data: overlappingRows, error: overlapError } = await overlapQuery;
+    if (overlapError) {
       return {
         status: "error" as const,
-        message: exactErr.message,
+        message: overlapError.message,
       };
     }
-    if (exactSlice && exactSlice.length === 1) {
-      const response = await client
-        .from("stat_for_unit")
-        .update({ ...updatedFields, ...metadata })
-        .eq(unitIdField, parseInt(id, 10))
-        .eq("stat_definition_id", stat_definition_id as number)
-        .eq("valid_from", valid_from as string)
-        .eq("valid_to", valid_to as string);
+    if (overlappingRows && overlappingRows.length > 0) {
+      const boundsError = checkValidityBounds(
+        overlappingRows,
+        valid_from,
+        valid_to,
+        tableName
+      );
+      if (boundsError) return boundsError;
 
+      let updateQuery = client
+        .from(`${tableName}__for_portion_of_valid`)
+        .update(payload);
+
+      for (const key in naturalKeyValues) {
+        updateQuery = updateQuery.eq(key, naturalKeyValues[key]);
+      }
+      const response = await updateQuery;
       if (response.status >= 400) {
-        return { status: "error", message: response.statusText };
+        return {
+          status: "error",
+          message: response.error?.message || response.statusText,
+        };
       }
     } else {
-      const response = await client
-        .from("stat_for_unit__for_portion_of_valid")
-        .update({ ...validatedFields.data, ...metadata })
-        .eq(unitIdField, parseInt(id, 10))
-        .eq("stat_definition_id", stat_definition_id as number);
+      let insertPayload = { ...payload, ...naturalKeyValues };
+      let templateQuery = client.from(tableName).select("id").limit(1);
+      for (const key in naturalKeyValues) {
+        templateQuery = templateQuery.eq(key, naturalKeyValues[key]);
+      }
+      const { data, error: templateError } = await templateQuery;
+
+      if (templateError) {
+        return {
+          status: "error",
+          message: `Failed to fetch template record: ${templateError.message}`,
+        };
+      }
+
+      if (data && data.length > 0) {
+        insertPayload.id = data[0].id;
+      }
+
+      const response = await client.from(tableName).insert([insertPayload]);
 
       if (response.status >= 400) {
         return {
@@ -376,19 +288,14 @@ export async function updateStatisticalVariables(
     }
 
     revalidatePath(
-      `/${unitType.replace("_", "-")}/[id]/statistical-variables", "page`
+      `/${unitType.replace("_", "-")}s/[id]/${revalidationPath}`,
+      "page"
     );
   } catch (error) {
-    return {
-      status: "error",
-      message: "failed to update statistical variable",
-    };
+    return { status: "error", message: `failed to update ${tableName}` };
   }
 
-  return {
-    status: "success",
-    message: "Statistical variable successfully updated",
-  };
+  return { status: "success", message: `${tableName} successfully updated` };
 }
 
 export async function setPrimaryLegalUnit(id: number) {
