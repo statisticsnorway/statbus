@@ -4,24 +4,8 @@ import { zfd } from "zod-form-data";
 
 export const generalInfoSchema = zfd.formData({
   name: z.string().optional(),
-  status_id: z.coerce.number().optional(),
-  birth_date: z.preprocess(
-    (val) => (val === "" ? undefined : val),
-    z.string().date().optional()
-  ),
-  death_date: z.preprocess(
-    (val) => (val === "" ? undefined : val),
-    z.string().date().optional()
-  ),
-  sector_id: z.coerce.number().optional(),
-  legal_form_id: z.coerce.number().optional(),
-  unit_size_id: z.preprocess(
-    (val) => (val === "" ? null : val),
-    z.coerce.number().nullable().optional()
-  ),
   ...editMetadataSchemaFields,
 });
- 
 
 export const locationSchema = zfd.formData({
   address_part1: z.string().optional(),
@@ -30,7 +14,7 @@ export const locationSchema = zfd.formData({
   postcode: z.string().optional(),
   postplace: z.string().optional(),
   region_id: z.coerce.number().optional(),
-  country_id: z.coerce.number().optional(),
+  country_id: z.coerce.number(),
   latitude: z.coerce.number().optional(),
   longitude: z.coerce.number().optional(),
   altitude: z.coerce.number().optional(),

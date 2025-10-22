@@ -23,7 +23,7 @@ import { useSWRConfig } from "swr";
 
 export default function GeneralInfoForm({ id }: { readonly id: string }) {
   const [state, formAction] = useActionState(
-    updateLegalUnit.bind(null, id),
+    updateLegalUnit.bind(null, id, "general-info"),
     null
   );
   const [externalIdentState, externalIdentFormAction] = useActionState(

@@ -4,15 +4,17 @@ import { revalidatePath } from "next/cache";
 import { createServerLogger } from "@/lib/server-logger";
 import { generalInfoSchema } from "@/app/legal-units/[id]/general-info/validation";
 import { getEditMetadata } from "@/app/legal-units/[id]/update-legal-unit-server-actions";
+import { resolveSchemaByType } from "@/components/form/helper-functions";
 
 export async function updateEstablishment(
   id: string,
+  schemaType: SchemaType,
   _prevState: any,
   formData: FormData
 ): Promise<UpdateResponse> {
   const client = await getServerRestClient();
-  const validatedFields = generalInfoSchema.safeParse(formData);
-
+  const schema = resolveSchemaByType(schemaType);
+  const validatedFields = schema.safeParse(formData);
   if (!validatedFields.success) {
     return {
       status: "error",

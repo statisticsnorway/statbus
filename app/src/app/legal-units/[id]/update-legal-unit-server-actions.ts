@@ -8,6 +8,9 @@ import { activitySchema } from "./classifications/validation";
 import { statsSchema } from "./statistical-variables/validation";
 import { _parseAuthStatusRpcResponseToAuthStatus } from "@/lib/auth.types";
 import { contactInfoSchema } from "./contact/validation";
+import {
+  resolveSchemaByType,
+} from "@/components/form/helper-functions";
 
 export async function getEditMetadata(client: any) {
   const { data } = await client.rpc("auth_status", {}, { get: true });
@@ -31,12 +34,13 @@ export async function getEditMetadata(client: any) {
 }
 export async function updateLegalUnit(
   id: string,
+  schemaType: SchemaType,
   _prevState: any,
   formData: FormData
 ): Promise<UpdateResponse> {
   const client = await getServerRestClient();
-  const validatedFields = generalInfoSchema.safeParse(formData);
-
+  const schema = resolveSchemaByType(schemaType);
+  const validatedFields = schema.safeParse(formData);
   if (!validatedFields.success) {
     return {
       status: "error",

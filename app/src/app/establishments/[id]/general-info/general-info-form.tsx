@@ -18,7 +18,7 @@ import { EditableFieldGroup } from "@/components/form/editable-field-group";
 
 export default function GeneralInfoForm({ id }: { readonly id: string }) {
   const [state, formAction] = useActionState(
-    updateEstablishment.bind(null, id),
+    updateEstablishment.bind(null, id, "general-info"),
     null
   );
   const [externalIdentState, externalIdentFormAction] = useActionState(

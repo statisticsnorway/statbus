@@ -30,11 +30,11 @@ export default function ClassificationsInfoForm({
   );
 
   const [sectorState, sectorAction] = useActionState(
-    updateLegalUnit.bind(null, id),
+    updateLegalUnit.bind(null, id, "sector"),
     null
   );
   const [legalFormState, legalFormAction] = useActionState(
-    updateLegalUnit.bind(null, id),
+    updateLegalUnit.bind(null, id, "legal-form"),
     null
   );
 
