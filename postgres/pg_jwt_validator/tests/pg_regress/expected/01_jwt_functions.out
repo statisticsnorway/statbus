@@ -1,0 +1,8 @@
+-- These functions are adapted from the pgjwt extension (https://github.com/michelp/pgjwt)
+-- and are used here for testing purposes to generate JWTs within SQL.
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
