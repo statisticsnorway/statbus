@@ -325,16 +325,16 @@ module Statbus
 
         config = Dotenv.using(config_file) do |config_env|
           deployment_slot_code = config_env.generate("DEPLOYMENT_SLOT_CODE") { "dev" }
+          deployment_slot_name = config_env.generate("DEPLOYMENT_SLOT_NAME") { "dev" }
           postgres_app_db = config_env.generate("POSTGRES_APP_DB") { "statbus_#{deployment_slot_code}" }
           postgres_app_user = config_env.generate("POSTGRES_APP_USER") { "statbus_#{deployment_slot_code}" }
           postgres_notify_user = config_env.generate("POSTGRES_NOTIFY_USER") { "statbus_notify_#{deployment_slot_code}" }
-          _deployment_slot_code = config_env.generate("DEPLOYMENT_SLOT_CODE") { "dev" }
           _caddy_deployment_mode = config_env.generate("CADDY_DEPLOYMENT_MODE") { "development" }
           _deployment_slot_port_offset_str = config_env.generate("DEPLOYMENT_SLOT_PORT_OFFSET") { "1" }
           _deployment_slot_port_offset = _deployment_slot_port_offset_str.to_i
 
           _default_browser_api_url = if _caddy_deployment_mode == "standalone"
-                                       _site_domain_val = config_env.generate("SITE_DOMAIN") { "#{_deployment_slot_code}.statbus.org" }
+                                       _site_domain_val = config_env.generate("SITE_DOMAIN") { "#{deployment_slot_code}.statbus.org" }
                                        "https://#{_site_domain_val}"
                                      else
                                        _base_port = 3000
@@ -345,8 +345,8 @@ module Statbus
                                      end
 
           ConfigEnv.new(
-            deployment_slot_name: _deployment_slot_code, # Use _deployment_slot_code for consistency if it's intended for name too
-            deployment_slot_code: _deployment_slot_code,
+            deployment_slot_code: deployment_slot_code,
+            deployment_slot_name: deployment_slot_name,
             deployment_slot_port_offset: _deployment_slot_port_offset_str,
             # This needs to be replaced by the publicly available DNS name i.e. statbus.example.org
             statbus_url: config_env.generate("STATBUS_URL") { "http://localhost:3010" }, # Example, ensure port matches app_port logic if needed
@@ -370,7 +370,7 @@ module Statbus
             refresh_jwt_expiry: config_env.generate("REFRESH_JWT_EXPIRY") { "2592000" }, # 30 days in seconds
             # Caddy configuration
             caddy_deployment_mode: _caddy_deployment_mode, # Use the already read value
-            site_domain: config_env.generate("SITE_DOMAIN") { "#{_deployment_slot_code}.statbus.org" },
+            site_domain: config_env.generate("SITE_DOMAIN") { "#{deployment_slot_code}.statbus.org" },
             # Debug flags
             debug: config_env.generate("DEBUG") { "false" },
             next_public_debug: config_env.generate("NEXT_PUBLIC_DEBUG") { "false" },
