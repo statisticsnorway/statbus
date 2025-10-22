@@ -68,7 +68,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
   const legalUnit = data?.legal_unit?.[0];
 
 
-  const physicalLocation = legalUnit?.location.find(
+  const physicalLocation = legalUnit?.location?.find(
     (loc) => loc.type === "physical"
   );
 

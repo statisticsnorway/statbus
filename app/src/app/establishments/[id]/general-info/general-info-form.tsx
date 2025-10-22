@@ -58,7 +58,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
     return <UnitNotFound />;
   }
   const establishment = data?.establishment?.[0];
-  const physicalLocation = establishment?.location.find(
+  const physicalLocation = establishment?.location?.find(
     (loc) => loc.type === "physical"
   );
   const regionOptions = regions.map((region) => ({
