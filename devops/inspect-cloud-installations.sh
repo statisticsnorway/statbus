@@ -30,10 +30,12 @@ Frontend: ${STATBUS_URL}/
 Username Role Password:
 ${statbus_users}
 ############################################################
-API: ${NEXT_PUBLIC_BROWSER_REST_URL}
-API Username ${DASHBOARD_USERNAME}
-API Password ${DASHBOARD_PASSWORD}
-PostgreSQL: postgresql://postgres:${POSTGRES_ADMIN_PASSWORD}@localhost:${DB_PUBLIC_LOCALHOST_PORT}/${POSTGRES_DB}
+PostgreSQL: postgresql://postgres:${POSTGRES_ADMIN_PASSWORD}@localhost:${DB_PUBLIC_LOCALHOST_PORT}/${POSTGRES_APP_DB}
+Port: ${DB_PUBLIC_LOCALHOST_PORT}
+Database: ${POSTGRES_APP_DB}
+User: ${POSTGRES_APP_USER}
+Password: ${POSTGRES_APP_PASSWORD}
+############################################################
 Shell Access: 'ssh ${USER}@niue.statbus.org'
 ############################################################
 
