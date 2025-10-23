@@ -1,86 +1,93 @@
 
 
-Select 'Runs MA'  "StatbusStatus", now() "AT";
+CREATE OR REPLACE PROCEDURE public.custom_setup_ma()
+LANGUAGE plpgsql
+AS $BODY$
+BEGIN
 
---takes away external ids if any
-delete from external_ident_type where code NOT in ('tax_ident','stat_ident');
-
-INSERT INTO external_ident_type (code, name, priority)
-VALUES
-('cnss_ident', 'Cnss', 3),
-('hcp_ident', 'Hcp', 4),
-('ice_ident', 'Ice', 5);
-
---not using stat_ident - so lest hide this identifier from the statbus app:
-update external_ident_type set archived = TRUE where code in ('stat_ident');
+    RAISE NOTICE 'Runs MA at %', now();
+	CALL public.custom_setup_reset();
 
 
-delete from data_source_custom ;
-
-INSERT INTO data_source_custom (code, name)
-VALUES
-    ('Base2014', 'Base2014'),
-    ('CNSS2014', 'CNSS2014'),
-    ('CNSS2015', 'CNSS2015'),
-    ('CNSS2016', 'CNSS2016'),
-    ('CNSS2017', 'CNSS2017'),
-    ('CNSS2018', 'CNSS2018'),
-    ('CNSS2019', 'CNSS2019'),
-    ('CNSS2020', 'CNSS2020'),
-    ('CNSS2021', 'CNSS2021'),
-    ('CNSS2022', 'CNSS2022');
+    INSERT INTO external_ident_type (code, name, priority)
+    VALUES
+        ('cnss_ident', 'Cnss', 3),
+        ('hcp_ident', 'Hcp', 4),
+        ('ice_ident', 'Ice', 5);
 
 
-update data_source
-set active = TRUE;
+ UPDATE external_ident_type
+    SET archived = FALSE
+    WHERE id <= 2;
 
 
 
-delete from stat_definition where code NOT in ('employees','turnover');
-INSERT INTO stat_definition (code, type,frequency, name, priority)
-VALUES
-('share_capital', 'float', 'yearly', 'Share_capital', 3);
-
-update activity_category_standard
-set code_pattern = 'digits'
-where code = 'nace_v2.1';
+    -- hide stat_ident
+    UPDATE external_ident_type
+    SET archived = TRUE
+    WHERE code = 'stat_ident';
 
 
+    INSERT INTO data_source_custom (code, name)
+    VALUES
+        ('Base2014', 'Base2014'),
+        ('CNSS2014', 'CNSS2014'),
+        ('CNSS2015', 'CNSS2015'),
+        ('CNSS2016', 'CNSS2016'),
+        ('CNSS2017', 'CNSS2017'),
+        ('CNSS2018', 'CNSS2018'),
+        ('CNSS2019', 'CNSS2019'),
+        ('CNSS2020', 'CNSS2020'),
+        ('CNSS2021', 'CNSS2021'),
+        ('CNSS2022', 'CNSS2022');
 
-delete from unit_size where id >4 and custom is TRUE;
-
-INSERT INTO unit_size (code, name, active, custom)
-VALUES
-
-('t', 'Tiny', TRUE, TRUE),
-('p', 'PetitSmall', TRUE, TRUE),
-('m', 'Moyen', TRUE, TRUE),
-('l', 'Grande', TRUE, TRUE);
---or like this, country to deceide
---(1, 'Tiny', TRUE, TRUE),
---(2, 'PetitSmall', TRUE, TRUE),
---(3, 'Moyen', TRUE, TRUE),
---(4, 'Grande', TRUE, TRUE);
-
-
-
-update status
-set active = FALSE where custom=FALSE;
+    UPDATE data_source
+    SET active = TRUE;
 
 
-delete from status where id >2 and custom=TRUE;
-INSERT INTO status (code, name, assigned_by_default, used_for_counting,priority, active, custom)
-VALUES
-('act', 'Active', TRUE, TRUE,3,TRUE,TRUE),
-('inact', 'Inactive', FALSE, TRUE,4,TRUE,TRUE),
-('veil', 'En veilleuse', FALSE, TRUE,3,TRUE,TRUE),
-('cess', 'Cessation', FALSE, TRUE,4,TRUE,TRUE),
-('fus-abs', 'Fusion-Absrption', FALSE, TRUE,5,TRUE,TRUE),
-('rad', 'Radiee', FALSE, FALSE,6,TRUE,TRUE);
+    INSERT INTO stat_definition (code, type, frequency, name, priority)
+    VALUES
+        ('share_capital', 'float', 'yearly', 'Share_capital', 3);
+
+    UPDATE activity_category_standard
+    SET code_pattern = 'digits'
+    WHERE code = 'nace_v2.1';
 
 
 
+    INSERT INTO unit_size (code, name, active, custom)
+    VALUES
+        ('tpe', 'Tiny', TRUE, TRUE),
+        ('p', 'Petit', TRUE, TRUE),
+        ('m', 'Moyen', TRUE, TRUE),
+        ('g', 'Grande', TRUE, TRUE);
+
+
+--hide the original ones
+update unit_size
+set active = FALSE
+where custom = FALSE;
+
+
+    UPDATE status
+    SET active = FALSE
+    WHERE custom = FALSE;
+
+--select * from status
 
 
 
-Select 'Done MA'  "StatbusStatus", now() "AT";
+    INSERT INTO status
+        (code, name, assigned_by_default, used_for_counting, priority, active, custom)
+    VALUES
+        ('act', 'Active', TRUE, TRUE, 3, TRUE, TRUE),
+        ('inact', 'Inactive', FALSE, false, 4, TRUE, TRUE),
+        ('veil', 'En veilleuse', FALSE, false, 3, TRUE, TRUE),
+        ('cess', 'Cessation', FALSE, TRUE, 4, TRUE, TRUE),
+        ('fus-abs', 'Fusion-Absrption', FALSE, TRUE, 5, TRUE, TRUE),
+        ('rad', 'Radiee', FALSE, FALSE, 6, TRUE, TRUE);
+
+    RAISE NOTICE 'Done MA at %', now();
+
+END;
+$BODY$;
