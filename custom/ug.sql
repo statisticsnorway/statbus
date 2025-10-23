@@ -1,30 +1,31 @@
 
 
-Select 'Runs Uganda Kampala'  "StatbusStatus", now() "AT";
 
-delete from external_ident_type where code NOT in ('tax_ident','stat_ident');
+CREATE OR REPLACE PROCEDURE public.custom_setup_ug()
+LANGUAGE plpgsql
+AS $BODY$
+BEGIN
 
-
-INSERT INTO external_ident_type (code, name, priority)
-VALUES
-('coin_ident', 'CoinId', 3);
-
-
---custom datasources can be listed here:
---delete from data_source_custom ;
---INSERT INTO data_source_custom (code, name)
---VALUES
-  --  ('tst', 'Test'),
- --   ('cen25', 'Census2025');
+    RAISE NOTICE 'Runs Uganda Kampala at %', now();
+	CALL public.custom_setup_reset();
 
 
+    INSERT INTO external_ident_type (code, name, priority)
+    VALUES
+        ('coin_ident', 'CoinId', 3);
 
 
-delete from stat_definition where code NOT in ('employees','turnover');
-INSERT INTO stat_definition (code, type,frequency, name, priority)
-VALUES
-('female', 'int', 'yearly', 'Female', 3),
-('male', 'int', 'yearly', 'Male', 4);
+ UPDATE external_ident_type
+    SET archived = FALSE
+    WHERE id <= 2;
 
 
-Select 'Done Uganda'  "StatbusStatus", now() "AT";
+    INSERT INTO stat_definition (code, type, frequency, name, priority)
+    VALUES
+        ('female', 'int', 'yearly', 'Female', 3),
+        ('male', 'int', 'yearly', 'Male', 4);
+
+    RAISE NOTICE 'Done Uganda at %', now();
+
+END;
+$BODY$;
