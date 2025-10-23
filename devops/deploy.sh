@@ -92,6 +92,14 @@ if test -n "$dbseed_changes" || test -n "$migrations_changes" || test -n "${RECR
 
   ./devops/manage-statbus.sh create-db-structure
   ./devops/manage-statbus.sh create-users
+  
+  # Load custom sql for this deployment slot if it exists
+  DEPLOYMENT_SLOT_CODE=$(./devops/dotenv --file .env get DEPLOYMENT_SLOT_CODE)
+  custom_sql_file="custom/${DEPLOYMENT_SLOT_CODE}.sql"
+  if test -f "$custom_sql_file"; then
+    echo "Loading custom SQL from $custom_sql_file"
+    ./devops/manage-statbus.sh psql < "$custom_sql_file"
+  fi
 
   if test -f ${HOME}/statbus/tmp/enheter.csv; then
     # Extract first user email from .users.yml for brreg import
