@@ -131,7 +131,7 @@ export const EditableFieldWithMetadata = ({
             </Button>
             <Button
               className="h-8"
-              disabled={!hasUnsavedChanges}
+              // disabled={!hasUnsavedChanges}
               type="button"
               onClick={triggerFormSubmit}
             >

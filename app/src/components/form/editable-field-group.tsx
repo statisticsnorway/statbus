@@ -18,6 +18,7 @@ interface EditableFieldGroupProps {
   response: UpdateResponse;
   metadata?: Metadata;
   children: (props: { isEditing: boolean }) => React.ReactNode;
+  hiddenFields?: Record<string, string | number>;
 }
 
 export function EditableFieldGroup({
@@ -27,6 +28,7 @@ export function EditableFieldGroup({
   response,
   metadata,
   children,
+  hiddenFields,
 }: EditableFieldGroupProps) {
   const { selectedTimeContext } = useTimeContext();
   const formRef = useRef<HTMLFormElement>(null);
@@ -76,6 +78,10 @@ export function EditableFieldGroup({
       className={`flex flex-col space-y-2 p-3 ${isEditing && "bg-ssb-light rounded-md"}`}
       key={formKey}
     >
+      {hiddenFields &&
+        Object.entries(hiddenFields).map(([name, value]) => (
+          <input key={name} type="hidden" name={name} value={value} />
+        ))}
       <div className="flex justify-between items-center h-8">
         <div className="flex items-center">
           <span className="font-medium">{title}</span>

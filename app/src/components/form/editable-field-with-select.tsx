@@ -38,6 +38,7 @@ interface EditableSelectWithMetadataProps {
   formAction: (formData: FormData) => void;
   response: UpdateResponse;
   metadata?: Metadata;
+  hiddenFields?: Record<string, string | number>;
 }
 
 export const EditableSelectWithMetadata = ({
@@ -50,6 +51,7 @@ export const EditableSelectWithMetadata = ({
   formAction,
   response,
   metadata,
+  hiddenFields,
 }: EditableSelectWithMetadataProps) => {
   const { selectedTimeContext } = useTimeContext();
 
@@ -80,6 +82,10 @@ export const EditableSelectWithMetadata = ({
       action={formAction}
       className={`flex flex-col space-y-2 p-2 ${isEditing && "bg-ssb-light rounded-md "}`}
     >
+      {hiddenFields &&
+        Object.entries(hiddenFields).map(([name, value]) => (
+          <input key={name} type="hidden" name={name} value={value} />
+        ))}
       <input type="hidden" name={name} value={currentValue} />
       <div className="flex flex-col">
         <div className="flex items-center justify-between">
@@ -171,7 +177,11 @@ export const EditableSelectWithMetadata = ({
             >
               Cancel
             </Button>
-            <Button className="h-8" disabled={!hasUnsavedChanges} type="submit">
+            <Button
+              className="h-8"
+              // disabled={!hasUnsavedChanges}
+              type="submit"
+            >
               Save
             </Button>
           </div>

@@ -31,7 +31,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
     (es) => es.primary_for_enterprise
   );
   const unit = primaryLegalUnit || primaryEstablishment;
-  const physicalLocation = unit?.location.find(
+  const physicalLocation = unit?.location?.find(
     (loc) => loc.type === "physical"
   );
 

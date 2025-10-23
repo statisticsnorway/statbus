@@ -10,7 +10,7 @@ import { SelectFormField } from "@/components/form/select-form-field";
 
 export default function DemographicInfoForm({ id }: { readonly id: string }) {
   const [state, formAction] = useActionState(
-    updateEstablishment.bind(null, id),
+    updateEstablishment.bind(null, id, "demographic-info"),
     null
   );
   const { status, unitSizes } = useDetailsPageData();

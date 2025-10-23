@@ -23,7 +23,7 @@ import { useSWRConfig } from "swr";
 
 export default function GeneralInfoForm({ id }: { readonly id: string }) {
   const [state, formAction] = useActionState(
-    updateLegalUnit.bind(null, id),
+    updateLegalUnit.bind(null, id, "general-info"),
     null
   );
   const [externalIdentState, externalIdentFormAction] = useActionState(
@@ -32,7 +32,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
   );
 
   const [locationState, locationAction] = useActionState(
-    updateLocation.bind(null, id, "physical", "legal_unit"),
+    updateLocation.bind(null, id, "legal_unit"),
     null
   );
   const { externalIdentTypes } = useBaseData();
@@ -68,7 +68,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
   const legalUnit = data?.legal_unit?.[0];
 
 
-  const physicalLocation = legalUnit?.location.find(
+  const physicalLocation = legalUnit?.location?.find(
     (loc) => loc.type === "physical"
   );
 
@@ -116,6 +116,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
         action={locationAction}
         response={locationState}
         metadata={physicalLocation}
+        hiddenFields={{ type: "physical" }}
       >
         {({ isEditing }) => (
           <div className="flex flex-col gap-4">

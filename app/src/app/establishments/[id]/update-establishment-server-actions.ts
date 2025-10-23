@@ -4,15 +4,20 @@ import { revalidatePath } from "next/cache";
 import { createServerLogger } from "@/lib/server-logger";
 import { generalInfoSchema } from "@/app/legal-units/[id]/general-info/validation";
 import { getEditMetadata } from "@/app/legal-units/[id]/update-legal-unit-server-actions";
+import {
+  resolveSchemaByType,
+  checkValidityBounds,
+} from "@/components/form/helper-functions";
 
 export async function updateEstablishment(
   id: string,
+  schemaType: SchemaType,
   _prevState: any,
   formData: FormData
 ): Promise<UpdateResponse> {
   const client = await getServerRestClient();
-  const validatedFields = generalInfoSchema.safeParse(formData);
-
+  const schema = resolveSchemaByType(schemaType);
+  const validatedFields = schema.safeParse(formData);
   if (!validatedFields.success) {
     return {
       status: "error",
@@ -24,40 +29,37 @@ export async function updateEstablishment(
     };
   }
 
-  const { valid_from, valid_until, ...updatedFields } = validatedFields.data;
+  const { valid_from, valid_to } = validatedFields.data;
 
   try {
     const { error: metadataError, metadata } = await getEditMetadata(client);
     if (metadataError) return metadataError;
-
-    const { data: exactSlice, error: exactErr } = await client
-      .from("establishment__for_portion_of_valid")
-      .select("id")
+    const payload = { ...validatedFields.data, ...metadata };
+    const { data: overlappingRows, error: overlapError } = await client
+      .from("establishment")
+      .select("*")
       .eq("id", parseInt(id, 10))
-      .eq("valid_from", valid_from as string)
-      .eq("valid_until", valid_until as string)
-      .limit(1);
-    if (exactErr) {
+      .lte("valid_from", valid_to)
+      .gte("valid_to", valid_from);
+
+    if (overlapError) {
       return {
         status: "error" as const,
-        message: exactErr.message,
+        message: overlapError.message,
       };
     }
-    if (exactSlice && exactSlice.length === 1) {
-      const response = await client
-        .from("establishment")
-        .update({ ...updatedFields, ...metadata })
-        .eq("id", parseInt(id, 10))
-        .eq("valid_from", valid_from as string)
-        .eq("valid_until", valid_until as string);
 
-      if (response.status >= 400) {
-        return { status: "error", message: response.statusText };
-      }
-    } else {
+    if (overlappingRows && overlappingRows.length > 0) {
+      const boundsError = checkValidityBounds(
+        overlappingRows,
+        valid_from,
+        valid_to,
+        "establishment"
+      );
+      if (boundsError) return boundsError;
       const response = await client
         .from("establishment__for_portion_of_valid")
-        .update({ ...validatedFields.data, ...metadata })
+        .update(payload)
         .eq("id", parseInt(id, 10));
 
       if (response.status >= 400) {
@@ -66,6 +68,12 @@ export async function updateEstablishment(
           message: response.error?.message || response.statusText,
         };
       }
+    } else {
+      return {
+        status: "error",
+        message:
+          "Cannot insert establishment. Only updates within the existing date range are allowed.",
+      };
     }
 
     revalidatePath("/establishments/[id]", "page");

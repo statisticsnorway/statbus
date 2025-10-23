@@ -39,7 +39,7 @@ export default function DemographicInfoForm({ id }: { readonly id: string }) {
       <DisplayFormField
         label="Unit size"
         name="unit_size"
-        value={primaryUnit?.unit_size.name}
+        value={primaryUnit?.unit_size?.name}
       />
     </form>
   );

@@ -12,3 +12,9 @@ type UpdateResponse =
       }>;
     }
   | null;
+
+ type SchemaType =
+   | "general-info"
+   | "demographic-info"
+   | "sector"
+   | "legal-form";

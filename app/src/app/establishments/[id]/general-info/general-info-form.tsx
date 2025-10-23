@@ -18,7 +18,7 @@ import { EditableFieldGroup } from "@/components/form/editable-field-group";
 
 export default function GeneralInfoForm({ id }: { readonly id: string }) {
   const [state, formAction] = useActionState(
-    updateEstablishment.bind(null, id),
+    updateEstablishment.bind(null, id, "general-info"),
     null
   );
   const [externalIdentState, externalIdentFormAction] = useActionState(
@@ -26,7 +26,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
     null
   );
   const [locationState, locationAction] = useActionState(
-    updateLocation.bind(null, id, "physical", "establishment"),
+    updateLocation.bind(null, id, "establishment"),
     null
   );
   const { externalIdentTypes } = useBaseData();
@@ -58,7 +58,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
     return <UnitNotFound />;
   }
   const establishment = data?.establishment?.[0];
-  const physicalLocation = establishment?.location.find(
+  const physicalLocation = establishment?.location?.find(
     (loc) => loc.type === "physical"
   );
   const regionOptions = regions.map((region) => ({
@@ -103,6 +103,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
         action={locationAction}
         response={locationState}
         metadata={physicalLocation}
+        hiddenFields={{ type: "physical" }}
       >
         {({ isEditing }) => (
           <div className="flex flex-col gap-4">
