@@ -56,3 +56,4 @@ where id =1 or id  = 2;
 END;
 $BODY$;
 
+CALL public.custom_setup_al();

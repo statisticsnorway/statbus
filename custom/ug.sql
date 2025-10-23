@@ -29,3 +29,5 @@ BEGIN
 
 END;
 $BODY$;
+
+CALL public.custom_setup_ug();
