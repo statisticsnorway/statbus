@@ -97,9 +97,9 @@ export const refreshWorkerStatusAtom = atom(
     try {
       // Fetch all three statuses concurrently for efficiency
       const [importingRes, derivingUnitsRes, derivingReportsRes] = await Promise.all([
-        client.rpc('is_importing', {}, { get: true }),
-        client.rpc('is_deriving_statistical_units', {}, { get: true }),
-        client.rpc('is_deriving_reports', {}, { get: true }),
+        client.rpc('is_importing', undefined, { get: true }),
+        client.rpc('is_deriving_statistical_units', undefined, { get: true }),
+        client.rpc('is_deriving_reports', undefined, { get: true }),
       ]);
 
       const error = importingRes.error || derivingUnitsRes.error || derivingReportsRes.error;

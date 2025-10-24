@@ -40,7 +40,7 @@ export async function updateExternalIdent(
       })),
     };
   }
-  const { data } = await client.rpc("auth_status", {}, { get: true });
+  const { data } = await client.rpc("auth_status", undefined, { get: true });
   const parsedAuthStatus = _parseAuthStatusRpcResponseToAuthStatus(data);
 
   if (!parsedAuthStatus.isAuthenticated || !parsedAuthStatus.user) {
