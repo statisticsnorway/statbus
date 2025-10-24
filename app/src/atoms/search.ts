@@ -480,6 +480,14 @@ export const initializeTableColumnsAtom = atom(null, (get, set) => {
     return;
   }
 
+   if (storedColumns.length === 0) {
+     const initColumns = availableColumns.map((col) =>
+       col.type === "Adaptable" ? { ...col, visible: true } : col
+     );
+     set(tableColumnsAtom, initColumns);
+     return;
+   }
+
   const mergedColumns = availableColumns.map((availCol) => {
     const storedCol = storedColumns.find(
       (sc) =>
