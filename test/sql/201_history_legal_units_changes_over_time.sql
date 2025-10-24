@@ -85,7 +85,7 @@ WHERE unit_type = 'legal_unit'
 ORDER BY external_idents ->> 'tax_ident', valid_from;
 
 \echo "Test statistical unit history by year - sector_change_count should be 1 for year 2011"
-SELECT resolution, year, unit_type, count, births, deaths, sector_change_count
+SELECT resolution, year, unit_type, countable_count AS count, births, deaths, sector_change_count
 FROM public.statistical_history
 WHERE resolution = 'year'
 AND year < 2013
@@ -94,7 +94,7 @@ ORDER BY resolution, year, month, unit_type;
 
 
 \echo "Test statistical unit history by year-month - sector_change_count should be 1 for year-month 2011-1"
-SELECT resolution, year, month, unit_type, count, births, deaths, sector_change_count
+SELECT resolution, year, month, unit_type, countable_count AS count, births, deaths, sector_change_count
 FROM public.statistical_history
 WHERE resolution = 'year-month'
 AND year < 2013
@@ -154,7 +154,7 @@ ORDER BY external_idents ->> 'tax_ident', valid_from;
 
 
 \echo "Check statistical unit history by year - sector_change_count should be 1 for year 2011"
-SELECT resolution, year,month, unit_type, count, births, deaths, sector_change_count
+SELECT resolution, year,month, unit_type, countable_count AS count, births, deaths, sector_change_count
 FROM public.statistical_history
 WHERE resolution = 'year'
 AND year < 2012
@@ -164,7 +164,7 @@ ORDER BY resolution, year, month, unit_type;
 
 
 \echo "Check statistical unit history by year-month - sector_change_count should be 1 for year-month 2011-2"
-SELECT resolution, year, month, unit_type, count, births, deaths, sector_change_count
+SELECT resolution, year, month, unit_type, countable_count AS count, births, deaths, sector_change_count
 FROM public.statistical_history
 WHERE resolution = 'year-month'
 AND year < 2012
@@ -222,7 +222,7 @@ ORDER BY external_idents ->> 'tax_ident', valid_from;
 
 
 \echo "Check statistical unit history by year - sector_change_count should be 1 for year 2011 and 2012"
-SELECT resolution, year,month, unit_type, count, births, deaths, sector_change_count
+SELECT resolution, year,month, unit_type, countable_count AS count, births, deaths, sector_change_count
 FROM public.statistical_history
 WHERE resolution = 'year'
 AND year < 2014
@@ -231,7 +231,7 @@ ORDER BY resolution, year, month, unit_type;
 
 
 \echo "Check statistical unit history by year-month - sector_change_count should be 1 for year-month 2011-1 and 2012-1"
-SELECT resolution, year, month, unit_type, count, births, deaths, sector_change_count
+SELECT resolution, year, month, unit_type, countable_count AS count, births, deaths, sector_change_count
 FROM public.statistical_history
 WHERE resolution = 'year-month'
 AND year < 2013

@@ -569,7 +569,14 @@ erDiagram
 		integer year
 		integer month
 		statistical_unit_type unit_type
-		bigint count
+		integer exists_count
+		integer exists_change
+		integer exists_added_count
+		integer exists_removed_count
+		integer countable_count
+		integer countable_change
+		integer countable_added_count
+		integer countable_removed_count
 		integer births
 		integer deaths
 		integer name_change_count
@@ -595,7 +602,14 @@ erDiagram
 		integer physical_country_id
 		integer unit_size_id
 		integer status_id
-		bigint count
+		integer exists_count
+		integer exists_change
+		integer exists_added_count
+		integer exists_removed_count
+		integer countable_count
+		integer countable_change
+		integer countable_added_count
+		integer countable_removed_count
 		integer births
 		integer deaths
 		integer name_change_count

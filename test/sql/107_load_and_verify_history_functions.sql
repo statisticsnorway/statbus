@@ -496,7 +496,22 @@ WHERE year <= 2024;
 \echo "Test yearly data"
 SELECT year
      , unit_type
-     , count
+     , exists_count
+     , exists_change
+     , exists_added_count
+     , exists_removed_count
+     , countable_count
+     , countable_change
+     , countable_added_count
+     , countable_removed_count
+FROM public.statistical_history
+WHERE resolution = 'year'
+  AND year <= 2024
+ORDER BY year,unit_type;
+
+SELECT year
+     , unit_type
+     , countable_count as count
      , births
      , deaths
      , primary_activity_category_change_count
@@ -522,7 +537,22 @@ ORDER BY year,unit_type;
 \echo "Test monthly data for 2019"
 SELECT year, month
      , unit_type
-     , count
+     , exists_count
+     , exists_change
+     , exists_added_count
+     , exists_removed_count
+     , countable_count
+     , countable_change
+     , countable_added_count
+     , countable_removed_count
+FROM public.statistical_history
+WHERE resolution = 'year-month' AND year = 2019
+ORDER BY year,month,unit_type;
+
+\echo "Test monthly data for 2019"
+SELECT year, month
+     , unit_type
+     , countable_count AS count
      , births
      , deaths
      , primary_activity_category_change_count
@@ -565,7 +595,27 @@ SELECT year
      , secondary_activity_category_path
      , sector_path
      , physical_region_path
-     , count
+     , exists_count
+     , exists_change
+     , exists_added_count
+     , exists_removed_count
+     , countable_count
+     , countable_change
+     , countable_added_count
+     , countable_removed_count
+FROM public.statistical_history_facet
+WHERE resolution = 'year'
+  AND year <= 2024
+ORDER BY year,unit_type;
+
+\echo "Test yearly facet data"
+SELECT year
+     , unit_type
+     , primary_activity_category_path
+     , secondary_activity_category_path
+     , sector_path
+     , physical_region_path
+     , countable_count AS count
      , births
      , deaths
      , primary_activity_category_change_count
@@ -595,7 +645,26 @@ SELECT year, month
      , secondary_activity_category_path
      , sector_path
      , physical_region_path
-     , count
+     , exists_count
+     , exists_change
+     , exists_added_count
+     , exists_removed_count
+     , countable_count
+     , countable_change
+     , countable_added_count
+     , countable_removed_count
+FROM public.statistical_history_facet
+WHERE resolution = 'year-month' AND year = 2019
+ORDER BY year,month,unit_type;
+
+\echo "Test monthly facet data for 2019"
+SELECT year, month
+     , unit_type
+     , primary_activity_category_path
+     , secondary_activity_category_path
+     , sector_path
+     , physical_region_path
+     , countable_count AS count
      , births
      , deaths
      , primary_activity_category_change_count
@@ -860,7 +929,7 @@ SELECT jsonb_pretty(public.statistical_history_highcharts('year', 'enterprise_gr
 SELECT jsonb_pretty(public.statistical_history_highcharts(
     p_resolution => 'year',
     p_unit_type => 'enterprise',
-    p_series_codes => ARRAY['count', 'deaths']
+    p_series_codes => ARRAY['countable_count', 'deaths']
 ));
 
 \echo "Test public.statistical_history_highcharts - with empty series filter (should use default)"
@@ -875,7 +944,14 @@ SELECT jsonb_pretty(public.statistical_history_highcharts(
     p_resolution => 'year',
     p_unit_type => 'enterprise',
     p_series_codes => ARRAY[
-        'count',
+        'countable_count',
+        'countable_change',
+        'countable_added_count',
+        'countable_removed_count',
+        'exists_count',
+        'exists_change',
+        'exists_added_count',
+        'exists_removed_count',
         'births',
         'deaths',
         'name_change_count',
@@ -893,7 +969,7 @@ SELECT jsonb_pretty(public.statistical_history_highcharts(
 SELECT jsonb_pretty(public.statistical_history_highcharts(
     p_resolution => 'year',
     p_unit_type => 'enterprise',
-    p_series_codes => ARRAY['count', 'invalid_code', 'deaths']
+    p_series_codes => ARRAY['countable_count', 'invalid_code', 'deaths']
 ));
 
 \i test/rollback_unless_persist_is_specified.sql

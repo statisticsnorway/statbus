@@ -98,7 +98,20 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
     AS statistical_unit_facet_drilldown;
 
 \echo "Test statistical unit history by year"
-SELECT resolution, year, unit_type, count, births, deaths
+
+SELECT
+    resolution, year, unit_type,
+    exists_count, exists_change, exists_added_count, exists_removed_count,
+    countable_count, countable_change, countable_added_count, countable_removed_count
+FROM public.statistical_history
+WHERE resolution = 'year'
+AND year < 2013
+ORDER BY year,unit_type;
+
+SELECT
+    resolution, year, unit_type,
+    countable_count AS count,
+    births, deaths
 FROM public.statistical_history
 WHERE resolution = 'year'
 AND year < 2013

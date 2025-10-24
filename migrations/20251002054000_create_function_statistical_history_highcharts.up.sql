@@ -70,7 +70,14 @@ BEGIN
     CREATE TEMP TABLE series_definition(priority int, is_default boolean, code text, name text) ON COMMIT DROP;
     INSERT INTO series_definition(priority, is_default, code, name)
     VALUES
-        (10,  false, 'count',                                    'Unit Count'),
+        (10,  true,  'countable_count',                          'Unit Count'),
+        (11,  false, 'countable_change',                         'Unit Count Change'),
+        (12,  false, 'countable_added_count',                    'Units Added (Countable)'),
+        (13,  false, 'countable_removed_count',                  'Units Removed (Countable)'),
+        (14,  false, 'exists_count',                             'Existing Units'),
+        (15,  false, 'exists_change',                            'Existing Units Change'),
+        (16,  false, 'exists_added_count',                       'Units Added (Existence)'),
+        (17,  false, 'exists_removed_count',                     'Units Removed (Existence)'),
         (20,  true , 'births',                                   'Births'),
         (30,  true , 'deaths',                                   'Deaths'),
         (40,  false, 'name_change_count',                        'Name Changes'),
@@ -112,7 +119,9 @@ BEGIN
                     WHEN 'year-month' THEN make_timestamp(year, month, 1, 0, 0, 0)
                 END
             )::bigint * 1000 AS ts_epoch_ms,
-            "count", births, deaths, name_change_count,
+            exists_count, exists_change, exists_added_count, exists_removed_count,
+            countable_count, countable_change, countable_added_count, countable_removed_count,
+            births, deaths, name_change_count,
             primary_activity_category_change_count, secondary_activity_category_change_count,
             sector_change_count, legal_form_change_count, physical_region_change_count,
             physical_country_change_count, physical_address_change_count
@@ -125,7 +134,14 @@ BEGIN
         -- Aggregate each metric into a JSONB array of [timestamp, value] pairs.
         SELECT
             jsonb_build_object(
-                'count', COALESCE(jsonb_agg(jsonb_build_array(ts_epoch_ms, "count") ORDER BY ts_epoch_ms), '[]'::jsonb),
+                'exists_count', COALESCE(jsonb_agg(jsonb_build_array(ts_epoch_ms, exists_count) ORDER BY ts_epoch_ms), '[]'::jsonb),
+                'exists_change', COALESCE(jsonb_agg(jsonb_build_array(ts_epoch_ms, exists_change) ORDER BY ts_epoch_ms), '[]'::jsonb),
+                'exists_added_count', COALESCE(jsonb_agg(jsonb_build_array(ts_epoch_ms, exists_added_count) ORDER BY ts_epoch_ms), '[]'::jsonb),
+                'exists_removed_count', COALESCE(jsonb_agg(jsonb_build_array(ts_epoch_ms, exists_removed_count) ORDER BY ts_epoch_ms), '[]'::jsonb),
+                'countable_count', COALESCE(jsonb_agg(jsonb_build_array(ts_epoch_ms, countable_count) ORDER BY ts_epoch_ms), '[]'::jsonb),
+                'countable_change', COALESCE(jsonb_agg(jsonb_build_array(ts_epoch_ms, countable_change) ORDER BY ts_epoch_ms), '[]'::jsonb),
+                'countable_added_count', COALESCE(jsonb_agg(jsonb_build_array(ts_epoch_ms, countable_added_count) ORDER BY ts_epoch_ms), '[]'::jsonb),
+                'countable_removed_count', COALESCE(jsonb_agg(jsonb_build_array(ts_epoch_ms, countable_removed_count) ORDER BY ts_epoch_ms), '[]'::jsonb),
                 'births', COALESCE(jsonb_agg(jsonb_build_array(ts_epoch_ms, births) ORDER BY ts_epoch_ms), '[]'::jsonb),
                 'deaths', COALESCE(jsonb_agg(jsonb_build_array(ts_epoch_ms, deaths) ORDER BY ts_epoch_ms), '[]'::jsonb),
                 'name_change_count', COALESCE(jsonb_agg(jsonb_build_array(ts_epoch_ms, name_change_count) ORDER BY ts_epoch_ms), '[]'::jsonb),

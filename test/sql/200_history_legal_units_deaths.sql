@@ -86,7 +86,7 @@ WHERE unit_type = 'legal_unit'
 ORDER BY external_idents ->> 'tax_ident', valid_from;
 
 \echo "Check statistical unit history by year - deaths should be 1 for year 2011 and 2012"
-SELECT resolution, year, month, unit_type, count, births, deaths
+SELECT resolution, year, month, unit_type, countable_count AS count, births, deaths
 FROM public.statistical_history
 WHERE resolution = 'year'
 AND year < 2013
@@ -94,7 +94,7 @@ AND unit_type = 'legal_unit';
 
 
 \echo "Check statistical unit history by year-month - deaths should be 1 for year-month 2011-12 and 2012-12"
-SELECT resolution, year, month, unit_type, count, births, deaths
+SELECT resolution, year, month, unit_type, countable_count AS count, births, deaths
 FROM public.statistical_history
 WHERE resolution = 'year-month'
 AND year < 2013
@@ -152,14 +152,14 @@ WHERE unit_type = 'legal_unit'
 ORDER BY external_idents ->> 'tax_ident', valid_from;
 
 \echo "Check statistical unit history by year - deaths should be 1 for year 2011 and 2012"
-SELECT resolution, year, month, unit_type, count, births, deaths
+SELECT resolution, year, month, unit_type, countable_count AS count, births, deaths
 FROM public.statistical_history
 WHERE resolution = 'year'
 AND year < 2013
 AND unit_type = 'legal_unit';
 
 \echo "Check statistical unit history by year-month - deaths should be 1 for year-month 2011-1 and 2012-12"
-SELECT resolution, year, month, unit_type, count, births, deaths
+SELECT resolution, year, month, unit_type, countable_count AS count, births, deaths
 FROM public.statistical_history
 WHERE resolution = 'year-month'
 AND year < 2013
@@ -217,14 +217,14 @@ WHERE unit_type = 'legal_unit'
 ORDER BY external_idents ->> 'tax_ident', valid_from;
 
 \echo "Check statistical unit history by year - deaths should be 1 for year 2011 and 2012"
-SELECT resolution, year, month, unit_type, count, births, deaths
+SELECT resolution, year, month, unit_type, countable_count AS count, births, deaths
 FROM public.statistical_history
 WHERE resolution = 'year'
 AND year < 2013
 AND unit_type = 'legal_unit';
 
 \echo "Check statistical unit history by year-month - deaths should be 1 for year-month 2011-1 and 2012-1"
-SELECT resolution, year, month, unit_type, count, births, deaths
+SELECT resolution, year, month, unit_type, countable_count AS count, births, deaths
 FROM public.statistical_history
 WHERE resolution = 'year-month'
 AND year < 2013

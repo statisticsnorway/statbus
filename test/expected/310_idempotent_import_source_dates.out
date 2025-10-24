@@ -201,9 +201,9 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug LIKE 'import_310_%' AND slug NOT LIKE '%turnover%' ORDER BY slug;
          slug         |  state   | time_context_ident | total_rows | imported_rows | has_error 
 ----------------------+----------+--------------------+------------+---------------+-----------
- import_310_esflu_wsd | finished |                    |         26 |            26 | f
+ import_310_esflu_wsd | finished |                    |         26 |            25 | f
  import_310_eswlu_wsd | finished |                    |         12 |            12 | f
- import_310_lu_wsd    | finished |                    |         75 |            72 | f
+ import_310_lu_wsd    | finished |                    |         75 |            69 | f
 (3 rows)
 
 \echo "Unit counts after initial load"
@@ -214,7 +214,7 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
  establishment_count | legal_unit_count | enterprise_count 
 ---------------------+------------------+------------------
-                  37 |               24 |               36
+                  36 |               23 |               35
 (1 row)
 
 \echo "Run worker processing for analytics tasks - Initial Load"
@@ -333,7 +333,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug = 'import_310_lu_turnover_update' ORDER BY slug;
              slug              |  state   | time_context_ident | total_rows | imported_rows | has_error 
 -------------------------------+----------+--------------------+------------+---------------+-----------
- import_310_lu_turnover_update | finished | r_year_curr        |         25 |            24 | f
+ import_310_lu_turnover_update | finished | r_year_curr        |         25 |            23 | f
 (1 row)
 
 \echo "Run worker processing for analytics tasks - Turnover Update"
@@ -416,92 +416,92 @@ SELECT unit_type
  GROUP BY unit_type;
 -[ RECORD 1 ]-+----------------------------------------------
 unit_type     | establishment
-count         | 37
-invalid_codes | 
-stats_summary | {                                            +
-              |     "turnover": {                            +
-              |         "max": 4444,                         +
-              |         "min": 20,                           +
-              |         "sum": 49599,                        +
-              |         "mean": 1340.51,                     +
-              |         "type": "number",                    +
-              |         "count": 37,                         +
-              |         "stddev": 1192.27,                   +
-              |         "variance": 1421508.42,              +
-              |         "sum_sq_diff": 51174303.24,          +
-              |         "coefficient_of_variation_pct": 88.94+
-              |     },                                       +
-              |     "employees": {                           +
-              |         "max": 10,                           +
-              |         "min": 1,                            +
-              |         "sum": 261,                          +
-              |         "mean": 7.05,                        +
-              |         "type": "number",                    +
-              |         "count": 37,                         +
-              |         "stddev": 3.69,                      +
-              |         "variance": 13.61,                   +
-              |         "sum_sq_diff": 489.89,               +
-              |         "coefficient_of_variation_pct": 52.29+
-              |     }                                        +
-              | }
--[ RECORD 2 ]-+----------------------------------------------
-unit_type     | legal_unit
-count         | 24
-invalid_codes | 
-stats_summary | {                                            +
-              |     "turnover": {                            +
-              |         "max": 2525,                         +
-              |         "min": 20,                           +
-              |         "sum": 80755,                        +
-              |         "mean": 1718.19,                     +
-              |         "type": "number",                    +
-              |         "count": 47,                         +
-              |         "stddev": 863.21,                    +
-              |         "variance": 745124.85,               +
-              |         "sum_sq_diff": 34275743.28,          +
-              |         "coefficient_of_variation_pct": 50.24+
-              |     },                                       +
-              |     "employees": {                           +
-              |         "max": 25,                           +
-              |         "min": 1,                            +
-              |         "sum": 805,                          +
-              |         "mean": 17.13,                       +
-              |         "type": "number",                    +
-              |         "count": 47,                         +
-              |         "stddev": 8.37,                      +
-              |         "variance": 70.03,                   +
-              |         "sum_sq_diff": 3221.23,              +
-              |         "coefficient_of_variation_pct": 48.86+
-              |     }                                        +
-              | }
--[ RECORD 3 ]-+----------------------------------------------
-unit_type     | enterprise
 count         | 36
 invalid_codes | 
 stats_summary | {                                            +
               |     "turnover": {                            +
               |         "max": 4444,                         +
               |         "min": 20,                           +
-              |         "sum": 107799,                       +
-              |         "mean": 1891.21,                     +
+              |         "sum": 48599,                        +
+              |         "mean": 1349.97,                     +
               |         "type": "number",                    +
-              |         "count": 57,                         +
-              |         "stddev": 1074.93,                   +
-              |         "variance": 1155479.47,              +
-              |         "sum_sq_diff": 64706850.17,          +
-              |         "coefficient_of_variation_pct": 56.84+
+              |         "count": 36,                         +
+              |         "stddev": 1207.77,                   +
+              |         "variance": 1458718.08,              +
+              |         "sum_sq_diff": 51055132.97,          +
+              |         "coefficient_of_variation_pct": 89.47+
+              |     },                                       +
+              |     "employees": {                           +
+              |         "max": 10,                           +
+              |         "min": 1,                            +
+              |         "sum": 251,                          +
+              |         "mean": 6.97,                        +
+              |         "type": "number",                    +
+              |         "count": 36,                         +
+              |         "stddev": 3.71,                      +
+              |         "variance": 13.74,                   +
+              |         "sum_sq_diff": 480.97,               +
+              |         "coefficient_of_variation_pct": 53.17+
+              |     }                                        +
+              | }
+-[ RECORD 2 ]-+----------------------------------------------
+unit_type     | legal_unit
+count         | 23
+invalid_codes | 
+stats_summary | {                                            +
+              |     "turnover": {                            +
+              |         "max": 2525,                         +
+              |         "min": 20,                           +
+              |         "sum": 77230,                        +
+              |         "mean": 1716.22,                     +
+              |         "type": "number",                    +
+              |         "count": 45,                         +
+              |         "stddev": 867.45,                    +
+              |         "variance": 752473.40,               +
+              |         "sum_sq_diff": 33108829.78,          +
+              |         "coefficient_of_variation_pct": 50.54+
               |     },                                       +
               |     "employees": {                           +
               |         "max": 25,                           +
               |         "min": 1,                            +
-              |         "sum": 832,                          +
-              |         "mean": 14.60,                       +
+              |         "sum": 770,                          +
+              |         "mean": 17.11,                       +
               |         "type": "number",                    +
-              |         "count": 57,                         +
-              |         "stddev": 9.40,                      +
-              |         "variance": 88.31,                   +
-              |         "sum_sq_diff": 4945.62,              +
-              |         "coefficient_of_variation_pct": 64.38+
+              |         "count": 45,                         +
+              |         "stddev": 8.41,                      +
+              |         "variance": 70.65,                   +
+              |         "sum_sq_diff": 3108.44,              +
+              |         "coefficient_of_variation_pct": 49.12+
+              |     }                                        +
+              | }
+-[ RECORD 3 ]-+----------------------------------------------
+unit_type     | enterprise
+count         | 35
+invalid_codes | 
+stats_summary | {                                            +
+              |     "turnover": {                            +
+              |         "max": 4444,                         +
+              |         "min": 20,                           +
+              |         "sum": 104274,                       +
+              |         "mean": 1895.89,                     +
+              |         "type": "number",                    +
+              |         "count": 55,                         +
+              |         "stddev": 1084.48,                   +
+              |         "variance": 1176105.56,              +
+              |         "sum_sq_diff": 63509700.14,          +
+              |         "coefficient_of_variation_pct": 57.20+
+              |     },                                       +
+              |     "employees": {                           +
+              |         "max": 25,                           +
+              |         "min": 1,                            +
+              |         "sum": 797,                          +
+              |         "mean": 14.49,                       +
+              |         "type": "number",                    +
+              |         "count": 55,                         +
+              |         "stddev": 9.44,                      +
+              |         "variance": 89.18,                   +
+              |         "sum_sq_diff": 4815.65,              +
+              |         "coefficient_of_variation_pct": 65.17+
               |     }                                        +
               | }
 

@@ -2,6 +2,11 @@ BEGIN;
 
 \i test/setup.sql
 
+-- Reset sequences for stable IDs in this test
+ALTER TABLE public.legal_unit ALTER COLUMN id RESTART WITH 1;
+ALTER TABLE public.establishment ALTER COLUMN id RESTART WITH 1;
+ALTER TABLE public.enterprise ALTER COLUMN id RESTART WITH 1;
+
 \echo "Setting up Statbus using the web provided examples"
 
 -- A Super User configures statbus.
@@ -112,7 +117,8 @@ FROM public.import_job WHERE slug = 'import_314_lu_wsd_p2';
 
 \echo "Inspecting LU source dates data table for skipped/error rows"
 \x
-SELECT row_id, state, action, operation, legal_unit_id, enterprise_id, errors, merge_status FROM public.import_314_lu_wsd_p2_data WHERE action = 'skip' OR state = 'error' ORDER BY row_id;
+SELECT row_id, state, action, operation, legal_unit_id, enterprise_id, errors, merge_status
+FROM public.import_314_lu_wsd_p2_data WHERE action = 'skip' OR state = 'error' ORDER BY row_id;
 \x
 
 -- Create Import Job for Formal Establishments (Demo CSV with source dates)

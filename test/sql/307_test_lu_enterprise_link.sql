@@ -6,8 +6,9 @@ BEGIN;
 \i test/setup.sql
 
 -- Reset sequences for stable IDs in this test
-ALTER SEQUENCE legal_unit_id_seq RESTART WITH 1;
-ALTER SEQUENCE establishment_id_seq RESTART WITH 1;
+ALTER TABLE public.legal_unit ALTER COLUMN id RESTART WITH 1;
+ALTER TABLE public.establishment ALTER COLUMN id RESTART WITH 1;
+ALTER TABLE public.enterprise ALTER COLUMN id RESTART WITH 1;
 
 -- A Super User configures statbus.
 CALL test.set_user_from_email('test.admin@statbus.org');

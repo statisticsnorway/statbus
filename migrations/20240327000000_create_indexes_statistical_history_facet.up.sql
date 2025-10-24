@@ -28,8 +28,7 @@ CREATE UNIQUE INDEX "statistical_history_facet_year_key"
 
 CREATE INDEX idx_statistical_history_facet_year ON public.statistical_history_facet (year);
 CREATE INDEX idx_statistical_history_facet_month ON public.statistical_history_facet (month);
-CREATE INDEX idx_statistical_history_facet_births ON public.statistical_history_facet (births);
-CREATE INDEX idx_statistical_history_facet_deaths ON public.statistical_history_facet (deaths);
+CREATE INDEX idx_statistical_history_facet_unit_type ON public.statistical_history_facet (unit_type);
 
 CREATE INDEX idx_statistical_history_facet_primary_activity_category_path ON public.statistical_history_facet (primary_activity_category_path);
 CREATE INDEX idx_gist_statistical_history_facet_primary_activity_category_path ON public.statistical_history_facet USING GIST (primary_activity_category_path);
@@ -46,7 +45,6 @@ CREATE INDEX idx_statistical_history_facet_physical_region_path ON public.statis
 CREATE INDEX idx_gist_statistical_history_facet_physical_region_path ON public.statistical_history_facet USING GIST (physical_region_path);
 
 CREATE INDEX idx_statistical_history_facet_physical_country_id ON public.statistical_history_facet (physical_country_id);
-CREATE INDEX idx_statistical_history_facet_count ON public.statistical_history_facet (count);
 CREATE INDEX idx_statistical_history_facet_stats_summary ON public.statistical_history_facet USING GIN (stats_summary jsonb_path_ops);
 
 END;

@@ -96,6 +96,10 @@ BEGIN
     CALL sql_saga.temporal_merge_drop_temp_tables();
 END;
 $remove_pg_temp_for_tx_user_switch$;
+-- Reset sequences for stable IDs in this test
+ALTER TABLE public.legal_unit ALTER COLUMN id RESTART WITH 1;
+ALTER TABLE public.establishment ALTER COLUMN id RESTART WITH 1;
+ALTER TABLE public.enterprise ALTER COLUMN id RESTART WITH 1;
 \echo "Setting up Statbus using the web provided examples"
 "Setting up Statbus using the web provided examples"
 -- A Super User configures statbus.
@@ -234,17 +238,18 @@ FROM public.import_job WHERE slug = 'import_314_lu_wsd_p2';
 slug                   | import_314_lu_wsd_p2
 state                  | finished
 analysis_completed_pct | 100.00
-import_completed_pct   | 88.00
+import_completed_pct   | 84.00
 total_rows             | 75
-imported_rows          | 66
+imported_rows          | 63
 error                  | 
 
 \x
 \echo "Inspecting LU source dates data table for skipped/error rows"
 "Inspecting LU source dates data table for skipped/error rows"
 \x
-SELECT row_id, state, action, operation, legal_unit_id, enterprise_id, errors, merge_status FROM public.import_314_lu_wsd_p2_data WHERE action = 'skip' OR state = 'error' ORDER BY row_id;
--[ RECORD 1 ]-+-----------------------------------------------------------------------------------------------------------------------
+SELECT row_id, state, action, operation, legal_unit_id, enterprise_id, errors, merge_status
+FROM public.import_314_lu_wsd_p2_data WHERE action = 'skip' OR state = 'error' ORDER BY row_id;
+-[ RECORD 1 ]-+------------------------------------------------------------------------------------------------------------------------------
 row_id        | 16
 state         | error
 action        | skip
@@ -253,7 +258,7 @@ legal_unit_id |
 enterprise_id | 
 errors        | {"stat_ident_raw": "Identifier stat_ident value '232' from input attempts to change existing value '230'"}
 merge_status  | {}
--[ RECORD 2 ]-+-----------------------------------------------------------------------------------------------------------------------
+-[ RECORD 2 ]-+------------------------------------------------------------------------------------------------------------------------------
 row_id        | 17
 state         | error
 action        | skip
@@ -262,7 +267,7 @@ legal_unit_id |
 enterprise_id | 
 errors        | {"tax_ident_raw": "Identifier tax_ident value '4711110' from input attempts to change existing value '4711111'"}
 merge_status  | {}
--[ RECORD 3 ]-+-----------------------------------------------------------------------------------------------------------------------
+-[ RECORD 3 ]-+------------------------------------------------------------------------------------------------------------------------------
 row_id        | 18
 state         | error
 action        | skip
@@ -271,7 +276,7 @@ legal_unit_id |
 enterprise_id | 
 errors        | {"tax_ident_raw": "Identifier tax_ident value '4711110' from input attempts to change existing value '4711111'"}
 merge_status  | {}
--[ RECORD 4 ]-+-----------------------------------------------------------------------------------------------------------------------
+-[ RECORD 4 ]-+------------------------------------------------------------------------------------------------------------------------------
 row_id        | 19
 state         | error
 action        | skip
@@ -280,7 +285,7 @@ legal_unit_id |
 enterprise_id | 
 errors        | {"tax_ident_raw": "Identifier tax_ident value '4711110' from input attempts to change existing value '4711111'"}
 merge_status  | {}
--[ RECORD 5 ]-+-----------------------------------------------------------------------------------------------------------------------
+-[ RECORD 5 ]-+------------------------------------------------------------------------------------------------------------------------------
 row_id        | 20
 state         | error
 action        | skip
@@ -289,7 +294,7 @@ legal_unit_id |
 enterprise_id | 
 errors        | {"stat_ident_raw": "Identifier stat_ident value '232' from input attempts to change existing value '230'"}
 merge_status  | {}
--[ RECORD 6 ]-+-----------------------------------------------------------------------------------------------------------------------
+-[ RECORD 6 ]-+------------------------------------------------------------------------------------------------------------------------------
 row_id        | 21
 state         | error
 action        | skip
@@ -298,7 +303,7 @@ legal_unit_id |
 enterprise_id | 
 errors        | {"stat_ident_raw": "Identifier stat_ident value '232' from input attempts to change existing value '230'"}
 merge_status  | {}
--[ RECORD 7 ]-+-----------------------------------------------------------------------------------------------------------------------
+-[ RECORD 7 ]-+------------------------------------------------------------------------------------------------------------------------------
 row_id        | 58
 state         | error
 action        | skip
@@ -307,7 +312,7 @@ legal_unit_id |
 enterprise_id | 
 errors        | {"valid_from_raw": "Invalid date format: '2025M01'. SQLSTATE: 22007"}
 merge_status  | {}
--[ RECORD 8 ]-+-----------------------------------------------------------------------------------------------------------------------
+-[ RECORD 8 ]-+------------------------------------------------------------------------------------------------------------------------------
 row_id        | 59
 state         | error
 action        | skip
@@ -316,7 +321,7 @@ legal_unit_id |
 enterprise_id | 
 errors        | {"tax_ident_raw": "Identifier tax_ident value '2212760166' from input attempts to change existing value '2212760144'"}
 merge_status  | {}
--[ RECORD 9 ]-+-----------------------------------------------------------------------------------------------------------------------
+-[ RECORD 9 ]-+------------------------------------------------------------------------------------------------------------------------------
 row_id        | 60
 state         | error
 action        | skip
@@ -324,6 +329,33 @@ operation     | update
 legal_unit_id | 
 enterprise_id | 
 errors        | {"tax_ident_raw": "Identifier tax_ident value '2212760166' from input attempts to change existing value '2212760144'"}
+merge_status  | {}
+-[ RECORD 10 ]+------------------------------------------------------------------------------------------------------------------------------
+row_id        | 73
+state         | error
+action        | skip
+operation     | update
+legal_unit_id | 14
+enterprise_id | 21
+errors        | {"physical_region_code_raw": "An error on a related new entity row caused this row to be skipped. Source error row(s): {74}"}
+merge_status  | {}
+-[ RECORD 11 ]+------------------------------------------------------------------------------------------------------------------------------
+row_id        | 74
+state         | error
+action        | skip
+operation     | update
+legal_unit_id | 14
+enterprise_id | 21
+errors        | {"physical_country_iso_2_raw": "Country is required and must be valid when other physical address details are provided."}
+merge_status  | {}
+-[ RECORD 12 ]+------------------------------------------------------------------------------------------------------------------------------
+row_id        | 75
+state         | error
+action        | skip
+operation     | update
+legal_unit_id | 14
+enterprise_id | 21
+errors        | {"physical_region_code_raw": "An error on a related new entity row caused this row to be skipped. Source error row(s): {74}"}
 merge_status  | {}
 
 \x
@@ -833,9 +865,9 @@ state                             | finished
 analysis_completed_pct            | 100.00
 completed_analysis_steps_weighted | 7500
 total_analysis_steps_weighted     | 7500
-import_completed_pct              | 88.00
+import_completed_pct              | 84.00
 total_rows                        | 75
-imported_rows                     | 66
+imported_rows                     | 63
 error                             | 
 
 \x

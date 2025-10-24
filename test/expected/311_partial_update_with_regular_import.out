@@ -141,7 +141,7 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug = 'import_311_lu_wsd' ORDER BY slug;
        slug        |  state   | time_context_ident | total_rows | imported_rows | has_error 
 -------------------+----------+--------------------+------------+---------------+-----------
- import_311_lu_wsd | finished |                    |         75 |            72 | f
+ import_311_lu_wsd | finished |                    |         75 |            69 | f
 (1 row)
 
 \echo "Run worker processing for analytics tasks - Initial Load"
@@ -409,22 +409,22 @@ FROM stats_after sa JOIN stats_before_update sb ON sa.unit_type = sb.unit_type;
  turnover  | f             | {                                       +| {                                        +
            |               |     "max": 20023,                       +|     "max": 20023,                        +
            |               |     "min": 20023,                       +|     "min": 2525,                         +
-           |               |     "sum": 480552,                      +|     "sum": 340568,                       +
-           |               |     "mean": 20023.00,                   +|     "mean": 14190.33,                    +
+           |               |     "sum": 460529,                      +|     "sum": 320545,                       +
+           |               |     "mean": 20023.00,                   +|     "mean": 13936.74,                    +
            |               |     "type": "number",                   +|     "type": "number",                    +
-           |               |     "count": 24,                        +|     "count": 24,                         +
-           |               |     "stddev": 0.00,                     +|     "stddev": 8426.05,                   +
-           |               |     "variance": 0.00,                   +|     "variance": 70998261.80,             +
-           |               |     "sum_sq_diff": 0.00,                +|     "sum_sq_diff": 1632960021.33,        +
-           |               |     "coefficient_of_variation_pct": 0.00+|     "coefficient_of_variation_pct": 59.38+
+           |               |     "count": 23,                        +|     "count": 23,                         +
+           |               |     "stddev": 0.00,                     +|     "stddev": 8521.26,                   +
+           |               |     "variance": 0.00,                   +|     "variance": 72611858.66,             +
+           |               |     "sum_sq_diff": 0.00,                +|     "sum_sq_diff": 1597460890.43,        +
+           |               |     "coefficient_of_variation_pct": 0.00+|     "coefficient_of_variation_pct": 61.14+
            |               | }                                        | }
  employees | t             | {                                       +| {                                        +
            |               |     "max": 23,                          +|     "max": 23,                           +
            |               |     "min": 23,                          +|     "min": 23,                           +
-           |               |     "sum": 552,                         +|     "sum": 552,                          +
+           |               |     "sum": 529,                         +|     "sum": 529,                          +
            |               |     "mean": 23.00,                      +|     "mean": 23.00,                       +
            |               |     "type": "number",                   +|     "type": "number",                    +
-           |               |     "count": 24,                        +|     "count": 24,                         +
+           |               |     "count": 23,                        +|     "count": 23,                         +
            |               |     "stddev": 0.00,                     +|     "stddev": 0.00,                      +
            |               |     "variance": 0.00,                   +|     "variance": 0.00,                    +
            |               |     "sum_sq_diff": 0.00,                +|     "sum_sq_diff": 0.00,                 +

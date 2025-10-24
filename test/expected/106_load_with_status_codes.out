@@ -586,7 +586,31 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
 
 \echo "Test statistical unit history by year"
 "Test statistical unit history by year"
-SELECT resolution, year, unit_type, count, births, deaths
+SELECT
+    resolution, year, unit_type,
+    exists_count, exists_change, exists_added_count, exists_removed_count,
+    countable_count, countable_change, countable_added_count, countable_removed_count
+FROM public.statistical_history
+WHERE resolution = 'year'
+AND year < 2013
+ORDER BY year,unit_type;
+ resolution | year |   unit_type   | exists_count | exists_change | exists_added_count | exists_removed_count | countable_count | countable_change | countable_added_count | countable_removed_count 
+------------+------+---------------+--------------+---------------+--------------------+----------------------+-----------------+------------------+-----------------------+-------------------------
+ year       | 2010 | establishment |            3 |             3 |                  3 |                    0 |               2 |                2 |                     2 |                       0
+ year       | 2010 | legal_unit    |            2 |             2 |                  2 |                    0 |               1 |                1 |                     1 |                       0
+ year       | 2010 | enterprise    |            2 |             2 |                  2 |                    0 |               1 |                1 |                     1 |                       0
+ year       | 2011 | establishment |            3 |             0 |                  0 |                    0 |               1 |               -1 |                     0 |                       1
+ year       | 2011 | legal_unit    |            2 |             0 |                  0 |                    0 |               1 |                0 |                     0 |                       0
+ year       | 2011 | enterprise    |            2 |             0 |                  0 |                    0 |               1 |                0 |                     0 |                       0
+ year       | 2012 | establishment |            3 |             0 |                  0 |                    0 |               1 |                0 |                     0 |                       0
+ year       | 2012 | legal_unit    |            2 |             0 |                  0 |                    0 |               1 |                0 |                     0 |                       0
+ year       | 2012 | enterprise    |            2 |             0 |                  0 |                    0 |               1 |                0 |                     0 |                       0
+(9 rows)
+
+SELECT
+    resolution, year, unit_type,
+    countable_count AS count,
+    births, deaths
 FROM public.statistical_history
 WHERE resolution = 'year'
 AND year < 2013
@@ -615,10 +639,11 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
      "stats": [                                           +
          {                                                +
              "year": 2010,                                +
-             "count": 1,                                  +
              "month": null,                               +
              "births": 1,                                 +
              "deaths": 0,                                 +
+             "exists_count": 2,                           +
+             "exists_change": 2,                          +
              "stats_summary": {                           +
                  "turnover": {                            +
                      "max": 25000000,                     +
@@ -645,18 +670,30 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
                      "coefficient_of_variation_pct": 24.96+
                  }                                        +
              },                                           +
+             "countable_count": 1,                        +
+             "countable_change": 1,                       +
+             "name_change_count": 0,                      +
+             "exists_added_count": 2,                     +
              "sector_change_count": 0,                    +
+             "status_change_count": 0,                    +
+             "exists_removed_count": 0,                   +
+             "countable_added_count": 1,                  +
+             "unit_size_change_count": 0,                 +
+             "countable_removed_count": 0,                +
              "legal_form_change_count": 0,                +
              "physical_region_change_count": 0,           +
+             "physical_address_change_count": 0,          +
              "physical_country_change_count": 0,          +
-             "primary_activity_category_change_count": 0  +
+             "primary_activity_category_change_count": 0, +
+             "secondary_activity_category_change_count": 0+
          },                                               +
          {                                                +
              "year": 2011,                                +
-             "count": 1,                                  +
              "month": null,                               +
              "births": 0,                                 +
              "deaths": 0,                                 +
+             "exists_count": 2,                           +
+             "exists_change": 0,                          +
              "stats_summary": {                           +
                  "turnover": {                            +
                      "max": 25000000,                     +
@@ -683,11 +720,22 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
                      "coefficient_of_variation_pct": 0.00 +
                  }                                        +
              },                                           +
+             "countable_count": 1,                        +
+             "countable_change": 0,                       +
+             "name_change_count": 0,                      +
+             "exists_added_count": 0,                     +
              "sector_change_count": 0,                    +
+             "status_change_count": 0,                    +
+             "exists_removed_count": 0,                   +
+             "countable_added_count": 0,                  +
+             "unit_size_change_count": 0,                 +
+             "countable_removed_count": 0,                +
              "legal_form_change_count": 0,                +
              "physical_region_change_count": 0,           +
+             "physical_address_change_count": 0,          +
              "physical_country_change_count": 0,          +
-             "primary_activity_category_change_count": 0  +
+             "primary_activity_category_change_count": 0, +
+             "secondary_activity_category_change_count": 0+
          }                                                +
      ],                                                   +
      "filter": {                                          +
@@ -788,10 +836,11 @@ SELECT jsonb_pretty(
      "stats": [                                           +
          {                                                +
              "year": 2010,                                +
-             "count": 1,                                  +
              "month": null,                               +
              "births": 1,                                 +
              "deaths": 0,                                 +
+             "exists_count": 2,                           +
+             "exists_change": 2,                          +
              "stats_summary": {                           +
                  "turnover": {                            +
                      "max": 25000000,                     +
@@ -818,18 +867,30 @@ SELECT jsonb_pretty(
                      "coefficient_of_variation_pct": 24.96+
                  }                                        +
              },                                           +
+             "countable_count": 1,                        +
+             "countable_change": 1,                       +
+             "name_change_count": 0,                      +
+             "exists_added_count": 2,                     +
              "sector_change_count": 0,                    +
+             "status_change_count": 0,                    +
+             "exists_removed_count": 0,                   +
+             "countable_added_count": 1,                  +
+             "unit_size_change_count": 0,                 +
+             "countable_removed_count": 0,                +
              "legal_form_change_count": 0,                +
              "physical_region_change_count": 0,           +
+             "physical_address_change_count": 0,          +
              "physical_country_change_count": 0,          +
-             "primary_activity_category_change_count": 0  +
+             "primary_activity_category_change_count": 0, +
+             "secondary_activity_category_change_count": 0+
          },                                               +
          {                                                +
              "year": 2011,                                +
-             "count": 1,                                  +
              "month": null,                               +
              "births": 0,                                 +
              "deaths": 0,                                 +
+             "exists_count": 2,                           +
+             "exists_change": 0,                          +
              "stats_summary": {                           +
                  "turnover": {                            +
                      "max": 25000000,                     +
@@ -856,18 +917,30 @@ SELECT jsonb_pretty(
                      "coefficient_of_variation_pct": 0.00 +
                  }                                        +
              },                                           +
+             "countable_count": 1,                        +
+             "countable_change": 0,                       +
+             "name_change_count": 0,                      +
+             "exists_added_count": 0,                     +
              "sector_change_count": 0,                    +
+             "status_change_count": 0,                    +
+             "exists_removed_count": 0,                   +
+             "countable_added_count": 0,                  +
+             "unit_size_change_count": 0,                 +
+             "countable_removed_count": 0,                +
              "legal_form_change_count": 0,                +
              "physical_region_change_count": 0,           +
+             "physical_address_change_count": 0,          +
              "physical_country_change_count": 0,          +
-             "primary_activity_category_change_count": 0  +
+             "primary_activity_category_change_count": 0, +
+             "secondary_activity_category_change_count": 0+
          },                                               +
          {                                                +
              "year": 2012,                                +
-             "count": 1,                                  +
              "month": null,                               +
              "births": 0,                                 +
              "deaths": 0,                                 +
+             "exists_count": 2,                           +
+             "exists_change": 0,                          +
              "stats_summary": {                           +
                  "turnover": {                            +
                      "max": 25000000,                     +
@@ -894,11 +967,22 @@ SELECT jsonb_pretty(
                      "coefficient_of_variation_pct": 0.00 +
                  }                                        +
              },                                           +
+             "countable_count": 1,                        +
+             "countable_change": 0,                       +
+             "name_change_count": 0,                      +
+             "exists_added_count": 0,                     +
              "sector_change_count": 0,                    +
+             "status_change_count": 0,                    +
+             "exists_removed_count": 0,                   +
+             "countable_added_count": 0,                  +
+             "unit_size_change_count": 0,                 +
+             "countable_removed_count": 0,                +
              "legal_form_change_count": 0,                +
              "physical_region_change_count": 0,           +
+             "physical_address_change_count": 0,          +
              "physical_country_change_count": 0,          +
-             "primary_activity_category_change_count": 0  +
+             "primary_activity_category_change_count": 0, +
+             "secondary_activity_category_change_count": 0+
          }                                                +
      ],                                                   +
      "filter": {                                          +
@@ -999,10 +1083,11 @@ SELECT jsonb_pretty(
      "stats": [                                           +
          {                                                +
              "year": 2010,                                +
-             "count": 1,                                  +
              "month": null,                               +
              "births": 1,                                 +
              "deaths": 0,                                 +
+             "exists_count": 2,                           +
+             "exists_change": 2,                          +
              "stats_summary": {                           +
                  "turnover": {                            +
                      "max": 25000000,                     +
@@ -1029,18 +1114,30 @@ SELECT jsonb_pretty(
                      "coefficient_of_variation_pct": 24.96+
                  }                                        +
              },                                           +
+             "countable_count": 1,                        +
+             "countable_change": 1,                       +
+             "name_change_count": 0,                      +
+             "exists_added_count": 2,                     +
              "sector_change_count": 0,                    +
+             "status_change_count": 0,                    +
+             "exists_removed_count": 0,                   +
+             "countable_added_count": 1,                  +
+             "unit_size_change_count": 0,                 +
+             "countable_removed_count": 0,                +
              "legal_form_change_count": 0,                +
              "physical_region_change_count": 0,           +
+             "physical_address_change_count": 0,          +
              "physical_country_change_count": 0,          +
-             "primary_activity_category_change_count": 0  +
+             "primary_activity_category_change_count": 0, +
+             "secondary_activity_category_change_count": 0+
          },                                               +
          {                                                +
              "year": 2011,                                +
-             "count": 1,                                  +
              "month": null,                               +
              "births": 0,                                 +
              "deaths": 0,                                 +
+             "exists_count": 2,                           +
+             "exists_change": 0,                          +
              "stats_summary": {                           +
                  "turnover": {                            +
                      "max": 25000000,                     +
@@ -1067,18 +1164,30 @@ SELECT jsonb_pretty(
                      "coefficient_of_variation_pct": 0.00 +
                  }                                        +
              },                                           +
+             "countable_count": 1,                        +
+             "countable_change": 0,                       +
+             "name_change_count": 0,                      +
+             "exists_added_count": 0,                     +
              "sector_change_count": 0,                    +
+             "status_change_count": 0,                    +
+             "exists_removed_count": 0,                   +
+             "countable_added_count": 0,                  +
+             "unit_size_change_count": 0,                 +
+             "countable_removed_count": 0,                +
              "legal_form_change_count": 0,                +
              "physical_region_change_count": 0,           +
+             "physical_address_change_count": 0,          +
              "physical_country_change_count": 0,          +
-             "primary_activity_category_change_count": 0  +
+             "primary_activity_category_change_count": 0, +
+             "secondary_activity_category_change_count": 0+
          },                                               +
          {                                                +
              "year": 2012,                                +
-             "count": 1,                                  +
              "month": null,                               +
              "births": 0,                                 +
              "deaths": 0,                                 +
+             "exists_count": 2,                           +
+             "exists_change": 0,                          +
              "stats_summary": {                           +
                  "turnover": {                            +
                      "max": 25000000,                     +
@@ -1105,11 +1214,22 @@ SELECT jsonb_pretty(
                      "coefficient_of_variation_pct": 0.00 +
                  }                                        +
              },                                           +
+             "countable_count": 1,                        +
+             "countable_change": 0,                       +
+             "name_change_count": 0,                      +
+             "exists_added_count": 0,                     +
              "sector_change_count": 0,                    +
+             "status_change_count": 0,                    +
+             "exists_removed_count": 0,                   +
+             "countable_added_count": 0,                  +
+             "unit_size_change_count": 0,                 +
+             "countable_removed_count": 0,                +
              "legal_form_change_count": 0,                +
              "physical_region_change_count": 0,           +
+             "physical_address_change_count": 0,          +
              "physical_country_change_count": 0,          +
-             "primary_activity_category_change_count": 0  +
+             "primary_activity_category_change_count": 0, +
+             "secondary_activity_category_change_count": 0+
          }                                                +
      ],                                                   +
      "filter": {                                          +
@@ -1210,10 +1330,11 @@ SELECT jsonb_pretty(
      "stats": [                                           +
          {                                                +
              "year": 2010,                                +
-             "count": 2,                                  +
              "month": null,                               +
              "births": 2,                                 +
              "deaths": 0,                                 +
+             "exists_count": 3,                           +
+             "exists_change": 3,                          +
              "stats_summary": {                           +
                  "turnover": {                            +
                      "max": 25000000,                     +
@@ -1240,18 +1361,30 @@ SELECT jsonb_pretty(
                      "coefficient_of_variation_pct": 24.96+
                  }                                        +
              },                                           +
+             "countable_count": 2,                        +
+             "countable_change": 2,                       +
+             "name_change_count": 0,                      +
+             "exists_added_count": 3,                     +
              "sector_change_count": 0,                    +
+             "status_change_count": 0,                    +
+             "exists_removed_count": 0,                   +
+             "countable_added_count": 2,                  +
+             "unit_size_change_count": 0,                 +
+             "countable_removed_count": 0,                +
              "legal_form_change_count": 0,                +
              "physical_region_change_count": 0,           +
+             "physical_address_change_count": 0,          +
              "physical_country_change_count": 0,          +
-             "primary_activity_category_change_count": 0  +
+             "primary_activity_category_change_count": 0, +
+             "secondary_activity_category_change_count": 0+
          },                                               +
          {                                                +
              "year": 2011,                                +
-             "count": 1,                                  +
              "month": null,                               +
              "births": 0,                                 +
              "deaths": 0,                                 +
+             "exists_count": 3,                           +
+             "exists_change": 0,                          +
              "stats_summary": {                           +
                  "turnover": {                            +
                      "max": 25000000,                     +
@@ -1278,18 +1411,30 @@ SELECT jsonb_pretty(
                      "coefficient_of_variation_pct": 0.00 +
                  }                                        +
              },                                           +
+             "countable_count": 1,                        +
+             "countable_change": -1,                      +
+             "name_change_count": 0,                      +
+             "exists_added_count": 0,                     +
              "sector_change_count": 0,                    +
+             "status_change_count": 0,                    +
+             "exists_removed_count": 0,                   +
+             "countable_added_count": 0,                  +
+             "unit_size_change_count": 0,                 +
+             "countable_removed_count": 1,                +
              "legal_form_change_count": 0,                +
              "physical_region_change_count": 0,           +
+             "physical_address_change_count": 0,          +
              "physical_country_change_count": 0,          +
-             "primary_activity_category_change_count": 0  +
+             "primary_activity_category_change_count": 0, +
+             "secondary_activity_category_change_count": 0+
          },                                               +
          {                                                +
              "year": 2012,                                +
-             "count": 1,                                  +
              "month": null,                               +
              "births": 0,                                 +
              "deaths": 0,                                 +
+             "exists_count": 3,                           +
+             "exists_change": 0,                          +
              "stats_summary": {                           +
                  "turnover": {                            +
                      "max": 25000000,                     +
@@ -1316,11 +1461,22 @@ SELECT jsonb_pretty(
                      "coefficient_of_variation_pct": 0.00 +
                  }                                        +
              },                                           +
+             "countable_count": 1,                        +
+             "countable_change": 0,                       +
+             "name_change_count": 0,                      +
+             "exists_added_count": 0,                     +
              "sector_change_count": 0,                    +
+             "status_change_count": 0,                    +
+             "exists_removed_count": 0,                   +
+             "countable_added_count": 0,                  +
+             "unit_size_change_count": 0,                 +
+             "countable_removed_count": 0,                +
              "legal_form_change_count": 0,                +
              "physical_region_change_count": 0,           +
+             "physical_address_change_count": 0,          +
              "physical_country_change_count": 0,          +
-             "primary_activity_category_change_count": 0  +
+             "primary_activity_category_change_count": 0, +
+             "secondary_activity_category_change_count": 0+
          }                                                +
      ],                                                   +
      "filter": {                                          +

@@ -449,26 +449,26 @@ FROM stats_after sa JOIN stats_before_update sb ON sa.unit_type = sb.unit_type;
  turnover  | f             | {                                        +| {                                        +
            |               |     "max": 1000,                         +|     "max": 3535,                         +
            |               |     "min": 20,                           +|     "min": 20,                           +
-           |               |     "sum": 22154,                        +|     "sum": 47504,                        +
-           |               |     "mean": 886.16,                      +|     "mean": 1900.16,                     +
+           |               |     "sum": 21154,                        +|     "sum": 46504,                        +
+           |               |     "mean": 881.42,                      +|     "mean": 1937.67,                     +
            |               |     "type": "number",                    +|     "type": "number",                    +
-           |               |     "count": 25,                         +|     "count": 25,                         +
-           |               |     "stddev": 314.99,                    +|     "stddev": 1395.09,                   +
-           |               |     "variance": 99219.22,                +|     "variance": 1946262.47,              +
-           |               |     "sum_sq_diff": 2381261.36,           +|     "sum_sq_diff": 46710299.36,          +
-           |               |     "coefficient_of_variation_pct": 35.55+|     "coefficient_of_variation_pct": 73.42+
+           |               |     "count": 24,                         +|     "count": 24,                         +
+           |               |     "stddev": 320.85,                    +|     "stddev": 1412.16,                   +
+           |               |     "variance": 102946.17,               +|     "variance": 1994184.75,              +
+           |               |     "sum_sq_diff": 2367761.83,           +|     "sum_sq_diff": 45866249.33,          +
+           |               |     "coefficient_of_variation_pct": 36.40+|     "coefficient_of_variation_pct": 72.88+
            |               | }                                         | }
  employees | t             | {                                        +| {                                        +
            |               |     "max": 10,                           +|     "max": 10,                           +
            |               |     "min": 0,                            +|     "min": 0,                            +
-           |               |     "sum": 223,                          +|     "sum": 223,                          +
-           |               |     "mean": 8.92,                        +|     "mean": 8.92,                        +
+           |               |     "sum": 213,                          +|     "sum": 213,                          +
+           |               |     "mean": 8.88,                        +|     "mean": 8.88,                        +
            |               |     "type": "number",                    +|     "type": "number",                    +
-           |               |     "count": 25,                         +|     "count": 25,                         +
-           |               |     "stddev": 3.00,                      +|     "stddev": 3.00,                      +
-           |               |     "variance": 8.99,                    +|     "variance": 8.99,                    +
-           |               |     "sum_sq_diff": 215.84,               +|     "sum_sq_diff": 215.84,               +
-           |               |     "coefficient_of_variation_pct": 33.62+|     "coefficient_of_variation_pct": 33.62+
+           |               |     "count": 24,                         +|     "count": 24,                         +
+           |               |     "stddev": 3.05,                      +|     "stddev": 3.05,                      +
+           |               |     "variance": 9.33,                    +|     "variance": 9.33,                    +
+           |               |     "sum_sq_diff": 214.63,               +|     "sum_sq_diff": 214.63,               +
+           |               |     "coefficient_of_variation_pct": 34.42+|     "coefficient_of_variation_pct": 34.42+
            |               | }                                         | }
 (2 rows)
 
