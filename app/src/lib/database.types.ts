@@ -269,8 +269,8 @@ export type Database = {
           id: number | null
           label: string | null
           name: string | null
-          parent_path: unknown | null
-          path: unknown | null
+          parent_path: unknown
+          path: unknown
           standard_code: string | null
         }
         Insert: {
@@ -279,8 +279,8 @@ export type Database = {
           id?: number | null
           label?: string | null
           name?: string | null
-          parent_path?: unknown | null
-          path?: unknown | null
+          parent_path?: unknown
+          path?: unknown
           standard_code?: string | null
         }
         Update: {
@@ -289,8 +289,8 @@ export type Database = {
           id?: number | null
           label?: string | null
           name?: string | null
-          parent_path?: unknown | null
-          path?: unknown | null
+          parent_path?: unknown
+          path?: unknown
           standard_code?: string | null
         }
         Relationships: []
@@ -1280,6 +1280,1428 @@ export type Database = {
           },
         ]
       }
+      import_demo_es_for_lu_wsd_data: {
+        Row: {
+          action: Database["public"]["Enums"]["import_row_action_type"] | null
+          birth_date: string | null
+          birth_date_raw: string | null
+          contact_id: number | null
+          data_source_code_raw: string | null
+          data_source_id: number | null
+          death_date: string | null
+          death_date_raw: string | null
+          edit_at: string | null
+          edit_by_user_id: number | null
+          edit_comment: string | null
+          edit_comment_raw: string | null
+          email_address: string | null
+          email_address_raw: string | null
+          employees: number | null
+          employees_raw: string | null
+          errors: Json
+          establishment_id: number | null
+          fax_number: string | null
+          fax_number_raw: string | null
+          founding_row_id: number | null
+          invalid_codes: Json
+          landline: string | null
+          landline_raw: string | null
+          last_completed_priority: number
+          legal_unit_id: number | null
+          legal_unit_stat_ident_raw: string | null
+          legal_unit_tax_ident_raw: string | null
+          merge_status: Json
+          mobile_number: string | null
+          mobile_number_raw: string | null
+          name: string | null
+          name_raw: string | null
+          operation:
+            | Database["public"]["Enums"]["import_row_operation_type"]
+            | null
+          phone_number: string | null
+          phone_number_raw: string | null
+          physical_address_part1: string | null
+          physical_address_part1_raw: string | null
+          physical_address_part2: string | null
+          physical_address_part2_raw: string | null
+          physical_address_part3: string | null
+          physical_address_part3_raw: string | null
+          physical_altitude: number | null
+          physical_altitude_raw: string | null
+          physical_country_id: number | null
+          physical_country_iso_2_raw: string | null
+          physical_latitude: number | null
+          physical_latitude_raw: string | null
+          physical_location_id: number | null
+          physical_longitude: number | null
+          physical_longitude_raw: string | null
+          physical_postcode: string | null
+          physical_postcode_raw: string | null
+          physical_postplace: string | null
+          physical_postplace_raw: string | null
+          physical_region_code_raw: string | null
+          physical_region_id: number | null
+          postal_address_part1: string | null
+          postal_address_part1_raw: string | null
+          postal_address_part2: string | null
+          postal_address_part2_raw: string | null
+          postal_address_part3: string | null
+          postal_address_part3_raw: string | null
+          postal_altitude: number | null
+          postal_altitude_raw: string | null
+          postal_country_id: number | null
+          postal_country_iso_2_raw: string | null
+          postal_latitude: number | null
+          postal_latitude_raw: string | null
+          postal_location_id: number | null
+          postal_longitude: number | null
+          postal_longitude_raw: string | null
+          postal_postcode: string | null
+          postal_postcode_raw: string | null
+          postal_postplace: string | null
+          postal_postplace_raw: string | null
+          postal_region_code_raw: string | null
+          postal_region_id: number | null
+          primary_activity_category_code_raw: string | null
+          primary_activity_category_id: number | null
+          primary_activity_id: number | null
+          primary_for_legal_unit: boolean | null
+          row_id: number
+          secondary_activity_category_code_raw: string | null
+          secondary_activity_category_id: number | null
+          secondary_activity_id: number | null
+          sector_code_raw: string | null
+          sector_id: number | null
+          stat_for_unit_employees_id: number | null
+          stat_for_unit_turnover_id: number | null
+          stat_ident_raw: string | null
+          state: Database["public"]["Enums"]["import_data_state"]
+          status_code_raw: string | null
+          status_id: number | null
+          tag_for_unit_id: number | null
+          tag_id: number | null
+          tag_path: unknown
+          tag_path_raw: string | null
+          tax_ident_raw: string | null
+          turnover: number | null
+          turnover_raw: string | null
+          unit_size_code_raw: string | null
+          unit_size_id: number | null
+          valid_from: string | null
+          valid_from_raw: string | null
+          valid_to: string | null
+          valid_to_raw: string | null
+          valid_until: string | null
+          web_address: string | null
+          web_address_raw: string | null
+        }
+        Insert: {
+          action?: Database["public"]["Enums"]["import_row_action_type"] | null
+          birth_date?: string | null
+          birth_date_raw?: string | null
+          contact_id?: number | null
+          data_source_code_raw?: string | null
+          data_source_id?: number | null
+          death_date?: string | null
+          death_date_raw?: string | null
+          edit_at?: string | null
+          edit_by_user_id?: number | null
+          edit_comment?: string | null
+          edit_comment_raw?: string | null
+          email_address?: string | null
+          email_address_raw?: string | null
+          employees?: number | null
+          employees_raw?: string | null
+          errors?: Json
+          establishment_id?: number | null
+          fax_number?: string | null
+          fax_number_raw?: string | null
+          founding_row_id?: number | null
+          invalid_codes?: Json
+          landline?: string | null
+          landline_raw?: string | null
+          last_completed_priority?: number
+          legal_unit_id?: number | null
+          legal_unit_stat_ident_raw?: string | null
+          legal_unit_tax_ident_raw?: string | null
+          merge_status?: Json
+          mobile_number?: string | null
+          mobile_number_raw?: string | null
+          name?: string | null
+          name_raw?: string | null
+          operation?:
+            | Database["public"]["Enums"]["import_row_operation_type"]
+            | null
+          phone_number?: string | null
+          phone_number_raw?: string | null
+          physical_address_part1?: string | null
+          physical_address_part1_raw?: string | null
+          physical_address_part2?: string | null
+          physical_address_part2_raw?: string | null
+          physical_address_part3?: string | null
+          physical_address_part3_raw?: string | null
+          physical_altitude?: number | null
+          physical_altitude_raw?: string | null
+          physical_country_id?: number | null
+          physical_country_iso_2_raw?: string | null
+          physical_latitude?: number | null
+          physical_latitude_raw?: string | null
+          physical_location_id?: number | null
+          physical_longitude?: number | null
+          physical_longitude_raw?: string | null
+          physical_postcode?: string | null
+          physical_postcode_raw?: string | null
+          physical_postplace?: string | null
+          physical_postplace_raw?: string | null
+          physical_region_code_raw?: string | null
+          physical_region_id?: number | null
+          postal_address_part1?: string | null
+          postal_address_part1_raw?: string | null
+          postal_address_part2?: string | null
+          postal_address_part2_raw?: string | null
+          postal_address_part3?: string | null
+          postal_address_part3_raw?: string | null
+          postal_altitude?: number | null
+          postal_altitude_raw?: string | null
+          postal_country_id?: number | null
+          postal_country_iso_2_raw?: string | null
+          postal_latitude?: number | null
+          postal_latitude_raw?: string | null
+          postal_location_id?: number | null
+          postal_longitude?: number | null
+          postal_longitude_raw?: string | null
+          postal_postcode?: string | null
+          postal_postcode_raw?: string | null
+          postal_postplace?: string | null
+          postal_postplace_raw?: string | null
+          postal_region_code_raw?: string | null
+          postal_region_id?: number | null
+          primary_activity_category_code_raw?: string | null
+          primary_activity_category_id?: number | null
+          primary_activity_id?: number | null
+          primary_for_legal_unit?: boolean | null
+          row_id?: never
+          secondary_activity_category_code_raw?: string | null
+          secondary_activity_category_id?: number | null
+          secondary_activity_id?: number | null
+          sector_code_raw?: string | null
+          sector_id?: number | null
+          stat_for_unit_employees_id?: number | null
+          stat_for_unit_turnover_id?: number | null
+          stat_ident_raw?: string | null
+          state?: Database["public"]["Enums"]["import_data_state"]
+          status_code_raw?: string | null
+          status_id?: number | null
+          tag_for_unit_id?: number | null
+          tag_id?: number | null
+          tag_path?: unknown
+          tag_path_raw?: string | null
+          tax_ident_raw?: string | null
+          turnover?: number | null
+          turnover_raw?: string | null
+          unit_size_code_raw?: string | null
+          unit_size_id?: number | null
+          valid_from?: string | null
+          valid_from_raw?: string | null
+          valid_to?: string | null
+          valid_to_raw?: string | null
+          valid_until?: string | null
+          web_address?: string | null
+          web_address_raw?: string | null
+        }
+        Update: {
+          action?: Database["public"]["Enums"]["import_row_action_type"] | null
+          birth_date?: string | null
+          birth_date_raw?: string | null
+          contact_id?: number | null
+          data_source_code_raw?: string | null
+          data_source_id?: number | null
+          death_date?: string | null
+          death_date_raw?: string | null
+          edit_at?: string | null
+          edit_by_user_id?: number | null
+          edit_comment?: string | null
+          edit_comment_raw?: string | null
+          email_address?: string | null
+          email_address_raw?: string | null
+          employees?: number | null
+          employees_raw?: string | null
+          errors?: Json
+          establishment_id?: number | null
+          fax_number?: string | null
+          fax_number_raw?: string | null
+          founding_row_id?: number | null
+          invalid_codes?: Json
+          landline?: string | null
+          landline_raw?: string | null
+          last_completed_priority?: number
+          legal_unit_id?: number | null
+          legal_unit_stat_ident_raw?: string | null
+          legal_unit_tax_ident_raw?: string | null
+          merge_status?: Json
+          mobile_number?: string | null
+          mobile_number_raw?: string | null
+          name?: string | null
+          name_raw?: string | null
+          operation?:
+            | Database["public"]["Enums"]["import_row_operation_type"]
+            | null
+          phone_number?: string | null
+          phone_number_raw?: string | null
+          physical_address_part1?: string | null
+          physical_address_part1_raw?: string | null
+          physical_address_part2?: string | null
+          physical_address_part2_raw?: string | null
+          physical_address_part3?: string | null
+          physical_address_part3_raw?: string | null
+          physical_altitude?: number | null
+          physical_altitude_raw?: string | null
+          physical_country_id?: number | null
+          physical_country_iso_2_raw?: string | null
+          physical_latitude?: number | null
+          physical_latitude_raw?: string | null
+          physical_location_id?: number | null
+          physical_longitude?: number | null
+          physical_longitude_raw?: string | null
+          physical_postcode?: string | null
+          physical_postcode_raw?: string | null
+          physical_postplace?: string | null
+          physical_postplace_raw?: string | null
+          physical_region_code_raw?: string | null
+          physical_region_id?: number | null
+          postal_address_part1?: string | null
+          postal_address_part1_raw?: string | null
+          postal_address_part2?: string | null
+          postal_address_part2_raw?: string | null
+          postal_address_part3?: string | null
+          postal_address_part3_raw?: string | null
+          postal_altitude?: number | null
+          postal_altitude_raw?: string | null
+          postal_country_id?: number | null
+          postal_country_iso_2_raw?: string | null
+          postal_latitude?: number | null
+          postal_latitude_raw?: string | null
+          postal_location_id?: number | null
+          postal_longitude?: number | null
+          postal_longitude_raw?: string | null
+          postal_postcode?: string | null
+          postal_postcode_raw?: string | null
+          postal_postplace?: string | null
+          postal_postplace_raw?: string | null
+          postal_region_code_raw?: string | null
+          postal_region_id?: number | null
+          primary_activity_category_code_raw?: string | null
+          primary_activity_category_id?: number | null
+          primary_activity_id?: number | null
+          primary_for_legal_unit?: boolean | null
+          row_id?: never
+          secondary_activity_category_code_raw?: string | null
+          secondary_activity_category_id?: number | null
+          secondary_activity_id?: number | null
+          sector_code_raw?: string | null
+          sector_id?: number | null
+          stat_for_unit_employees_id?: number | null
+          stat_for_unit_turnover_id?: number | null
+          stat_ident_raw?: string | null
+          state?: Database["public"]["Enums"]["import_data_state"]
+          status_code_raw?: string | null
+          status_id?: number | null
+          tag_for_unit_id?: number | null
+          tag_id?: number | null
+          tag_path?: unknown
+          tag_path_raw?: string | null
+          tax_ident_raw?: string | null
+          turnover?: number | null
+          turnover_raw?: string | null
+          unit_size_code_raw?: string | null
+          unit_size_id?: number | null
+          valid_from?: string | null
+          valid_from_raw?: string | null
+          valid_to?: string | null
+          valid_to_raw?: string | null
+          valid_until?: string | null
+          web_address?: string | null
+          web_address_raw?: string | null
+        }
+        Relationships: []
+      }
+      import_demo_es_for_lu_wsd_upload: {
+        Row: {
+          birth_date: string | null
+          data_source_code: string | null
+          death_date: string | null
+          email_address: string | null
+          employees: string | null
+          fax_number: string | null
+          landline: string | null
+          legal_unit_stat_ident: string | null
+          legal_unit_tax_ident: string | null
+          mobile_number: string | null
+          name: string | null
+          phone_number: string | null
+          physical_address_part1: string | null
+          physical_address_part2: string | null
+          physical_address_part3: string | null
+          physical_altitude: string | null
+          physical_country_iso_2: string | null
+          physical_latitude: string | null
+          physical_longitude: string | null
+          physical_postcode: string | null
+          physical_postplace: string | null
+          physical_region_code: string | null
+          postal_address_part1: string | null
+          postal_address_part2: string | null
+          postal_address_part3: string | null
+          postal_country_iso_2: string | null
+          postal_postcode: string | null
+          postal_postplace: string | null
+          postal_region_code: string | null
+          primary_activity_category_code: string | null
+          secondary_activity_category_code: string | null
+          sector_code: string | null
+          stat_ident: string | null
+          status_code: string | null
+          tag_path: string | null
+          tax_ident: string | null
+          turnover: string | null
+          unit_size_code: string | null
+          valid_from: string | null
+          valid_to: string | null
+          web_address: string | null
+        }
+        Insert: {
+          birth_date?: string | null
+          data_source_code?: string | null
+          death_date?: string | null
+          email_address?: string | null
+          employees?: string | null
+          fax_number?: string | null
+          landline?: string | null
+          legal_unit_stat_ident?: string | null
+          legal_unit_tax_ident?: string | null
+          mobile_number?: string | null
+          name?: string | null
+          phone_number?: string | null
+          physical_address_part1?: string | null
+          physical_address_part2?: string | null
+          physical_address_part3?: string | null
+          physical_altitude?: string | null
+          physical_country_iso_2?: string | null
+          physical_latitude?: string | null
+          physical_longitude?: string | null
+          physical_postcode?: string | null
+          physical_postplace?: string | null
+          physical_region_code?: string | null
+          postal_address_part1?: string | null
+          postal_address_part2?: string | null
+          postal_address_part3?: string | null
+          postal_country_iso_2?: string | null
+          postal_postcode?: string | null
+          postal_postplace?: string | null
+          postal_region_code?: string | null
+          primary_activity_category_code?: string | null
+          secondary_activity_category_code?: string | null
+          sector_code?: string | null
+          stat_ident?: string | null
+          status_code?: string | null
+          tag_path?: string | null
+          tax_ident?: string | null
+          turnover?: string | null
+          unit_size_code?: string | null
+          valid_from?: string | null
+          valid_to?: string | null
+          web_address?: string | null
+        }
+        Update: {
+          birth_date?: string | null
+          data_source_code?: string | null
+          death_date?: string | null
+          email_address?: string | null
+          employees?: string | null
+          fax_number?: string | null
+          landline?: string | null
+          legal_unit_stat_ident?: string | null
+          legal_unit_tax_ident?: string | null
+          mobile_number?: string | null
+          name?: string | null
+          phone_number?: string | null
+          physical_address_part1?: string | null
+          physical_address_part2?: string | null
+          physical_address_part3?: string | null
+          physical_altitude?: string | null
+          physical_country_iso_2?: string | null
+          physical_latitude?: string | null
+          physical_longitude?: string | null
+          physical_postcode?: string | null
+          physical_postplace?: string | null
+          physical_region_code?: string | null
+          postal_address_part1?: string | null
+          postal_address_part2?: string | null
+          postal_address_part3?: string | null
+          postal_country_iso_2?: string | null
+          postal_postcode?: string | null
+          postal_postplace?: string | null
+          postal_region_code?: string | null
+          primary_activity_category_code?: string | null
+          secondary_activity_category_code?: string | null
+          sector_code?: string | null
+          stat_ident?: string | null
+          status_code?: string | null
+          tag_path?: string | null
+          tax_ident?: string | null
+          turnover?: string | null
+          unit_size_code?: string | null
+          valid_from?: string | null
+          valid_to?: string | null
+          web_address?: string | null
+        }
+        Relationships: []
+      }
+      import_demo_es_without_lu_wsd_data: {
+        Row: {
+          action: Database["public"]["Enums"]["import_row_action_type"] | null
+          birth_date: string | null
+          birth_date_raw: string | null
+          contact_id: number | null
+          data_source_code_raw: string | null
+          data_source_id: number | null
+          death_date: string | null
+          death_date_raw: string | null
+          edit_at: string | null
+          edit_by_user_id: number | null
+          edit_comment: string | null
+          edit_comment_raw: string | null
+          email_address: string | null
+          email_address_raw: string | null
+          employees: number | null
+          employees_raw: string | null
+          enterprise_id: number | null
+          errors: Json
+          establishment_id: number | null
+          fax_number: string | null
+          fax_number_raw: string | null
+          founding_row_id: number | null
+          invalid_codes: Json
+          landline: string | null
+          landline_raw: string | null
+          last_completed_priority: number
+          legal_unit_id: number | null
+          merge_status: Json
+          mobile_number: string | null
+          mobile_number_raw: string | null
+          name: string | null
+          name_raw: string | null
+          operation:
+            | Database["public"]["Enums"]["import_row_operation_type"]
+            | null
+          phone_number: string | null
+          phone_number_raw: string | null
+          physical_address_part1: string | null
+          physical_address_part1_raw: string | null
+          physical_address_part2: string | null
+          physical_address_part2_raw: string | null
+          physical_address_part3: string | null
+          physical_address_part3_raw: string | null
+          physical_altitude: number | null
+          physical_altitude_raw: string | null
+          physical_country_id: number | null
+          physical_country_iso_2_raw: string | null
+          physical_latitude: number | null
+          physical_latitude_raw: string | null
+          physical_location_id: number | null
+          physical_longitude: number | null
+          physical_longitude_raw: string | null
+          physical_postcode: string | null
+          physical_postcode_raw: string | null
+          physical_postplace: string | null
+          physical_postplace_raw: string | null
+          physical_region_code_raw: string | null
+          physical_region_id: number | null
+          postal_address_part1: string | null
+          postal_address_part1_raw: string | null
+          postal_address_part2: string | null
+          postal_address_part2_raw: string | null
+          postal_address_part3: string | null
+          postal_address_part3_raw: string | null
+          postal_altitude: number | null
+          postal_altitude_raw: string | null
+          postal_country_id: number | null
+          postal_country_iso_2_raw: string | null
+          postal_latitude: number | null
+          postal_latitude_raw: string | null
+          postal_location_id: number | null
+          postal_longitude: number | null
+          postal_longitude_raw: string | null
+          postal_postcode: string | null
+          postal_postcode_raw: string | null
+          postal_postplace: string | null
+          postal_postplace_raw: string | null
+          postal_region_code_raw: string | null
+          postal_region_id: number | null
+          primary_activity_category_code_raw: string | null
+          primary_activity_category_id: number | null
+          primary_activity_id: number | null
+          primary_for_enterprise: boolean | null
+          row_id: number
+          secondary_activity_category_code_raw: string | null
+          secondary_activity_category_id: number | null
+          secondary_activity_id: number | null
+          sector_code_raw: string | null
+          sector_id: number | null
+          stat_for_unit_employees_id: number | null
+          stat_for_unit_turnover_id: number | null
+          stat_ident_raw: string | null
+          state: Database["public"]["Enums"]["import_data_state"]
+          status_code_raw: string | null
+          status_id: number | null
+          tag_for_unit_id: number | null
+          tag_id: number | null
+          tag_path: unknown
+          tag_path_raw: string | null
+          tax_ident_raw: string | null
+          turnover: number | null
+          turnover_raw: string | null
+          unit_size_code_raw: string | null
+          unit_size_id: number | null
+          valid_from: string | null
+          valid_from_raw: string | null
+          valid_to: string | null
+          valid_to_raw: string | null
+          valid_until: string | null
+          web_address: string | null
+          web_address_raw: string | null
+        }
+        Insert: {
+          action?: Database["public"]["Enums"]["import_row_action_type"] | null
+          birth_date?: string | null
+          birth_date_raw?: string | null
+          contact_id?: number | null
+          data_source_code_raw?: string | null
+          data_source_id?: number | null
+          death_date?: string | null
+          death_date_raw?: string | null
+          edit_at?: string | null
+          edit_by_user_id?: number | null
+          edit_comment?: string | null
+          edit_comment_raw?: string | null
+          email_address?: string | null
+          email_address_raw?: string | null
+          employees?: number | null
+          employees_raw?: string | null
+          enterprise_id?: number | null
+          errors?: Json
+          establishment_id?: number | null
+          fax_number?: string | null
+          fax_number_raw?: string | null
+          founding_row_id?: number | null
+          invalid_codes?: Json
+          landline?: string | null
+          landline_raw?: string | null
+          last_completed_priority?: number
+          legal_unit_id?: number | null
+          merge_status?: Json
+          mobile_number?: string | null
+          mobile_number_raw?: string | null
+          name?: string | null
+          name_raw?: string | null
+          operation?:
+            | Database["public"]["Enums"]["import_row_operation_type"]
+            | null
+          phone_number?: string | null
+          phone_number_raw?: string | null
+          physical_address_part1?: string | null
+          physical_address_part1_raw?: string | null
+          physical_address_part2?: string | null
+          physical_address_part2_raw?: string | null
+          physical_address_part3?: string | null
+          physical_address_part3_raw?: string | null
+          physical_altitude?: number | null
+          physical_altitude_raw?: string | null
+          physical_country_id?: number | null
+          physical_country_iso_2_raw?: string | null
+          physical_latitude?: number | null
+          physical_latitude_raw?: string | null
+          physical_location_id?: number | null
+          physical_longitude?: number | null
+          physical_longitude_raw?: string | null
+          physical_postcode?: string | null
+          physical_postcode_raw?: string | null
+          physical_postplace?: string | null
+          physical_postplace_raw?: string | null
+          physical_region_code_raw?: string | null
+          physical_region_id?: number | null
+          postal_address_part1?: string | null
+          postal_address_part1_raw?: string | null
+          postal_address_part2?: string | null
+          postal_address_part2_raw?: string | null
+          postal_address_part3?: string | null
+          postal_address_part3_raw?: string | null
+          postal_altitude?: number | null
+          postal_altitude_raw?: string | null
+          postal_country_id?: number | null
+          postal_country_iso_2_raw?: string | null
+          postal_latitude?: number | null
+          postal_latitude_raw?: string | null
+          postal_location_id?: number | null
+          postal_longitude?: number | null
+          postal_longitude_raw?: string | null
+          postal_postcode?: string | null
+          postal_postcode_raw?: string | null
+          postal_postplace?: string | null
+          postal_postplace_raw?: string | null
+          postal_region_code_raw?: string | null
+          postal_region_id?: number | null
+          primary_activity_category_code_raw?: string | null
+          primary_activity_category_id?: number | null
+          primary_activity_id?: number | null
+          primary_for_enterprise?: boolean | null
+          row_id?: never
+          secondary_activity_category_code_raw?: string | null
+          secondary_activity_category_id?: number | null
+          secondary_activity_id?: number | null
+          sector_code_raw?: string | null
+          sector_id?: number | null
+          stat_for_unit_employees_id?: number | null
+          stat_for_unit_turnover_id?: number | null
+          stat_ident_raw?: string | null
+          state?: Database["public"]["Enums"]["import_data_state"]
+          status_code_raw?: string | null
+          status_id?: number | null
+          tag_for_unit_id?: number | null
+          tag_id?: number | null
+          tag_path?: unknown
+          tag_path_raw?: string | null
+          tax_ident_raw?: string | null
+          turnover?: number | null
+          turnover_raw?: string | null
+          unit_size_code_raw?: string | null
+          unit_size_id?: number | null
+          valid_from?: string | null
+          valid_from_raw?: string | null
+          valid_to?: string | null
+          valid_to_raw?: string | null
+          valid_until?: string | null
+          web_address?: string | null
+          web_address_raw?: string | null
+        }
+        Update: {
+          action?: Database["public"]["Enums"]["import_row_action_type"] | null
+          birth_date?: string | null
+          birth_date_raw?: string | null
+          contact_id?: number | null
+          data_source_code_raw?: string | null
+          data_source_id?: number | null
+          death_date?: string | null
+          death_date_raw?: string | null
+          edit_at?: string | null
+          edit_by_user_id?: number | null
+          edit_comment?: string | null
+          edit_comment_raw?: string | null
+          email_address?: string | null
+          email_address_raw?: string | null
+          employees?: number | null
+          employees_raw?: string | null
+          enterprise_id?: number | null
+          errors?: Json
+          establishment_id?: number | null
+          fax_number?: string | null
+          fax_number_raw?: string | null
+          founding_row_id?: number | null
+          invalid_codes?: Json
+          landline?: string | null
+          landline_raw?: string | null
+          last_completed_priority?: number
+          legal_unit_id?: number | null
+          merge_status?: Json
+          mobile_number?: string | null
+          mobile_number_raw?: string | null
+          name?: string | null
+          name_raw?: string | null
+          operation?:
+            | Database["public"]["Enums"]["import_row_operation_type"]
+            | null
+          phone_number?: string | null
+          phone_number_raw?: string | null
+          physical_address_part1?: string | null
+          physical_address_part1_raw?: string | null
+          physical_address_part2?: string | null
+          physical_address_part2_raw?: string | null
+          physical_address_part3?: string | null
+          physical_address_part3_raw?: string | null
+          physical_altitude?: number | null
+          physical_altitude_raw?: string | null
+          physical_country_id?: number | null
+          physical_country_iso_2_raw?: string | null
+          physical_latitude?: number | null
+          physical_latitude_raw?: string | null
+          physical_location_id?: number | null
+          physical_longitude?: number | null
+          physical_longitude_raw?: string | null
+          physical_postcode?: string | null
+          physical_postcode_raw?: string | null
+          physical_postplace?: string | null
+          physical_postplace_raw?: string | null
+          physical_region_code_raw?: string | null
+          physical_region_id?: number | null
+          postal_address_part1?: string | null
+          postal_address_part1_raw?: string | null
+          postal_address_part2?: string | null
+          postal_address_part2_raw?: string | null
+          postal_address_part3?: string | null
+          postal_address_part3_raw?: string | null
+          postal_altitude?: number | null
+          postal_altitude_raw?: string | null
+          postal_country_id?: number | null
+          postal_country_iso_2_raw?: string | null
+          postal_latitude?: number | null
+          postal_latitude_raw?: string | null
+          postal_location_id?: number | null
+          postal_longitude?: number | null
+          postal_longitude_raw?: string | null
+          postal_postcode?: string | null
+          postal_postcode_raw?: string | null
+          postal_postplace?: string | null
+          postal_postplace_raw?: string | null
+          postal_region_code_raw?: string | null
+          postal_region_id?: number | null
+          primary_activity_category_code_raw?: string | null
+          primary_activity_category_id?: number | null
+          primary_activity_id?: number | null
+          primary_for_enterprise?: boolean | null
+          row_id?: never
+          secondary_activity_category_code_raw?: string | null
+          secondary_activity_category_id?: number | null
+          secondary_activity_id?: number | null
+          sector_code_raw?: string | null
+          sector_id?: number | null
+          stat_for_unit_employees_id?: number | null
+          stat_for_unit_turnover_id?: number | null
+          stat_ident_raw?: string | null
+          state?: Database["public"]["Enums"]["import_data_state"]
+          status_code_raw?: string | null
+          status_id?: number | null
+          tag_for_unit_id?: number | null
+          tag_id?: number | null
+          tag_path?: unknown
+          tag_path_raw?: string | null
+          tax_ident_raw?: string | null
+          turnover?: number | null
+          turnover_raw?: string | null
+          unit_size_code_raw?: string | null
+          unit_size_id?: number | null
+          valid_from?: string | null
+          valid_from_raw?: string | null
+          valid_to?: string | null
+          valid_to_raw?: string | null
+          valid_until?: string | null
+          web_address?: string | null
+          web_address_raw?: string | null
+        }
+        Relationships: []
+      }
+      import_demo_es_without_lu_wsd_upload: {
+        Row: {
+          birth_date: string | null
+          data_source_code: string | null
+          death_date: string | null
+          email_address: string | null
+          employees: string | null
+          fax_number: string | null
+          landline: string | null
+          mobile_number: string | null
+          name: string | null
+          phone_number: string | null
+          physical_address_part1: string | null
+          physical_address_part2: string | null
+          physical_address_part3: string | null
+          physical_altitude: string | null
+          physical_country_iso_2: string | null
+          physical_latitude: string | null
+          physical_longitude: string | null
+          physical_postcode: string | null
+          physical_postplace: string | null
+          physical_region_code: string | null
+          postal_address_part1: string | null
+          postal_address_part2: string | null
+          postal_address_part3: string | null
+          postal_country_iso_2: string | null
+          postal_postcode: string | null
+          postal_postplace: string | null
+          postal_region_code: string | null
+          primary_activity_category_code: string | null
+          secondary_activity_category_code: string | null
+          sector_code: string | null
+          stat_ident: string | null
+          status_code: string | null
+          tag_path: string | null
+          tax_ident: string | null
+          turnover: string | null
+          unit_size_code: string | null
+          valid_from: string | null
+          valid_to: string | null
+          web_address: string | null
+        }
+        Insert: {
+          birth_date?: string | null
+          data_source_code?: string | null
+          death_date?: string | null
+          email_address?: string | null
+          employees?: string | null
+          fax_number?: string | null
+          landline?: string | null
+          mobile_number?: string | null
+          name?: string | null
+          phone_number?: string | null
+          physical_address_part1?: string | null
+          physical_address_part2?: string | null
+          physical_address_part3?: string | null
+          physical_altitude?: string | null
+          physical_country_iso_2?: string | null
+          physical_latitude?: string | null
+          physical_longitude?: string | null
+          physical_postcode?: string | null
+          physical_postplace?: string | null
+          physical_region_code?: string | null
+          postal_address_part1?: string | null
+          postal_address_part2?: string | null
+          postal_address_part3?: string | null
+          postal_country_iso_2?: string | null
+          postal_postcode?: string | null
+          postal_postplace?: string | null
+          postal_region_code?: string | null
+          primary_activity_category_code?: string | null
+          secondary_activity_category_code?: string | null
+          sector_code?: string | null
+          stat_ident?: string | null
+          status_code?: string | null
+          tag_path?: string | null
+          tax_ident?: string | null
+          turnover?: string | null
+          unit_size_code?: string | null
+          valid_from?: string | null
+          valid_to?: string | null
+          web_address?: string | null
+        }
+        Update: {
+          birth_date?: string | null
+          data_source_code?: string | null
+          death_date?: string | null
+          email_address?: string | null
+          employees?: string | null
+          fax_number?: string | null
+          landline?: string | null
+          mobile_number?: string | null
+          name?: string | null
+          phone_number?: string | null
+          physical_address_part1?: string | null
+          physical_address_part2?: string | null
+          physical_address_part3?: string | null
+          physical_altitude?: string | null
+          physical_country_iso_2?: string | null
+          physical_latitude?: string | null
+          physical_longitude?: string | null
+          physical_postcode?: string | null
+          physical_postplace?: string | null
+          physical_region_code?: string | null
+          postal_address_part1?: string | null
+          postal_address_part2?: string | null
+          postal_address_part3?: string | null
+          postal_country_iso_2?: string | null
+          postal_postcode?: string | null
+          postal_postplace?: string | null
+          postal_region_code?: string | null
+          primary_activity_category_code?: string | null
+          secondary_activity_category_code?: string | null
+          sector_code?: string | null
+          stat_ident?: string | null
+          status_code?: string | null
+          tag_path?: string | null
+          tax_ident?: string | null
+          turnover?: string | null
+          unit_size_code?: string | null
+          valid_from?: string | null
+          valid_to?: string | null
+          web_address?: string | null
+        }
+        Relationships: []
+      }
+      import_demo_lu_wsd_data: {
+        Row: {
+          action: Database["public"]["Enums"]["import_row_action_type"] | null
+          birth_date: string | null
+          birth_date_raw: string | null
+          contact_id: number | null
+          data_source_code_raw: string | null
+          data_source_id: number | null
+          death_date: string | null
+          death_date_raw: string | null
+          edit_at: string | null
+          edit_by_user_id: number | null
+          edit_comment: string | null
+          edit_comment_raw: string | null
+          email_address: string | null
+          email_address_raw: string | null
+          employees: number | null
+          employees_raw: string | null
+          enterprise_id: number | null
+          errors: Json
+          establishment_id: number | null
+          fax_number: string | null
+          fax_number_raw: string | null
+          founding_row_id: number | null
+          invalid_codes: Json
+          landline: string | null
+          landline_raw: string | null
+          last_completed_priority: number
+          legal_form_code_raw: string | null
+          legal_form_id: number | null
+          legal_unit_id: number | null
+          merge_status: Json
+          mobile_number: string | null
+          mobile_number_raw: string | null
+          name: string | null
+          name_raw: string | null
+          operation:
+            | Database["public"]["Enums"]["import_row_operation_type"]
+            | null
+          phone_number: string | null
+          phone_number_raw: string | null
+          physical_address_part1: string | null
+          physical_address_part1_raw: string | null
+          physical_address_part2: string | null
+          physical_address_part2_raw: string | null
+          physical_address_part3: string | null
+          physical_address_part3_raw: string | null
+          physical_altitude: number | null
+          physical_altitude_raw: string | null
+          physical_country_id: number | null
+          physical_country_iso_2_raw: string | null
+          physical_latitude: number | null
+          physical_latitude_raw: string | null
+          physical_location_id: number | null
+          physical_longitude: number | null
+          physical_longitude_raw: string | null
+          physical_postcode: string | null
+          physical_postcode_raw: string | null
+          physical_postplace: string | null
+          physical_postplace_raw: string | null
+          physical_region_code_raw: string | null
+          physical_region_id: number | null
+          postal_address_part1: string | null
+          postal_address_part1_raw: string | null
+          postal_address_part2: string | null
+          postal_address_part2_raw: string | null
+          postal_address_part3: string | null
+          postal_address_part3_raw: string | null
+          postal_altitude: number | null
+          postal_altitude_raw: string | null
+          postal_country_id: number | null
+          postal_country_iso_2_raw: string | null
+          postal_latitude: number | null
+          postal_latitude_raw: string | null
+          postal_location_id: number | null
+          postal_longitude: number | null
+          postal_longitude_raw: string | null
+          postal_postcode: string | null
+          postal_postcode_raw: string | null
+          postal_postplace: string | null
+          postal_postplace_raw: string | null
+          postal_region_code_raw: string | null
+          postal_region_id: number | null
+          primary_activity_category_code_raw: string | null
+          primary_activity_category_id: number | null
+          primary_activity_id: number | null
+          primary_for_enterprise: boolean | null
+          row_id: number
+          secondary_activity_category_code_raw: string | null
+          secondary_activity_category_id: number | null
+          secondary_activity_id: number | null
+          sector_code_raw: string | null
+          sector_id: number | null
+          stat_for_unit_employees_id: number | null
+          stat_for_unit_turnover_id: number | null
+          stat_ident_raw: string | null
+          state: Database["public"]["Enums"]["import_data_state"]
+          status_code_raw: string | null
+          status_id: number | null
+          tag_for_unit_id: number | null
+          tag_id: number | null
+          tag_path: unknown
+          tag_path_raw: string | null
+          tax_ident_raw: string | null
+          turnover: number | null
+          turnover_raw: string | null
+          unit_size_code_raw: string | null
+          unit_size_id: number | null
+          valid_from: string | null
+          valid_from_raw: string | null
+          valid_to: string | null
+          valid_to_raw: string | null
+          valid_until: string | null
+          web_address: string | null
+          web_address_raw: string | null
+        }
+        Insert: {
+          action?: Database["public"]["Enums"]["import_row_action_type"] | null
+          birth_date?: string | null
+          birth_date_raw?: string | null
+          contact_id?: number | null
+          data_source_code_raw?: string | null
+          data_source_id?: number | null
+          death_date?: string | null
+          death_date_raw?: string | null
+          edit_at?: string | null
+          edit_by_user_id?: number | null
+          edit_comment?: string | null
+          edit_comment_raw?: string | null
+          email_address?: string | null
+          email_address_raw?: string | null
+          employees?: number | null
+          employees_raw?: string | null
+          enterprise_id?: number | null
+          errors?: Json
+          establishment_id?: number | null
+          fax_number?: string | null
+          fax_number_raw?: string | null
+          founding_row_id?: number | null
+          invalid_codes?: Json
+          landline?: string | null
+          landline_raw?: string | null
+          last_completed_priority?: number
+          legal_form_code_raw?: string | null
+          legal_form_id?: number | null
+          legal_unit_id?: number | null
+          merge_status?: Json
+          mobile_number?: string | null
+          mobile_number_raw?: string | null
+          name?: string | null
+          name_raw?: string | null
+          operation?:
+            | Database["public"]["Enums"]["import_row_operation_type"]
+            | null
+          phone_number?: string | null
+          phone_number_raw?: string | null
+          physical_address_part1?: string | null
+          physical_address_part1_raw?: string | null
+          physical_address_part2?: string | null
+          physical_address_part2_raw?: string | null
+          physical_address_part3?: string | null
+          physical_address_part3_raw?: string | null
+          physical_altitude?: number | null
+          physical_altitude_raw?: string | null
+          physical_country_id?: number | null
+          physical_country_iso_2_raw?: string | null
+          physical_latitude?: number | null
+          physical_latitude_raw?: string | null
+          physical_location_id?: number | null
+          physical_longitude?: number | null
+          physical_longitude_raw?: string | null
+          physical_postcode?: string | null
+          physical_postcode_raw?: string | null
+          physical_postplace?: string | null
+          physical_postplace_raw?: string | null
+          physical_region_code_raw?: string | null
+          physical_region_id?: number | null
+          postal_address_part1?: string | null
+          postal_address_part1_raw?: string | null
+          postal_address_part2?: string | null
+          postal_address_part2_raw?: string | null
+          postal_address_part3?: string | null
+          postal_address_part3_raw?: string | null
+          postal_altitude?: number | null
+          postal_altitude_raw?: string | null
+          postal_country_id?: number | null
+          postal_country_iso_2_raw?: string | null
+          postal_latitude?: number | null
+          postal_latitude_raw?: string | null
+          postal_location_id?: number | null
+          postal_longitude?: number | null
+          postal_longitude_raw?: string | null
+          postal_postcode?: string | null
+          postal_postcode_raw?: string | null
+          postal_postplace?: string | null
+          postal_postplace_raw?: string | null
+          postal_region_code_raw?: string | null
+          postal_region_id?: number | null
+          primary_activity_category_code_raw?: string | null
+          primary_activity_category_id?: number | null
+          primary_activity_id?: number | null
+          primary_for_enterprise?: boolean | null
+          row_id?: never
+          secondary_activity_category_code_raw?: string | null
+          secondary_activity_category_id?: number | null
+          secondary_activity_id?: number | null
+          sector_code_raw?: string | null
+          sector_id?: number | null
+          stat_for_unit_employees_id?: number | null
+          stat_for_unit_turnover_id?: number | null
+          stat_ident_raw?: string | null
+          state?: Database["public"]["Enums"]["import_data_state"]
+          status_code_raw?: string | null
+          status_id?: number | null
+          tag_for_unit_id?: number | null
+          tag_id?: number | null
+          tag_path?: unknown
+          tag_path_raw?: string | null
+          tax_ident_raw?: string | null
+          turnover?: number | null
+          turnover_raw?: string | null
+          unit_size_code_raw?: string | null
+          unit_size_id?: number | null
+          valid_from?: string | null
+          valid_from_raw?: string | null
+          valid_to?: string | null
+          valid_to_raw?: string | null
+          valid_until?: string | null
+          web_address?: string | null
+          web_address_raw?: string | null
+        }
+        Update: {
+          action?: Database["public"]["Enums"]["import_row_action_type"] | null
+          birth_date?: string | null
+          birth_date_raw?: string | null
+          contact_id?: number | null
+          data_source_code_raw?: string | null
+          data_source_id?: number | null
+          death_date?: string | null
+          death_date_raw?: string | null
+          edit_at?: string | null
+          edit_by_user_id?: number | null
+          edit_comment?: string | null
+          edit_comment_raw?: string | null
+          email_address?: string | null
+          email_address_raw?: string | null
+          employees?: number | null
+          employees_raw?: string | null
+          enterprise_id?: number | null
+          errors?: Json
+          establishment_id?: number | null
+          fax_number?: string | null
+          fax_number_raw?: string | null
+          founding_row_id?: number | null
+          invalid_codes?: Json
+          landline?: string | null
+          landline_raw?: string | null
+          last_completed_priority?: number
+          legal_form_code_raw?: string | null
+          legal_form_id?: number | null
+          legal_unit_id?: number | null
+          merge_status?: Json
+          mobile_number?: string | null
+          mobile_number_raw?: string | null
+          name?: string | null
+          name_raw?: string | null
+          operation?:
+            | Database["public"]["Enums"]["import_row_operation_type"]
+            | null
+          phone_number?: string | null
+          phone_number_raw?: string | null
+          physical_address_part1?: string | null
+          physical_address_part1_raw?: string | null
+          physical_address_part2?: string | null
+          physical_address_part2_raw?: string | null
+          physical_address_part3?: string | null
+          physical_address_part3_raw?: string | null
+          physical_altitude?: number | null
+          physical_altitude_raw?: string | null
+          physical_country_id?: number | null
+          physical_country_iso_2_raw?: string | null
+          physical_latitude?: number | null
+          physical_latitude_raw?: string | null
+          physical_location_id?: number | null
+          physical_longitude?: number | null
+          physical_longitude_raw?: string | null
+          physical_postcode?: string | null
+          physical_postcode_raw?: string | null
+          physical_postplace?: string | null
+          physical_postplace_raw?: string | null
+          physical_region_code_raw?: string | null
+          physical_region_id?: number | null
+          postal_address_part1?: string | null
+          postal_address_part1_raw?: string | null
+          postal_address_part2?: string | null
+          postal_address_part2_raw?: string | null
+          postal_address_part3?: string | null
+          postal_address_part3_raw?: string | null
+          postal_altitude?: number | null
+          postal_altitude_raw?: string | null
+          postal_country_id?: number | null
+          postal_country_iso_2_raw?: string | null
+          postal_latitude?: number | null
+          postal_latitude_raw?: string | null
+          postal_location_id?: number | null
+          postal_longitude?: number | null
+          postal_longitude_raw?: string | null
+          postal_postcode?: string | null
+          postal_postcode_raw?: string | null
+          postal_postplace?: string | null
+          postal_postplace_raw?: string | null
+          postal_region_code_raw?: string | null
+          postal_region_id?: number | null
+          primary_activity_category_code_raw?: string | null
+          primary_activity_category_id?: number | null
+          primary_activity_id?: number | null
+          primary_for_enterprise?: boolean | null
+          row_id?: never
+          secondary_activity_category_code_raw?: string | null
+          secondary_activity_category_id?: number | null
+          secondary_activity_id?: number | null
+          sector_code_raw?: string | null
+          sector_id?: number | null
+          stat_for_unit_employees_id?: number | null
+          stat_for_unit_turnover_id?: number | null
+          stat_ident_raw?: string | null
+          state?: Database["public"]["Enums"]["import_data_state"]
+          status_code_raw?: string | null
+          status_id?: number | null
+          tag_for_unit_id?: number | null
+          tag_id?: number | null
+          tag_path?: unknown
+          tag_path_raw?: string | null
+          tax_ident_raw?: string | null
+          turnover?: number | null
+          turnover_raw?: string | null
+          unit_size_code_raw?: string | null
+          unit_size_id?: number | null
+          valid_from?: string | null
+          valid_from_raw?: string | null
+          valid_to?: string | null
+          valid_to_raw?: string | null
+          valid_until?: string | null
+          web_address?: string | null
+          web_address_raw?: string | null
+        }
+        Relationships: []
+      }
+      import_demo_lu_wsd_upload: {
+        Row: {
+          birth_date: string | null
+          data_source_code: string | null
+          death_date: string | null
+          email_address: string | null
+          employees: string | null
+          fax_number: string | null
+          landline: string | null
+          legal_form_code: string | null
+          mobile_number: string | null
+          name: string | null
+          phone_number: string | null
+          physical_address_part1: string | null
+          physical_address_part2: string | null
+          physical_address_part3: string | null
+          physical_altitude: string | null
+          physical_country_iso_2: string | null
+          physical_latitude: string | null
+          physical_longitude: string | null
+          physical_postcode: string | null
+          physical_postplace: string | null
+          physical_region_code: string | null
+          postal_address_part1: string | null
+          postal_address_part2: string | null
+          postal_address_part3: string | null
+          postal_country_iso_2: string | null
+          postal_postcode: string | null
+          postal_postplace: string | null
+          postal_region_code: string | null
+          primary_activity_category_code: string | null
+          secondary_activity_category_code: string | null
+          sector_code: string | null
+          stat_ident: string | null
+          status_code: string | null
+          tag_path: string | null
+          tax_ident: string | null
+          turnover: string | null
+          unit_size_code: string | null
+          valid_from: string | null
+          valid_to: string | null
+          web_address: string | null
+        }
+        Insert: {
+          birth_date?: string | null
+          data_source_code?: string | null
+          death_date?: string | null
+          email_address?: string | null
+          employees?: string | null
+          fax_number?: string | null
+          landline?: string | null
+          legal_form_code?: string | null
+          mobile_number?: string | null
+          name?: string | null
+          phone_number?: string | null
+          physical_address_part1?: string | null
+          physical_address_part2?: string | null
+          physical_address_part3?: string | null
+          physical_altitude?: string | null
+          physical_country_iso_2?: string | null
+          physical_latitude?: string | null
+          physical_longitude?: string | null
+          physical_postcode?: string | null
+          physical_postplace?: string | null
+          physical_region_code?: string | null
+          postal_address_part1?: string | null
+          postal_address_part2?: string | null
+          postal_address_part3?: string | null
+          postal_country_iso_2?: string | null
+          postal_postcode?: string | null
+          postal_postplace?: string | null
+          postal_region_code?: string | null
+          primary_activity_category_code?: string | null
+          secondary_activity_category_code?: string | null
+          sector_code?: string | null
+          stat_ident?: string | null
+          status_code?: string | null
+          tag_path?: string | null
+          tax_ident?: string | null
+          turnover?: string | null
+          unit_size_code?: string | null
+          valid_from?: string | null
+          valid_to?: string | null
+          web_address?: string | null
+        }
+        Update: {
+          birth_date?: string | null
+          data_source_code?: string | null
+          death_date?: string | null
+          email_address?: string | null
+          employees?: string | null
+          fax_number?: string | null
+          landline?: string | null
+          legal_form_code?: string | null
+          mobile_number?: string | null
+          name?: string | null
+          phone_number?: string | null
+          physical_address_part1?: string | null
+          physical_address_part2?: string | null
+          physical_address_part3?: string | null
+          physical_altitude?: string | null
+          physical_country_iso_2?: string | null
+          physical_latitude?: string | null
+          physical_longitude?: string | null
+          physical_postcode?: string | null
+          physical_postplace?: string | null
+          physical_region_code?: string | null
+          postal_address_part1?: string | null
+          postal_address_part2?: string | null
+          postal_address_part3?: string | null
+          postal_country_iso_2?: string | null
+          postal_postcode?: string | null
+          postal_postplace?: string | null
+          postal_region_code?: string | null
+          primary_activity_category_code?: string | null
+          secondary_activity_category_code?: string | null
+          sector_code?: string | null
+          stat_ident?: string | null
+          status_code?: string | null
+          tag_path?: string | null
+          tax_ident?: string | null
+          turnover?: string | null
+          unit_size_code?: string | null
+          valid_from?: string | null
+          valid_to?: string | null
+          web_address?: string | null
+        }
+        Relationships: []
+      }
       import_job: {
         Row: {
           analysis_batch_size: number
@@ -1547,36 +2969,36 @@ export type Database = {
       }
       import_step: {
         Row: {
-          analyse_procedure: unknown | null
+          analyse_procedure: unknown
           code: string
           created_at: string
           id: number
           is_holistic: boolean
           name: string
           priority: number
-          process_procedure: unknown | null
+          process_procedure: unknown
           updated_at: string
         }
         Insert: {
-          analyse_procedure?: unknown | null
+          analyse_procedure?: unknown
           code: string
           created_at?: string
           id?: never
           is_holistic: boolean
           name: string
           priority: number
-          process_procedure?: unknown | null
+          process_procedure?: unknown
           updated_at?: string
         }
         Update: {
-          analyse_procedure?: unknown | null
+          analyse_procedure?: unknown
           code?: string
           created_at?: string
           id?: never
           is_holistic?: boolean
           name?: string
           priority?: number
-          process_procedure?: unknown | null
+          process_procedure?: unknown
           updated_at?: string
         }
         Relationships: []
@@ -2317,7 +3739,7 @@ export type Database = {
           label: string | null
           level: number | null
           name: string | null
-          path: unknown | null
+          path: unknown
         }
         Insert: {
           code?: string | null
@@ -2325,7 +3747,7 @@ export type Database = {
           label?: string | null
           level?: number | null
           name?: string | null
-          path?: unknown | null
+          path?: unknown
         }
         Update: {
           code?: string | null
@@ -2333,7 +3755,7 @@ export type Database = {
           label?: string | null
           level?: number | null
           name?: string | null
-          path?: unknown | null
+          path?: unknown
         }
         Relationships: []
       }
@@ -2445,21 +3867,21 @@ export type Database = {
           id: number | null
           label: string | null
           name: string | null
-          path: unknown | null
+          path: unknown
         }
         Insert: {
           code?: string | null
           id?: number | null
           label?: string | null
           name?: string | null
-          path?: unknown | null
+          path?: unknown
         }
         Update: {
           code?: string | null
           id?: number | null
           label?: string | null
           name?: string | null
-          path?: unknown | null
+          path?: unknown
         }
         Relationships: []
       }
@@ -2639,8 +4061,15 @@ export type Database = {
       statistical_history: {
         Row: {
           births: number | null
-          count: number | null
+          countable_added_count: number | null
+          countable_change: number | null
+          countable_count: number | null
+          countable_removed_count: number | null
           deaths: number | null
+          exists_added_count: number | null
+          exists_change: number | null
+          exists_count: number | null
+          exists_removed_count: number | null
           legal_form_change_count: number | null
           month: number | null
           name_change_count: number | null
@@ -2657,8 +4086,15 @@ export type Database = {
         }
         Insert: {
           births?: number | null
-          count?: number | null
+          countable_added_count?: number | null
+          countable_change?: number | null
+          countable_count?: number | null
+          countable_removed_count?: number | null
           deaths?: number | null
+          exists_added_count?: number | null
+          exists_change?: number | null
+          exists_count?: number | null
+          exists_removed_count?: number | null
           legal_form_change_count?: number | null
           month?: number | null
           name_change_count?: number | null
@@ -2677,8 +4113,15 @@ export type Database = {
         }
         Update: {
           births?: number | null
-          count?: number | null
+          countable_added_count?: number | null
+          countable_change?: number | null
+          countable_count?: number | null
+          countable_removed_count?: number | null
           deaths?: number | null
+          exists_added_count?: number | null
+          exists_change?: number | null
+          exists_count?: number | null
+          exists_removed_count?: number | null
           legal_form_change_count?: number | null
           month?: number | null
           name_change_count?: number | null
@@ -2700,8 +4143,15 @@ export type Database = {
       statistical_history_facet: {
         Row: {
           births: number | null
-          count: number | null
+          countable_added_count: number | null
+          countable_change: number | null
+          countable_count: number | null
+          countable_removed_count: number | null
           deaths: number | null
+          exists_added_count: number | null
+          exists_change: number | null
+          exists_count: number | null
+          exists_removed_count: number | null
           legal_form_change_count: number | null
           legal_form_id: number | null
           month: number | null
@@ -2710,14 +4160,14 @@ export type Database = {
           physical_country_change_count: number | null
           physical_country_id: number | null
           physical_region_change_count: number | null
-          physical_region_path: unknown | null
+          physical_region_path: unknown
           primary_activity_category_change_count: number | null
-          primary_activity_category_path: unknown | null
+          primary_activity_category_path: unknown
           resolution: Database["public"]["Enums"]["history_resolution"] | null
           secondary_activity_category_change_count: number | null
-          secondary_activity_category_path: unknown | null
+          secondary_activity_category_path: unknown
           sector_change_count: number | null
-          sector_path: unknown | null
+          sector_path: unknown
           stats_summary: Json | null
           status_change_count: number | null
           status_id: number | null
@@ -2728,8 +4178,15 @@ export type Database = {
         }
         Insert: {
           births?: number | null
-          count?: number | null
+          countable_added_count?: number | null
+          countable_change?: number | null
+          countable_count?: number | null
+          countable_removed_count?: number | null
           deaths?: number | null
+          exists_added_count?: number | null
+          exists_change?: number | null
+          exists_count?: number | null
+          exists_removed_count?: number | null
           legal_form_change_count?: number | null
           legal_form_id?: number | null
           month?: number | null
@@ -2738,14 +4195,14 @@ export type Database = {
           physical_country_change_count?: number | null
           physical_country_id?: number | null
           physical_region_change_count?: number | null
-          physical_region_path?: unknown | null
+          physical_region_path?: unknown
           primary_activity_category_change_count?: number | null
-          primary_activity_category_path?: unknown | null
+          primary_activity_category_path?: unknown
           resolution?: Database["public"]["Enums"]["history_resolution"] | null
           secondary_activity_category_change_count?: number | null
-          secondary_activity_category_path?: unknown | null
+          secondary_activity_category_path?: unknown
           sector_change_count?: number | null
-          sector_path?: unknown | null
+          sector_path?: unknown
           stats_summary?: Json | null
           status_change_count?: number | null
           status_id?: number | null
@@ -2758,8 +4215,15 @@ export type Database = {
         }
         Update: {
           births?: number | null
-          count?: number | null
+          countable_added_count?: number | null
+          countable_change?: number | null
+          countable_count?: number | null
+          countable_removed_count?: number | null
           deaths?: number | null
+          exists_added_count?: number | null
+          exists_change?: number | null
+          exists_count?: number | null
+          exists_removed_count?: number | null
           legal_form_change_count?: number | null
           legal_form_id?: number | null
           month?: number | null
@@ -2768,14 +4232,14 @@ export type Database = {
           physical_country_change_count?: number | null
           physical_country_id?: number | null
           physical_region_change_count?: number | null
-          physical_region_path?: unknown | null
+          physical_region_path?: unknown
           primary_activity_category_change_count?: number | null
-          primary_activity_category_path?: unknown | null
+          primary_activity_category_path?: unknown
           resolution?: Database["public"]["Enums"]["history_resolution"] | null
           secondary_activity_category_change_count?: number | null
-          secondary_activity_category_path?: unknown | null
+          secondary_activity_category_path?: unknown
           sector_change_count?: number | null
-          sector_path?: unknown | null
+          sector_path?: unknown
           stats_summary?: Json | null
           status_change_count?: number | null
           status_id?: number | null
@@ -2831,7 +4295,7 @@ export type Database = {
           physical_postplace: string | null
           physical_region_code: string | null
           physical_region_id: number | null
-          physical_region_path: unknown | null
+          physical_region_path: unknown
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
@@ -2844,21 +4308,21 @@ export type Database = {
           postal_postplace: string | null
           postal_region_code: string | null
           postal_region_id: number | null
-          postal_region_path: unknown | null
+          postal_region_path: unknown
           primary_activity_category_code: string | null
           primary_activity_category_id: number | null
-          primary_activity_category_path: unknown | null
+          primary_activity_category_path: unknown
           related_enterprise_ids: number[] | null
           related_establishment_ids: number[] | null
           related_legal_unit_ids: number[] | null
-          search: unknown | null
+          search: unknown
           secondary_activity_category_code: string | null
           secondary_activity_category_id: number | null
-          secondary_activity_category_path: unknown | null
+          secondary_activity_category_path: unknown
           sector_code: string | null
           sector_id: number | null
           sector_name: string | null
-          sector_path: unknown | null
+          sector_path: unknown
           stats: Json | null
           stats_summary: Json | null
           status_code: string | null
@@ -2916,7 +4380,7 @@ export type Database = {
           physical_postplace?: string | null
           physical_region_code?: string | null
           physical_region_id?: number | null
-          physical_region_path?: unknown | null
+          physical_region_path?: unknown
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
@@ -2929,21 +4393,21 @@ export type Database = {
           postal_postplace?: string | null
           postal_region_code?: string | null
           postal_region_id?: number | null
-          postal_region_path?: unknown | null
+          postal_region_path?: unknown
           primary_activity_category_code?: string | null
           primary_activity_category_id?: number | null
-          primary_activity_category_path?: unknown | null
+          primary_activity_category_path?: unknown
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
-          search?: unknown | null
+          search?: unknown
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
-          secondary_activity_category_path?: unknown | null
+          secondary_activity_category_path?: unknown
           sector_code?: string | null
           sector_id?: number | null
           sector_name?: string | null
-          sector_path?: unknown | null
+          sector_path?: unknown
           stats?: Json | null
           stats_summary?: Json | null
           status_code?: string | null
@@ -3003,7 +4467,7 @@ export type Database = {
           physical_postplace?: string | null
           physical_region_code?: string | null
           physical_region_id?: number | null
-          physical_region_path?: unknown | null
+          physical_region_path?: unknown
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
@@ -3016,21 +4480,21 @@ export type Database = {
           postal_postplace?: string | null
           postal_region_code?: string | null
           postal_region_id?: number | null
-          postal_region_path?: unknown | null
+          postal_region_path?: unknown
           primary_activity_category_code?: string | null
           primary_activity_category_id?: number | null
-          primary_activity_category_path?: unknown | null
+          primary_activity_category_path?: unknown
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
-          search?: unknown | null
+          search?: unknown
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
-          secondary_activity_category_path?: unknown | null
+          secondary_activity_category_path?: unknown
           sector_code?: string | null
           sector_id?: number | null
           sector_name?: string | null
-          sector_path?: unknown | null
+          sector_path?: unknown
           stats?: Json | null
           stats_summary?: Json | null
           status_code?: string | null
@@ -3055,9 +4519,9 @@ export type Database = {
           count: number | null
           legal_form_id: number | null
           physical_country_id: number | null
-          physical_region_path: unknown | null
-          primary_activity_category_path: unknown | null
-          sector_path: unknown | null
+          physical_region_path: unknown
+          primary_activity_category_path: unknown
+          sector_path: unknown
           stats_summary: Json | null
           status_id: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
@@ -3069,9 +4533,9 @@ export type Database = {
           count?: number | null
           legal_form_id?: number | null
           physical_country_id?: number | null
-          physical_region_path?: unknown | null
-          primary_activity_category_path?: unknown | null
-          sector_path?: unknown | null
+          physical_region_path?: unknown
+          primary_activity_category_path?: unknown
+          sector_path?: unknown
           stats_summary?: Json | null
           status_id?: number | null
           unit_type?:
@@ -3085,9 +4549,9 @@ export type Database = {
           count?: number | null
           legal_form_id?: number | null
           physical_country_id?: number | null
-          physical_region_path?: unknown | null
-          primary_activity_category_path?: unknown | null
-          sector_path?: unknown | null
+          physical_region_path?: unknown
+          primary_activity_category_path?: unknown
+          sector_path?: unknown
           stats_summary?: Json | null
           status_id?: number | null
           unit_type?:
@@ -3314,7 +4778,7 @@ export type Database = {
           physical_postplace: string | null
           physical_region_code: string | null
           physical_region_id: number | null
-          physical_region_path: unknown | null
+          physical_region_path: unknown
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
@@ -3327,23 +4791,23 @@ export type Database = {
           postal_postplace: string | null
           postal_region_code: string | null
           postal_region_id: number | null
-          postal_region_path: unknown | null
+          postal_region_path: unknown
           primary_activity_category_code: string | null
           primary_activity_category_id: number | null
-          primary_activity_category_path: unknown | null
+          primary_activity_category_path: unknown
           primary_establishment_id: number | null
           primary_legal_unit_id: number | null
           related_enterprise_ids: number[] | null
           related_establishment_ids: number[] | null
           related_legal_unit_ids: number[] | null
-          search: unknown | null
+          search: unknown
           secondary_activity_category_code: string | null
           secondary_activity_category_id: number | null
-          secondary_activity_category_path: unknown | null
+          secondary_activity_category_path: unknown
           sector_code: string | null
           sector_id: number | null
           sector_name: string | null
-          sector_path: unknown | null
+          sector_path: unknown
           stats_summary: Json | null
           status_code: string | null
           status_id: number | null
@@ -3396,7 +4860,7 @@ export type Database = {
           physical_postplace?: string | null
           physical_region_code?: string | null
           physical_region_id?: number | null
-          physical_region_path?: unknown | null
+          physical_region_path?: unknown
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
@@ -3409,23 +4873,23 @@ export type Database = {
           postal_postplace?: string | null
           postal_region_code?: string | null
           postal_region_id?: number | null
-          postal_region_path?: unknown | null
+          postal_region_path?: unknown
           primary_activity_category_code?: string | null
           primary_activity_category_id?: number | null
-          primary_activity_category_path?: unknown | null
+          primary_activity_category_path?: unknown
           primary_establishment_id?: number | null
           primary_legal_unit_id?: number | null
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
-          search?: unknown | null
+          search?: unknown
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
-          secondary_activity_category_path?: unknown | null
+          secondary_activity_category_path?: unknown
           sector_code?: string | null
           sector_id?: number | null
           sector_name?: string | null
-          sector_path?: unknown | null
+          sector_path?: unknown
           stats_summary?: Json | null
           status_code?: string | null
           status_id?: number | null
@@ -3478,7 +4942,7 @@ export type Database = {
           physical_postplace?: string | null
           physical_region_code?: string | null
           physical_region_id?: number | null
-          physical_region_path?: unknown | null
+          physical_region_path?: unknown
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
@@ -3491,23 +4955,23 @@ export type Database = {
           postal_postplace?: string | null
           postal_region_code?: string | null
           postal_region_id?: number | null
-          postal_region_path?: unknown | null
+          postal_region_path?: unknown
           primary_activity_category_code?: string | null
           primary_activity_category_id?: number | null
-          primary_activity_category_path?: unknown | null
+          primary_activity_category_path?: unknown
           primary_establishment_id?: number | null
           primary_legal_unit_id?: number | null
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
-          search?: unknown | null
+          search?: unknown
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
-          secondary_activity_category_path?: unknown | null
+          secondary_activity_category_path?: unknown
           sector_code?: string | null
           sector_id?: number | null
           sector_name?: string | null
-          sector_path?: unknown | null
+          sector_path?: unknown
           stats_summary?: Json | null
           status_code?: string | null
           status_id?: number | null
@@ -3565,7 +5029,7 @@ export type Database = {
           physical_postplace: string | null
           physical_region_code: string | null
           physical_region_id: number | null
-          physical_region_path: unknown | null
+          physical_region_path: unknown
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
@@ -3578,23 +5042,23 @@ export type Database = {
           postal_postplace: string | null
           postal_region_code: string | null
           postal_region_id: number | null
-          postal_region_path: unknown | null
+          postal_region_path: unknown
           primary_activity_category_code: string | null
           primary_activity_category_id: number | null
-          primary_activity_category_path: unknown | null
+          primary_activity_category_path: unknown
           primary_for_enterprise: boolean | null
           primary_for_legal_unit: boolean | null
           related_enterprise_ids: number[] | null
           related_establishment_ids: number[] | null
           related_legal_unit_ids: number[] | null
-          search: unknown | null
+          search: unknown
           secondary_activity_category_code: string | null
           secondary_activity_category_id: number | null
-          secondary_activity_category_path: unknown | null
+          secondary_activity_category_path: unknown
           sector_code: string | null
           sector_id: number | null
           sector_name: string | null
-          sector_path: unknown | null
+          sector_path: unknown
           stats: Json | null
           stats_summary: Json | null
           status_code: string | null
@@ -3650,7 +5114,7 @@ export type Database = {
           physical_postplace?: string | null
           physical_region_code?: string | null
           physical_region_id?: number | null
-          physical_region_path?: unknown | null
+          physical_region_path?: unknown
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
@@ -3663,23 +5127,23 @@ export type Database = {
           postal_postplace?: string | null
           postal_region_code?: string | null
           postal_region_id?: number | null
-          postal_region_path?: unknown | null
+          postal_region_path?: unknown
           primary_activity_category_code?: string | null
           primary_activity_category_id?: number | null
-          primary_activity_category_path?: unknown | null
+          primary_activity_category_path?: unknown
           primary_for_enterprise?: boolean | null
           primary_for_legal_unit?: boolean | null
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
-          search?: unknown | null
+          search?: unknown
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
-          secondary_activity_category_path?: unknown | null
+          secondary_activity_category_path?: unknown
           sector_code?: string | null
           sector_id?: number | null
           sector_name?: string | null
-          sector_path?: unknown | null
+          sector_path?: unknown
           stats?: Json | null
           stats_summary?: Json | null
           status_code?: string | null
@@ -3735,7 +5199,7 @@ export type Database = {
           physical_postplace?: string | null
           physical_region_code?: string | null
           physical_region_id?: number | null
-          physical_region_path?: unknown | null
+          physical_region_path?: unknown
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
@@ -3748,23 +5212,23 @@ export type Database = {
           postal_postplace?: string | null
           postal_region_code?: string | null
           postal_region_id?: number | null
-          postal_region_path?: unknown | null
+          postal_region_path?: unknown
           primary_activity_category_code?: string | null
           primary_activity_category_id?: number | null
-          primary_activity_category_path?: unknown | null
+          primary_activity_category_path?: unknown
           primary_for_enterprise?: boolean | null
           primary_for_legal_unit?: boolean | null
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
-          search?: unknown | null
+          search?: unknown
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
-          secondary_activity_category_path?: unknown | null
+          secondary_activity_category_path?: unknown
           sector_code?: string | null
           sector_id?: number | null
           sector_name?: string | null
-          sector_path?: unknown | null
+          sector_path?: unknown
           stats?: Json | null
           stats_summary?: Json | null
           status_code?: string | null
@@ -3822,7 +5286,7 @@ export type Database = {
           physical_postplace: string | null
           physical_region_code: string | null
           physical_region_id: number | null
-          physical_region_path: unknown | null
+          physical_region_path: unknown
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
@@ -3835,22 +5299,22 @@ export type Database = {
           postal_postplace: string | null
           postal_region_code: string | null
           postal_region_id: number | null
-          postal_region_path: unknown | null
+          postal_region_path: unknown
           primary_activity_category_code: string | null
           primary_activity_category_id: number | null
-          primary_activity_category_path: unknown | null
+          primary_activity_category_path: unknown
           primary_for_enterprise: boolean | null
           related_enterprise_ids: number[] | null
           related_establishment_ids: number[] | null
           related_legal_unit_ids: number[] | null
-          search: unknown | null
+          search: unknown
           secondary_activity_category_code: string | null
           secondary_activity_category_id: number | null
-          secondary_activity_category_path: unknown | null
+          secondary_activity_category_path: unknown
           sector_code: string | null
           sector_id: number | null
           sector_name: string | null
-          sector_path: unknown | null
+          sector_path: unknown
           stats: Json | null
           stats_summary: Json | null
           status_code: string | null
@@ -3905,7 +5369,7 @@ export type Database = {
           physical_postplace?: string | null
           physical_region_code?: string | null
           physical_region_id?: number | null
-          physical_region_path?: unknown | null
+          physical_region_path?: unknown
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
@@ -3918,22 +5382,22 @@ export type Database = {
           postal_postplace?: string | null
           postal_region_code?: string | null
           postal_region_id?: number | null
-          postal_region_path?: unknown | null
+          postal_region_path?: unknown
           primary_activity_category_code?: string | null
           primary_activity_category_id?: number | null
-          primary_activity_category_path?: unknown | null
+          primary_activity_category_path?: unknown
           primary_for_enterprise?: boolean | null
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
-          search?: unknown | null
+          search?: unknown
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
-          secondary_activity_category_path?: unknown | null
+          secondary_activity_category_path?: unknown
           sector_code?: string | null
           sector_id?: number | null
           sector_name?: string | null
-          sector_path?: unknown | null
+          sector_path?: unknown
           stats?: Json | null
           stats_summary?: Json | null
           status_code?: string | null
@@ -3988,7 +5452,7 @@ export type Database = {
           physical_postplace?: string | null
           physical_region_code?: string | null
           physical_region_id?: number | null
-          physical_region_path?: unknown | null
+          physical_region_path?: unknown
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
@@ -4001,22 +5465,22 @@ export type Database = {
           postal_postplace?: string | null
           postal_region_code?: string | null
           postal_region_id?: number | null
-          postal_region_path?: unknown | null
+          postal_region_path?: unknown
           primary_activity_category_code?: string | null
           primary_activity_category_id?: number | null
-          primary_activity_category_path?: unknown | null
+          primary_activity_category_path?: unknown
           primary_for_enterprise?: boolean | null
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
-          search?: unknown | null
+          search?: unknown
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
-          secondary_activity_category_path?: unknown | null
+          secondary_activity_category_path?: unknown
           sector_code?: string | null
           sector_id?: number | null
           sector_name?: string | null
-          sector_path?: unknown | null
+          sector_path?: unknown
           stats?: Json | null
           stats_summary?: Json | null
           status_code?: string | null
@@ -4287,8 +5751,8 @@ export type Database = {
           id: number | null
           label: string | null
           name: string | null
-          parent_path: unknown | null
-          path: unknown | null
+          parent_path: unknown
+          path: unknown
           standard_code: string | null
         }
         Relationships: []
@@ -4297,17 +5761,17 @@ export type Database = {
         Row: {
           description: string | null
           name: string | null
-          path: unknown | null
+          path: unknown
         }
         Insert: {
           description?: string | null
           name?: string | null
-          path?: unknown | null
+          path?: unknown
         }
         Update: {
           description?: string | null
           name?: string | null
-          path?: unknown | null
+          path?: unknown
         }
         Relationships: []
       }
@@ -4317,7 +5781,7 @@ export type Database = {
           description: string | null
           label: string | null
           name: string | null
-          path: unknown | null
+          path: unknown
           standard: string | null
         }
         Relationships: []
@@ -4328,7 +5792,7 @@ export type Database = {
           description: string | null
           label: string | null
           name: string | null
-          path: unknown | null
+          path: unknown
           standard: string | null
         }
         Relationships: []
@@ -4340,8 +5804,8 @@ export type Database = {
           id: number | null
           label: string | null
           name: string | null
-          parent_path: unknown | null
-          path: unknown | null
+          parent_path: unknown
+          path: unknown
           standard_code: string | null
         }
         Relationships: []
@@ -5367,22 +6831,22 @@ export type Database = {
       }
       hypopg_hidden_indexes: {
         Row: {
-          am_name: unknown | null
-          index_name: unknown | null
-          indexrelid: unknown | null
+          am_name: unknown
+          index_name: unknown
+          indexrelid: unknown
           is_hypo: boolean | null
-          schema_name: unknown | null
-          table_name: unknown | null
+          schema_name: unknown
+          table_name: unknown
         }
         Relationships: []
       }
       hypopg_list_indexes: {
         Row: {
-          am_name: unknown | null
+          am_name: unknown
           index_name: string | null
-          indexrelid: unknown | null
-          schema_name: unknown | null
-          table_name: unknown | null
+          indexrelid: unknown
+          schema_name: unknown
+          table_name: unknown
         }
         Relationships: []
       }
@@ -6090,14 +7554,14 @@ export type Database = {
           bucket_done: boolean | null
           bucket_start_time: string | null
           calls: number | null
-          client_ip: unknown | null
+          client_ip: unknown
           cmd_type: number | null
           cmd_type_text: string | null
           comments: string | null
           cpu_sys_time: number | null
           cpu_user_time: number | null
           datname: string | null
-          dbid: unknown | null
+          dbid: unknown
           elevel: number | null
           jit_deform_count: number | null
           jit_deform_time: number | null
@@ -6151,7 +7615,7 @@ export type Database = {
           toplevel: boolean | null
           total_exec_time: number | null
           total_plan_time: number | null
-          userid: unknown | null
+          userid: unknown
           username: string | null
           wal_bytes: number | null
           wal_fpi: number | null
@@ -6162,7 +7626,7 @@ export type Database = {
       pg_stat_statements: {
         Row: {
           calls: number | null
-          dbid: unknown | null
+          dbid: unknown
           jit_deform_count: number | null
           jit_deform_time: number | null
           jit_emission_count: number | null
@@ -6206,7 +7670,7 @@ export type Database = {
           toplevel: boolean | null
           total_exec_time: number | null
           total_plan_time: number | null
-          userid: unknown | null
+          userid: unknown
           wal_bytes: number | null
           wal_fpi: number | null
           wal_records: number | null
@@ -6251,7 +7715,7 @@ export type Database = {
           label: string | null
           level: number | null
           name: string | null
-          path: unknown | null
+          path: unknown
         }
         Insert: {
           code?: string | null
@@ -6259,7 +7723,7 @@ export type Database = {
           label?: string | null
           level?: number | null
           name?: string | null
-          path?: unknown | null
+          path?: unknown
         }
         Update: {
           code?: string | null
@@ -6267,7 +7731,7 @@ export type Database = {
           label?: string | null
           level?: number | null
           name?: string | null
-          path?: unknown | null
+          path?: unknown
         }
         Relationships: []
       }
@@ -6398,7 +7862,7 @@ export type Database = {
           label: string | null
           name: string | null
           parent_id: number | null
-          path: unknown | null
+          path: unknown
           updated_at: string | null
         }
         Insert: {
@@ -6411,7 +7875,7 @@ export type Database = {
           label?: string | null
           name?: string | null
           parent_id?: number | null
-          path?: unknown | null
+          path?: unknown
           updated_at?: string | null
         }
         Update: {
@@ -6424,7 +7888,7 @@ export type Database = {
           label?: string | null
           name?: string | null
           parent_id?: number | null
-          path?: unknown | null
+          path?: unknown
           updated_at?: string | null
         }
         Relationships: []
@@ -6433,17 +7897,17 @@ export type Database = {
         Row: {
           description: string | null
           name: string | null
-          path: unknown | null
+          path: unknown
         }
         Insert: {
           description?: string | null
           name?: string | null
-          path?: unknown | null
+          path?: unknown
         }
         Update: {
           description?: string | null
           name?: string | null
-          path?: unknown | null
+          path?: unknown
         }
         Relationships: []
       }
@@ -6451,17 +7915,17 @@ export type Database = {
         Row: {
           description: string | null
           name: string | null
-          path: unknown | null
+          path: unknown
         }
         Insert: {
           description?: string | null
           name?: string | null
-          path?: unknown | null
+          path?: unknown
         }
         Update: {
           description?: string | null
           name?: string | null
-          path?: unknown | null
+          path?: unknown
         }
         Relationships: []
       }
@@ -6476,7 +7940,7 @@ export type Database = {
           label: string | null
           name: string | null
           parent_id: number | null
-          path: unknown | null
+          path: unknown
           updated_at: string | null
         }
         Insert: {
@@ -6489,7 +7953,7 @@ export type Database = {
           label?: string | null
           name?: string | null
           parent_id?: number | null
-          path?: unknown | null
+          path?: unknown
           updated_at?: string | null
         }
         Update: {
@@ -6502,7 +7966,7 @@ export type Database = {
           label?: string | null
           name?: string | null
           parent_id?: number | null
-          path?: unknown | null
+          path?: unknown
           updated_at?: string | null
         }
         Relationships: []
@@ -6511,17 +7975,17 @@ export type Database = {
         Row: {
           description: string | null
           name: string | null
-          path: unknown | null
+          path: unknown
         }
         Insert: {
           description?: string | null
           name?: string | null
-          path?: unknown | null
+          path?: unknown
         }
         Update: {
           description?: string | null
           name?: string | null
-          path?: unknown | null
+          path?: unknown
         }
         Relationships: []
       }
@@ -6531,21 +7995,21 @@ export type Database = {
           id: number | null
           label: string | null
           name: string | null
-          path: unknown | null
+          path: unknown
         }
         Insert: {
           code?: string | null
           id?: number | null
           label?: string | null
           name?: string | null
-          path?: unknown | null
+          path?: unknown
         }
         Update: {
           code?: string | null
           id?: number | null
           label?: string | null
           name?: string | null
-          path?: unknown | null
+          path?: unknown
         }
         Relationships: []
       }
@@ -6772,7 +8236,7 @@ export type Database = {
           physical_postplace: string | null
           physical_region_code: string | null
           physical_region_id: number | null
-          physical_region_path: unknown | null
+          physical_region_path: unknown
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
@@ -6785,21 +8249,21 @@ export type Database = {
           postal_postplace: string | null
           postal_region_code: string | null
           postal_region_id: number | null
-          postal_region_path: unknown | null
+          postal_region_path: unknown
           primary_activity_category_code: string | null
           primary_activity_category_id: number | null
-          primary_activity_category_path: unknown | null
+          primary_activity_category_path: unknown
           related_enterprise_ids: number[] | null
           related_establishment_ids: number[] | null
           related_legal_unit_ids: number[] | null
-          search: unknown | null
+          search: unknown
           secondary_activity_category_code: string | null
           secondary_activity_category_id: number | null
-          secondary_activity_category_path: unknown | null
+          secondary_activity_category_path: unknown
           sector_code: string | null
           sector_id: number | null
           sector_name: string | null
-          sector_path: unknown | null
+          sector_path: unknown
           stats: Json | null
           stats_summary: Json | null
           status_code: string | null
@@ -6822,9 +8286,9 @@ export type Database = {
           count: number | null
           legal_form_id: number | null
           physical_country_id: number | null
-          physical_region_path: unknown | null
-          primary_activity_category_path: unknown | null
-          sector_path: unknown | null
+          physical_region_path: unknown
+          primary_activity_category_path: unknown
+          sector_path: unknown
           stats_summary: Json | null
           status_id: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
@@ -6840,7 +8304,7 @@ export type Database = {
           ident: string | null
           name_when_input: string | null
           name_when_query: string | null
-          path: unknown | null
+          path: unknown
           scope: Database["public"]["Enums"]["relative_period_scope"] | null
           type: Database["public"]["Enums"]["time_context_type"] | null
           valid_from: string | null
@@ -6889,7 +8353,7 @@ export type Database = {
           physical_postplace: string | null
           physical_region_code: string | null
           physical_region_id: number | null
-          physical_region_path: unknown | null
+          physical_region_path: unknown
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
@@ -6902,23 +8366,23 @@ export type Database = {
           postal_postplace: string | null
           postal_region_code: string | null
           postal_region_id: number | null
-          postal_region_path: unknown | null
+          postal_region_path: unknown
           primary_activity_category_code: string | null
           primary_activity_category_id: number | null
-          primary_activity_category_path: unknown | null
+          primary_activity_category_path: unknown
           primary_establishment_id: number | null
           primary_legal_unit_id: number | null
           related_enterprise_ids: number[] | null
           related_establishment_ids: number[] | null
           related_legal_unit_ids: number[] | null
-          search: unknown | null
+          search: unknown
           secondary_activity_category_code: string | null
           secondary_activity_category_id: number | null
-          secondary_activity_category_path: unknown | null
+          secondary_activity_category_path: unknown
           sector_code: string | null
           sector_id: number | null
           sector_name: string | null
-          sector_path: unknown | null
+          sector_path: unknown
           stats_summary: Json | null
           status_code: string | null
           status_id: number | null
@@ -6976,7 +8440,7 @@ export type Database = {
           physical_postplace: string | null
           physical_region_code: string | null
           physical_region_id: number | null
-          physical_region_path: unknown | null
+          physical_region_path: unknown
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
@@ -6989,23 +8453,23 @@ export type Database = {
           postal_postplace: string | null
           postal_region_code: string | null
           postal_region_id: number | null
-          postal_region_path: unknown | null
+          postal_region_path: unknown
           primary_activity_category_code: string | null
           primary_activity_category_id: number | null
-          primary_activity_category_path: unknown | null
+          primary_activity_category_path: unknown
           primary_for_enterprise: boolean | null
           primary_for_legal_unit: boolean | null
           related_enterprise_ids: number[] | null
           related_establishment_ids: number[] | null
           related_legal_unit_ids: number[] | null
-          search: unknown | null
+          search: unknown
           secondary_activity_category_code: string | null
           secondary_activity_category_id: number | null
-          secondary_activity_category_path: unknown | null
+          secondary_activity_category_path: unknown
           sector_code: string | null
           sector_id: number | null
           sector_name: string | null
-          sector_path: unknown | null
+          sector_path: unknown
           stats: Json | null
           stats_summary: Json | null
           status_code: string | null
@@ -7218,7 +8682,7 @@ export type Database = {
           physical_postplace: string | null
           physical_region_code: string | null
           physical_region_id: number | null
-          physical_region_path: unknown | null
+          physical_region_path: unknown
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
@@ -7231,22 +8695,22 @@ export type Database = {
           postal_postplace: string | null
           postal_region_code: string | null
           postal_region_id: number | null
-          postal_region_path: unknown | null
+          postal_region_path: unknown
           primary_activity_category_code: string | null
           primary_activity_category_id: number | null
-          primary_activity_category_path: unknown | null
+          primary_activity_category_path: unknown
           primary_for_enterprise: boolean | null
           related_enterprise_ids: number[] | null
           related_establishment_ids: number[] | null
           related_legal_unit_ids: number[] | null
-          search: unknown | null
+          search: unknown
           secondary_activity_category_code: string | null
           secondary_activity_category_id: number | null
-          secondary_activity_category_path: unknown | null
+          secondary_activity_category_path: unknown
           sector_code: string | null
           sector_id: number | null
           sector_name: string | null
-          sector_path: unknown | null
+          sector_path: unknown
           stats: Json | null
           stats_summary: Json | null
           status_code: string | null
@@ -7567,18 +9031,9 @@ export type Database = {
       }
     }
     Functions: {
-      __plpgsql_show_dependency_tb: {
-        Args:
-          | {
-              anycompatiblerangetype?: unknown
-              anycompatibletype?: unknown
-              anyelememttype?: unknown
-              anyenumtype?: unknown
-              anyrangetype?: unknown
-              funcoid: unknown
-              relid?: unknown
-            }
-          | {
+      __plpgsql_show_dependency_tb:
+        | {
+            Args: {
               anycompatiblerangetype?: unknown
               anycompatibletype?: unknown
               anyelememttype?: unknown
@@ -7587,22 +9042,32 @@ export type Database = {
               name: string
               relid?: unknown
             }
-        Returns: {
-          name: string
-          oid: unknown
-          params: string
-          schema: string
-          type: string
-        }[]
-      }
-      _ltree_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      _ltree_gist_options: {
-        Args: { "": unknown }
-        Returns: undefined
-      }
+            Returns: {
+              name: string
+              oid: unknown
+              params: string
+              schema: string
+              type: string
+            }[]
+          }
+        | {
+            Args: {
+              anycompatiblerangetype?: unknown
+              anycompatibletype?: unknown
+              anyelememttype?: unknown
+              anyenumtype?: unknown
+              anyrangetype?: unknown
+              funcoid: unknown
+              relid?: unknown
+            }
+            Returns: {
+              name: string
+              oid: unknown
+              params: string
+              schema: string
+              type: string
+            }[]
+          }
       activity_category_hierarchy: {
         Args: { activity_category_id: number }
         Returns: Json
@@ -7611,10 +9076,7 @@ export type Database = {
         Args: { standard_id: number }
         Returns: Json
       }
-      activity_category_used_derive: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      activity_category_used_derive: { Args: never; Returns: undefined }
       activity_hierarchy: {
         Args: {
           parent_establishment_id?: number
@@ -7631,38 +9093,30 @@ export type Database = {
         Args: { algorithm: string; secret: string; signables: string }
         Returns: string
       }
-      armor: {
-        Args: { "": string }
-        Returns: string
-      }
-      array_distinct_concat_final: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      array_to_int4multirange: {
-        Args: { p_array: number[] }
-        Returns: unknown
-      }
-      auth_expire_access_keep_refresh: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
-      }
+      array_to_int4multirange: { Args: { p_array: number[] }; Returns: unknown }
+      auth_expire_access_keep_refresh: { Args: never; Returns: Json }
       auth_status: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: unknown
+        SetofOptions: {
+          from: "*"
+          to: "auth_response"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       auth_test: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: unknown
+        SetofOptions: {
+          from: "*"
+          to: "auth_test_response"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
-      bytea_to_text: {
-        Args: { data: string }
-        Returns: string
-      }
-      change_password: {
-        Args: { new_password: string }
-        Returns: boolean
-      }
+      bytea_to_text: { Args: { data: string }; Returns: string }
+      change_password: { Args: { new_password: string }; Returns: boolean }
       connect_legal_unit_to_enterprise: {
         Args: {
           enterprise_id: number
@@ -7680,14 +9134,8 @@ export type Database = {
         }
         Returns: Json
       }
-      country_hierarchy: {
-        Args: { country_id: number }
-        Returns: Json
-      }
-      country_used_derive: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      country_hierarchy: { Args: { country_id: number }; Returns: Json }
+      country_used_derive: { Args: never; Returns: undefined }
       create_api_key: {
         Args: { description?: string; duration?: unknown }
         Returns: {
@@ -7700,23 +9148,17 @@ export type Database = {
           token: string | null
           user_id: number | null
         }
+        SetofOptions: {
+          from: "*"
+          to: "api_key"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
-      data_source_hierarchy: {
-        Args: { data_source_id: number }
-        Returns: Json
-      }
-      data_source_used_derive: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      dearmor: {
-        Args: { "": string }
-        Returns: string
-      }
-      decode_error_level: {
-        Args: { elevel: number }
-        Returns: string
-      }
+      data_source_hierarchy: { Args: { data_source_id: number }; Returns: Json }
+      data_source_used_derive: { Args: never; Returns: undefined }
+      dearmor: { Args: { "": string }; Returns: string }
+      decode_error_level: { Args: { elevel: number }; Returns: string }
       enterprise_hierarchy: {
         Args: {
           enterprise_id: number
@@ -7757,250 +9199,10 @@ export type Database = {
         }
         Returns: boolean
       }
-      gbt_bit_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_bool_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_bool_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_bpchar_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_bytea_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_cash_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_cash_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_date_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_date_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_decompress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_enum_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_enum_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_float4_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_float4_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_float8_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_float8_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_inet_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_int2_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_int2_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_int4_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_int4_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_int8_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_int8_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_intv_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_intv_decompress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_intv_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_macad_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_macad_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_macad8_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_macad8_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_numeric_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_oid_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_oid_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_text_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_time_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_time_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_timetz_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_ts_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_ts_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_tstz_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_uuid_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_uuid_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_var_decompress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbt_var_fetch: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey_var_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey_var_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey16_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey16_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey2_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey2_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey32_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey32_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey4_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey4_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey8_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gbtreekey8_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gen_random_bytes: {
-        Args: { "": number }
-        Returns: string
-      }
-      gen_random_uuid: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      gen_salt: {
-        Args: { "": string }
-        Returns: string
-      }
-      generate_mermaid_er_diagram: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      get_cmd_type: {
-        Args: { cmd_type: number }
-        Returns: string
-      }
+      gen_random_uuid: { Args: never; Returns: string }
+      gen_salt: { Args: { "": string }; Returns: string }
+      generate_mermaid_er_diagram: { Args: never; Returns: string }
+      get_cmd_type: { Args: { cmd_type: number }; Returns: string }
       get_external_idents: {
         Args: {
           unit_id: number
@@ -8008,14 +9210,8 @@ export type Database = {
         }
         Returns: Json
       }
-      get_histogram_timings: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      get_import_job_progress: {
-        Args: { job_id: number }
-        Returns: Json
-      }
+      get_histogram_timings: { Args: never; Returns: string }
+      get_import_job_progress: { Args: { job_id: number }; Returns: Json }
       get_statistical_history_periods: {
         Args: {
           p_resolution?: Database["public"]["Enums"]["history_resolution"]
@@ -8031,34 +9227,6 @@ export type Database = {
           year: number
         }[]
       }
-      gtrgm_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gtrgm_decompress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gtrgm_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      gtrgm_options: {
-        Args: { "": unknown }
-        Returns: undefined
-      }
-      gtrgm_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      hash_encode: {
-        Args: { "": number }
-        Returns: string
-      }
-      hash_ltree: {
-        Args: { "": unknown }
-        Returns: number
-      }
       histogram: {
         Args: { _bucket: number; _quryid: number }
         Returns: Record<string, unknown>[]
@@ -8066,27 +9234,77 @@ export type Database = {
       http: {
         Args: { request: Database["public"]["CompositeTypes"]["http_request"] }
         Returns: Database["public"]["CompositeTypes"]["http_response"]
+        SetofOptions: {
+          from: "http_request"
+          to: "http_response"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
-      http_delete: {
-        Args:
-          | { content: string; content_type: string; uri: string }
-          | { uri: string }
-        Returns: Database["public"]["CompositeTypes"]["http_response"]
-      }
-      http_get: {
-        Args: { data: Json; uri: string } | { uri: string }
-        Returns: Database["public"]["CompositeTypes"]["http_response"]
-      }
+      http_delete:
+        | {
+            Args: { uri: string }
+            Returns: Database["public"]["CompositeTypes"]["http_response"]
+            SetofOptions: {
+              from: "*"
+              to: "http_response"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: { content: string; content_type: string; uri: string }
+            Returns: Database["public"]["CompositeTypes"]["http_response"]
+            SetofOptions: {
+              from: "*"
+              to: "http_response"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+      http_get:
+        | {
+            Args: { uri: string }
+            Returns: Database["public"]["CompositeTypes"]["http_response"]
+            SetofOptions: {
+              from: "*"
+              to: "http_response"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: { data: Json; uri: string }
+            Returns: Database["public"]["CompositeTypes"]["http_response"]
+            SetofOptions: {
+              from: "*"
+              to: "http_response"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
       http_head: {
         Args: { uri: string }
         Returns: Database["public"]["CompositeTypes"]["http_response"]
+        SetofOptions: {
+          from: "*"
+          to: "http_response"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       http_header: {
         Args: { field: string; value: string }
         Returns: Database["public"]["CompositeTypes"]["http_header"]
+        SetofOptions: {
+          from: "*"
+          to: "http_header"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       http_list_curlopt: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           curlopt: string
           value: string
@@ -8095,83 +9313,70 @@ export type Database = {
       http_patch: {
         Args: { content: string; content_type: string; uri: string }
         Returns: Database["public"]["CompositeTypes"]["http_response"]
+        SetofOptions: {
+          from: "*"
+          to: "http_response"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
-      http_post: {
-        Args:
-          | { content: string; content_type: string; uri: string }
-          | { data: Json; uri: string }
-        Returns: Database["public"]["CompositeTypes"]["http_response"]
-      }
+      http_post:
+        | {
+            Args: { content: string; content_type: string; uri: string }
+            Returns: Database["public"]["CompositeTypes"]["http_response"]
+            SetofOptions: {
+              from: "*"
+              to: "http_response"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: { data: Json; uri: string }
+            Returns: Database["public"]["CompositeTypes"]["http_response"]
+            SetofOptions: {
+              from: "*"
+              to: "http_response"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
       http_put: {
         Args: { content: string; content_type: string; uri: string }
         Returns: Database["public"]["CompositeTypes"]["http_response"]
+        SetofOptions: {
+          from: "*"
+          to: "http_response"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
-      http_reset_curlopt: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
+      http_reset_curlopt: { Args: never; Returns: boolean }
       http_set_curlopt: {
         Args: { curlopt: string; value: string }
         Returns: boolean
       }
-      hypopg: {
-        Args: Record<PropertyKey, never>
-        Returns: Record<string, unknown>[]
-      }
+      hypopg: { Args: never; Returns: Record<string, unknown>[] }
       hypopg_create_index: {
         Args: { sql_order: string }
         Returns: Record<string, unknown>[]
       }
-      hypopg_drop_index: {
-        Args: { indexid: unknown }
-        Returns: boolean
-      }
-      hypopg_get_indexdef: {
-        Args: { indexid: unknown }
-        Returns: string
-      }
+      hypopg_drop_index: { Args: { indexid: unknown }; Returns: boolean }
+      hypopg_get_indexdef: { Args: { indexid: unknown }; Returns: string }
       hypopg_hidden_indexes: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           indexid: unknown
         }[]
       }
-      hypopg_hide_index: {
-        Args: { indexid: unknown }
-        Returns: boolean
-      }
-      hypopg_relation_size: {
-        Args: { indexid: unknown }
-        Returns: number
-      }
-      hypopg_reset: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      hypopg_reset_index: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      hypopg_unhide_all_indexes: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      hypopg_unhide_index: {
-        Args: { indexid: unknown }
-        Returns: boolean
-      }
-      id_decode: {
-        Args: { "": string }
-        Returns: number[]
-      }
-      id_decode_once: {
-        Args: { "": string }
-        Returns: number
-      }
-      id_encode: {
-        Args: { "": number[] } | { "": number }
-        Returns: string
-      }
+      hypopg_hide_index: { Args: { indexid: unknown }; Returns: boolean }
+      hypopg_relation_size: { Args: { indexid: unknown }; Returns: number }
+      hypopg_reset: { Args: never; Returns: undefined }
+      hypopg_reset_index: { Args: never; Returns: undefined }
+      hypopg_unhide_all_indexes: { Args: never; Returns: undefined }
+      hypopg_unhide_index: { Args: { indexid: unknown }; Returns: boolean }
+      id_decode: { Args: { "": string }; Returns: number[] }
+      id_decode_once: { Args: { "": string }; Returns: number }
       index_advisor: {
         Args: { query: string }
         Returns: {
@@ -8183,42 +9388,17 @@ export type Database = {
           total_cost_before: Json
         }[]
       }
-      is_deriving_reports: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
-      is_deriving_statistical_units: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
-      is_importing: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
-      jsonb_stats_summary_merge: {
-        Args: { a: Json; b: Json }
-        Returns: Json
-      }
+      is_deriving_reports: { Args: never; Returns: boolean }
+      is_deriving_statistical_units: { Args: never; Returns: boolean }
+      is_importing: { Args: never; Returns: boolean }
+      jsonb_stats_summary_merge: { Args: { a: Json; b: Json }; Returns: Json }
       jsonb_stats_to_summary: {
         Args: { state: Json; stats: Json }
         Returns: Json
       }
-      jsonb_stats_to_summary_round: {
-        Args: { state: Json }
-        Returns: Json
-      }
-      lca: {
-        Args: { "": unknown[] }
-        Returns: unknown
-      }
-      legal_form_hierarchy: {
-        Args: { legal_form_id: number }
-        Returns: Json
-      }
-      legal_form_used_derive: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      jsonb_stats_to_summary_round: { Args: { state: Json }; Returns: Json }
+      legal_form_hierarchy: { Args: { legal_form_id: number }; Returns: Json }
+      legal_form_used_derive: { Args: never; Returns: undefined }
       legal_unit_hierarchy: {
         Args: {
           legal_unit_id: number
@@ -8229,8 +9409,14 @@ export type Database = {
         Returns: Json
       }
       list_active_sessions: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: unknown[]
+        SetofOptions: {
+          from: "*"
+          to: "session_info"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       location_hierarchy: {
         Args: {
@@ -8243,86 +9429,22 @@ export type Database = {
       login: {
         Args: { email: string; password: string }
         Returns: unknown
+        SetofOptions: {
+          from: "*"
+          to: "auth_response"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       logout: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: unknown
-      }
-      lquery_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      lquery_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      lquery_recv: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      lquery_send: {
-        Args: { "": unknown }
-        Returns: string
-      }
-      ltree_compress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      ltree_decompress: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      ltree_gist_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      ltree_gist_options: {
-        Args: { "": unknown }
-        Returns: undefined
-      }
-      ltree_gist_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      ltree_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      ltree_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      ltree_recv: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      ltree_send: {
-        Args: { "": unknown }
-        Returns: string
-      }
-      ltree2text: {
-        Args: { "": unknown }
-        Returns: string
-      }
-      ltxtq_in: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      ltxtq_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      ltxtq_recv: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      ltxtq_send: {
-        Args: { "": unknown }
-        Returns: string
-      }
-      nlevel: {
-        Args: { "": unknown }
-        Returns: number
+        SetofOptions: {
+          from: "*"
+          to: "auth_response"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       notes_for_unit: {
         Args: {
@@ -8337,22 +9459,13 @@ export type Database = {
         Args: { showtext: boolean }
         Returns: Record<string, unknown>[]
       }
-      pg_stat_monitor_reset: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      pg_stat_monitor_version: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      pg_stat_monitor_reset: { Args: never; Returns: undefined }
+      pg_stat_monitor_version: { Args: never; Returns: string }
       pg_stat_statements: {
         Args: { showtext: boolean }
         Returns: Record<string, unknown>[]
       }
-      pg_stat_statements_info: {
-        Args: Record<PropertyKey, never>
-        Returns: Record<string, unknown>
-      }
+      pg_stat_statements_info: { Args: never; Returns: Record<string, unknown> }
       pg_stat_statements_reset: {
         Args: {
           dbid?: unknown
@@ -8366,60 +9479,15 @@ export type Database = {
         Args: { "": string }
         Returns: Record<string, unknown>[]
       }
-      pgp_key_id: {
-        Args: { "": string }
-        Returns: string
-      }
-      pgsm_create_11_view: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      pgsm_create_13_view: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      pgsm_create_14_view: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      pgsm_create_15_view: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      pgsm_create_17_view: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      pgsm_create_view: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      plpgsql_check_function: {
-        Args:
-          | {
-              all_warnings?: boolean
-              anycompatiblerangetype?: unknown
-              anycompatibletype?: unknown
-              anyelememttype?: unknown
-              anyenumtype?: unknown
-              anyrangetype?: unknown
-              compatibility_warnings?: boolean
-              constant_tracing?: boolean
-              extra_warnings?: boolean
-              fatal_errors?: boolean
-              format?: string
-              funcoid: unknown
-              incomment_options_usage_warning?: boolean
-              newtable?: unknown
-              oldtable?: unknown
-              other_warnings?: boolean
-              performance_warnings?: boolean
-              relid?: unknown
-              security_warnings?: boolean
-              use_incomment_options?: boolean
-              without_warnings?: boolean
-            }
-          | {
+      pgsm_create_11_view: { Args: never; Returns: number }
+      pgsm_create_13_view: { Args: never; Returns: number }
+      pgsm_create_14_view: { Args: never; Returns: number }
+      pgsm_create_15_view: { Args: never; Returns: number }
+      pgsm_create_17_view: { Args: never; Returns: number }
+      pgsm_create_view: { Args: never; Returns: number }
+      plpgsql_check_function:
+        | {
+            Args: {
               all_warnings?: boolean
               anycompatiblerangetype?: unknown
               anycompatibletype?: unknown
@@ -8442,11 +9510,10 @@ export type Database = {
               use_incomment_options?: boolean
               without_warnings?: boolean
             }
-        Returns: string[]
-      }
-      plpgsql_check_function_tb: {
-        Args:
-          | {
+            Returns: string[]
+          }
+        | {
+            Args: {
               all_warnings?: boolean
               anycompatiblerangetype?: unknown
               anycompatibletype?: unknown
@@ -8457,6 +9524,7 @@ export type Database = {
               constant_tracing?: boolean
               extra_warnings?: boolean
               fatal_errors?: boolean
+              format?: string
               funcoid: unknown
               incomment_options_usage_warning?: boolean
               newtable?: unknown
@@ -8468,7 +9536,11 @@ export type Database = {
               use_incomment_options?: boolean
               without_warnings?: boolean
             }
-          | {
+            Returns: string[]
+          }
+      plpgsql_check_function_tb:
+        | {
+            Args: {
               all_warnings?: boolean
               anycompatiblerangetype?: unknown
               anycompatibletype?: unknown
@@ -8490,76 +9562,141 @@ export type Database = {
               use_incomment_options?: boolean
               without_warnings?: boolean
             }
-        Returns: {
-          context: string
-          detail: string
-          functionid: unknown
-          hint: string
-          level: string
-          lineno: number
-          message: string
-          position: number
-          query: string
-          sqlstate: string
-          statement: string
-        }[]
-      }
-      plpgsql_check_pragma: {
-        Args: { name: string[] }
-        Returns: number
-      }
-      plpgsql_check_profiler: {
-        Args: { enable?: boolean }
-        Returns: boolean
-      }
+            Returns: {
+              context: string
+              detail: string
+              functionid: unknown
+              hint: string
+              level: string
+              lineno: number
+              message: string
+              position: number
+              query: string
+              sqlstate: string
+              statement: string
+            }[]
+          }
+        | {
+            Args: {
+              all_warnings?: boolean
+              anycompatiblerangetype?: unknown
+              anycompatibletype?: unknown
+              anyelememttype?: unknown
+              anyenumtype?: unknown
+              anyrangetype?: unknown
+              compatibility_warnings?: boolean
+              constant_tracing?: boolean
+              extra_warnings?: boolean
+              fatal_errors?: boolean
+              funcoid: unknown
+              incomment_options_usage_warning?: boolean
+              newtable?: unknown
+              oldtable?: unknown
+              other_warnings?: boolean
+              performance_warnings?: boolean
+              relid?: unknown
+              security_warnings?: boolean
+              use_incomment_options?: boolean
+              without_warnings?: boolean
+            }
+            Returns: {
+              context: string
+              detail: string
+              functionid: unknown
+              hint: string
+              level: string
+              lineno: number
+              message: string
+              position: number
+              query: string
+              sqlstate: string
+              statement: string
+            }[]
+          }
+      plpgsql_check_pragma: { Args: { name: string[] }; Returns: number }
+      plpgsql_check_profiler: { Args: { enable?: boolean }; Returns: boolean }
       plpgsql_check_tracer: {
         Args: { enable?: boolean; verbosity?: string }
         Returns: boolean
       }
-      plpgsql_coverage_branches: {
-        Args: { funcoid: unknown } | { name: string }
-        Returns: number
-      }
-      plpgsql_coverage_statements: {
-        Args: { funcoid: unknown } | { name: string }
-        Returns: number
-      }
-      plpgsql_profiler_function_statements_tb: {
-        Args: { funcoid: unknown } | { name: string }
-        Returns: {
-          avg_time: number
-          block_num: number
-          exec_stmts: number
-          exec_stmts_err: number
-          lineno: number
-          max_time: number
-          parent_note: string
-          parent_stmtid: number
-          processed_rows: number
-          queryid: number
-          stmtid: number
-          stmtname: string
-          total_time: number
-        }[]
-      }
-      plpgsql_profiler_function_tb: {
-        Args: { funcoid: unknown } | { name: string }
-        Returns: {
-          avg_time: number
-          cmds_on_row: number
-          exec_stmts: number
-          exec_stmts_err: number
-          lineno: number
-          max_time: number[]
-          processed_rows: number[]
-          queryids: number[]
-          source: string
-          stmt_lineno: number
-          total_time: number
-        }[]
-      }
+      plpgsql_coverage_branches:
+        | { Args: { name: string }; Returns: number }
+        | { Args: { funcoid: unknown }; Returns: number }
+      plpgsql_coverage_statements:
+        | { Args: { name: string }; Returns: number }
+        | { Args: { funcoid: unknown }; Returns: number }
+      plpgsql_profiler_function_statements_tb:
+        | {
+            Args: { name: string }
+            Returns: {
+              avg_time: number
+              block_num: number
+              exec_stmts: number
+              exec_stmts_err: number
+              lineno: number
+              max_time: number
+              parent_note: string
+              parent_stmtid: number
+              processed_rows: number
+              queryid: number
+              stmtid: number
+              stmtname: string
+              total_time: number
+            }[]
+          }
+        | {
+            Args: { funcoid: unknown }
+            Returns: {
+              avg_time: number
+              block_num: number
+              exec_stmts: number
+              exec_stmts_err: number
+              lineno: number
+              max_time: number
+              parent_note: string
+              parent_stmtid: number
+              processed_rows: number
+              queryid: number
+              stmtid: number
+              stmtname: string
+              total_time: number
+            }[]
+          }
+      plpgsql_profiler_function_tb:
+        | {
+            Args: { name: string }
+            Returns: {
+              avg_time: number
+              cmds_on_row: number
+              exec_stmts: number
+              exec_stmts_err: number
+              lineno: number
+              max_time: number[]
+              processed_rows: number[]
+              queryids: number[]
+              source: string
+              stmt_lineno: number
+              total_time: number
+            }[]
+          }
+        | {
+            Args: { funcoid: unknown }
+            Returns: {
+              avg_time: number
+              cmds_on_row: number
+              exec_stmts: number
+              exec_stmts_err: number
+              lineno: number
+              max_time: number[]
+              processed_rows: number[]
+              queryids: number[]
+              source: string
+              stmt_lineno: number
+              total_time: number
+            }[]
+          }
       plpgsql_profiler_functions_all: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           avg_time: number
           exec_count: number
@@ -8572,33 +9709,18 @@ export type Database = {
         }[]
       }
       plpgsql_profiler_install_fake_queryid_hook: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: undefined
       }
       plpgsql_profiler_remove_fake_queryid_hook: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: undefined
       }
-      plpgsql_profiler_reset: {
-        Args: { funcoid: unknown }
-        Returns: undefined
-      }
-      plpgsql_profiler_reset_all: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      plpgsql_show_dependency_tb: {
-        Args:
-          | {
-              anycompatiblerangetype?: unknown
-              anycompatibletype?: unknown
-              anyelememttype?: unknown
-              anyenumtype?: unknown
-              anyrangetype?: unknown
-              fnname: string
-              relid?: unknown
-            }
-          | {
+      plpgsql_profiler_reset: { Args: { funcoid: unknown }; Returns: undefined }
+      plpgsql_profiler_reset_all: { Args: never; Returns: undefined }
+      plpgsql_show_dependency_tb:
+        | {
+            Args: {
               anycompatiblerangetype?: unknown
               anycompatibletype?: unknown
               anyelememttype?: unknown
@@ -8607,30 +9729,45 @@ export type Database = {
               funcoid: unknown
               relid?: unknown
             }
-        Returns: {
-          name: string
-          oid: unknown
-          params: string
-          schema: string
-          type: string
-        }[]
-      }
-      range: {
-        Args: Record<PropertyKey, never>
-        Returns: string[]
-      }
+            Returns: {
+              name: string
+              oid: unknown
+              params: string
+              schema: string
+              type: string
+            }[]
+          }
+        | {
+            Args: {
+              anycompatiblerangetype?: unknown
+              anycompatibletype?: unknown
+              anyelememttype?: unknown
+              anyenumtype?: unknown
+              anyrangetype?: unknown
+              fnname: string
+              relid?: unknown
+            }
+            Returns: {
+              name: string
+              oid: unknown
+              params: string
+              schema: string
+              type: string
+            }[]
+          }
+      range: { Args: never; Returns: string[] }
       refresh: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: unknown
+        SetofOptions: {
+          from: "*"
+          to: "auth_response"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
-      region_hierarchy: {
-        Args: { region_id: number }
-        Returns: Json
-      }
-      region_used_derive: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
+      region_hierarchy: { Args: { region_id: number }; Returns: Json }
+      region_used_derive: { Args: never; Returns: undefined }
       relevant_statistical_units: {
         Args: {
           unit_id: number
@@ -8679,7 +9816,7 @@ export type Database = {
           physical_postplace: string | null
           physical_region_code: string | null
           physical_region_id: number | null
-          physical_region_path: unknown | null
+          physical_region_path: unknown
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
@@ -8692,21 +9829,21 @@ export type Database = {
           postal_postplace: string | null
           postal_region_code: string | null
           postal_region_id: number | null
-          postal_region_path: unknown | null
+          postal_region_path: unknown
           primary_activity_category_code: string | null
           primary_activity_category_id: number | null
-          primary_activity_category_path: unknown | null
+          primary_activity_category_path: unknown
           related_enterprise_ids: number[] | null
           related_establishment_ids: number[] | null
           related_legal_unit_ids: number[] | null
-          search: unknown | null
+          search: unknown
           secondary_activity_category_code: string | null
           secondary_activity_category_id: number | null
-          secondary_activity_category_path: unknown | null
+          secondary_activity_category_path: unknown
           sector_code: string | null
           sector_id: number | null
           sector_name: string | null
-          sector_path: unknown | null
+          sector_path: unknown
           stats: Json | null
           stats_summary: Json | null
           status_code: string | null
@@ -8722,6 +9859,12 @@ export type Database = {
           valid_until: string | null
           web_address: string | null
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "statistical_unit"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       remove_ephemeral_data_from_hierarchy: {
         Args: { data: Json }
@@ -8734,26 +9877,13 @@ export type Database = {
         }
         Returns: Json
       }
-      revoke_api_key: {
-        Args: { key_jti: string }
-        Returns: boolean
-      }
+      revoke_api_key: { Args: { key_jti: string }; Returns: boolean }
       revoke_session: {
         Args: { refresh_session_jti: string }
         Returns: boolean
       }
-      sector_hierarchy: {
-        Args: { sector_id: number }
-        Returns: Json
-      }
-      sector_used_derive: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      set_limit: {
-        Args: { "": number }
-        Returns: number
-      }
+      sector_hierarchy: { Args: { sector_id: number }; Returns: Json }
+      sector_used_derive: { Args: never; Returns: undefined }
       set_primary_establishment_for_legal_unit: {
         Args: {
           establishment_id: number
@@ -8770,14 +9900,8 @@ export type Database = {
         }
         Returns: Json
       }
-      show_limit: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      show_trgm: {
-        Args: { "": string }
-        Returns: string[]
-      }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       sign: {
         Args: { algorithm?: string; payload: Json; secret: string }
         Returns: string
@@ -8797,6 +9921,12 @@ export type Database = {
           p_year: number
         }
         Returns: Database["public"]["CompositeTypes"]["statistical_history_type"][]
+        SetofOptions: {
+          from: "*"
+          to: "statistical_history_type"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       statistical_history_derive: {
         Args: { p_valid_from?: string; p_valid_until?: string }
@@ -8825,6 +9955,12 @@ export type Database = {
           p_year: number
         }
         Returns: Database["public"]["CompositeTypes"]["statistical_history_facet_type"][]
+        SetofOptions: {
+          from: "*"
+          to: "statistical_history_facet_type"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       statistical_history_facet_derive: {
         Args: { p_valid_from?: string; p_valid_until?: string }
@@ -8896,6 +10032,12 @@ export type Database = {
           valid_on?: string
         }
         Returns: Database["public"]["CompositeTypes"]["statistical_unit_stats"][]
+        SetofOptions: {
+          from: "*"
+          to: "statistical_unit_stats"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       statistical_unit_tree: {
         Args: {
@@ -8905,10 +10047,7 @@ export type Database = {
         }
         Returns: Json
       }
-      status_hierarchy: {
-        Args: { status_id: number }
-        Returns: Json
-      }
+      status_hierarchy: { Args: { status_id: number }; Returns: Json }
       tag_for_unit_hierarchy: {
         Args: {
           parent_enterprise_group_id?: number
@@ -8918,14 +10057,8 @@ export type Database = {
         }
         Returns: Json
       }
-      text_to_bytea: {
-        Args: { data: string }
-        Returns: string
-      }
-      text2ltree: {
-        Args: { "": string }
-        Returns: unknown
-      }
+      text_to_bytea: { Args: { data: string }; Returns: string }
+      text2ltree: { Args: { "": string }; Returns: unknown }
       timepoints_calculate: {
         Args: {
           p_enterprise_id_ranges: unknown
@@ -8938,26 +10071,24 @@ export type Database = {
           unit_type: Database["public"]["Enums"]["statistical_unit_type"]
         }[]
       }
-      try_cast_double: {
-        Args: { inp: string }
-        Returns: number
-      }
-      unit_size_hierarchy: {
-        Args: { unit_size_id: number }
-        Returns: Json
-      }
-      url_decode: {
-        Args: { data: string }
-        Returns: string
-      }
-      url_encode: {
-        Args: { data: string }
-        Returns: string
-      }
-      urlencode: {
-        Args: { data: Json } | { string: string } | { string: string }
-        Returns: string
-      }
+      try_cast_double: { Args: { inp: string }; Returns: number }
+      unit_size_hierarchy: { Args: { unit_size_id: number }; Returns: Json }
+      url_decode: { Args: { data: string }; Returns: string }
+      url_encode: { Args: { data: string }; Returns: string }
+      urlencode:
+        | { Args: { data: Json }; Returns: string }
+        | {
+            Args: { string: string }
+            Returns: {
+              error: true
+            } & "Could not choose the best candidate function between: public.urlencode(string => bytea), public.urlencode(string => varchar). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
+          }
+        | {
+            Args: { string: string }
+            Returns: {
+              error: true
+            } & "Could not choose the best candidate function between: public.urlencode(string => bytea), public.urlencode(string => varchar). Try renaming the parameters or the function itself in the database so function overloading can be resolved"
+          }
       user_create: {
         Args: {
           p_display_name: string
@@ -9100,7 +10231,7 @@ export type Database = {
         value: string | null
       }
       http_request: {
-        method: unknown | null
+        method: unknown
         uri: string | null
         headers: Database["public"]["CompositeTypes"]["http_header"][] | null
         content_type: string | null
@@ -9117,15 +10248,22 @@ export type Database = {
         year: number | null
         month: number | null
         unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
-        primary_activity_category_path: unknown | null
-        secondary_activity_category_path: unknown | null
-        sector_path: unknown | null
+        primary_activity_category_path: unknown
+        secondary_activity_category_path: unknown
+        sector_path: unknown
         legal_form_id: number | null
-        physical_region_path: unknown | null
+        physical_region_path: unknown
         physical_country_id: number | null
         unit_size_id: number | null
         status_id: number | null
-        count: number | null
+        exists_count: number | null
+        exists_change: number | null
+        exists_added_count: number | null
+        exists_removed_count: number | null
+        countable_count: number | null
+        countable_change: number | null
+        countable_added_count: number | null
+        countable_removed_count: number | null
         births: number | null
         deaths: number | null
         name_change_count: number | null
@@ -9145,7 +10283,14 @@ export type Database = {
         year: number | null
         month: number | null
         unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
-        count: number | null
+        exists_count: number | null
+        exists_change: number | null
+        exists_added_count: number | null
+        exists_removed_count: number | null
+        countable_count: number | null
+        countable_change: number | null
+        countable_added_count: number | null
+        countable_removed_count: number | null
         births: number | null
         deaths: number | null
         name_change_count: number | null
