@@ -3,3 +3,7 @@ volumes/
 
 # Exclude files not needed for Docker build
 docker-compose.yml
+
+# Exclude Rust build artifacts for the statbus_jwt extension
+# Exclude Rust build artifacts for the pg_jwt_validator extension
+pg_jwt_validator/target/

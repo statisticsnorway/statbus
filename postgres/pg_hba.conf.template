@@ -1,0 +1,26 @@
+# TYPE  DATABASE        USER            ADDRESS                 METHOD
+# "local" is for Unix domain socket connections only
+local   all             postgres                                trust
+local   all             all                                     scram-sha-256
+# IPv4 local connections:
+#host    all             all             127.0.0.1/32            scram-sha-256
+host    all             all             127.0.0.1/32            oauth issuer="${OAUTH_ISSUER_URL}" scope="db:connect" validator="pg_jwt_validator"
+# IPv6 local connections:
+host    all             all             ::1/128                 scram-sha-256
+# Allow connections from Docker network
+host    all             all             172.16.0.0/12           scram-sha-256
+host    all             all             192.168.0.0/16          scram-sha-256
+host    all             all             10.0.0.0/8              scram-sha-256
+
+#
+# Public connections (from anywhere) MUST use SSL/TLS and OAuth 2.0.
+# Password-based authentication is disabled for public connections.
+# The 'issuer' URL will be provided to clients to fetch OAuth metadata.
+# The 'validator' is the name of the custom C module that validates our JWTs.
+#
+# Allow OAuth connections from anywhere (public IPv4)
+#hostssl all             all             0.0.0.0/0               oauth issuer="${OAUTH_ISSUER_URL}" scope="db:connect" validator="pg_jwt_validator"
+host all             all             0.0.0.0/0               oauth issuer="${OAUTH_ISSUER_URL}" scope="db:connect" validator="pg_jwt_validator"
+# Allow OAuth connections from anywhere (public IPv6)
+#hostssl all             all             ::/0                    oauth issuer="${OAUTH_ISSUER_URL}" scope="db:connect" validator="pg_jwt_validator"
+host all             all             ::/0                    oauth issuer="${OAUTH_ISSUER_URL}" scope="db:connect" validator="pg_jwt_validator"

@@ -22,6 +22,7 @@ services:
       POSTGRES_NOTIFY_PASSWORD: ${POSTGRES_NOTIFY_PASSWORD:?POSTGRES_NOTIFY_PASSWORD must be set in the generated .env}
       POSTGRES_AUTHENTICATOR_PASSWORD: ${POSTGRES_AUTHENTICATOR_PASSWORD:?POSTGRES_AUTHENTICATOR_PASSWORD must be set in the generated .env}
       POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?POSTGRES_ADMIN_PASSWORD must be set in the generated .env}
+      OAUTH_ISSUER_URL: ${STATBUS_URL:?STATBUS_URL must be set in .env for OAuth}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in the generated .env}
       JWT_EXP: ${ACCESS_JWT_EXPIRY:?ACCESS_JWT_EXPIRY must be set in the generated .env}
       DEPLOYMENT_SLOT_CODE: ${DEPLOYMENT_SLOT_CODE:?DEPLOYMENT_SLOT_CODE must be set in the generated .env}
@@ -29,7 +30,7 @@ services:
     volumes:
       - ./volumes/db/data:/var/lib/postgresql/data:Z
       - ./postgresql.conf:/etc/postgresql/postgresql.conf:ro
-      - ./pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - ./pg_hba.conf.template:/etc/postgresql/pg_hba.conf.template:ro
       - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
       - ./start-postgres.sh:/usr/local/bin/start-postgres.sh:ro # Mount the new script
       # Make all files available for running tests and writing test results or output files from psql.
@@ -46,7 +47,8 @@ services:
     # The original CMD ["postgres"] from Dockerfile is implicitly used by docker-entrypoint.sh
     # if no command is specified here after the entrypoint. Our start-postgres.sh
     # explicitly calls `docker-entrypoint.sh postgres ...` so this is fine.
-
+    extra_hosts:
+          - "dev.statbus.org:host-gateway"
 volumes:
   # Named volumes are kept for backward compatibility
   postgres_data:

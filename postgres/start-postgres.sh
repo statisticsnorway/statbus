@@ -1,6 +1,10 @@
 #!/bin/sh
 set -e
 
+# Generate pg_hba.conf from template to inject the correct OAuth issuer URL.
+# The output is written to the standard location, which is then picked up by PostgreSQL.
+envsubst '${OAUTH_ISSUER_URL}' < /etc/postgresql/pg_hba.conf.template > /etc/postgresql/pg_hba.conf
+
 # Arguments for the postgres command, not including "postgres" itself.
 # These will be passed to the original docker-entrypoint.sh.
 PG_PARAMS=""
@@ -11,6 +15,9 @@ PG_PARAMS="$PG_PARAMS -c config_file=/etc/postgresql/postgresql.conf" # Ensure o
 # The following logging settings are crucial for Docker integration and override postgresql.conf
 PG_PARAMS="$PG_PARAMS -c logging_collector=off"
 PG_PARAMS="$PG_PARAMS -c log_destination=stderr"
+
+# Configure the JWT secret for oAuth JWT validation.
+PG_PARAMS="$PG_PARAMS -c pg_jwt_validator.secret=${JWT_SECRET}"
 
 # Dynamic memory configuration (overrides postgresql.conf)
 # These can be set in the .env file. See tmp/db-memory-todo.md for tuning guidance.
@@ -34,6 +41,9 @@ fi
 
 PG_PARAMS="$PG_PARAMS -c log_min_messages=${LOG_MIN_MESSAGES}"
 PG_PARAMS="$PG_PARAMS -c log_min_duration_statement=${LOG_MIN_DURATION_STATEMENT}"
+
+# Since Caddy terminates SSL postgres must not, since it doesn't have the right certificate.
+export PGOAUTHDEBUG=UNSAFE
 
 echo "Handing off to /usr/local/bin/docker-entrypoint.sh postgres $PG_PARAMS"
 # The `docker-entrypoint.sh` script (from the base PostgreSQL image)

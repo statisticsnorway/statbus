@@ -53,12 +53,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   postgresql-${postgresql_major} \
   postgresql-contrib-${postgresql_major} \
   postgresql-server-dev-${postgresql_major} \
+  libpq-oauth-${postgresql_major} \
   tzdata \
   locales \
   gosu \
   libcurl4-gnutls-dev \
   build-essential \
   git \
+  gettext-base \
   && ln -fs /usr/share/zoneinfo/Europe/Oslo /etc/localtime \
   && dpkg-reconfigure --frontend noninteractive tzdata \
   && rm -rf /var/lib/apt/lists/*
@@ -246,6 +248,45 @@ RUN git clone https://github.com/michelp/pgjwt.git && \
   git checkout ${pgjwt_release} && \
   make && \
   make DESTDIR=/tmp/pgjwt-dist install
+
+####################
+# Build pg_jwt_validator (pgrx Rust extension)
+####################
+FROM builder as pg_jwt_validator-builder
+ARG postgresql_major
+
+# Install Rust, cargo, and unzip
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  curl \
+  pkg-config \
+  libssl-dev \
+  unzip \
+  && rm -rf /var/lib/apt/lists/* \
+  && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+
+# Add cargo to PATH
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Install cargo-pgrx.
+RUN cargo install --locked cargo-pgrx --version 0.16.1
+
+# Set up pgrx to know about this postgres version
+RUN cargo pgrx init --pg${postgresql_major}=$(which pg_config)
+
+# Copy the extension source
+WORKDIR /usr/src
+COPY pg_jwt_validator ./pg_jwt_validator
+
+# Build and package the extension
+WORKDIR /usr/src/pg_jwt_validator
+RUN cargo pgrx package
+
+# Prepare files for installation from the package.
+# The `cargo pgrx package` command creates a ready-to-install directory structure.
+# We copy this structure to our staging directory. The name of the directory
+# is based on the crate name and PostgreSQL version.
+RUN mkdir -p /tmp/pg_jwt_validator-dist
+RUN cp -a /usr/src/pg_jwt_validator/target/release/pg_jwt_validator-pg${postgresql_major}/* /tmp/pg_jwt_validator-dist/
 
 ####################
 # Build pg_graphql

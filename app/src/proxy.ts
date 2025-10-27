@@ -15,6 +15,7 @@ export async function proxy(request: NextRequest) {
     pathname === "/login" ||
     pathname.startsWith("/jotai-state-management-reference") || // Allow access to the example auth setup
     pathname.startsWith("/_next/") ||
+    pathname.startsWith("/.well-known/") ||
     pathname.startsWith("/favicon.ico") ||
     pathname.startsWith("/rest/") || // PostgREST endpoint is proxied/exposed here
     pathname.startsWith("/pev2.html") // Tool for analyzing PostgreSQL execution plans (EXPLAIN ANALYZE)
@@ -100,7 +101,8 @@ export const config = {
      * - favicon.ico (favicon file)
      * - maintenance (maintenance page)
      * - api (API's are responsible for handling their own sessions by calling any requried functions)
+     * - .well-known (OIDC discovery and other public metadata)
      */
-    "/((?!_next/static|_next/image|favicon.ico|maintenance|api).*)",
+    "/((?!_next/static|_next/image|favicon.ico|maintenance|api|\\.well-known).*)",
   ],
 };

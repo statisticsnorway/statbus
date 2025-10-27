@@ -1,3 +1,8 @@
+[build]
+# This tells rustc that `pg_test` is an expected feature flag,
+# which silences the "unexpected 'cfg' condition value" warning.
+rustflags = ["--check-cfg=cfg(feature, values(\"pg_test\"))"]
+
 [target.'cfg(target_os="macos")']
 # Postgres symbols won't be available until runtime
 rustflags = ["-Clink-arg=-Wl,-undefined,dynamic_lookup"]
