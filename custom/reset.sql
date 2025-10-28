@@ -11,6 +11,10 @@ BEGIN
 	--sletter custom
     DELETE FROM external_ident_type
     WHERE code NOT IN ('tax_ident', 'stat_ident');
+	
+	--alle disse henger igjen - de lanspesfike stat variabler
+	delete from import source_column
+	where column_name in ('male','punpag','selfemp','female', 'jor', 'nonjor','reg_capital', 'cur_capital' , 'share_capital');
 
 	--viser de begge de som er default de over
 	UPDATE external_ident_type
@@ -33,7 +37,7 @@ BEGIN
 delete from  public.import_source_column 
 where 1 = 1
 and column_name in 
-( 'ice_ident', 'hcp_ident', 'cnss_ident', 'share_capital', 'legal_unit_ice_ident', 'legal_unit_cnss_ident', 'legal_unit_hcp_ident') ; -- 32 rader rester av morocco som jeg sletter
+( 'ice_ident', 'hcp_ident', 'cnss_ident', 'share_capital','legal_unit_national_id', 'national_id','legal_unit_ice_ident', 'legal_unit_cnss_ident', 'legal_unit_hcp_ident') ; -- 32 rader rester av morocco som jeg sletter
 
 		
 --default
