@@ -43,6 +43,12 @@ BEGIN
 		('sales', 'float', 'yearly', 'Sales', 6);
 
 
+
+--sets turnover to the end
+update stat_definition
+set priority = 7
+where id = 2
+
    -- UPDATE activity_category_standard
    -- SET code_pattern = 'digits'
     --WHERE code = 'nace_v2.1';
