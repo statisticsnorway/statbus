@@ -1,6 +1,26 @@
-# Code of conduct
-The software is for use internally in national statistical offices.
-Activities pertaining to data collection, storage and analysis in the European
-region are governed by the General Data Protection Regulation (GDPR) and
-relevant Norwegian legislation. Countries using STATBUS in other regions
-are responsible for complying with national legislation.
+# Code of Conduct
+
+The Statbus community is dedicated to providing a harassment-free experience for everyone. We value contributions based on merit and encourage respectful collaboration on GitHub.
+
+This code applies to all Statbus spaces, including issues, pull requests, discussions, and related events. All interactions must comply with GitHub's [Terms of Service](https://docs.github.com/en/site-policy/github-terms/github-terms-of-service) and [Acceptable Use Policies](https://docs.github.com/en/site-policy/acceptable-use-policies/github-acceptable-use-policies), which prohibit harassment, abuse, or threats.
+
+## Expected Behavior
+- Be respectful and constructive in feedback.
+- Focus on the code and ideas, not individuals.
+
+## Unacceptable Behavior
+- Harassment, trolling, or personal attacks.
+- Sexualized language or advances.
+- Publishing private information without permission.
+- Other conduct inappropriate for a professional setting.
+
+## Enforcement
+Project maintainers will address violations fairly, including warnings, edits, or bans as needed. We defer to GitHub for severe issues.
+
+## Reporting Harassment
+To protect yourself, report issues directly to GitHub Support at [support.github.com](https://support.github.com/contact) or via the in-app report feature. For urgent threats, contact local authorities.
+
+This Code is adapted from the Open Source Guides and aligns with GitHub's community standards. Questions? Open an issue.
+
+---
+*Version 1.0 | Adopted September 2025*
