@@ -18,7 +18,7 @@ BEGIN
         ('nhif', 'NHIF', 7);
 	
 --tbc wont need any of the originals in KE
---hiding tax_ident and stat_ident
+--hiding tax_ident and stat_ident  --this is a problem ??
  UPDATE external_ident_type
     SET archived = TRUE
     WHERE id <= 2;
