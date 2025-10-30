@@ -18,7 +18,7 @@ This code applies to all Statbus spaces, including issues, pull requests, discus
 Project maintainers will address violations fairly, including warnings, edits, or bans as needed. We defer to GitHub for severe issues.
 
 ## Reporting Harassment
-To protect yourself, report issues directly to GitHub Support at [support.github.com](https://support.github.com/contact) or via the in-app report feature. For urgent threats, contact local authorities.
+Report violations to project maintainers at Erik.Soberg@ssb.no. For platform abuse, you may also report issues to GitHub Support at [support.github.com](https://support.github.com/contact). For urgent threats, contact local authorities.
 
 This Code is adapted from the Open Source Guides and aligns with GitHub's community standards. Questions? Open an issue.
 
