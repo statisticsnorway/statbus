@@ -49,12 +49,12 @@
                                                                                                                                                          Sort Key: t_1.unit_id, t_1.valid_from
                                                                                                                                                          ->  Nested Loop
                                                                                                                                                                ->  Hash Join
-                                                                                                                                                                     Hash Cond: (sfu.legal_unit_id = t_1.unit_id)
+                                                                                                                                                                     Hash Cond: (t_1.unit_id = sfu.legal_unit_id)
                                                                                                                                                                      Join Filter: ((t_1.valid_from < sfu.valid_until) AND (sfu.valid_from < t_1.valid_until))
-                                                                                                                                                                     ->  Seq Scan on stat_for_unit sfu
+                                                                                                                                                                     ->  Seq Scan on timesegments t_1
+                                                                                                                                                                           Filter: (unit_type = 'legal_unit'::statistical_unit_type)
                                                                                                                                                                      ->  Hash
-                                                                                                                                                                           ->  Seq Scan on timesegments t_1
-                                                                                                                                                                                 Filter: (unit_type = 'legal_unit'::statistical_unit_type)
+                                                                                                                                                                           ->  Seq Scan on stat_for_unit sfu
                                                                                                                                                                ->  Index Scan using stat_definition_pkey on stat_definition sd
                                                                                                                                                                      Index Cond: (id = sfu.stat_definition_id)
                                                                                                                            ->  Memoize
