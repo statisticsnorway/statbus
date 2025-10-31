@@ -79,8 +79,8 @@ BEGIN
                 pac.id as resolved_primary_activity_category_id,
                 sac.id as resolved_secondary_activity_category_id
             FROM public.%1$I dt_sub -- Target data table
-            LEFT JOIN public.activity_category pac ON dt_sub.primary_activity_category_code_raw IS NOT NULL AND pac.code = dt_sub.primary_activity_category_code_raw
-            LEFT JOIN public.activity_category sac ON dt_sub.secondary_activity_category_code_raw IS NOT NULL AND sac.code = dt_sub.secondary_activity_category_code_raw
+            LEFT JOIN public.activity_category_available pac ON dt_sub.primary_activity_category_code_raw IS NOT NULL AND pac.code = dt_sub.primary_activity_category_code_raw
+            LEFT JOIN public.activity_category_available sac ON dt_sub.secondary_activity_category_code_raw IS NOT NULL AND sac.code = dt_sub.secondary_activity_category_code_raw
             WHERE dt_sub.row_id <@ $1
         )
         UPDATE public.%1$I dt SET -- Target data table
