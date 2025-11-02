@@ -8,7 +8,11 @@
  */
 
 import { atom, useAtom } from 'jotai'
-import { atomWithStorage, atomWithRefresh } from 'jotai/utils'
+import {
+  atomWithStorage,
+  atomWithRefresh,
+  createJSONStorage,
+} from "jotai/utils";
 
 import { restClientAtom } from './rest-client'
 import { authStateForDataFetchingAtom } from './auth'
@@ -35,23 +39,33 @@ export const gettingStartedUIStateAtom = atomWithStorage<GettingStartedUIState>(
 
 // --- Individual Async Atoms for "Getting Started" Metrics ---
 
-// Activity Category Standard Setting
-export const activityCategoryStandardSettingAtomAsync = atomWithRefresh(async (get) => {
+// Country Setting
+type SelectedCountryId = number | null;
+
+export const gettingStartedSelectedCountryAtom = atomWithStorage<SelectedCountryId>(
+  "gettingStartedSelectedCountry",
+  null,
+  createJSONStorage(() => sessionStorage)
+);
+
+//  Settings
+export const settingsAtomAsync = atomWithRefresh(async (get) => {
   const authState = get(authStateForDataFetchingAtom);
-  if (authState === 'checking' || authState === 'refreshing') return new Promise<never>(() => {});
-  if (authState !== 'authenticated') return null;
+  if (authState === "checking" || authState === "refreshing")
+    return new Promise<never>(() => {});
+  if (authState !== "authenticated") return null;
 
   const client = get(restClientAtom);
   if (!client) return null;
   const { data: settings, error } = await client
     .from("settings")
-    .select("activity_category_standard(id,name)")
+    .select("activity_category_standard(id,name),country(id,name,iso_2)")
     .limit(1);
   if (error) {
-    console.error('Failed to fetch activity_category_standard setting:', error);
+    console.error("Failed to fetch settings:", error);
     return null;
   }
-  return settings?.[0]?.activity_category_standard as { id: number, name: string } ?? null;
+  return settings?.[0] ?? null;
 });
 
 // Number of Regions

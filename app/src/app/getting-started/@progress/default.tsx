@@ -4,12 +4,12 @@ import React, { Suspense, useState } from 'react'; // Added useEffect, useState
 import { useGuardedEffect } from '@/hooks/use-guarded-effect';
 import { useAtomValue } from 'jotai';
 import {
-  activityCategoryStandardSettingAtomAsync,
   numberOfCustomActivityCodesAtomAsync,
   numberOfCustomLegalFormsAtomAsync,
   numberOfCustomSectorsAtomAsync,
   numberOfRegionsAtomAsync,
-} from '@/atoms/getting-started';
+  settingsAtomAsync,
+} from "@/atoms/getting-started";
 import { NavItem } from "@/app/getting-started/@progress/nav-item";
 import { Loader2 } from 'lucide-react';
 
@@ -19,7 +19,7 @@ const ProgressStatusContent = () => {
     setIsMounted(true);
   }, [], 'GettingStartedProgress:setMounted');
 
-  const activity_category_standard = useAtomValue(activityCategoryStandardSettingAtomAsync);
+  const settings = useAtomValue(settingsAtomAsync);
   const numberOfRegions = useAtomValue(numberOfRegionsAtomAsync);
   const numberOfCustomActivityCategoryCodes = useAtomValue(numberOfCustomActivityCodesAtomAsync);
   const numberOfCustomSectors = useAtomValue(numberOfCustomSectorsAtomAsync);
@@ -35,10 +35,22 @@ const ProgressStatusContent = () => {
     <ul className="text-sm">
       <li className="mb-6">
         <NavItem
-          done={!!activity_category_standard}
-          title="1. Set Activity Category Standard"
+          done={!!settings?.country}
+          title="1. Set Installation Country"
+          href="/getting-started/country"
+          subtitle={
+            settings?.country
+              ? `${settings.country.name} (${settings.country.iso_2})`
+              : undefined
+          }
+        />
+      </li>
+      <li className="mb-6">
+        <NavItem
+          done={!!settings?.activity_category_standard}
+          title="2. Set Activity Category Standard"
           href="/getting-started/activity-standard"
-          subtitle={activity_category_standard?.name ?? undefined}
+          subtitle={settings?.activity_category_standard?.name ?? undefined}
         />
       </li>
       <li className="mb-6">
