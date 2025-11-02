@@ -11,10 +11,7 @@ export default async function GettingStartedPage() {
         upload your first region data set.
       </p>
 
-      <Link
-        className="block underline"
-        href="/getting-started/activity-standard"
-      >
+      <Link className="block underline" href="/getting-started/country">
         Start
       </Link>
     </div>

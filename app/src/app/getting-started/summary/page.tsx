@@ -7,13 +7,13 @@ import { Check, Minus, X } from "lucide-react";
 import { useAtomValue } from 'jotai';
 import { hasStatisticalUnitsAtom } from "@/atoms/base-data";
 import {
-  activityCategoryStandardSettingAtomAsync,
   numberOfCustomActivityCodesAtomAsync,
   numberOfCustomLegalFormsAtomAsync,
   numberOfCustomSectorsAtomAsync,
   numberOfRegionsAtomAsync,
-} from '@/atoms/getting-started';
-import { Loader2 } from 'lucide-react';
+  settingsAtomAsync,
+} from "@/atoms/getting-started";
+import { Loader2 } from "lucide-react";
 
 const SummaryContent = () => {
   const [isMounted, setIsMounted] = useState(false);
@@ -21,7 +21,7 @@ const SummaryContent = () => {
     setIsMounted(true);
   }, [], 'GettingStartedSummary:setMounted');
 
-  const activity_category_standard = useAtomValue(activityCategoryStandardSettingAtomAsync);
+  const settings = useAtomValue(settingsAtomAsync);
   const numberOfRegions = useAtomValue(numberOfRegionsAtomAsync);
   const numberOfCustomSectors = useAtomValue(numberOfCustomSectorsAtomAsync);
   const numberOfCustomLegalForms = useAtomValue(numberOfCustomLegalFormsAtomAsync);
@@ -45,9 +45,16 @@ const SummaryContent = () => {
 
       <div className="space-y-6">
         <SummaryBlock
-          success={!!activity_category_standard}
+          success={!!settings?.country}
           required={true}
-          successText={`You have configured Statbus to use the activity category standard ${activity_category_standard?.name ?? 'N/A'}.`}
+          successText={`You have configured Statbus for ${settings?.country?.name ?? "N/A"}.`}
+          failureText="You have not configured Statbus to use a country"
+          failureLink="/getting-started/country"
+        />
+        <SummaryBlock
+          success={!!settings?.activity_category_standard}
+          required={true}
+          successText={`You have configured Statbus to use the activity category standard ${settings?.activity_category_standard?.name ?? "N/A"}.`}
           failureText="You have not configured Statbus to use an activity category standard"
           failureLink="/getting-started/activity-standard"
         />
@@ -77,7 +84,7 @@ const SummaryContent = () => {
           failureLink="/getting-started/upload-custom-legal-forms"
         />
       </div>
-      {activity_category_standard && (numberOfRegions ?? 0) > 0 ? (
+      {settings && (numberOfRegions ?? 0) > 0 ? (
         <div className="text-center">
           <Link className="underline" href={hasUnits ? "/" : "/import"}>
             {hasUnits ? "Go to Dashboard" : "Start importing units"}
