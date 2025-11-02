@@ -876,7 +876,7 @@ export const DebugInspector = () => {
                   <hr className="my-1 border-gray-500" />
                   <div><strong>Auth Check Done:</strong> {stateToDisplay.redirectRelevantState?.authCheckDone ? 'Yes' : 'No'}</div>
                   <div><strong>REST Client Ready:</strong> {stateToDisplay.redirectRelevantState?.isRestClientReady ? 'Yes' : 'No'}</div>
-                  <div><strong>Activity Standard:</strong> {stateToDisplay.redirectRelevantState?.activityStandard === null ? 'Null' : JSON.stringify(stateToDisplay.redirectRelevantState?.activityStandard)}</div>
+                  <div><strong>Activity Standard:</strong> {stateToDisplay.redirectRelevantState?.settings?.activity_category_standard === null ? 'Null' : JSON.stringify(stateToDisplay.redirectRelevantState?.settings?.activity_category_standard)}</div>
                   <div><strong>Number of Regions:</strong> {stateToDisplay.redirectRelevantState?.numberOfRegions === null ? 'Null/Loading' : stateToDisplay.redirectRelevantState?.numberOfRegions}</div>
                   <div><strong>BaseData - Has Statistical Units:</strong> {stateToDisplay.redirectRelevantState?.baseDataHasStatisticalUnits === 'BaseDataNotLoaded' ? 'BaseDataNotLoaded' : (stateToDisplay.redirectRelevantState?.baseDataHasStatisticalUnits ? 'Yes' : 'No')}</div>
                   <div><strong>BaseData - Stat Definitions Count:</strong> {stateToDisplay.redirectRelevantState?.baseDataStatDefinitionsLength}</div>

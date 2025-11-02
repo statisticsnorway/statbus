@@ -26,10 +26,7 @@ import {
   timeContextsAtom,
   useBaseData,
 } from './base-data';
-import {
-  activityCategoryStandardSettingAtomAsync,
-  numberOfRegionsAtomAsync,
-} from './getting-started';
+import { numberOfRegionsAtomAsync, settingsAtomAsync } from "./getting-started";
 import { restClientAtom } from './rest-client';
 import { useWorkerStatus } from './worker_status';
 import { selectedUnitsAtom, queryAtom, filtersAtom } from './search';
@@ -93,13 +90,13 @@ const setupRedirectCheckAtomUnstable = atom((get) => {
   }
 
   // Only if strictly authenticated, proceed to trigger dependency fetches.
-  const activityStandardLoadable = get(loadable(activityCategoryStandardSettingAtomAsync));
+  const settingsLoadable = get(loadable(settingsAtomAsync));
   const numberOfRegionsLoadable = get(loadable(numberOfRegionsAtomAsync));
   const baseData = get(baseDataAtom);
 
   const isLoading =
-    activityStandardLoadable.state === 'loading' ||
-    numberOfRegionsLoadable.state === 'loading' ||
+    settingsLoadable.state === "loading" ||
+    numberOfRegionsLoadable.state === "loading" ||
     baseData.loading;
 
   if (isLoading) {
@@ -107,13 +104,17 @@ const setupRedirectCheckAtomUnstable = atom((get) => {
   }
 
   // At this point, all data is loaded and stable.
-  const currentActivityStandard = activityStandardLoadable.state === 'hasData' ? activityStandardLoadable.data : null;
-  const currentNumberOfRegions = numberOfRegionsLoadable.state === 'hasData' ? numberOfRegionsLoadable.data : null;
+  const currentSettings =
+    settingsLoadable.state === "hasData" ? settingsLoadable.data : null;
+  const currentNumberOfRegions =
+    numberOfRegionsLoadable.state === "hasData"
+      ? numberOfRegionsLoadable.data
+      : null;
 
   let path: string | null = null;
 
-  if (currentActivityStandard === null) {
-    path = '/getting-started/activity-standard';
+  if (currentSettings === null) {
+    path = "/getting-started";
   } else if (currentNumberOfRegions === null || currentNumberOfRegions === 0) {
     path = '/getting-started/upload-regions';
   } else if (baseData.statDefinitions.length > 0 && !baseData.hasStatisticalUnits) {
@@ -182,7 +183,7 @@ export const useAppReady = () => {
 const redirectRelevantStateAtomUnstable = atom((get) => {
   const authStatus = get(authStatusUnstableDetailsAtom);
   const baseData = get(baseDataAtom);
-  const activityStandardLoadable = get(loadable(activityCategoryStandardSettingAtomAsync));
+  const settingsLoadable = get(loadable(settingsAtomAsync));
   const numberOfRegionsLoadable = get(loadable(numberOfRegionsAtomAsync));
   const restClient = get(restClientAtom);
 
@@ -192,10 +193,20 @@ const redirectRelevantStateAtomUnstable = atom((get) => {
     initialAuthCheckCompleted: get(initialAuthCheckCompletedAtom),
     authCheckDone: !authStatus.loading,
     isRestClientReady: !!restClient,
-    activityStandard: activityStandardLoadable.state === 'hasData' ? activityStandardLoadable.data : null,
-    numberOfRegions: numberOfRegionsLoadable.state === 'hasData' ? numberOfRegionsLoadable.data : null,
-    baseDataHasStatisticalUnits: baseDataState === 'hasData' ? baseData.hasStatisticalUnits : 'BaseDataNotLoaded',
-    baseDataStatDefinitionsLength: baseDataState === 'hasData' ? baseData.statDefinitions.length : 'BaseDataNotLoaded'
+    settings:
+      settingsLoadable.state === "hasData" ? settingsLoadable.data : null,
+    numberOfRegions:
+      numberOfRegionsLoadable.state === "hasData"
+        ? numberOfRegionsLoadable.data
+        : null,
+    baseDataHasStatisticalUnits:
+      baseDataState === "hasData"
+        ? baseData.hasStatisticalUnits
+        : "BaseDataNotLoaded",
+    baseDataStatDefinitionsLength:
+      baseDataState === "hasData"
+        ? baseData.statDefinitions.length
+        : "BaseDataNotLoaded",
   };
 });
 
