@@ -1280,1428 +1280,6 @@ export type Database = {
           },
         ]
       }
-      import_demo_es_for_lu_wsd_data: {
-        Row: {
-          action: Database["public"]["Enums"]["import_row_action_type"] | null
-          birth_date: string | null
-          birth_date_raw: string | null
-          contact_id: number | null
-          data_source_code_raw: string | null
-          data_source_id: number | null
-          death_date: string | null
-          death_date_raw: string | null
-          edit_at: string | null
-          edit_by_user_id: number | null
-          edit_comment: string | null
-          edit_comment_raw: string | null
-          email_address: string | null
-          email_address_raw: string | null
-          employees: number | null
-          employees_raw: string | null
-          errors: Json
-          establishment_id: number | null
-          fax_number: string | null
-          fax_number_raw: string | null
-          founding_row_id: number | null
-          invalid_codes: Json
-          landline: string | null
-          landline_raw: string | null
-          last_completed_priority: number
-          legal_unit_id: number | null
-          legal_unit_stat_ident_raw: string | null
-          legal_unit_tax_ident_raw: string | null
-          merge_status: Json
-          mobile_number: string | null
-          mobile_number_raw: string | null
-          name: string | null
-          name_raw: string | null
-          operation:
-            | Database["public"]["Enums"]["import_row_operation_type"]
-            | null
-          phone_number: string | null
-          phone_number_raw: string | null
-          physical_address_part1: string | null
-          physical_address_part1_raw: string | null
-          physical_address_part2: string | null
-          physical_address_part2_raw: string | null
-          physical_address_part3: string | null
-          physical_address_part3_raw: string | null
-          physical_altitude: number | null
-          physical_altitude_raw: string | null
-          physical_country_id: number | null
-          physical_country_iso_2_raw: string | null
-          physical_latitude: number | null
-          physical_latitude_raw: string | null
-          physical_location_id: number | null
-          physical_longitude: number | null
-          physical_longitude_raw: string | null
-          physical_postcode: string | null
-          physical_postcode_raw: string | null
-          physical_postplace: string | null
-          physical_postplace_raw: string | null
-          physical_region_code_raw: string | null
-          physical_region_id: number | null
-          postal_address_part1: string | null
-          postal_address_part1_raw: string | null
-          postal_address_part2: string | null
-          postal_address_part2_raw: string | null
-          postal_address_part3: string | null
-          postal_address_part3_raw: string | null
-          postal_altitude: number | null
-          postal_altitude_raw: string | null
-          postal_country_id: number | null
-          postal_country_iso_2_raw: string | null
-          postal_latitude: number | null
-          postal_latitude_raw: string | null
-          postal_location_id: number | null
-          postal_longitude: number | null
-          postal_longitude_raw: string | null
-          postal_postcode: string | null
-          postal_postcode_raw: string | null
-          postal_postplace: string | null
-          postal_postplace_raw: string | null
-          postal_region_code_raw: string | null
-          postal_region_id: number | null
-          primary_activity_category_code_raw: string | null
-          primary_activity_category_id: number | null
-          primary_activity_id: number | null
-          primary_for_legal_unit: boolean | null
-          row_id: number
-          secondary_activity_category_code_raw: string | null
-          secondary_activity_category_id: number | null
-          secondary_activity_id: number | null
-          sector_code_raw: string | null
-          sector_id: number | null
-          stat_for_unit_employees_id: number | null
-          stat_for_unit_turnover_id: number | null
-          stat_ident_raw: string | null
-          state: Database["public"]["Enums"]["import_data_state"]
-          status_code_raw: string | null
-          status_id: number | null
-          tag_for_unit_id: number | null
-          tag_id: number | null
-          tag_path: unknown
-          tag_path_raw: string | null
-          tax_ident_raw: string | null
-          turnover: number | null
-          turnover_raw: string | null
-          unit_size_code_raw: string | null
-          unit_size_id: number | null
-          valid_from: string | null
-          valid_from_raw: string | null
-          valid_to: string | null
-          valid_to_raw: string | null
-          valid_until: string | null
-          web_address: string | null
-          web_address_raw: string | null
-        }
-        Insert: {
-          action?: Database["public"]["Enums"]["import_row_action_type"] | null
-          birth_date?: string | null
-          birth_date_raw?: string | null
-          contact_id?: number | null
-          data_source_code_raw?: string | null
-          data_source_id?: number | null
-          death_date?: string | null
-          death_date_raw?: string | null
-          edit_at?: string | null
-          edit_by_user_id?: number | null
-          edit_comment?: string | null
-          edit_comment_raw?: string | null
-          email_address?: string | null
-          email_address_raw?: string | null
-          employees?: number | null
-          employees_raw?: string | null
-          errors?: Json
-          establishment_id?: number | null
-          fax_number?: string | null
-          fax_number_raw?: string | null
-          founding_row_id?: number | null
-          invalid_codes?: Json
-          landline?: string | null
-          landline_raw?: string | null
-          last_completed_priority?: number
-          legal_unit_id?: number | null
-          legal_unit_stat_ident_raw?: string | null
-          legal_unit_tax_ident_raw?: string | null
-          merge_status?: Json
-          mobile_number?: string | null
-          mobile_number_raw?: string | null
-          name?: string | null
-          name_raw?: string | null
-          operation?:
-            | Database["public"]["Enums"]["import_row_operation_type"]
-            | null
-          phone_number?: string | null
-          phone_number_raw?: string | null
-          physical_address_part1?: string | null
-          physical_address_part1_raw?: string | null
-          physical_address_part2?: string | null
-          physical_address_part2_raw?: string | null
-          physical_address_part3?: string | null
-          physical_address_part3_raw?: string | null
-          physical_altitude?: number | null
-          physical_altitude_raw?: string | null
-          physical_country_id?: number | null
-          physical_country_iso_2_raw?: string | null
-          physical_latitude?: number | null
-          physical_latitude_raw?: string | null
-          physical_location_id?: number | null
-          physical_longitude?: number | null
-          physical_longitude_raw?: string | null
-          physical_postcode?: string | null
-          physical_postcode_raw?: string | null
-          physical_postplace?: string | null
-          physical_postplace_raw?: string | null
-          physical_region_code_raw?: string | null
-          physical_region_id?: number | null
-          postal_address_part1?: string | null
-          postal_address_part1_raw?: string | null
-          postal_address_part2?: string | null
-          postal_address_part2_raw?: string | null
-          postal_address_part3?: string | null
-          postal_address_part3_raw?: string | null
-          postal_altitude?: number | null
-          postal_altitude_raw?: string | null
-          postal_country_id?: number | null
-          postal_country_iso_2_raw?: string | null
-          postal_latitude?: number | null
-          postal_latitude_raw?: string | null
-          postal_location_id?: number | null
-          postal_longitude?: number | null
-          postal_longitude_raw?: string | null
-          postal_postcode?: string | null
-          postal_postcode_raw?: string | null
-          postal_postplace?: string | null
-          postal_postplace_raw?: string | null
-          postal_region_code_raw?: string | null
-          postal_region_id?: number | null
-          primary_activity_category_code_raw?: string | null
-          primary_activity_category_id?: number | null
-          primary_activity_id?: number | null
-          primary_for_legal_unit?: boolean | null
-          row_id?: never
-          secondary_activity_category_code_raw?: string | null
-          secondary_activity_category_id?: number | null
-          secondary_activity_id?: number | null
-          sector_code_raw?: string | null
-          sector_id?: number | null
-          stat_for_unit_employees_id?: number | null
-          stat_for_unit_turnover_id?: number | null
-          stat_ident_raw?: string | null
-          state?: Database["public"]["Enums"]["import_data_state"]
-          status_code_raw?: string | null
-          status_id?: number | null
-          tag_for_unit_id?: number | null
-          tag_id?: number | null
-          tag_path?: unknown
-          tag_path_raw?: string | null
-          tax_ident_raw?: string | null
-          turnover?: number | null
-          turnover_raw?: string | null
-          unit_size_code_raw?: string | null
-          unit_size_id?: number | null
-          valid_from?: string | null
-          valid_from_raw?: string | null
-          valid_to?: string | null
-          valid_to_raw?: string | null
-          valid_until?: string | null
-          web_address?: string | null
-          web_address_raw?: string | null
-        }
-        Update: {
-          action?: Database["public"]["Enums"]["import_row_action_type"] | null
-          birth_date?: string | null
-          birth_date_raw?: string | null
-          contact_id?: number | null
-          data_source_code_raw?: string | null
-          data_source_id?: number | null
-          death_date?: string | null
-          death_date_raw?: string | null
-          edit_at?: string | null
-          edit_by_user_id?: number | null
-          edit_comment?: string | null
-          edit_comment_raw?: string | null
-          email_address?: string | null
-          email_address_raw?: string | null
-          employees?: number | null
-          employees_raw?: string | null
-          errors?: Json
-          establishment_id?: number | null
-          fax_number?: string | null
-          fax_number_raw?: string | null
-          founding_row_id?: number | null
-          invalid_codes?: Json
-          landline?: string | null
-          landline_raw?: string | null
-          last_completed_priority?: number
-          legal_unit_id?: number | null
-          legal_unit_stat_ident_raw?: string | null
-          legal_unit_tax_ident_raw?: string | null
-          merge_status?: Json
-          mobile_number?: string | null
-          mobile_number_raw?: string | null
-          name?: string | null
-          name_raw?: string | null
-          operation?:
-            | Database["public"]["Enums"]["import_row_operation_type"]
-            | null
-          phone_number?: string | null
-          phone_number_raw?: string | null
-          physical_address_part1?: string | null
-          physical_address_part1_raw?: string | null
-          physical_address_part2?: string | null
-          physical_address_part2_raw?: string | null
-          physical_address_part3?: string | null
-          physical_address_part3_raw?: string | null
-          physical_altitude?: number | null
-          physical_altitude_raw?: string | null
-          physical_country_id?: number | null
-          physical_country_iso_2_raw?: string | null
-          physical_latitude?: number | null
-          physical_latitude_raw?: string | null
-          physical_location_id?: number | null
-          physical_longitude?: number | null
-          physical_longitude_raw?: string | null
-          physical_postcode?: string | null
-          physical_postcode_raw?: string | null
-          physical_postplace?: string | null
-          physical_postplace_raw?: string | null
-          physical_region_code_raw?: string | null
-          physical_region_id?: number | null
-          postal_address_part1?: string | null
-          postal_address_part1_raw?: string | null
-          postal_address_part2?: string | null
-          postal_address_part2_raw?: string | null
-          postal_address_part3?: string | null
-          postal_address_part3_raw?: string | null
-          postal_altitude?: number | null
-          postal_altitude_raw?: string | null
-          postal_country_id?: number | null
-          postal_country_iso_2_raw?: string | null
-          postal_latitude?: number | null
-          postal_latitude_raw?: string | null
-          postal_location_id?: number | null
-          postal_longitude?: number | null
-          postal_longitude_raw?: string | null
-          postal_postcode?: string | null
-          postal_postcode_raw?: string | null
-          postal_postplace?: string | null
-          postal_postplace_raw?: string | null
-          postal_region_code_raw?: string | null
-          postal_region_id?: number | null
-          primary_activity_category_code_raw?: string | null
-          primary_activity_category_id?: number | null
-          primary_activity_id?: number | null
-          primary_for_legal_unit?: boolean | null
-          row_id?: never
-          secondary_activity_category_code_raw?: string | null
-          secondary_activity_category_id?: number | null
-          secondary_activity_id?: number | null
-          sector_code_raw?: string | null
-          sector_id?: number | null
-          stat_for_unit_employees_id?: number | null
-          stat_for_unit_turnover_id?: number | null
-          stat_ident_raw?: string | null
-          state?: Database["public"]["Enums"]["import_data_state"]
-          status_code_raw?: string | null
-          status_id?: number | null
-          tag_for_unit_id?: number | null
-          tag_id?: number | null
-          tag_path?: unknown
-          tag_path_raw?: string | null
-          tax_ident_raw?: string | null
-          turnover?: number | null
-          turnover_raw?: string | null
-          unit_size_code_raw?: string | null
-          unit_size_id?: number | null
-          valid_from?: string | null
-          valid_from_raw?: string | null
-          valid_to?: string | null
-          valid_to_raw?: string | null
-          valid_until?: string | null
-          web_address?: string | null
-          web_address_raw?: string | null
-        }
-        Relationships: []
-      }
-      import_demo_es_for_lu_wsd_upload: {
-        Row: {
-          birth_date: string | null
-          data_source_code: string | null
-          death_date: string | null
-          email_address: string | null
-          employees: string | null
-          fax_number: string | null
-          landline: string | null
-          legal_unit_stat_ident: string | null
-          legal_unit_tax_ident: string | null
-          mobile_number: string | null
-          name: string | null
-          phone_number: string | null
-          physical_address_part1: string | null
-          physical_address_part2: string | null
-          physical_address_part3: string | null
-          physical_altitude: string | null
-          physical_country_iso_2: string | null
-          physical_latitude: string | null
-          physical_longitude: string | null
-          physical_postcode: string | null
-          physical_postplace: string | null
-          physical_region_code: string | null
-          postal_address_part1: string | null
-          postal_address_part2: string | null
-          postal_address_part3: string | null
-          postal_country_iso_2: string | null
-          postal_postcode: string | null
-          postal_postplace: string | null
-          postal_region_code: string | null
-          primary_activity_category_code: string | null
-          secondary_activity_category_code: string | null
-          sector_code: string | null
-          stat_ident: string | null
-          status_code: string | null
-          tag_path: string | null
-          tax_ident: string | null
-          turnover: string | null
-          unit_size_code: string | null
-          valid_from: string | null
-          valid_to: string | null
-          web_address: string | null
-        }
-        Insert: {
-          birth_date?: string | null
-          data_source_code?: string | null
-          death_date?: string | null
-          email_address?: string | null
-          employees?: string | null
-          fax_number?: string | null
-          landline?: string | null
-          legal_unit_stat_ident?: string | null
-          legal_unit_tax_ident?: string | null
-          mobile_number?: string | null
-          name?: string | null
-          phone_number?: string | null
-          physical_address_part1?: string | null
-          physical_address_part2?: string | null
-          physical_address_part3?: string | null
-          physical_altitude?: string | null
-          physical_country_iso_2?: string | null
-          physical_latitude?: string | null
-          physical_longitude?: string | null
-          physical_postcode?: string | null
-          physical_postplace?: string | null
-          physical_region_code?: string | null
-          postal_address_part1?: string | null
-          postal_address_part2?: string | null
-          postal_address_part3?: string | null
-          postal_country_iso_2?: string | null
-          postal_postcode?: string | null
-          postal_postplace?: string | null
-          postal_region_code?: string | null
-          primary_activity_category_code?: string | null
-          secondary_activity_category_code?: string | null
-          sector_code?: string | null
-          stat_ident?: string | null
-          status_code?: string | null
-          tag_path?: string | null
-          tax_ident?: string | null
-          turnover?: string | null
-          unit_size_code?: string | null
-          valid_from?: string | null
-          valid_to?: string | null
-          web_address?: string | null
-        }
-        Update: {
-          birth_date?: string | null
-          data_source_code?: string | null
-          death_date?: string | null
-          email_address?: string | null
-          employees?: string | null
-          fax_number?: string | null
-          landline?: string | null
-          legal_unit_stat_ident?: string | null
-          legal_unit_tax_ident?: string | null
-          mobile_number?: string | null
-          name?: string | null
-          phone_number?: string | null
-          physical_address_part1?: string | null
-          physical_address_part2?: string | null
-          physical_address_part3?: string | null
-          physical_altitude?: string | null
-          physical_country_iso_2?: string | null
-          physical_latitude?: string | null
-          physical_longitude?: string | null
-          physical_postcode?: string | null
-          physical_postplace?: string | null
-          physical_region_code?: string | null
-          postal_address_part1?: string | null
-          postal_address_part2?: string | null
-          postal_address_part3?: string | null
-          postal_country_iso_2?: string | null
-          postal_postcode?: string | null
-          postal_postplace?: string | null
-          postal_region_code?: string | null
-          primary_activity_category_code?: string | null
-          secondary_activity_category_code?: string | null
-          sector_code?: string | null
-          stat_ident?: string | null
-          status_code?: string | null
-          tag_path?: string | null
-          tax_ident?: string | null
-          turnover?: string | null
-          unit_size_code?: string | null
-          valid_from?: string | null
-          valid_to?: string | null
-          web_address?: string | null
-        }
-        Relationships: []
-      }
-      import_demo_es_without_lu_wsd_data: {
-        Row: {
-          action: Database["public"]["Enums"]["import_row_action_type"] | null
-          birth_date: string | null
-          birth_date_raw: string | null
-          contact_id: number | null
-          data_source_code_raw: string | null
-          data_source_id: number | null
-          death_date: string | null
-          death_date_raw: string | null
-          edit_at: string | null
-          edit_by_user_id: number | null
-          edit_comment: string | null
-          edit_comment_raw: string | null
-          email_address: string | null
-          email_address_raw: string | null
-          employees: number | null
-          employees_raw: string | null
-          enterprise_id: number | null
-          errors: Json
-          establishment_id: number | null
-          fax_number: string | null
-          fax_number_raw: string | null
-          founding_row_id: number | null
-          invalid_codes: Json
-          landline: string | null
-          landline_raw: string | null
-          last_completed_priority: number
-          legal_unit_id: number | null
-          merge_status: Json
-          mobile_number: string | null
-          mobile_number_raw: string | null
-          name: string | null
-          name_raw: string | null
-          operation:
-            | Database["public"]["Enums"]["import_row_operation_type"]
-            | null
-          phone_number: string | null
-          phone_number_raw: string | null
-          physical_address_part1: string | null
-          physical_address_part1_raw: string | null
-          physical_address_part2: string | null
-          physical_address_part2_raw: string | null
-          physical_address_part3: string | null
-          physical_address_part3_raw: string | null
-          physical_altitude: number | null
-          physical_altitude_raw: string | null
-          physical_country_id: number | null
-          physical_country_iso_2_raw: string | null
-          physical_latitude: number | null
-          physical_latitude_raw: string | null
-          physical_location_id: number | null
-          physical_longitude: number | null
-          physical_longitude_raw: string | null
-          physical_postcode: string | null
-          physical_postcode_raw: string | null
-          physical_postplace: string | null
-          physical_postplace_raw: string | null
-          physical_region_code_raw: string | null
-          physical_region_id: number | null
-          postal_address_part1: string | null
-          postal_address_part1_raw: string | null
-          postal_address_part2: string | null
-          postal_address_part2_raw: string | null
-          postal_address_part3: string | null
-          postal_address_part3_raw: string | null
-          postal_altitude: number | null
-          postal_altitude_raw: string | null
-          postal_country_id: number | null
-          postal_country_iso_2_raw: string | null
-          postal_latitude: number | null
-          postal_latitude_raw: string | null
-          postal_location_id: number | null
-          postal_longitude: number | null
-          postal_longitude_raw: string | null
-          postal_postcode: string | null
-          postal_postcode_raw: string | null
-          postal_postplace: string | null
-          postal_postplace_raw: string | null
-          postal_region_code_raw: string | null
-          postal_region_id: number | null
-          primary_activity_category_code_raw: string | null
-          primary_activity_category_id: number | null
-          primary_activity_id: number | null
-          primary_for_enterprise: boolean | null
-          row_id: number
-          secondary_activity_category_code_raw: string | null
-          secondary_activity_category_id: number | null
-          secondary_activity_id: number | null
-          sector_code_raw: string | null
-          sector_id: number | null
-          stat_for_unit_employees_id: number | null
-          stat_for_unit_turnover_id: number | null
-          stat_ident_raw: string | null
-          state: Database["public"]["Enums"]["import_data_state"]
-          status_code_raw: string | null
-          status_id: number | null
-          tag_for_unit_id: number | null
-          tag_id: number | null
-          tag_path: unknown
-          tag_path_raw: string | null
-          tax_ident_raw: string | null
-          turnover: number | null
-          turnover_raw: string | null
-          unit_size_code_raw: string | null
-          unit_size_id: number | null
-          valid_from: string | null
-          valid_from_raw: string | null
-          valid_to: string | null
-          valid_to_raw: string | null
-          valid_until: string | null
-          web_address: string | null
-          web_address_raw: string | null
-        }
-        Insert: {
-          action?: Database["public"]["Enums"]["import_row_action_type"] | null
-          birth_date?: string | null
-          birth_date_raw?: string | null
-          contact_id?: number | null
-          data_source_code_raw?: string | null
-          data_source_id?: number | null
-          death_date?: string | null
-          death_date_raw?: string | null
-          edit_at?: string | null
-          edit_by_user_id?: number | null
-          edit_comment?: string | null
-          edit_comment_raw?: string | null
-          email_address?: string | null
-          email_address_raw?: string | null
-          employees?: number | null
-          employees_raw?: string | null
-          enterprise_id?: number | null
-          errors?: Json
-          establishment_id?: number | null
-          fax_number?: string | null
-          fax_number_raw?: string | null
-          founding_row_id?: number | null
-          invalid_codes?: Json
-          landline?: string | null
-          landline_raw?: string | null
-          last_completed_priority?: number
-          legal_unit_id?: number | null
-          merge_status?: Json
-          mobile_number?: string | null
-          mobile_number_raw?: string | null
-          name?: string | null
-          name_raw?: string | null
-          operation?:
-            | Database["public"]["Enums"]["import_row_operation_type"]
-            | null
-          phone_number?: string | null
-          phone_number_raw?: string | null
-          physical_address_part1?: string | null
-          physical_address_part1_raw?: string | null
-          physical_address_part2?: string | null
-          physical_address_part2_raw?: string | null
-          physical_address_part3?: string | null
-          physical_address_part3_raw?: string | null
-          physical_altitude?: number | null
-          physical_altitude_raw?: string | null
-          physical_country_id?: number | null
-          physical_country_iso_2_raw?: string | null
-          physical_latitude?: number | null
-          physical_latitude_raw?: string | null
-          physical_location_id?: number | null
-          physical_longitude?: number | null
-          physical_longitude_raw?: string | null
-          physical_postcode?: string | null
-          physical_postcode_raw?: string | null
-          physical_postplace?: string | null
-          physical_postplace_raw?: string | null
-          physical_region_code_raw?: string | null
-          physical_region_id?: number | null
-          postal_address_part1?: string | null
-          postal_address_part1_raw?: string | null
-          postal_address_part2?: string | null
-          postal_address_part2_raw?: string | null
-          postal_address_part3?: string | null
-          postal_address_part3_raw?: string | null
-          postal_altitude?: number | null
-          postal_altitude_raw?: string | null
-          postal_country_id?: number | null
-          postal_country_iso_2_raw?: string | null
-          postal_latitude?: number | null
-          postal_latitude_raw?: string | null
-          postal_location_id?: number | null
-          postal_longitude?: number | null
-          postal_longitude_raw?: string | null
-          postal_postcode?: string | null
-          postal_postcode_raw?: string | null
-          postal_postplace?: string | null
-          postal_postplace_raw?: string | null
-          postal_region_code_raw?: string | null
-          postal_region_id?: number | null
-          primary_activity_category_code_raw?: string | null
-          primary_activity_category_id?: number | null
-          primary_activity_id?: number | null
-          primary_for_enterprise?: boolean | null
-          row_id?: never
-          secondary_activity_category_code_raw?: string | null
-          secondary_activity_category_id?: number | null
-          secondary_activity_id?: number | null
-          sector_code_raw?: string | null
-          sector_id?: number | null
-          stat_for_unit_employees_id?: number | null
-          stat_for_unit_turnover_id?: number | null
-          stat_ident_raw?: string | null
-          state?: Database["public"]["Enums"]["import_data_state"]
-          status_code_raw?: string | null
-          status_id?: number | null
-          tag_for_unit_id?: number | null
-          tag_id?: number | null
-          tag_path?: unknown
-          tag_path_raw?: string | null
-          tax_ident_raw?: string | null
-          turnover?: number | null
-          turnover_raw?: string | null
-          unit_size_code_raw?: string | null
-          unit_size_id?: number | null
-          valid_from?: string | null
-          valid_from_raw?: string | null
-          valid_to?: string | null
-          valid_to_raw?: string | null
-          valid_until?: string | null
-          web_address?: string | null
-          web_address_raw?: string | null
-        }
-        Update: {
-          action?: Database["public"]["Enums"]["import_row_action_type"] | null
-          birth_date?: string | null
-          birth_date_raw?: string | null
-          contact_id?: number | null
-          data_source_code_raw?: string | null
-          data_source_id?: number | null
-          death_date?: string | null
-          death_date_raw?: string | null
-          edit_at?: string | null
-          edit_by_user_id?: number | null
-          edit_comment?: string | null
-          edit_comment_raw?: string | null
-          email_address?: string | null
-          email_address_raw?: string | null
-          employees?: number | null
-          employees_raw?: string | null
-          enterprise_id?: number | null
-          errors?: Json
-          establishment_id?: number | null
-          fax_number?: string | null
-          fax_number_raw?: string | null
-          founding_row_id?: number | null
-          invalid_codes?: Json
-          landline?: string | null
-          landline_raw?: string | null
-          last_completed_priority?: number
-          legal_unit_id?: number | null
-          merge_status?: Json
-          mobile_number?: string | null
-          mobile_number_raw?: string | null
-          name?: string | null
-          name_raw?: string | null
-          operation?:
-            | Database["public"]["Enums"]["import_row_operation_type"]
-            | null
-          phone_number?: string | null
-          phone_number_raw?: string | null
-          physical_address_part1?: string | null
-          physical_address_part1_raw?: string | null
-          physical_address_part2?: string | null
-          physical_address_part2_raw?: string | null
-          physical_address_part3?: string | null
-          physical_address_part3_raw?: string | null
-          physical_altitude?: number | null
-          physical_altitude_raw?: string | null
-          physical_country_id?: number | null
-          physical_country_iso_2_raw?: string | null
-          physical_latitude?: number | null
-          physical_latitude_raw?: string | null
-          physical_location_id?: number | null
-          physical_longitude?: number | null
-          physical_longitude_raw?: string | null
-          physical_postcode?: string | null
-          physical_postcode_raw?: string | null
-          physical_postplace?: string | null
-          physical_postplace_raw?: string | null
-          physical_region_code_raw?: string | null
-          physical_region_id?: number | null
-          postal_address_part1?: string | null
-          postal_address_part1_raw?: string | null
-          postal_address_part2?: string | null
-          postal_address_part2_raw?: string | null
-          postal_address_part3?: string | null
-          postal_address_part3_raw?: string | null
-          postal_altitude?: number | null
-          postal_altitude_raw?: string | null
-          postal_country_id?: number | null
-          postal_country_iso_2_raw?: string | null
-          postal_latitude?: number | null
-          postal_latitude_raw?: string | null
-          postal_location_id?: number | null
-          postal_longitude?: number | null
-          postal_longitude_raw?: string | null
-          postal_postcode?: string | null
-          postal_postcode_raw?: string | null
-          postal_postplace?: string | null
-          postal_postplace_raw?: string | null
-          postal_region_code_raw?: string | null
-          postal_region_id?: number | null
-          primary_activity_category_code_raw?: string | null
-          primary_activity_category_id?: number | null
-          primary_activity_id?: number | null
-          primary_for_enterprise?: boolean | null
-          row_id?: never
-          secondary_activity_category_code_raw?: string | null
-          secondary_activity_category_id?: number | null
-          secondary_activity_id?: number | null
-          sector_code_raw?: string | null
-          sector_id?: number | null
-          stat_for_unit_employees_id?: number | null
-          stat_for_unit_turnover_id?: number | null
-          stat_ident_raw?: string | null
-          state?: Database["public"]["Enums"]["import_data_state"]
-          status_code_raw?: string | null
-          status_id?: number | null
-          tag_for_unit_id?: number | null
-          tag_id?: number | null
-          tag_path?: unknown
-          tag_path_raw?: string | null
-          tax_ident_raw?: string | null
-          turnover?: number | null
-          turnover_raw?: string | null
-          unit_size_code_raw?: string | null
-          unit_size_id?: number | null
-          valid_from?: string | null
-          valid_from_raw?: string | null
-          valid_to?: string | null
-          valid_to_raw?: string | null
-          valid_until?: string | null
-          web_address?: string | null
-          web_address_raw?: string | null
-        }
-        Relationships: []
-      }
-      import_demo_es_without_lu_wsd_upload: {
-        Row: {
-          birth_date: string | null
-          data_source_code: string | null
-          death_date: string | null
-          email_address: string | null
-          employees: string | null
-          fax_number: string | null
-          landline: string | null
-          mobile_number: string | null
-          name: string | null
-          phone_number: string | null
-          physical_address_part1: string | null
-          physical_address_part2: string | null
-          physical_address_part3: string | null
-          physical_altitude: string | null
-          physical_country_iso_2: string | null
-          physical_latitude: string | null
-          physical_longitude: string | null
-          physical_postcode: string | null
-          physical_postplace: string | null
-          physical_region_code: string | null
-          postal_address_part1: string | null
-          postal_address_part2: string | null
-          postal_address_part3: string | null
-          postal_country_iso_2: string | null
-          postal_postcode: string | null
-          postal_postplace: string | null
-          postal_region_code: string | null
-          primary_activity_category_code: string | null
-          secondary_activity_category_code: string | null
-          sector_code: string | null
-          stat_ident: string | null
-          status_code: string | null
-          tag_path: string | null
-          tax_ident: string | null
-          turnover: string | null
-          unit_size_code: string | null
-          valid_from: string | null
-          valid_to: string | null
-          web_address: string | null
-        }
-        Insert: {
-          birth_date?: string | null
-          data_source_code?: string | null
-          death_date?: string | null
-          email_address?: string | null
-          employees?: string | null
-          fax_number?: string | null
-          landline?: string | null
-          mobile_number?: string | null
-          name?: string | null
-          phone_number?: string | null
-          physical_address_part1?: string | null
-          physical_address_part2?: string | null
-          physical_address_part3?: string | null
-          physical_altitude?: string | null
-          physical_country_iso_2?: string | null
-          physical_latitude?: string | null
-          physical_longitude?: string | null
-          physical_postcode?: string | null
-          physical_postplace?: string | null
-          physical_region_code?: string | null
-          postal_address_part1?: string | null
-          postal_address_part2?: string | null
-          postal_address_part3?: string | null
-          postal_country_iso_2?: string | null
-          postal_postcode?: string | null
-          postal_postplace?: string | null
-          postal_region_code?: string | null
-          primary_activity_category_code?: string | null
-          secondary_activity_category_code?: string | null
-          sector_code?: string | null
-          stat_ident?: string | null
-          status_code?: string | null
-          tag_path?: string | null
-          tax_ident?: string | null
-          turnover?: string | null
-          unit_size_code?: string | null
-          valid_from?: string | null
-          valid_to?: string | null
-          web_address?: string | null
-        }
-        Update: {
-          birth_date?: string | null
-          data_source_code?: string | null
-          death_date?: string | null
-          email_address?: string | null
-          employees?: string | null
-          fax_number?: string | null
-          landline?: string | null
-          mobile_number?: string | null
-          name?: string | null
-          phone_number?: string | null
-          physical_address_part1?: string | null
-          physical_address_part2?: string | null
-          physical_address_part3?: string | null
-          physical_altitude?: string | null
-          physical_country_iso_2?: string | null
-          physical_latitude?: string | null
-          physical_longitude?: string | null
-          physical_postcode?: string | null
-          physical_postplace?: string | null
-          physical_region_code?: string | null
-          postal_address_part1?: string | null
-          postal_address_part2?: string | null
-          postal_address_part3?: string | null
-          postal_country_iso_2?: string | null
-          postal_postcode?: string | null
-          postal_postplace?: string | null
-          postal_region_code?: string | null
-          primary_activity_category_code?: string | null
-          secondary_activity_category_code?: string | null
-          sector_code?: string | null
-          stat_ident?: string | null
-          status_code?: string | null
-          tag_path?: string | null
-          tax_ident?: string | null
-          turnover?: string | null
-          unit_size_code?: string | null
-          valid_from?: string | null
-          valid_to?: string | null
-          web_address?: string | null
-        }
-        Relationships: []
-      }
-      import_demo_lu_wsd_data: {
-        Row: {
-          action: Database["public"]["Enums"]["import_row_action_type"] | null
-          birth_date: string | null
-          birth_date_raw: string | null
-          contact_id: number | null
-          data_source_code_raw: string | null
-          data_source_id: number | null
-          death_date: string | null
-          death_date_raw: string | null
-          edit_at: string | null
-          edit_by_user_id: number | null
-          edit_comment: string | null
-          edit_comment_raw: string | null
-          email_address: string | null
-          email_address_raw: string | null
-          employees: number | null
-          employees_raw: string | null
-          enterprise_id: number | null
-          errors: Json
-          establishment_id: number | null
-          fax_number: string | null
-          fax_number_raw: string | null
-          founding_row_id: number | null
-          invalid_codes: Json
-          landline: string | null
-          landline_raw: string | null
-          last_completed_priority: number
-          legal_form_code_raw: string | null
-          legal_form_id: number | null
-          legal_unit_id: number | null
-          merge_status: Json
-          mobile_number: string | null
-          mobile_number_raw: string | null
-          name: string | null
-          name_raw: string | null
-          operation:
-            | Database["public"]["Enums"]["import_row_operation_type"]
-            | null
-          phone_number: string | null
-          phone_number_raw: string | null
-          physical_address_part1: string | null
-          physical_address_part1_raw: string | null
-          physical_address_part2: string | null
-          physical_address_part2_raw: string | null
-          physical_address_part3: string | null
-          physical_address_part3_raw: string | null
-          physical_altitude: number | null
-          physical_altitude_raw: string | null
-          physical_country_id: number | null
-          physical_country_iso_2_raw: string | null
-          physical_latitude: number | null
-          physical_latitude_raw: string | null
-          physical_location_id: number | null
-          physical_longitude: number | null
-          physical_longitude_raw: string | null
-          physical_postcode: string | null
-          physical_postcode_raw: string | null
-          physical_postplace: string | null
-          physical_postplace_raw: string | null
-          physical_region_code_raw: string | null
-          physical_region_id: number | null
-          postal_address_part1: string | null
-          postal_address_part1_raw: string | null
-          postal_address_part2: string | null
-          postal_address_part2_raw: string | null
-          postal_address_part3: string | null
-          postal_address_part3_raw: string | null
-          postal_altitude: number | null
-          postal_altitude_raw: string | null
-          postal_country_id: number | null
-          postal_country_iso_2_raw: string | null
-          postal_latitude: number | null
-          postal_latitude_raw: string | null
-          postal_location_id: number | null
-          postal_longitude: number | null
-          postal_longitude_raw: string | null
-          postal_postcode: string | null
-          postal_postcode_raw: string | null
-          postal_postplace: string | null
-          postal_postplace_raw: string | null
-          postal_region_code_raw: string | null
-          postal_region_id: number | null
-          primary_activity_category_code_raw: string | null
-          primary_activity_category_id: number | null
-          primary_activity_id: number | null
-          primary_for_enterprise: boolean | null
-          row_id: number
-          secondary_activity_category_code_raw: string | null
-          secondary_activity_category_id: number | null
-          secondary_activity_id: number | null
-          sector_code_raw: string | null
-          sector_id: number | null
-          stat_for_unit_employees_id: number | null
-          stat_for_unit_turnover_id: number | null
-          stat_ident_raw: string | null
-          state: Database["public"]["Enums"]["import_data_state"]
-          status_code_raw: string | null
-          status_id: number | null
-          tag_for_unit_id: number | null
-          tag_id: number | null
-          tag_path: unknown
-          tag_path_raw: string | null
-          tax_ident_raw: string | null
-          turnover: number | null
-          turnover_raw: string | null
-          unit_size_code_raw: string | null
-          unit_size_id: number | null
-          valid_from: string | null
-          valid_from_raw: string | null
-          valid_to: string | null
-          valid_to_raw: string | null
-          valid_until: string | null
-          web_address: string | null
-          web_address_raw: string | null
-        }
-        Insert: {
-          action?: Database["public"]["Enums"]["import_row_action_type"] | null
-          birth_date?: string | null
-          birth_date_raw?: string | null
-          contact_id?: number | null
-          data_source_code_raw?: string | null
-          data_source_id?: number | null
-          death_date?: string | null
-          death_date_raw?: string | null
-          edit_at?: string | null
-          edit_by_user_id?: number | null
-          edit_comment?: string | null
-          edit_comment_raw?: string | null
-          email_address?: string | null
-          email_address_raw?: string | null
-          employees?: number | null
-          employees_raw?: string | null
-          enterprise_id?: number | null
-          errors?: Json
-          establishment_id?: number | null
-          fax_number?: string | null
-          fax_number_raw?: string | null
-          founding_row_id?: number | null
-          invalid_codes?: Json
-          landline?: string | null
-          landline_raw?: string | null
-          last_completed_priority?: number
-          legal_form_code_raw?: string | null
-          legal_form_id?: number | null
-          legal_unit_id?: number | null
-          merge_status?: Json
-          mobile_number?: string | null
-          mobile_number_raw?: string | null
-          name?: string | null
-          name_raw?: string | null
-          operation?:
-            | Database["public"]["Enums"]["import_row_operation_type"]
-            | null
-          phone_number?: string | null
-          phone_number_raw?: string | null
-          physical_address_part1?: string | null
-          physical_address_part1_raw?: string | null
-          physical_address_part2?: string | null
-          physical_address_part2_raw?: string | null
-          physical_address_part3?: string | null
-          physical_address_part3_raw?: string | null
-          physical_altitude?: number | null
-          physical_altitude_raw?: string | null
-          physical_country_id?: number | null
-          physical_country_iso_2_raw?: string | null
-          physical_latitude?: number | null
-          physical_latitude_raw?: string | null
-          physical_location_id?: number | null
-          physical_longitude?: number | null
-          physical_longitude_raw?: string | null
-          physical_postcode?: string | null
-          physical_postcode_raw?: string | null
-          physical_postplace?: string | null
-          physical_postplace_raw?: string | null
-          physical_region_code_raw?: string | null
-          physical_region_id?: number | null
-          postal_address_part1?: string | null
-          postal_address_part1_raw?: string | null
-          postal_address_part2?: string | null
-          postal_address_part2_raw?: string | null
-          postal_address_part3?: string | null
-          postal_address_part3_raw?: string | null
-          postal_altitude?: number | null
-          postal_altitude_raw?: string | null
-          postal_country_id?: number | null
-          postal_country_iso_2_raw?: string | null
-          postal_latitude?: number | null
-          postal_latitude_raw?: string | null
-          postal_location_id?: number | null
-          postal_longitude?: number | null
-          postal_longitude_raw?: string | null
-          postal_postcode?: string | null
-          postal_postcode_raw?: string | null
-          postal_postplace?: string | null
-          postal_postplace_raw?: string | null
-          postal_region_code_raw?: string | null
-          postal_region_id?: number | null
-          primary_activity_category_code_raw?: string | null
-          primary_activity_category_id?: number | null
-          primary_activity_id?: number | null
-          primary_for_enterprise?: boolean | null
-          row_id?: never
-          secondary_activity_category_code_raw?: string | null
-          secondary_activity_category_id?: number | null
-          secondary_activity_id?: number | null
-          sector_code_raw?: string | null
-          sector_id?: number | null
-          stat_for_unit_employees_id?: number | null
-          stat_for_unit_turnover_id?: number | null
-          stat_ident_raw?: string | null
-          state?: Database["public"]["Enums"]["import_data_state"]
-          status_code_raw?: string | null
-          status_id?: number | null
-          tag_for_unit_id?: number | null
-          tag_id?: number | null
-          tag_path?: unknown
-          tag_path_raw?: string | null
-          tax_ident_raw?: string | null
-          turnover?: number | null
-          turnover_raw?: string | null
-          unit_size_code_raw?: string | null
-          unit_size_id?: number | null
-          valid_from?: string | null
-          valid_from_raw?: string | null
-          valid_to?: string | null
-          valid_to_raw?: string | null
-          valid_until?: string | null
-          web_address?: string | null
-          web_address_raw?: string | null
-        }
-        Update: {
-          action?: Database["public"]["Enums"]["import_row_action_type"] | null
-          birth_date?: string | null
-          birth_date_raw?: string | null
-          contact_id?: number | null
-          data_source_code_raw?: string | null
-          data_source_id?: number | null
-          death_date?: string | null
-          death_date_raw?: string | null
-          edit_at?: string | null
-          edit_by_user_id?: number | null
-          edit_comment?: string | null
-          edit_comment_raw?: string | null
-          email_address?: string | null
-          email_address_raw?: string | null
-          employees?: number | null
-          employees_raw?: string | null
-          enterprise_id?: number | null
-          errors?: Json
-          establishment_id?: number | null
-          fax_number?: string | null
-          fax_number_raw?: string | null
-          founding_row_id?: number | null
-          invalid_codes?: Json
-          landline?: string | null
-          landline_raw?: string | null
-          last_completed_priority?: number
-          legal_form_code_raw?: string | null
-          legal_form_id?: number | null
-          legal_unit_id?: number | null
-          merge_status?: Json
-          mobile_number?: string | null
-          mobile_number_raw?: string | null
-          name?: string | null
-          name_raw?: string | null
-          operation?:
-            | Database["public"]["Enums"]["import_row_operation_type"]
-            | null
-          phone_number?: string | null
-          phone_number_raw?: string | null
-          physical_address_part1?: string | null
-          physical_address_part1_raw?: string | null
-          physical_address_part2?: string | null
-          physical_address_part2_raw?: string | null
-          physical_address_part3?: string | null
-          physical_address_part3_raw?: string | null
-          physical_altitude?: number | null
-          physical_altitude_raw?: string | null
-          physical_country_id?: number | null
-          physical_country_iso_2_raw?: string | null
-          physical_latitude?: number | null
-          physical_latitude_raw?: string | null
-          physical_location_id?: number | null
-          physical_longitude?: number | null
-          physical_longitude_raw?: string | null
-          physical_postcode?: string | null
-          physical_postcode_raw?: string | null
-          physical_postplace?: string | null
-          physical_postplace_raw?: string | null
-          physical_region_code_raw?: string | null
-          physical_region_id?: number | null
-          postal_address_part1?: string | null
-          postal_address_part1_raw?: string | null
-          postal_address_part2?: string | null
-          postal_address_part2_raw?: string | null
-          postal_address_part3?: string | null
-          postal_address_part3_raw?: string | null
-          postal_altitude?: number | null
-          postal_altitude_raw?: string | null
-          postal_country_id?: number | null
-          postal_country_iso_2_raw?: string | null
-          postal_latitude?: number | null
-          postal_latitude_raw?: string | null
-          postal_location_id?: number | null
-          postal_longitude?: number | null
-          postal_longitude_raw?: string | null
-          postal_postcode?: string | null
-          postal_postcode_raw?: string | null
-          postal_postplace?: string | null
-          postal_postplace_raw?: string | null
-          postal_region_code_raw?: string | null
-          postal_region_id?: number | null
-          primary_activity_category_code_raw?: string | null
-          primary_activity_category_id?: number | null
-          primary_activity_id?: number | null
-          primary_for_enterprise?: boolean | null
-          row_id?: never
-          secondary_activity_category_code_raw?: string | null
-          secondary_activity_category_id?: number | null
-          secondary_activity_id?: number | null
-          sector_code_raw?: string | null
-          sector_id?: number | null
-          stat_for_unit_employees_id?: number | null
-          stat_for_unit_turnover_id?: number | null
-          stat_ident_raw?: string | null
-          state?: Database["public"]["Enums"]["import_data_state"]
-          status_code_raw?: string | null
-          status_id?: number | null
-          tag_for_unit_id?: number | null
-          tag_id?: number | null
-          tag_path?: unknown
-          tag_path_raw?: string | null
-          tax_ident_raw?: string | null
-          turnover?: number | null
-          turnover_raw?: string | null
-          unit_size_code_raw?: string | null
-          unit_size_id?: number | null
-          valid_from?: string | null
-          valid_from_raw?: string | null
-          valid_to?: string | null
-          valid_to_raw?: string | null
-          valid_until?: string | null
-          web_address?: string | null
-          web_address_raw?: string | null
-        }
-        Relationships: []
-      }
-      import_demo_lu_wsd_upload: {
-        Row: {
-          birth_date: string | null
-          data_source_code: string | null
-          death_date: string | null
-          email_address: string | null
-          employees: string | null
-          fax_number: string | null
-          landline: string | null
-          legal_form_code: string | null
-          mobile_number: string | null
-          name: string | null
-          phone_number: string | null
-          physical_address_part1: string | null
-          physical_address_part2: string | null
-          physical_address_part3: string | null
-          physical_altitude: string | null
-          physical_country_iso_2: string | null
-          physical_latitude: string | null
-          physical_longitude: string | null
-          physical_postcode: string | null
-          physical_postplace: string | null
-          physical_region_code: string | null
-          postal_address_part1: string | null
-          postal_address_part2: string | null
-          postal_address_part3: string | null
-          postal_country_iso_2: string | null
-          postal_postcode: string | null
-          postal_postplace: string | null
-          postal_region_code: string | null
-          primary_activity_category_code: string | null
-          secondary_activity_category_code: string | null
-          sector_code: string | null
-          stat_ident: string | null
-          status_code: string | null
-          tag_path: string | null
-          tax_ident: string | null
-          turnover: string | null
-          unit_size_code: string | null
-          valid_from: string | null
-          valid_to: string | null
-          web_address: string | null
-        }
-        Insert: {
-          birth_date?: string | null
-          data_source_code?: string | null
-          death_date?: string | null
-          email_address?: string | null
-          employees?: string | null
-          fax_number?: string | null
-          landline?: string | null
-          legal_form_code?: string | null
-          mobile_number?: string | null
-          name?: string | null
-          phone_number?: string | null
-          physical_address_part1?: string | null
-          physical_address_part2?: string | null
-          physical_address_part3?: string | null
-          physical_altitude?: string | null
-          physical_country_iso_2?: string | null
-          physical_latitude?: string | null
-          physical_longitude?: string | null
-          physical_postcode?: string | null
-          physical_postplace?: string | null
-          physical_region_code?: string | null
-          postal_address_part1?: string | null
-          postal_address_part2?: string | null
-          postal_address_part3?: string | null
-          postal_country_iso_2?: string | null
-          postal_postcode?: string | null
-          postal_postplace?: string | null
-          postal_region_code?: string | null
-          primary_activity_category_code?: string | null
-          secondary_activity_category_code?: string | null
-          sector_code?: string | null
-          stat_ident?: string | null
-          status_code?: string | null
-          tag_path?: string | null
-          tax_ident?: string | null
-          turnover?: string | null
-          unit_size_code?: string | null
-          valid_from?: string | null
-          valid_to?: string | null
-          web_address?: string | null
-        }
-        Update: {
-          birth_date?: string | null
-          data_source_code?: string | null
-          death_date?: string | null
-          email_address?: string | null
-          employees?: string | null
-          fax_number?: string | null
-          landline?: string | null
-          legal_form_code?: string | null
-          mobile_number?: string | null
-          name?: string | null
-          phone_number?: string | null
-          physical_address_part1?: string | null
-          physical_address_part2?: string | null
-          physical_address_part3?: string | null
-          physical_altitude?: string | null
-          physical_country_iso_2?: string | null
-          physical_latitude?: string | null
-          physical_longitude?: string | null
-          physical_postcode?: string | null
-          physical_postplace?: string | null
-          physical_region_code?: string | null
-          postal_address_part1?: string | null
-          postal_address_part2?: string | null
-          postal_address_part3?: string | null
-          postal_country_iso_2?: string | null
-          postal_postcode?: string | null
-          postal_postplace?: string | null
-          postal_region_code?: string | null
-          primary_activity_category_code?: string | null
-          secondary_activity_category_code?: string | null
-          sector_code?: string | null
-          stat_ident?: string | null
-          status_code?: string | null
-          tag_path?: string | null
-          tax_ident?: string | null
-          turnover?: string | null
-          unit_size_code?: string | null
-          valid_from?: string | null
-          valid_to?: string | null
-          web_address?: string | null
-        }
-        Relationships: []
-      }
       import_job: {
         Row: {
           analysis_batch_size: number
@@ -3888,18 +2466,21 @@ export type Database = {
       settings: {
         Row: {
           activity_category_standard_id: number
+          country_id: number
           id: number
-          only_one_setting: boolean
+          only_one_setting: boolean | null
         }
         Insert: {
           activity_category_standard_id: number
+          country_id: number
           id?: never
-          only_one_setting?: boolean
+          only_one_setting?: boolean | null
         }
         Update: {
           activity_category_standard_id?: number
+          country_id?: number
           id?: never
-          only_one_setting?: boolean
+          only_one_setting?: boolean | null
         }
         Relationships: [
           {
@@ -3907,6 +2488,27 @@ export type Database = {
             columns: ["activity_category_standard_id"]
             isOneToOne: false
             referencedRelation: "activity_category_standard"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settings_country_id_fkey"
+            columns: ["country_id"]
+            isOneToOne: false
+            referencedRelation: "country"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settings_country_id_fkey"
+            columns: ["country_id"]
+            isOneToOne: false
+            referencedRelation: "country_used_def"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settings_country_id_fkey"
+            columns: ["country_id"]
+            isOneToOne: false
+            referencedRelation: "country_view"
             referencedColumns: ["id"]
           },
         ]
@@ -4259,6 +2861,7 @@ export type Database = {
           data_source_codes: string[] | null
           data_source_ids: number[] | null
           death_date: string | null
+          domestic: boolean | null
           email_address: string | null
           excluded_enterprise_ids: number[] | null
           excluded_establishment_ids: number[] | null
@@ -4344,6 +2947,7 @@ export type Database = {
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
           death_date?: string | null
+          domestic?: boolean | null
           email_address?: string | null
           excluded_enterprise_ids?: number[] | null
           excluded_establishment_ids?: number[] | null
@@ -4431,6 +3035,7 @@ export type Database = {
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
           death_date?: string | null
+          domestic?: boolean | null
           email_address?: string | null
           excluded_enterprise_ids?: number[] | null
           excluded_establishment_ids?: number[] | null
@@ -4745,6 +3350,7 @@ export type Database = {
           data_source_codes: string[] | null
           data_source_ids: number[] | null
           death_date: string | null
+          domestic: boolean | null
           email_address: string | null
           enterprise_id: number | null
           excluded_enterprise_ids: number[] | null
@@ -4827,6 +3433,7 @@ export type Database = {
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
           death_date?: string | null
+          domestic?: boolean | null
           email_address?: string | null
           enterprise_id?: number | null
           excluded_enterprise_ids?: number[] | null
@@ -4909,6 +3516,7 @@ export type Database = {
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
           death_date?: string | null
+          domestic?: boolean | null
           email_address?: string | null
           enterprise_id?: number | null
           excluded_enterprise_ids?: number[] | null
@@ -4994,6 +3602,7 @@ export type Database = {
           data_source_codes: string[] | null
           data_source_ids: number[] | null
           death_date: string | null
+          domestic: boolean | null
           email_address: string | null
           enterprise_id: number | null
           establishment_id: number | null
@@ -5079,6 +3688,7 @@ export type Database = {
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
           death_date?: string | null
+          domestic?: boolean | null
           email_address?: string | null
           enterprise_id?: number | null
           establishment_id?: number | null
@@ -5164,6 +3774,7 @@ export type Database = {
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
           death_date?: string | null
+          domestic?: boolean | null
           email_address?: string | null
           enterprise_id?: number | null
           establishment_id?: number | null
@@ -5252,6 +3863,7 @@ export type Database = {
           data_source_codes: string[] | null
           data_source_ids: number[] | null
           death_date: string | null
+          domestic: boolean | null
           email_address: string | null
           enterprise_id: number | null
           excluded_enterprise_ids: number[] | null
@@ -5335,6 +3947,7 @@ export type Database = {
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
           death_date?: string | null
+          domestic?: boolean | null
           email_address?: string | null
           enterprise_id?: number | null
           excluded_enterprise_ids?: number[] | null
@@ -5418,6 +4031,7 @@ export type Database = {
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
           death_date?: string | null
+          domestic?: boolean | null
           email_address?: string | null
           enterprise_id?: number | null
           excluded_enterprise_ids?: number[] | null
@@ -8200,6 +6814,7 @@ export type Database = {
           data_source_codes: string[] | null
           data_source_ids: number[] | null
           death_date: string | null
+          domestic: boolean | null
           email_address: string | null
           excluded_enterprise_ids: number[] | null
           excluded_establishment_ids: number[] | null
@@ -8320,6 +6935,7 @@ export type Database = {
           data_source_codes: string[] | null
           data_source_ids: number[] | null
           death_date: string | null
+          domestic: boolean | null
           email_address: string | null
           enterprise_id: number | null
           excluded_enterprise_ids: number[] | null
@@ -8405,6 +7021,7 @@ export type Database = {
           data_source_codes: string[] | null
           data_source_ids: number[] | null
           death_date: string | null
+          domestic: boolean | null
           email_address: string | null
           enterprise_id: number | null
           establishment_id: number | null
@@ -8613,13 +7230,6 @@ export type Database = {
           },
           {
             foreignKeyName: "location_region_id_fkey"
-            columns: ["physical_region_id"]
-            isOneToOne: false
-            referencedRelation: "region"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "location_region_id_fkey"
             columns: ["postal_region_id"]
             isOneToOne: false
             referencedRelation: "region"
@@ -8628,13 +7238,20 @@ export type Database = {
           {
             foreignKeyName: "location_region_id_fkey"
             columns: ["physical_region_id"]
+            isOneToOne: false
+            referencedRelation: "region"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_region_id_fkey"
+            columns: ["postal_region_id"]
             isOneToOne: false
             referencedRelation: "region_used_def"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "location_region_id_fkey"
-            columns: ["postal_region_id"]
+            columns: ["physical_region_id"]
             isOneToOne: false
             referencedRelation: "region_used_def"
             referencedColumns: ["id"]
@@ -8648,6 +7265,7 @@ export type Database = {
           data_source_codes: string[] | null
           data_source_ids: number[] | null
           death_date: string | null
+          domestic: boolean | null
           email_address: string | null
           enterprise_id: number | null
           excluded_enterprise_ids: number[] | null
@@ -8728,13 +7346,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["primary_activity_category_id"]
-            isOneToOne: false
-            referencedRelation: "activity_category"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "activity_category_id_fkey"
             columns: ["secondary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category"
@@ -8744,7 +7355,7 @@ export type Database = {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["primary_activity_category_id"]
             isOneToOne: false
-            referencedRelation: "activity_category_available"
+            referencedRelation: "activity_category"
             referencedColumns: ["id"]
           },
           {
@@ -8757,13 +7368,20 @@ export type Database = {
           {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["primary_activity_category_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_available"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_category_id_fkey"
+            columns: ["secondary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used_def"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["secondary_activity_category_id"]
+            columns: ["primary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used_def"
             referencedColumns: ["id"]
@@ -9780,6 +8398,7 @@ export type Database = {
           data_source_codes: string[] | null
           data_source_ids: number[] | null
           death_date: string | null
+          domestic: boolean | null
           email_address: string | null
           excluded_enterprise_ids: number[] | null
           excluded_establishment_ids: number[] | null
