@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE TYPE public.reset_scope AS ENUM('data','getting-started','all');
+CREATE TYPE public.reset_scope AS ENUM('units', 'data', 'getting-started', 'all');
 
 CREATE FUNCTION public.reset (confirmed boolean, scope public.reset_scope)
 RETURNS JSONB
@@ -13,7 +13,7 @@ BEGIN
         RAISE EXCEPTION 'Action not confirmed.';
     END IF;
 
-    CASE WHEN scope IN ('data', 'getting-started', 'all') THEN
+    CASE WHEN scope IN ('units', 'data', 'getting-started', 'all') THEN
         -- Initial pattern application for 'activity'
         WITH deleted AS (
             DELETE FROM public.activity WHERE id > 0 RETURNING *
@@ -26,7 +26,7 @@ BEGIN
         result := result || changed;
     ELSE END CASE;
 
-    CASE WHEN scope IN ('data', 'getting-started', 'all') THEN
+    CASE WHEN scope IN ('units', 'data', 'getting-started', 'all') THEN
         -- Apply pattern for 'location'
         WITH deleted_location AS (
             DELETE FROM public.location WHERE id > 0 RETURNING *
@@ -39,7 +39,7 @@ BEGIN
         result := result || changed;
     ELSE END CASE;
 
-    CASE WHEN scope IN ('data', 'getting-started', 'all') THEN
+    CASE WHEN scope IN ('units', 'data', 'getting-started', 'all') THEN
         -- Apply pattern for 'contact'
         WITH deleted_contact AS (
             DELETE FROM public.contact WHERE id > 0 RETURNING *
@@ -52,7 +52,7 @@ BEGIN
         result := result || changed;
     ELSE END CASE;
 
-    CASE WHEN scope IN ('data', 'getting-started', 'all') THEN
+    CASE WHEN scope IN ('units', 'data', 'getting-started', 'all') THEN
         -- Apply pattern for 'person_for_unit'
         WITH deleted_person_for_unit AS (
             DELETE FROM public.person_for_unit WHERE id > 0 RETURNING *
@@ -65,7 +65,7 @@ BEGIN
         result := result || changed;
     ELSE END CASE;
 
-    CASE WHEN scope IN ('data', 'getting-started', 'all') THEN
+    CASE WHEN scope IN ('units', 'data', 'getting-started', 'all') THEN
         -- Add delete for public.person
         WITH deleted_person AS (
             DELETE FROM public.person WHERE id > 0 RETURNING *
@@ -91,7 +91,7 @@ BEGIN
         result := result || changed;
     ELSE END CASE;
     
-    CASE WHEN scope IN ('data', 'getting-started', 'all') THEN
+    CASE WHEN scope IN ('units', 'data', 'getting-started', 'all') THEN
         -- Apply pattern for 'tag_for_unit'
         WITH deleted_tag_for_unit AS (
             DELETE FROM public.tag_for_unit WHERE id > 0 RETURNING *
@@ -117,7 +117,7 @@ BEGIN
         result := result || changed;
     ELSE END CASE;
 
-    CASE WHEN scope IN ('data', 'getting-started', 'all') THEN
+    CASE WHEN scope IN ('units', 'data', 'getting-started', 'all') THEN
         -- Apply pattern for 'stat_for_unit'
         WITH deleted_stat_for_unit AS (
             DELETE FROM public.stat_for_unit WHERE id > 0 RETURNING *
@@ -143,7 +143,7 @@ BEGIN
         result := result || changed;
     ELSE END CASE;
 
-    CASE WHEN scope IN ('data', 'getting-started', 'all') THEN
+    CASE WHEN scope IN ('units', 'data', 'getting-started', 'all') THEN
         -- Add delete for public.external_ident_type not added by the system
         WITH deleted_external_ident AS (
             DELETE FROM public.external_ident WHERE id > 0 RETURNING *
@@ -169,7 +169,7 @@ BEGIN
         result := result || changed;
     ELSE END CASE;
 
-    CASE WHEN scope IN ('data', 'getting-started', 'all') THEN
+    CASE WHEN scope IN ('units', 'data', 'getting-started', 'all') THEN
         WITH deleted_establishment AS (
             DELETE FROM public.establishment WHERE id > 0 RETURNING *
         )
@@ -181,7 +181,7 @@ BEGIN
         result := result || changed;
     ELSE END CASE;
 
-    CASE WHEN scope IN ('data', 'getting-started', 'all') THEN
+    CASE WHEN scope IN ('units', 'data', 'getting-started', 'all') THEN
         WITH deleted_legal_unit AS (
             DELETE FROM public.legal_unit WHERE id > 0 RETURNING *
         )
@@ -193,7 +193,7 @@ BEGIN
         result := result || changed;
     ELSE END CASE;
 
-    CASE WHEN scope IN ('data', 'getting-started', 'all') THEN
+    CASE WHEN scope IN ('units', 'data', 'getting-started', 'all') THEN
         WITH deleted_enterprise AS (
             DELETE FROM public.enterprise WHERE id > 0 RETURNING *
         )
