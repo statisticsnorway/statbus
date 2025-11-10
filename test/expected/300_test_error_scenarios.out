@@ -212,7 +212,7 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_70_01_01_lu_analysis_errors' ORDER BY slug;
                 slug                |  state   | total_rows | imported_rows | has_error | error_details 
 ------------------------------------+----------+------------+---------------+-----------+---------------
- import_70_01_01_lu_analysis_errors | finished |         30 |            14 | f         | 
+ import_70_01_01_lu_analysis_errors | finished |         30 |            17 | f         | 
 (1 row)
 
 \echo "Data table for import_70_01_01_lu_analysis_errors (expect various errors and invalid_codes):"

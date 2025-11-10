@@ -98,6 +98,7 @@ END;
 $remove_pg_temp_for_tx_user_switch$;
 \echo "Setting up Statbus using the web provided examples"
 "Setting up Statbus using the web provided examples"
+ALTER TABLE public.import_job ALTER COLUMN id RESTART WITH 1;
 -- A Super User configures statbus.
 CALL test.set_user_from_email('test.admin@statbus.org');
 \i samples/norway/getting-started.sql
@@ -3119,10 +3120,137 @@ stats_summary | {                                                 +
               | }
 
 \x
+\echo "Testing import job clone"
+"Testing import job clone"
+-- Clone legal unit job
+SELECT id AS lu_job_id FROM public.import_job WHERE slug = 'import_lu_web_example_current' \gset
+SELECT slug, description, note, time_context_ident, default_valid_from, default_valid_to, default_data_source_code, upload_table_name, data_table_name, priority, analysis_batch_size, processing_batch_size   , analysis_completed_pct , analysis_rows_per_sec , current_step_code , current_step_priority , max_analysis_priority , total_analysis_steps_weighted , completed_analysis_steps_weighted     , total_rows , imported_rows , import_completed_pct , import_rows_per_sec , last_progress_update , state        , error , review, edit_comment FROM public.import_job_clone(:lu_job_id, 'import_lu_clone');
+      slug       |                           description                            |                                                                 note                                                                 | time_context_ident | default_valid_from | default_valid_to | default_data_source_code |   upload_table_name    |   data_table_name    | priority | analysis_batch_size | processing_batch_size | analysis_completed_pct | analysis_rows_per_sec | current_step_code | current_step_priority | max_analysis_priority | total_analysis_steps_weighted | completed_analysis_steps_weighted | total_rows | imported_rows | import_completed_pct | import_rows_per_sec | last_progress_update |       state        | error | review |               edit_comment                
+-----------------+------------------------------------------------------------------+--------------------------------------------------------------------------------------------------------------------------------------+--------------------+--------------------+------------------+--------------------------+------------------------+----------------------+----------+---------------------+-----------------------+------------------------+-----------------------+-------------------+-----------------------+-----------------------+-------------------------------+-----------------------------------+------------+---------------+----------------------+---------------------+----------------------+--------------------+-------+--------+-------------------------------------------
+ import_lu_clone | Clone of job #1: Import Legal Units - Web Example (Current Year) | Import job for legal units from samples/norway/legal_unit/enheter-selection-web-import.csv using legal_unit_job_provided definition. | r_year_curr        | 2025-01-01         | infinity         | nlr                      | import_lu_clone_upload | import_lu_clone_data |          |               32768 |                   200 |                   0.00 |                       |                   |                       |                   100 |                               |                                 0 |            |             0 |                 0.00 |                     |                      | waiting_for_upload |       | f      | Test data load (01_load_web_examples.sql)
+(1 row)
+
+-- Clone establishment job
+SELECT id AS es_job_id FROM public.import_job WHERE slug = 'import_es_web_example_current' \gset
+SELECT slug, description, note, time_context_ident, default_valid_from, default_valid_to, default_data_source_code, upload_table_name, data_table_name, priority, analysis_batch_size, processing_batch_size   , analysis_completed_pct , analysis_rows_per_sec , current_step_code , current_step_priority , max_analysis_priority , total_analysis_steps_weighted , completed_analysis_steps_weighted     , total_rows , imported_rows , import_completed_pct , import_rows_per_sec , last_progress_update , state        , error , review, edit_comment FROM public.import_job_clone(:es_job_id, 'import_es_clone');
+      slug       |                             description                             |                                                                           note                                                                            | time_context_ident | default_valid_from | default_valid_to | default_data_source_code |   upload_table_name    |   data_table_name    | priority | analysis_batch_size | processing_batch_size | analysis_completed_pct | analysis_rows_per_sec | current_step_code | current_step_priority | max_analysis_priority | total_analysis_steps_weighted | completed_analysis_steps_weighted | total_rows | imported_rows | import_completed_pct | import_rows_per_sec | last_progress_update |       state        | error | review |               edit_comment                
+-----------------+---------------------------------------------------------------------+-----------------------------------------------------------------------------------------------------------------------------------------------------------+--------------------+--------------------+------------------+--------------------------+------------------------+----------------------+----------+---------------------+-----------------------+------------------------+-----------------------+-------------------+-----------------------+-----------------------+-------------------------------+-----------------------------------+------------+---------------+----------------------+---------------------+----------------------+--------------------+-------+--------+-------------------------------------------
+ import_es_clone | Clone of job #2: Import Establishments - Web Example (Current Year) | Import job for establishments from samples/norway/establishment/underenheter-selection-web-import.csv using establishment_for_lu_job_provided definition. | r_year_curr        | 2025-01-01         | infinity         | nlr                      | import_es_clone_upload | import_es_clone_data |          |               32768 |                   200 |                   0.00 |                       |                   |                       |                   100 |                               |                                 0 |            |             0 |                 0.00 |                     |                      | waiting_for_upload |       | f      | Test data load (01_load_web_examples.sql)
+(1 row)
+
+-- SET client_min_messages TO DEBUG1;
+\echo Run worker processing for import job clone
+Run worker processing for import job clone
+SELECT COALESCE(max(id), 0) as max_task_id FROM worker.tasks \gset
+CALL worker.process_tasks(p_queue => 'import');
+\echo "Checking new worker tasks for cloned jobs"
+"Checking new worker tasks for cloned jobs"
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE t.id > :max_task_id GROUP BY queue,state ORDER BY queue,state;
+   queue   |   state   | count 
+-----------+-----------+-------
+ analytics | pending   |     7
+ import    | completed |    98
+(2 rows)
+
+-- SET client_min_messages TO NOTICE;
+\echo "Comparing upload table contents between original and cloned jobs"
+"Comparing upload table contents between original and cloned jobs"
+SELECT
+    (SELECT upload_table_name FROM public.import_job WHERE slug = 'import_lu_web_example_current') AS original_lu_upload_table,
+    (SELECT upload_table_name FROM public.import_job WHERE slug = 'import_lu_clone') AS cloned_lu_upload_table,
+    (SELECT upload_table_name FROM public.import_job WHERE slug = 'import_es_web_example_current') AS original_es_upload_table,
+    (SELECT upload_table_name FROM public.import_job WHERE slug = 'import_es_clone') AS cloned_es_upload_table
+\gset
+\echo " -> LU upload table diff (should be 0)"
+" -> LU upload table diff (should be 0)"
+SELECT COUNT(*) FROM (
+    TABLE public.:"original_lu_upload_table"
+    EXCEPT
+    TABLE public.:"cloned_lu_upload_table"
+) AS t;
+ count 
+-------
+     0
+(1 row)
+
+\echo " -> ES upload table diff (should be 0)"
+" -> ES upload table diff (should be 0)"
+SELECT COUNT(*) FROM (
+    TABLE public.:"original_es_upload_table"
+    EXCEPT
+    TABLE public.:"cloned_es_upload_table"
+) AS t;
+ count 
+-------
+     0
+(1 row)
+
+\echo "Checking import job statuses for cloned jobs"
+"Checking import job statuses for cloned jobs"
+SELECT ij.slug,
+       ij.state,
+       ij.time_context_ident,
+       ij.total_rows,
+       ij.imported_rows,
+       ij.error IS NOT NULL AS has_error,
+       CASE ij.slug
+           WHEN 'import_lu_clone' THEN
+               (SELECT COUNT(*) FROM public.import_lu_clone_data dr WHERE dr.state = 'error')
+           WHEN 'import_es_clone' THEN
+               (SELECT COUNT(*) FROM public.import_es_clone_data dr WHERE dr.state = 'error')
+           ELSE NULL
+       END AS error_rows
+FROM public.import_job AS ij
+WHERE ij.slug IN ('import_lu_clone', 'import_es_clone') ORDER BY ij.slug;
+      slug       |  state   | time_context_ident | total_rows | imported_rows | has_error | error_rows 
+-----------------+----------+--------------------+------------+---------------+-----------+------------
+ import_es_clone | finished | r_year_curr        |       1305 |          1305 | f         |          0
+ import_lu_clone | finished | r_year_curr        |        100 |           100 | f         |          0
+(2 rows)
+
 SAVEPOINT before_reset;
 \a
 \echo "Checking that reset works"
 "Checking that reset works"
+SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'units'::public.reset_scope)) AS reset_unit;
+reset_unit
+{
+    "person": {
+        "deleted_count": 0
+    },
+    "contact": {
+        "deleted_count": 0
+    },
+    "activity": {
+        "deleted_count": 1420
+    },
+    "location": {
+        "deleted_count": 1760
+    },
+    "enterprise": {
+        "deleted_count": 100
+    },
+    "legal_unit": {
+        "deleted_count": 100
+    },
+    "tag_for_unit": {
+        "deleted_count": 0
+    },
+    "establishment": {
+        "deleted_count": 1305
+    },
+    "stat_for_unit": {
+        "deleted_count": 351
+    },
+    "external_ident": {
+        "deleted_count": 1405
+    },
+    "person_for_unit": {
+        "deleted_count": 0
+    }
+}
+(1 row)
+ROLLBACK TO SAVEPOINT before_reset;
 SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'data'::public.reset_scope)) AS reset_data;
 NOTICE:  drop cascades to view temp_lu_source_view
 NOTICE:  drop cascades to 8 other objects
@@ -3152,7 +3280,7 @@ reset_data
         "deleted_count": 100
     },
     "import_job": {
-        "deleted_count": 2
+        "deleted_count": 4
     },
     "legal_unit": {
         "deleted_count": 100
@@ -3174,7 +3302,70 @@ reset_data
     }
 }
 (1 row)
+ROLLBACK TO SAVEPOINT before_reset;
+SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'data'::public.reset_scope)) AS reset_data;
+NOTICE:  drop cascades to view temp_lu_source_view
+NOTICE:  drop cascades to 8 other objects
+DETAIL:  drop cascades to view temp_loc_source_view_physical_location
+drop cascades to view temp_loc_source_view_postal_location
+drop cascades to view temp_act_source_view_primary_activity
+drop cascades to view temp_act_source_view_secondary_activity
+drop cascades to view temp_contact_source_view
+drop cascades to view temp_stat_source_view_employees
+drop cascades to view temp_stat_source_view_turnover
+drop cascades to view temp_es_source_view
+reset_data
+{
+    "person": {
+        "deleted_count": 0
+    },
+    "contact": {
+        "deleted_count": 0
+    },
+    "activity": {
+        "deleted_count": 1420
+    },
+    "location": {
+        "deleted_count": 1760
+    },
+    "enterprise": {
+        "deleted_count": 100
+    },
+    "import_job": {
+        "deleted_count": 4
+    },
+    "legal_unit": {
+        "deleted_count": 100
+    },
+    "tag_for_unit": {
+        "deleted_count": 0
+    },
+    "establishment": {
+        "deleted_count": 1305
+    },
+    "stat_for_unit": {
+        "deleted_count": 351
+    },
+    "external_ident": {
+        "deleted_count": 1405
+    },
+    "person_for_unit": {
+        "deleted_count": 0
+    }
+}
+(1 row)
+ROLLBACK TO SAVEPOINT before_reset;
 SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'getting-started'::public.reset_scope)) AS reset_getting_started;
+NOTICE:  drop cascades to view temp_lu_source_view
+NOTICE:  drop cascades to 8 other objects
+DETAIL:  drop cascades to view temp_loc_source_view_physical_location
+drop cascades to view temp_loc_source_view_postal_location
+drop cascades to view temp_act_source_view_primary_activity
+drop cascades to view temp_act_source_view_secondary_activity
+drop cascades to view temp_contact_source_view
+drop cascades to view temp_stat_source_view_employees
+drop cascades to view temp_stat_source_view_turnover
+drop cascades to view temp_es_source_view
 reset_getting_started
 {
     "person": {
@@ -3195,10 +3386,10 @@ reset_getting_started
         "deleted_count": 0
     },
     "activity": {
-        "deleted_count": 0
+        "deleted_count": 1420
     },
     "location": {
-        "deleted_count": 0
+        "deleted_count": 1760
     },
     "settings": {
         "deleted_count": 1
@@ -3208,17 +3399,17 @@ reset_getting_started
         "deleted_count": 0
     },
     "enterprise": {
-        "deleted_count": 0
+        "deleted_count": 100
     },
     "import_job": {
-        "deleted_count": 0
+        "deleted_count": 4
     },
     "legal_form": {
         "changed_count": 46,
         "deleted_count": 46
     },
     "legal_unit": {
-        "deleted_count": 0
+        "deleted_count": 100
     },
     "data_source": {
         "changed_count": 6,
@@ -3228,13 +3419,13 @@ reset_getting_started
         "deleted_count": 0
     },
     "establishment": {
-        "deleted_count": 0
+        "deleted_count": 1305
     },
     "stat_for_unit": {
-        "deleted_count": 0
+        "deleted_count": 351
     },
     "external_ident": {
-        "deleted_count": 0
+        "deleted_count": 1405
     },
     "person_for_unit": {
         "deleted_count": 0
@@ -3246,7 +3437,18 @@ reset_getting_started
     }
 }
 (1 row)
+ROLLBACK TO SAVEPOINT before_reset;
 SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'all'::public.reset_scope)) AS reset_all;
+NOTICE:  drop cascades to view temp_lu_source_view
+NOTICE:  drop cascades to 8 other objects
+DETAIL:  drop cascades to view temp_loc_source_view_physical_location
+drop cascades to view temp_loc_source_view_postal_location
+drop cascades to view temp_act_source_view_primary_activity
+drop cascades to view temp_act_source_view_secondary_activity
+drop cascades to view temp_contact_source_view
+drop cascades to view temp_stat_source_view_employees
+drop cascades to view temp_stat_source_view_turnover
+drop cascades to view temp_es_source_view
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_employees_idx
@@ -3280,11 +3482,11 @@ reset_all
         "deleted_count": 0
     },
     "region": {
-        "deleted_count": 0
+        "deleted_count": 417
     },
     "sector": {
-        "changed_count": 0,
-        "deleted_count": 0
+        "changed_count": 36,
+        "deleted_count": 33
     },
     "status": {
         "changed_count": 0,
@@ -3294,46 +3496,46 @@ reset_all
         "deleted_count": 0
     },
     "activity": {
-        "deleted_count": 0
+        "deleted_count": 1420
     },
     "location": {
-        "deleted_count": 0
+        "deleted_count": 1760
     },
     "settings": {
-        "deleted_count": 0
+        "deleted_count": 1
     },
     "unit_size": {
         "changed_count": 0,
         "deleted_count": 0
     },
     "enterprise": {
-        "deleted_count": 0
+        "deleted_count": 100
     },
     "import_job": {
-        "deleted_count": 0
+        "deleted_count": 4
     },
     "legal_form": {
-        "changed_count": 0,
-        "deleted_count": 0
+        "changed_count": 46,
+        "deleted_count": 46
     },
     "legal_unit": {
-        "deleted_count": 0
+        "deleted_count": 100
     },
     "data_source": {
-        "changed_count": 0,
-        "deleted_count": 0
+        "changed_count": 6,
+        "deleted_count": 6
     },
     "tag_for_unit": {
         "deleted_count": 0
     },
     "establishment": {
-        "deleted_count": 0
+        "deleted_count": 1305
     },
     "stat_for_unit": {
-        "deleted_count": 0
+        "deleted_count": 351
     },
     "external_ident": {
-        "deleted_count": 0
+        "deleted_count": 1405
     },
     "person_for_unit": {
         "deleted_count": 0
@@ -3342,17 +3544,17 @@ reset_all
         "deleted_count": 0
     },
     "activity_category": {
-        "changed_count": 0,
-        "deleted_count": 0,
-        "changed_children_count": 0
+        "changed_count": 643,
+        "deleted_count": 1811,
+        "changed_children_count": 73
     },
     "external_ident_type": {
         "deleted_count": 0
     }
 }
 (1 row)
-\a
 ROLLBACK TO SAVEPOINT before_reset;
+\a
 \i test/rollback_unless_persist_is_specified.sql
 ---------------------------------------------------------------------------
 -- Support development loading of the data without rollback using

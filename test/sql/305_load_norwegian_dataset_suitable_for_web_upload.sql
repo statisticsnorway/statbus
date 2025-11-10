@@ -4,6 +4,8 @@ BEGIN;
 
 \echo "Setting up Statbus using the web provided examples"
 
+ALTER TABLE public.import_job ALTER COLUMN id RESTART WITH 1;
+
 -- A Super User configures statbus.
 CALL test.set_user_from_email('test.admin@statbus.org');
 
@@ -151,15 +153,82 @@ SELECT unit_type
  GROUP BY unit_type;
 \x
 
+\echo "Testing import job clone"
+-- Clone legal unit job
+SELECT id AS lu_job_id FROM public.import_job WHERE slug = 'import_lu_web_example_current' \gset
+SELECT slug, description, note, time_context_ident, default_valid_from, default_valid_to, default_data_source_code, upload_table_name, data_table_name, priority, analysis_batch_size, processing_batch_size   , analysis_completed_pct , analysis_rows_per_sec , current_step_code , current_step_priority , max_analysis_priority , total_analysis_steps_weighted , completed_analysis_steps_weighted     , total_rows , imported_rows , import_completed_pct , import_rows_per_sec , last_progress_update , state        , error , review, edit_comment FROM public.import_job_clone(:lu_job_id, 'import_lu_clone');
+
+-- Clone establishment job
+SELECT id AS es_job_id FROM public.import_job WHERE slug = 'import_es_web_example_current' \gset
+SELECT slug, description, note, time_context_ident, default_valid_from, default_valid_to, default_data_source_code, upload_table_name, data_table_name, priority, analysis_batch_size, processing_batch_size   , analysis_completed_pct , analysis_rows_per_sec , current_step_code , current_step_priority , max_analysis_priority , total_analysis_steps_weighted , completed_analysis_steps_weighted     , total_rows , imported_rows , import_completed_pct , import_rows_per_sec , last_progress_update , state        , error , review, edit_comment FROM public.import_job_clone(:es_job_id, 'import_es_clone');
+
+-- SET client_min_messages TO DEBUG1;
+\echo Run worker processing for import job clone
+SELECT COALESCE(max(id), 0) as max_task_id FROM worker.tasks \gset
+CALL worker.process_tasks(p_queue => 'import');
+\echo "Checking new worker tasks for cloned jobs"
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE t.id > :max_task_id GROUP BY queue,state ORDER BY queue,state;
+-- SET client_min_messages TO NOTICE;
+
+\echo "Comparing upload table contents between original and cloned jobs"
+SELECT
+    (SELECT upload_table_name FROM public.import_job WHERE slug = 'import_lu_web_example_current') AS original_lu_upload_table,
+    (SELECT upload_table_name FROM public.import_job WHERE slug = 'import_lu_clone') AS cloned_lu_upload_table,
+    (SELECT upload_table_name FROM public.import_job WHERE slug = 'import_es_web_example_current') AS original_es_upload_table,
+    (SELECT upload_table_name FROM public.import_job WHERE slug = 'import_es_clone') AS cloned_es_upload_table
+\gset
+
+\echo " -> LU upload table diff (should be 0)"
+SELECT COUNT(*) FROM (
+    TABLE public.:"original_lu_upload_table"
+    EXCEPT
+    TABLE public.:"cloned_lu_upload_table"
+) AS t;
+
+\echo " -> ES upload table diff (should be 0)"
+SELECT COUNT(*) FROM (
+    TABLE public.:"original_es_upload_table"
+    EXCEPT
+    TABLE public.:"cloned_es_upload_table"
+) AS t;
+
+\echo "Checking import job statuses for cloned jobs"
+SELECT ij.slug,
+       ij.state,
+       ij.time_context_ident,
+       ij.total_rows,
+       ij.imported_rows,
+       ij.error IS NOT NULL AS has_error,
+       CASE ij.slug
+           WHEN 'import_lu_clone' THEN
+               (SELECT COUNT(*) FROM public.import_lu_clone_data dr WHERE dr.state = 'error')
+           WHEN 'import_es_clone' THEN
+               (SELECT COUNT(*) FROM public.import_es_clone_data dr WHERE dr.state = 'error')
+           ELSE NULL
+       END AS error_rows
+FROM public.import_job AS ij
+WHERE ij.slug IN ('import_lu_clone', 'import_es_clone') ORDER BY ij.slug;
+
+
 SAVEPOINT before_reset;
 
 \a
 \echo "Checking that reset works"
+SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'units'::public.reset_scope)) AS reset_unit;
+ROLLBACK TO SAVEPOINT before_reset;
+
 SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'data'::public.reset_scope)) AS reset_data;
+ROLLBACK TO SAVEPOINT before_reset;
+
+SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'data'::public.reset_scope)) AS reset_data;
+ROLLBACK TO SAVEPOINT before_reset;
+
 SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'getting-started'::public.reset_scope)) AS reset_getting_started;
+ROLLBACK TO SAVEPOINT before_reset;
+
 SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'all'::public.reset_scope)) AS reset_all;
+ROLLBACK TO SAVEPOINT before_reset;
 \a
 
-ROLLBACK TO SAVEPOINT before_reset;
 
 \i test/rollback_unless_persist_is_specified.sql

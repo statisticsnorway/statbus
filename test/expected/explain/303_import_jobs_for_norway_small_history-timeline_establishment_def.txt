@@ -1,7 +1,6 @@
                                                                                                                                                                                                QUERY PLAN                                                                                                                                                                                                
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- Sort
-   Sort Key: t.unit_type, t.unit_id, t.valid_from
+ Nested Loop
    ->  Nested Loop Left Join
          ->  Nested Loop Left Join
                ->  Nested Loop Left Join
@@ -9,26 +8,23 @@
                            ->  Nested Loop Left Join
                                  ->  Nested Loop Left Join
                                        ->  Nested Loop Left Join
-                                             ->  Hash Left Join
-                                                   Hash Cond: (pol.country_id = poc.id)
+                                             ->  Nested Loop Left Join
                                                    ->  Nested Loop Left Join
                                                          Join Filter: (pol.region_id = por.id)
                                                          ->  Nested Loop Left Join
-                                                               ->  Hash Left Join
-                                                                     Hash Cond: (phl.country_id = phc.id)
+                                                               ->  Nested Loop Left Join
                                                                      ->  Nested Loop Left Join
                                                                            Join Filter: (phl.region_id = phr.id)
                                                                            ->  Nested Loop Left Join
-                                                                                 ->  Hash Left Join
-                                                                                       Hash Cond: (es.sector_id = s.id)
+                                                                                 ->  Nested Loop Left Join
                                                                                        ->  Nested Loop Left Join
                                                                                              ->  Nested Loop Left Join
                                                                                                    ->  Nested Loop Left Join
                                                                                                          ->  Nested Loop Left Join
-                                                                                                               ->  Hash Left Join
-                                                                                                                     Hash Cond: ((t.unit_id = es_stats.unit_id) AND (t.valid_from = es_stats.valid_from))
+                                                                                                               ->  Nested Loop Left Join
+                                                                                                                     Join Filter: ((es_stats.unit_id = t.unit_id) AND (es_stats.valid_from = t.valid_from))
                                                                                                                      ->  Nested Loop
-                                                                                                                           ->  Seq Scan on timesegments t
+                                                                                                                           ->  Index Only Scan using idx_timesegments_unit_type_id_period on timesegments t
                                                                                                                            ->  Memoize
                                                                                                                                  Cache Key: t.unit_id, t.valid_from, t.valid_until
                                                                                                                                  Cache Mode: binary
@@ -38,7 +34,7 @@
                                                                                                                                                    Sort Key: es_1.valid_from DESC
                                                                                                                                                    ->  Seq Scan on establishment es_1
                                                                                                                                                          Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (id = t.unit_id))
-                                                                                                                     ->  Hash
+                                                                                                                     ->  Materialize
                                                                                                                            ->  Subquery Scan on es_stats
                                                                                                                                  ->  GroupAggregate
                                                                                                                                        Group Key: t_1.unit_id, t_1.valid_from
@@ -82,8 +78,11 @@
                                                                                                    Cache Mode: logical
                                                                                                    ->  Index Scan using activity_category_pkey on activity_category sac
                                                                                                          Index Cond: (id = sa.category_id)
-                                                                                       ->  Hash
-                                                                                             ->  Seq Scan on sector s
+                                                                                       ->  Memoize
+                                                                                             Cache Key: es.sector_id
+                                                                                             Cache Mode: logical
+                                                                                             ->  Index Scan using sector_pkey on sector s
+                                                                                                   Index Cond: (id = es.sector_id)
                                                                                  ->  Memoize
                                                                                        Cache Key: es.id, t.valid_from, t.valid_until
                                                                                        Cache Mode: binary
@@ -95,8 +94,11 @@
                                                                                                                Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (establishment_id = es.id) AND (type = 'physical'::location_type))
                                                                            ->  Materialize
                                                                                  ->  Index Scan using region_pkey on region phr
-                                                                     ->  Hash
-                                                                           ->  Seq Scan on country phc
+                                                                     ->  Memoize
+                                                                           Cache Key: phl.country_id
+                                                                           Cache Mode: logical
+                                                                           ->  Index Scan using country_pkey on country phc
+                                                                                 Index Cond: (id = phl.country_id)
                                                                ->  Memoize
                                                                      Cache Key: es.id, t.valid_from, t.valid_until
                                                                      Cache Mode: binary
@@ -108,8 +110,11 @@
                                                                                              Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (establishment_id = es.id) AND (type = 'postal'::location_type))
                                                          ->  Materialize
                                                                ->  Index Scan using region_pkey on region por
-                                                   ->  Hash
-                                                         ->  Seq Scan on country poc
+                                                   ->  Memoize
+                                                         Cache Key: pol.country_id
+                                                         Cache Mode: logical
+                                                         ->  Index Scan using country_pkey on country poc
+                                                               Index Cond: (id = pol.country_id)
                                              ->  Memoize
                                                    Cache Key: es.id, t.valid_from, t.valid_until
                                                    Cache Mode: binary
@@ -159,5 +164,7 @@
                            Sort Key: "*VALUES*".column3 DESC
                            ->  Values Scan on "*VALUES*"
                                  Filter: (column3 IS NOT NULL)
-(159 rows)
+   ->  Materialize
+         ->  Seq Scan on settings current_settings
+(166 rows)
 

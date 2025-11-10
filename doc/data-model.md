@@ -113,7 +113,7 @@ Enumerated types used across the schema, with their possible values.
 - **`public.person_sex`**: `Male`, `Female`
 - **`public.relative_period_code`**: `today`, `year_curr`, `year_prev`, `year_curr_only`, `year_prev_only`, `start_of_week_curr`, `stop_of_week_prev`, `start_of_week_prev`, `start_of_month_curr`, `stop_of_month_prev`, `start_of_month_prev`, `start_of_quarter_curr`, `stop_of_quarter_prev`, `start_of_quarter_prev`, `start_of_semester_curr`, `stop_of_semester_prev`, `start_of_semester_prev`, `start_of_year_curr`, `stop_of_year_prev`, `start_of_year_prev`, `start_of_quinquennial_curr`, `stop_of_quinquennial_prev`, `start_of_quinquennial_prev`, `start_of_decade_curr`, `stop_of_decade_prev`, `start_of_decade_prev`
 - **`public.relative_period_scope`**: `input_and_query`, `query`, `input`
-- **`public.reset_scope`**: `data`, `getting-started`, `all`
+- **`public.reset_scope`**: `units`, `data`, `getting-started`, `all`
 - **`public.stat_frequency`**: `daily`, `weekly`, `biweekly`, `monthly`, `bimonthly`, `quarterly`, `semesterly`, `yearly`
 - **`public.stat_type`**: `int`, `float`, `string`, `bool`
 - **`public.statbus_role`**: `admin_user`, `regular_user`, `restricted_user`, `external_user`
