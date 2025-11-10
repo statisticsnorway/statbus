@@ -1,7 +1,7 @@
 
 --reset when swaping country from one country to another country in ie demo.statbus.org
 --shouls not be needed going forward..
---
+--erik kenya
 
 CREATE OR REPLACE PROCEDURE public.custom_setup_reset()
 LANGUAGE plpgsql
