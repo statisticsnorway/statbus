@@ -61,7 +61,7 @@ export async function uploadFile(
   }
 }
 
-export async function setCategoryStandard(formData: FormData) {
+export async function setSettings(formData: FormData) {
   "use server";
   const client = await getServerRestClient();
   const logger = await createServerLogger();
@@ -69,6 +69,8 @@ export async function setCategoryStandard(formData: FormData) {
   const activityCategoryStandardIdFormEntry = formData.get(
     "activity_category_standard_id"
   );
+  const countryIdFormEntry = formData.get("country_id");
+
   if (!activityCategoryStandardIdFormEntry) {
     return { error: "No activity category standard provided" };
   }
@@ -82,9 +84,25 @@ export async function setCategoryStandard(formData: FormData) {
     return { error: "Invalid activity category standard provided" };
   }
 
+  if (!countryIdFormEntry) {
+    return {
+      error:
+        "No country provided, you need to select your country before setting the actitivy category standard.",
+    };
+  }
+
+  const countryId = parseInt(countryIdFormEntry.toString(), 10);
+
+  if (isNaN(countryId)) {
+    return { error: "Invalid country provided" };
+  }
+
   try {
     const response = await client.from("settings").upsert(
-      { activity_category_standard_id: activityCategoryStandardId },
+      {
+        activity_category_standard_id: activityCategoryStandardId,
+        country_id: countryId,
+      },
       {
         onConflict: "only_one_setting",
       }
@@ -93,7 +111,7 @@ export async function setCategoryStandard(formData: FormData) {
     if (response.status >= 400) {
       logger.error(
         response.error,
-        "failed to configure activity category standard"
+        "failed to configure activity category standard and country"
       );
       return { error: response.statusText };
     }
@@ -101,6 +119,6 @@ export async function setCategoryStandard(formData: FormData) {
     revalidatePath("/getting-started");
     return { error: null, success: true };
   } catch (error) {
-    return { error: "Error setting category standard" };
+    return { error: "Error setting category standard and country" };
   }
 }

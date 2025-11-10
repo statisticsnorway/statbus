@@ -45,6 +45,8 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
     , physical_longitude
     , physical_altitude
     --
+    , domestic
+    --
     , postal_address_part1
     , postal_address_part2
     , postal_address_part3
@@ -182,6 +184,7 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
                basis.legal_form_code,
                basis.legal_form_name,
                basis.physical_address_part1, basis.physical_address_part2, basis.physical_address_part3, basis.physical_postcode, basis.physical_postplace, basis.physical_region_id, basis.physical_region_path, basis.physical_region_code, basis.physical_country_id, basis.physical_country_iso_2, basis.physical_latitude, basis.physical_longitude, basis.physical_altitude,
+               basis.domestic,
                basis.postal_address_part1, basis.postal_address_part2, basis.postal_address_part3, basis.postal_postcode, basis.postal_postplace, basis.postal_region_id, basis.postal_region_path, basis.postal_region_code, basis.postal_country_id, basis.postal_country_iso_2, basis.postal_latitude, basis.postal_longitude, basis.postal_altitude,
                basis.web_address, basis.email_address, basis.phone_number, basis.landline, basis.mobile_number, basis.fax_number,
                basis.unit_size_id,
@@ -222,6 +225,7 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
                  (SELECT array_agg(DISTINCT code) FROM (SELECT unnest(enplu.data_source_codes) AS code UNION SELECT unnest(enpes.data_source_codes) AS code) AS codes) AS data_source_codes,
                  enplu.legal_form_id, enplu.legal_form_code, enplu.legal_form_name,
                  COALESCE(enplu.physical_address_part1, enpes.physical_address_part1) AS physical_address_part1, COALESCE(enplu.physical_address_part2, enpes.physical_address_part2) AS physical_address_part2, COALESCE(enplu.physical_address_part3, enpes.physical_address_part3) AS physical_address_part3, COALESCE(enplu.physical_postcode, enpes.physical_postcode) AS physical_postcode, COALESCE(enplu.physical_postplace, enpes.physical_postplace) AS physical_postplace, COALESCE(enplu.physical_region_id, enpes.physical_region_id) AS physical_region_id, COALESCE(enplu.physical_region_path, enpes.physical_region_path) AS physical_region_path, COALESCE(enplu.physical_region_code, enpes.physical_region_code) AS physical_region_code, COALESCE(enplu.physical_country_id, enpes.physical_country_id) AS physical_country_id, COALESCE(enplu.physical_country_iso_2, enpes.physical_country_iso_2) AS physical_country_iso_2, COALESCE(enplu.physical_latitude, enpes.physical_latitude) AS physical_latitude, COALESCE(enplu.physical_longitude, enpes.physical_longitude) AS physical_longitude, COALESCE(enplu.physical_altitude, enpes.physical_altitude) AS physical_altitude,
+                 COALESCE(enplu.domestic, enpes.domestic) AS domestic,
                  COALESCE(enplu.postal_address_part1, enpes.postal_address_part1) AS postal_address_part1, COALESCE(enplu.postal_address_part2, enpes.postal_address_part2) AS postal_address_part2, COALESCE(enplu.postal_address_part3, enpes.postal_address_part3) AS postal_address_part3, COALESCE(enplu.postal_postcode, enpes.postal_postcode) AS postal_postcode, COALESCE(enplu.postal_postplace, enpes.postal_postplace) AS postal_postplace, COALESCE(enplu.postal_region_id, enpes.postal_region_id) AS postal_region_id, COALESCE(enplu.postal_region_path, enpes.postal_region_path) AS postal_region_path, COALESCE(enplu.postal_region_code, enpes.postal_region_code) AS postal_region_code, COALESCE(enplu.postal_country_id, enpes.postal_country_id) AS postal_country_id, COALESCE(enplu.postal_country_iso_2, enpes.postal_country_iso_2) AS postal_country_iso_2, COALESCE(enplu.postal_latitude, enpes.postal_latitude) AS postal_latitude, COALESCE(enplu.postal_longitude, enpes.postal_longitude) AS postal_longitude, COALESCE(enplu.postal_altitude, enpes.postal_altitude) AS postal_altitude,
                  COALESCE(enplu.web_address, enpes.web_address) AS web_address, COALESCE(enplu.email_address, enpes.email_address) AS email_address, COALESCE(enplu.phone_number, enpes.phone_number) AS phone_number, COALESCE(enplu.landline, enpes.landline) AS landline, COALESCE(enplu.mobile_number, enpes.mobile_number) AS mobile_number, COALESCE(enplu.fax_number, enpes.fax_number) AS fax_number,
                  COALESCE(enplu.unit_size_id, enpes.unit_size_id) AS unit_size_id, COALESCE(enplu.unit_size_code, enpes.unit_size_code) AS unit_size_code,
@@ -245,7 +249,17 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
              , primary_activity_category_id, primary_activity_category_path, primary_activity_category_code
              , secondary_activity_category_id, secondary_activity_category_path, secondary_activity_category_code
              , NULLIF(ARRAY_REMOVE(ARRAY[primary_activity_category_path, secondary_activity_category_path], NULL), '{}') AS activity_category_paths
-             , sector_id, sector_path, sector_code, sector_name, data_source_ids, data_source_codes, legal_form_id, legal_form_code, legal_form_name, physical_address_part1, physical_address_part2, physical_address_part3, physical_postcode, physical_postplace, physical_region_id, physical_region_path, physical_region_code, physical_country_id, physical_country_iso_2, physical_latitude, physical_longitude, physical_altitude, postal_address_part1, postal_address_part2, postal_address_part3, postal_postcode, postal_postplace, postal_region_id, postal_region_path, postal_region_code, postal_country_id, postal_country_iso_2, postal_latitude, postal_longitude, postal_altitude, web_address, email_address, phone_number, landline, mobile_number, fax_number, unit_size_id, unit_size_code, status_id, status_code, used_for_counting, last_edit_comment, last_edit_by_user_id, last_edit_at, invalid_codes, has_legal_unit
+             , sector_id, sector_path, sector_code, sector_name, data_source_ids, data_source_codes, legal_form_id, legal_form_code, legal_form_name
+             , physical_address_part1, physical_address_part2, physical_address_part3, physical_postcode, physical_postplace, physical_region_id, physical_region_path, physical_region_code, physical_country_id, physical_country_iso_2, physical_latitude, physical_longitude, physical_altitude
+             , domestic
+             , postal_address_part1, postal_address_part2, postal_address_part3, postal_postcode, postal_postplace, postal_region_id, postal_region_path, postal_region_code, postal_country_id, postal_country_iso_2, postal_latitude, postal_longitude, postal_altitude
+             , web_address, email_address, phone_number, landline, mobile_number, fax_number
+             , unit_size_id, unit_size_code
+             , status_id, status_code
+             , used_for_counting
+             , last_edit_comment, last_edit_by_user_id, last_edit_at
+             , invalid_codes
+             , has_legal_unit
              , related_establishment_ids, excluded_establishment_ids, included_establishment_ids, related_legal_unit_ids, excluded_legal_unit_ids, included_legal_unit_ids
              , ARRAY[unit_id] AS related_enterprise_ids
              , ARRAY[]::INT[] AS excluded_enterprise_ids

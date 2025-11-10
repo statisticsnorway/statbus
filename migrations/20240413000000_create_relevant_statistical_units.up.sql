@@ -77,6 +77,8 @@ CREATE FUNCTION public.relevant_statistical_units(
          , physical_longitude
          , physical_altitude
          --
+         , domestic
+         --
          , postal_address_part1
          , postal_address_part2
          , postal_address_part3

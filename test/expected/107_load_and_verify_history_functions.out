@@ -100,15 +100,27 @@ $remove_pg_temp_for_tx_user_switch$;
 "Setting up Statbus to load establishments without legal units"
 -- A Super User configures statbus.
 CALL test.set_user_from_email('test.admin@statbus.org');
-\echo "User selected the Activity Category Standard"
-"User selected the Activity Category Standard"
-INSERT INTO settings(activity_category_standard_id,only_one_setting)
-SELECT id, true FROM activity_category_standard WHERE code = 'nace_v2.1'
+\i samples/norway/getting-started.sql
+\i samples/norway/settings.sql
+INSERT INTO settings(activity_category_standard_id,country_id)
+SELECT (SELECT id FROM activity_category_standard WHERE code = 'nace_v2.1')
+     , (SELECT id FROM public.country WHERE iso_2 = 'NO')
 ON CONFLICT (only_one_setting)
 DO UPDATE SET
-   activity_category_standard_id =(SELECT id FROM activity_category_standard WHERE code = 'nace_v2.1')
-   WHERE settings.id = EXCLUDED.id;
+   activity_category_standard_id = EXCLUDED.activity_category_standard_id,
+   country_id = EXCLUDED.country_id
+   WHERE settings.only_one_setting = EXCLUDED.only_one_setting;
 ;
+\i samples/norway/activity_category/activity_category_norway.sql
+\copy public.activity_category_available_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/regions/norway-regions-2024.sql
+\copy public.region_upload(path, name) FROM 'samples/norway/regions/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/sector/sector_norway.sql
+\copy public.sector_custom_only FROM 'samples/norway/sector/sector_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/legal_form/legal_form_norway.sql
+\copy public.legal_form_custom_only FROM 'samples/norway/legal_form/legal_form_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/data_source/data_source_norway.sql
+\copy public.data_source_custom (code, name) FROM 'samples/norway/data_source/data_source_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 SELECT acs.code
   FROM public.settings AS s
   JOIN activity_category_standard AS acs
@@ -118,36 +130,24 @@ SELECT acs.code
  nace_v2.1
 (1 row)
 
-\echo "User uploads the sample activity categories"
-"User uploads the sample activity categories"
-\copy public.activity_category_available_custom(path,name,description) FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 SELECT count(*) FROM public.activity_category_available;
  count 
 -------
   2215
 (1 row)
 
-\echo "User uploads the sample regions"
-"User uploads the sample regions"
-\copy public.region_upload(path, name) FROM 'samples/norway/regions/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 SELECT count(*) FROM public.region;
  count 
 -------
    417
 (1 row)
 
-\echo "User uploads the sample legal forms"
-"User uploads the sample legal forms"
-\copy public.legal_form_custom_only(code,name) FROM 'samples/norway/legal_form/legal_form_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 SELECT count(*) FROM public.legal_form_available;
  count 
 -------
     46
 (1 row)
 
-\echo "User uploads the sample sectors"
-"User uploads the sample sectors"
-\copy public.sector_custom_only(path,name,description) FROM 'samples/norway/sector/sector_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 SELECT count(*) FROM public.sector_available;
  count 
 -------
@@ -774,16 +774,16 @@ FROM timeline_establishment_with_tax_ident AS tet
 ORDER BY tet.unit_type, tet.tax_ident, tet.valid_from, tet.valid_until;
    unit_type   | tax_ident | valid_from |  valid_to  | valid_until |         name          | birth_date | death_date |             search              | primary_activity_category_path | secondary_activity_category_path | activity_category_paths | sector_path | sector_code | sector_name | data_source_codes | legal_form_code | legal_form_name | physical_address_part1 | physical_address_part2 | physical_address_part3 | physical_postcode | physical_postplace | physical_region_path | physical_country_iso_2 | postal_address_part1 | postal_address_part2 | postal_address_part3 | postal_postcode | postal_postplace | postal_region_path | postal_country_iso_2 | invalid_codes 
 ---------------+-----------+------------+------------+-------------+-----------------------+------------+------------+---------------------------------+--------------------------------+----------------------------------+-------------------------+-------------+-------------+-------------+-------------------+-----------------+-----------------+------------------------+------------------------+------------------------+-------------------+--------------------+----------------------+------------------------+----------------------+----------------------+----------------------+-----------------+------------------+--------------------+----------------------+---------------
- establishment | 895406732 | 2010-01-01 | 2012-12-31 | 2013-01-01  | KRANLØFT ENK          | 2010-01-01 |            | 'enk':2 'kranløft':1            | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {nlr}             |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- establishment | 895406732 | 2013-01-01 | 2015-12-31 | 2016-01-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {nlr}             |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- establishment | 895406732 | 2016-01-01 | 2018-12-31 | 2019-01-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {nlr}             |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- establishment | 895406732 | 2019-01-01 | 2019-02-28 | 2019-03-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {nlr}             |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- establishment | 895406732 | 2019-03-01 | 2019-04-30 | 2019-05-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {nlr}             |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- establishment | 895406732 | 2019-05-01 | 2019-06-30 | 2019-07-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {nlr}             |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- establishment | 895406732 | 2019-07-01 | 2019-08-31 | 2019-09-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {nlr}             |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- establishment | 895406732 | 2019-09-01 | 2019-10-31 | 2019-11-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {nlr}             |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- establishment | 895406732 | 2019-11-01 | 2019-12-31 | 2020-01-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {nlr}             |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- establishment | 895406732 | 2020-01-01 | infinity   | infinity    | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {nlr}             |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ establishment | 895406732 | 2010-01-01 | 2012-12-31 | 2013-01-01  | KRANLØFT ENK          | 2010-01-01 |            | 'enk':2 'kranløft':1            | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {brreg}           |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ establishment | 895406732 | 2013-01-01 | 2015-12-31 | 2016-01-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {brreg}           |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ establishment | 895406732 | 2016-01-01 | 2018-12-31 | 2019-01-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {brreg}           |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ establishment | 895406732 | 2019-01-01 | 2019-02-28 | 2019-03-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {brreg}           |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ establishment | 895406732 | 2019-03-01 | 2019-04-30 | 2019-05-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {brreg}           |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ establishment | 895406732 | 2019-05-01 | 2019-06-30 | 2019-07-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {brreg}           |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ establishment | 895406732 | 2019-07-01 | 2019-08-31 | 2019-09-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {brreg}           |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ establishment | 895406732 | 2019-09-01 | 2019-10-31 | 2019-11-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {brreg}           |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ establishment | 895406732 | 2019-11-01 | 2019-12-31 | 2020-01-01  | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {brreg}           |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ establishment | 895406732 | 2020-01-01 | infinity   | infinity    | KRAN & SPESIALLØFT AS | 2010-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            |             |             |             | {brreg}           |                 |                 | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
 (10 rows)
 
 \echo "Checking timeline_establishment stats"
@@ -859,16 +859,16 @@ FROM timeline_legal_unit_with_tax_ident AS tlut
 ORDER BY tlut.unit_type, tlut.tax_ident, tlut.valid_from, tlut.valid_until;
  unit_type  | tax_ident | valid_from |  valid_to  | valid_until |         name          | birth_date | death_date |             search              | primary_activity_category_path | secondary_activity_category_path | activity_category_paths |     sector_path      | sector_code |        sector_name         | data_source_codes | legal_form_code |   legal_form_name   | physical_address_part1 | physical_address_part2 | physical_address_part3 | physical_postcode | physical_postplace | physical_region_path | physical_country_iso_2 | postal_address_part1 | postal_address_part2 | postal_address_part3 | postal_postcode | postal_postplace | postal_region_path | postal_country_iso_2 | invalid_codes 
 ------------+-----------+------------+------------+-------------+-----------------------+------------+------------+---------------------------------+--------------------------------+----------------------------------+-------------------------+----------------------+-------------+----------------------------+-------------------+-----------------+---------------------+------------------------+------------------------+------------------------+-------------------+--------------------+----------------------+------------------------+----------------------+----------------------+----------------------+-----------------+------------------+--------------------+----------------------+---------------
- legal_unit | 823573673 | 2010-01-01 | 2012-12-31 | 2013-01-01  | KRANLØFT ENK          | 2010-01-01 | 2012-12-31 | 'enk':2 'kranløft':1            | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {nlr,ntr}         | ENK             | Enkeltpersonforetak | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- legal_unit | 921835809 | 2013-01-01 | 2015-12-31 | 2016-01-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {nlr,ntr}         | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- legal_unit | 921835809 | 2016-01-01 | 2018-12-31 | 2019-01-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {nlr,ntr}         | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- legal_unit | 921835809 | 2019-01-01 | 2019-02-28 | 2019-03-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {nlr,ntr}         | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- legal_unit | 921835809 | 2019-03-01 | 2019-04-30 | 2019-05-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {nlr,ntr}         | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- legal_unit | 921835809 | 2019-05-01 | 2019-06-30 | 2019-07-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {nlr,ntr}         | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- legal_unit | 921835809 | 2019-07-01 | 2019-08-31 | 2019-09-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {nlr,ntr}         | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- legal_unit | 921835809 | 2019-09-01 | 2019-10-31 | 2019-11-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {nlr,ntr}         | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- legal_unit | 921835809 | 2019-11-01 | 2019-12-31 | 2020-01-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {nlr,ntr}         | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- legal_unit | 921835809 | 2020-01-01 | infinity   | infinity    | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {nlr,ntr}         | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ legal_unit | 823573673 | 2010-01-01 | 2012-12-31 | 2013-01-01  | KRANLØFT ENK          | 2010-01-01 | 2012-12-31 | 'enk':2 'kranløft':1            | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | ENK             | Enkeltpersonforetak | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ legal_unit | 921835809 | 2013-01-01 | 2015-12-31 | 2016-01-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ legal_unit | 921835809 | 2016-01-01 | 2018-12-31 | 2019-01-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ legal_unit | 921835809 | 2019-01-01 | 2019-02-28 | 2019-03-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ legal_unit | 921835809 | 2019-03-01 | 2019-04-30 | 2019-05-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ legal_unit | 921835809 | 2019-05-01 | 2019-06-30 | 2019-07-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ legal_unit | 921835809 | 2019-07-01 | 2019-08-31 | 2019-09-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ legal_unit | 921835809 | 2019-09-01 | 2019-10-31 | 2019-11-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ legal_unit | 921835809 | 2019-11-01 | 2019-12-31 | 2020-01-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ legal_unit | 921835809 | 2020-01-01 | infinity   | infinity    | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
 (10 rows)
 
 \x
@@ -1280,16 +1280,16 @@ FROM timeline_enterprise_with_tax_ident AS te
 ORDER BY te.unit_type, te.tax_ident, te.valid_from, te.valid_until;
  unit_type  | tax_ident | valid_from |  valid_to  | valid_until |         name          | birth_date | death_date |             search              | primary_activity_category_path | secondary_activity_category_path | activity_category_paths |     sector_path      | sector_code |        sector_name         | data_source_codes | legal_form_code |   legal_form_name   | physical_address_part1 | physical_address_part2 | physical_address_part3 | physical_postcode | physical_postplace | physical_region_path | physical_country_iso_2 | postal_address_part1 | postal_address_part2 | postal_address_part3 | postal_postcode | postal_postplace | postal_region_path | postal_country_iso_2 | invalid_codes 
 ------------+-----------+------------+------------+-------------+-----------------------+------------+------------+---------------------------------+--------------------------------+----------------------------------+-------------------------+----------------------+-------------+----------------------------+-------------------+-----------------+---------------------+------------------------+------------------------+------------------------+-------------------+--------------------+----------------------+------------------------+----------------------+----------------------+----------------------+-----------------+------------------+--------------------+----------------------+---------------
- enterprise | 823573673 | 2010-01-01 | 2012-12-31 | 2013-01-01  | KRANLØFT ENK          | 2010-01-01 | 2012-12-31 | 'enk':2 'kranløft':1            | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {nlr,ntr}         | ENK             | Enkeltpersonforetak | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- enterprise | 921835809 | 2013-01-01 | 2015-12-31 | 2016-01-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {nlr,ntr}         | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- enterprise | 921835809 | 2016-01-01 | 2018-12-31 | 2019-01-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {nlr,ntr}         | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- enterprise | 921835809 | 2019-01-01 | 2019-02-28 | 2019-03-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {nlr,ntr}         | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- enterprise | 921835809 | 2019-03-01 | 2019-04-30 | 2019-05-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {nlr,ntr}         | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- enterprise | 921835809 | 2019-05-01 | 2019-06-30 | 2019-07-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {nlr,ntr}         | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- enterprise | 921835809 | 2019-07-01 | 2019-08-31 | 2019-09-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {nlr,ntr}         | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- enterprise | 921835809 | 2019-09-01 | 2019-10-31 | 2019-11-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {nlr,ntr}         | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- enterprise | 921835809 | 2019-11-01 | 2019-12-31 | 2020-01-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {nlr,ntr}         | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
- enterprise | 921835809 | 2020-01-01 | infinity   | infinity    | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {nlr,ntr}         | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ enterprise | 823573673 | 2010-01-01 | 2012-12-31 | 2013-01-01  | KRANLØFT ENK          | 2010-01-01 | 2012-12-31 | 'enk':2 'kranløft':1            | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | ENK             | Enkeltpersonforetak | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ enterprise | 921835809 | 2013-01-01 | 2015-12-31 | 2016-01-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ enterprise | 921835809 | 2016-01-01 | 2018-12-31 | 2019-01-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ enterprise | 921835809 | 2019-01-01 | 2019-02-28 | 2019-03-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ enterprise | 921835809 | 2019-03-01 | 2019-04-30 | 2019-05-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ enterprise | 921835809 | 2019-05-01 | 2019-06-30 | 2019-07-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ enterprise | 921835809 | 2019-07-01 | 2019-08-31 | 2019-09-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ enterprise | 921835809 | 2019-09-01 | 2019-10-31 | 2019-11-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ enterprise | 921835809 | 2019-11-01 | 2019-12-31 | 2020-01-01  | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
+ enterprise | 921835809 | 2020-01-01 | infinity   | infinity    | KRAN & SPESIALLØFT AS | 2013-01-01 |            | 'as':3 'kran':1 'spesialløft':2 | H.49.4.1.0                     |                                  | {H.49.4.1.0}            | innl.a_ikke_fin.2100 | 2100        | Private aksjeselskaper mv. | {brreg,skatt}     | AS              | Aksjeselskap        | Vestlyvegen 219        |                        |                        | 4347              | LYE                | 11.21                | NO                     |                      |                      |                      |                 |                  |                    |                      | 
 (10 rows)
 
 \x
@@ -1684,6 +1684,7 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRANLØFT ENK",                                                          +
                       |     "search": "'enk':2 'kranløft':1",                                                +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -1710,7 +1711,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
-                      |         "nlr"                                                                        +
+                      |         "brreg"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_altitude": null,                                                       +
@@ -1781,6 +1782,7 @@ external_idents       | {"tax_ident": "823573673"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRANLØFT ENK",                                                          +
                       |     "search": "'enk':2 'kranløft':1",                                                +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -1807,8 +1809,8 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
-                      |         "nlr",                                                                       +
-                      |         "ntr"                                                                        +
+                      |         "brreg",                                                                     +
+                      |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_altitude": null,                                                       +
@@ -1877,6 +1879,7 @@ external_idents       | {"tax_ident": "823573673"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRANLØFT ENK",                                                          +
                       |     "search": "'enk':2 'kranløft':1",                                                +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -1903,8 +1906,8 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
-                      |         "nlr",                                                                       +
-                      |         "ntr"                                                                        +
+                      |         "brreg",                                                                     +
+                      |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_altitude": null,                                                       +
@@ -1972,6 +1975,7 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -1998,7 +2002,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
-                      |         "nlr"                                                                        +
+                      |         "brreg"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_altitude": null,                                                       +
@@ -2069,6 +2073,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -2095,8 +2100,8 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
-                      |         "nlr",                                                                       +
-                      |         "ntr"                                                                        +
+                      |         "brreg",                                                                     +
+                      |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_altitude": null,                                                       +
@@ -2165,6 +2170,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -2191,8 +2197,8 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
-                      |         "nlr",                                                                       +
-                      |         "ntr"                                                                        +
+                      |         "brreg",                                                                     +
+                      |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_altitude": null,                                                       +
@@ -2260,6 +2266,7 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -2286,7 +2293,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
-                      |         "nlr"                                                                        +
+                      |         "brreg"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_altitude": null,                                                       +
@@ -2357,6 +2364,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -2383,8 +2391,8 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
-                      |         "nlr",                                                                       +
-                      |         "ntr"                                                                        +
+                      |         "brreg",                                                                     +
+                      |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_altitude": null,                                                       +
@@ -2453,6 +2461,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -2479,8 +2488,8 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
-                      |         "nlr",                                                                       +
-                      |         "ntr"                                                                        +
+                      |         "brreg",                                                                     +
+                      |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_altitude": null,                                                       +
@@ -2548,6 +2557,7 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -2574,7 +2584,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
-                      |         "nlr"                                                                        +
+                      |         "brreg"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_altitude": null,                                                       +
@@ -2645,6 +2655,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -2671,8 +2682,8 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
-                      |         "nlr",                                                                       +
-                      |         "ntr"                                                                        +
+                      |         "brreg",                                                                     +
+                      |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_altitude": null,                                                       +
@@ -2741,6 +2752,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -2767,8 +2779,8 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
-                      |         "nlr",                                                                       +
-                      |         "ntr"                                                                        +
+                      |         "brreg",                                                                     +
+                      |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_altitude": null,                                                       +
@@ -2836,6 +2848,7 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -2862,7 +2875,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
-                      |         "nlr"                                                                        +
+                      |         "brreg"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_altitude": null,                                                       +
@@ -2933,6 +2946,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -2959,8 +2973,8 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
-                      |         "nlr",                                                                       +
-                      |         "ntr"                                                                        +
+                      |         "brreg",                                                                     +
+                      |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_altitude": null,                                                       +
@@ -3029,6 +3043,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -3055,8 +3070,8 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
-                      |         "nlr",                                                                       +
-                      |         "ntr"                                                                        +
+                      |         "brreg",                                                                     +
+                      |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_altitude": null,                                                       +
@@ -3124,6 +3139,7 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -3150,7 +3166,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
-                      |         "nlr"                                                                        +
+                      |         "brreg"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_altitude": null,                                                       +
@@ -3221,6 +3237,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -3247,8 +3264,8 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
-                      |         "nlr",                                                                       +
-                      |         "ntr"                                                                        +
+                      |         "brreg",                                                                     +
+                      |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_altitude": null,                                                       +
@@ -3317,6 +3334,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -3343,8 +3361,8 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
-                      |         "nlr",                                                                       +
-                      |         "ntr"                                                                        +
+                      |         "brreg",                                                                     +
+                      |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_altitude": null,                                                       +
@@ -3412,6 +3430,7 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -3438,7 +3457,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
-                      |         "nlr"                                                                        +
+                      |         "brreg"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_altitude": null,                                                       +
@@ -3509,6 +3528,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -3535,8 +3555,8 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
-                      |         "nlr",                                                                       +
-                      |         "ntr"                                                                        +
+                      |         "brreg",                                                                     +
+                      |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_altitude": null,                                                       +
@@ -3605,6 +3625,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -3631,8 +3652,8 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
-                      |         "nlr",                                                                       +
-                      |         "ntr"                                                                        +
+                      |         "brreg",                                                                     +
+                      |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_altitude": null,                                                       +
@@ -3700,6 +3721,7 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -3726,7 +3748,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
-                      |         "nlr"                                                                        +
+                      |         "brreg"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_altitude": null,                                                       +
@@ -3797,6 +3819,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -3823,8 +3846,8 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
-                      |         "nlr",                                                                       +
-                      |         "ntr"                                                                        +
+                      |         "brreg",                                                                     +
+                      |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_altitude": null,                                                       +
@@ -3893,6 +3916,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -3919,8 +3943,8 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
-                      |         "nlr",                                                                       +
-                      |         "ntr"                                                                        +
+                      |         "brreg",                                                                     +
+                      |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_altitude": null,                                                       +
@@ -3988,6 +4012,7 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -4014,7 +4039,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
-                      |         "nlr"                                                                        +
+                      |         "brreg"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_altitude": null,                                                       +
@@ -4085,6 +4110,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -4111,8 +4137,8 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
-                      |         "nlr",                                                                       +
-                      |         "ntr"                                                                        +
+                      |         "brreg",                                                                     +
+                      |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_altitude": null,                                                       +
@@ -4181,6 +4207,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -4207,8 +4234,8 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
-                      |         "nlr",                                                                       +
-                      |         "ntr"                                                                        +
+                      |         "brreg",                                                                     +
+                      |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_altitude": null,                                                       +
@@ -4276,6 +4303,7 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -4302,7 +4330,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
-                      |         "nlr"                                                                        +
+                      |         "brreg"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_altitude": null,                                                       +
@@ -4373,6 +4401,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -4399,8 +4428,8 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
-                      |         "nlr",                                                                       +
-                      |         "ntr"                                                                        +
+                      |         "brreg",                                                                     +
+                      |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_altitude": null,                                                       +
@@ -4469,6 +4498,7 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                                                    +
                       |     "name": "KRAN & SPESIALLØFT AS",                                                 +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",                                     +
+                      |     "domestic": true,                                                                +
                       |     "landline": null,                                                                +
                       |     "tag_paths": [                                                                   +
                       |     ],                                                                               +
@@ -4495,8 +4525,8 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                                        +
                       |     "postal_postplace": null,                                                        +
                       |     "data_source_codes": [                                                           +
-                      |         "nlr",                                                                       +
-                      |         "ntr"                                                                        +
+                      |         "brreg",                                                                     +
+                      |         "skatt"                                                                      +
                       |     ],                                                                               +
                       |     "last_edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",+
                       |     "physical_altitude": null,                                                       +
@@ -14295,10 +14325,10 @@ statistical_unit_hierarchy
                         "valid_to": "2012-12-31",
                         "valid_from": "2010-01-01",
                         "data_source": {
-                            "code": "ntr",
-                            "name": "National Tax Registry",
+                            "code": "skatt",
+                            "name": "Skatteetaten",
                             "active": true,
-                            "custom": false
+                            "custom": true
                         },
                         "valid_until": "2013-01-01",
                         "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
@@ -14350,10 +14380,10 @@ statistical_unit_hierarchy
                         "postplace": "LYE",
                         "valid_from": "2010-01-01",
                         "data_source": {
-                            "code": "ntr",
-                            "name": "National Tax Registry",
+                            "code": "skatt",
+                            "name": "Skatteetaten",
                             "active": true,
-                            "custom": false
+                            "custom": true
                         },
                         "valid_until": "2013-01-01",
                         "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
@@ -14374,10 +14404,10 @@ statistical_unit_hierarchy
                 "short_name": null,
                 "valid_from": "2010-01-01",
                 "data_source": {
-                    "code": "ntr",
-                    "name": "National Tax Registry",
+                    "code": "skatt",
+                    "name": "Skatteetaten",
                     "active": true,
-                    "custom": false
+                    "custom": true
                 },
                 "valid_until": "2013-01-01",
                 "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
@@ -14399,10 +14429,10 @@ statistical_unit_hierarchy
                                 "valid_to": "infinity",
                                 "valid_from": "2010-01-01",
                                 "data_source": {
-                                    "code": "nlr",
-                                    "name": "National Legal Business Registry",
+                                    "code": "brreg",
+                                    "name": "Brønnøysundregistrene",
                                     "active": true,
-                                    "custom": false
+                                    "custom": true
                                 },
                                 "valid_until": "infinity",
                                 "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
@@ -14454,10 +14484,10 @@ statistical_unit_hierarchy
                                 "postplace": "LYE",
                                 "valid_from": "2010-01-01",
                                 "data_source": {
-                                    "code": "nlr",
-                                    "name": "National Legal Business Registry",
+                                    "code": "brreg",
+                                    "name": "Brønnøysundregistrene",
                                     "active": true,
-                                    "custom": false
+                                    "custom": true
                                 },
                                 "valid_until": "infinity",
                                 "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
@@ -14478,10 +14508,10 @@ statistical_unit_hierarchy
                         "short_name": null,
                         "valid_from": "2010-01-01",
                         "data_source": {
-                            "code": "nlr",
-                            "name": "National Legal Business Registry",
+                            "code": "brreg",
+                            "name": "Brønnøysundregistrene",
                             "active": true,
-                            "custom": false
+                            "custom": true
                         },
                         "valid_until": "2013-01-01",
                         "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
@@ -14493,10 +14523,10 @@ statistical_unit_hierarchy
                                 "valid_from": "2010-01-01",
                                 "value_bool": null,
                                 "data_source": {
-                                    "code": "nlr",
-                                    "name": "National Legal Business Registry",
+                                    "code": "brreg",
+                                    "name": "Brønnøysundregistrene",
                                     "active": true,
-                                    "custom": false
+                                    "custom": true
                                 },
                                 "valid_until": "2013-01-01",
                                 "value_float": null,
@@ -14518,10 +14548,10 @@ statistical_unit_hierarchy
                                 "valid_from": "2010-01-01",
                                 "value_bool": null,
                                 "data_source": {
-                                    "code": "nlr",
-                                    "name": "National Legal Business Registry",
+                                    "code": "brreg",
+                                    "name": "Brønnøysundregistrene",
                                     "active": true,
-                                    "custom": false
+                                    "custom": true
                                 },
                                 "valid_until": "2013-01-01",
                                 "value_float": 1500000,
@@ -14601,10 +14631,10 @@ statistical_unit_hierarchy
                         "valid_to": "infinity",
                         "valid_from": "2013-01-01",
                         "data_source": {
-                            "code": "ntr",
-                            "name": "National Tax Registry",
+                            "code": "skatt",
+                            "name": "Skatteetaten",
                             "active": true,
-                            "custom": false
+                            "custom": true
                         },
                         "valid_until": "infinity",
                         "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
@@ -14656,10 +14686,10 @@ statistical_unit_hierarchy
                         "postplace": "LYE",
                         "valid_from": "2013-01-01",
                         "data_source": {
-                            "code": "ntr",
-                            "name": "National Tax Registry",
+                            "code": "skatt",
+                            "name": "Skatteetaten",
                             "active": true,
-                            "custom": false
+                            "custom": true
                         },
                         "valid_until": "infinity",
                         "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
@@ -14680,10 +14710,10 @@ statistical_unit_hierarchy
                 "short_name": null,
                 "valid_from": "2013-01-01",
                 "data_source": {
-                    "code": "ntr",
-                    "name": "National Tax Registry",
+                    "code": "skatt",
+                    "name": "Skatteetaten",
                     "active": true,
-                    "custom": false
+                    "custom": true
                 },
                 "valid_until": "infinity",
                 "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
@@ -14705,10 +14735,10 @@ statistical_unit_hierarchy
                                 "valid_to": "infinity",
                                 "valid_from": "2010-01-01",
                                 "data_source": {
-                                    "code": "nlr",
-                                    "name": "National Legal Business Registry",
+                                    "code": "brreg",
+                                    "name": "Brønnøysundregistrene",
                                     "active": true,
-                                    "custom": false
+                                    "custom": true
                                 },
                                 "valid_until": "infinity",
                                 "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
@@ -14760,10 +14790,10 @@ statistical_unit_hierarchy
                                 "postplace": "LYE",
                                 "valid_from": "2010-01-01",
                                 "data_source": {
-                                    "code": "nlr",
-                                    "name": "National Legal Business Registry",
+                                    "code": "brreg",
+                                    "name": "Brønnøysundregistrene",
                                     "active": true,
-                                    "custom": false
+                                    "custom": true
                                 },
                                 "valid_until": "infinity",
                                 "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
@@ -14784,10 +14814,10 @@ statistical_unit_hierarchy
                         "short_name": null,
                         "valid_from": "2020-01-01",
                         "data_source": {
-                            "code": "nlr",
-                            "name": "National Legal Business Registry",
+                            "code": "brreg",
+                            "name": "Brønnøysundregistrene",
                             "active": true,
-                            "custom": false
+                            "custom": true
                         },
                         "valid_until": "infinity",
                         "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
@@ -14799,10 +14829,10 @@ statistical_unit_hierarchy
                                 "valid_from": "2020-01-01",
                                 "value_bool": null,
                                 "data_source": {
-                                    "code": "nlr",
-                                    "name": "National Legal Business Registry",
+                                    "code": "brreg",
+                                    "name": "Brønnøysundregistrene",
                                     "active": true,
-                                    "custom": false
+                                    "custom": true
                                 },
                                 "valid_until": "infinity",
                                 "value_float": null,
@@ -14824,10 +14854,10 @@ statistical_unit_hierarchy
                                 "valid_from": "2020-01-01",
                                 "value_bool": null,
                                 "data_source": {
-                                    "code": "nlr",
-                                    "name": "National Legal Business Registry",
+                                    "code": "brreg",
+                                    "name": "Brønnøysundregistrene",
                                     "active": true,
-                                    "custom": false
+                                    "custom": true
                                 },
                                 "valid_until": "infinity",
                                 "value_float": 70000000,
@@ -14906,10 +14936,10 @@ statistical_unit_hierarchy
                         "valid_to": "infinity",
                         "valid_from": "2013-01-01",
                         "data_source": {
-                            "code": "ntr",
-                            "name": "National Tax Registry",
+                            "code": "skatt",
+                            "name": "Skatteetaten",
                             "active": true,
-                            "custom": false
+                            "custom": true
                         },
                         "valid_until": "infinity",
                         "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
@@ -14961,10 +14991,10 @@ statistical_unit_hierarchy
                         "postplace": "LYE",
                         "valid_from": "2013-01-01",
                         "data_source": {
-                            "code": "ntr",
-                            "name": "National Tax Registry",
+                            "code": "skatt",
+                            "name": "Skatteetaten",
                             "active": true,
-                            "custom": false
+                            "custom": true
                         },
                         "valid_until": "infinity",
                         "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
@@ -14985,10 +15015,10 @@ statistical_unit_hierarchy
                 "short_name": null,
                 "valid_from": "2013-01-01",
                 "data_source": {
-                    "code": "ntr",
-                    "name": "National Tax Registry",
+                    "code": "skatt",
+                    "name": "Skatteetaten",
                     "active": true,
-                    "custom": false
+                    "custom": true
                 },
                 "valid_until": "infinity",
                 "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
@@ -15010,10 +15040,10 @@ statistical_unit_hierarchy
                                 "valid_to": "infinity",
                                 "valid_from": "2010-01-01",
                                 "data_source": {
-                                    "code": "nlr",
-                                    "name": "National Legal Business Registry",
+                                    "code": "brreg",
+                                    "name": "Brønnøysundregistrene",
                                     "active": true,
-                                    "custom": false
+                                    "custom": true
                                 },
                                 "valid_until": "infinity",
                                 "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
@@ -15065,10 +15095,10 @@ statistical_unit_hierarchy
                                 "postplace": "LYE",
                                 "valid_from": "2010-01-01",
                                 "data_source": {
-                                    "code": "nlr",
-                                    "name": "National Legal Business Registry",
+                                    "code": "brreg",
+                                    "name": "Brønnøysundregistrene",
                                     "active": true,
-                                    "custom": false
+                                    "custom": true
                                 },
                                 "valid_until": "infinity",
                                 "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
@@ -15089,10 +15119,10 @@ statistical_unit_hierarchy
                         "short_name": null,
                         "valid_from": "2020-01-01",
                         "data_source": {
-                            "code": "nlr",
-                            "name": "National Legal Business Registry",
+                            "code": "brreg",
+                            "name": "Brønnøysundregistrene",
                             "active": true,
-                            "custom": false
+                            "custom": true
                         },
                         "valid_until": "infinity",
                         "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
@@ -15104,10 +15134,10 @@ statistical_unit_hierarchy
                                 "valid_from": "2020-01-01",
                                 "value_bool": null,
                                 "data_source": {
-                                    "code": "nlr",
-                                    "name": "National Legal Business Registry",
+                                    "code": "brreg",
+                                    "name": "Brønnøysundregistrene",
                                     "active": true,
-                                    "custom": false
+                                    "custom": true
                                 },
                                 "valid_until": "infinity",
                                 "value_float": null,
@@ -15129,10 +15159,10 @@ statistical_unit_hierarchy
                                 "valid_from": "2020-01-01",
                                 "value_bool": null,
                                 "data_source": {
-                                    "code": "nlr",
-                                    "name": "National Legal Business Registry",
+                                    "code": "brreg",
+                                    "name": "Brønnøysundregistrene",
                                     "active": true,
-                                    "custom": false
+                                    "custom": true
                                 },
                                 "valid_until": "infinity",
                                 "value_float": 70000000,

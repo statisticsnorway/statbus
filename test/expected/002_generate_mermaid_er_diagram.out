@@ -534,6 +534,7 @@ erDiagram
 	settings["settings"] {
 		integer id
 		integer activity_category_standard_id
+		integer country_id
 		boolean only_one_setting
 	}
 	stat_definition["stat_definition"] {
@@ -664,6 +665,7 @@ erDiagram
 		numeric(9_6) physical_latitude
 		numeric(9_6) physical_longitude
 		numeric(6_1) physical_altitude
+		boolean domestic
 		character_varying(200) postal_address_part1
 		character_varying(200) postal_address_part2
 		character_varying(200) postal_address_part3
@@ -805,6 +807,7 @@ erDiagram
 		numeric(9_6) physical_latitude
 		numeric(9_6) physical_longitude
 		numeric(6_1) physical_altitude
+		boolean domestic
 		character_varying(200) postal_address_part1
 		character_varying(200) postal_address_part2
 		character_varying(200) postal_address_part3
@@ -887,6 +890,7 @@ erDiagram
 		numeric(9_6) physical_latitude
 		numeric(9_6) physical_longitude
 		numeric(6_1) physical_altitude
+		boolean domestic
 		character_varying(200) postal_address_part1
 		character_varying(200) postal_address_part2
 		character_varying(200) postal_address_part3
@@ -972,6 +976,7 @@ erDiagram
 		numeric(9_6) physical_latitude
 		numeric(9_6) physical_longitude
 		numeric(6_1) physical_altitude
+		boolean domestic
 		character_varying(200) postal_address_part1
 		character_varying(200) postal_address_part2
 		character_varying(200) postal_address_part3
@@ -1228,6 +1233,7 @@ erDiagram
 	region_access }|--|| auth_user : region_access_user_id_fkey
 	region_access }o--|| region : region_access_region_id_fkey
 	settings }|--|| activity_category_standard : settings_activity_category_standard_id_fkey
+	settings }|--|| country : settings_country_id_fkey
 	stat_for_unit }o--|| auth_user : stat_for_unit_edit_by_user_id_fkey
 	stat_for_unit }o--o| data_source : stat_for_unit_data_source_id_fkey
 	stat_for_unit }|--|| stat_definition : stat_for_unit_stat_definition_id_fkey

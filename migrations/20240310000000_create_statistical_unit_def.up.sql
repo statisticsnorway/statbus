@@ -42,6 +42,8 @@ CREATE OR REPLACE VIEW public.statistical_unit_def
     , physical_longitude
     , physical_altitude
     --
+    , domestic
+    --
     , postal_address_part1
     , postal_address_part2
     , postal_address_part3
@@ -197,6 +199,8 @@ CREATE OR REPLACE VIEW public.statistical_unit_def
            , physical_longitude
            , physical_altitude
            --
+           , domestic
+           --
            , postal_address_part1
            , postal_address_part2
            , postal_address_part3
@@ -286,6 +290,8 @@ CREATE OR REPLACE VIEW public.statistical_unit_def
            , physical_longitude
            , physical_altitude
            --
+           , domestic
+           --
            , postal_address_part1
            , postal_address_part2
            , postal_address_part3
@@ -374,6 +380,8 @@ CREATE OR REPLACE VIEW public.statistical_unit_def
            , physical_latitude
            , physical_longitude
            , physical_altitude
+           --
+           , domestic
            --
            , postal_address_part1
            , postal_address_part2
@@ -476,6 +484,8 @@ CREATE OR REPLACE VIEW public.statistical_unit_def
          , data.physical_latitude
          , data.physical_longitude
          , data.physical_altitude
+         --
+         , data.domestic
          --
          , data.postal_address_part1
          , data.postal_address_part2

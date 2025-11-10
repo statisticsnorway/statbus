@@ -16,7 +16,7 @@ import { atomEffect } from 'jotai-effect'
 import type { Tables } from '@/lib/database.types'
 
 import { isAuthenticatedStrictAtom, authStatusAtom, authStatusUnstableDetailsAtom, isUserConsideredAuthenticatedForUIAtom } from './auth'
-import { activityCategoryStandardSettingAtomAsync, numberOfRegionsAtomAsync } from './getting-started'
+import { numberOfRegionsAtomAsync } from "./getting-started";
 import { refreshWorkerStatusAtom, useWorkerStatus, type WorkerStatusType } from './worker_status'
 import { restClientAtom } from './rest-client'
 import { selectedUnitsAtom, queryAtom, filtersAtom } from './search'

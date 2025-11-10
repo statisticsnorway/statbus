@@ -48,10 +48,7 @@ import {
   baseDataAtom,
   refreshBaseDataAtom,
 } from './base-data';
-import {
-  activityCategoryStandardSettingAtomAsync,
-  numberOfRegionsAtomAsync,
-} from './getting-started';
+import { numberOfRegionsAtomAsync } from "./getting-started";
 import { loadable } from 'jotai/utils';
 import { refreshAllUnitCountsAtom } from './import';
 import {

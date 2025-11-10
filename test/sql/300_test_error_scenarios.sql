@@ -10,20 +10,9 @@ BEGIN;
 -- A Super User configures statbus.
 CALL test.set_user_from_email('test.admin@statbus.org');
 
-\echo "User selected the Activity Category Standard"
-INSERT INTO settings(activity_category_standard_id,only_one_setting)
-SELECT id, true FROM activity_category_standard WHERE code = 'nace_v2.1'
-ON CONFLICT (only_one_setting)
-DO UPDATE SET
-   activity_category_standard_id =(SELECT id FROM activity_category_standard WHERE code = 'nace_v2.1')
-   WHERE settings.id = EXCLUDED.id;
-SELECT acs.code FROM public.settings AS s JOIN activity_category_standard AS acs ON s.activity_category_standard_id = acs.id;
+\i samples/norway/getting-started.sql
 
-\echo "User uploads the sample activity categories, regions, legal forms, sectors"
-\copy public.activity_category_available_custom(path,name,description) FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-\copy public.region_upload(path, name) FROM 'samples/norway/regions/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-\copy public.legal_form_custom_only(code,name) FROM 'samples/norway/legal_form/legal_form_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-\copy public.sector_custom_only(path,name,description) FROM 'samples/norway/sector/sector_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+SELECT acs.code FROM public.settings AS s JOIN activity_category_standard AS acs ON s.activity_category_standard_id = acs.id;
 
 SAVEPOINT main_test_70_start;
 \echo "Initial counts before any test block for Test 70"
@@ -87,7 +76,12 @@ INSERT INTO public.import_70_01_01_lu_analysis_errors_upload(
 -- New soft error test cases
 ('700100026','LU Invalid Status (Default Active)','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'sleeping_unknown',NULL,NULL,NULL,NULL,NULL), -- invalid_codes: {status_code}, uses default
 ('700100028','LU Invalid PostalRegion','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'active',NULL,NULL,NULL,'POSTAL_XX',NULL), -- invalid_codes: {postal_region_code}
-('700100029','LU Invalid PostalCountry NF','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'active',NULL,NULL,NULL,NULL,'P_ZZ'); -- invalid_codes: {postal_country_iso_2}
+('700100029','LU Invalid PostalCountry NF','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,'active',NULL,NULL,NULL,NULL,'P_ZZ'), -- invalid_codes: {postal_country_iso_2}
+-- Country/region validation
+('700100030','LU domestic missing region warning','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,'NO',NULL,'active',NULL,NULL,NULL,NULL,NULL), -- invalid_codes: {physical_region_code: NULL}
+('700100031','LU foreign missing region ok','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,NULL,NULL,'UN',NULL,'active',NULL,NULL,NULL,NULL,NULL),
+('700100032','LU foreign domestic region err','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,'Street 1','01','UN',NULL,'active',NULL,NULL,NULL,NULL,NULL), -- invalid_codes: {physical_region_code: 01}
+('700100033','LU foreign unknown domestic region error','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL,NULL,NULL,NULL,NULL,'Street 1','ZZ','UN',NULL,'active',NULL,NULL,NULL,NULL,NULL); -- invalid_codes: {physical_region_code: ZZ}
 
 CALL worker.process_tasks(p_queue => 'import');
 \echo "Job status for import_70_01_01_lu_analysis_errors:"

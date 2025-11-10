@@ -13,10 +13,14 @@ import {
 } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
-import { useSetAtom } from 'jotai'; // Added useSetAtom
-import { activityCategoryStandardSettingAtomAsync } from '@/atoms/getting-started'; // Added specific atom
+import { useAtomValue, useSetAtom } from "jotai"; // Added useSetAtom
+import {
+  gettingStartedSelectedCountryAtom,
+  settingsAtomAsync,
+} from "@/atoms/getting-started"; // Added specific atom
 import { Tables } from "@/lib/database.types";
-import { setCategoryStandard } from "@/app/getting-started/getting-started-server-actions";
+import { setSettings } from "@/app/getting-started/getting-started-server-actions";
+import { ErrorBox } from "@/components/error-box";
 
 interface CategoryStandardFormProps {
   readonly standards: Tables<"activity_category_standard">[] | null;
@@ -42,7 +46,10 @@ export default function CategoryStandardForm({
     },
   });
   const router = useRouter();
-  const refreshActivityStandardSetting = useSetAtom(activityCategoryStandardSettingAtomAsync);
+  const refreshSettings = useSetAtom(settingsAtomAsync);
+
+  const selectedCountryId = useAtomValue(gettingStartedSelectedCountryAtom);
+  const setSelectedCountry = useSetAtom(gettingStartedSelectedCountryAtom);
 
   async function onSubmit({
     activity_category_standard_id,
@@ -52,10 +59,18 @@ export default function CategoryStandardForm({
       "activity_category_standard_id",
       activity_category_standard_id.toString(10)
     );
-    const result = await setCategoryStandard(formData);
+    const countryId = selectedCountryId ?? settings?.[0]?.country_id;
+    if (countryId) {
+      formData.append("country_id", countryId.toString(10));
+    }
+
+    const result = await setSettings(formData);
     if (result.success) {
-      await refreshActivityStandardSetting(); // Trigger refresh
+      await refreshSettings(); // Trigger refresh
+      setSelectedCountry(null);
       router.push("/getting-started/upload-custom-activity-standard-codes");
+    } else if (result.error) {
+      form.setError("root", { message: result.error });
     }
   }
 
@@ -100,6 +115,14 @@ export default function CategoryStandardForm({
             </FormItem>
           )}
         />
+        {form.formState.errors.root && (
+          <ErrorBox>
+            <span className="text-sm">
+              Failed to configure activity category standard:{" "}
+              {form.formState.errors.root.message}
+            </span>
+          </ErrorBox>
+        )}
         <div className="space-x-3">
           <Button type="submit">Confirm</Button>
         </div>
