@@ -3,10 +3,10 @@
 #   docker build -t statbus_postgres -f postgres/Dockerfile postgres
 # To see all output use
 #   docker build --progress=plain -t statbus_postgres -f postgres/Dockerfile postgres
-# Using PostgreSQL 17 on Ubuntu lastest LTS
+# Using PostgreSQL 18 on Ubuntu lastest LTS
 
 # Set PostgreSQL version
-ARG postgresql_major=17
+ARG postgresql_major=18
 
 # Set extension versions
 ARG pgtap_release=v1.3.3
@@ -16,13 +16,13 @@ ARG wal2json_release=wal2json_2_6
 ARG pg_hashids_release=cd0e1b31d52b394a0df64079406a14a4f7387cd6
 ARG pgsql_http_release=v1.6.3
 ARG pg_trgm_release=1.6
-ARG sql_saga_release=acb8531fe396
-ARG pg_stat_monitor_release=2.1.1
-ARG pg_repack_release=ver_1.5.2
+ARG sql_saga_release=958ef0b8427d
+ARG pg_stat_monitor_release=cd0feaf215e7236e3ffbe03458ce84c98b883a3f
+ARG pg_repack_release=23aac05f059e37fcbb9e006ab35fb376d79f434a
 ARG hypopg_release=1.4.1
 ARG index_advisor_release=v0.2.0
 ARG pgjwt_release=f3d82fd
-ARG pg_graphql_release=v1.5.11
+ARG pg_graphql_release=9cf4882b3b73e5f15cdcad8f0535ccb7c41db86b
 
 ####################
 # Setup Postgres PPA
@@ -97,6 +97,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   libzstd-dev \
   liblz4-dev \
   zlib1g-dev \
+  libnuma-dev \
   libreadline-dev \
   && rm -rf /var/lib/apt/lists/*
 
@@ -270,18 +271,18 @@ RUN git clone https://github.com/supabase/pg_graphql.git && \
   cd pg_graphql && \
   git checkout ${pg_graphql_release} && \
   # Install a known compatible version of cargo-pgrx
-  cargo install --locked cargo-pgrx@0.12.9
+  cargo install --locked cargo-pgrx@0.16.1
 
-# Build pg_graphql with PostgreSQL 17 support
+# Build pg_graphql with PostgreSQL 18 support
 RUN cd /tmp/pg_graphql && \
-  cargo pgrx init --pg17=$(which pg_config) && \
-  cargo pgrx install --release --features pg17
+  cargo pgrx init --pg18=$(which pg_config) && \
+  cargo pgrx install --release --features pg18
 
 # Prepare files for installation
 RUN mkdir -p /tmp/pg_graphql-dist/usr/lib/postgresql/${postgresql_major}/lib && \
   mkdir -p /tmp/pg_graphql-dist/usr/share/postgresql/${postgresql_major}/extension && \
-  # Copy the built library for PostgreSQL 17
-  cp /usr/lib/postgresql/17/lib/pg_graphql.so /tmp/pg_graphql-dist/usr/lib/postgresql/${postgresql_major}/lib/ && \
+  # Copy the built library for PostgreSQL 18
+  cp /usr/lib/postgresql/18/lib/pg_graphql.so /tmp/pg_graphql-dist/usr/lib/postgresql/${postgresql_major}/lib/ && \
   # Copy the control file and SQL files from the correct location
   find / -name "pg_graphql.control" -exec cp {} /tmp/pg_graphql-dist/usr/share/postgresql/${postgresql_major}/extension/ \; && \
   find / -name "pg_graphql--*.sql" -exec cp {} /tmp/pg_graphql-dist/usr/share/postgresql/${postgresql_major}/extension/ \;
@@ -317,7 +318,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && rm -rf /var/lib/apt/lists/*
 
 # Create directory for PostgreSQL configuration
-RUN wget -O /usr/local/bin/docker-entrypoint.sh https://raw.githubusercontent.com/docker-library/postgres/master/17/bookworm/docker-entrypoint.sh
+RUN wget -O /usr/local/bin/docker-entrypoint.sh https://raw.githubusercontent.com/docker-library/postgres/master/18/bookworm/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Database configuration variables

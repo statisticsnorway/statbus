@@ -626,6 +626,13 @@ Policies:
       TO regular_user
       USING (true)
       WITH CHECK (true)
+Not-null constraints:
+    "import_10_lu_2015_sht_data_row_id_not_null" NOT NULL "row_id"
+    "import_10_lu_2015_sht_data_state_not_null" NOT NULL "state"
+    "import_10_lu_2015_sht_data_last_completed_priority_not_null" NOT NULL "last_completed_priority"
+    "import_10_lu_2015_sht_data_errors_not_null" NOT NULL "errors"
+    "import_10_lu_2015_sht_data_merge_status_not_null" NOT NULL "merge_status"
+    "import_10_lu_2015_sht_data_invalid_codes_not_null" NOT NULL "invalid_codes"
 
 \echo '------------------------------------------'
 ------------------------------------------
