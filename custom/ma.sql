@@ -1,5 +1,8 @@
 
 
+\ir ./reset.sql
+
+
 CREATE OR REPLACE PROCEDURE public.custom_setup_ma()
 LANGUAGE plpgsql
 AS $BODY$
@@ -91,3 +94,5 @@ where custom = FALSE;
 
 END;
 $BODY$;
+
+CALL public.custom_setup_ma();

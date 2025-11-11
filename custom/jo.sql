@@ -1,5 +1,8 @@
 
 
+
+\ir ./reset.sql
+
 CREATE OR REPLACE PROCEDURE public.custom_setup_jo()
 LANGUAGE plpgsql
 AS $BODY$
@@ -49,3 +52,5 @@ BEGIN
 
 END;
 $BODY$;
+
+CALL public.custom_setup_jo();

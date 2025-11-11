@@ -1,6 +1,8 @@
 
 --albania oct 2025
 
+\ir ./reset.sql
+
 CREATE OR REPLACE PROCEDURE public.custom_setup_al()
 LANGUAGE plpgsql
 AS $BODY$
@@ -56,3 +58,4 @@ where id =1 or id  = 2;
 END;
 $BODY$;
 
+CALL public.custom_setup_al();
