@@ -1,5 +1,8 @@
 
 
+\ir ./reset.sql
+
+
 CREATE OR REPLACE PROCEDURE public.custom_setup_ma()
 LANGUAGE plpgsql
 AS $BODY$
