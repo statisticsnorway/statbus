@@ -541,6 +541,7 @@ CREATE TYPE auth.auth_response AS (
   uid integer,
   sub uuid,
   email text,
+  display_name text,
   role text,
   statbus_role public.statbus_role,
   last_sign_in_at timestamptz,
