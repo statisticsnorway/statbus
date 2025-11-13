@@ -567,6 +567,7 @@ BEGIN
     result.uid := NULL;
     result.sub := NULL;
     result.email := NULL;
+    result.display_name := NULL;    
     result.role := NULL;
     result.statbus_role := NULL;
     result.last_sign_in_at := NULL;
@@ -578,6 +579,7 @@ BEGIN
     result.uid := p_user_record.id;
     result.sub := p_user_record.sub;
     result.email := p_user_record.email;
+    result.display_name := p_user_record.display_name;
     result.role := p_user_record.email; -- Role is typically the email for PostgREST
     result.statbus_role := p_user_record.statbus_role;
     result.last_sign_in_at := p_user_record.last_sign_in_at;
@@ -1417,8 +1419,8 @@ BEGIN
     'statbus_role', v_user.statbus_role::text,
     'sub', v_user.sub::text,
     'uid', v_user.id, -- Add the integer user ID
-    'display_name', v_user.display_name,
     'email', v_user.email,
+    'display_name', v_user.display_name,
     'type', p_type,
     'iat', extract(epoch from clock_timestamp())::integer,
     'exp', extract(epoch from v_expires_at)::integer
