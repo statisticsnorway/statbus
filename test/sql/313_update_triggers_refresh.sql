@@ -253,4 +253,100 @@ SELECT external_idents FROM public.statistical_unit WHERE name = 'Statistics Nor
 \x
 
 
+--------------------------------------------------------------------------------
+\echo "--- TEST 9: UPDATE establishment parent (legal_unit_id) ---"
+--------------------------------------------------------------------------------
+\echo "Before: Checking parent of establishment 'Statistics Norway Updated'"
+SELECT lu.name as legal_unit_name
+FROM public.statistical_unit su_es
+JOIN public.timeline_establishment tes ON su_es.unit_id = tes.unit_id AND su_es.valid_from = tes.valid_from
+JOIN public.legal_unit lu ON tes.legal_unit_id = lu.id
+WHERE su_es.name = 'Statistics Norway Updated'
+  AND su_es.unit_type = 'establishment'
+  AND su_es.valid_from <= current_date AND current_date < su_es.valid_until;
+
+\echo "Action: Clear pending tasks, unset primary status, then update establishment's legal_unit_id"
+DELETE FROM worker.tasks WHERE state = 'pending';
+
+UPDATE public.establishment
+SET primary_for_legal_unit = false
+WHERE name = 'Statistics Norway Updated';
+
+UPDATE public.establishment
+SET legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'Statistics Denmark')
+WHERE name = 'Statistics Norway Updated';
+
+\echo "Check: Expect 'check_table' for 'establishment' and 'enqueue_deleted_row' for the old parent."
+SELECT command, payload->>'table_name' as table_name, state
+FROM worker.tasks
+WHERE state = 'pending'
+ORDER BY command;
+
+\echo "Run worker to process tasks..."
+CALL worker.process_tasks(p_queue => 'analytics');
+
+\echo "After: Checking new parent of establishment 'Statistics Norway Updated'. Expect 'Statistics Denmark'."
+SELECT lu.name as legal_unit_name
+FROM public.statistical_unit su_es
+JOIN public.timeline_establishment tes ON su_es.unit_id = tes.unit_id AND su_es.valid_from = tes.valid_from
+JOIN public.legal_unit lu ON tes.legal_unit_id = lu.id
+WHERE su_es.name = 'Statistics Norway Updated' AND su_es.unit_type = 'establishment'
+  AND su_es.valid_from <= current_date AND current_date < su_es.valid_until;
+
+
+--------------------------------------------------------------------------------
+\echo "--- TEST 10: UPDATE external_ident parent (legal_unit_id) ---"
+--------------------------------------------------------------------------------
+\echo "Clear pending tasks to isolate test case"
+DELETE FROM worker.tasks WHERE state = 'pending';
+
+\echo "Before: Checking external_idents for 'Statistics Ethiopia' and 'Statistics Sweden'"
+\x
+SELECT name, external_idents FROM public.statistical_unit WHERE name IN ('Statistics Ethiopia', 'Statistics Sweden') AND unit_type = 'legal_unit' ORDER BY name;
+\x
+
+\echo "Action (1): Delete stat_ident for 'Statistics Ethiopia'"
+DELETE FROM public.external_ident
+WHERE legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'Statistics Ethiopia')
+  AND type_id = (SELECT id FROM public.external_ident_type WHERE code = 'stat_ident')
+  AND ident = '18';
+
+\echo "Check: Expect 'enqueue_deleted_row' for the parent LU."
+-- The DELETE will trigger enqueue_deleted_row for the parent LU.
+SELECT command, payload->>'table_name' as table_name, state
+FROM worker.tasks
+WHERE state = 'pending'
+ORDER BY command;
+
+\echo "Run worker to process tasks..."
+CALL worker.process_tasks(p_queue => 'analytics');
+
+\echo "After (1): Check 'Statistics Ethiopia'. Expect stat_ident to be gone."
+\x
+SELECT name, external_idents FROM public.statistical_unit WHERE name = 'Statistics Ethiopia' AND unit_type = 'legal_unit';
+\x
+
+\echo "Action (2): Move stat_ident from 'Statistics Sweden' to 'Statistics Ethiopia'"
+UPDATE public.external_ident
+SET legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'Statistics Ethiopia')
+WHERE legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'Statistics Sweden')
+  AND type_id = (SELECT id FROM public.external_ident_type WHERE code = 'stat_ident')
+  AND ident = '15';
+
+\echo "Check: Expect 'check_table' for 'external_ident' and 'enqueue_deleted_row' for old parent."
+-- The UPDATE on legal_unit_id will trigger enqueue_deleted_row for the OLD parent LU,
+-- and the generic trigger will call check_table for external_ident.
+SELECT command, payload->>'table_name' as table_name, state
+FROM worker.tasks
+WHERE state = 'pending'
+ORDER BY command;
+
+\echo "Run worker to process tasks..."
+CALL worker.process_tasks(p_queue => 'analytics');
+
+\echo "After (2): Checking external_idents for both units. Ethiopia should have stat_ident 15, Sweden should not."
+\x
+SELECT name, external_idents FROM public.statistical_unit WHERE name IN ('Statistics Ethiopia', 'Statistics Sweden') AND unit_type = 'legal_unit' ORDER BY name;
+\x
+
 ROLLBACK;

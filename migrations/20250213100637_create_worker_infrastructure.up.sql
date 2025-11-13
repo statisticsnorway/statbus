@@ -1244,18 +1244,75 @@ GRANT USAGE, SELECT ON SEQUENCE worker.tasks_id_seq TO authenticated;
 
 
 -- Create trigger functions for changes and deletes
-CREATE FUNCTION worker.notify_worker_about_changes()
+
+-- STATEMENT-level trigger function for INSERT/UPDATE
+CREATE FUNCTION worker.notify_worker_about_statement_changes()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $function$
 BEGIN
+  -- Enqueue a check_table task for the affected table.
   PERFORM worker.enqueue_check_table(
     p_table_name := TG_TABLE_NAME,
     p_transaction_id := txid_current()
   );
-  RETURN NULL;
+  RETURN NULL; -- Statement-level AFTER triggers must return NULL.
 END;
 $function$;
+
+-- ROW-level trigger function for UPDATE
+CREATE FUNCTION worker.notify_worker_about_row_changes()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $function$
+BEGIN
+  -- Enqueue a deleted_row task for the OLD parent IDs. This handles re-parenting,
+  -- ensuring that the old parent's data is refreshed to reflect the removal of the child.
+  CASE TG_TABLE_NAME
+    WHEN 'establishment' THEN
+      PERFORM worker.enqueue_deleted_row(
+        p_table_name := TG_TABLE_NAME,
+        p_establishment_id := OLD.id,
+        p_legal_unit_id := OLD.legal_unit_id,
+        p_enterprise_id := OLD.enterprise_id,
+        p_valid_from := OLD.valid_from,
+        p_valid_until := OLD.valid_until
+      );
+    WHEN 'legal_unit' THEN
+      PERFORM worker.enqueue_deleted_row(
+        p_table_name := TG_TABLE_NAME,
+        p_establishment_id := NULL,
+        p_legal_unit_id := OLD.id,
+        p_enterprise_id := OLD.enterprise_id,
+        p_valid_from := OLD.valid_from,
+        p_valid_until := OLD.valid_until
+      );
+    WHEN 'activity', 'location', 'contact', 'stat_for_unit' THEN
+      PERFORM worker.enqueue_deleted_row(
+        p_table_name := TG_TABLE_NAME,
+        p_establishment_id := OLD.establishment_id,
+        p_legal_unit_id := OLD.legal_unit_id,
+        p_enterprise_id := NULL,
+        p_valid_from := OLD.valid_from,
+        p_valid_until := OLD.valid_until
+      );
+    WHEN 'external_ident' THEN
+      PERFORM worker.enqueue_deleted_row(
+        p_table_name := TG_TABLE_NAME,
+        p_establishment_id := OLD.establishment_id,
+        p_legal_unit_id := OLD.legal_unit_id,
+        p_enterprise_id := OLD.enterprise_id,
+        p_valid_from := NULL,
+        p_valid_until := NULL
+      );
+    ELSE
+      RAISE EXCEPTION 'Unexpected table name in row change trigger: %', TG_TABLE_NAME;
+  END CASE;
+
+  RETURN NEW;
+END;
+$function$;
+
 
 CREATE FUNCTION worker.notify_worker_about_deletes()
 RETURNS trigger
@@ -1322,53 +1379,23 @@ $function$;
 CREATE PROCEDURE worker.setup()
 LANGUAGE plpgsql
 AS $procedure$
-DECLARE
-  table_name text;
 BEGIN
-  FOR table_name IN
-    SELECT unnest(ARRAY[
-      'enterprise',
-      'external_ident',
-      'legal_unit',
-      'establishment',
-      'activity',
-      'location',
-      'contact',
-      'stat_for_unit'
-    ])
-  LOOP
-    -- Create delete trigger
-    IF NOT EXISTS (
-      SELECT 1 FROM pg_trigger
-      WHERE tgname = table_name || '_deletes_trigger'
-      AND tgrelid = ('public.' || table_name)::regclass
-    ) THEN
-      EXECUTE format(
-        'CREATE TRIGGER %I
-        BEFORE DELETE ON public.%I
-        FOR EACH ROW
-        EXECUTE FUNCTION worker.notify_worker_about_deletes()',
-        table_name || '_deletes_trigger',
-        table_name
-      );
-    END IF;
+  -- Create STATEMENT-level triggers for INSERT or UPDATE
+  -- These will enqueue a 'check_table' task for any modification.
+  CALL worker.setup_statement_triggers(ARRAY[
+    'enterprise', 'external_ident', 'legal_unit', 'establishment',
+    'activity', 'location', 'contact', 'stat_for_unit'
+  ]);
 
-    -- Create changes trigger for inserts and updates
-    IF NOT EXISTS (
-      SELECT 1 FROM pg_trigger
-      WHERE tgname = table_name || '_changes_trigger'
-      AND tgrelid = ('public.' || table_name)::regclass
-    ) THEN
-      EXECUTE format(
-        'CREATE TRIGGER %I
-        AFTER INSERT OR UPDATE ON public.%I
-        FOR EACH STATEMENT
-        EXECUTE FUNCTION worker.notify_worker_about_changes()',
-        table_name || '_changes_trigger',
-        table_name
-      );
-    END IF;
-  END LOOP;
+  -- Create ROW-level triggers for UPDATE to handle re-parenting.
+  -- Each trigger has a WHEN clause to fire only when parent FKs change.
+  CALL worker.setup_row_level_triggers();
+
+  -- Create ROW-level triggers for DELETE
+  CALL worker.setup_delete_triggers(ARRAY[
+    'enterprise', 'external_ident', 'legal_unit', 'establishment',
+    'activity', 'location', 'contact', 'stat_for_unit'
+  ]);
 
   -- Create the initial cleanup_tasks task to run daily
   PERFORM worker.enqueue_task_cleanup();
@@ -1385,32 +1412,111 @@ DECLARE
 BEGIN
   FOR table_name IN
     SELECT unnest(ARRAY[
-      'enterprise',
-      'external_ident',
-      'legal_unit',
-      'establishment',
-      'activity',
-      'location',
-      'contact',
-      'stat_for_unit'
+      'enterprise', 'external_ident', 'legal_unit', 'establishment',
+      'activity', 'location', 'contact', 'stat_for_unit'
     ])
   LOOP
-    -- Drop delete trigger
-    EXECUTE format(
-      'DROP TRIGGER IF EXISTS %I ON public.%I',
-      table_name || '_deletes_trigger',
-      table_name
-    );
-
-    -- Drop changes trigger
-    EXECUTE format(
-      'DROP TRIGGER IF EXISTS %I ON public.%I',
-      table_name || '_changes_trigger',
-      table_name
-    );
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I', table_name || '_deletes_trigger', table_name);
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I', table_name || '_statement_changes_trigger', table_name);
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I', table_name || '_row_changes_trigger', table_name);
   END LOOP;
 END;
 $procedure$;
+
+
+-- Helper procedure to create statement-level triggers
+CREATE PROCEDURE worker.setup_statement_triggers(p_table_names TEXT[])
+LANGUAGE plpgsql AS $$
+DECLARE
+  table_name TEXT;
+BEGIN
+  FOREACH table_name IN ARRAY p_table_names
+  LOOP
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_trigger
+      WHERE tgname = table_name || '_statement_changes_trigger' AND tgrelid = ('public.' || table_name)::regclass
+    ) THEN
+      EXECUTE format(
+        'CREATE TRIGGER %I
+        AFTER INSERT OR UPDATE ON public.%I
+        FOR EACH STATEMENT
+        EXECUTE FUNCTION worker.notify_worker_about_statement_changes()',
+        table_name || '_statement_changes_trigger',
+        table_name
+      );
+    END IF;
+  END LOOP;
+END;
+$$;
+
+-- Helper procedure to create row-level triggers for updates
+CREATE PROCEDURE worker.setup_row_level_triggers()
+LANGUAGE plpgsql AS $$
+DECLARE
+  table_name TEXT;
+  when_clause TEXT;
+BEGIN
+  FOREACH table_name IN ARRAY ARRAY[
+    'establishment', 'legal_unit', 'external_ident',
+    'activity', 'location', 'contact', 'stat_for_unit'
+  ]
+  LOOP
+    CASE table_name
+      WHEN 'establishment' THEN
+        when_clause := 'WHEN (OLD.legal_unit_id IS DISTINCT FROM NEW.legal_unit_id OR OLD.enterprise_id IS DISTINCT FROM NEW.enterprise_id)';
+      WHEN 'legal_unit' THEN
+        when_clause := 'WHEN (OLD.enterprise_id IS DISTINCT FROM NEW.enterprise_id)';
+      WHEN 'external_ident' THEN
+        when_clause := 'WHEN (OLD.establishment_id IS DISTINCT FROM NEW.establishment_id OR OLD.legal_unit_id IS DISTINCT FROM NEW.legal_unit_id OR OLD.enterprise_id IS DISTINCT FROM NEW.enterprise_id)';
+      WHEN 'activity', 'location', 'contact', 'stat_for_unit' THEN
+        when_clause := 'WHEN (OLD.establishment_id IS DISTINCT FROM NEW.establishment_id OR OLD.legal_unit_id IS DISTINCT FROM NEW.legal_unit_id)';
+    END CASE;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_trigger
+      WHERE tgname = table_name || '_row_changes_trigger' AND tgrelid = ('public.' || table_name)::regclass
+    ) THEN
+      EXECUTE format(
+        'CREATE TRIGGER %I
+        AFTER UPDATE ON public.%I
+        FOR EACH ROW
+        %s
+        EXECUTE FUNCTION worker.notify_worker_about_row_changes()',
+        table_name || '_row_changes_trigger',
+        table_name,
+        when_clause
+      );
+    END IF;
+  END LOOP;
+END;
+$$;
+
+
+-- Helper procedure to create delete triggers
+CREATE PROCEDURE worker.setup_delete_triggers(p_table_names TEXT[])
+LANGUAGE plpgsql AS $$
+DECLARE
+  table_name TEXT;
+BEGIN
+  FOREACH table_name IN ARRAY p_table_names
+  LOOP
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_trigger
+      WHERE tgname = table_name || '_deletes_trigger' AND tgrelid = ('public.' || table_name)::regclass
+    ) THEN
+      EXECUTE format(
+        'CREATE TRIGGER %I
+        BEFORE DELETE ON public.%I
+        FOR EACH ROW
+        EXECUTE FUNCTION worker.notify_worker_about_deletes()',
+        table_name || '_deletes_trigger',
+        table_name
+      );
+    END IF;
+  END LOOP;
+END;
+$$;
+
 
 -- Call setup to create triggers
 CALL worker.setup();

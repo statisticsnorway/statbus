@@ -1689,7 +1689,7 @@ Run worker processing for analytics tasks (after manual connections)
   SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |    14
+ analytics | completed |    15
  import    | completed |    94
 (2 rows)
 
