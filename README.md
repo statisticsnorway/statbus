@@ -31,7 +31,7 @@ In 2023 we changed the technology stack with the following goals in mind:
 
 * Backend with
   * [PostgreSQL](https://www.postgresql.org) (Database)
-    * With [Row Level Security](https://www.postgresql.org/docs/17/ddl-rowsecurity.html)
+    * With [Row Level Security](https://www.postgresql.org/docs/18/ddl-rowsecurity.html)
     * With [SQL Saga](https://github.com/veridit/sql_saga) for Temporal Foreign Keys.
   * [PostgREST](https://postgrest.org/) (Automatic API from Database)
   * [Caddy](https://caddyserver.com) (Secure Web Server)

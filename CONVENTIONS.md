@@ -1,6 +1,6 @@
 This document outlines general conventions for the STATBUS project, focusing on backend, database, and infrastructure aspects. For Next.js application-specific conventions, see `app/CONVENTIONS.md`.
 
-This project uses PostgreSQL (17+) and PostgREST (12+) for its backend.
+This project uses PostgreSQL (18+) and PostgREST (12+) for its backend.
 It is deployed on custom servers behind Caddy with HTTPS.
 
 ## Tools
@@ -88,7 +88,7 @@ For file system operations and large-scale edits, prefer suggesting shell comman
     - Keep the SQL readable by aligning numbered placeholders with inline comments that show which parameter they refer to.
 - **Table Aliases**: Prefer explicit `AS` for table aliases, e.g., `FROM my_table AS mt`. For common data table aliases in import procedures, `AS dt` is preferred.
 - **Temporal Logic**: When writing conditions involving time, always order the components chronologically for readability (e.g., `start <= point AND point < end`). Avoid non-chronological forms like `point >= start`.
-- **Batch Operations**: Utilize PostgreSQL 17+ `MERGE` syntax for efficient batch handling where appropriate.
+- **Batch Operations**: Utilize PostgreSQL 18+ `MERGE` syntax for efficient batch handling where appropriate.
 - **Temporary Table Management**:
     - To ensure procedures are idempotent and to avoid noisy `NOTICE` messages in logs, use the following pattern to clean up temporary tables at the beginning of a procedure:
       ```sql
