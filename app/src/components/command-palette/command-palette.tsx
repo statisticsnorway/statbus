@@ -22,6 +22,7 @@ import {
   Database,
   FileSpreadsheet,
   Binary,
+  Users,
 } from "lucide-react";
 
 import {
@@ -239,39 +240,46 @@ export function CommandPalette() {
           <CommandSeparator />
           {canAccessAdminTools && (
             <>
-          <CommandGroup heading="Admin tools">
-            <CommandItem
-              onSelect={() => navigate("/doc/er")}
-              value="Show ER Diagram"
-            >
-              <Network className="mr-2 h-4 w-4" />
-              <span>Show ER Diagram</span>
-            </CommandItem>
-            <CommandItem
-              onSelect={handleResetAll}
-              value="admin reset everything clean"
-            >
-              <Trash className="mr-2 h-4 w-4" />
-              <span>Reset..</span>
-            </CommandItem>
-            <CommandItem
-              onSelect={() => {
-                setOpen(false);
-                window.open('/pev2.html', '_blank');
-              }}
-              value="postgres explain visualizer pev2 query performance"
-            >
-              <Database className="mr-2 h-4 w-4" />
-              <span>Postgres Explain Visualizer</span>
-            </CommandItem>
-            <CommandItem
-              onSelect={handleToggleStateInspector}
-              value="toggle debug inspector developer tool"
-            >
-              <Binary className="mr-2 h-4 w-4" />
-              <span>Toggle Debug Inspector</span>
-            </CommandItem>
-          </CommandGroup>
+              <CommandGroup heading="Admin tools">
+                <CommandItem
+                  onSelect={() => navigate("/admin/users")}
+                  value="manage create users"
+                >
+                  <Users className="mr-2 h-4 w-4" />
+                  <span>Manage users</span>
+                </CommandItem>
+                <CommandItem
+                  onSelect={() => navigate("/doc/er")}
+                  value="Show ER Diagram"
+                >
+                  <Network className="mr-2 h-4 w-4" />
+                  <span>Show ER Diagram</span>
+                </CommandItem>
+                <CommandItem
+                  onSelect={handleResetAll}
+                  value="admin reset everything clean"
+                >
+                  <Trash className="mr-2 h-4 w-4" />
+                  <span>Reset..</span>
+                </CommandItem>
+                <CommandItem
+                  onSelect={() => {
+                    setOpen(false);
+                    window.open("/pev2.html", "_blank");
+                  }}
+                  value="postgres explain visualizer pev2 query performance"
+                >
+                  <Database className="mr-2 h-4 w-4" />
+                  <span>Postgres Explain Visualizer</span>
+                </CommandItem>
+                <CommandItem
+                  onSelect={handleToggleStateInspector}
+                  value="toggle debug inspector developer tool"
+                >
+                  <Binary className="mr-2 h-4 w-4" />
+                  <span>Toggle Debug Inspector</span>
+                </CommandItem>
+              </CommandGroup>
             </>
           )}
         </CommandList>
