@@ -17,6 +17,7 @@ import { Separator } from "@radix-ui/react-select";
 import { FormField } from "@/components/form/form-field";
 import { userRoles } from "./roles";
 import { SelectField } from "@/components/form/select-field";
+import { RoleDescriptionTooltip } from "./role-description-tooltip";
 
 export function UserForm({
   user,
@@ -91,6 +92,7 @@ export function UserForm({
                 placeholder="Select user role"
                 response={state}
               />
+              <RoleDescriptionTooltip />
             </div>
             <div className="grid gap-2">
               <PasswordInput
