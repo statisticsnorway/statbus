@@ -9,12 +9,14 @@ export function FormField({
   value,
   readonly,
   response,
+  placeholder,
 }: {
   readonly label: string;
   readonly name: string;
   readonly value?: string | number | null;
   readonly readonly?: boolean;
   readonly response: UpdateResponse;
+  readonly placeholder?: string;
 }) {
   const [inputValue, setInputValue] = useState(value ?? "");
 
@@ -37,6 +39,7 @@ export function FormField({
         <Input
           type="text"
           readOnly={readonly}
+          placeholder={placeholder ?? ""}
           name={name}
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
