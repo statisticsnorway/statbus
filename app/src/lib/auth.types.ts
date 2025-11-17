@@ -9,6 +9,7 @@ export interface User {
   uid: number;
   sub: string;
   email: string;
+  display_name: string;
   role: string;
   statbus_role: string;
   last_sign_in_at: string;
@@ -48,6 +49,7 @@ export const _parseAuthStatusRpcResponseToAuthStatus = (rpcResponse: any): AuthS
         uid: rpcResponse.uid,
         sub: rpcResponse.sub,
         email: rpcResponse.email,
+        display_name: rpcResponse.display_name,
         role: rpcResponse.role,
         statbus_role: rpcResponse.statbus_role,
         last_sign_in_at: rpcResponse.last_sign_in_at,
