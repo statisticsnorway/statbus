@@ -18,6 +18,7 @@ import { FormField } from "@/components/form/form-field";
 import { userRoles } from "./roles";
 import { SelectField } from "@/components/form/select-field";
 import { RoleDescriptionTooltip } from "./role-description-tooltip";
+import { SubmissionFeedbackDebugInfo } from "@/components/form/submission-feedback-debug-info";
 
 export function UserForm({
   user,
@@ -117,6 +118,7 @@ export function UserForm({
           </DialogFooter>
         </form>
       </DialogContent>
+      <SubmissionFeedbackDebugInfo state={state} />
     </Dialog>
   );
 }

@@ -3,9 +3,8 @@ import { useBaseData } from "@/atoms/base-data";
 import UsersTable from "./user-table";
 import { UserForm } from "./user-form";
 import { useState } from "react";
-import { Tables } from "@/lib/database.types";
 import { Button } from "@/components/ui/button";
-import { Users } from "lucide-react";
+import { UserPlus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -15,26 +14,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { userRoles } from "./roles";
+import { useUserForm } from "./use-user-form";
 
 export default function UsersPage() {
-  const { statbusUsers, refreshBaseData } = useBaseData();
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<Tables<"user"> | null>(null);
-  const [formKey, setFormKey] = useState(0);
+  const { statbusUsers } = useBaseData();
+  const {
+    isFormOpen,
+    handleCreateUser,
+    handleEditUser,
+    selectedUser,
+    formKey,
+    handleOpenChange,
+    handleSuccess,
+  } = useUserForm();
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
-
-  const handleOpenChange = (open: boolean) => {
-    setIsFormOpen(open);
-    if (!open) {
-      setFormKey((prevKey) => prevKey + 1);
-    }
-  };
-
-  const handleSuccess = () => {
-    // refresh baseData after a successful update or creating of a user
-    refreshBaseData();
-  };
 
   const filteredUsers = statbusUsers.filter((user) => {
     const nameMatch = user.display_name
@@ -72,13 +66,8 @@ export default function UsersPage() {
             </SelectContent>
           </Select>
         </div>
-        <Button
-          onClick={() => {
-            setIsFormOpen(true);
-            setSelectedUser(null);
-          }}
-        >
-          <Users className="w-4 h-4" />
+        <Button onClick={() => handleCreateUser()}>
+          <UserPlus className="w-4 h-4" />
           Create new user
         </Button>
         <UserForm
@@ -92,10 +81,7 @@ export default function UsersPage() {
       <div className="rounded-md border overflow-hidden">
         <UsersTable
           users={filteredUsers}
-          onEdit={(user) => {
-            setSelectedUser(user);
-            setIsFormOpen(true);
-          }}
+          onEdit={(user) => handleEditUser(user)}
         />
       </div>
     </main>
