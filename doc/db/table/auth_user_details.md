@@ -48,6 +48,15 @@ Policies:
     POLICY "update_own_user" FOR UPDATE
       USING ((email = CURRENT_USER))
       WITH CHECK ((email = CURRENT_USER))
+Not-null constraints:
+    "user_id_not_null" NOT NULL "id"
+    "user_sub_not_null" NOT NULL "sub"
+    "user_display_name_not_null" NOT NULL "display_name"
+    "user_email_not_null" NOT NULL "email"
+    "user_encrypted_password_not_null" NOT NULL "encrypted_password"
+    "user_statbus_role_not_null" NOT NULL "statbus_role"
+    "user_created_at_not_null" NOT NULL "created_at"
+    "user_updated_at_not_null" NOT NULL "updated_at"
 Triggers:
     check_role_permission_trigger BEFORE INSERT OR UPDATE ON auth."user" FOR EACH ROW EXECUTE FUNCTION auth.check_role_permission()
     drop_user_role_trigger AFTER DELETE ON auth."user" FOR EACH ROW EXECUTE FUNCTION auth.drop_user_role()

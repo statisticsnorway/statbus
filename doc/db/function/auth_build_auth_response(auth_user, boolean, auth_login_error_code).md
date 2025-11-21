@@ -11,6 +11,7 @@ BEGIN
     result.uid := NULL;
     result.sub := NULL;
     result.email := NULL;
+    result.display_name := NULL;    
     result.role := NULL;
     result.statbus_role := NULL;
     result.last_sign_in_at := NULL;
@@ -22,6 +23,7 @@ BEGIN
     result.uid := p_user_record.id;
     result.sub := p_user_record.sub;
     result.email := p_user_record.email;
+    result.display_name := p_user_record.display_name;
     result.role := p_user_record.email; -- Role is typically the email for PostgREST
     result.statbus_role := p_user_record.statbus_role;
     result.last_sign_in_at := p_user_record.last_sign_in_at;

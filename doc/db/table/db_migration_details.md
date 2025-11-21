@@ -15,6 +15,13 @@ Policies:
     POLICY "migration_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
+Not-null constraints:
+    "migration_id_not_null" NOT NULL "id"
+    "migration_version_not_null" NOT NULL "version"
+    "migration_filename_not_null" NOT NULL "filename"
+    "migration_description_not_null" NOT NULL "description"
+    "migration_applied_at_not_null" NOT NULL "applied_at"
+    "migration_duration_ms_not_null" NOT NULL "duration_ms"
 Access method: heap
 
 ```

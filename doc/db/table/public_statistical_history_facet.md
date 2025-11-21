@@ -14,7 +14,14 @@
  physical_country_id                      | integer               |           |          | 
  unit_size_id                             | integer               |           |          | 
  status_id                                | integer               |           |          | 
- count                                    | bigint                |           |          | 
+ exists_count                             | integer               |           |          | 
+ exists_change                            | integer               |           |          | 
+ exists_added_count                       | integer               |           |          | 
+ exists_removed_count                     | integer               |           |          | 
+ countable_count                          | integer               |           |          | 
+ countable_change                         | integer               |           |          | 
+ countable_added_count                    | integer               |           |          | 
+ countable_removed_count                  | integer               |           |          | 
  births                                   | integer               |           |          | 
  deaths                                   | integer               |           |          | 
  name_change_count                        | integer               |           |          | 
@@ -33,9 +40,6 @@ Indexes:
     "idx_gist_statistical_history_facet_primary_activity_category_pa" gist (primary_activity_category_path)
     "idx_gist_statistical_history_facet_secondary_activity_category_" gist (secondary_activity_category_path)
     "idx_gist_statistical_history_facet_sector_path" gist (sector_path)
-    "idx_statistical_history_facet_births" btree (births)
-    "idx_statistical_history_facet_count" btree (count)
-    "idx_statistical_history_facet_deaths" btree (deaths)
     "idx_statistical_history_facet_legal_form_id" btree (legal_form_id)
     "idx_statistical_history_facet_month" btree (month)
     "idx_statistical_history_facet_physical_country_id" btree (physical_country_id)
@@ -44,6 +48,7 @@ Indexes:
     "idx_statistical_history_facet_secondary_activity_category_path" btree (secondary_activity_category_path)
     "idx_statistical_history_facet_sector_path" btree (sector_path)
     "idx_statistical_history_facet_stats_summary" gin (stats_summary jsonb_path_ops)
+    "idx_statistical_history_facet_unit_type" btree (unit_type)
     "idx_statistical_history_facet_year" btree (year)
     "statistical_history_facet_month_key" UNIQUE, btree (resolution, year, month, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path, legal_form_id, physical_region_path, physical_country_id) WHERE resolution = 'year-month'::history_resolution
     "statistical_history_facet_year_key" UNIQUE, btree (year, month, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path, legal_form_id, physical_region_path, physical_country_id) WHERE resolution = 'year'::history_resolution

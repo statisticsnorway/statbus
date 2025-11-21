@@ -34,6 +34,12 @@ Policies:
     POLICY "import_mapping_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "import_mapping_id_not_null" NOT NULL "id"
+    "import_mapping_definition_id_not_null" NOT NULL "definition_id"
+    "import_mapping_is_ignored_not_null" NOT NULL "is_ignored"
+    "import_mapping_created_at_not_null" NOT NULL "created_at"
+    "import_mapping_updated_at_not_null" NOT NULL "updated_at"
 Triggers:
     trg_validate_import_mapping_after_change AFTER INSERT OR DELETE OR UPDATE ON import_mapping FOR EACH ROW EXECUTE FUNCTION admin.trigger_validate_import_definition()
 Access method: heap

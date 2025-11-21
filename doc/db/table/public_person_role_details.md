@@ -28,6 +28,14 @@ Policies:
     POLICY "person_role_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "person_role_id_not_null" NOT NULL "id"
+    "person_role_code_not_null" NOT NULL "code"
+    "person_role_name_not_null" NOT NULL "name"
+    "person_role_active_not_null" NOT NULL "active"
+    "person_role_custom_not_null" NOT NULL "custom"
+    "person_role_created_at_not_null" NOT NULL "created_at"
+    "person_role_updated_at_not_null" NOT NULL "updated_at"
 Triggers:
     trigger_prevent_person_role_id_update BEFORE UPDATE OF id ON person_role FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap

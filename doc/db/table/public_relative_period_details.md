@@ -31,6 +31,11 @@ Policies:
     POLICY "relative_period_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "relative_period_id_not_null" NOT NULL "id"
+    "relative_period_code_not_null" NOT NULL "code"
+    "relative_period_scope_not_null" NOT NULL "scope"
+    "relative_period_active_not_null" NOT NULL "active"
 Triggers:
     trigger_prevent_relative_period_id_update BEFORE UPDATE OF id ON relative_period FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap

@@ -35,6 +35,15 @@ Policies:
     POLICY "sector_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "sector_id_not_null" NOT NULL "id"
+    "sector_path_not_null" NOT NULL "path"
+    "sector_label_not_null" NOT NULL "label"
+    "sector_name_not_null" NOT NULL "name"
+    "sector_active_not_null" NOT NULL "active"
+    "sector_custom_not_null" NOT NULL "custom"
+    "sector_created_at_not_null" NOT NULL "created_at"
+    "sector_updated_at_not_null" NOT NULL "updated_at"
 Triggers:
     trigger_prevent_sector_id_update BEFORE UPDATE OF id ON sector FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap

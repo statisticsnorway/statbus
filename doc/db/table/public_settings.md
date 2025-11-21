@@ -1,17 +1,17 @@
 ```sql
-                                    Table "public.settings"
-            Column             |  Type   | Collation | Nullable |           Default            
--------------------------------+---------+-----------+----------+------------------------------
+                                           Table "public.settings"
+            Column             |  Type   | Collation | Nullable |                   Default                   
+-------------------------------+---------+-----------+----------+---------------------------------------------
  id                            | integer |           | not null | generated always as identity
  activity_category_standard_id | integer |           | not null | 
- only_one_setting              | boolean |           | not null | true
+ country_id                    | integer |           | not null | 
+ only_one_setting              | boolean |           |          | generated always as (id IS NOT NULL) stored
 Indexes:
     "settings_pkey" PRIMARY KEY, btree (id)
     "settings_only_one_setting_key" UNIQUE CONSTRAINT, btree (only_one_setting)
-Check constraints:
-    "settings_only_one_setting_check" CHECK (only_one_setting)
 Foreign-key constraints:
     "settings_activity_category_standard_id_fkey" FOREIGN KEY (activity_category_standard_id) REFERENCES activity_category_standard(id) ON DELETE RESTRICT
+    "settings_country_id_fkey" FOREIGN KEY (country_id) REFERENCES country(id) ON DELETE RESTRICT
 Policies:
     POLICY "settings_admin_user_manage"
       TO admin_user

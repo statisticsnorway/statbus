@@ -40,6 +40,7 @@
  physical_latitude                | numeric(9,6)             |           |          |         | main     |             |              | 
  physical_longitude               | numeric(9,6)             |           |          |         | main     |             |              | 
  physical_altitude                | numeric(6,1)             |           |          |         | main     |             |              | 
+ domestic                         | boolean                  |           |          |         | plain    |             |              | 
  postal_address_part1             | character varying(200)   |           |          |         | extended |             |              | 
  postal_address_part2             | character varying(200)   |           |          |         | extended |             |              | 
  postal_address_part3             | character varying(200)   |           |          |         | extended |             |              | 
@@ -106,6 +107,12 @@ Policies:
     POLICY "timeline_establishment_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "timeline_establishment_unit_type_not_null" NOT NULL "unit_type"
+    "timeline_establishment_unit_id_not_null" NOT NULL "unit_id"
+    "timeline_establishment_valid_from_not_null" NOT NULL "valid_from"
+    "timeline_establishment_valid_to_not_null" NOT NULL "valid_to"
+    "timeline_establishment_valid_until_not_null" NOT NULL "valid_until"
 Access method: heap
 
 ```

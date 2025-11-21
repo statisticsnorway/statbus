@@ -25,6 +25,7 @@ Indexes:
 Referenced by:
     TABLE "location" CONSTRAINT "location_country_id_fkey" FOREIGN KEY (country_id) REFERENCES country(id) ON DELETE RESTRICT
     TABLE "person" CONSTRAINT "person_country_id_fkey" FOREIGN KEY (country_id) REFERENCES country(id)
+    TABLE "settings" CONSTRAINT "settings_country_id_fkey" FOREIGN KEY (country_id) REFERENCES country(id) ON DELETE RESTRICT
 Policies:
     POLICY "country_admin_user_manage"
       TO admin_user

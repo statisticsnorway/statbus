@@ -27,6 +27,13 @@ Policies:
     POLICY "activity_category_standard_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "activity_category_standard_id_not_null" NOT NULL "id"
+    "activity_category_standard_code_not_null" NOT NULL "code"
+    "activity_category_standard_name_not_null" NOT NULL "name"
+    "activity_category_standard_description_not_null" NOT NULL "description"
+    "activity_category_standard_code_pattern_not_null" NOT NULL "code_pattern"
+    "activity_category_standard_obsolete_not_null" NOT NULL "obsolete"
 Triggers:
     trigger_prevent_activity_category_standard_id_update BEFORE UPDATE OF id ON activity_category_standard FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap

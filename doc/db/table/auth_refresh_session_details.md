@@ -31,6 +31,14 @@ Policies:
     POLICY "update_own_refresh_sessions" FOR UPDATE
       USING ((user_id = auth.uid()))
       WITH CHECK ((user_id = auth.uid()))
+Not-null constraints:
+    "refresh_session_id_not_null" NOT NULL "id"
+    "refresh_session_jti_not_null" NOT NULL "jti"
+    "refresh_session_user_id_not_null" NOT NULL "user_id"
+    "refresh_session_refresh_version_not_null" NOT NULL "refresh_version"
+    "refresh_session_created_at_not_null" NOT NULL "created_at"
+    "refresh_session_last_used_at_not_null" NOT NULL "last_used_at"
+    "refresh_session_expires_at_not_null" NOT NULL "expires_at"
 Access method: heap
 
 ```

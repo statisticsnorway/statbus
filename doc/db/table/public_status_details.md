@@ -31,6 +31,17 @@ Policies:
     POLICY "status_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "status_id_not_null" NOT NULL "id"
+    "status_code_not_null" NOT NULL "code"
+    "status_name_not_null" NOT NULL "name"
+    "status_assigned_by_default_not_null" NOT NULL "assigned_by_default"
+    "status_used_for_counting_not_null" NOT NULL "used_for_counting"
+    "status_priority_not_null" NOT NULL "priority"
+    "status_active_not_null" NOT NULL "active"
+    "status_custom_not_null" NOT NULL "custom"
+    "status_created_at_not_null" NOT NULL "created_at"
+    "status_updated_at_not_null" NOT NULL "updated_at"
 Triggers:
     trigger_prevent_status_id_update BEFORE UPDATE OF id ON status FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap

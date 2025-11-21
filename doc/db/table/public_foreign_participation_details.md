@@ -29,6 +29,14 @@ Policies:
     POLICY "foreign_participation_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "foreign_participation_id_not_null" NOT NULL "id"
+    "foreign_participation_code_not_null" NOT NULL "code"
+    "foreign_participation_name_not_null" NOT NULL "name"
+    "foreign_participation_active_not_null" NOT NULL "active"
+    "foreign_participation_custom_not_null" NOT NULL "custom"
+    "foreign_participation_created_at_not_null" NOT NULL "created_at"
+    "foreign_participation_updated_at_not_null" NOT NULL "updated_at"
 Triggers:
     trigger_prevent_foreign_participation_id_update BEFORE UPDATE OF id ON foreign_participation FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap

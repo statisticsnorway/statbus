@@ -35,6 +35,14 @@ Policies:
     POLICY "data_source_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "data_source_id_not_null" NOT NULL "id"
+    "data_source_code_not_null" NOT NULL "code"
+    "data_source_name_not_null" NOT NULL "name"
+    "data_source_active_not_null" NOT NULL "active"
+    "data_source_custom_not_null" NOT NULL "custom"
+    "data_source_created_at_not_null" NOT NULL "created_at"
+    "data_source_updated_at_not_null" NOT NULL "updated_at"
 Triggers:
     trigger_prevent_data_source_id_update BEFORE UPDATE OF id ON data_source FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap

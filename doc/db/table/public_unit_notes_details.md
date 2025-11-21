@@ -39,6 +39,12 @@ Policies:
       TO regular_user
       USING (true)
       WITH CHECK (true)
+Not-null constraints:
+    "unit_notes_id_not_null" NOT NULL "id"
+    "unit_notes_notes_not_null" NOT NULL "notes"
+    "unit_notes_created_at_not_null" NOT NULL "created_at"
+    "unit_notes_edit_by_user_id_not_null" NOT NULL "edit_by_user_id"
+    "unit_notes_edit_at_not_null" NOT NULL "edit_at"
 Triggers:
     trigger_prevent_unit_notes_id_update BEFORE UPDATE OF id ON unit_notes FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap

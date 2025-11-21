@@ -29,8 +29,8 @@ BEGIN
     'statbus_role', v_user.statbus_role::text,
     'sub', v_user.sub::text,
     'uid', v_user.id, -- Add the integer user ID
-    'display_name', v_user.display_name,
     'email', v_user.email,
+    'display_name', v_user.display_name,
     'type', p_type,
     'iat', extract(epoch from clock_timestamp())::integer,
     'exp', extract(epoch from v_expires_at)::integer

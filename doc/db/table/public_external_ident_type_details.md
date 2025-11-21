@@ -29,6 +29,10 @@ Policies:
     POLICY "external_ident_type_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "external_ident_type_id_not_null" NOT NULL "id"
+    "external_ident_type_code_not_null" NOT NULL "code"
+    "external_ident_type_archived_not_null" NOT NULL "archived"
 Triggers:
     external_ident_type_derive_code_and_name_from_by_tag_id_insert BEFORE INSERT ON external_ident_type FOR EACH ROW WHEN (new.by_tag_id IS NOT NULL) EXECUTE FUNCTION external_ident_type_derive_code_and_name_from_by_tag_id()
     external_ident_type_derive_code_and_name_from_by_tag_id_update BEFORE UPDATE ON external_ident_type FOR EACH ROW WHEN (new.by_tag_id IS NOT NULL AND new.by_tag_id IS DISTINCT FROM old.by_tag_id) EXECUTE FUNCTION external_ident_type_derive_code_and_name_from_by_tag_id()

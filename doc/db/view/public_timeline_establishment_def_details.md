@@ -40,6 +40,7 @@
  physical_latitude                | numeric(9,6)             |           |          |         | main     | 
  physical_longitude               | numeric(9,6)             |           |          |         | main     | 
  physical_altitude                | numeric(6,1)             |           |          |         | main     | 
+ domestic                         | boolean                  |           |          |         | plain    | 
  postal_address_part1             | character varying(200)   |           |          |         | extended | 
  postal_address_part2             | character varying(200)   |           |          |         | extended | 
  postal_address_part3             | character varying(200)   |           |          |         | extended | 
@@ -91,15 +92,15 @@ View definition:
             t_1.valid_from,
             jsonb_object_agg(sd.code,
                 CASE
-                    WHEN sfu_1.value_float IS NOT NULL THEN to_jsonb(sfu_1.value_float)
-                    WHEN sfu_1.value_int IS NOT NULL THEN to_jsonb(sfu_1.value_int)
-                    WHEN sfu_1.value_string IS NOT NULL THEN to_jsonb(sfu_1.value_string)
-                    WHEN sfu_1.value_bool IS NOT NULL THEN to_jsonb(sfu_1.value_bool)
+                    WHEN sfu.value_float IS NOT NULL THEN to_jsonb(sfu.value_float)
+                    WHEN sfu.value_int IS NOT NULL THEN to_jsonb(sfu.value_int)
+                    WHEN sfu.value_string IS NOT NULL THEN to_jsonb(sfu.value_string)
+                    WHEN sfu.value_bool IS NOT NULL THEN to_jsonb(sfu.value_bool)
                     ELSE NULL::jsonb
                 END) FILTER (WHERE sd.code IS NOT NULL) AS stats
            FROM timesegments t_1
-             JOIN stat_for_unit sfu_1 ON sfu_1.establishment_id = t_1.unit_id AND from_until_overlaps(t_1.valid_from, t_1.valid_until, sfu_1.valid_from, sfu_1.valid_until)
-             JOIN stat_definition sd ON sfu_1.stat_definition_id = sd.id
+             JOIN stat_for_unit sfu ON sfu.establishment_id = t_1.unit_id AND from_until_overlaps(t_1.valid_from, t_1.valid_until, sfu.valid_from, sfu.valid_until)
+             JOIN stat_definition sd ON sfu.stat_definition_id = sd.id
           WHERE t_1.unit_type = 'establishment'::statistical_unit_type
           GROUP BY t_1.unit_id, t_1.valid_from
         )
@@ -141,6 +142,7 @@ View definition:
     phl.latitude AS physical_latitude,
     phl.longitude AS physical_longitude,
     phl.altitude AS physical_altitude,
+    current_settings.country_id = phl.country_id AS domestic,
     pol.address_part1 AS postal_address_part1,
     pol.address_part2 AS postal_address_part2,
     pol.address_part3 AS postal_address_part3,
@@ -333,20 +335,28 @@ View definition:
          LIMIT 1) c ON true
      LEFT JOIN unit_size us ON es.unit_size_id = us.id
      LEFT JOIN status st ON es.status_id = st.id
-     LEFT JOIN LATERAL ( SELECT array_agg(DISTINCT sfu_1.data_source_id) FILTER (WHERE sfu_1.data_source_id IS NOT NULL) AS data_source_ids
-           FROM stat_for_unit sfu_1
-          WHERE sfu_1.establishment_id = es.id AND from_until_overlaps(t.valid_from, t.valid_until, sfu_1.valid_from, sfu_1.valid_until)) sfu ON true
+     LEFT JOIN LATERAL ( SELECT array_agg(DISTINCT sfu.data_source_id) FILTER (WHERE sfu.data_source_id IS NOT NULL) AS data_source_ids
+           FROM stat_for_unit sfu
+          WHERE sfu.establishment_id = es.id AND from_until_overlaps(t.valid_from, t.valid_until, sfu.valid_from, sfu.valid_until)) sfu_ds ON true
+     LEFT JOIN LATERAL ( SELECT sfu.edit_comment,
+            sfu.edit_by_user_id,
+            sfu.edit_at
+           FROM stat_for_unit sfu
+          WHERE sfu.establishment_id = es.id AND from_until_overlaps(t.valid_from, t.valid_until, sfu.valid_from, sfu.valid_until)
+          ORDER BY sfu.edit_at DESC
+         LIMIT 1) sfu_le ON true
      LEFT JOIN LATERAL ( SELECT array_agg(ds_1.id) AS ids,
             array_agg(ds_1.code) AS codes
            FROM data_source ds_1
-          WHERE COALESCE(ds_1.id = es.data_source_id, false) OR COALESCE(ds_1.id = pa.data_source_id, false) OR COALESCE(ds_1.id = sa.data_source_id, false) OR COALESCE(ds_1.id = phl.data_source_id, false) OR COALESCE(ds_1.id = pol.data_source_id, false) OR COALESCE(ds_1.id = ANY (sfu.data_source_ids), false)) ds ON true
+          WHERE COALESCE(ds_1.id = es.data_source_id, false) OR COALESCE(ds_1.id = pa.data_source_id, false) OR COALESCE(ds_1.id = sa.data_source_id, false) OR COALESCE(ds_1.id = phl.data_source_id, false) OR COALESCE(ds_1.id = pol.data_source_id, false) OR COALESCE(ds_1.id = ANY (sfu_ds.data_source_ids), false)) ds ON true
      LEFT JOIN LATERAL ( SELECT all_edits.edit_comment,
             all_edits.edit_by_user_id,
             all_edits.edit_at
-           FROM ( VALUES (es.edit_comment,es.edit_by_user_id,es.edit_at), (pa.edit_comment,pa.edit_by_user_id,pa.edit_at), (sa.edit_comment,sa.edit_by_user_id,sa.edit_at), (phl.edit_comment,phl.edit_by_user_id,phl.edit_at), (pol.edit_comment,pol.edit_by_user_id,pol.edit_at), (c.edit_comment,c.edit_by_user_id,c.edit_at)) all_edits(edit_comment, edit_by_user_id, edit_at)
+           FROM ( VALUES (es.edit_comment,es.edit_by_user_id,es.edit_at), (pa.edit_comment,pa.edit_by_user_id,pa.edit_at), (sa.edit_comment,sa.edit_by_user_id,sa.edit_at), (phl.edit_comment,phl.edit_by_user_id,phl.edit_at), (pol.edit_comment,pol.edit_by_user_id,pol.edit_at), (c.edit_comment,c.edit_by_user_id,c.edit_at), (sfu_le.edit_comment,sfu_le.edit_by_user_id,sfu_le.edit_at)) all_edits(edit_comment, edit_by_user_id, edit_at)
           WHERE all_edits.edit_at IS NOT NULL
           ORDER BY all_edits.edit_at DESC
-         LIMIT 1) last_edit ON true
+         LIMIT 1) last_edit ON true,
+    settings current_settings
   ORDER BY t.unit_type, t.unit_id, t.valid_from;
 
 ```

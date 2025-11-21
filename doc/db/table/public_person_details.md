@@ -37,6 +37,9 @@ Policies:
       TO regular_user
       USING (true)
       WITH CHECK (true)
+Not-null constraints:
+    "person_id_not_null" NOT NULL "id"
+    "person_created_at_not_null" NOT NULL "created_at"
 Triggers:
     trigger_prevent_person_id_update BEFORE UPDATE OF id ON person FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap

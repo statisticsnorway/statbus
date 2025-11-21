@@ -28,6 +28,13 @@ Policies:
     POLICY "stat_definition_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "stat_definition_id_not_null" NOT NULL "id"
+    "stat_definition_code_not_null" NOT NULL "code"
+    "stat_definition_type_not_null" NOT NULL "type"
+    "stat_definition_frequency_not_null" NOT NULL "frequency"
+    "stat_definition_name_not_null" NOT NULL "name"
+    "stat_definition_archived_not_null" NOT NULL "archived"
 Triggers:
     stat_definition_lifecycle_callbacks_after_delete AFTER DELETE ON stat_definition FOR EACH STATEMENT EXECUTE FUNCTION lifecycle_callbacks.cleanup_and_generate()
     stat_definition_lifecycle_callbacks_after_insert AFTER INSERT ON stat_definition FOR EACH STATEMENT EXECUTE FUNCTION lifecycle_callbacks.cleanup_and_generate()

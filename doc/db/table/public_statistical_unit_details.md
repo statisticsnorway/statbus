@@ -41,6 +41,7 @@
  physical_latitude                | numeric(9,6)             |           |          |         | main     |             |              | 
  physical_longitude               | numeric(9,6)             |           |          |         | main     |             |              | 
  physical_altitude                | numeric(6,1)             |           |          |         | main     |             |              | 
+ domestic                         | boolean                  |           |          |         | plain    |             |              | 
  postal_address_part1             | character varying(200)   |           |          |         | extended |             |              | 
  postal_address_part2             | character varying(200)   |           |          |         | extended |             |              | 
  postal_address_part3             | character varying(200)   |           |          |         | extended |             |              | 
@@ -95,6 +96,7 @@ Indexes:
     "idx_gist_statistical_unit_tag_paths" gist (tag_paths)
     "idx_statistical_unit_activity_category_paths" btree (activity_category_paths)
     "idx_statistical_unit_data_source_ids" gin (data_source_ids)
+    "idx_statistical_unit_domestic" btree (domestic)
     "idx_statistical_unit_establishment_id" btree (unit_id)
     "idx_statistical_unit_external_idents" btree (external_idents)
     "idx_statistical_unit_invalid_codes" gin (invalid_codes)

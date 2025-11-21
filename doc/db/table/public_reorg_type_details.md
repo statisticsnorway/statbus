@@ -29,6 +29,15 @@ Policies:
     POLICY "reorg_type_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "reorg_type_id_not_null" NOT NULL "id"
+    "reorg_type_code_not_null" NOT NULL "code"
+    "reorg_type_name_not_null" NOT NULL "name"
+    "reorg_type_description_not_null" NOT NULL "description"
+    "reorg_type_active_not_null" NOT NULL "active"
+    "reorg_type_custom_not_null" NOT NULL "custom"
+    "reorg_type_created_at_not_null" NOT NULL "created_at"
+    "reorg_type_updated_at_not_null" NOT NULL "updated_at"
 Triggers:
     trigger_prevent_reorg_type_id_update BEFORE UPDATE OF id ON reorg_type FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap

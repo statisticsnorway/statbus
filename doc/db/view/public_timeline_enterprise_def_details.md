@@ -40,6 +40,7 @@
  physical_latitude                | numeric(9,6)             |           |          |         | main     | 
  physical_longitude               | numeric(9,6)             |           |          |         | main     | 
  physical_altitude                | numeric(6,1)             |           |          |         | main     | 
+ domestic                         | boolean                  |           |          |         | plain    | 
  postal_address_part1             | character varying(200)   |           |          |         | extended | 
  postal_address_part2             | character varying(200)   |           |          |         | extended | 
  postal_address_part3             | character varying(200)   |           |          |         | extended | 
@@ -180,6 +181,7 @@ View definition:
             basis.physical_latitude,
             basis.physical_longitude,
             basis.physical_altitude,
+            basis.domestic,
             basis.postal_address_part1,
             basis.postal_address_part2,
             basis.postal_address_part3,
@@ -260,6 +262,7 @@ View definition:
                     COALESCE(enplu.physical_latitude, enpes.physical_latitude) AS physical_latitude,
                     COALESCE(enplu.physical_longitude, enpes.physical_longitude) AS physical_longitude,
                     COALESCE(enplu.physical_altitude, enpes.physical_altitude) AS physical_altitude,
+                    COALESCE(enplu.domestic, enpes.domestic) AS domestic,
                     COALESCE(enplu.postal_address_part1, enpes.postal_address_part1) AS postal_address_part1,
                     COALESCE(enplu.postal_address_part2, enpes.postal_address_part2) AS postal_address_part2,
                     COALESCE(enplu.postal_address_part3, enpes.postal_address_part3) AS postal_address_part3,
@@ -342,6 +345,7 @@ View definition:
                             enplu_1.physical_latitude,
                             enplu_1.physical_longitude,
                             enplu_1.physical_altitude,
+                            enplu_1.domestic,
                             enplu_1.postal_address_part1,
                             enplu_1.postal_address_part2,
                             enplu_1.postal_address_part3,
@@ -427,6 +431,7 @@ View definition:
                             enpes_1.physical_latitude,
                             enpes_1.physical_longitude,
                             enpes_1.physical_altitude,
+                            enpes_1.domestic,
                             enpes_1.postal_address_part1,
                             enpes_1.postal_address_part2,
                             enpes_1.postal_address_part3,
@@ -523,6 +528,7 @@ View definition:
     physical_latitude,
     physical_longitude,
     physical_altitude,
+    domestic,
     postal_address_part1,
     postal_address_part2,
     postal_address_part3,

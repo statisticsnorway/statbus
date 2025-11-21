@@ -19,6 +19,10 @@ Policies:
     POLICY "timepoints_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "timepoints_unit_type_not_null" NOT NULL "unit_type"
+    "timepoints_unit_id_not_null" NOT NULL "unit_id"
+    "timepoints_timepoint_not_null" NOT NULL "timepoint"
 Access method: heap
 
 ```

@@ -28,6 +28,14 @@ Policies:
     POLICY "import_step_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "import_step_id_not_null" NOT NULL "id"
+    "import_step_code_not_null" NOT NULL "code"
+    "import_step_name_not_null" NOT NULL "name"
+    "import_step_priority_not_null" NOT NULL "priority"
+    "import_step_is_holistic_not_null" NOT NULL "is_holistic"
+    "import_step_created_at_not_null" NOT NULL "created_at"
+    "import_step_updated_at_not_null" NOT NULL "updated_at"
 Triggers:
     trg_validate_import_step_after_change AFTER INSERT OR DELETE OR UPDATE ON import_step FOR EACH ROW EXECUTE FUNCTION admin.trigger_validate_import_definition()
 Access method: heap

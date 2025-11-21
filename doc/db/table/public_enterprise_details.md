@@ -32,9 +32,14 @@ Policies:
       TO regular_user
       USING (true)
       WITH CHECK (true)
+Not-null constraints:
+    "enterprise_id_not_null" NOT NULL "id"
+    "enterprise_active_not_null" NOT NULL "active"
+    "enterprise_edit_by_user_id_not_null" NOT NULL "edit_by_user_id"
+    "enterprise_edit_at_not_null" NOT NULL "edit_at"
 Triggers:
-    enterprise_changes_trigger AFTER INSERT OR UPDATE ON enterprise FOR EACH STATEMENT EXECUTE FUNCTION worker.notify_worker_about_changes()
     enterprise_deletes_trigger BEFORE DELETE ON enterprise FOR EACH ROW EXECUTE FUNCTION worker.notify_worker_about_deletes()
+    enterprise_statement_changes_trigger AFTER INSERT OR UPDATE ON enterprise FOR EACH STATEMENT EXECUTE FUNCTION worker.notify_worker_about_statement_changes()
     trigger_prevent_enterprise_id_update BEFORE UPDATE OF id ON enterprise FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap
 

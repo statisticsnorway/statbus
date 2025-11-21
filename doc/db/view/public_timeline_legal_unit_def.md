@@ -40,6 +40,7 @@
  physical_latitude                | numeric(9,6)             |           |          | 
  physical_longitude               | numeric(9,6)             |           |          | 
  physical_altitude                | numeric(6,1)             |           |          | 
+ domestic                         | boolean                  |           |          | 
  postal_address_part1             | character varying(200)   |           |          | 
  postal_address_part2             | character varying(200)   |           |          | 
  postal_address_part3             | character varying(200)   |           |          | 

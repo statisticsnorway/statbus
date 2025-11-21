@@ -35,6 +35,16 @@ Policies:
     POLICY "import_data_column_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "import_data_column_id_not_null" NOT NULL "id"
+    "import_data_column_step_id_not_null" NOT NULL "step_id"
+    "import_data_column_column_name_not_null" NOT NULL "column_name"
+    "import_data_column_column_type_not_null" NOT NULL "column_type"
+    "import_data_column_purpose_not_null" NOT NULL "purpose"
+    "import_data_column_is_nullable_not_null" NOT NULL "is_nullable"
+    "import_data_column_is_uniquely_identifying_not_null" NOT NULL "is_uniquely_identifying"
+    "import_data_column_created_at_not_null" NOT NULL "created_at"
+    "import_data_column_updated_at_not_null" NOT NULL "updated_at"
 Triggers:
     trg_validate_import_data_column_after_change AFTER INSERT OR DELETE OR UPDATE ON import_data_column FOR EACH ROW EXECUTE FUNCTION admin.trigger_validate_import_definition()
 Access method: heap

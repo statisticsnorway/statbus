@@ -94,6 +94,19 @@ Policies:
       TO regular_user
       USING ((user_id = auth.uid()))
       WITH CHECK ((user_id = auth.uid()))
+Not-null constraints:
+    "import_job_id_not_null" NOT NULL "id"
+    "import_job_slug_not_null" NOT NULL "slug"
+    "import_job_created_at_not_null" NOT NULL "created_at"
+    "import_job_updated_at_not_null" NOT NULL "updated_at"
+    "import_job_upload_table_name_not_null" NOT NULL "upload_table_name"
+    "import_job_data_table_name_not_null" NOT NULL "data_table_name"
+    "import_job_analysis_batch_size_not_null" NOT NULL "analysis_batch_size"
+    "import_job_processing_batch_size_not_null" NOT NULL "processing_batch_size"
+    "import_job_state_not_null" NOT NULL "state"
+    "import_job_review_not_null" NOT NULL "review"
+    "import_job_expires_at_not_null" NOT NULL "expires_at"
+    "import_job_definition_id_not_null" NOT NULL "definition_id"
 Triggers:
     import_job_cleanup BEFORE DELETE OR UPDATE OF upload_table_name, data_table_name ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_cleanup()
     import_job_derive_trigger BEFORE INSERT ON import_job FOR EACH ROW EXECUTE FUNCTION admin.import_job_derive()

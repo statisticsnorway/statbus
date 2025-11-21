@@ -16,6 +16,8 @@ Policies:
     POLICY "timesegments_years_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "timesegments_years_year_not_null" NOT NULL "year"
 Access method: heap
 
 ```

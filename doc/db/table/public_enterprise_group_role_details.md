@@ -25,6 +25,14 @@ Policies:
     POLICY "enterprise_group_role_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "enterprise_group_role_id_not_null" NOT NULL "id"
+    "enterprise_group_role_code_not_null" NOT NULL "code"
+    "enterprise_group_role_name_not_null" NOT NULL "name"
+    "enterprise_group_role_active_not_null" NOT NULL "active"
+    "enterprise_group_role_custom_not_null" NOT NULL "custom"
+    "enterprise_group_role_created_at_not_null" NOT NULL "created_at"
+    "enterprise_group_role_updated_at_not_null" NOT NULL "updated_at"
 Triggers:
     trigger_prevent_enterprise_group_role_id_update BEFORE UPDATE OF id ON enterprise_group_role FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap

@@ -41,6 +41,7 @@
  physical_latitude                | numeric(9,6)             |           |          |         | main     | 
  physical_longitude               | numeric(9,6)             |           |          |         | main     | 
  physical_altitude                | numeric(6,1)             |           |          |         | main     | 
+ domestic                         | boolean                  |           |          |         | plain    | 
  postal_address_part1             | character varying(200)   |           |          |         | extended | 
  postal_address_part2             | character varying(200)   |           |          |         | extended | 
  postal_address_part3             | character varying(200)   |           |          |         | extended | 
@@ -193,6 +194,7 @@ View definition:
             timeline_establishment.physical_latitude,
             timeline_establishment.physical_longitude,
             timeline_establishment.physical_altitude,
+            timeline_establishment.domestic,
             timeline_establishment.postal_address_part1,
             timeline_establishment.postal_address_part2,
             timeline_establishment.postal_address_part3,
@@ -275,6 +277,7 @@ View definition:
             timeline_legal_unit.physical_latitude,
             timeline_legal_unit.physical_longitude,
             timeline_legal_unit.physical_altitude,
+            timeline_legal_unit.domestic,
             timeline_legal_unit.postal_address_part1,
             timeline_legal_unit.postal_address_part2,
             timeline_legal_unit.postal_address_part3,
@@ -357,6 +360,7 @@ View definition:
             timeline_enterprise.physical_latitude,
             timeline_enterprise.physical_longitude,
             timeline_enterprise.physical_altitude,
+            timeline_enterprise.domestic,
             timeline_enterprise.postal_address_part1,
             timeline_enterprise.postal_address_part2,
             timeline_enterprise.postal_address_part3,
@@ -440,6 +444,7 @@ View definition:
     data.physical_latitude,
     data.physical_longitude,
     data.physical_altitude,
+    data.domestic,
     data.postal_address_part1,
     data.postal_address_part2,
     data.postal_address_part3,

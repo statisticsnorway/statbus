@@ -39,6 +39,17 @@ Policies:
     POLICY "activity_category_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "activity_category_id_not_null" NOT NULL "id"
+    "activity_category_standard_id_not_null1" NOT NULL "standard_id"
+    "activity_category_path_not_null" NOT NULL "path"
+    "activity_category_label_not_null" NOT NULL "label"
+    "activity_category_code_not_null" NOT NULL "code"
+    "activity_category_name_not_null" NOT NULL "name"
+    "activity_category_active_not_null" NOT NULL "active"
+    "activity_category_custom_not_null" NOT NULL "custom"
+    "activity_category_created_at_not_null" NOT NULL "created_at"
+    "activity_category_updated_at_not_null" NOT NULL "updated_at"
 Triggers:
     lookup_parent_and_derive_code_before_insert_update BEFORE INSERT OR UPDATE ON activity_category FOR EACH ROW EXECUTE FUNCTION lookup_parent_and_derive_code()
     trigger_prevent_activity_category_id_update BEFORE UPDATE OF id ON activity_category FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()

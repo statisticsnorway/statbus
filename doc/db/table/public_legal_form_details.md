@@ -28,6 +28,14 @@ Policies:
     POLICY "legal_form_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "legal_form_id_not_null" NOT NULL "id"
+    "legal_form_code_not_null" NOT NULL "code"
+    "legal_form_name_not_null" NOT NULL "name"
+    "legal_form_active_not_null" NOT NULL "active"
+    "legal_form_custom_not_null" NOT NULL "custom"
+    "legal_form_created_at_not_null" NOT NULL "created_at"
+    "legal_form_updated_at_not_null" NOT NULL "updated_at"
 Triggers:
     trigger_prevent_legal_form_id_update BEFORE UPDATE OF id ON legal_form FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap

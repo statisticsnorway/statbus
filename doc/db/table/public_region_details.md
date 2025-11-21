@@ -44,6 +44,11 @@ Policies:
     POLICY "region_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "region_id_not_null" NOT NULL "id"
+    "region_path_not_null" NOT NULL "path"
+    "region_label_not_null" NOT NULL "label"
+    "region_name_not_null" NOT NULL "name"
 Triggers:
     trigger_prevent_region_id_update BEFORE UPDATE OF id ON region FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap

@@ -25,6 +25,7 @@ Indexes:
 Referenced by:
     TABLE "location" CONSTRAINT "location_country_id_fkey" FOREIGN KEY (country_id) REFERENCES country(id) ON DELETE RESTRICT
     TABLE "person" CONSTRAINT "person_country_id_fkey" FOREIGN KEY (country_id) REFERENCES country(id)
+    TABLE "settings" CONSTRAINT "settings_country_id_fkey" FOREIGN KEY (country_id) REFERENCES country(id) ON DELETE RESTRICT
 Policies:
     POLICY "country_admin_user_manage"
       TO admin_user
@@ -36,6 +37,16 @@ Policies:
     POLICY "country_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "country_id_not_null" NOT NULL "id"
+    "country_iso_2_not_null" NOT NULL "iso_2"
+    "country_iso_3_not_null" NOT NULL "iso_3"
+    "country_iso_num_not_null" NOT NULL "iso_num"
+    "country_name_not_null" NOT NULL "name"
+    "country_active_not_null" NOT NULL "active"
+    "country_custom_not_null" NOT NULL "custom"
+    "country_created_at_not_null" NOT NULL "created_at"
+    "country_updated_at_not_null" NOT NULL "updated_at"
 Triggers:
     trigger_prevent_country_id_update BEFORE UPDATE OF id ON country FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap

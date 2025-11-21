@@ -44,6 +44,19 @@ Policies:
     POLICY "import_definition_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "import_definition_id_not_null" NOT NULL "id"
+    "import_definition_slug_not_null" NOT NULL "slug"
+    "import_definition_name_not_null" NOT NULL "name"
+    "import_definition_strategy_not_null" NOT NULL "strategy"
+    "import_definition_mode_not_null" NOT NULL "mode"
+    "import_definition_valid_time_from_not_null" NOT NULL "valid_time_from"
+    "import_definition_active_not_null" NOT NULL "active"
+    "import_definition_custom_not_null" NOT NULL "custom"
+    "import_definition_valid_not_null" NOT NULL "valid"
+    "import_definition_default_retention_period_not_null" NOT NULL "default_retention_period"
+    "import_definition_created_at_not_null" NOT NULL "created_at"
+    "import_definition_updated_at_not_null" NOT NULL "updated_at"
 Triggers:
     trg_validate_import_definition_after_change AFTER INSERT OR DELETE OR UPDATE OF slug, data_source_id, strategy, mode, valid_time_from, default_retention_period ON import_definition FOR EACH ROW EXECUTE FUNCTION admin.trigger_validate_import_definition()
 Access method: heap

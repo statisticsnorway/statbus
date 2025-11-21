@@ -45,6 +45,12 @@ Policies:
       TO regular_user
       USING (true)
       WITH CHECK (true)
+Not-null constraints:
+    "tag_for_unit_id_not_null" NOT NULL "id"
+    "tag_for_unit_tag_id_not_null" NOT NULL "tag_id"
+    "tag_for_unit_created_at_not_null" NOT NULL "created_at"
+    "tag_for_unit_edit_by_user_id_not_null" NOT NULL "edit_by_user_id"
+    "tag_for_unit_edit_at_not_null" NOT NULL "edit_at"
 Triggers:
     trigger_prevent_tag_for_unit_id_update BEFORE UPDATE OF id ON tag_for_unit FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap

@@ -44,6 +44,16 @@ Policies:
     POLICY "tag_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Not-null constraints:
+    "tag_id_not_null" NOT NULL "id"
+    "tag_path_not_null" NOT NULL "path"
+    "tag_label_not_null" NOT NULL "label"
+    "tag_name_not_null" NOT NULL "name"
+    "tag_active_not_null" NOT NULL "active"
+    "tag_type_not_null" NOT NULL "type"
+    "tag_is_scoped_tag_not_null" NOT NULL "is_scoped_tag"
+    "tag_created_at_not_null" NOT NULL "created_at"
+    "tag_updated_at_not_null" NOT NULL "updated_at"
 Triggers:
     trigger_prevent_tag_id_update BEFORE UPDATE OF id ON tag FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap

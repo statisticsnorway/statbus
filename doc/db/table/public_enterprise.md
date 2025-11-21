@@ -33,8 +33,8 @@ Policies:
       USING (true)
       WITH CHECK (true)
 Triggers:
-    enterprise_changes_trigger AFTER INSERT OR UPDATE ON enterprise FOR EACH STATEMENT EXECUTE FUNCTION worker.notify_worker_about_changes()
     enterprise_deletes_trigger BEFORE DELETE ON enterprise FOR EACH ROW EXECUTE FUNCTION worker.notify_worker_about_deletes()
+    enterprise_statement_changes_trigger AFTER INSERT OR UPDATE ON enterprise FOR EACH STATEMENT EXECUTE FUNCTION worker.notify_worker_about_statement_changes()
     trigger_prevent_enterprise_id_update BEFORE UPDATE OF id ON enterprise FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 
 ```

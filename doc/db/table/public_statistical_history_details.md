@@ -6,7 +6,14 @@
  year                                     | integer               |           |          |         | plain    |             |              | 
  month                                    | integer               |           |          |         | plain    |             |              | 
  unit_type                                | statistical_unit_type |           |          |         | plain    |             |              | 
- count                                    | bigint                |           |          |         | plain    |             |              | 
+ exists_count                             | integer               |           |          |         | plain    |             |              | 
+ exists_change                            | integer               |           |          |         | plain    |             |              | 
+ exists_added_count                       | integer               |           |          |         | plain    |             |              | 
+ exists_removed_count                     | integer               |           |          |         | plain    |             |              | 
+ countable_count                          | integer               |           |          |         | plain    |             |              | 
+ countable_change                         | integer               |           |          |         | plain    |             |              | 
+ countable_added_count                    | integer               |           |          |         | plain    |             |              | 
+ countable_removed_count                  | integer               |           |          |         | plain    |             |              | 
  births                                   | integer               |           |          |         | plain    |             |              | 
  deaths                                   | integer               |           |          |         | plain    |             |              | 
  name_change_count                        | integer               |           |          |         | plain    |             |              | 
@@ -20,9 +27,6 @@
  stats_summary                            | jsonb                 |           |          |         | extended |             |              | 
 Indexes:
     "idx_history_resolution" btree (resolution)
-    "idx_statistical_history_births" btree (births)
-    "idx_statistical_history_count" btree (count)
-    "idx_statistical_history_deaths" btree (deaths)
     "idx_statistical_history_month" btree (month)
     "idx_statistical_history_stats_summary" gin (stats_summary jsonb_path_ops)
     "idx_statistical_history_year" btree (year)

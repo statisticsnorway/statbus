@@ -60,21 +60,32 @@ AS $function$
               OR sh.year IS NOT NULL AND sh.year <= statistical_history_drilldown.year_max
               )
     ), available_history_stats AS (
-        SELECT year, month
-             , COALESCE(ah.count, 0) AS count
-            --
-             , COALESCE(ah.stats_summary, '{}'::JSONB) AS stats_summary
-             --
-             , COALESCE(ah.births, 0) AS births
-             , COALESCE(ah.deaths, 0) AS deaths
-             --
-             , COALESCE(ah.primary_activity_category_change_count , 0) AS primary_activity_category_change_count
-             , COALESCE(ah.sector_change_count                    , 0) AS sector_change_count
-             , COALESCE(ah.legal_form_change_count                , 0) AS legal_form_change_count
-             , COALESCE(ah.physical_region_change_count           , 0) AS physical_region_change_count
-             , COALESCE(ah.physical_country_change_count          , 0) AS physical_country_change_count
-             --
+        SELECT
+            ah.year, ah.month
+            -- Sum up all the demographic and change counts across the filtered facets
+            , COALESCE(SUM(ah.exists_count), 0)::integer AS exists_count
+            , COALESCE(SUM(ah.exists_change), 0)::integer AS exists_change
+            , COALESCE(SUM(ah.exists_added_count), 0)::integer AS exists_added_count
+            , COALESCE(SUM(ah.exists_removed_count), 0)::integer AS exists_removed_count
+            , COALESCE(SUM(ah.countable_count), 0)::integer AS countable_count
+            , COALESCE(SUM(ah.countable_change), 0)::integer AS countable_change
+            , COALESCE(SUM(ah.countable_added_count), 0)::integer AS countable_added_count
+            , COALESCE(SUM(ah.countable_removed_count), 0)::integer AS countable_removed_count
+            , COALESCE(SUM(ah.births), 0)::integer AS births
+            , COALESCE(SUM(ah.deaths), 0)::integer AS deaths
+            , COALESCE(SUM(ah.name_change_count), 0)::integer AS name_change_count
+            , COALESCE(SUM(ah.primary_activity_category_change_count), 0)::integer AS primary_activity_category_change_count
+            , COALESCE(SUM(ah.secondary_activity_category_change_count), 0)::integer AS secondary_activity_category_change_count
+            , COALESCE(SUM(ah.sector_change_count), 0)::integer AS sector_change_count
+            , COALESCE(SUM(ah.legal_form_change_count), 0)::integer AS legal_form_change_count
+            , COALESCE(SUM(ah.physical_region_change_count), 0)::integer AS physical_region_change_count
+            , COALESCE(SUM(ah.physical_country_change_count), 0)::integer AS physical_country_change_count
+            , COALESCE(SUM(ah.physical_address_change_count), 0)::integer AS physical_address_change_count
+            , COALESCE(SUM(ah.unit_size_change_count), 0)::integer AS unit_size_change_count
+            , COALESCE(SUM(ah.status_change_count), 0)::integer AS status_change_count
+            , COALESCE(public.jsonb_stats_summary_merge_agg(ah.stats_summary), '{}'::jsonb) AS stats_summary
         FROM available_history AS ah
+        GROUP BY ah.year, ah.month
         ORDER BY year ASC, month ASC NULLS FIRST
     ),
     breadcrumb_region AS (
@@ -107,7 +118,7 @@ AS $function$
              , ar.label
              , ar.code
              , ar.name
-             , COALESCE(SUM(sh.count), 0) AS count
+             , COALESCE(SUM(sh.countable_count), 0) AS count
              , COALESCE(bool_or(true) FILTER (WHERE sh.physical_region_path OPERATOR(public.<>) ar.path), false) AS has_children
         FROM available_region AS ar
         LEFT JOIN available_history AS sh ON sh.physical_region_path OPERATOR(public.<@) ar.path
@@ -153,7 +164,7 @@ AS $function$
              , aac.label
              , aac.code
              , aac.name
-             , COALESCE(SUM(sh.count), 0) AS count
+             , COALESCE(SUM(sh.countable_count), 0) AS count
              , COALESCE(bool_or(true) FILTER (WHERE sh.primary_activity_category_path OPERATOR(public.<>) aac.path), false) AS has_children
         FROM
             available_activity_category AS aac
@@ -194,7 +205,7 @@ AS $function$
              , "as".label
              , "as".code
              , "as".name
-             , COALESCE(SUM(sh.count), 0) AS count
+             , COALESCE(SUM(sh.countable_count), 0) AS count
              , COALESCE(bool_or(true) FILTER (WHERE sh.sector_path OPERATOR(public.<>) "as".path), false) AS has_children
         FROM available_sector AS "as"
         LEFT JOIN available_history AS sh ON sh.sector_path OPERATOR(public.<@) "as".path
@@ -227,7 +238,7 @@ AS $function$
         SELECT lf.id
              , lf.code
              , lf.name
-             , COALESCE(SUM(sh.count), 0) AS count
+             , COALESCE(SUM(sh.countable_count), 0) AS count
              , false AS has_children
         FROM available_legal_form AS lf
         LEFT JOIN available_history AS sh ON sh.legal_form_id = lf.id
@@ -259,7 +270,7 @@ AS $function$
         SELECT s.id
              , s.code
              , s.name
-             , COALESCE(SUM(sh.count), 0) AS count
+             , COALESCE(SUM(sh.countable_count), 0) AS count
              , false AS has_children
         FROM available_status AS s
         LEFT JOIN available_history AS sh ON sh.status_id = s.id
@@ -291,7 +302,7 @@ AS $function$
         SELECT pc.id
              , pc.iso_2
              , pc.name
-             , COALESCE(SUM(sh.count), 0) AS count
+             , COALESCE(SUM(sh.countable_count), 0) AS count
              , false AS has_children
         FROM available_physical_country AS pc
         LEFT JOIN available_history AS sh ON sh.physical_country_id = pc.id

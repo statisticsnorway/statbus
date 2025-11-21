@@ -26,6 +26,12 @@ Policies:
       WITH CHECK ((user_id = auth.uid()))
     POLICY "select_own_api_keys" FOR SELECT
       USING ((user_id = auth.uid()))
+Not-null constraints:
+    "api_key_id_not_null" NOT NULL "id"
+    "api_key_jti_not_null" NOT NULL "jti"
+    "api_key_user_id_not_null" NOT NULL "user_id"
+    "api_key_created_at_not_null" NOT NULL "created_at"
+    "api_key_expires_at_not_null" NOT NULL "expires_at"
 Triggers:
     generate_api_key_token_trigger BEFORE INSERT ON auth.api_key FOR EACH ROW EXECUTE FUNCTION auth.generate_api_key_token()
 Access method: heap
