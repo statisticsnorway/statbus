@@ -26,6 +26,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { DataTableActionBar, DataTableActionBarAction, DataTableActionBarSelection } from "@/components/data-table/data-table-action-bar";
 import { Button } from "@/components/ui/button";
 import { type ImportJobWithDetails as ImportJob } from "@/atoms/import";
+import { useBaseData } from "@/atoms/base-data";
 
 const SWR_KEY_IMPORT_JOBS = "/api/import-jobs";
 
@@ -144,6 +145,7 @@ export default function ImportJobsPage() {
   const [errorToShow, setErrorToShow] = useState<string | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const { statbusUsers } = useBaseData();
 
   // Read state directly from URL to build the SWR key
   const [page] = useQueryState('page', parseAsInteger.withDefault(1));
@@ -569,60 +571,102 @@ export default function ImportJobsPage() {
         const secondsLeft = rowsLeft / speed;
         const timeLeft = formatDuration(secondsLeft);
 
-        return (
-          <div>
-            {speedDisplay}
-            {timeLeft && <div className="text-xs text-gray-500 font-mono" title="Estimated time remaining">~ {timeLeft}</div>}
-          </div>
-        );
-      }
-    },
-    {
-      id: 'expires_at',
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Expires" />,
-      accessorKey: 'expires_at',
-      cell: ({ row }) => {
-        const expires = row.original.expires_at;
-        return expires ? <div className="text-xs text-gray-500">{formatDistanceToNow(new Date(expires), { addSuffix: true })}</div> : <span className="text-xs text-gray-400">-</span>;
+          return (
+            <div>
+              {speedDisplay}
+              {timeLeft && (
+                <div
+                  className="text-xs text-gray-500 font-mono"
+                  title="Estimated time remaining"
+                >
+                  ~ {timeLeft}
+                </div>
+              )}
+            </div>
+          );
+        },
       },
-      enableSorting: true,
-    },
-    {
-      id: "actions",
-      cell: ({ row, table }) => {
-        const job = row.original;
-        return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
-                <span className="sr-only">Open menu</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem asChild>
-                <Link href={`/import/jobs/${job.slug}/data`}>
-                  <FolderSearch className="mr-2 h-4 w-4" />
-                  View Imported Data
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="text-red-600"
-                onClick={async () => {
-                  await handleDeleteJobs([job.id]);
-                  table.toggleAllRowsSelected(false);
-                }}
-                disabled={isDeleting}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        );
+      {
+        id: "created_at",
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Created" />
+        ),
+        accessorKey: "created_at",
+        cell: ({ row }) => {
+          const created_at = row.original.created_at;
+          const created_by = statbusUsers.find(
+            (user: Tables<"user">) => user.id === row.original.user_id
+          )?.display_name;
+
+          return created_at ? (
+            <div className="flex flex-col space-y-0.5 leading-tight whitespace-nowrap text-gray-500">
+              <small>
+                {formatDistanceToNow(new Date(created_at), { addSuffix: true })}
+              </small>
+              <small>By {created_by}</small>
+            </div>
+          ) : (
+            <span className="text-xs text-gray-400">-</span>
+          );
+        },
+        enableSorting: true,
       },
-    },
-  ], [setErrorToShow, isDeleting, handleDeleteJobs]);
+      {
+        id: "expires_at",
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Expires" />
+        ),
+        accessorKey: "expires_at",
+        cell: ({ row }) => {
+          const expires = row.original.expires_at;
+          return expires ? (
+            <div className="text-xs text-gray-500">
+              {formatDistanceToNow(new Date(expires), { addSuffix: true })}
+            </div>
+          ) : (
+            <span className="text-xs text-gray-400">-</span>
+          );
+        },
+        enableSorting: true,
+      },
+      {
+        id: "actions",
+        cell: ({ row, table }) => {
+          const job = row.original;
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0">
+                  <span className="sr-only">Open menu</span>
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild>
+                  <Link href={`/import/jobs/${job.slug}/data`}>
+                    <FolderSearch className="mr-2 h-4 w-4" />
+                    View Imported Data
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-red-600"
+                  onClick={async () => {
+                    await handleDeleteJobs([job.id]);
+                    table.toggleAllRowsSelected(false);
+                  }}
+                  disabled={isDeleting}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          );
+        },
+      },
+    ],
+    [setErrorToShow, isDeleting, handleDeleteJobs, statbusUsers]
+  );
 
   const pageCount = useMemo(() => {
     return perPage > 0 ? Math.ceil(totalJobs / perPage) : 0;
