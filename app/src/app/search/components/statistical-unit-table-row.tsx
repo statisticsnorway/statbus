@@ -70,6 +70,8 @@ export const StatisticalUnitTableRow = ({
 
   const status = getStatusById(unit.status_id);
 
+  const notUsedForCounting = status?.used_for_counting === false;
+
   const getUnitSizeById = (unit_size_id: number | null) =>
     allUnitSizes.find(({ id }: Tables<'unit_size'>) => id === unit_size_id);
 
@@ -122,7 +124,16 @@ export const StatisticalUnitTableRow = ({
   return (
     <TableRow
       key={`row-${bodyRowSuffix(unit)}`}
-      className={cn("", isInBasket ? "bg-gray-100" : "")}
+      className={cn(
+        "",
+        isInBasket ? "bg-gray-100" : "",
+        notUsedForCounting && "italic text-gray-500"
+      )}
+      title={
+        notUsedForCounting
+          ? `This unit has status ${status.name} and is therefore not counted`
+          : ""
+      }
     >
       {columns.map((column: TableColumn) => {
         if (column.type === "Adaptable" && !column.visible) {
@@ -136,10 +147,7 @@ export const StatisticalUnitTableRow = ({
                 key={`cell-${bodyCellSuffix(unit, column)}`}
                 className={getCellClassName(column)}
               >
-                <div
-                  className="flex items-center space-x-3 leading-tight"
-                  title={unit.name ?? ""}
-                >
+                <div className="flex items-center space-x-3 leading-tight">
                   <StatisticalUnitIcon
                     type={unit.unit_type}
                     className="w-5"
