@@ -682,6 +682,9 @@ export default function ImportJobsPage() {
     debounceMs: 500,
     initialState: {
       sorting: [{ id: "id", desc: true }],
+      columnVisibility: {
+        expires_at: false,
+      },
     },
     getRowId: (row) => String(row.id),
   });
