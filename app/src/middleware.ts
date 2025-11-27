@@ -69,6 +69,19 @@ export async function middleware(request: NextRequest) {
     return redirectResponse;
   }
 
+  const path = request.nextUrl.pathname;
+  if (path.startsWith("/admin")) {
+    const roleFromStatbus = (authStatus as any).user.statbus_role;
+
+    const ADMIN_ROLES = new Set(["admin_user"]);
+
+    const isAdmin = roleFromStatbus && ADMIN_ROLES.has(roleFromStatbus);
+
+    if (!isAdmin) {
+      return NextResponse.redirect(new URL("/forbidden", request.url));
+    }
+  }
+
   // If authenticated, allow the request to proceed.
   // The `response` object already contains any cookies that authStore.handleServerAuth might have set
   // (e.g., if it cleared cookies due to an error it detected, though less likely if isAuthenticated is true).
