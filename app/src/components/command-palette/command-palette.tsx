@@ -22,6 +22,7 @@ import {
   Database,
   FileSpreadsheet,
   Binary,
+  ChartColumn,
   Users,
 } from "lucide-react";
 
@@ -125,6 +126,13 @@ export function CommandPalette() {
             >
               <BarChartHorizontal className="mr-2 h-4 w-4" />
               <span>Reports</span>
+            </CommandItem>
+            <CommandItem
+              onSelect={() => navigate("/reports/history-changes")}
+              value="History changes chart"
+            >
+              <ChartColumn className="mr-2 h-4 w-4" />
+              <span>History chart</span>
             </CommandItem>
             <CommandItem onSelect={() => navigate("/profile")} value="Profile">
               <User className="mr-2 h-4 w-4" />
