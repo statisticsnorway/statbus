@@ -255,8 +255,8 @@ SELECT name, external_idents, unit_type, data_source_codes, invalid_codes, prima
  Statistics Finland          | {"tax_ident": "358000", "stat_ident": "14"}     | enterprise | {nlr}             |               | J.58.2.0                       |             |           | 
  Statistics Norway           | {"tax_ident": "4711111", "stat_ident": "230"}   | legal_unit | {nlr}             |               | J.63.1.2.1                     |             |           | 
  Statistics Norway           | {"tax_ident": "4711111", "stat_ident": "230"}   | enterprise | {nlr}             |               | J.63.1.2.1                     |             |           | 
- Statistics Sweeden          | {"tax_ident": "46001", "stat_ident": "15"}      | legal_unit | {nlr}             |               | M.74.1.0                       |             |           | 
- Statistics Sweeden          | {"tax_ident": "46001", "stat_ident": "15"}      | enterprise | {nlr}             |               | M.74.1.0                       |             |           | 
+ Statistics Sweden           | {"tax_ident": "46001", "stat_ident": "15"}      | legal_unit | {nlr}             |               | M.74.1.0                       |             |           | 
+ Statistics Sweden           | {"tax_ident": "46001", "stat_ident": "15"}      | enterprise | {nlr}             |               | M.74.1.0                       |             |           | 
  VICTORIA FRESH FARMS        | {"tax_ident": "2507020167", "stat_ident": "12"} | legal_unit | {nlr}             |               | A.01.2.3                       |             |           | 
  VICTORIA FRESH FARMS        | {"tax_ident": "2507020167", "stat_ident": "12"} | enterprise | {nlr}             |               | A.01.2.3                       |             |           | 
  ZEBRA HAVEN SAFARIS         | {"tax_ident": "2312760075", "stat_ident": "6"}  | legal_unit | {nlr}             |               | C.14.1.0                       |             |           | 

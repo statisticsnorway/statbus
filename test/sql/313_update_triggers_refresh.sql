@@ -183,7 +183,7 @@ INSERT INTO public.contact (legal_unit_id, email_address, valid_from, valid_to, 
 SELECT
     lu.id,
     'test@example.com',
-    '2025-01-01',
+    '2026-01-01',
     'infinity',
     (SELECT u.id FROM auth.user u WHERE u.email = 'test.admin@statbus.org')
 FROM public.legal_unit lu WHERE lu.name = 'Statistics Norway';

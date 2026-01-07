@@ -179,9 +179,9 @@ WHERE name = 'Statistics Norway'
 ORDER BY unit_type, unit_id, valid_from, valid_until;
    unit_type   |                 external_idents                 | valid_from | valid_until |       name        | employees 
 ---------------+-------------------------------------------------+------------+-------------+-------------------+-----------
- establishment | {"tax_ident": "94711111", "stat_ident": "1021"} | 2025-01-01 | infinity    | Statistics Norway | 0
- legal_unit    | {"tax_ident": "4711111", "stat_ident": "230"}   | 2025-01-01 | infinity    | Statistics Norway | 1
- enterprise    | {"tax_ident": "4711111", "stat_ident": "230"}   | 2025-01-01 | infinity    | Statistics Norway | 
+ establishment | {"tax_ident": "94711111", "stat_ident": "1021"} | 2026-01-01 | infinity    | Statistics Norway | 0
+ legal_unit    | {"tax_ident": "4711111", "stat_ident": "230"}   | 2026-01-01 | infinity    | Statistics Norway | 1
+ enterprise    | {"tax_ident": "4711111", "stat_ident": "230"}   | 2026-01-01 | infinity    | Statistics Norway | 
 (3 rows)
 
 \echo "Initial data loaded. All subsequent tests will check the worker response to an UPDATE on a specific temporal table."
@@ -383,7 +383,7 @@ SELECT primary_activity_category_path FROM public.statistical_unit WHERE name = 
 SELECT valid_from, valid_until, email_address FROM public.statistical_unit WHERE name = 'Statistics Norway' AND unit_type = 'legal_unit';
  valid_from | valid_until | email_address 
 ------------+-------------+---------------
- 2025-01-01 | infinity    | 
+ 2026-01-01 | infinity    | 
 (1 row)
 
 \echo "Action: INSERT a new contact and then UPDATE it to test trigger."
@@ -393,7 +393,7 @@ INSERT INTO public.contact (legal_unit_id, email_address, valid_from, valid_to, 
 SELECT
     lu.id,
     'test@example.com',
-    '2025-01-01',
+    '2026-01-01',
     'infinity',
     (SELECT u.id FROM auth.user u WHERE u.email = 'test.admin@statbus.org')
 FROM public.legal_unit lu WHERE lu.name = 'Statistics Norway';

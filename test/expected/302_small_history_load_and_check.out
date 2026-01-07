@@ -834,9 +834,10 @@ SELECT type, ident, name_when_query, name_when_input
 FROM public.time_context;
       type       |      ident       |   name_when_query    |          name_when_input           
 -----------------+------------------+----------------------+------------------------------------
- relative_period | r_year_curr      | Current Year (2025)  | Current year and onwards (2025->)
- relative_period | r_year_prev      | Previous Year (2024) | Previous year and onwards (2024->)
- relative_period | r_year_prev_only |                      | Previous year only (2024)
+ relative_period | r_year_curr      | Current Year (2026)  | Current year and onwards (2026->)
+ relative_period | r_year_prev      | Previous Year (2025) | Previous year and onwards (2025->)
+ relative_period | r_year_prev_only |                      | Previous year only (2025)
+ year            | y_2024           | 2024 (Data)          | 2024
  year            | y_2023           | 2023 (Data)          | 2023
  year            | y_2022           | 2022 (Data)          | 2022
  year            | y_2021           | 2021 (Data)          | 2021
@@ -846,7 +847,7 @@ FROM public.time_context;
  year            | y_2017           | 2017 (Data)          | 2017
  year            | y_2016           | 2016 (Data)          | 2016
  year            | y_2015           | 2015 (Data)          | 2015
-(12 rows)
+(13 rows)
 
 SELECT test.sudo_exec($sql$
   CREATE INDEX IF NOT EXISTS tidx_establishment_valid_from_valid_to ON establishment (valid_from, valid_to);
