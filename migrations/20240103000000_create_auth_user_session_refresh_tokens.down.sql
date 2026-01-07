@@ -86,6 +86,7 @@ DROP VIEW IF EXISTS public.api_key;
 
 -- 9. Drop triggers
 DROP TRIGGER IF EXISTS generate_api_key_token_trigger ON auth.api_key;
+DROP TRIGGER IF EXISTS auto_create_api_token_on_confirmation_trigger ON auth.user;
 DROP TRIGGER IF EXISTS drop_user_role_trigger ON auth.user;
 DROP TRIGGER IF EXISTS sync_user_credentials_and_roles_trigger ON auth.user;
 DROP TRIGGER IF EXISTS check_role_permission_trigger ON auth.user;
@@ -114,6 +115,7 @@ ALTER TABLE auth.refresh_session DISABLE ROW LEVEL SECURITY; -- Added
 
 -- 12. Drop auth functions (reverse order)
 DROP FUNCTION IF EXISTS auth.check_api_key_revocation();
+DROP FUNCTION IF EXISTS auth.auto_create_api_token_on_confirmation();
 DROP FUNCTION IF EXISTS auth.generate_api_key_token();
 DROP FUNCTION IF EXISTS auth.extract_access_token_from_cookies();
 DROP FUNCTION IF EXISTS auth.reset_session_context();
