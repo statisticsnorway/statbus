@@ -1,0 +1,36 @@
+# Environment variables (contains sensitive API keys)
+.env
+
+# R session data
+.RData
+.Rhistory
+.Rapp.history
+
+# R Environment Variables
+.Renviron
+
+# RStudio files
+.Rproj.user/
+*.Rproj
+
+# Output files
+*.png
+*.pdf
+*.jpg
+*.jpeg
+
+# R temporary files
+*-Ex.R
+*.tar.gz
+*.tgz
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
