@@ -240,10 +240,19 @@ Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, wi
 
 *   **JWT Secrets:**
     * JWT secret must be consistent between PostgREST and PostgreSQL.
-    * PostgREST uses `PGRST_JWT_SECRET` for JWT validation.
-    * PostgREST passes the JWT secret to PostgreSQL via `PGRST_APP_SETTINGS_JWT_SECRET`, which becomes available as `app.settings.jwt_secret` in the database.
-    * Both access and refresh tokens use the same JWT secret for consistency, as configured in `docker-compose.rest.yml`.
-    * The JWT secret is passed from the environment variable `JWT_SECRET` to both PostgreSQL and PostgREST.
+    * PostgREST uses `PGRST_JWT_SECRET` for JWT validation (validates incoming requests).
+    * PostgreSQL stores the JWT secret securely in the `auth.secrets` table with Row-Level Security.
+    * **RLS Security Model:**
+        * The `auth.secrets` table has FORCE ROW LEVEL SECURITY with no policy → direct access impossible.
+        * All secret access goes through `auth.jwt_secret()` function (single source of truth).
+        * `auth.jwt_secret()` is SECURITY INVOKER → inherits caller's privileges.
+        * SECURITY DEFINER functions (login, refresh, logout, verify_jwt_with_secret, switch_role_from_jwt) bypass RLS → can call `auth.jwt_secret()`.
+        * SECURITY INVOKER functions (generate_jwt) inherit caller's context:
+            * When called from SECURITY DEFINER → inherits owner privileges → `auth.jwt_secret()` succeeds ✅
+            * When called directly by user → RLS blocks → `auth.jwt_secret()` raises exception ❌
+        * Result: Only SECURITY DEFINER functions can generate/verify JWTs. Regular users cannot forge tokens.
+    * This design maintains direct database access for users while preventing JWT secret leakage.
+    * Both access and refresh tokens use the same JWT secret for consistency.
     * Default expiry times:
       * Access token: 3600 seconds (1 hour) via `app.settings.access_jwt_exp`
       * Refresh token: 2592000 seconds (30 days) via `app.settings.refresh_jwt_exp`

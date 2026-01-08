@@ -1,0 +1,6 @@
+BEGIN;
+
+DROP FUNCTION IF EXISTS auth.jwt_secret();
+DROP TABLE IF EXISTS auth.secrets CASCADE;
+
+COMMIT;

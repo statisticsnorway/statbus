@@ -29,6 +29,13 @@ erDiagram
 		text user_agent
 		inet ip_address
 	}
+	auth_secrets["auth.secrets"] {
+		text key
+		text value
+		text description
+		timestamp_with_time_zone created_at
+		timestamp_with_time_zone updated_at
+	}
 	auth_user["auth.user"] {
 		integer id
 		uuid sub

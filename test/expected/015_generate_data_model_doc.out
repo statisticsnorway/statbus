@@ -133,6 +133,7 @@ DECLARE
             '{"schema": "auth", "name": "api_key"}'::jsonb,
             '{"schema": "public", "name": "api_key", "type": "VIEW"}'::jsonb,
             '{"schema": "auth", "name": "refresh_session"}'::jsonb,
+            '{"schema": "auth", "name": "secrets"}'::jsonb,
             '{"schema": "public", "name": "settings"}'::jsonb,
             '{"schema": "public", "name": "region_access"}'::jsonb,
             '{"schema": "public", "name": "activity_category_access"}'::jsonb,

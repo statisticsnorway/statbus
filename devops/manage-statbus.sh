@@ -460,6 +460,15 @@ case "$action" in
         pushd cli
           shards build statbus && ./bin/statbus migrate up all -v
         popd
+        # Load secrets after migrations because:
+        # 1. auth.secrets table must exist (created by migration 20240102100000)
+        # 2. Functions that create users need JWT secret to generate API keys
+        # 3. Doing it here ensures both 'create-db' and direct 'create-db-structure' calls work
+        JWT_SECRET=$(./devops/dotenv --file .env.credentials get JWT_SECRET)
+        DEPLOYMENT_SLOT_CODE=$(./devops/dotenv --file .env.config get DEPLOYMENT_SLOT_CODE)
+        PGDATABASE=statbus_${DEPLOYMENT_SLOT_CODE:-dev}
+        ./devops/manage-statbus.sh psql -c "INSERT INTO auth.secrets (key, value, description) VALUES ('jwt_secret', '$JWT_SECRET', 'JWT signing secret') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = clock_timestamp();"
+        ./devops/manage-statbus.sh psql -c "ALTER DATABASE $PGDATABASE SET app.settings.deployment_slot_code TO '$DEPLOYMENT_SLOT_CODE';"
       ;;
     'delete-db-structure' )
         pushd cli
@@ -476,12 +485,6 @@ case "$action" in
       ;;
     'create-db' )
         ./devops/manage-statbus.sh start all_except_app
-        JWT_SECRET=$(./devops/dotenv --file .env.credentials get JWT_SECRET)
-        DEPLOYMENT_SLOT_CODE=$(./devops/dotenv --file .env.config get DEPLOYMENT_SLOT_CODE)
-        PGDATABASE=statbus_${DEPLOYMENT_SLOT_CODE:-dev}
-        ./devops/manage-statbus.sh psql -c "ALTER DATABASE $PGDATABASE SET app.settings.jwt_secret TO '$JWT_SECRET';"
-        ./devops/manage-statbus.sh psql -c "ALTER DATABASE $PGDATABASE SET app.settings.deployment_slot_code TO '$DEPLOYMENT_SLOT_CODE';"
-        ./devops/manage-statbus.sh psql -c "SELECT pg_reload_conf();"
         ./devops/manage-statbus.sh create-db-structure
         ./devops/manage-statbus.sh create-users
       ;;

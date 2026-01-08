@@ -12,9 +12,11 @@ services:
       PGRST_DB_SCHEMAS: ${PGRST_DB_SCHEMAS:-public}
       PGRST_DB_ANON_ROLE: anon
       PGRST_DB_USE_LEGACY_GUCS: "false"
+      # PostgREST needs JWT_SECRET for validating incoming JWTs, but it must NOT be exposed
+      # to PostgreSQL as a session variable (via PGRST_APP_SETTINGS_*) because users with
+      # direct database access could read it and forge JWTs. Instead, the secret is stored
+      # in auth.secrets table with RLS protection, accessible only via SECURITY DEFINER functions.
       PGRST_JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in the generated .env}
-      PGRST_APP_SETTINGS_JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in the generated .env}
-      # Access and refresh tokens use the same secret (PGRST_APP_SETTINGS_JWT_SECRET)
       # JWT expiration time in seconds: 3600 = 1 hour
       PGRST_APP_SETTINGS_ACCESS_JWT_EXP: ${ACCESS_JWT_EXPIRY:?ACCESS_JWT_EXPIRY must be set in the generated .env}
       # Refresh token expiration time in seconds: 2592000 = 30 days

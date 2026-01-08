@@ -739,17 +739,18 @@ GRANT EXECUTE ON FUNCTION public.login TO anon;
 CREATE OR REPLACE FUNCTION auth.switch_role_from_jwt(access_jwt text)
 RETURNS void
 LANGUAGE plpgsql
-SECURITY INVOKER
+SECURITY DEFINER  -- Must be DEFINER to access auth.secrets (bypasses RLS) and to allow authenticated users to call this
+SET search_path = public, auth, pg_temp
 AS $switch_role_from_jwt$
 DECLARE
   _claims json;
   _user_email text;
   _role_exists boolean;
 BEGIN
-  -- Verify and extract claims from JWT
+  -- Verify and extract claims from JWT using centralized jwt_secret() function
   BEGIN
     SELECT payload::json INTO _claims 
-    FROM verify(access_jwt, current_setting('app.settings.jwt_secret'));
+    FROM public.verify(access_jwt, auth.jwt_secret());
   EXCEPTION WHEN OTHERS THEN
     RAISE EXCEPTION 'Invalid token: %', SQLERRM;
   END;
@@ -785,9 +786,11 @@ BEGIN
 END;
 $switch_role_from_jwt$;
 
--- Grant execute to authenticator role
+-- Grant to authenticator (PostgREST) for API-based role switching
+-- Grant to authenticated to allow users with direct DB access to elevate via their JWT
+-- This is safe because the function verifies the JWT before switching roles
 GRANT EXECUTE ON FUNCTION auth.switch_role_from_jwt(text) TO authenticator;
--- Grant schema usage to authenticator role so it can access the function
+GRANT EXECUTE ON FUNCTION auth.switch_role_from_jwt(text) TO authenticated;
 GRANT USAGE ON SCHEMA auth TO authenticator;
 
 
@@ -914,9 +917,16 @@ BEGIN
       RETURN auth.build_auth_response(p_error_code => 'REFRESH_NO_TOKEN_COOKIE'::auth.login_error_code);
     END IF;
     
-    -- Decode the JWT to get the claims
-    SELECT payload::json INTO claims
-    FROM verify(refresh_token, current_setting('app.settings.jwt_secret'));
+    -- Decode the JWT to get the claims using centralized jwt_secret() function
+    BEGIN
+      SELECT payload::json INTO claims
+      FROM verify(refresh_token, auth.jwt_secret());
+    EXCEPTION WHEN OTHERS THEN
+      PERFORM auth.clear_auth_cookies();
+      PERFORM auth.reset_session_context();
+      PERFORM set_config('response.status', '500', true);
+      RAISE;
+    END;
   END;
   
   -- Verify this is actually a refresh token
@@ -1043,8 +1053,15 @@ BEGIN
   
   -- If we have a refresh token, use its claims
   IF refresh_token IS NOT NULL THEN
-    SELECT payload::json INTO claims 
-    FROM verify(refresh_token, current_setting('app.settings.jwt_secret'));
+    -- Try to verify the token, but logout should work even if verification fails
+    -- This is a non-critical path for cleanup purposes
+    BEGIN
+      SELECT payload::json INTO claims 
+      FROM verify(refresh_token, auth.jwt_secret());
+    EXCEPTION WHEN OTHERS THEN
+      -- Ignore errors, proceed with logout anyway
+      NULL;
+    END;
     
     -- If this is a refresh token, get the session ID
     IF claims->>'type' = 'refresh' THEN
@@ -1483,19 +1500,19 @@ END;
 $$;
 
 -- Function to generate a signed JWT token from claims
+-- SECURITY INVOKER because it needs to inherit the SECURITY DEFINER caller's elevated privileges.
+-- When called from a SECURITY DEFINER function (e.g., public.login), this function executes
+-- with the caller's privileges (the owner), bypassing RLS on auth.secrets.
+-- When called directly by a regular user, RLS blocks access, preventing JWT forgery.
 CREATE OR REPLACE FUNCTION auth.generate_jwt(claims jsonb)
 RETURNS text
 LANGUAGE plpgsql
+SECURITY INVOKER  -- Must be INVOKER to inherit SECURITY DEFINER caller's privileges
+SET search_path = public, auth, pg_temp
 AS $generate_jwt$
-DECLARE
-  token text;
 BEGIN
-  SELECT public.sign(
-    claims::json,
-    current_setting('app.settings.jwt_secret')
-  ) INTO token;
-  
-  RETURN token;
+  -- Use centralized jwt_secret() function which handles all error checking
+  RETURN public.sign(claims::json, auth.jwt_secret());
 END;
 $generate_jwt$;
 
@@ -1533,14 +1550,13 @@ $extract_access_token_from_cookies$;
 CREATE OR REPLACE FUNCTION auth.verify_jwt_with_secret(token_value text)
 RETURNS auth.jwt_verification_result
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER  -- Must be DEFINER to bypass RLS on auth.secrets
+SET search_path = public, auth, pg_temp
 AS $verify_jwt_with_secret$
 DECLARE
   _claims jsonb;
-  _jwt_secret text;
   _result auth.jwt_verification_result;
 BEGIN
-  _jwt_secret := current_setting('app.settings.jwt_secret', true);
   _result.is_valid := false;
   _result.error_message := 'Token verification not attempted';
   _result.expired := null;
@@ -1551,8 +1567,9 @@ BEGIN
   END IF;
 
   BEGIN
+    -- Use centralized jwt_secret() function
     SELECT payload::jsonb INTO _claims
-    FROM public.verify(token_value, _jwt_secret);
+    FROM public.verify(token_value, auth.jwt_secret());
 
     _result.is_valid := TRUE;
     _result.claims := _claims;
@@ -1593,7 +1610,12 @@ GRANT EXECUTE ON FUNCTION auth.set_user_context_from_email TO authenticated;
 GRANT EXECUTE ON FUNCTION auth.reset_session_context TO authenticated;
 GRANT EXECUTE ON FUNCTION auth.set_auth_cookies TO authenticated;
 GRANT EXECUTE ON FUNCTION auth.extract_refresh_token_from_cookies TO authenticated;
-GRANT EXECUTE ON FUNCTION auth.generate_jwt TO authenticated;
+-- Revoke from authenticated because:
+-- 1. This function must only be called from within SECURITY DEFINER functions (login, refresh, etc.)
+-- 2. Direct calls by users would fail anyway (RLS blocks credentials access) but better to fail on GRANT
+-- 3. Makes the security model explicit: only trusted DEFINER functions can generate JWTs
+REVOKE EXECUTE ON FUNCTION auth.generate_jwt(jsonb) FROM authenticated;
+REVOKE EXECUTE ON FUNCTION auth.generate_jwt(jsonb) FROM PUBLIC;
 
 -- Create a scheduled job to clean up expired sessions (if pg_cron is available)
 DO $$
