@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { authStore } from '@/context/AuthStore';
 
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // It's recommended to rewrite the request headers to include the path.
