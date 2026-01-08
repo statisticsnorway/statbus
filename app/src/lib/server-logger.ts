@@ -1,7 +1,6 @@
 "use server";
 import { getServerRestClient } from "@/context/RestClientStore";
 import pino from "pino";
-import { createStream } from "pino-seq";
 import { headers } from "next/headers";
 
 const seqServerUrl = process.env.SEQ_SERVER_URL || "http://localhost:5341";
@@ -13,6 +12,10 @@ const seqApiKey = process.env.SEQ_API_KEY;
  */
 export async function createServerLogger(user?: { email: string } | null) {
   const client = await getServerRestClient();
+  
+  // Dynamic import to handle ESM/CommonJS interop issues
+  const pinoSeq = await import("pino-seq");
+  const createStream = pinoSeq.createStream;
 
   return pino(
     {
