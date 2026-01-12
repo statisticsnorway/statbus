@@ -14,8 +14,10 @@ export async function createServerLogger(user?: { email: string } | null) {
   const client = await getServerRestClient();
   
   // Dynamic import to handle ESM/CommonJS interop issues
-  const pinoSeq = await import("pino-seq");
-  const createStream = pinoSeq.createStream;
+  const pinoSeqModule = await import("pino-seq");
+  // pino-seq exports as default, which has the createStream method
+  const pinoToSeq = pinoSeqModule.default || pinoSeqModule;
+  const stream = pinoToSeq.createStream({ serverUrl: seqServerUrl, apiKey: seqApiKey });
 
   return pino(
     {
@@ -27,6 +29,6 @@ export async function createServerLogger(user?: { email: string } | null) {
         referer: (await headers()).get("referer"),
       },
     },
-    createStream({ serverUrl: seqServerUrl, apiKey: seqApiKey })
+    stream
   );
 }
