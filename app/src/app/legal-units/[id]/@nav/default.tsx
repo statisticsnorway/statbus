@@ -24,6 +24,7 @@ export default async function Nav(
       <SidebarLink href={`/legal-units/${id}/statistical-variables`}>
         Statistical variables
       </SidebarLink>
+      <SidebarLink href={`/legal-units/${id}/history`}>History</SidebarLink>
       <SidebarLink href={`/legal-units/${id}/links`}>
         Links and external references
       </SidebarLink>

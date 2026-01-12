@@ -4,11 +4,12 @@ import { getStatisticalUnitHistoryHighcharts } from "@/components/statistical-un
 import { Metadata } from "next";
 import { HistoryChart } from "@/components/statistical-unit-details/unit-history-chart";
 
+
 export const metadata: Metadata = {
-  title: "Enterprise | History",
+  title: "Establishment | History",
 };
 
-export default async function EnterpriseHistoryPage(props: {
+export default async function EstablishmentHistoryPage(props: {
   readonly params: Promise<{ id: string }>;
 }) {
   const params = await props.params;
@@ -16,7 +17,10 @@ export default async function EnterpriseHistoryPage(props: {
   const { id } = params;
 
   const { data: historyHighcharts, error } =
-    await getStatisticalUnitHistoryHighcharts(parseInt(id, 10), "enterprise");
+    await getStatisticalUnitHistoryHighcharts(
+      parseInt(id, 10),
+      "establishment"
+    );
 
   if (error) {
     throw new Error(error.message, { cause: error });

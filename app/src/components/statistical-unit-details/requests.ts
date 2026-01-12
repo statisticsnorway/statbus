@@ -163,7 +163,7 @@ export async function getStatisticalUnitStats(
   return { stats, error: errorWithName };
 }
 
-export async function getStatisticalUnitHistory(
+export async function getStatisticalUnitHistoryHighcharts(
   unitId: number,
   unitType: "enterprise" | "enterprise_group" | "legal_unit" | "establishment"
 ) {

@@ -5,24 +5,25 @@ import { Metadata } from "next";
 import { HistoryChart } from "@/components/statistical-unit-details/unit-history-chart";
 
 export const metadata: Metadata = {
-  title: "Enterprise | History",
+  title: "Legal Unit | History",
 };
 
-export default async function EnterpriseHistoryPage(props: {
+export default async function LegalUnitHistoryPage(props: {
   readonly params: Promise<{ id: string }>;
 }) {
   const params = await props.params;
 
   const { id } = params;
 
+
   const { data: historyHighcharts, error } =
-    await getStatisticalUnitHistoryHighcharts(parseInt(id, 10), "enterprise");
+    await getStatisticalUnitHistoryHighcharts(parseInt(id, 10), "legal_unit");
 
   if (error) {
     throw new Error(error.message, { cause: error });
   }
 
-  if (!history) {
+  if (!historyHighcharts) {
     notFound();
   }
 
