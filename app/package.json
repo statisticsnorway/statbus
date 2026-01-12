@@ -2,6 +2,7 @@
   "name": "statbus",
   "version": "0.1.0",
   "private": true,
+  "_comment": "Known deprecation warning: Next.js 16.1.1's bundled http-proxy uses util._extend (DEP0060). To trace deprecation warnings, use: NODE_OPTIONS='--trace-deprecation' pnpm run dev. To suppress, use: NODE_OPTIONS='--no-deprecation' pnpm run dev. Keeping warning visible to detect other issues until fixed upstream.",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "NODE_ENV=production next build",
