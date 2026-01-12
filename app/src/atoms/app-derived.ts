@@ -44,15 +44,41 @@ import {
 export const defaultTimeContextAtom = selectAtom(baseDataAtom, (data) => data.defaultTimeContext, isEqual);
 
 /**
- * An effect atom that ensures a default time context is selected if none is
- * already set. This is architecturally superior to placing this logic in a
- * hook, as it decouples the side effect from component render cycles.
+ * An effect atom that ensures a valid time context is selected.
+ * 
+ * This effect handles two scenarios:
+ * 1. No time context is selected - selects the default
+ * 2. Selected time context is stale (e.g., from a previous year) - resets to default
+ * 
+ * The second case is crucial because time contexts with relative periods like
+ * "year_curr" change their valid_on dates when a new year arrives, making the
+ * stored cookie value stale.
  */
 export const timeContextAutoSelectEffectAtom = atomEffect((get, set) => {
   const selected = get(selectedTimeContextAtom);
+  const timeContexts = get(timeContextsAtom);
   const defaultTC = get(defaultTimeContextAtom);
+  
+  // If no time context is selected, use the default
   if (!selected && defaultTC) {
     set(selectedTimeContextAtom, defaultTC);
+    return;
+  }
+  
+  // Validate that the selected time context still exists and matches current data
+  if (selected && timeContexts.length > 0) {
+    const matchingContext = timeContexts.find(tc => tc.ident === selected.ident);
+    
+    // If the stored context doesn't exist or the valid_on date has changed (e.g., new year),
+    // reset to the default time context
+    if (!matchingContext || matchingContext.valid_on !== selected.valid_on) {
+      if (defaultTC) {
+        set(selectedTimeContextAtom, defaultTC);
+      }
+    } else if (matchingContext !== selected) {
+      // Update to the fresh version from the database to ensure all fields are current
+      set(selectedTimeContextAtom, matchingContext);
+    }
   }
 });
 
