@@ -13,10 +13,12 @@ const seqApiKey = process.env.SEQ_API_KEY;
 export async function createServerLogger(user?: { email: string } | null) {
   const client = await getServerRestClient();
   
-  // Dynamic import to handle ESM/CommonJS interop issues
+  // Dynamic import to handle ESM module
+  // Note: pino-seq exports as default in index.js (ES module) but uses export = in index.d.ts (CommonJS types)
+  // Runtime: export default { createStream: ... }
+  // Types: export = PinoSeq (namespace with createStream function)
   const pinoSeqModule = await import("pino-seq");
-  // pino-seq exports as default, which has the createStream method
-  const pinoToSeq = pinoSeqModule.default || pinoSeqModule;
+  const pinoToSeq = (pinoSeqModule as any).default || pinoSeqModule;
   const stream = pinoToSeq.createStream({ serverUrl: seqServerUrl, apiKey: seqApiKey });
 
   return pino(
