@@ -735,65 +735,6 @@ $login$;
 -- Grant execute to anonymous users only
 GRANT EXECUTE ON FUNCTION public.login TO anon;
 
--- Function to switch role using JWT token
-CREATE OR REPLACE FUNCTION auth.switch_role_from_jwt(access_jwt text)
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER  -- Must be DEFINER to access auth.secrets (bypasses RLS) and to allow authenticated users to call this
-SET search_path = public, auth, pg_temp
-AS $switch_role_from_jwt$
-DECLARE
-  _claims json;
-  _user_email text;
-  _role_exists boolean;
-BEGIN
-  -- Verify and extract claims from JWT using centralized jwt_secret() function
-  BEGIN
-    SELECT payload::json INTO _claims 
-    FROM public.verify(access_jwt, auth.jwt_secret());
-  EXCEPTION WHEN OTHERS THEN
-    RAISE EXCEPTION 'Invalid token: %', SQLERRM;
-  END;
-  
-  -- Verify this is an access token
-  IF _claims->>'type' != 'access' THEN
-    RAISE EXCEPTION 'Invalid token type: expected access token';
-  END IF;
-  
-  -- Extract user email from claims (which is also the role name)
-  _user_email := _claims->>'role';
-  
-  IF _user_email IS NULL THEN
-    RAISE EXCEPTION 'Token does not contain role claim';
-  END IF;
-  
-  -- Check if a role exists for this user
-  SELECT EXISTS(
-    SELECT 1 FROM pg_roles WHERE rolname = _user_email
-  ) INTO _role_exists;
-
-  -- Ensure this function is called within a transaction, as SET ROLE is transaction-scoped.
-  IF transaction_timestamp() = statement_timestamp() THEN
-    RAISE EXCEPTION 'SET ROLE must be called within a transaction block (BEGIN...COMMIT/ROLLBACK).';
-  END IF;
-
-  IF NOT _role_exists THEN
-    RAISE EXCEPTION 'Role % does not exist', _user_email;
-  ELSE
-    -- Switch to user-specific role
-    EXECUTE format('SET ROLE %I', _user_email);
-  END IF;
-END;
-$switch_role_from_jwt$;
-
--- Grant to authenticator (PostgREST) for API-based role switching
--- Grant to authenticated to allow users with direct DB access to elevate via their JWT
--- This is safe because the function verifies the JWT before switching roles
-GRANT EXECUTE ON FUNCTION auth.switch_role_from_jwt(text) TO authenticator;
-GRANT EXECUTE ON FUNCTION auth.switch_role_from_jwt(text) TO authenticated;
-GRANT USAGE ON SCHEMA auth TO authenticator;
-
-
 -- Function to issue an expired access token while preserving the refresh token.
 -- This is useful for development and testing the token refresh mechanism.
 CREATE OR REPLACE FUNCTION public.auth_expire_access_keep_refresh()
@@ -865,8 +806,8 @@ GRANT EXECUTE ON FUNCTION public.auth_expire_access_keep_refresh() TO authentica
 
 
 -- Create a type to hold JWT verification results
-DROP TYPE IF EXISTS auth.jwt_verification_result CASCADE;
-CREATE TYPE auth.jwt_verification_result AS (
+DROP TYPE IF EXISTS auth.jwt_verify_result CASCADE;
+CREATE TYPE auth.jwt_verify_result AS (
   is_valid boolean,
   claims jsonb,
   error_message text,
@@ -896,7 +837,7 @@ DECLARE
   access_claims jsonb;
   refresh_claims jsonb;
   access_token_value text;
-  access_verification_result auth.jwt_verification_result;
+  access_jwt_verify_result auth.jwt_verify_result;
 BEGIN
   -- This function is idempotent. Calling it multiple times will result in a new token pair
   -- each time, and the previous refresh token version will be invalidated.
@@ -1205,7 +1146,7 @@ SECURITY DEFINER
 AS $auth_status$
 DECLARE
   access_token_value text;
-  access_verification_result auth.jwt_verification_result;
+  access_jwt_verify_result auth.jwt_verify_result;
   user_record auth.user;
 BEGIN
   RAISE DEBUG '[auth_status] Starting. This function can only see the statbus (access) cookie.';
@@ -1220,14 +1161,14 @@ BEGIN
   END IF;
 
   -- Case 2: Access token cookie is present. Verify it.
-  access_verification_result := auth.verify_jwt_with_secret(access_token_value);
+  access_jwt_verify_result := auth.jwt_verify(access_token_value);
 
   -- Case 2a: Token is valid and NOT expired. User is authenticated.
-  IF access_verification_result.is_valid AND NOT access_verification_result.expired THEN
+  IF access_jwt_verify_result.is_valid AND NOT access_jwt_verify_result.expired THEN
     RAISE DEBUG '[auth_status] Access token is valid and not expired.';
     SELECT * INTO user_record
     FROM auth.user
-    WHERE sub = (access_verification_result.claims->>'sub')::uuid AND deleted_at IS NULL;
+    WHERE sub = (access_jwt_verify_result.claims->>'sub')::uuid AND deleted_at IS NULL;
     
     IF FOUND THEN
       RAISE DEBUG '[auth_status] User found. Authenticated.';
@@ -1243,13 +1184,13 @@ BEGIN
 
   -- Case 2b: Token signature is valid, but the token is EXPIRED.
   -- This is the signal for the client to attempt a refresh.
-  IF access_verification_result.is_valid AND access_verification_result.expired THEN
+  IF access_jwt_verify_result.is_valid AND access_jwt_verify_result.expired THEN
     RAISE DEBUG '[auth_status] Access token is expired but signature is valid. Client should refresh.';
     RETURN auth.build_auth_response(p_expired_access_token_call_refresh => true);
   END IF;
 
   -- Case 3: Token is invalid (e.g., bad signature). The user is unauthenticated.
-  -- This covers `NOT access_verification_result.is_valid`.
+  -- This covers `NOT access_jwt_verify_result.is_valid`.
   RAISE DEBUG '[auth_status] Access token is invalid (e.g., bad signature). Unauthenticated.';
   -- We could clear cookies here, but it might be better to let the client decide.
   -- A bad signature could indicate tampering, but also just a key rotation.
@@ -1297,8 +1238,8 @@ DECLARE
   transactional_claims jsonb; -- Claims from PostgREST's GUC
   access_token_value text;
   refresh_token_value text;
-  access_verification_result auth.jwt_verification_result;
-  refresh_verification_result auth.jwt_verification_result;
+  access_jwt_verify_result auth.jwt_verify_result;
+  refresh_jwt_verify_result auth.jwt_verify_result;
   result auth.auth_test_response;
   access_token_info auth.token_info;
   refresh_token_info auth.token_info;
@@ -1325,14 +1266,14 @@ BEGIN
 
   -- Report on access token found in 'statbus' cookie (if any)
   IF access_token_value IS NOT NULL THEN
-    access_verification_result := auth.verify_jwt_with_secret(access_token_value);
+    access_jwt_verify_result := auth.jwt_verify(access_token_value);
     access_token_info.present := TRUE;
     access_token_info.token_length := length(access_token_value);
-    access_token_info.claims := access_verification_result.claims;
-    access_token_info.valid := access_verification_result.is_valid;
-    access_token_info.expired := access_verification_result.expired;
-    IF NOT access_verification_result.is_valid THEN
-      access_token_info.claims := coalesce(access_token_info.claims, '{}'::jsonb) || jsonb_build_object('verification_error', access_verification_result.error_message);
+    access_token_info.claims := access_jwt_verify_result.claims;
+    access_token_info.valid := access_jwt_verify_result.is_valid;
+    access_token_info.expired := access_jwt_verify_result.expired;
+    IF NOT access_jwt_verify_result.is_valid THEN
+      access_token_info.claims := coalesce(access_token_info.claims, '{}'::jsonb) || jsonb_build_object('verification_error', access_jwt_verify_result.error_message);
     END IF;
   ELSE
     access_token_info.present := FALSE;
@@ -1341,17 +1282,17 @@ BEGIN
   
   -- Report on refresh token found in 'statbus-refresh' cookie (if any)
   IF refresh_token_value IS NOT NULL THEN
-    refresh_verification_result := auth.verify_jwt_with_secret(refresh_token_value);
+    refresh_jwt_verify_result := auth.jwt_verify(refresh_token_value);
     refresh_token_info.present := TRUE;
     refresh_token_info.token_length := length(refresh_token_value);
-    refresh_token_info.claims := refresh_verification_result.claims;
-    refresh_token_info.valid := refresh_verification_result.is_valid;
-    refresh_token_info.expired := refresh_verification_result.expired;
-    IF NOT refresh_verification_result.is_valid THEN
-      refresh_token_info.claims := coalesce(refresh_token_info.claims, '{}'::jsonb) || jsonb_build_object('verification_error', refresh_verification_result.error_message);
+    refresh_token_info.claims := refresh_jwt_verify_result.claims;
+    refresh_token_info.valid := refresh_jwt_verify_result.is_valid;
+    refresh_token_info.expired := refresh_jwt_verify_result.expired;
+    IF NOT refresh_jwt_verify_result.is_valid THEN
+      refresh_token_info.claims := coalesce(refresh_token_info.claims, '{}'::jsonb) || jsonb_build_object('verification_error', refresh_jwt_verify_result.error_message);
     ELSE
-      refresh_token_info.jti := refresh_verification_result.claims->>'jti';
-      refresh_token_info.version := refresh_verification_result.claims->>'version';
+      refresh_token_info.jti := refresh_jwt_verify_result.claims->>'jti';
+      refresh_token_info.version := refresh_jwt_verify_result.claims->>'version';
     END IF;
   END IF;
   
@@ -1547,23 +1488,23 @@ $extract_access_token_from_cookies$;
 
 
 -- Create a SECURITY DEFINER function to verify a JWT using the secret
-CREATE OR REPLACE FUNCTION auth.verify_jwt_with_secret(token_value text)
-RETURNS auth.jwt_verification_result
+CREATE OR REPLACE FUNCTION auth.jwt_verify(token_value text)
+RETURNS auth.jwt_verify_result
 LANGUAGE plpgsql
 SECURITY DEFINER  -- Must be DEFINER to bypass RLS on auth.secrets
 SET search_path = public, auth, pg_temp
-AS $verify_jwt_with_secret$
+AS $jwt_verify$
 DECLARE
   _claims jsonb;
-  _result auth.jwt_verification_result;
+  _jwt_verify_result auth.jwt_verify_result;
 BEGIN
-  _result.is_valid := false;
-  _result.error_message := 'Token verification not attempted';
-  _result.expired := null;
+  _jwt_verify_result.is_valid := false;
+  _jwt_verify_result.error_message := 'Token verification not attempted';
+  _jwt_verify_result.expired := null;
 
   IF token_value IS NULL THEN
-    _result.error_message := 'Token is NULL';
-    RETURN _result;
+    _jwt_verify_result.error_message := 'Token is NULL';
+    RETURN _jwt_verify_result;
   END IF;
 
   BEGIN
@@ -1571,33 +1512,99 @@ BEGIN
     SELECT payload::jsonb INTO _claims
     FROM public.verify(token_value, auth.jwt_secret());
 
-    _result.is_valid := TRUE;
-    _result.claims := _claims;
-    _result.error_message := NULL;
+    _jwt_verify_result.is_valid := TRUE;
+    _jwt_verify_result.claims := _claims;
+    _jwt_verify_result.error_message := NULL;
     IF (_claims->>'exp')::numeric < extract(epoch from clock_timestamp()) THEN
-      _result.expired := TRUE;
+      _jwt_verify_result.expired := TRUE;
     ELSE
-      _result.expired := FALSE;
+      _jwt_verify_result.expired := FALSE;
     END IF;
 
   EXCEPTION WHEN OTHERS THEN
-    _result.is_valid := FALSE;
-    _result.claims := NULL;
-    _result.error_message := SQLERRM;
+    _jwt_verify_result.is_valid := FALSE;
+    _jwt_verify_result.claims := NULL;
+    _jwt_verify_result.error_message := SQLERRM;
     -- Check if the error message indicates an expired signature specifically
     IF SQLERRM LIKE '%expired_signature%' THEN
-        _result.expired := TRUE;
+        _jwt_verify_result.expired := TRUE;
     ELSE
-        _result.expired := NULL; -- Unknown if expired if another error occurred
+        _jwt_verify_result.expired := NULL; -- Unknown if expired if another error occurred
     END IF;
   END;
 
-  RETURN _result;
+  RETURN _jwt_verify_result;
 END;
-$verify_jwt_with_secret$;
+$jwt_verify$;
 
 -- Grant execute to authenticated and anon roles so SECURITY INVOKER functions can call it
-GRANT EXECUTE ON FUNCTION auth.verify_jwt_with_secret(text) TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION auth.jwt_verify(text) TO authenticated, anon;
+
+
+-- Function to switch role using JWT token
+-- This function must be defined AFTER auth.jwt_verify because it depends on it
+CREATE OR REPLACE FUNCTION auth.jwt_switch_role(access_jwt text)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY INVOKER  -- Must be INVOKER to allow SET ROLE (cannot use SET ROLE in SECURITY DEFINER functions)
+SET search_path = public, auth, pg_temp
+AS $jwt_switch_role$
+DECLARE
+  _jwt_verify_result auth.jwt_verify_result;
+  _user_email text;
+  _role_exists boolean;
+BEGIN
+  -- Verify JWT using SECURITY DEFINER function that accesses the secret
+  -- This function returns verification result without exposing the secret
+  _jwt_verify_result := auth.jwt_verify(access_jwt);
+  
+  -- Check if token is valid
+  IF NOT _jwt_verify_result.is_valid THEN
+    RAISE EXCEPTION 'Invalid token: %', _jwt_verify_result.error_message;
+  END IF;
+  
+  -- Check if token is expired
+  IF _jwt_verify_result.expired THEN
+    RAISE EXCEPTION 'Token has expired';
+  END IF;
+  
+  -- Verify this is an access token
+  IF _jwt_verify_result.claims->>'type' != 'access' THEN
+    RAISE EXCEPTION 'Invalid token type: expected access token';
+  END IF;
+  
+  -- Extract user email from claims (which is also the role name)
+  _user_email := _jwt_verify_result.claims->>'role';
+  
+  IF _user_email IS NULL THEN
+    RAISE EXCEPTION 'Token does not contain role claim';
+  END IF;
+  
+  -- Check if a role exists for this user
+  SELECT EXISTS(
+    SELECT 1 FROM pg_roles WHERE rolname = _user_email
+  ) INTO _role_exists;
+
+  -- Ensure this function is called within a transaction, as SET ROLE is transaction-scoped.
+  IF transaction_timestamp() = statement_timestamp() THEN
+    RAISE EXCEPTION 'SET ROLE must be called within a transaction block (BEGIN...COMMIT/ROLLBACK).';
+  END IF;
+
+  IF NOT _role_exists THEN
+    RAISE EXCEPTION 'Role % does not exist', _user_email;
+  ELSE
+    -- Switch to user-specific role
+    EXECUTE format('SET ROLE %I', _user_email);
+  END IF;
+END;
+$jwt_switch_role$;
+
+-- Grant to authenticator (PostgREST) for API-based role switching
+-- Grant to authenticated to allow users with direct DB access to elevate via their JWT
+-- This is safe because the function verifies the JWT before switching roles
+GRANT EXECUTE ON FUNCTION auth.jwt_switch_role(text) TO authenticator;
+GRANT EXECUTE ON FUNCTION auth.jwt_switch_role(text) TO authenticated;
+GRANT USAGE ON SCHEMA auth TO authenticator;
 
 
 -- Grant execute to authenticated users (though likely only used internally by SECURITY DEFINER functions)

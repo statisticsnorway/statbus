@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
       
       // Switch to the user's role using the JWT token
       try {
-        await pgClient.query('SELECT auth.switch_role_from_jwt($1)', [accessToken]);
+        await pgClient.query('SELECT auth.jwt_switch_role($1)', [accessToken]);
         logger.info(`Successfully switched to user role for import job ${job.id}`);
       } catch (error) {
         logger.error({ error }, `Failed to switch role: ${error instanceof Error ? error.message : String(error)}`);
