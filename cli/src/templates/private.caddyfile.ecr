@@ -22,6 +22,29 @@
         log_credentials
 <% end %>
     }
+    
+    # Layer4 PostgreSQL forwarding for public/private mode
+    # 
+    # Architecture:
+    #   1. Client connects to host-level Caddy on public IP port 5432 with TLS+SNI
+    #   2. Host-level Caddy (public mode config) terminates TLS and forwards to 127.0.0.1:<%= @caddy_db_port %>
+    #   3. This private mode Caddy listens on 127.0.0.1:<%= @caddy_db_port %> and forwards to db:5432 (Docker network)
+    #   4. PostgreSQL receives the connection as plain TCP (no TLS)
+    #
+    # This architecture allows:
+    #   - TLS termination at host level with proper certificates
+    #   - SNI-based routing for multi-tenant deployments
+    #   - Local psql access on the server using this port
+    #   - PostgreSQL doesn't need TLS configuration
+    layer4 {
+        :<%= @caddy_db_port %> {
+            # No matchers needed - simple TCP proxy
+            # Connection arrives already decrypted from host-level Caddy
+            route {
+                proxy db:5432
+            }
+        }
+    }
 }
 
 # Main HTTP server

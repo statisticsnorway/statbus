@@ -36,7 +36,7 @@ with Caddy serving as a reverse proxy and authentication gateway.
 
 ### Web Server (Caddy)
 - **Container**: `statbus-{slot}-caddy`
-- **Purpose**: Reverse proxy and authentication gateway
+- **Purpose**: Reverse proxy, authentication gateway, and PostgreSQL TLS proxy
 - **Key Features**:
   - Routes `/postgrest/*` requests to PostgREST using REST_BIND_ADDRESS (via postgrest_endpoints)
     - Notice that the auth related functions are callable by anonymous, and to themselves
@@ -44,6 +44,10 @@ with Caddy serving as a reverse proxy and authentication gateway.
   - Routes all other requests to the Next.js app using APP_BIND_ADDRESS
   - Handles cookie-to-header JWT conversion
   - Manages authentication flow (login, logout, refresh)
+  - **PostgreSQL Layer4 TLS+SNI Proxy** (PostgreSQL 17+ required):
+    - Provides secure TLS-encrypted direct PostgreSQL access with SNI-based routing
+    - Enables multi-tenant deployments with domain-based connection routing
+    - Supports `psql` and application connections with modern TLS (ALPN=postgresql)
   - Supports multiple deployment modes
     - development for running Application locally
     - private for running on a server behind a host caddy that handles https.
@@ -121,6 +125,141 @@ The system supports three deployment modes for the Caddy service, controlled by 
   # In .env.config
   CADDY_DEPLOYMENT_MODE=standalone
   ```
+
+## PostgreSQL Access Architecture
+
+Statbus provides secure direct PostgreSQL access through Caddy's Layer4 TLS+SNI proxy, enabling both web API access (via PostgREST) and direct database connections (via `psql` or database clients).
+
+### Overview
+
+- **Protocol**: PostgreSQL wire protocol over TLS with SNI (Server Name Indication)
+- **Port**: Configurable via `CADDY_DB_PORT` (default: 3024 for development, 5432 for production)
+- **Requirements**: PostgreSQL 17+ client with direct TLS negotiation support
+- **Security**: TLS encryption with certificate-based authentication and SNI-based routing
+
+### Architecture by Deployment Mode
+
+#### Development Mode
+```
+psql client
+    ↓ TLS connection to local.statbus.org:3024
+    ↓ with SNI = local.statbus.org
+    ↓ and ALPN = postgresql
+    ↓
+Caddy (development mode)
+    ↓ Layer4 listener on :3024
+    ↓ Matches TLS+SNI+ALPN (no postgres matcher - encrypted data)
+    ↓ Terminates TLS (decrypts)
+    ↓ Forwards plain TCP to db:5432 (Docker network)
+    ↓
+PostgreSQL container
+    ✓ Receives plain TCP connection (no TLS needed)
+```
+
+**Key Configuration**:
+- Domain: `local.statbus.org` (resolves to 127.0.0.1)
+- Port: 3024 (or value from `CADDY_DB_PORT`)
+- TLS: Caddy's internal CA (self-signed certificate)
+- SSL Mode: `require` (encrypted but no cert verification)
+
+#### Standalone Mode
+```
+psql client
+    ↓ TLS connection to statbus.example.com:5432
+    ↓ with SNI = statbus.example.com
+    ↓ and ALPN = postgresql
+    ↓
+Caddy (standalone mode)
+    ↓ Layer4 listener on :5432
+    ↓ Matches TLS+SNI+ALPN for this domain
+    ↓ Terminates TLS with production certificate
+    ↓ Forwards plain TCP to db:5432 (Docker network)
+    ↓
+PostgreSQL container
+    ✓ Receives plain TCP connection
+```
+
+**Key Configuration**:
+- Domain: Your production domain (from `SITE_DOMAIN`)
+- Port: 5432 (standard PostgreSQL port)
+- TLS: ACME/Let's Encrypt production certificate
+- SSL Mode: `verify-full` (full certificate verification)
+
+#### Public/Private Mode (Multi-Tenant)
+```
+psql client
+    ↓ TLS connection to tenant.example.com:5432
+    ↓ with SNI = tenant.example.com
+    ↓ and ALPN = postgresql
+    ↓
+Host-level Caddy (public mode)
+    ↓ Layer4 listener on public IP :5432
+    ↓ Matches SNI using @pg_sni_{slot} matcher
+    ↓ Routes based on domain to correct tenant
+    ↓ Terminates TLS (decrypts)
+    ↓ Forwards plain TCP to 127.0.0.1:{CADDY_DB_PORT}
+    ↓
+Installation Caddy (private mode)
+    ↓ Layer4 listener on 127.0.0.1:{CADDY_DB_PORT}
+    ↓ No matchers needed (already authenticated)
+    ↓ Forwards to db:5432 (Docker network)
+    ↓
+PostgreSQL container
+    ✓ Receives plain TCP connection
+```
+
+**Key Configuration**:
+- **Public Caddy**: Handles TLS termination and SNI-based tenant routing
+- **Private Caddy**: Forwards decrypted connections from host to Docker network
+- Each tenant gets unique `CADDY_DB_PORT` (e.g., 3024, 3034, 3044)
+- Host-level Caddy imports `public-layer4-tcp-5432-route.caddyfile` from each installation
+
+### Connection Requirements
+
+**PostgreSQL 17+ Client Parameters**:
+- `PGSSLNEGOTIATION=direct` - Use modern direct TLS (not legacy STARTTLS)
+- `PGSSLSNI=1` - Send hostname as SNI (critical for multi-tenant routing)
+- `PGSSLMODE=require|verify-full` - Encryption level (`require` for dev, `verify-full` for prod)
+
+**Why No `postgres` Matcher?**
+
+The Layer4 configuration uses TLS+SNI+ALPN matching but **not** the `postgres` protocol matcher because:
+1. With `PGSSLNEGOTIATION=direct`, clients initiate TLS immediately
+2. PostgreSQL protocol data is encrypted inside TLS
+3. The `postgres` matcher cannot inspect encrypted data
+4. TLS SNI and ALPN provide sufficient routing information
+
+### Local psql Access
+
+**Development Mode**:
+```bash
+./devops/manage-statbus.sh psql
+```
+
+**Production/Private Mode** (from server):
+```bash
+# Set environment variables
+export PGHOST=127.0.0.1
+export PGPORT=3024  # Or your CADDY_DB_PORT
+export PGDATABASE=statbus
+export PGUSER=your_username
+export PGPASSWORD=your_password
+export PGSSLNEGOTIATION=direct
+export PGSSLMODE=require
+export PGSSLSNI=1
+
+# Connect
+psql
+```
+
+### Benefits
+
+✅ **Secure**: TLS encryption for all PostgreSQL connections
+✅ **Multi-tenant**: SNI-based routing allows multiple databases on one IP
+✅ **Simple**: PostgreSQL doesn't need TLS configuration
+✅ **Standard**: Uses industry-standard TLS (no custom protocols)
+✅ **Flexible**: Supports psql, pgAdmin, and application connections
+✅ **Scalable**: Host-level Caddy can route to unlimited installations
 
 ## Environment Configuration
 
