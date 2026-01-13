@@ -2,82 +2,113 @@
 
 ## Overview
 
-Statbus is a containerized application built with PostgreSQL, PostgREST, and Next.js.
-The architecture uses Docker Compose to orchestrate multiple services,
-with Caddy serving as a reverse proxy and authentication gateway.
+Statbus is a **database-centric progressive disclosure architecture** - fundamentally different from traditional microservices or REST-backend architectures. The key insight: **the database IS the backend**, with security enforced at the database level (Row Level Security), allowing safe access via web, REST API, or direct PostgreSQL connections.
+
+### The 1-2-3 Architecture Philosophy
+
+**Why This Design?**
+
+Traditional statistical software systems lock users into a specific interface (usually just web). As organizations grow and need more sophisticated analysis, they hit walls - the backend doesn't expose what they need, or the API is too restrictive.
+
+StatBus solves this with progressive disclosure:
+
+1. **Level 1: Simple Web Interface** - Start here. Top-level actions (IMPORT, VIEW/SEARCH, REPORT) cover 80% of needs. Power features hidden in command palette (cmd+k). All calls use `/rest` endpoints that are visible and copyable.
+
+2. **Level 2: REST API Integration** - Copy those `/rest` calls from the browser into scripts (Python, R, JavaScript). Add an API key. Same security (PostgreSQL RLS still enforces access). Automate workflows, integrate with other systems.
+
+3. **Level 3: Direct PostgreSQL** - Need full SQL power? Connect directly with psql, pgAdmin, DBeaver, or database drivers. Same security (RLS), same user credentials, zero backend abstraction. Full database capabilities available.
+
+**Key Architectural Decisions:**
+
+- **No custom backend code** - PostgREST auto-generates REST API from database schema
+- **Security at database level** - Each user is a PostgreSQL role; Row Level Security enforces access regardless of connection method
+- **Type safety from source** - Supabase tools export TypeScript types directly from schema, no manual sync needed
+- **Transparent operations** - Web UI uses `/rest` so users can inspect and copy requests
+- **Auto-materialization** - The `statistical_unit` table auto-updates when underlying data changes, providing a "slice and dice" view for all reporting
+
+This is the opposite of microservices - it's a unified, database-centric architecture that avoids backend complexity entirely while scaling from simple web use to deep database integration.
+
+## Service Components
+
+Statbus is containerized with Docker Compose orchestrating multiple services.
+Caddy serves as a routing layer and TLS termination point.
 
 ## Core Services
 
-### Database (PostgreSQL)
+### 🗄️ Database (PostgreSQL) - THE Backend
+
 - **Container**: `statbus-{slot}-db`
-- **Purpose**: Stores all application data and handles authentication logic
+- **Purpose**: **This IS the backend** - all business logic, security, and data integrity lives here
 - **Key Features**:
   - Custom PostgreSQL image with extensions (sql_saga, pgjwt, pg_graphql, etc.)
-  - Row Level Security for integrated security.
-    - Each use is a separate role (email) with an access role:
-  - Role-based access control
-    - admin_user - Can do everything
-    - regular_user - Can enter data - but not change setup.
-    - restricted_user - Can only insert and edit data for selected regions or activity_categories.
-    - external_user - Can see everything - but not change anything.
-  - JWT-based authentication system
-    - Each user is a separate database role.
-    - Each user has a designated statbus role.
-  - Temporal data tracking using valid time with foreign keys.
+  - **Row Level Security (RLS)** - Security enforced at database level, works for ALL access methods
+  - **One user = one role** - Each StatBus user is a separate PostgreSQL role with the same password
+  - **Role-based access tiers**:
+    - `admin_user` - Full control (setup, data, users)
+    - `regular_user` - Data entry and editing, no configuration changes
+    - `restricted_user` - Limited to specific regions or activity categories
+    - `external_user` - Read-only access
+  - **JWT-based authentication** - Database functions verify tokens and switch roles
+  - **Temporal data with foreign keys** - Valid time tracking using sql_saga extension
+  - **Auto-materialized views** - `statistical_unit` table auto-updates for slice/dice reporting
 
-### API Layer (PostgREST)
+### 🔌 API Layer (PostgREST) - Level 2 Access
+
 - **Container**: `statbus-{slot}-rest`
-- **Purpose**: Provides RESTful API access to the database
+- **Purpose**: Auto-generates REST API from database schema - **zero custom backend code**
 - **Key Features**:
-  - Automatic REST API generation from database schema
-  - JWT validation and role switching
+  - Automatic REST API generation - reflects database schema instantly
+  - JWT validation and role switching - integrates with PostgreSQL auth
   - Aggregation support for analytics
-  - Exposes pg_graphql.
+  - Exposes pg_graphql for GraphQL queries
+  - **Type safety**: Database schema → TypeScript types (via Supabase tools)
 
-### Web Server (Caddy)
+### 🌐 Routing Layer (Caddy) - Traffic Director
+
 - **Container**: `statbus-{slot}-caddy`
-- **Purpose**: Reverse proxy, authentication gateway, and PostgreSQL TLS proxy
+- **Purpose**: Routes traffic to appropriate service based on path; TLS termination for PostgreSQL
 - **Key Features**:
-  - Routes `/postgrest/*` requests to PostgREST using REST_BIND_ADDRESS (via postgrest_endpoints)
-    - Notice that the auth related functions are callable by anonymous, and to themselves
-      process cookies, ensure security and return cookies. (login/refresh/logout/auth_status)
-  - Routes all other requests to the Next.js app using APP_BIND_ADDRESS
-  - Handles cookie-to-header JWT conversion
-  - Manages authentication flow (login, logout, refresh)
+  - Routes `/rest/*` → PostgREST (Level 2)
+  - Routes `/` → Next.js App (Level 1)
+  - Routes PostgreSQL wire protocol → Database (Level 3)
+  - Cookie-to-header JWT conversion for PostgREST
+  - Authentication flow coordination (login/refresh/logout/auth_status functions callable by anonymous)
   - **PostgreSQL Layer4 TLS+SNI Proxy** (PostgreSQL 17+ required):
-    - Provides secure TLS-encrypted direct PostgreSQL access with SNI-based routing
-    - Enables multi-tenant deployments with domain-based connection routing
-    - Supports `psql` and application connections with modern TLS (ALPN=postgresql)
-  - Supports multiple deployment modes
-    - development for running Application locally
-    - private for running on a server behind a host caddy that handles https.
-    - standalone for running on a server handling official domain and https.
+    - Secure TLS-encrypted direct database access (Level 3)
+    - SNI-based multi-tenant routing (one IP, many databases)
+    - Supports psql, pgAdmin, DBeaver, and application drivers
+  - Multiple deployment modes (development, private, standalone)
 
-### Application (Next.js)
+### 🖥️ Web Application (Next.js) - Level 1 Interface
+
 - **Container**: `statbus-{slot}-app`
-- **Purpose**: Server-side rendered web application
+- **Purpose**: Simple, intentionally constrained web interface for common tasks
 - **Key Features**:
-  - TypeScript-based React application
+  - TypeScript-based React application (App Router)
   - Server-side rendering for performance
-  - Communicates with PostgREST API via Caddy
+  - **Top-level actions**: IMPORT, VIEW/SEARCH, REPORT (80% of use cases)
+  - **Command palette (cmd+k)**: Esoteric features for power users
+  - **Transparent REST calls**: All requests use `/rest` endpoints (visible, copyable to scripts)
+  - Communicates with PostgREST via Caddy (same security as Level 2/3)
 
-### Background Worker
+### ⚙️ Background Worker
+
 - **Container**: `statbus-{slot}-worker`
-- **Purpose**: Handles background tasks and jobs
+- **Purpose**: Handles asynchronous data processing and analysis
 - **Key Features**:
-  - Built with Crystal
-  - Direct database access for efficiency
-  - Runs data analysis.
-  - Runs import jobs.
+  - Built with Crystal (compiled, fast)
+  - Direct database access (Level 3) for efficiency
+  - Import job processing
+  - Statistical analysis and materialization updates
 
 ## Authentication Flow
 
-1. **Login**: User credentials sent to `/postgrest/rpc/login`, validated by PostgreSQL function
+1. **Login**: User credentials sent to `/rest/rpc/login`, validated by PostgreSQL function
    and returns cookies with JWT tokens.
 2. **Token Management**: JWT tokens stored in cookies (`statbus-{slot}` and `statbus-{slot}-refresh`)
-3. **API Access**: Caddy extracts JWT from cookies and adds as Authorization headers for `/postgrest/*` routes,
-   since [PostgREST does not support reading the JWT access token from a cookie](https://github.com/PostgREST/postgrest/issues/3033)
-4. **Token Refresh**: Automatic refresh via `/postgrest/rpc/refresh` endpoint that consumes the jwt refresh token,
+3. **API Access**: Caddy extracts JWT from cookies and adds as Authorization headers for `/rest/*` routes,
+   since [PostgREST does not support reading the JWT access token from a cookie](https://github.com/rest/rest/issues/3033)
+4. **Token Refresh**: Automatic refresh via `/rest/rpc/refresh` endpoint that consumes the jwt refresh token,
    that can only be used once, and is found in the cookie, and returns a new access token and refresh token as cookies.
 5. **Logout**: Reads tokens from cookies and clears them as well as removing the refresh token.
 
