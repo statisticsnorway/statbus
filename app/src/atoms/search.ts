@@ -26,6 +26,7 @@ import {
   sectorDeriveStateUpdateFromValues,
   activityCategoryDeriveStateUpdateFromValues,
   statusDeriveStateUpdateFromValues,
+  domesticDeriveStateUpdateFromValues,
   lastEditByUserDeriveStateUpdateFromValues,
   unitSizeDeriveStateUpdateFromValues,
   dataSourceDeriveStateUpdateFromValues,
@@ -42,7 +43,8 @@ import {
   LAST_EDIT_BY_USER,
   UNIT_SIZE,
   DATA_SOURCE,
-} from '../app/search/filters/url-search-params'
+  DOMESTIC,
+} from "../app/search/filters/url-search-params";
 
 import { selectedTimeContextAtom } from './app'
 import { restClientAtom } from './rest-client'
@@ -672,6 +674,16 @@ const derivedApiSearchParamsAtomUnstable = atom((get) => {
           invalidCodesDeriveStateUpdateFromValues(invalidCodesValue);
         if (invalidCodesAction.type === "set_query")
           actionPayloadPart = invalidCodesAction.payload;
+        break;
+      case DOMESTIC:
+       const domesticValue =
+         Array.isArray(appParamValue) && appParamValue.length > 0
+           ? (appParamValue[0] as string | null)
+           : null;
+        const domesticAction =
+          domesticDeriveStateUpdateFromValues(domesticValue);
+        if (domesticAction.type === "set_query")
+          actionPayloadPart = domesticAction.payload;
         break;
       case LEGAL_FORM:
         const ensuredLegalFormValues = Array.isArray(appParamValue)
