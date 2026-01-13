@@ -18,6 +18,7 @@ import {
 import { statbusUsersAtom, externalIdentTypesAtom } from "@/atoms/base-data";
 import { useAtomValue } from "jotai";
 import { Tables } from "@/lib/database.types";
+import { Square, SquareCheckBig } from "lucide-react";
 
 interface SearchResultTableRowProps {
   unit: StatisticalUnit;
@@ -401,6 +402,36 @@ export const StatisticalUnitTableRow = ({
               </TableCell>
             );
 
+          case "physical_country_iso_2":
+            return (
+              <TableCell
+                key={`cell-${bodyCellSuffix(unit, column)}`}
+                className={getCellClassName(column)}
+              >
+                <div className="flex flex-col space-y-0.5 leading-tight">
+                  <span className="whitespace-nowrap">
+                    {unit.physical_country_iso_2}
+                  </span>
+                </div>
+              </TableCell>
+            );
+          case "domestic":
+            return (
+              <TableCell
+                key={`cell-${bodyCellSuffix(unit, column)}`}
+                className={getCellClassName(column)}
+              >
+                <div className="flex flex-col space-y-0.5 leading-tight">
+                  <span className="text-gray-700 whitespace-nowrap">
+                    {unit.domestic ? (
+                      <SquareCheckBig size={16} />
+                    ) : (
+                      <Square size={16} />
+                    )}
+                  </span>
+                </div>
+              </TableCell>
+            );
           case "birth_date":
             return (
               <TableCell

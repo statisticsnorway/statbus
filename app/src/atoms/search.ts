@@ -402,6 +402,22 @@ const availableTableColumnsAtomUnstable = atom<TableColumn[]>((get) => {
     },
     {
       type: "Adaptable",
+      code: "physical_country_iso_2",
+      label: "Country",
+      visible: false,
+      stat_code: null,
+      profiles: ["All"],
+    },
+    {
+      type: "Adaptable",
+      code: "domestic",
+      label: "Domestic",
+      visible: false,
+      stat_code: null,
+      profiles: ["All"],
+    },
+    {
+      type: "Adaptable",
       code: "birth_date",
       label: "Birth Date",
       visible: false,

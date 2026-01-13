@@ -165,6 +165,24 @@ export function StatisticalUnitTableHeader({
                   Address
                 </TableHead>
               );
+              case "physical_country_iso_2":
+                return (
+                  <TableHead
+                    className="text-left hidden lg:table-cell"
+                    key={`h-cell-${headerCellSuffix(column)}`}
+                  >
+                    Country
+                  </TableHead>
+                );
+              case "domestic":
+                return (
+                  <TableHead
+                  className="text-left hidden lg:table-cell"
+                  key={`h-cell-${headerCellSuffix(column)}`}
+                  >
+                  Domestic
+                </TableHead>
+              );
             case "birth_date":
               return (
                 <SortableTableHead
