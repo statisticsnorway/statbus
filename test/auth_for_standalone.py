@@ -329,11 +329,11 @@ load_env_vars()
 API_BASE_URL: Optional[str] = None # Will be set by determine_and_set_api_base_url
 
 DB_HOST = "127.0.0.1"
-DB_PORT = os.environ.get("DB_PUBLIC_LOCALHOST_PORT")
+DB_PORT = os.environ.get("CADDY_DB_PORT")
 DB_NAME = os.environ.get("POSTGRES_APP_DB")
 
 if not DB_PORT or not DB_NAME:
-    print(f"{RED}CRITICAL ERROR: DB_PUBLIC_LOCALHOST_PORT or POSTGRES_APP_DB environment variables are not set.{NC}")
+    print(f"{RED}CRITICAL ERROR: CADDY_DB_PORT or POSTGRES_APP_DB environment variables are not set.{NC}")
     sys.exit(1)
 
 # Test users from setup.sql

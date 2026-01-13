@@ -26,8 +26,6 @@ services:
       JWT_EXP: ${ACCESS_JWT_EXPIRY:?ACCESS_JWT_EXPIRY must be set in the generated .env}
       DEPLOYMENT_SLOT_CODE: ${DEPLOYMENT_SLOT_CODE:?DEPLOYMENT_SLOT_CODE must be set in the generated .env}
       DEBUG: ${DEBUG:?DEBUG must be set in the generated .env}
-    ports:
-      - "127.0.0.1:${DB_PUBLIC_LOCALHOST_PORT:-5432}:5432"
     volumes:
       - ./volumes/db/data:/var/lib/postgresql/data:Z
       - ./postgresql.conf:/etc/postgresql/postgresql.conf:ro

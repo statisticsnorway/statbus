@@ -60,7 +60,7 @@ class Config
       # In development (local), use localhost
       @postgres_host = "127.0.0.1"
       # Port will be set from .env file below if available
-      @postgres_port = ENV["DB_PUBLIC_LOCALHOST_PORT"]
+      @postgres_port = ENV["CADDY_DB_PORT"]? || "5432"
     end
 
     # Common settings for all environments

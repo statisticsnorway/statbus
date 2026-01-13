@@ -529,28 +529,48 @@ case "$action" in
             echo "Setting DEPLOYMENT_SLOT_PORT_OFFSET=${slot_offset} in .env.config for generation..."
             ./devops/dotenv --file .env.config set DEPLOYMENT_SLOT_PORT_OFFSET "${slot_offset}"
 
-            # Calculate DB_PUBLIC_LOCALHOST_PORT based on the logic in cli/src/manage.cr
+            # Calculate CADDY_DB_PORT based on the logic in cli/src/manage.cr
             # and export it so the Crystal app can initialize.
             base_port=3000
             slot_multiplier=10
             port_offset=$((base_port + slot_offset * slot_multiplier))
             db_port=$((port_offset + 4))
 
-            echo "Temporarily exporting DB_PUBLIC_LOCALHOST_PORT=$db_port for initialization."
-            export DB_PUBLIC_LOCALHOST_PORT=$db_port
+            echo "Temporarily exporting CADDY_DB_PORT=$db_port for initialization."
+            export CADDY_DB_PORT=$db_port
         fi
 
         ./cli/bin/statbus manage generate-config
         ;;
      'postgres-variables' )
-        PGHOST=127.0.0.1
-        PGPORT=$(./devops/dotenv --file .env get DB_PUBLIC_LOCALHOST_PORT)
+        SITE_DOMAIN=$(./devops/dotenv --file .env get SITE_DOMAIN || echo "local.statbus.org")
+        PGHOST=$SITE_DOMAIN
+        PGPORT=$(./devops/dotenv --file .env get CADDY_DB_PORT)
         PGDATABASE=$(./devops/dotenv --file .env get POSTGRES_APP_DB)
         # Preserve the USER if already setup, to allow overrides.
         PGUSER=${PGUSER:-$(./devops/dotenv --file .env get POSTGRES_ADMIN_USER)}
         PGPASSWORD=$(./devops/dotenv --file .env get POSTGRES_ADMIN_PASSWORD)
+        
+        # PostgreSQL 17+ TLS/SNI configuration for Caddy layer4 proxy
+        # These settings enable PostgreSQL to connect through Caddy's TLS-enabled layer4 proxy
+        
+        # Use Caddy-compatible TLS (industry standard direct TLS negotiation)
+        # Instead of legacy 'postgres' STARTTLS protocol, use modern direct TLS
+        PGSSLNEGOTIATION=direct
+        
+        # Always require SSL/TLS but DOES NOT VERIFY the server certificate
+        # Options: disable, allow, prefer, require, verify-ca, verify-full
+        # 'require' ensures encrypted connection but doesn't validate the certificate
+        # NOTE: When sslrootcert is set, PostgreSQL requires verify-ca or verify-full mode
+        # So we DON'T set sslrootcert to allow 'require' mode (no verification)
+        PGSSLMODE=require
+        
+        # Always send the value of PGHOST as the SNI (Server Name Indication) variable in TLS handshake
+        # This is CRITICAL for Caddy's layer4 routing which uses SNI to match connection policies
+        # When set to 1, psql sends PGHOST value as SNI, allowing Caddy to route based on domain
+        PGSSLSNI=1
         cat <<EOS
-export PGHOST=$PGHOST PGPORT=$PGPORT PGDATABASE=$PGDATABASE PGUSER=$PGUSER PGPASSWORD=$PGPASSWORD
+export PGHOST=$PGHOST PGPORT=$PGPORT PGDATABASE=$PGDATABASE PGUSER=$PGUSER PGPASSWORD=$PGPASSWORD PGSSLNEGOTIATION=$PGSSLNEGOTIATION PGSSLMODE=$PGSSLMODE PGSSLSNI=$PGSSLSNI
 EOS
       ;;
      'psql' )

@@ -67,15 +67,15 @@ export function getDbHostPort() {
     return portNum;
   };
 
-  // Check if DB_PUBLIC_LOCALHOST_PORT is set for local development override
-  const localPortStr = process.env.DB_PUBLIC_LOCALHOST_PORT;
+  // Check if CADDY_DB_PORT is set for local development override
+  const localPortStr = process.env.CADDY_DB_PORT;
   if (localPortStr) {
     // Validate localPortStr format before parsing
     if (!/^\d+$/.test(localPortStr)) {
-       throw new Error(`Invalid format for environment variable DB_PUBLIC_LOCALHOST_PORT: ${localPortStr}. Must be a number.`);
+       throw new Error(`Invalid format for environment variable CADDY_DB_PORT: ${localPortStr}. Must be a number.`);
     }
     dbHost = 'localhost';
-    dbPort = parsePort(localPortStr, 'DB_PUBLIC_LOCALHOST_PORT');
+    dbPort = parsePort(localPortStr, 'CADDY_DB_PORT');
   } else {
     // Default to Docker internal host/port, use helper to ensure they exist
     dbHost = getRequiredEnvVar('POSTGRES_HOST');
