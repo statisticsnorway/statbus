@@ -2,14 +2,18 @@
 services:
   proxy:
     container_name: ${COMPOSE_INSTANCE_NAME:?COMPOSE_INSTANCE_NAME must be set in the generated .env}-proxy
-    image: caddy:2-alpine
+    build:
+      context: .
+      dockerfile: Dockerfile
     restart: unless-stopped
     ports:
       - "${CADDY_HTTP_BIND_ADDRESS:?CADDY_HTTP_BIND_ADDRESS must be set in the generated .env}:80/tcp"
       - "${CADDY_HTTPS_BIND_ADDRESS:?CADDY_HTTPS_BIND_ADDRESS must be set in the generated .env}:443/tcp"
       - "${CADDY_HTTPS_BIND_ADDRESS:?CADDY_HTTPS_BIND_ADDRESS must be set in the generated .env}:443/udp"
+      - "${CADDY_DB_BIND_ADDRESS:?CADDY_DB_BIND_ADDRESS must be set in the generated .env}:${CADDY_DB_PORT:?CADDY_DB_PORT must be set in the generated .env}:${CADDY_DB_PORT:?CADDY_DB_PORT must be set in the generated .env}/tcp"
     volumes:
-      # Mounts the entire config directory. Caddy will use /etc/caddy/Caddyfile.
+      # Mounts the entire config directory. Caddy will use /etc/caddy/Caddyfile
+      # that references the appropriate generated files.
       - ./config:/etc/caddy:ro
       - caddy_data:/data
       - caddy_logs:/var/log/caddy

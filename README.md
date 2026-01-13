@@ -159,6 +159,179 @@ To remove all data and start over again you can do
 rm -f .env.credentials .env.config .env
 ```
 
+### Connecting to PostgreSQL Database
+
+Statbus uses Caddy as a TLS-enabled Layer4 proxy for secure PostgreSQL connections. The proxy terminates TLS and routes connections based on Server Name Indication (SNI).
+
+#### Local Development
+
+For local development, the database is accessible through Caddy on a custom port (default: 3024):
+
+```bash
+# Use the provided helper script (recommended)
+./devops/manage-statbus.sh psql
+
+# Or connect manually with environment variables
+eval $(./devops/manage-statbus.sh postgres-variables)
+psql
+
+# Or set environment variables manually
+export PGHOST=local.statbus.org
+export PGPORT=3024
+export PGDATABASE=statbus_speed
+export PGUSER=postgres
+export PGPASSWORD=your_password
+export PGSSLNEGOTIATION=direct
+export PGSSLMODE=require
+export PGSSLSNI=1
+psql
+```
+
+**Environment Variables for Local Development**:
+
+The `manage-statbus.sh postgres-variables` command exports these variables:
+
+```bash
+export PGHOST=local.statbus.org     # Domain (resolves to 127.0.0.1)
+export PGPORT=3024                  # Caddy DB port (configurable via CADDY_DB_PORT)
+export PGDATABASE=statbus_speed     # Database name (from POSTGRES_APP_DB)
+export PGUSER=postgres              # Admin user (from POSTGRES_ADMIN_USER)
+export PGPASSWORD=<generated>       # Admin password (from POSTGRES_ADMIN_PASSWORD)
+
+# PostgreSQL 17+ TLS/SNI configuration
+export PGSSLNEGOTIATION=direct      # Use modern direct TLS
+export PGSSLMODE=require            # Require SSL but don't verify certificate
+export PGSSLSNI=1                   # Send PGHOST as SNI (critical for Caddy routing)
+```
+
+The local environment uses:
+- **Domain**: `local.statbus.org` (resolves to 127.0.0.1)
+- **Port**: 3024 (configurable via `CADDY_DB_PORT`)
+- **TLS**: Caddy's internal CA (self-signed)
+- **SSL Mode**: `require` (encrypted but no certificate verification)
+
+#### Production Deployment - Connecting to StatBus
+
+If you're connecting to a deployed StatBus instance as a **user** (not for development), use environment variables to securely connect:
+
+**Quick Connection** (secure one-liner with environment variables):
+
+```bash
+# Replace with your actual credentials and domain
+PGHOST=your-statbus-domain.com PGPORT=5432 PGDATABASE=statbus PGUSER=your_username PGPASSWORD=your_password PGSSLNEGOTIATION=direct PGSSLMODE=verify-full PGSSLSNI=1 psql
+```
+
+**Example**:
+```bash
+PGHOST=statbus.example.com PGPORT=5432 PGDATABASE=statbus PGUSER=john PGPASSWORD=mysecretpass PGSSLNEGOTIATION=direct PGSSLMODE=verify-full PGSSLSNI=1 psql
+```
+
+**Or set environment variables first** (recommended for repeated connections):
+
+```bash
+# Set your connection parameters
+export PGHOST=your-statbus-domain.com   # Your StatBus domain
+export PGPORT=5432                      # Standard PostgreSQL port
+export PGDATABASE=statbus               # Database name (usually 'statbus')
+export PGUSER=your_username             # Your StatBus username
+export PGPASSWORD=your_password         # Your password
+
+# TLS/SNI configuration (PostgreSQL 17+ required)
+export PGSSLNEGOTIATION=direct          # Use modern direct TLS (not STARTTLS)
+export PGSSLMODE=verify-full            # Full certificate verification
+export PGSSLSNI=1                       # Send hostname as SNI for routing
+
+# Connect
+psql
+```
+
+**For interactive password prompt** (most secure - doesn't store password):
+```bash
+# Set all parameters except password
+export PGHOST=your-statbus-domain.com
+export PGPORT=5432
+export PGDATABASE=statbus
+export PGUSER=your_username
+export PGSSLNEGOTIATION=direct
+export PGSSLMODE=verify-full
+export PGSSLSNI=1
+
+# Connect - will prompt for password
+psql
+```
+
+**SSL Mode Options** (ordered by security level):
+- `disable` - No SSL/TLS (not recommended)
+- `allow` - Try SSL, fall back to unencrypted
+- `prefer` - Prefer SSL, fall back to unencrypted
+- `require` - Require SSL/TLS but don't verify certificate (development only)
+- `verify-ca` - Require SSL and verify CA signature
+- `verify-full` - Require SSL and verify hostname matches certificate (recommended for production)
+
+**Important Notes**:
+- **PostgreSQL 17+** is required for `PGSSLNEGOTIATION=direct` and `PGSSLSNI=1`
+- The `PGSSLSNI=1` parameter is **critical** for Caddy's SNI-based routing in multi-tenant deployments
+- Always use `verify-full` for production deployments with valid certificates
+- Connection string format: `postgresql://user:password@domain:port/database?sslmode=verify-full&sslnegotiation=direct`
+
+#### Connection Examples
+
+**For end users connecting to StatBus with psql**:
+```bash
+# One-liner with environment variables (secure - credentials not visible in ps)
+PGHOST=statbus.example.com PGPORT=5432 PGDATABASE=statbus PGUSER=yourname PGPASSWORD=yourpass PGSSLNEGOTIATION=direct PGSSLMODE=verify-full PGSSLSNI=1 psql
+
+# Interactive password prompt (most secure)
+PGHOST=statbus.example.com PGPORT=5432 PGDATABASE=statbus PGUSER=yourname PGSSLNEGOTIATION=direct PGSSLMODE=verify-full PGSSLSNI=1 psql
+```
+
+**Using connection URI** (for database tools and applications):
+```bash
+# Production - user connection (for tools that support URI format)
+postgresql://yourname:yourpass@statbus.example.com:5432/statbus?sslmode=verify-full&sslnegotiation=direct
+
+# Development - admin connection
+postgresql://postgres:password@local.statbus.org:3024/statbus_speed?sslmode=require&sslnegotiation=direct
+```
+
+**Note**: Connection URIs are acceptable for application configuration files and tools, but for command-line psql, always use environment variables to avoid exposing credentials in process listings.
+
+**Programming language examples**:
+
+*Python (psycopg2/psycopg3)*:
+```python
+import psycopg2
+
+conn = psycopg2.connect(
+    host="statbus.example.com",
+    port=5432,
+    dbname="statbus",
+    user="admin",
+    password="password",
+    sslmode="verify-full",
+    sslnegotiation="direct"
+)
+```
+
+*Node.js (pg)*:
+```javascript
+const { Client } = require('pg');
+
+const client = new Client({
+  host: 'statbus.example.com',
+  port: 5432,
+  database: 'statbus',
+  user: 'admin',
+  password: 'password',
+  ssl: {
+    rejectUnauthorized: true,  // verify-full
+    sslnegotiation: 'direct'
+  }
+});
+
+await client.connect();
+```
+
 
 ## Local Development
 

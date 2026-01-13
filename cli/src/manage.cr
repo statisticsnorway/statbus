@@ -207,11 +207,12 @@ module Statbus
       caddy_http_bind_address : String,
       caddy_https_port : Int32,
       caddy_https_bind_address : String,
+      caddy_db_port : Int32,
+      caddy_db_bind_address : String,
       app_port : Int32,
       app_bind_address : String,
       postgrest_port : Int32,
       postgrest_bind_address : String,
-      db_public_localhost_port : Int32,
       version : String,
       site_url : String,
       api_external_url : String,
@@ -324,8 +325,8 @@ module Statbus
         end
 
         config = Dotenv.using(config_file) do |config_env|
-          deployment_slot_code = config_env.generate("DEPLOYMENT_SLOT_CODE") { "dev" }
-          deployment_slot_name = config_env.generate("DEPLOYMENT_SLOT_NAME") { "dev" }
+          deployment_slot_code = config_env.generate("DEPLOYMENT_SLOT_CODE") { "local" }
+          deployment_slot_name = config_env.generate("DEPLOYMENT_SLOT_NAME") { "local" }
           postgres_app_db = config_env.generate("POSTGRES_APP_DB") { "statbus_#{deployment_slot_code}" }
           postgres_app_user = config_env.generate("POSTGRES_APP_USER") { "statbus_#{deployment_slot_code}" }
           postgres_notify_user = config_env.generate("POSTGRES_NOTIFY_USER") { "statbus_notify_#{deployment_slot_code}" }
@@ -409,7 +410,7 @@ module Statbus
         caddy_https_port = port_offset + 1
         app_port = port_offset + 2
         postgrest_port = port_offset + 3
-        db_public_localhost_port = port_offset + 4
+        caddy_db_port = port_offset + 4
         
         if config.caddy_deployment_mode == "standalone"
           # For standalone mode, bind to all interfaces, at the official HTTP(S) ports.
@@ -417,10 +418,12 @@ module Statbus
           caddy_https_port = 443
           caddy_http_bind_address = "0.0.0.0:#{caddy_http_port}"
           caddy_https_bind_address = "0.0.0.0:#{caddy_https_port}"
+          caddy_db_bind_address = "0.0.0.0"
         else
           # For other modes, bind to localhost with non conflicting ports for running multiple statbus installations on the same host.
           caddy_http_bind_address = "127.0.0.1:#{caddy_http_port}"
           caddy_https_bind_address = "127.0.0.1:#{caddy_https_port}"
+          caddy_db_bind_address = "127.0.0.1"
         end
 
         derived = DerivedEnv.new(
@@ -436,7 +439,8 @@ module Statbus
           postgrest_port: postgrest_port,
           postgrest_bind_address: "127.0.0.1:#{postgrest_port}",
           # The publicly exposed address of PostgreSQL inside Supabase
-          db_public_localhost_port: db_public_localhost_port,
+          caddy_db_port: caddy_db_port,
+          caddy_db_bind_address: caddy_db_bind_address,
           # Git version of the deployed commit
           version: `git describe --always`.strip,
           # URL where the site is hosted
@@ -447,7 +451,7 @@ module Statbus
           api_public_url: config.browser_api_url,
           # Caddy configuration
           deployment_user: "statbus_#{config.deployment_slot_code}",
-          domain: "#{config.deployment_slot_code}.statbus.org",
+          domain: config.site_domain,
           # Maps to GOTRUE_EXTERNAL_EMAIL_ENABLED to allow authentication with Email at all.
           # So SIGNUP really means SIGNIN
           enable_email_signup: true,
@@ -540,7 +544,8 @@ module Statbus
     # The host address connected to Supabase
     REST_BIND_ADDRESS=#{derived.postgrest_bind_address}
     # The publicly exposed address of PostgreSQL inside Supabase
-    DB_PUBLIC_LOCALHOST_PORT=#{derived.db_public_localhost_port}
+    CADDY_DB_PORT=#{derived.caddy_db_port}
+    CADDY_DB_BIND_ADDRESS=#{derived.caddy_db_bind_address}
     # Updated by manage-statbus.sh start required
     VERSION=#{derived.version}
 
@@ -676,6 +681,8 @@ module Statbus
         @caddy_https_port = derived.caddy_https_port
         @caddy_http_bind_address = derived.caddy_http_bind_address
         @caddy_https_bind_address = derived.caddy_https_bind_address
+        @caddy_db_port = derived.caddy_db_port
+        @caddy_db_bind_address = derived.caddy_db_bind_address
       end
     end
     
@@ -699,24 +706,22 @@ module Statbus
       ECR.def_to_s "src/templates/Caddyfile.ecr"
     end
 
-    class CaddyfileCommonTemplate < CaddyfileTemplate
-      ECR.def_to_s "src/templates/common.caddyfile.ecr"
+    class PublicLayer4TcpRouteTemplate < CaddyfileTemplate
+      ECR.def_to_s "src/templates/public-layer4-tcp-5432-route.caddyfile.ecr"
     end
     
     # Generate all Caddyfile variants and write them to disk
     private def generate_caddy_content(derived : DerivedEnv, config : ConfigEnv)
       caddyfile_targets = {
-        # Common snippets used by all configurations
-        "common.caddyfile" => CaddyfileCommonTemplate.new(derived, config),
-        # For development mode
+        # Main entry point
+        "Caddyfile" => CaddyfileMainTemplate.new(derived, config),
+        # Mode-specific complete configurations
         "development.caddyfile" => CaddyfileDevelopmentTemplate.new(derived, config),
-        # For private mode
         "private.caddyfile" => CaddyfilePrivateTemplate.new(derived, config),
-        "public.caddyfile" => CaddyfilePublicTemplate.new(derived, config),
-        # For standalone mode
         "standalone.caddyfile" => CaddyfileStandaloneTemplate.new(derived, config),
-        # Main file for including the right file depending on mode
-        "Caddyfile" => CaddyfileMainTemplate.new(derived, config) # This is the main Caddyfile, name is literal
+        # Public mode files (for host-level Caddy import)
+        "public.caddyfile" => CaddyfilePublicTemplate.new(derived, config),
+        "public-layer4-tcp-5432-route.caddyfile" => PublicLayer4TcpRouteTemplate.new(derived, config),
       }
       
       # Write each Caddyfile variant

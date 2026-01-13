@@ -30,8 +30,8 @@ Frontend: ${STATBUS_URL}/
 Username Role Password:
 ${statbus_users}
 ############################################################
-PostgreSQL: postgresql://postgres:${POSTGRES_ADMIN_PASSWORD}@localhost:${DB_PUBLIC_LOCALHOST_PORT}/${POSTGRES_APP_DB}
-Port: ${DB_PUBLIC_LOCALHOST_PORT}
+PostgreSQL: postgresql://postgres:${POSTGRES_ADMIN_PASSWORD}@localhost:${CADDY_DB_PORT}/${POSTGRES_APP_DB}
+Port: ${CADDY_DB_PORT}
 Database: ${POSTGRES_APP_DB}
 User: ${POSTGRES_APP_USER}
 Password: ${POSTGRES_APP_PASSWORD}
