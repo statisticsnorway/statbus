@@ -6201,6 +6201,8 @@ export type Database = {
           min_exec_time: number | null
           min_plan_time: number | null
           minmax_stats_since: string | null
+          parallel_workers_launched: number | null
+          parallel_workers_to_launch: number | null
           pgsm_query_id: number | null
           planid: number | null
           plans: number | null
@@ -6231,6 +6233,7 @@ export type Database = {
           total_plan_time: number | null
           userid: unknown
           username: string | null
+          wal_buffers_full: number | null
           wal_bytes: number | null
           wal_fpi: number | null
           wal_records: number | null
@@ -6264,6 +6267,8 @@ export type Database = {
           min_exec_time: number | null
           min_plan_time: number | null
           minmax_stats_since: string | null
+          parallel_workers_launched: number | null
+          parallel_workers_to_launch: number | null
           plans: number | null
           query: string | null
           queryid: number | null
@@ -6285,6 +6290,7 @@ export type Database = {
           total_exec_time: number | null
           total_plan_time: number | null
           userid: unknown
+          wal_buffers_full: number | null
           wal_bytes: number | null
           wal_fpi: number | null
           wal_records: number | null
@@ -7230,13 +7236,6 @@ export type Database = {
           },
           {
             foreignKeyName: "location_region_id_fkey"
-            columns: ["postal_region_id"]
-            isOneToOne: false
-            referencedRelation: "region"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "location_region_id_fkey"
             columns: ["physical_region_id"]
             isOneToOne: false
             referencedRelation: "region"
@@ -7245,13 +7244,20 @@ export type Database = {
           {
             foreignKeyName: "location_region_id_fkey"
             columns: ["postal_region_id"]
+            isOneToOne: false
+            referencedRelation: "region"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_region_id_fkey"
+            columns: ["physical_region_id"]
             isOneToOne: false
             referencedRelation: "region_used_def"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "location_region_id_fkey"
-            columns: ["physical_region_id"]
+            columns: ["postal_region_id"]
             isOneToOne: false
             referencedRelation: "region_used_def"
             referencedColumns: ["id"]
@@ -7346,13 +7352,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["secondary_activity_category_id"]
-            isOneToOne: false
-            referencedRelation: "activity_category"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "activity_category_id_fkey"
             columns: ["primary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category"
@@ -7362,7 +7361,7 @@ export type Database = {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["secondary_activity_category_id"]
             isOneToOne: false
-            referencedRelation: "activity_category_available"
+            referencedRelation: "activity_category"
             referencedColumns: ["id"]
           },
           {
@@ -7375,13 +7374,20 @@ export type Database = {
           {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["secondary_activity_category_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_available"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_category_id_fkey"
+            columns: ["primary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used_def"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["primary_activity_category_id"]
+            columns: ["secondary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used_def"
             referencedColumns: ["id"]
@@ -7804,6 +7810,7 @@ export type Database = {
         }
         Returns: Json
       }
+      fips_mode: { Args: never; Returns: boolean }
       from_to_overlaps: {
         Args: { end1: unknown; end2: unknown; start1: unknown; start2: unknown }
         Returns: boolean
@@ -7995,6 +8002,59 @@ export type Database = {
       hypopg_unhide_index: { Args: { indexid: unknown }; Returns: boolean }
       id_decode: { Args: { "": string }; Returns: number[] }
       id_decode_once: { Args: { "": string }; Returns: number }
+      import_job_clone: {
+        Args: { p_slug?: string; p_source_job_id: number }
+        Returns: {
+          analysis_batch_size: number
+          analysis_completed_pct: number | null
+          analysis_rows_per_sec: number | null
+          analysis_start_at: string | null
+          analysis_stop_at: string | null
+          changes_approved_at: string | null
+          changes_rejected_at: string | null
+          completed_analysis_steps_weighted: number | null
+          created_at: string
+          current_step_code: string | null
+          current_step_priority: number | null
+          data_table_name: string
+          default_data_source_code: string | null
+          default_valid_from: string | null
+          default_valid_to: string | null
+          definition_id: number
+          definition_snapshot: Json | null
+          description: string | null
+          edit_comment: string | null
+          error: string | null
+          expires_at: string
+          id: number
+          import_completed_pct: number | null
+          import_rows_per_sec: number | null
+          imported_rows: number | null
+          last_progress_update: string | null
+          max_analysis_priority: number | null
+          note: string | null
+          preparing_data_at: string | null
+          priority: number | null
+          processing_batch_size: number
+          processing_start_at: string | null
+          processing_stop_at: string | null
+          review: boolean
+          slug: string
+          state: Database["public"]["Enums"]["import_job_state"]
+          time_context_ident: string | null
+          total_analysis_steps_weighted: number | null
+          total_rows: number | null
+          updated_at: string
+          upload_table_name: string
+          user_id: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "import_job"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       index_advisor: {
         Args: { query: string }
         Returns: {
@@ -8015,6 +8075,26 @@ export type Database = {
         Returns: Json
       }
       jsonb_stats_to_summary_round: { Args: { state: Json }; Returns: Json }
+      legal_form: {
+        Args: {
+          statistical_unit: Database["public"]["Tables"]["statistical_unit"]["Row"]
+        }
+        Returns: {
+          active: boolean
+          code: string
+          created_at: string
+          custom: boolean
+          id: number
+          name: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "statistical_unit"
+          to: "legal_form"
+          isOneToOne: true
+          isSetofReturn: true
+        }
+      }
       legal_form_hierarchy: { Args: { legal_form_id: number }; Returns: Json }
       legal_form_used_derive: { Args: never; Returns: undefined }
       legal_unit_hierarchy: {
@@ -8097,12 +8177,57 @@ export type Database = {
         Args: { "": string }
         Returns: Record<string, unknown>[]
       }
-      pgsm_create_11_view: { Args: never; Returns: number }
       pgsm_create_13_view: { Args: never; Returns: number }
       pgsm_create_14_view: { Args: never; Returns: number }
       pgsm_create_15_view: { Args: never; Returns: number }
       pgsm_create_17_view: { Args: never; Returns: number }
+      pgsm_create_18_view: { Args: never; Returns: number }
       pgsm_create_view: { Args: never; Returns: number }
+      physical_country: {
+        Args: {
+          statistical_unit: Database["public"]["Tables"]["statistical_unit"]["Row"]
+        }
+        Returns: {
+          active: boolean
+          created_at: string
+          custom: boolean
+          id: number
+          iso_2: string
+          iso_3: string
+          iso_num: string
+          name: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "statistical_unit"
+          to: "country"
+          isOneToOne: true
+          isSetofReturn: true
+        }
+      }
+      physical_region: {
+        Args: {
+          statistical_unit: Database["public"]["Tables"]["statistical_unit"]["Row"]
+        }
+        Returns: {
+          center_altitude: number | null
+          center_latitude: number | null
+          center_longitude: number | null
+          code: string | null
+          id: number
+          label: string
+          level: number | null
+          name: string
+          parent_id: number | null
+          path: unknown
+        }
+        SetofOptions: {
+          from: "statistical_unit"
+          to: "region"
+          isOneToOne: true
+          isSetofReturn: true
+        }
+      }
       plpgsql_check_function:
         | {
             Args: {
@@ -8373,6 +8498,77 @@ export type Database = {
               type: string
             }[]
           }
+      postal_country: {
+        Args: {
+          statistical_unit: Database["public"]["Tables"]["statistical_unit"]["Row"]
+        }
+        Returns: {
+          active: boolean
+          created_at: string
+          custom: boolean
+          id: number
+          iso_2: string
+          iso_3: string
+          iso_num: string
+          name: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "statistical_unit"
+          to: "country"
+          isOneToOne: true
+          isSetofReturn: true
+        }
+      }
+      postal_region: {
+        Args: {
+          statistical_unit: Database["public"]["Tables"]["statistical_unit"]["Row"]
+        }
+        Returns: {
+          center_altitude: number | null
+          center_latitude: number | null
+          center_longitude: number | null
+          code: string | null
+          id: number
+          label: string
+          level: number | null
+          name: string
+          parent_id: number | null
+          path: unknown
+        }
+        SetofOptions: {
+          from: "statistical_unit"
+          to: "region"
+          isOneToOne: true
+          isSetofReturn: true
+        }
+      }
+      primary_activity_category: {
+        Args: {
+          statistical_unit: Database["public"]["Tables"]["statistical_unit"]["Row"]
+        }
+        Returns: {
+          active: boolean
+          code: string
+          created_at: string
+          custom: boolean
+          description: string | null
+          id: number
+          label: string
+          level: number | null
+          name: string
+          parent_id: number | null
+          path: unknown
+          standard_id: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "statistical_unit"
+          to: "activity_category"
+          isOneToOne: true
+          isSetofReturn: true
+        }
+      }
       range: { Args: never; Returns: string[] }
       refresh: {
         Args: never
@@ -8500,6 +8696,56 @@ export type Database = {
       revoke_session: {
         Args: { refresh_session_jti: string }
         Returns: boolean
+      }
+      secondary_activity_category: {
+        Args: {
+          statistical_unit: Database["public"]["Tables"]["statistical_unit"]["Row"]
+        }
+        Returns: {
+          active: boolean
+          code: string
+          created_at: string
+          custom: boolean
+          description: string | null
+          id: number
+          label: string
+          level: number | null
+          name: string
+          parent_id: number | null
+          path: unknown
+          standard_id: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "statistical_unit"
+          to: "activity_category"
+          isOneToOne: true
+          isSetofReturn: true
+        }
+      }
+      sector: {
+        Args: {
+          statistical_unit: Database["public"]["Tables"]["statistical_unit"]["Row"]
+        }
+        Returns: {
+          active: boolean
+          code: string | null
+          created_at: string
+          custom: boolean
+          description: string | null
+          id: number
+          label: string
+          name: string
+          parent_id: number | null
+          path: unknown
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "statistical_unit"
+          to: "sector"
+          isOneToOne: true
+          isSetofReturn: true
+        }
       }
       sector_hierarchy: { Args: { sector_id: number }; Returns: Json }
       sector_used_derive: { Args: never; Returns: undefined }
@@ -8666,6 +8912,29 @@ export type Database = {
         }
         Returns: Json
       }
+      status: {
+        Args: {
+          statistical_unit: Database["public"]["Tables"]["statistical_unit"]["Row"]
+        }
+        Returns: {
+          active: boolean
+          assigned_by_default: boolean
+          code: string
+          created_at: string
+          custom: boolean
+          id: number
+          name: string
+          priority: number
+          updated_at: string
+          used_for_counting: boolean
+        }
+        SetofOptions: {
+          from: "statistical_unit"
+          to: "status"
+          isOneToOne: true
+          isSetofReturn: true
+        }
+      }
       status_hierarchy: { Args: { status_id: number }; Returns: Json }
       tag_for_unit_hierarchy: {
         Args: {
@@ -8691,6 +8960,26 @@ export type Database = {
         }[]
       }
       try_cast_double: { Args: { inp: string }; Returns: number }
+      unit_size: {
+        Args: {
+          statistical_unit: Database["public"]["Tables"]["statistical_unit"]["Row"]
+        }
+        Returns: {
+          active: boolean
+          code: string
+          created_at: string
+          custom: boolean
+          id: number
+          name: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "statistical_unit"
+          to: "unit_size"
+          isOneToOne: true
+          isSetofReturn: true
+        }
+      }
       unit_size_hierarchy: { Args: { unit_size_id: number }; Returns: Json }
       url_decode: { Args: { data: string }; Returns: string }
       url_encode: { Args: { data: string }; Returns: string }
@@ -8820,7 +9109,7 @@ export type Database = {
         | "stop_of_decade_prev"
         | "start_of_decade_prev"
       relative_period_scope: "input_and_query" | "query" | "input"
-      reset_scope: "data" | "getting-started" | "all"
+      reset_scope: "units" | "data" | "getting-started" | "all"
       stat_frequency:
         | "daily"
         | "weekly"
@@ -9147,7 +9436,7 @@ export const Constants = {
         "start_of_decade_prev",
       ],
       relative_period_scope: ["input_and_query", "query", "input"],
-      reset_scope: ["data", "getting-started", "all"],
+      reset_scope: ["units", "data", "getting-started", "all"],
       stat_frequency: [
         "daily",
         "weekly",
