@@ -59,11 +59,20 @@
         #}
     }
     
-    # Layer4 PostgreSQL access with TLS+SNI for local development
-    # Connect to <%= @domain %>:<%= @caddy_db_port %> with PostgreSQL client that supports TLS+SNI
-    # The certificate is self-signed by Caddy's internal CA
+    # Layer4 PostgreSQL access for local development
+    # Two separate ports for clear separation:
+    # - Port <%= @caddy_db_port %>: Plaintext proxy (default for local psql and SSH tunnels)
+    # - Port <%= @caddy_db_tls_port %>: TLS+SNI proxy (for testing with TLS=1)
     layer4 {
+        # Plaintext port - direct proxy without TLS
         :<%= @caddy_db_port %> {
+            route {
+                proxy db:5432
+            }
+        }
+        
+        # TLS port - for testing production-like connections
+        :<%= @caddy_db_tls_port %> {
             @pg_dev {
                 tls {
                     # Only match this hostname

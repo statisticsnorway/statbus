@@ -208,6 +208,7 @@ module Statbus
       caddy_https_port : Int32,
       caddy_https_bind_address : String,
       caddy_db_port : Int32,
+      caddy_db_tls_port : Int32,
       caddy_db_bind_address : String,
       app_port : Int32,
       app_bind_address : String,
@@ -411,6 +412,7 @@ module Statbus
         app_port = port_offset + 2
         postgrest_port = port_offset + 3
         caddy_db_port = port_offset + 4
+        caddy_db_tls_port = port_offset + 5
         
         if config.caddy_deployment_mode == "standalone"
           # For standalone mode, bind to all interfaces, at the official HTTP(S) ports.
@@ -440,6 +442,7 @@ module Statbus
           postgrest_bind_address: "127.0.0.1:#{postgrest_port}",
           # The publicly exposed address of PostgreSQL inside Supabase
           caddy_db_port: caddy_db_port,
+          caddy_db_tls_port: caddy_db_tls_port,
           caddy_db_bind_address: caddy_db_bind_address,
           # Git version of the deployed commit
           version: `git describe --always`.strip,
@@ -545,6 +548,7 @@ module Statbus
     REST_BIND_ADDRESS=#{derived.postgrest_bind_address}
     # The publicly exposed address of PostgreSQL inside Supabase
     CADDY_DB_PORT=#{derived.caddy_db_port}
+    CADDY_DB_TLS_PORT=#{derived.caddy_db_tls_port}
     CADDY_DB_BIND_ADDRESS=#{derived.caddy_db_bind_address}
     # Updated by manage-statbus.sh start required
     VERSION=#{derived.version}
@@ -665,6 +669,9 @@ module Statbus
       getter caddy_https_port : Int32
       getter caddy_http_bind_address : String
       getter caddy_https_bind_address : String
+      getter caddy_db_port : Int32
+      getter caddy_db_tls_port : Int32
+      getter caddy_db_bind_address : String
       getter config : ConfigEnv # Add getter for config
 
       def initialize(derived : DerivedEnv, config : ConfigEnv)
@@ -682,6 +689,7 @@ module Statbus
         @caddy_http_bind_address = derived.caddy_http_bind_address
         @caddy_https_bind_address = derived.caddy_https_bind_address
         @caddy_db_port = derived.caddy_db_port
+        @caddy_db_tls_port = derived.caddy_db_tls_port
         @caddy_db_bind_address = derived.caddy_db_bind_address
       end
     end

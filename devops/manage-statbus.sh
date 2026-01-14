@@ -544,34 +544,37 @@ case "$action" in
         ;;
      'postgres-variables' )
         SITE_DOMAIN=$(./devops/dotenv --file .env get SITE_DOMAIN || echo "local.statbus.org")
-        PGHOST=$SITE_DOMAIN
-        PGPORT=$(./devops/dotenv --file .env get CADDY_DB_PORT)
+        CADDY_DEPLOYMENT_MODE=$(./devops/dotenv --file .env get CADDY_DEPLOYMENT_MODE || echo "development")
         PGDATABASE=$(./devops/dotenv --file .env get POSTGRES_APP_DB)
         # Preserve the USER if already setup, to allow overrides.
         PGUSER=${PGUSER:-$(./devops/dotenv --file .env get POSTGRES_ADMIN_USER)}
         PGPASSWORD=$(./devops/dotenv --file .env get POSTGRES_ADMIN_PASSWORD)
         
-        # PostgreSQL 17+ TLS/SNI configuration for Caddy layer4 proxy
-        # These settings enable PostgreSQL to connect through Caddy's TLS-enabled layer4 proxy
+        # PostgreSQL connection configuration
+        # Two separate ports: plaintext (default) and TLS (with TLS=1)
+        PGHOST=$SITE_DOMAIN
         
-        # Use Caddy-compatible TLS (industry standard direct TLS negotiation)
-        # Instead of legacy 'postgres' STARTTLS protocol, use modern direct TLS
-        PGSSLNEGOTIATION=direct
-        
-        # Always require SSL/TLS but DOES NOT VERIFY the server certificate
-        # Options: disable, allow, prefer, require, verify-ca, verify-full
-        # 'require' ensures encrypted connection but doesn't validate the certificate
-        # NOTE: When sslrootcert is set, PostgreSQL requires verify-ca or verify-full mode
-        # So we DON'T set sslrootcert to allow 'require' mode (no verification)
-        PGSSLMODE=require
-        
-        # Always send the value of PGHOST as the SNI (Server Name Indication) variable in TLS handshake
-        # This is CRITICAL for Caddy's layer4 routing which uses SNI to match connection policies
-        # When set to 1, psql sends PGHOST value as SNI, allowing Caddy to route based on domain
-        PGSSLSNI=1
-        cat <<EOS
-export PGHOST=$PGHOST PGPORT=$PGPORT PGDATABASE=$PGDATABASE PGUSER=$PGUSER PGPASSWORD=$PGPASSWORD PGSSLNEGOTIATION=$PGSSLNEGOTIATION PGSSLMODE=$PGSSLMODE PGSSLSNI=$PGSSLSNI
+        # Check if TLS is explicitly requested (for testing production-like connections)
+        if [ "${TLS:-}" = "1" ] || [ "${TLS:-}" = "true" ]; then
+            # TLS mode - use dedicated TLS port with PostgreSQL 17+ TLS/SNI configuration
+            PGPORT=$(./devops/dotenv --file .env get CADDY_DB_TLS_PORT)
+            # Use Caddy-compatible TLS (industry standard direct TLS negotiation)
+            PGSSLNEGOTIATION=direct
+            # Require SSL/TLS but don't verify certificate (self-signed in dev)
+            PGSSLMODE=require
+            # Send PGHOST as SNI for Caddy's layer4 routing
+            PGSSLSNI=1
+            cat <<EOS
+export PGHOST=$PGHOST PGPORT=$PGPORT PGDATABASE=$PGDATABASE PGUSER=$PGUSER PGPASSWORD=$PGPASSWORD PGSSLMODE=$PGSSLMODE PGSSLNEGOTIATION=$PGSSLNEGOTIATION PGSSLSNI=$PGSSLSNI
 EOS
+        else
+            # Default: plaintext on dedicated plaintext port (works for local, SSH tunnel, etc.)
+            PGPORT=$(./devops/dotenv --file .env get CADDY_DB_PORT)
+            PGSSLMODE=disable
+            cat <<EOS
+export PGHOST=$PGHOST PGPORT=$PGPORT PGDATABASE=$PGDATABASE PGUSER=$PGUSER PGPASSWORD=$PGPASSWORD PGSSLMODE=$PGSSLMODE
+EOS
+        fi
       ;;
      'psql' )
         eval $(./devops/manage-statbus.sh postgres-variables)

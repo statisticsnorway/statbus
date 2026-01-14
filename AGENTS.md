@@ -15,9 +15,20 @@ echo "SELECT ..." | ./devops/manage-statbus.sh psql  # Single-line query
 
 **⚠️ DESTRUCTIVE Operations (LOCAL DEVELOPMENT ONLY - NEVER IN PRODUCTION):**
 ```bash
-./devops/manage-statbus.sh create-db        # Create database with migrations
-./devops/manage-statbus.sh delete-db        # ⚠️ DESTROYS ALL DATA
-./devops/manage-statbus.sh delete-db-structure  # ⚠️ Drops schema, keeps container
+./devops/manage-statbus.sh create-db           # Create database with migrations
+./devops/manage-statbus.sh delete-db           # ⚠️ DESTROYS ALL DATA
+./devops/manage-statbus.sh delete-db-structure # ⚠️ Drops schema, keeps container
+./devops/manage-statbus.sh recreate-database   # ⚠️ Delete + Create (fresh start)
+```
+
+### Docker Compose Operations
+```bash
+docker compose ps                    # List all services and their status
+docker compose logs proxy            # View proxy (Caddy) logs
+docker compose logs db --tail=100    # View last 100 lines of database logs
+docker compose logs -f rest          # Follow PostgREST logs in real-time
+docker compose restart proxy         # Restart specific service
+docker compose exec db psql -U postgres -d statbus_local  # Direct psql access
 ```
 
 ### Testing
@@ -43,6 +54,91 @@ cd app && pnpm run format:fix   # Fix Prettier issues
 cd app && pnpm run tsc          # Type check without emit
 cd app && pnpm run test         # Run Jest tests
 ```
+
+## Deployment Architecture
+
+### Deployment Modes vs. Deployment Slots
+
+**CRITICAL**: These are two SEPARATE concepts that control different aspects:
+
+#### Deployment MODES (Caddy behavior)
+
+Controlled by `CADDY_DEPLOYMENT_MODE` - defines **how Caddy operates**:
+
+- **`development`**: Local development
+  - HTTP only, self-signed internal CA certs
+  - Next.js runs separately on host (`pnpm run dev`)
+  - Custom ports based on slot offset
+  - PostgreSQL available on two separate ports (slot-based):
+    - Port 3014 (offset 1): Plaintext (default, convenient for local psql and SSH tunnels)
+    - Port 3015 (offset 1): TLS+SNI (for testing production-like connections with `TLS=1`)
+
+- **`standalone`**: Single-server production
+  - HTTPS with automatic Let's Encrypt certificates
+  - All services run in Docker
+  - Standard ports: 443 (HTTPS), 5432 (PostgreSQL)
+  - Direct public access, no additional proxy needed
+  - Public domain required (e.g., `statbus.example.com`)
+
+- **`private`**: Behind host-level reverse proxy (multi-tenant cloud)
+  - HTTP only (host-level proxy handles HTTPS)
+  - Trusts X-Forwarded-* headers from proxy
+  - Multiple instances on same host with unique ports
+  - PostgreSQL: plaintext (SSH tunnel provides encryption)
+
+#### Deployment SLOTS (Instance isolation)
+
+Controlled by `DEPLOYMENT_SLOT_CODE` and `DEPLOYMENT_SLOT_PORT_OFFSET` - enables **multiple instances per host**:
+
+- Each slot = separate instance (country/environment)
+- Port calculation: `3000 + (slot_offset × 10)`
+  - Offset 1 (local): 3010 (HTTP), 3011 (HTTPS), 3012 (app), 3013 (rest), 3014 (db), 3015 (db-tls)
+  - Offset 2 (ma): 3020 (HTTP), 3021 (HTTPS), 3022 (app), 3023 (rest), 3024 (db), 3025 (db-tls)
+  - Offset 3 (no): 3030 (HTTP), 3031 (HTTPS), 3032 (app), 3033 (rest), 3034 (db), 3035 (db-tls)
+
+- Slot code used in:
+  - Container names: `statbus-{code}-app`, `statbus-{code}-db`
+  - Database names: `statbus_{code}`
+  - Cookie names: `statbus-{code}`, `statbus-{code}-refresh`
+  - Subdomains: `{code}.statbus.org`
+
+### PostgreSQL Connection Patterns
+
+**Local Development** (mode=development):
+```bash
+# Default: plaintext on slot-based port (e.g., 3014 for local slot)
+./devops/manage-statbus.sh psql -c "SELECT version();"
+
+# Testing TLS: uses TLS port (e.g., 3015 for local slot) with SNI
+TLS=1 ./devops/manage-statbus.sh psql -c "SELECT version();"
+```
+
+**Remote via SSH Tunnel** (mode=private):
+```bash
+# SSH tunnel: local:3014 → remote:127.0.0.1:3014 → db:5432
+# Plaintext through tunnel (SSH provides encryption)
+ssh statbus_dev@statbus.org "cd statbus && ./devops/manage-statbus.sh psql"
+```
+
+**Production** (mode=standalone):
+```bash
+# Direct public access with TLS via Caddy Layer4 proxy
+export PGHOST=statbus.example.com
+export PGPORT=5432
+export PGSSLMODE=require
+export PGSSLNEGOTIATION=direct
+export PGSSLSNI=1
+psql
+```
+
+### Key Configuration Files
+
+- `cli/src/manage.cr`: Configuration generation and port calculation logic
+- `cli/src/templates/*.caddyfile.ecr`: Mode-specific Caddy templates
+- `devops/manage-statbus.sh`: Management commands and helpers
+- `.env.config`: **Edit this** for deployment settings
+- `.env`: Generated file, **do not edit** directly
+- `.env.credentials`: Secrets, generated once, keep secure
 
 ## Project Structure
 
