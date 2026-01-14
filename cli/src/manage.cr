@@ -335,15 +335,17 @@ module Statbus
           _deployment_slot_port_offset_str = config_env.generate("DEPLOYMENT_SLOT_PORT_OFFSET") { "1" }
           _deployment_slot_port_offset = _deployment_slot_port_offset_str.to_i
 
+          _site_domain_val = config_env.generate("SITE_DOMAIN") { "#{deployment_slot_code}.statbus.org" }
+          _base_port = 3000
+          _slot_multiplier = 10
+          _calculated_port_offset_val = _base_port + (_deployment_slot_port_offset * _slot_multiplier)
+          _caddy_http_port_for_default = _calculated_port_offset_val
+          
           _default_browser_api_url = if _caddy_deployment_mode == "standalone"
-                                       _site_domain_val = config_env.generate("SITE_DOMAIN") { "#{deployment_slot_code}.statbus.org" }
                                        "https://#{_site_domain_val}"
                                      else
-                                       _base_port = 3000
-                                       _slot_multiplier = 10
-                                       _calculated_port_offset_val = _base_port + (_deployment_slot_port_offset * _slot_multiplier)
-                                       _caddy_http_port_for_default = _calculated_port_offset_val
-                                       "http://localhost:#{_caddy_http_port_for_default}"
+                                       # Development mode: use domain name (not localhost) to match Caddyfile site blocks
+                                       "http://#{_site_domain_val}:#{_caddy_http_port_for_default}"
                                      end
 
           ConfigEnv.new(

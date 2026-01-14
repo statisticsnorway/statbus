@@ -126,9 +126,8 @@ http://127.0.0.1:19999 {
     }
 }
 
-# Main HTTPS server for local development
-# Uses internal CA for automatic certificate generation
-<%= @domain %> {
+# Shared routing configuration for both HTTP and HTTPS
+(statbus_routes) {
     # PostgREST auth endpoints (login/logout/refresh/auth_status)
     # These should not have Authorization header as they handle cookies directly
     @auth_paths {
@@ -178,11 +177,17 @@ http://127.0.0.1:19999 {
     log {
         output stdout
     }
-    
-    # TLS configuration with internal CA
-    # Supports PostgreSQL ALPN for listener_wrapper interception
-    tls internal {
-        on_demand
-        alpn postgresql h3 h2 http/1.1
-    }
+}
+
+# HTTP server for local development (port 80)
+# Serves same content as HTTPS but without TLS overhead for convenience
+http://<%= @domain %> {
+    import statbus_routes
+}
+
+# HTTPS server for local development (port 443)
+# Uses internal CA for automatic certificate generation
+<%= @domain %> {
+    import statbus_routes
+    tls internal
 }
