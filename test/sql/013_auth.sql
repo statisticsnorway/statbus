@@ -2599,10 +2599,10 @@ BEGIN
 
         -- Verify the new token is indeed expired
         DECLARE
-            verification_result auth.jwt_verification_result;
+            _jwt_verify_result auth.jwt_verify_result;
         BEGIN
-            verification_result := auth.verify_jwt_with_secret(expired_access_jwt);
-            ASSERT verification_result.is_valid AND verification_result.expired,
+            _jwt_verify_result := auth.jwt_verify(expired_access_jwt);
+            ASSERT _jwt_verify_result.is_valid AND _jwt_verify_result.expired,
                 'The new access token should be valid but expired.';
         END;
 
