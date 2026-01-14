@@ -1,65 +1,31 @@
-"use client"; // Convert to client component
+"use client";
 
-import { useState } from "react"; // Import useState
-import { useGuardedEffect } from "@/hooks/use-guarded-effect";
+import { Suspense } from "react";
 import { useAtomValue } from "jotai";
-import { appReadyAtom, timeContextAutoSelectEffectAtom } from "@/atoms/app-derived";
+import { timeContextAutoSelectEffectAtom } from "@/atoms/app-derived";
 import Dashboard from "@/app/dashboard/page";
 
-// For dynamic titles in client components, useEffect is typically used.
-// import { Metadata } from "next"; // Metadata export removed
-import { deploymentSlotName } from "@/lib/deployment-variables";
-
-// export const metadata: Metadata = { // Metadata export removed
-//   title: `${deploymentSlotName} Statbus | Home`,
-// };
-
-// Note: 'export const dynamic = 'force-dynamic';' is typically for Server Components.
-// Its effect on a Client Component page that wraps a Server Component (Dashboard) might be indirect.
-// We'll keep it for now as it was pre-existing.
-export const dynamic = 'force-dynamic'; 
-
 export default function HomePage() {
-  // Activate the auto-select effect atom by reading it in a top-level component.
-  // This ensures the logic runs once and is decoupled from other component lifecycles.
+  // BATTLE WISDOM: This page must render immediately during client-side navigation
+  // from /login to /. Blocking on data loading here causes router.push("/") to hang
+  // because Next.js waits for the page to render before completing navigation.
+  
+  // Activate the time context auto-select effect by reading it.
+  // This ensures a valid time context is selected when the page loads.
   useAtomValue(timeContextAutoSelectEffectAtom);
   
-  const appReadyState = useAtomValue(appReadyAtom);
-  const [isMounted, setIsMounted] = useState(false);
-
-  useGuardedEffect(() => {
-    setIsMounted(true);
-    // Optionally set document title if client-side updates are preferred for SPA feel
-    // document.title = `${deploymentSlotName} Statbus | Home`;
-  }, [], 'HomePage:setMounted');
-
-  if (!isMounted || !appReadyState.isReadyToRenderDashboard) {
-    // If not mounted yet, render a consistent fallback (or nothing specific for the loading messages part)
-    // to match server render. The main layout's Suspense fallback will handle the overall page skeleton.
-    // Once mounted, then allow appReadyState to control the specific loading messages.
-    // The spinner can be shown immediately as it's not dependent on client-only state.
-    // The main layout (layout.tsx) already provides NavbarSkeleton and FooterSkeleton.
-    // This component should only provide a loading state for its content area.
-    return (
+  // The Dashboard component and its children use Suspense boundaries for data loading,
+  // so we can render immediately and let those boundaries handle loading states.
+  return (
+    <Suspense fallback={
       <main className="flex-grow p-4 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-gray-900 mx-auto mb-4"></div>
-          {isMounted && appReadyState.isLoadingAuth && <p>Authenticating...</p>}
-          {isMounted && appReadyState.isAuthenticated && appReadyState.isLoadingBaseData && <p>Loading core data...</p>}
-          {/* Removed messages related to isLoadingGettingStartedData and isSetupComplete */}
-          {/* Fallback message if auth and base data are loaded but dashboard isn't ready for other reasons (should be rare now) */}
-          { isMounted && appReadyState.isAuthProcessComplete && 
-            appReadyState.isAuthenticated && 
-            appReadyState.isBaseDataLoaded && 
-            !appReadyState.isReadyToRenderDashboard &&
-            <p>Preparing dashboard...</p>
-          }
-          {!isMounted && <p>Loading...</p>} {/* Generic message if not yet mounted */}
+          <p>Loading dashboard...</p>
         </div>
       </main>
-    );
-  }
-
-  // Once ready, render the actual Dashboard component
-  return <Dashboard />;
+    }>
+      <Dashboard />
+    </Suspense>
+  );
 }
