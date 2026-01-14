@@ -348,6 +348,15 @@ module Statbus
                                        "http://#{_site_domain_val}:#{_caddy_http_port_for_default}"
                                      end
 
+          # Server API URL (used by Next.js middleware for server-side auth checks)
+          # - Development: Next.js runs on host, so use same URL as browser (matches Caddyfile domain)
+          # - Private/Standalone: Next.js runs in Docker, so use internal Docker service name
+          _default_server_api_url = if _caddy_deployment_mode == "development"
+                                      _default_browser_api_url
+                                    else
+                                      "http://proxy:80"
+                                    end
+
           ConfigEnv.new(
             deployment_slot_code: deployment_slot_code,
             deployment_slot_name: deployment_slot_name,
@@ -356,8 +365,8 @@ module Statbus
             statbus_url: config_env.generate("STATBUS_URL") { "http://localhost:3010" }, # Example, ensure port matches app_port logic if needed
             # This is the URL browsers will use to reach the API (via Caddy or Next.js proxy)
             browser_api_url: config_env.generate("BROWSER_REST_URL") { _default_browser_api_url },
-            # This is hardcoded for docker containers, as the name proxy always resolves for the backend app.
-            server_api_url: config_env.generate("SERVER_REST_URL") { "http://proxy:80" },
+            # Server-side API URL (Next.js middleware → Caddy)
+            server_api_url: config_env.generate("SERVER_REST_URL") { _default_server_api_url },
             seq_server_url: config_env.generate("SEQ_SERVER_URL") { "https://log.statbus.org" },
             # This must be provided and entered manually.
             seq_api_key: config_env.generate("SEQ_API_KEY") { "secret_seq_api_key" },
