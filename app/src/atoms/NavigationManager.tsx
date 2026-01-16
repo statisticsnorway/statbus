@@ -98,15 +98,22 @@ export const NavigationManager = () => {
     const { targetPath, action } = sideEffect || {};
     const debug = inspectorVisibleRef.current;
 
+    // Log when effect runs with a sideEffect
+    if (sideEffect && debug) {
+      console.log('[performSideEffects] Effect running', {
+        action,
+        targetPath,
+        pathname,
+        stateValue,
+        willExecuteNavigate: action === 'navigateAndSaveJournal' && targetPath && targetPath !== pathname,
+      });
+    }
+
     // The logic to prevent infinite loops is now handled inside the state machine's
     // CONTEXT_UPDATED event guard. We can now execute side-effects synchronously.
     if (action === 'navigateAndSaveJournal' && targetPath && targetPath !== pathname) {
       if (debug) {
-        console.log('[performSideEffects] Executing navigateAndSaveJournal', {
-          targetPath,
-          currentPathname: pathname,
-          action,
-        });
+        console.log('[performSideEffects] EXECUTING navigateAndSaveJournal', { targetPath, pathname });
       }
       saveJournalSnapshot();
       // BATTLE WISDOM: Deferring router.push with a setTimeout(..., 0) is critical
@@ -117,39 +124,46 @@ export const NavigationManager = () => {
       // incorrectly redirect back to the login page, causing an infinite loop.
       setTimeout(() => {
         if (debug) {
-          console.log('[performSideEffects] Calling router.push', { targetPath });
+          console.log('[performSideEffects] CALLING router.push NOW', { targetPath });
         }
-        router.push(targetPath);
+        try {
+          router.push(targetPath);
+          if (debug) {
+            console.log('[performSideEffects] router.push returned (no error thrown)');
+          }
+        } catch (err) {
+          // Always log errors - this is critical
+          console.error('[performSideEffects] router.push THREW ERROR', err);
+        }
       }, 0);
     } else if (action === 'revalidateAuth') {
       if (debug) {
-        console.log('[performSideEffects] Executing revalidateAuth');
+        console.log('[performSideEffects] EXECUTING revalidateAuth');
       }
       sendAuth({ type: 'CHECK' });
     } else if (action === 'savePath') {
       const fullPath = `${pathname}${search ? `?${search}` : ''}`;
       if (pathname !== '/login') {
         if (debug) {
-          console.log('[performSideEffects] Executing savePath', { fullPath });
+          console.log('[performSideEffects] EXECUTING savePath', { fullPath });
         }
         setLastKnownPath(fullPath);
       }
     } else if (action === 'clearLastKnownPath') {
       if (debug) {
-        console.log('[performSideEffects] Executing clearLastKnownPath');
+        console.log('[performSideEffects] EXECUTING clearLastKnownPath');
       }
       setLastKnownPath(null);
     } else if (sideEffect && debug) {
-      // Log when we have a sideEffect but didn't execute it (helps debug condition failures)
-      console.log('[performSideEffects] sideEffect present but not executed', {
+      // Log when we have a sideEffect but didn't execute navigateAndSaveJournal
+      console.log('[performSideEffects] sideEffect NOT executed as navigate', {
         action,
         targetPath,
         pathname,
-        conditionCheck: {
-          isNavigateAction: action === 'navigateAndSaveJournal',
-          hasTargetPath: !!targetPath,
-          targetDiffersFromCurrent: targetPath !== pathname,
-        },
+        reason: !action ? 'no action' : 
+                action !== 'navigateAndSaveJournal' ? 'not navigateAndSaveJournal action' :
+                !targetPath ? 'no targetPath' :
+                targetPath === pathname ? 'targetPath === pathname (already there)' : 'unknown',
       });
     }
   }, [
