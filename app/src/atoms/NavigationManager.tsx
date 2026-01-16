@@ -133,6 +133,14 @@ export const NavigationManager = () => {
   // Solution: Check immediately, then poll every 300ms to detect pathname changes that weren't captured by normal render cycle
   const lastPathnameRef = useRef(pathname);
   const pollingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const currentPathnameRef = useRef(pathname);
+  const currentSideEffectRef = useRef(sideEffect);
+  const currentSideEffectStartTimeRef = useRef(sideEffectStartTime);
+  
+  // Keep refs updated
+  currentPathnameRef.current = pathname;
+  currentSideEffectRef.current = sideEffect;
+  currentSideEffectStartTimeRef.current = sideEffectStartTime;
 
   useGuardedEffect(() => {
     // Clear any existing timeout
@@ -143,55 +151,68 @@ export const NavigationManager = () => {
 
     // Function to check for navigation completion
     const checkNavigation = () => {
-      if (sideEffect && pathname !== lastPathnameRef.current) {
+      const currentPathname = currentPathnameRef.current;
+      const currentSideEffect = currentSideEffectRef.current;
+      const currentStartTime = currentSideEffectStartTimeRef.current;
+      
+      if (currentSideEffect && currentPathname !== lastPathnameRef.current) {
         
         console.log('Navigation polling detected FAST pathname change', {
           intent: 'TOO_FAST_DETECTION',
           previousPathname: lastPathnameRef.current,
-          currentPathname: pathname,
-          sideEffect: sideEffect,
-          duration: sideEffectStartTime ? Date.now() - sideEffectStartTime : 'unknown',
+          currentPathname: currentPathname,
+          sideEffect: currentSideEffect,
+          duration: currentStartTime ? Date.now() - currentStartTime : 'unknown',
           reason: 'polling_detected_fast_navigation'
         });
         
         // TOO FAST RECOVERY: Clear sideEffect when polling detects navigation completion
         // For redirectingFromLogin: clear when pathname changes away from /login
         const shouldClearSideEffect = (
-          (sideEffect.action === 'navigateAndSaveJournal' && 
+          (currentSideEffect.action === 'navigateAndSaveJournal' && 
            lastPathnameRef.current === '/login' && 
-           pathname !== '/login') ||
+           currentPathname !== '/login') ||
           // Add other navigation completion patterns as needed
-          (lastPathnameRef.current !== pathname)
+          (lastPathnameRef.current !== currentPathname)
         );
         
         if (shouldClearSideEffect) {
           console.log('Polling clearing sideEffect after fast navigation completion', {
             fromPathname: lastPathnameRef.current,
-            toPathname: pathname,
-            sideEffect: sideEffect
+            toPathname: currentPathname,
+            sideEffect: currentSideEffect
           });
           
           // First update the pathname
-          send({ type: 'CONTEXT_UPDATED', value: { pathname } });
+          send({ type: 'CONTEXT_UPDATED', value: { pathname: currentPathname } });
           
           // Then clear the sideEffect
           send({ type: 'CLEAR_SIDE_EFFECT', reason: 'polling_detected_completion' });
         } else {
           // Just send pathname update
-          send({ type: 'CONTEXT_UPDATED', value: { pathname } });
+          send({ type: 'CONTEXT_UPDATED', value: { pathname: currentPathname } });
         }
         
-        lastPathnameRef.current = pathname;
+        lastPathnameRef.current = currentPathname;
         return; // Navigation completed, stop polling
       }
       
       // Continue polling if sideEffect is still active
-      if (sideEffect) {
+      if (currentSideEffect) {
         pollingTimeoutRef.current = setTimeout(checkNavigation, 300);
       }
     };
 
     if (sideEffect) {
+      // Capture the pathname when sideEffect is first set for comparison
+      if (lastPathnameRef.current !== currentPathnameRef.current) {
+        console.log('Capturing initial pathname for polling', {
+          lastPathname: lastPathnameRef.current,
+          currentPathname: currentPathnameRef.current,
+          sideEffect: currentSideEffectRef.current
+        });
+      }
+      
       // IMMEDIATE CHECK: Handle TOO FAST scenarios right away
       checkNavigation();
     }
@@ -203,10 +224,7 @@ export const NavigationManager = () => {
         pollingTimeoutRef.current = null;
       }
     };
-  }, [sideEffect, pathname, send, sideEffectStartTime], 'NavigationManager:pollingDetection');
-  
-  // Keep pathname ref updated during normal renders
-  lastPathnameRef.current = pathname;
+  }, [sideEffect, send], 'NavigationManager:pollingDetection');
 
   return null;
 };
