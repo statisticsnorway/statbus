@@ -96,10 +96,18 @@ export const NavigationManager = () => {
   // Effect to perform side-effects based on the machine's state
   useGuardedEffect(() => {
     const { targetPath, action } = sideEffect || {};
+    const debug = inspectorVisibleRef.current;
 
     // The logic to prevent infinite loops is now handled inside the state machine's
     // CONTEXT_UPDATED event guard. We can now execute side-effects synchronously.
     if (action === 'navigateAndSaveJournal' && targetPath && targetPath !== pathname) {
+      if (debug) {
+        console.log('[performSideEffects] Executing navigateAndSaveJournal', {
+          targetPath,
+          currentPathname: pathname,
+          action,
+        });
+      }
       saveJournalSnapshot();
       // BATTLE WISDOM: Deferring router.push with a setTimeout(..., 0) is critical
       // to break out of the current React render cycle. This gives the browser a
@@ -107,16 +115,42 @@ export const NavigationManager = () => {
       // token refresh, before the navigation request is sent to the server. Without
       // this, the server may receive the navigation request with a stale cookie and
       // incorrectly redirect back to the login page, causing an infinite loop.
-      setTimeout(() => router.push(targetPath), 0);
+      setTimeout(() => {
+        if (debug) {
+          console.log('[performSideEffects] Calling router.push', { targetPath });
+        }
+        router.push(targetPath);
+      }, 0);
     } else if (action === 'revalidateAuth') {
+      if (debug) {
+        console.log('[performSideEffects] Executing revalidateAuth');
+      }
       sendAuth({ type: 'CHECK' });
     } else if (action === 'savePath') {
       const fullPath = `${pathname}${search ? `?${search}` : ''}`;
       if (pathname !== '/login') {
+        if (debug) {
+          console.log('[performSideEffects] Executing savePath', { fullPath });
+        }
         setLastKnownPath(fullPath);
       }
     } else if (action === 'clearLastKnownPath') {
+      if (debug) {
+        console.log('[performSideEffects] Executing clearLastKnownPath');
+      }
       setLastKnownPath(null);
+    } else if (sideEffect && debug) {
+      // Log when we have a sideEffect but didn't execute it (helps debug condition failures)
+      console.log('[performSideEffects] sideEffect present but not executed', {
+        action,
+        targetPath,
+        pathname,
+        conditionCheck: {
+          isNavigateAction: action === 'navigateAndSaveJournal',
+          hasTargetPath: !!targetPath,
+          targetDiffersFromCurrent: targetPath !== pathname,
+        },
+      });
     }
   }, [
     stateValue,
