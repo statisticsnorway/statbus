@@ -101,12 +101,22 @@ export const NavigationManager = () => {
     // ALWAYS log when effect runs - we need to see if it's being triggered at all
     if (debug) {
       console.log('[performSideEffects] Effect triggered', {
+        clientMounted,
         hasSideEffect: !!sideEffect,
         action: action ?? 'none',
         targetPath: targetPath ?? 'none',
         pathname,
         stateValue,
       });
+    }
+
+    // CRITICAL: Don't attempt navigation until client is fully mounted
+    // router.push() silently fails during SSR/hydration
+    if (!clientMounted) {
+      if (debug && sideEffect) {
+        console.log('[performSideEffects] SKIPPING - client not mounted yet');
+      }
+      return;
     }
 
     // Early return if no sideEffect
@@ -172,6 +182,7 @@ export const NavigationManager = () => {
       });
     }
   }, [
+    clientMounted,
     stateValue,
     sideEffect,
     pathname,
