@@ -36,8 +36,9 @@ export interface NavigationContext {
     action: 'savePath' | 'clearLastKnownPath' | 'revalidateAuth' | 'navigateAndSaveJournal';
     targetPath?: string;
   };
-  // Timing fields for robust navigation polling
-  sideEffectStartTime?: number; // timestamp when sideEffect was set
+  // Timing fields for robust navigation polling (declarative state, not mutable refs)
+  sideEffectStartTime?: number;    // timestamp when sideEffect was set
+  sideEffectStartPathname?: string; // pathname when sideEffect was set (for polling comparison)
 }
 
 const publicPaths = ['/login'];
@@ -91,7 +92,8 @@ function handleSideEffectTimeout(
     return { 
       ...updatedContext, 
       sideEffect: undefined, 
-      sideEffectStartTime: undefined 
+      sideEffectStartTime: undefined,
+      sideEffectStartPathname: undefined,
     };
   }
   
@@ -153,7 +155,7 @@ export const navigationMachine = setup({
      */
     evaluating: {
       entry: [
-        assign({ sideEffect: undefined }),
+        assign({ sideEffect: undefined, sideEffectStartTime: undefined, sideEffectStartPathname: undefined }),
         ({ context }) => logger.debug('nav-machine:evaluating', `path: ${context.pathname}`, {
           isAuthenticated: context.isAuthenticated,
           isAuthLoading: context.isAuthLoading,
@@ -195,7 +197,7 @@ export const navigationMachine = setup({
       // redirecting TO login) from blocking the machine from re-evaluating its
       // state when a new context update arrives (like a successful login).
       entry: [
-        assign({ sideEffect: undefined }),
+        assign({ sideEffect: undefined, sideEffectStartTime: undefined, sideEffectStartPathname: undefined }),
         () => logger.debug('nav-machine:idle', 'Reached stable state.'),
       ],
       // This state is now stable. The cleanup logic has been moved to be part
@@ -207,10 +209,11 @@ export const navigationMachine = setup({
      */
     savingPathForLoginRedirect: {
       entry: [
-        assign({ 
+        assign(({ context }) => ({ 
           sideEffect: { action: 'savePath' },
           sideEffectStartTime: Date.now(),
-        }),
+          sideEffectStartPathname: context.pathname,
+        })),
         ({ context }) => logger.debug('nav-machine:savingPathForLoginRedirect', `Saving path ${context.pathname} before redirect to /login`),
       ],
       always: 'redirectingToLogin',
@@ -220,10 +223,11 @@ export const navigationMachine = setup({
      */
      redirectingToLogin: {
        entry: [
-         assign({
+         assign(({ context }) => ({
            sideEffect: { action: 'navigateAndSaveJournal', targetPath: '/login' },
            sideEffectStartTime: Date.now(),
-         }),
+           sideEffectStartPathname: context.pathname,
+         })),
          () => logger.debug('nav-machine:redirectingToLogin', 'Redirecting to /login'),
        ],
        on: {
@@ -254,13 +258,14 @@ export const navigationMachine = setup({
      */
      redirectingToSetup: {
        entry: [
-         assign({
-           sideEffect: ({ context }) => ({
+         assign(({ context }) => ({
+           sideEffect: {
              action: 'navigateAndSaveJournal',
              targetPath: context.setupPath!,
-           }),
+           },
            sideEffectStartTime: Date.now(),
-         }),
+           sideEffectStartPathname: context.pathname,
+         })),
          ({ context }) => logger.debug('nav-machine:redirectingToSetup', `Redirecting to setup path: ${context.setupPath}`),
        ],
        on: {
@@ -291,13 +296,14 @@ export const navigationMachine = setup({
      */
     clearingLastKnownPathBeforeRedirect: {
       entry: [
-        assign({
+        assign(({ context }) => ({
           // BATTLE WISDOM: Conditionally dispatch the side-effect. If the path is
           // already null, we do nothing. This prevents an unnecessary state update
           // and allows the `always` transition below to handle the case immediately.
-          sideEffect: ({ context }) => context.lastKnownPath !== null ? { action: 'clearLastKnownPath' } : undefined,
-          sideEffectStartTime: ({ context }) => context.lastKnownPath !== null ? Date.now() : undefined,
-        }),
+          sideEffect: context.lastKnownPath !== null ? { action: 'clearLastKnownPath' } : undefined,
+          sideEffectStartTime: context.lastKnownPath !== null ? Date.now() : undefined,
+          sideEffectStartPathname: context.lastKnownPath !== null ? context.pathname : undefined,
+        })),
         ({ context }) => logger.debug('nav-machine:clearingLastKnownPathBeforeRedirect', `lastKnownPath: ${context.lastKnownPath}`),
       ],
       // If lastKnownPath was already null, no side-effect was dispatched.
@@ -323,15 +329,16 @@ export const navigationMachine = setup({
      */
     redirectingFromLogin: {
       entry: [
-        assign({
-          sideEffect: ({ context }) => {
-            const targetPath = context.setupPath || context.lastKnownPath || '/';
-            return {
+        assign(({ context }) => {
+          const targetPath = context.setupPath || context.lastKnownPath || '/';
+          return {
+            sideEffect: {
               action: 'navigateAndSaveJournal',
               targetPath: targetPath === '/login' ? '/' : targetPath,
-            };
-          },
-          sideEffectStartTime: Date.now(),
+            },
+            sideEffectStartTime: Date.now(),
+            sideEffectStartPathname: context.pathname,
+          };
         }),
         ({ context }) => {
           const targetPath = context.setupPath || context.lastKnownPath || '/';
@@ -357,20 +364,13 @@ export const navigationMachine = setup({
            }),
          },
          CLEAR_SIDE_EFFECT: {
-           actions: assign(({ context, event }) => {
-             console.log('Navigation sideEffect cleared by polling', {
-               intent: 'TOO_FAST_DETECTION_RECOVERY',
-               reason: event.reason,
-               sideEffect: context.sideEffect,
-               duration: context.sideEffectStartTime ? Date.now() - context.sideEffectStartTime : 'unknown'
-             });
-             
-             return {
-               ...context,
-               sideEffect: undefined,
-               sideEffectStartTime: undefined
-             };
-           }),
+           // Logging is handled by NavigationManager (gated by debug inspector)
+           actions: assign(({ context }) => ({
+             ...context,
+             sideEffect: undefined,
+             sideEffectStartTime: undefined,
+             sideEffectStartPathname: undefined,
+           })),
          }
       },
       always: [
