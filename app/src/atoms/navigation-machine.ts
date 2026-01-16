@@ -274,7 +274,18 @@ export const navigationMachine = setup({
         // When a context update happens, just apply it. The `always` transition
         // will then re-evaluate the state based on the new context.
         CONTEXT_UPDATED: {
-          actions: assign(( { context, event } ) => ({ ...context, ...event.value })),
+          actions: assign(({ context, event }) => {
+            const updatedContext = { ...context, ...event.value };
+            
+            // CRITICAL FIX: Clear the sideEffect when navigation completes
+            if (event.value.pathname && event.value.pathname !== '/login' && context.sideEffect) {
+              logger.debug('nav-machine:redirectingFromLogin', 
+                `Navigation completed from /login to ${event.value.pathname}, clearing sideEffect`);
+              return { ...updatedContext, sideEffect: undefined };
+            }
+            
+            return updatedContext;
+          }),
         }
       },
       always: [
