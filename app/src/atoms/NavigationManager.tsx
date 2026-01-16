@@ -98,15 +98,20 @@ export const NavigationManager = () => {
     const { targetPath, action } = sideEffect || {};
     const debug = inspectorVisibleRef.current;
 
-    // Log when effect runs with a sideEffect
-    if (sideEffect && debug) {
-      console.log('[performSideEffects] Effect running', {
-        action,
-        targetPath,
+    // ALWAYS log when effect runs - we need to see if it's being triggered at all
+    if (debug) {
+      console.log('[performSideEffects] Effect triggered', {
+        hasSideEffect: !!sideEffect,
+        action: action ?? 'none',
+        targetPath: targetPath ?? 'none',
         pathname,
         stateValue,
-        willExecuteNavigate: action === 'navigateAndSaveJournal' && targetPath && targetPath !== pathname,
       });
+    }
+
+    // Early return if no sideEffect
+    if (!sideEffect) {
+      return;
     }
 
     // The logic to prevent infinite loops is now handled inside the state machine's
