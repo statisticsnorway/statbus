@@ -146,8 +146,32 @@ export const NavigationManager = () => {
         reason: 'polling_detected_fast_navigation'
       });
       
-      // Immediately send CONTEXT_UPDATED to trigger sideEffect clearing
-      send({ type: 'CONTEXT_UPDATED', value: { pathname } });
+      // TOO FAST RECOVERY: Clear sideEffect when polling detects navigation completion
+      // For redirectingFromLogin: clear when pathname changes away from /login
+      const shouldClearSideEffect = (
+        (sideEffect.action === 'navigateAndSaveJournal' && 
+         lastPathnameRef.current === '/login' && 
+         pathname !== '/login') ||
+        // Add other navigation completion patterns as needed
+        (lastPathnameRef.current !== pathname)
+      );
+      
+      if (shouldClearSideEffect) {
+        console.log('Polling clearing sideEffect after fast navigation completion', {
+          fromPathname: lastPathnameRef.current,
+          toPathname: pathname,
+          sideEffect: sideEffect
+        });
+        
+        // First update the pathname
+        send({ type: 'CONTEXT_UPDATED', value: { pathname } });
+        
+        // Then clear the sideEffect
+        send({ type: 'CLEAR_SIDE_EFFECT', reason: 'polling_detected_completion' });
+      } else {
+        // Just send pathname update
+        send({ type: 'CONTEXT_UPDATED', value: { pathname } });
+      }
       
       lastPathnameRef.current = pathname;
     }

@@ -43,7 +43,9 @@ export interface NavigationContext {
 const publicPaths = ['/login'];
 const isPublicPath = (path: string) => publicPaths.some(p => path.startsWith(p));
 
-type NavigationEvent = { type: 'CONTEXT_UPDATED'; value: Partial<Omit<NavigationContext, 'sideEffect'>> };
+type NavigationEvent = 
+  | { type: 'CONTEXT_UPDATED'; value: Partial<Omit<NavigationContext, 'sideEffect'>> }
+  | { type: 'CLEAR_SIDE_EFFECT'; reason: 'polling_detected_completion' | 'timeout' };
 
 /**
  * INTENT: Handle TWO timing scenarios that can cause navigation hangs:
@@ -63,7 +65,7 @@ type NavigationEvent = { type: 'CONTEXT_UPDATED'; value: Partial<Omit<Navigation
  */
 function handleSideEffectTimeout(
   context: NavigationContext, 
-  event: NavigationEvent,
+  event: Extract<NavigationEvent, { type: 'CONTEXT_UPDATED' }>,
   stateName: string
 ): NavigationContext {
   const updatedContext = { ...context, ...event.value };
@@ -341,7 +343,7 @@ export const navigationMachine = setup({
         // will then re-evaluate the state based on the new context.
          CONTEXT_UPDATED: {
            actions: assign(({ context, event }) => {
-             // INTENT: Handle both TOO SLOW and normal navigation completion
+             // INTENT: Handle ONLY TOO SLOW detection - let polling handle TOO FAST
              
              // TOO SLOW DETECTION: Check if sideEffect timeout occurred
              const contextAfterTimeout = handleSideEffectTimeout(context, event, 'redirectingFromLogin');
@@ -350,21 +352,24 @@ export const navigationMachine = setup({
                return contextAfterTimeout;
              }
              
-             const updatedContext = { ...context, ...event.value };
+             // No sideEffect clearing - rely purely on polling for navigation completion
+             return { ...context, ...event.value };
+           }),
+         },
+         CLEAR_SIDE_EFFECT: {
+           actions: assign(({ context, event }) => {
+             console.log('Navigation sideEffect cleared by polling', {
+               intent: 'TOO_FAST_DETECTION_RECOVERY',
+               reason: event.reason,
+               sideEffect: context.sideEffect,
+               duration: context.sideEffectStartTime ? Date.now() - context.sideEffectStartTime : 'unknown'
+             });
              
-             // NORMAL COMPLETION: Clear sideEffect when navigation succeeds
-             // This handles both normal React updates AND polling-detected fast changes
-             if (event.value.pathname && event.value.pathname !== '/login' && context.sideEffect) {
-               logger.debug('nav-machine:redirectingFromLogin', 
-                 `Navigation completed from /login to ${event.value.pathname}, clearing sideEffect`);
-               return { 
-                 ...updatedContext, 
-                 sideEffect: undefined, 
-                 sideEffectStartTime: undefined 
-               };
-             }
-             
-             return updatedContext;
+             return {
+               ...context,
+               sideEffect: undefined,
+               sideEffectStartTime: undefined
+             };
            }),
          }
       },
