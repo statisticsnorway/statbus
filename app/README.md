@@ -52,6 +52,34 @@ SEQ_API_KEY=unused-when-running-locally
 pnpm run dev
 ```
 
+### Testing Production Issues
+
+**Use Docker for production testing:**
+
+```bash
+# Rebuild and start production-like environment
+./devops/manage-statbus.sh stop app
+docker compose build app --no-cache
+./devops/manage-statbus.sh start app
+
+# Access at: http://local.statbus.org:3010
+```
+
+**Why Docker is required:**
+- ✅ Exact production environment (unified URL, proper routing)
+- ✅ Same container isolation and networking
+- ✅ Caddy handles `/rest` forwarding correctly
+- ✅ No CORS issues
+- ✅ Real production build testing
+
+**Benefits over other approaches:**
+- Matches production architecture exactly
+- Single unified URL eliminates CORS problems
+- Tests navigation, auth, and state machine timing issues correctly
+- Proper build optimizations and container environment
+
+**Note:** Docker rebuild takes ~2-3 minutes but is the only reliable way to test production-specific issues.
+
 ### View Logs
 
 To view the logs, run the following command to start Seq, a log server:

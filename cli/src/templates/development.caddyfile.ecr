@@ -191,3 +191,9 @@ http://<%= @domain %> {
     import statbus_routes
     tls internal
 }
+
+# Internal Docker service name support for SSR requests
+# Handles requests from Next.js app container to proxy service
+http://proxy {
+    import statbus_routes
+}
