@@ -113,3 +113,46 @@ http://<%= @domain %> {
         issuer acme
     }
 }
+
+# Internal Docker network server
+# Handles requests from Next.js middleware when SERVER_REST_URL=http://proxy:80
+# This is critical for auth checks during RSC (React Server Component) requests
+http://proxy {
+    # PostgREST auth endpoints for internal middleware auth checks
+    @auth_paths {
+        path /rest/rpc/login
+        path /rest/rpc/logout
+        path /rest/rpc/refresh
+        path /rest/rpc/auth_status
+        path /rest/rpc/auth_test
+    }
+    handle @auth_paths {
+        uri strip_prefix /rest
+        reverse_proxy rest:3000 {
+        }
+    }
+    
+    # PostgREST API endpoints with cookie-to-header auth conversion
+    @has_auth_cookie_and_no_auth_header {
+        header_regexp cookie Cookie .*statbus=([^;]+).*
+        header !Authorization
+    }
+    @rest {
+        path /rest
+        path /rest/*
+    }
+    handle @rest {
+        uri strip_prefix /rest
+        
+        reverse_proxy @has_auth_cookie_and_no_auth_header rest:3000 {
+            header_up Authorization "Bearer {http.request.cookie.statbus}"
+        }
+        
+        reverse_proxy rest:3000 {
+        }
+    }
+    
+    log {
+        output stdout
+    }
+}

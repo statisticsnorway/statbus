@@ -131,19 +131,9 @@ export const NavigationManager = () => {
         console.log('[performSideEffects] EXECUTING navigateAndSaveJournal', { targetPath, pathname });
       }
       saveJournalSnapshot();
-      // BATTLE WISDOM: Deferring router.push with a setTimeout is critical
+      // BATTLE WISDOM: Deferring router.push with setTimeout(fn, 0) is critical
       // to break out of the current React render cycle. This gives the browser time
-      // to process pending events, such as updating its cookie store after a token
-      // refresh, before the navigation request is sent to the server.
-      //
-      // CRITICAL: 100ms delay is necessary (not just 0ms) because:
-      // 1. Client-side token refresh updates cookies via Set-Cookie headers
-      // 2. Browser needs time to process these headers and update its cookie store
-      // 3. The next navigation request must include the new cookies
-      // 4. In production environments, 0ms is not sufficient for this synchronization
-      // Without adequate delay, the server middleware sees stale/missing cookies and
-      // redirects back to /login, causing a hang where navigation never completes.
-      const COOKIE_PROPAGATION_DELAY_MS = 100;
+      // to process pending events before the navigation request is sent to the server.
       setTimeout(() => {
         if (debug) {
           console.log('[performSideEffects] CALLING router.push NOW', { targetPath });
@@ -157,7 +147,7 @@ export const NavigationManager = () => {
           // Always log errors - this is critical
           console.error('[performSideEffects] router.push THREW ERROR', err);
         }
-      }, COOKIE_PROPAGATION_DELAY_MS);
+      }, 0);
     } else if (action === 'revalidateAuth') {
       if (debug) {
         console.log('[performSideEffects] EXECUTING revalidateAuth');
