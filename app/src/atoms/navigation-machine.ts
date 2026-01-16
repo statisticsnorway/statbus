@@ -36,12 +36,65 @@ export interface NavigationContext {
     action: 'savePath' | 'clearLastKnownPath' | 'revalidateAuth' | 'navigateAndSaveJournal';
     targetPath?: string;
   };
+  // Timing fields for robust navigation polling
+  sideEffectStartTime?: number; // timestamp when sideEffect was set
 }
 
 const publicPaths = ['/login'];
 const isPublicPath = (path: string) => publicPaths.some(p => path.startsWith(p));
 
 type NavigationEvent = { type: 'CONTEXT_UPDATED'; value: Partial<Omit<NavigationContext, 'sideEffect'>> };
+
+/**
+ * INTENT: Handle TWO timing scenarios that can cause navigation hangs:
+ * 
+ * TOO SLOW DETECTION (handled here):
+ * - sideEffect executes but navigation fails/hangs beyond reasonable time
+ * - After 3 seconds (10 × 300ms keystroke intervals), assume failure
+ * - Clear sideEffect and force transition back to safe 'evaluating' state
+ * - Machine will re-evaluate current conditions and determine correct action
+ * 
+ * TOO FAST DETECTION (handled in NavigationManager polling):
+ * - sideEffect executes and navigation completes before React can update
+ * - Polling detects pathname changes that weren't captured by normal flow
+ * - Immediately sends CONTEXT_UPDATED to trigger sideEffect clearing
+ * 
+ * Both ensure sideEffect is eventually cleared to prevent infinite hangs
+ */
+function handleSideEffectTimeout(
+  context: NavigationContext, 
+  event: NavigationEvent,
+  stateName: string
+): NavigationContext {
+  const updatedContext = { ...context, ...event.value };
+  
+  // TOO SLOW DETECTION: sideEffect has been active beyond reasonable time (3 seconds)
+  if (context.sideEffectStartTime && 
+      Date.now() - context.sideEffectStartTime > 3000) {
+    
+    // JS ERROR level logging with full diagnostic info for Seq analysis
+    console.error('Navigation sideEffect TIMEOUT (too slow) - resetting to safe state', {
+      intent: 'TOO_SLOW_DETECTION',
+      duration: Date.now() - context.sideEffectStartTime,
+      sideEffect: context.sideEffect,
+      currentContext: context,
+      eventValue: event.value,
+      machineState: stateName,
+      timestamp: new Date().toISOString(),
+      reason: 'sideEffect_timeout_recovery_too_slow'
+    });
+    
+    // SAFE RECOVERY: Clear sideEffect and force transition back to evaluating state
+    // Machine will re-determine correct action based on current conditions
+    return { 
+      ...updatedContext, 
+      sideEffect: undefined, 
+      sideEffectStartTime: undefined 
+    };
+  }
+  
+  return updatedContext;
+}
 
 export const navigationMachine = setup({
   types: {
@@ -152,7 +205,10 @@ export const navigationMachine = setup({
      */
     savingPathForLoginRedirect: {
       entry: [
-        assign({ sideEffect: { action: 'savePath' } }),
+        assign({ 
+          sideEffect: { action: 'savePath' },
+          sideEffectStartTime: Date.now(),
+        }),
         ({ context }) => logger.debug('nav-machine:savingPathForLoginRedirect', `Saving path ${context.pathname} before redirect to /login`),
       ],
       always: 'redirectingToLogin',
@@ -160,18 +216,22 @@ export const navigationMachine = setup({
     /**
      * A state that triggers a 'navigate' side-effect to send the user to /login.
      */
-    redirectingToLogin: {
-      entry: [
-        assign({
-          sideEffect: { action: 'navigateAndSaveJournal', targetPath: '/login' },
-        }),
-        () => logger.debug('nav-machine:redirectingToLogin', 'Redirecting to /login'),
-      ],
-      on: {
-        CONTEXT_UPDATED: {
-          actions: assign(( { context, event } ) => ({ ...context, ...event.value })),
-        }
-      },
+     redirectingToLogin: {
+       entry: [
+         assign({
+           sideEffect: { action: 'navigateAndSaveJournal', targetPath: '/login' },
+           sideEffectStartTime: Date.now(),
+         }),
+         () => logger.debug('nav-machine:redirectingToLogin', 'Redirecting to /login'),
+       ],
+       on: {
+         CONTEXT_UPDATED: {
+           actions: assign(( { context, event } ) => 
+             // TOO SLOW DETECTION: Apply timeout handling for redirectingToLogin
+             handleSideEffectTimeout(context, event, 'redirectingToLogin')
+           ),
+         }
+       },
       always: [
         {
           // Escape hatch: If we become authenticated while redirecting to login
@@ -190,21 +250,25 @@ export const navigationMachine = setup({
      * required setup page (e.g., /getting-started or /import). This is only
      * triggered when the user is at the root path ('/').
      */
-    redirectingToSetup: {
-      entry: [
-        assign({
-          sideEffect: ({ context }) => ({
-            action: 'navigateAndSaveJournal',
-            targetPath: context.setupPath!,
-          }),
-        }),
-        ({ context }) => logger.debug('nav-machine:redirectingToSetup', `Redirecting to setup path: ${context.setupPath}`),
-      ],
-      on: {
-        CONTEXT_UPDATED: {
-          actions: assign(( { context, event } ) => ({ ...context, ...event.value })),
-        }
-      },
+     redirectingToSetup: {
+       entry: [
+         assign({
+           sideEffect: ({ context }) => ({
+             action: 'navigateAndSaveJournal',
+             targetPath: context.setupPath!,
+           }),
+           sideEffectStartTime: Date.now(),
+         }),
+         ({ context }) => logger.debug('nav-machine:redirectingToSetup', `Redirecting to setup path: ${context.setupPath}`),
+       ],
+       on: {
+         CONTEXT_UPDATED: {
+           actions: assign(( { context, event } ) => 
+             // TOO SLOW DETECTION: Apply timeout handling for redirectingToSetup
+             handleSideEffectTimeout(context, event, 'redirectingToSetup')
+           ),
+         }
+       },
       always: [
         {
           // Escape hatch: If we become unauthenticated while redirecting to setup,
@@ -229,7 +293,8 @@ export const navigationMachine = setup({
           // BATTLE WISDOM: Conditionally dispatch the side-effect. If the path is
           // already null, we do nothing. This prevents an unnecessary state update
           // and allows the `always` transition below to handle the case immediately.
-          sideEffect: ({ context }) => context.lastKnownPath !== null ? { action: 'clearLastKnownPath' } : undefined
+          sideEffect: ({ context }) => context.lastKnownPath !== null ? { action: 'clearLastKnownPath' } : undefined,
+          sideEffectStartTime: ({ context }) => context.lastKnownPath !== null ? Date.now() : undefined,
         }),
         ({ context }) => logger.debug('nav-machine:clearingLastKnownPathBeforeRedirect', `lastKnownPath: ${context.lastKnownPath}`),
       ],
@@ -263,7 +328,8 @@ export const navigationMachine = setup({
               action: 'navigateAndSaveJournal',
               targetPath: targetPath === '/login' ? '/' : targetPath,
             };
-          }
+          },
+          sideEffectStartTime: Date.now(),
         }),
         ({ context }) => {
           const targetPath = context.setupPath || context.lastKnownPath || '/';
@@ -273,20 +339,34 @@ export const navigationMachine = setup({
       on: {
         // When a context update happens, just apply it. The `always` transition
         // will then re-evaluate the state based on the new context.
-        CONTEXT_UPDATED: {
-          actions: assign(({ context, event }) => {
-            const updatedContext = { ...context, ...event.value };
-            
-            // CRITICAL FIX: Clear the sideEffect when navigation completes
-            if (event.value.pathname && event.value.pathname !== '/login' && context.sideEffect) {
-              logger.debug('nav-machine:redirectingFromLogin', 
-                `Navigation completed from /login to ${event.value.pathname}, clearing sideEffect`);
-              return { ...updatedContext, sideEffect: undefined };
-            }
-            
-            return updatedContext;
-          }),
-        }
+         CONTEXT_UPDATED: {
+           actions: assign(({ context, event }) => {
+             // INTENT: Handle both TOO SLOW and normal navigation completion
+             
+             // TOO SLOW DETECTION: Check if sideEffect timeout occurred
+             const contextAfterTimeout = handleSideEffectTimeout(context, event, 'redirectingFromLogin');
+             if (!contextAfterTimeout.sideEffect && context.sideEffect) {
+               // Timeout recovery triggered, return safe state
+               return contextAfterTimeout;
+             }
+             
+             const updatedContext = { ...context, ...event.value };
+             
+             // NORMAL COMPLETION: Clear sideEffect when navigation succeeds
+             // This handles both normal React updates AND polling-detected fast changes
+             if (event.value.pathname && event.value.pathname !== '/login' && context.sideEffect) {
+               logger.debug('nav-machine:redirectingFromLogin', 
+                 `Navigation completed from /login to ${event.value.pathname}, clearing sideEffect`);
+               return { 
+                 ...updatedContext, 
+                 sideEffect: undefined, 
+                 sideEffectStartTime: undefined 
+               };
+             }
+             
+             return updatedContext;
+           }),
+         }
       },
       always: [
         {

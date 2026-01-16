@@ -2,6 +2,7 @@
 
 import { useRef } from 'react';
 import { useGuardedEffect } from '@/hooks/use-guarded-effect';
+import { useInterval } from '@/hooks/use-interval';
 import { useAtomValue, useSetAtom, useAtom } from 'jotai';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 
@@ -90,6 +91,7 @@ export const NavigationManager = () => {
   // This is a critical performance optimization that adheres to our conventions.
   const stateValue = state.value;
   const sideEffect = state.context.sideEffect;
+  const sideEffectStartTime = state.context.sideEffectStartTime;
 
   // Effect to perform side-effects based on the machine's state
   useGuardedEffect(() => {
@@ -126,6 +128,33 @@ export const NavigationManager = () => {
     sendAuth,
     saveJournalSnapshot,
   ], 'NavigationManager:performSideEffects');
+
+  // INTENT: TOO FAST DETECTION - Poll for missed navigation signals while sideEffect is active
+  // Problem: sideEffect executes and navigation completes before React's usePathname() can update
+  // Solution: Poll every 300ms to detect pathname changes that weren't captured by normal render cycle
+  const lastPathnameRef = useRef(pathname);
+  useInterval(() => {
+    // Only poll when sideEffect is active to minimize performance impact
+    if (sideEffect && pathname !== lastPathnameRef.current) {
+      
+      console.log('Navigation polling detected FAST pathname change', {
+        intent: 'TOO_FAST_DETECTION',
+        previousPathname: lastPathnameRef.current,
+        currentPathname: pathname,
+        sideEffect: sideEffect,
+        duration: sideEffectStartTime ? Date.now() - sideEffectStartTime : 'unknown',
+        reason: 'polling_detected_fast_navigation'
+      });
+      
+      // Immediately send CONTEXT_UPDATED to trigger sideEffect clearing
+      send({ type: 'CONTEXT_UPDATED', value: { pathname } });
+      
+      lastPathnameRef.current = pathname;
+    }
+  }, sideEffect ? 300 : null); // Poll every 300ms when sideEffect active, otherwise pause
+  
+  // Keep pathname ref updated during normal renders
+  lastPathnameRef.current = pathname;
 
   return null;
 };
