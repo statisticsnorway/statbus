@@ -231,13 +231,22 @@ export const navigationMachine = setup({
          () => logger.debug('nav-machine:redirectingToLogin', 'Redirecting to /login'),
        ],
        on: {
-         CONTEXT_UPDATED: {
-           actions: assign(( { context, event } ) => 
-             // TOO SLOW DETECTION: Apply timeout handling for redirectingToLogin
-             handleSideEffectTimeout(context, event, 'redirectingToLogin')
-           ),
-         }
-       },
+          CONTEXT_UPDATED: {
+            actions: assign(( { context, event } ) => 
+              // TOO SLOW DETECTION: Apply timeout handling for redirectingToLogin
+              handleSideEffectTimeout(context, event, 'redirectingToLogin')
+            ),
+          },
+          CLEAR_SIDE_EFFECT: {
+            // Clear sideEffect (called by polling for TOO FAST/TOO SLOW detection)
+            actions: assign(({ context }) => ({
+              ...context,
+              sideEffect: undefined,
+              sideEffectStartTime: undefined,
+              sideEffectStartPathname: undefined,
+            })),
+          }
+        },
       always: [
         {
           // Escape hatch: If we become authenticated while redirecting to login
@@ -269,13 +278,22 @@ export const navigationMachine = setup({
          ({ context }) => logger.debug('nav-machine:redirectingToSetup', `Redirecting to setup path: ${context.setupPath}`),
        ],
        on: {
-         CONTEXT_UPDATED: {
-           actions: assign(( { context, event } ) => 
-             // TOO SLOW DETECTION: Apply timeout handling for redirectingToSetup
-             handleSideEffectTimeout(context, event, 'redirectingToSetup')
-           ),
-         }
-       },
+          CONTEXT_UPDATED: {
+            actions: assign(( { context, event } ) => 
+              // TOO SLOW DETECTION: Apply timeout handling for redirectingToSetup
+              handleSideEffectTimeout(context, event, 'redirectingToSetup')
+            ),
+          },
+          CLEAR_SIDE_EFFECT: {
+            // Clear sideEffect (called by polling for TOO FAST/TOO SLOW detection)
+            actions: assign(({ context }) => ({
+              ...context,
+              sideEffect: undefined,
+              sideEffectStartTime: undefined,
+              sideEffectStartPathname: undefined,
+            })),
+          }
+        },
       always: [
         {
           // Escape hatch: If we become unauthenticated while redirecting to setup,

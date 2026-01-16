@@ -129,14 +129,24 @@ export const NavigationManager = () => {
     saveJournalSnapshot,
   ], 'NavigationManager:performSideEffects');
 
-  // INTENT: TOO FAST DETECTION - Poll for missed navigation signals while sideEffect is active
-  // Problem: sideEffect executes and navigation completes before React's usePathname() can update
-  // Solution: Check immediately, then poll every 300ms to detect pathname changes that weren't captured by normal render cycle
+  // INTENT: TOO FAST DETECTION + TOO SLOW DETECTION via polling
+  // Problem 1 (TOO FAST): sideEffect executes and navigation completes before React's usePathname() can update
+  // Problem 2 (TOO SLOW): navigation fails/hangs and CONTEXT_UPDATED events stop arriving
+  // Solution: Poll every 300ms using REFS to access current values (avoiding stale closure bug)
   //
   // DECLARATIVE APPROACH: The machine stores sideEffectStartPathname in context when sideEffect is set.
-  // This component simply compares current pathname against that stored value - no mutable refs needed
-  // for tracking "when did sideEffect start". The machine is the source of truth.
+  // This component uses refs to always access the latest values during polling.
   const pollingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Refs to access current values during polling (avoids stale closure bug)
+  const currentPathnameRef = useRef(pathname);
+  const currentSideEffectStartTimeRef = useRef(sideEffectStartTime);
+  const currentSideEffectStartPathnameRef = useRef(sideEffectStartPathname);
+  
+  // Keep refs synchronized with latest values
+  currentPathnameRef.current = pathname;
+  currentSideEffectStartTimeRef.current = sideEffectStartTime;
+  currentSideEffectStartPathnameRef.current = sideEffectStartPathname;
 
   useGuardedEffect(() => {
     // Clear any existing timeout
@@ -152,6 +162,7 @@ export const NavigationManager = () => {
 
     // Capture inspector state at effect start for consistent logging within polling
     const debug = inspectorVisibleRef.current;
+    const TIMEOUT_MS = 3000; // 3 seconds timeout for TOO SLOW detection
 
     if (debug) {
       console.log('[Polling] Starting navigation polling', {
@@ -161,31 +172,52 @@ export const NavigationManager = () => {
       });
     }
 
-    // Function to check for navigation completion (uses current values from closure)
+    // Function to check for navigation completion (uses REFS to access current values)
     const checkNavigation = () => {
+      // Read current values from refs (not stale closure values)
+      const currentPathname = currentPathnameRef.current;
+      const startPathname = currentSideEffectStartPathnameRef.current;
+      const startTime = currentSideEffectStartTimeRef.current;
+      
       if (debug) {
         console.log('[Polling] checkNavigation tick', {
-          startPathname: sideEffectStartPathname,
-          currentPathname: pathname,
+          startPathname,
+          currentPathname,
           sideEffectAction: sideEffect?.action,
-          pathChanged: sideEffectStartPathname !== pathname,
+          pathChanged: startPathname !== currentPathname,
+          elapsedMs: startTime ? Date.now() - startTime : 'unknown',
         });
       }
       
-      // Navigation completed: pathname changed from where we started
-      if (pathname !== sideEffectStartPathname) {
+      // TOO FAST DETECTION: pathname changed from where we started
+      if (startPathname && currentPathname !== startPathname) {
         if (debug) {
           console.log('[Polling] FAST navigation detected!', {
             intent: 'TOO_FAST_DETECTION',
-            startPathname: sideEffectStartPathname,
-            currentPathname: pathname,
+            startPathname,
+            currentPathname,
             sideEffect,
-            duration: sideEffectStartTime ? Date.now() - sideEffectStartTime : 'unknown',
+            duration: startTime ? Date.now() - startTime : 'unknown',
           });
         }
         
         // Clear sideEffect - machine will transition to idle via always guard
         send({ type: 'CLEAR_SIDE_EFFECT', reason: 'polling_detected_completion' });
+        return; // Stop polling
+      }
+      
+      // TOO SLOW DETECTION: navigation has been pending too long
+      if (startTime && Date.now() - startTime > TIMEOUT_MS) {
+        console.error('[Polling] Navigation TIMEOUT (too slow) - clearing sideEffect', {
+          intent: 'TOO_SLOW_DETECTION',
+          startPathname,
+          currentPathname,
+          sideEffect,
+          duration: Date.now() - startTime,
+        });
+        
+        // Clear sideEffect - machine will re-evaluate and try again or go to idle
+        send({ type: 'CLEAR_SIDE_EFFECT', reason: 'timeout' });
         return; // Stop polling
       }
       
@@ -203,7 +235,7 @@ export const NavigationManager = () => {
         pollingTimeoutRef.current = null;
       }
     };
-  }, [sideEffect, sideEffectStartPathname, sideEffectStartTime, pathname, send], 'NavigationManager:pollingDetection');
+  }, [sideEffect, sideEffectStartPathname, pathname, send], 'NavigationManager:pollingDetection');
 
   return null;
 };
