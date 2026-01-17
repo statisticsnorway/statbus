@@ -13,7 +13,7 @@ Developed by [Statistics Norway (SSB)](https://www.ssb.no/) | Website: https://w
 ### 📊 I want to **use** StatBus
 → **[User Guide (doc/USAGE.md)](doc/USAGE.md)**
 - Load and manage business registry data
-- Access data via web interface
+- Access data via web interface or api
 - Generate reports and export data
 
 **→ Ready to integrate?** See **[Integration Guide (doc/INTEGRATE.md)](doc/INTEGRATE.md)** for REST API and PostgreSQL access
@@ -89,6 +89,7 @@ StatBus is a statistical business registry that helps track business activity th
 1. Get access to a StatBus instance from your administrator
 2. Log in via web browser
 3. Start loading data or querying via REST API or PostgreSQL
+4. Sample csv files available for each step from the GUI
 
 See **[User Guide](doc/USAGE.md)** for detailed instructions.
 
@@ -237,7 +238,7 @@ For detailed architecture, see **[Service Architecture](doc/service-architecture
 
 ## Project Goals
 
-Our 2023 technology modernization focused on:
+Our 2023-2025 technology modernization focused on:
 
 ✅ **Easy to Get Started**
 - Wizard-guided local installation
