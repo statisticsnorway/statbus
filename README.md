@@ -293,6 +293,6 @@ We welcome contributions! See **[Development Guide](doc/DEVELOPMENT.md)** for:
 
 ## Acknowledgments
 
-Developed by Statistics Norway (SSB) with contributions from partner statistical offices in Asia and Africa.
+Developed by Statistics Norway (SSB) with contributions from partner statistical offices in Africa, Asia and Europe.
 
 Special thanks to all contributors and users who have helped shape StatBus into a modern, efficient business registry system.
