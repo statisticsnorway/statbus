@@ -58,8 +58,9 @@ Press **Ctrl+Shift+K** (or Cmd+Shift+K on Mac) to open the command palette. This
 
 - Data loading functions
 - Report generation
-- Refresh materialized views
+- History statistics report
 - Database management (admin only)
+- User management (admin only)
 
 ---
 
@@ -76,8 +77,7 @@ Follow this order when loading data for the first time:
 Choose your country's activity classification system:
 - **NACE**: European standard (StatBus includes Norwegian translations)
 - **ISIC**: International standard
-- **NAICS**: North American standard
-- **Custom**: Your own classification system
+- **Custom**: Your own classification system or customized addons to ISIC or NACE
 
 #### 2. Upload Classifications
 
@@ -117,11 +117,6 @@ After classifications are loaded, upload your business units:
 - Sample data uses Norwegian regions and NACE codes  
 - Format: tax_ident, legal_unit_id, name, address, etc.
 
-#### 4. Refresh Materialized Views
-
-After loading data, refresh materialized views using the command palette (Ctrl+Shift+K):
-- Select "Refresh materialized views"
-- This updates summary tables and dashboard statistics
 
 ### Data Loading Tips
 
