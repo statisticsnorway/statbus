@@ -297,3 +297,5 @@ We welcome contributions! See **[Development Guide](doc/DEVELOPMENT.md)** for:
 Developed by Statistics Norway (SSB) with contributions from partner statistical offices in Asia and Africa.
 
 Special thanks to all contributors and users who have helped shape StatBus into a modern, efficient business registry system.
+Special thanks also to manager(s) still believing in our project, even though we ended up being a few weeks delayed.
+The delay has implied this releasy to be more robust and secure and smoother to install.
