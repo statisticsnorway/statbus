@@ -286,8 +286,8 @@ We welcome contributions! See **[Development Guide](doc/DEVELOPMENT.md)** for:
 ---
 
 ## License
-
-[License information to be added]
+Statbus is licensed under the Apache License, Version 2.0.
+Statbus is an open-source Digital Public Good, aligned with the DPG Standard.
 
 ---
 
