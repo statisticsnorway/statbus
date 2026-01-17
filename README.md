@@ -294,7 +294,7 @@ Statbus is an open-source Digital Public Good, aligned with the DPG Standard.
 
 ## Acknowledgments
 
-Developed by Statistics Norway (SSB) with contributions from partner statistical offices in Asia and Africa.
+Developed by Statistics Norway (SSB) with contributions from partner statistical offices in Africa, Asia and Europe.
 
 Special thanks to all contributors and users who have helped shape StatBus into a modern, efficient business registry system.
 Special thanks also to manager(s) still believing in our project, even though we ended up being a few weeks delayed.
