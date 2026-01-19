@@ -209,3 +209,20 @@ export async function getStatisticalUnitHistoryHighcharts(
     };
   }
 }
+
+export async function getStatisticalUnitHistory(
+  unitId: number,
+  unitType: "enterprise" | "enterprise_group" | "legal_unit" | "establishment"
+) {
+  const client = await getServerRestClient();
+  const { data, error } = await client
+    .from("statistical_unit")
+    .select(
+      "valid_from,name,physical_region(code,name),primary_activity_category(code,name),status(code,name)"
+    )
+    .eq("unit_id", unitId)
+    .eq("unit_type", unitType)
+    .order("valid_from");
+
+  return { data, error };
+}
