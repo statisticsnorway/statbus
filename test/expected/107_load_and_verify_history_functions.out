@@ -14330,6 +14330,7 @@ statistical_unit_hierarchy
                             "active": true,
                             "custom": true
                         },
+                        "valid_range": "[2010-01-01,2013-01-01)",
                         "valid_until": "2013-01-01",
                         "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
                         "activity_category": {
@@ -14385,6 +14386,7 @@ statistical_unit_hierarchy
                             "active": true,
                             "custom": true
                         },
+                        "valid_range": "[2010-01-01,2013-01-01)",
                         "valid_until": "2013-01-01",
                         "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
                         "address_part1": "Vestlyvegen 219",
@@ -14409,6 +14411,7 @@ statistical_unit_hierarchy
                     "active": true,
                     "custom": true
                 },
+                "valid_range": "[2010-01-01,2013-01-01)",
                 "valid_until": "2013-01-01",
                 "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
                 "establishment": [
@@ -14434,6 +14437,7 @@ statistical_unit_hierarchy
                                     "active": true,
                                     "custom": true
                                 },
+                                "valid_range": "[2010-01-01,infinity)",
                                 "valid_until": "infinity",
                                 "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
                                 "activity_category": {
@@ -14489,6 +14493,7 @@ statistical_unit_hierarchy
                                     "active": true,
                                     "custom": true
                                 },
+                                "valid_range": "[2010-01-01,infinity)",
                                 "valid_until": "infinity",
                                 "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
                                 "address_part1": "Vestlyvegen 219",
@@ -14513,6 +14518,7 @@ statistical_unit_hierarchy
                             "active": true,
                             "custom": true
                         },
+                        "valid_range": "[2010-01-01,2013-01-01)",
                         "valid_until": "2013-01-01",
                         "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
                         "invalid_codes": null,
@@ -14528,6 +14534,7 @@ statistical_unit_hierarchy
                                     "active": true,
                                     "custom": true
                                 },
+                                "valid_range": "[2010-01-01,2013-01-01)",
                                 "valid_until": "2013-01-01",
                                 "value_float": null,
                                 "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
@@ -14553,6 +14560,7 @@ statistical_unit_hierarchy
                                     "active": true,
                                     "custom": true
                                 },
+                                "valid_range": "[2010-01-01,2013-01-01)",
                                 "valid_until": "2013-01-01",
                                 "value_float": 1500000,
                                 "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
@@ -14636,6 +14644,7 @@ statistical_unit_hierarchy
                             "active": true,
                             "custom": true
                         },
+                        "valid_range": "[2013-01-01,infinity)",
                         "valid_until": "infinity",
                         "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
                         "activity_category": {
@@ -14691,6 +14700,7 @@ statistical_unit_hierarchy
                             "active": true,
                             "custom": true
                         },
+                        "valid_range": "[2013-01-01,infinity)",
                         "valid_until": "infinity",
                         "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
                         "address_part1": "Vestlyvegen 219",
@@ -14715,6 +14725,7 @@ statistical_unit_hierarchy
                     "active": true,
                     "custom": true
                 },
+                "valid_range": "[2013-01-01,infinity)",
                 "valid_until": "infinity",
                 "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
                 "establishment": [
@@ -14740,6 +14751,7 @@ statistical_unit_hierarchy
                                     "active": true,
                                     "custom": true
                                 },
+                                "valid_range": "[2010-01-01,infinity)",
                                 "valid_until": "infinity",
                                 "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
                                 "activity_category": {
@@ -14795,6 +14807,7 @@ statistical_unit_hierarchy
                                     "active": true,
                                     "custom": true
                                 },
+                                "valid_range": "[2010-01-01,infinity)",
                                 "valid_until": "infinity",
                                 "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
                                 "address_part1": "Vestlyvegen 219",
@@ -14819,6 +14832,7 @@ statistical_unit_hierarchy
                             "active": true,
                             "custom": true
                         },
+                        "valid_range": "[2020-01-01,infinity)",
                         "valid_until": "infinity",
                         "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
                         "invalid_codes": null,
@@ -14834,6 +14848,7 @@ statistical_unit_hierarchy
                                     "active": true,
                                     "custom": true
                                 },
+                                "valid_range": "[2020-01-01,infinity)",
                                 "valid_until": "infinity",
                                 "value_float": null,
                                 "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
@@ -14859,6 +14874,7 @@ statistical_unit_hierarchy
                                     "active": true,
                                     "custom": true
                                 },
+                                "valid_range": "[2020-01-01,infinity)",
                                 "valid_until": "infinity",
                                 "value_float": 70000000,
                                 "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
@@ -14941,6 +14957,7 @@ statistical_unit_hierarchy
                             "active": true,
                             "custom": true
                         },
+                        "valid_range": "[2013-01-01,infinity)",
                         "valid_until": "infinity",
                         "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
                         "activity_category": {
@@ -14996,6 +15013,7 @@ statistical_unit_hierarchy
                             "active": true,
                             "custom": true
                         },
+                        "valid_range": "[2013-01-01,infinity)",
                         "valid_until": "infinity",
                         "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
                         "address_part1": "Vestlyvegen 219",
@@ -15020,6 +15038,7 @@ statistical_unit_hierarchy
                     "active": true,
                     "custom": true
                 },
+                "valid_range": "[2013-01-01,infinity)",
                 "valid_until": "infinity",
                 "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
                 "establishment": [
@@ -15045,6 +15064,7 @@ statistical_unit_hierarchy
                                     "active": true,
                                     "custom": true
                                 },
+                                "valid_range": "[2010-01-01,infinity)",
                                 "valid_until": "infinity",
                                 "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
                                 "activity_category": {
@@ -15100,6 +15120,7 @@ statistical_unit_hierarchy
                                     "active": true,
                                     "custom": true
                                 },
+                                "valid_range": "[2010-01-01,infinity)",
                                 "valid_until": "infinity",
                                 "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
                                 "address_part1": "Vestlyvegen 219",
@@ -15124,6 +15145,7 @@ statistical_unit_hierarchy
                             "active": true,
                             "custom": true
                         },
+                        "valid_range": "[2020-01-01,infinity)",
                         "valid_until": "infinity",
                         "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
                         "invalid_codes": null,
@@ -15139,6 +15161,7 @@ statistical_unit_hierarchy
                                     "active": true,
                                     "custom": true
                                 },
+                                "valid_range": "[2020-01-01,infinity)",
                                 "valid_until": "infinity",
                                 "value_float": null,
                                 "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
@@ -15164,6 +15187,7 @@ statistical_unit_hierarchy
                                     "active": true,
                                     "custom": true
                                 },
+                                "valid_range": "[2020-01-01,infinity)",
                                 "valid_until": "infinity",
                                 "value_float": 70000000,
                                 "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)",
