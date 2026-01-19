@@ -8,14 +8,14 @@ This document provides a compact overview of the StatBus database schema, focusi
 ## Core Statistical Units (Hierarchy)
 The system revolves around four main statistical units, often with temporal validity (`valid_from`, `valid_after`, `valid_to`):
 
-- `enterprise_group(id, short_name, name, enterprise_group_type_id, reorg_type_id, edit_by_user_id, unit_size_id, data_source_id, foreign_participation_id, valid_from, valid_to, valid_until, edit_at, contact_person, edit_comment, reorg_references, reorg_date)` (EG) (temporal)
+- `enterprise_group(id, short_name, name, enterprise_group_type_id, reorg_type_id, edit_by_user_id, unit_size_id, data_source_id, foreign_participation_id, valid_range, valid_from, valid_to, valid_until, edit_at, contact_person, edit_comment, reorg_references, reorg_date)` (EG) (temporal)
   - Key FKs: data_source_id, edit_by_user_id, enterprise_group_type_id, foreign_participation_id, reorg_type_id, unit_size_id.
 - `enterprise(id, short_name, edit_by_user_id, edit_at, active, edit_comment)` (EN)
   - Key FKs: edit_by_user_id.
-- `legal_unit(id, short_name, name, invalid_codes, sector_id, status_id, legal_form_id, edit_by_user_id, unit_size_id, foreign_participation_id, data_source_id, enterprise_id, valid_from, valid_to, valid_until, edit_at, birth_date, death_date, free_econ_zone, edit_comment, primary_for_enterprise)` (LU) (temporal)
+- `legal_unit(id, short_name, name, invalid_codes, sector_id, status_id, legal_form_id, edit_by_user_id, unit_size_id, foreign_participation_id, data_source_id, enterprise_id, valid_range, valid_from, valid_to, valid_until, edit_at, birth_date, death_date, free_econ_zone, edit_comment, primary_for_enterprise)` (LU) (temporal)
   - Key FKs: data_source_id, edit_by_user_id, enterprise_id, foreign_participation_id, legal_form_id, sector_id, status_id, unit_size_id.
-- `establishment(id, short_name, name, invalid_codes, sector_id, status_id, edit_by_user_id, unit_size_id, data_source_id, enterprise_id, legal_unit_id, valid_from, valid_to, valid_until, edit_at, birth_date, death_date, free_econ_zone, edit_comment, primary_for_legal_unit, primary_for_enterprise)` (EST) (temporal)
-  - Key FKs: data_source_id, edit_by_user_id, enterprise_id, sector_id, status_id, unit_size_id.
+- `establishment(id, short_name, name, invalid_codes, sector_id, status_id, edit_by_user_id, unit_size_id, data_source_id, enterprise_id, legal_unit_id, valid_range, valid_from, valid_to, valid_until, edit_at, birth_date, death_date, free_econ_zone, edit_comment, primary_for_legal_unit, primary_for_enterprise)` (EST) (temporal)
+  - Key FKs: data_source_id, edit_by_user_id, enterprise_id, legal_unit_id, sector_id, status_id, unit_size_id, valid_range.
 
 ## Common Links for Core Units (EG, EN, LU, EST)
 These tables link to any of the four core statistical units:
@@ -34,8 +34,8 @@ These tables link to any of the four core statistical units:
 
 ### Activity
 
-- `activity(id, type, category_id, data_source_id, edit_by_user_id, establishment_id, legal_unit_id, valid_from, valid_to, valid_until, edit_at, edit_comment)` (temporal)
-  - Key FKs: category_id, data_source_id, edit_by_user_id.
+- `activity(id, type, category_id, data_source_id, edit_by_user_id, establishment_id, legal_unit_id, valid_range, valid_from, valid_to, valid_until, edit_at, edit_comment)` (temporal)
+  - Key FKs: category_id, data_source_id, edit_by_user_id, establishment_id, legal_unit_id, valid_range, valid_range.
   - Enums: `type` (`public.activity_type`).
 - `activity_category(id, path, label, code, name, standard_id, parent_id, created_at, updated_at, active, level, description, custom)`
   - Key FKs: parent_id, standard_id.
@@ -46,11 +46,11 @@ These tables link to any of the four core statistical units:
 
 ### Location & Contact
 
-- `location(id, type, postcode, region_id, country_id, establishment_id, legal_unit_id, data_source_id, edit_by_user_id, valid_from, valid_to, valid_until, edit_at, address_part1, address_part2, address_part3, postplace, latitude, longitude, altitude, edit_comment)` (temporal)
-  - Key FKs: country_id, data_source_id, edit_by_user_id, region_id.
+- `location(id, type, postcode, region_id, country_id, establishment_id, legal_unit_id, data_source_id, edit_by_user_id, valid_range, valid_from, valid_to, valid_until, edit_at, address_part1, address_part2, address_part3, postplace, latitude, longitude, altitude, edit_comment)` (temporal)
+  - Key FKs: country_id, data_source_id, edit_by_user_id, establishment_id, legal_unit_id, region_id, valid_range, valid_range.
   - Enums: `type` (`public.location_type`).
-- `contact(id, email_address, establishment_id, legal_unit_id, data_source_id, edit_by_user_id, valid_from, valid_to, valid_until, edit_at, web_address, phone_number, landline, mobile_number, fax_number, edit_comment)` (temporal)
-  - Key FKs: data_source_id, edit_by_user_id.
+- `contact(id, email_address, establishment_id, legal_unit_id, data_source_id, edit_by_user_id, valid_range, valid_from, valid_to, valid_until, edit_at, web_address, phone_number, landline, mobile_number, fax_number, edit_comment)` (temporal)
+  - Key FKs: data_source_id, edit_by_user_id, establishment_id, legal_unit_id, valid_range, valid_range.
 - `region(id, path, label, code, name, parent_id, level, center_latitude, center_longitude, center_altitude)`
   - Key FKs: parent_id.
 - `country(id, name, created_at, updated_at, active, iso_2, iso_3, iso_num, custom)`
@@ -61,14 +61,14 @@ These tables link to any of the four core statistical units:
 - `person(id, personal_ident, given_name, middle_name, family_name, country_id, created_at, birth_date, sex, phone_number, mobile_number, address_part1, address_part2, address_part3)`
   - Key FKs: country_id.
   - Enums: `sex` (`public.person_sex`).
-- `person_for_unit(id, person_id, person_role_id, data_source_id, establishment_id, legal_unit_id, valid_from, valid_to, valid_until)` (temporal)
-  - Key FKs: data_source_id, person_id, person_role_id.
+- `person_for_unit(id, person_id, person_role_id, data_source_id, establishment_id, legal_unit_id, valid_range, valid_from, valid_to, valid_until)` (temporal)
+  - Key FKs: data_source_id, establishment_id, legal_unit_id, person_id, person_role_id, valid_range, valid_range.
 - `person_role(id, code, name, created_at, updated_at, active, custom)`
 
 ### Statistics
 
-- `stat_for_unit(id, value_int, value_float, value_string, value_bool, stat_definition_id, data_source_id, establishment_id, legal_unit_id, edit_by_user_id, valid_from, valid_to, valid_until, created_at, edit_at, edit_comment)` (temporal)
-  - Key FKs: data_source_id, edit_by_user_id, stat_definition_id.
+- `stat_for_unit(id, value_int, value_float, value_string, value_bool, stat_definition_id, data_source_id, establishment_id, legal_unit_id, edit_by_user_id, valid_range, valid_from, valid_to, valid_until, created_at, edit_at, edit_comment)` (temporal)
+  - Key FKs: data_source_id, edit_by_user_id, establishment_id, legal_unit_id, stat_definition_id, valid_range, valid_range.
 - `stat_definition(id, code, type, name, frequency, description, priority, archived)`
   - Enums: `frequency` (`public.stat_frequency`), `type` (`public.stat_type`).
 

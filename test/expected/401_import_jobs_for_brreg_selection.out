@@ -40,35 +40,76 @@ $sudo_exec$;
 GRANT EXECUTE ON FUNCTION test.sudo_exec(text) TO PUBLIC;
 \echo Add users for testing purposes
 Add users for testing purposes
-SELECT * FROM public.user_create('test.admin@statbus.org', 'admin_user'::statbus_role, 'Admin#123!');
+SELECT * FROM public.user_create(p_display_name => 'Test Admin', p_email => 'test.admin@statbus.org', p_statbus_role => 'admin_user'::statbus_role, p_password => 'Admin#123!');
          email          |  password  
 ------------------------+------------
  test.admin@statbus.org | Admin#123!
 (1 row)
 
-SELECT * FROM public.user_create('test.regular@statbus.org', 'regular_user'::statbus_role, 'Regular#123!');
+SELECT * FROM public.user_create(p_display_name => 'Test Regular', p_email => 'test.regular@statbus.org', p_statbus_role => 'regular_user'::statbus_role, p_password => 'Regular#123!');
           email           |   password   
 --------------------------+--------------
  test.regular@statbus.org | Regular#123!
 (1 row)
 
-SELECT * FROM public.user_create('test.restricted@statbus.org', 'restricted_user'::statbus_role, 'Restricted#123!');
+SELECT * FROM public.user_create(p_display_name => 'Test Restricted', p_email => 'test.restricted@statbus.org', p_statbus_role => 'restricted_user'::statbus_role, p_password => 'Restricted#123!');
             email            |    password     
 -----------------------------+-----------------
  test.restricted@statbus.org | Restricted#123!
 (1 row)
 
+CREATE OR REPLACE PROCEDURE test.remove_pg_temp_for_tx_user_switch(p_keep_tables text[] DEFAULT '{}')
+LANGUAGE plpgsql
+AS $remove_pg_temp_for_tx_user_switch$
+DECLARE
+    rec record;
+    v_found_count integer := 0;
+BEGIN
+    RAISE DEBUG 'Running test.remove_pg_temp_for_tx_user_switch(p_keep_tables => %)...', p_keep_tables;
+    -- Remove temporary cache tables used by import, as we switch user inside the *same* transaction,
+    -- and the new user can not modify tables owned by the previous import.
+    -- This generic loop cleans up all tables and views in the pg_temp schema, except those specified to keep.
+    FOR rec IN
+        SELECT
+            c.relname,
+            c.relkind
+        FROM pg_catalog.pg_class AS c
+        LEFT JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+        WHERE c.relkind IN ('r', 'p', 'v', 'm') AND n.oid = pg_my_temp_schema() -- r=table, p=partitioned, v=view, m=materialized
+          AND c.relname <> ALL(p_keep_tables)
+    LOOP
+        v_found_count := v_found_count + 1;
+        IF rec.relkind IN ('r', 'p', 'm') THEN
+            RAISE DEBUG '  -> Dropping temp TABLE %', rec.relname;
+            EXECUTE format('DROP TABLE IF EXISTS pg_temp.%I CASCADE', rec.relname);
+        ELSIF rec.relkind = 'v' THEN
+            RAISE DEBUG '  -> Dropping temp VIEW %', rec.relname;
+            EXECUTE format('DROP VIEW IF EXISTS pg_temp.%I CASCADE', rec.relname);
+        END IF;
+    END LOOP;
+
+    RAISE DEBUG '...finished test.remove_pg_temp_for_tx_user_switch(). Found and dropped % objects.', v_found_count;
+
+    -- This procedure is part of the sql_saga extension and has its own cleanup logic.
+    -- While the loop above handles tables/views, this call ensures any other temporary
+    -- objects it creates are also cleaned up.
+    CALL sql_saga.temporal_merge_drop_temp_tables();
+END;
+$remove_pg_temp_for_tx_user_switch$;
 \echo "Setting up Statbus (Norway) and BRREG import definitions (2024)"
 "Setting up Statbus (Norway) and BRREG import definitions (2024)"
 \i samples/norway/getting-started.sql
-\i samples/norway/activity_category/activity_category_norway.sql
-INSERT INTO settings(activity_category_standard_id,only_one_setting)
-SELECT id, true FROM activity_category_standard WHERE code = 'nace_v2.1'
+\i samples/norway/settings.sql
+INSERT INTO settings(activity_category_standard_id,country_id)
+SELECT (SELECT id FROM activity_category_standard WHERE code = 'nace_v2.1')
+     , (SELECT id FROM public.country WHERE iso_2 = 'NO')
 ON CONFLICT (only_one_setting)
 DO UPDATE SET
-   activity_category_standard_id =(SELECT id FROM activity_category_standard WHERE code = 'nace_v2.1')
-   WHERE settings.id = EXCLUDED.id;
+   activity_category_standard_id = EXCLUDED.activity_category_standard_id,
+   country_id = EXCLUDED.country_id
+   WHERE settings.only_one_setting = EXCLUDED.only_one_setting;
 ;
+\i samples/norway/activity_category/activity_category_norway.sql
 \copy public.activity_category_available_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \i samples/norway/regions/norway-regions-2024.sql
 \copy public.region_upload(path, name) FROM 'samples/norway/regions/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
@@ -187,7 +228,7 @@ BEGIN
             FROM public.import_definition_step ds
             JOIN public.import_data_column dc ON ds.step_id = dc.step_id
             WHERE ds.definition_id = def_id
-              AND dc.column_name = map_rec.target_name
+              AND dc.column_name = map_rec.target_name || '_raw'
               AND dc.purpose = 'source_input';
 
             IF v_data_col_id IS NOT NULL THEN
@@ -221,7 +262,7 @@ BEGIN
         SELECT def_id, 'default'::public.import_source_expression, dc.id
         FROM public.import_data_column dc
         WHERE dc.step_id = v_valid_time_step_id
-          AND dc.column_name IN ('valid_from', 'valid_to')
+          AND dc.column_name IN ('valid_from_raw', 'valid_to_raw')
           AND dc.purpose = 'source_input'
         ON CONFLICT DO NOTHING;
     END;
@@ -235,7 +276,7 @@ BEGIN
         UPDATE public.import_data_column
         SET is_uniquely_identifying = true
         WHERE step_id = v_idents_step_id -- Use step_id
-          AND column_name = 'tax_ident'
+          AND column_name = 'tax_ident_raw'
           AND purpose = 'source_input';
     END; -- End of the inner BEGIN/END block
     
@@ -354,7 +395,7 @@ BEGIN
             FROM public.import_definition_step ds
             JOIN public.import_data_column dc ON ds.step_id = dc.step_id
             WHERE ds.definition_id = def_id
-              AND dc.column_name = map_rec.target_name
+              AND dc.column_name = map_rec.target_name || '_raw'
               AND dc.purpose = 'source_input';
 
             IF v_data_col_id IS NOT NULL THEN
@@ -388,7 +429,7 @@ BEGIN
         SELECT def_id, 'default'::public.import_source_expression, dc.id
         FROM public.import_data_column dc
         WHERE dc.step_id = v_valid_time_step_id
-          AND dc.column_name IN ('valid_from', 'valid_to')
+          AND dc.column_name IN ('valid_from_raw', 'valid_to_raw')
           AND dc.purpose = 'source_input'
         ON CONFLICT DO NOTHING;
     END;
@@ -402,7 +443,7 @@ BEGIN
         UPDATE public.import_data_column
         SET is_uniquely_identifying = true
         WHERE step_id = v_idents_step_id -- Use step_id
-          AND column_name = 'tax_ident'
+          AND column_name = 'tax_ident_raw'
           AND purpose = 'source_input';
     END; -- End of the inner BEGIN/END block
 

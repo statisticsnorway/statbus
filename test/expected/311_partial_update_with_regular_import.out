@@ -256,7 +256,7 @@ state        | processed
 errors       | {                                                                                                                       +
              | }
 merge_status | {                                                                                                                       +
-             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                                  +
+             |     "legal_unit": "APPLIED",                                                                                            +
              |     "stat_turnover": "APPLIED"                                                                                          +
              | }
 -[ RECORD 3 ]+-------------------------------------------------------------------------------------------------------------------------
@@ -266,7 +266,7 @@ state        | processed
 errors       | {                                                                                                                       +
              | }
 merge_status | {                                                                                                                       +
-             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                                  +
+             |     "legal_unit": "APPLIED",                                                                                            +
              |     "stat_turnover": "APPLIED"                                                                                          +
              | }
 -[ RECORD 4 ]+-------------------------------------------------------------------------------------------------------------------------
@@ -276,7 +276,7 @@ state        | processed
 errors       | {                                                                                                                       +
              | }
 merge_status | {                                                                                                                       +
-             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                                  +
+             |     "legal_unit": "APPLIED",                                                                                            +
              |     "stat_turnover": "APPLIED"                                                                                          +
              | }
 -[ RECORD 5 ]+-------------------------------------------------------------------------------------------------------------------------
@@ -286,7 +286,7 @@ state        | processed
 errors       | {                                                                                                                       +
              | }
 merge_status | {                                                                                                                       +
-             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                                  +
+             |     "legal_unit": "APPLIED",                                                                                            +
              |     "stat_turnover": "APPLIED"                                                                                          +
              | }
 -[ RECORD 6 ]+-------------------------------------------------------------------------------------------------------------------------
@@ -296,7 +296,7 @@ state        | processed
 errors       | {                                                                                                                       +
              | }
 merge_status | {                                                                                                                       +
-             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                                  +
+             |     "legal_unit": "APPLIED",                                                                                            +
              |     "stat_turnover": "APPLIED"                                                                                          +
              | }
 -[ RECORD 7 ]+-------------------------------------------------------------------------------------------------------------------------
@@ -306,7 +306,7 @@ state        | processed
 errors       | {                                                                                                                       +
              | }
 merge_status | {                                                                                                                       +
-             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                                  +
+             |     "legal_unit": "APPLIED",                                                                                            +
              |     "stat_turnover": "APPLIED"                                                                                          +
              | }
 -[ RECORD 8 ]+-------------------------------------------------------------------------------------------------------------------------
@@ -316,7 +316,7 @@ state        | processed
 errors       | {                                                                                                                       +
              | }
 merge_status | {                                                                                                                       +
-             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                                  +
+             |     "legal_unit": "APPLIED",                                                                                            +
              |     "stat_turnover": "APPLIED"                                                                                          +
              | }
 -[ RECORD 9 ]+-------------------------------------------------------------------------------------------------------------------------
@@ -326,7 +326,7 @@ state        | processed
 errors       | {                                                                                                                       +
              | }
 merge_status | {                                                                                                                       +
-             |     "legal_unit": "SKIPPED_IDENTICAL",                                                                                  +
+             |     "legal_unit": "APPLIED",                                                                                            +
              |     "stat_turnover": "APPLIED"                                                                                          +
              | }
 

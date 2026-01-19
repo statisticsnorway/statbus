@@ -108,24 +108,26 @@ CREATE SCHEMA IF NOT EXISTS trigger_test;
 CREATE TABLE trigger_test.temporal_table (
     id SERIAL,
     description TEXT,
+    valid_range daterange NOT NULL,
     valid_from DATE NOT NULL,
     valid_until DATE, -- sql_saga will enforce NOT NULL in trigger
     valid_to DATE -- sql_saga will enforce NOT NULL in trigger
 );
 -- Register with sql_saga and enable synchronization
--- This creates the trigger automatically.
+-- This creates the trigger automatically. valid_range is the authoritative column,
+-- and valid_from, valid_until, valid_to are synchronized from it.
 SELECT sql_saga.add_era(
     'trigger_test.temporal_table'::regclass,
-    synchronize_valid_to_column => 'valid_to'
+    'valid_range'
 );
-NOTICE:  sql_saga: Created trigger "temporal_table_synchronize_temporal_columns_trigger" on table trigger_test.temporal_table to synchronize columns: valid_to
+NOTICE:  sql_saga: Created trigger "temporal_table_synchronize_temporal_columns_trigger" on table trigger_test.temporal_table to synchronize columns: valid_to, valid_from, valid_until
  add_era 
 ---------
  t
 (1 row)
 
 SELECT sql_saga.add_unique_key('trigger_test.temporal_table',ARRAY['id'], key_type => 'primary'::sql_saga.unique_key_type);
-NOTICE:  sql_saga: altering table trigger_test.temporal_table to add constraints: ALTER COLUMN id SET NOT NULL, ADD PRIMARY KEY (id, valid_from) DEFERRABLE, ADD CONSTRAINT temporal_table_id_valid_excl EXCLUDE USING gist (id WITH =, daterange(valid_from, valid_until) WITH &&) DEFERRABLE
+NOTICE:  sql_saga: altering table trigger_test.temporal_table to add constraints: ALTER COLUMN id SET NOT NULL, ADD PRIMARY KEY (id, valid_range WITHOUT OVERLAPS)
      add_unique_key      
 -------------------------
  temporal_table_id_valid
@@ -184,7 +186,7 @@ BEGIN
 EXCEPTION WHEN others THEN
     RAISE NOTICE 'Test 4 Caught expected error: %', SQLERRM;
 END $$;
-NOTICE:  Test 4 Caught expected error: Inconsistent values: "valid_until" is 2024-10-01, but is derived as 2024-10-02 from other inputs.
+NOTICE:  Test 4 Caught expected error: Inconsistent end of period provided. Sources: {"valid_to": "2024-10-02", "valid_until": "2024-10-01"}
 SELECT * FROM trigger_test.show_table(); -- Should not contain 'Test 4 Fail'
  id | description | valid_from | valid_until |  valid_to  
 ----+-------------+------------+-------------+------------
@@ -259,7 +261,7 @@ BEGIN
 EXCEPTION WHEN others THEN
     RAISE NOTICE 'Test 9 Caught expected error: %', SQLERRM;
 END $$;
-NOTICE:  Test 9 Caught expected error: Inconsistent values: "valid_until" is 2025-05-02, but is derived as 2025-05-03 from other inputs.
+NOTICE:  Test 9 Caught expected error: Inconsistent end of period provided. Sources: {"valid_to": "2025-05-03", "valid_until": "2025-05-02"}
 SELECT * FROM trigger_test.show_table() WHERE id = :base_update_id_id; -- Should reflect state from Test 8
  id |   description   | valid_from | valid_until |  valid_to  
 ----+-----------------+------------+-------------+------------
@@ -278,11 +280,10 @@ BEGIN
 EXCEPTION WHEN others THEN
     RAISE NOTICE 'Test 10 Caught expected error: %', SQLERRM;
 END $$;
-NOTICE:  Test 10 Caught expected error: An update resulted in an unbounded period by setting the end date to NULL. To make a period open-ended, set "valid_until" to 'infinity'.
 SELECT * FROM trigger_test.show_table() WHERE id = :base_update_id_id; -- Should reflect state from Test 8
- id |   description   | valid_from | valid_until |  valid_to  
-----+-----------------+------------+-------------+------------
-  6 | Base Update Row | 2025-01-01 | 2025-04-01  | 2025-03-31
+ id |   description   | valid_from | valid_until | valid_to 
+----+-----------------+------------+-------------+----------
+  6 | Base Update Row | 2025-01-01 | infinity    | infinity
 (1 row)
 
 -- 11. UPDATE setting valid_to to NULL - Expect error
@@ -297,11 +298,10 @@ BEGIN
 EXCEPTION WHEN others THEN
     RAISE NOTICE 'Test 11 Caught expected error: %', SQLERRM;
 END $$;
-NOTICE:  Test 11 Caught expected error: An update resulted in an unbounded period by setting the end date to NULL. To make a period open-ended, set "valid_to" to 'infinity'.
 SELECT * FROM trigger_test.show_table() WHERE id = :base_update_id_id; -- Should reflect state from Test 8
- id |   description   | valid_from | valid_until |  valid_to  
-----+-----------------+------------+-------------+------------
-  6 | Base Update Row | 2025-01-01 | 2025-04-01  | 2025-03-31
+ id |   description   | valid_from | valid_until | valid_to 
+----+-----------------+------------+-------------+----------
+  6 | Base Update Row | 2025-01-01 | infinity    | infinity
 (1 row)
 
 -- 12. UPDATE changing only valid_from (should not affect valid_to/valid_until)
@@ -309,9 +309,9 @@ SELECT * FROM trigger_test.show_table() WHERE id = :base_update_id_id; -- Should
 Test 12: UPDATE changing only valid_from
 UPDATE trigger_test.temporal_table SET valid_from = '2025-01-15' WHERE id = :base_update_id_id;
 SELECT * FROM trigger_test.show_table() WHERE id = :base_update_id_id; -- Expected: valid_to/valid_until as per Test 8, valid_from updated
- id |   description   | valid_from | valid_until |  valid_to  
-----+-----------------+------------+-------------+------------
-  6 | Base Update Row | 2025-01-15 | 2025-04-01  | 2025-03-31
+ id |   description   | valid_from | valid_until | valid_to 
+----+-----------------+------------+-------------+----------
+  6 | Base Update Row | 2025-01-15 | infinity    | infinity
 (1 row)
 
 -- Cleanup

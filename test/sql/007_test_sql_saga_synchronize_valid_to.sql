@@ -12,16 +12,18 @@ CREATE SCHEMA IF NOT EXISTS trigger_test;
 CREATE TABLE trigger_test.temporal_table (
     id SERIAL,
     description TEXT,
+    valid_range daterange NOT NULL,
     valid_from DATE NOT NULL,
     valid_until DATE, -- sql_saga will enforce NOT NULL in trigger
     valid_to DATE -- sql_saga will enforce NOT NULL in trigger
 );
 
 -- Register with sql_saga and enable synchronization
--- This creates the trigger automatically.
+-- This creates the trigger automatically. valid_range is the authoritative column,
+-- and valid_from, valid_until, valid_to are synchronized from it.
 SELECT sql_saga.add_era(
     'trigger_test.temporal_table'::regclass,
-    synchronize_valid_to_column => 'valid_to'
+    'valid_range'
 );
 SELECT sql_saga.add_unique_key('trigger_test.temporal_table',ARRAY['id'], key_type => 'primary'::sql_saga.unique_key_type);
 
