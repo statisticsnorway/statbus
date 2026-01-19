@@ -34,7 +34,8 @@ CALL worker.process_tasks(p_queue => 'analytics');
 \echo "Taking snapshot of statistics before partial update (for the historical period being changed)"
 CREATE TEMP TABLE stats_before_update AS
 SELECT unit_type
-     , jsonb_stats_summary_merge_agg(stats_summary) AS stats_summary
+     -- ORDER BY ensures deterministic floating-point accumulation order
+     , jsonb_stats_summary_merge_agg(stats_summary ORDER BY stats_summary::text) AS stats_summary
  FROM statistical_unit
  WHERE valid_from <= '2023-07-01'::date AND '2023-07-01'::date < valid_until
    AND unit_type = 'establishment'
@@ -144,7 +145,8 @@ ORDER BY idt.stat_ident::int, sd.code, sfu.valid_from;
 \echo "Checking resulting statistics after Partial Update. Should show turnover updated, and employees unchanged."
 \x off
 WITH stats_after AS (
-    SELECT unit_type, jsonb_stats_summary_merge_agg(stats_summary) AS stats_summary
+    -- ORDER BY ensures deterministic floating-point accumulation order
+    SELECT unit_type, jsonb_stats_summary_merge_agg(stats_summary ORDER BY stats_summary::text) AS stats_summary
     FROM statistical_unit
     WHERE valid_from <= '2023-07-01'::date AND '2023-07-01'::date < valid_until AND unit_type = 'establishment'
     GROUP BY unit_type

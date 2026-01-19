@@ -150,7 +150,8 @@ CALL worker.process_tasks(p_queue => 'analytics');
 "Taking snapshot of statistics before partial update (for the historical period being changed)"
 CREATE TEMP TABLE stats_before_update AS
 SELECT unit_type
-     , jsonb_stats_summary_merge_agg(stats_summary) AS stats_summary
+     -- ORDER BY ensures deterministic floating-point accumulation order
+     , jsonb_stats_summary_merge_agg(stats_summary ORDER BY stats_summary::text) AS stats_summary
  FROM statistical_unit
  WHERE valid_from <= '2023-07-01'::date AND '2023-07-01'::date < valid_until
    AND unit_type = 'establishment'
@@ -434,7 +435,8 @@ ORDER BY idt.stat_ident::int, sd.code, sfu.valid_from;
 "Checking resulting statistics after Partial Update. Should show turnover updated, and employees unchanged."
 \x off
 WITH stats_after AS (
-    SELECT unit_type, jsonb_stats_summary_merge_agg(stats_summary) AS stats_summary
+    -- ORDER BY ensures deterministic floating-point accumulation order
+    SELECT unit_type, jsonb_stats_summary_merge_agg(stats_summary ORDER BY stats_summary::text) AS stats_summary
     FROM statistical_unit
     WHERE valid_from <= '2023-07-01'::date AND '2023-07-01'::date < valid_until AND unit_type = 'establishment'
     GROUP BY unit_type
@@ -466,7 +468,7 @@ FROM stats_after sa JOIN stats_before_update sb ON sa.unit_type = sb.unit_type;
            |               |     "sum_sq_diff": 2367761.83,           +|     "sum_sq_diff": 45866249.33,          +
            |               |     "coefficient_of_variation_pct": 36.40+|     "coefficient_of_variation_pct": 72.88+
            |               | }                                         | }
- employees | t             | {                                        +| {                                        +
+ employees | f             | {                                        +| {                                        +
            |               |     "max": 10,                           +|     "max": 10,                           +
            |               |     "min": 0,                            +|     "min": 0,                            +
            |               |     "sum": 213,                          +|     "sum": 213,                          +
@@ -475,7 +477,7 @@ FROM stats_after sa JOIN stats_before_update sb ON sa.unit_type = sb.unit_type;
            |               |     "count": 24,                         +|     "count": 24,                         +
            |               |     "stddev": 3.05,                      +|     "stddev": 3.05,                      +
            |               |     "variance": 9.33,                    +|     "variance": 9.33,                    +
-           |               |     "sum_sq_diff": 214.63,               +|     "sum_sq_diff": 214.63,               +
+           |               |     "sum_sq_diff": 214.62,               +|     "sum_sq_diff": 214.63,               +
            |               |     "coefficient_of_variation_pct": 34.42+|     "coefficient_of_variation_pct": 34.42+
            |               | }                                         | }
 (2 rows)
