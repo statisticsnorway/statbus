@@ -1,18 +1,19 @@
 "use client";
 import { useRef } from "react";
 import * as highcharts from "highcharts";
-import type { Chart } from "highcharts";
 import { chart } from "highcharts";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 
 export const HistoryChangesChart = ({
   history,
+  isYearlyView,
+  onYearSelect,
 }: {
   readonly history: StatisticalHistoryHighcharts;
+  readonly isYearlyView?: boolean;
+  readonly onYearSelect?: (year: number) => void;
 }) => {
   const _ref = useRef<HTMLDivElement>(null);
-  const _chart = useRef<Chart | null>(null);
-
 
   const colors = [
     "#1A3A70",
@@ -33,9 +34,8 @@ export const HistoryChangesChart = ({
     () => {
       const chartSeries = history.series;
       if (!_ref.current || !highcharts || !chartSeries) return;
-      _chart.current?.destroy();
 
-      _chart.current = chart({
+      const chartInstance = chart({
         lang: {
           thousandsSep: " ",
         },
@@ -72,6 +72,16 @@ export const HistoryChangesChart = ({
           },
           column: {
             borderWidth: 0,
+            point: {
+              events: {
+                click: function () {
+                  if (isYearlyView && onYearSelect) {
+                    const year = new Date(this.x).getFullYear();
+                    onYearSelect(year);
+                  }
+                },
+              },
+            },
           },
         },
 
@@ -89,8 +99,11 @@ export const HistoryChangesChart = ({
           enabled: true,
         },
       });
+      return () => {
+        chartInstance.destroy();
+      };
     },
-    [history],
+    [history, isYearlyView, onYearSelect],
     "HistoryChangesChart:createChart"
   );
 
