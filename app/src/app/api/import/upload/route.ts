@@ -79,10 +79,8 @@ export async function POST(request: NextRequest) {
     const pgClient = await pool.connect();
 
     try {
-      // Begin transaction
-      await pgClient.query('BEGIN');
-      
-      // Switch to the user's role using the JWT token
+      // CRITICAL: Switch to the user's role BEFORE BEGIN transaction
+      // If inside transaction, malicious SQL could ROLLBACK to become authenticator
       try {
         await pgClient.query('SELECT auth.jwt_switch_role($1)', [accessToken]);
         logger.info(`Successfully switched to user role for import job ${job.id}`);
@@ -93,6 +91,9 @@ export async function POST(request: NextRequest) {
           { status: 403 }
         );
       }
+
+      // Begin transaction (after role is switched)
+      await pgClient.query('BEGIN');
 
       // --- Header Extraction ---
       // Read just enough to get the header line without loading the whole file
