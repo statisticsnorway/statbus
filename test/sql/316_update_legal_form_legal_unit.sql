@@ -8,12 +8,13 @@ BEGIN;
 CALL test.set_user_from_email('test.admin@statbus.org');
 
 \echo "User selected the Activity Category Standard"
-INSERT INTO settings(activity_category_standard_id,only_one_setting)
-SELECT id, true FROM activity_category_standard WHERE code = 'isic_v4'
+INSERT INTO settings(activity_category_standard_id,country_id)
+SELECT (SELECT id FROM activity_category_standard WHERE code = 'isic_v4')
+     , (SELECT id FROM public.country WHERE iso_2 = 'UN')
 ON CONFLICT (only_one_setting)
 DO UPDATE SET
-   activity_category_standard_id =(SELECT id FROM activity_category_standard WHERE code = 'isic_v4')
-   WHERE settings.id = EXCLUDED.id;
+    activity_category_standard_id = EXCLUDED.activity_category_standard_id,
+    country_id = EXCLUDED.country_id;
 ;
 
 \echo "User uploads the sample regions"
