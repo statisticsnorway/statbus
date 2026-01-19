@@ -5,9 +5,9 @@ import type { Chart } from "highcharts";
 import { chart } from "highcharts";
 
 export const HistoryChart = ({
-  history,
+  historyHighcharts,
 }: {
-  readonly history: StatisticalUnitHistoryHighcharts;
+  readonly historyHighcharts: StatisticalUnitHistoryHighcharts;
 }) => {
   const _ref = useRef<HTMLDivElement>(null);
   const _chart = useRef<Chart | null>(null);
@@ -28,7 +28,7 @@ export const HistoryChart = ({
   ];
 
   useEffect(() => {
-    const chartSeries = history.series;
+    const chartSeries = historyHighcharts.series;
     if (!_ref.current || !highcharts || chartSeries.length === 0) return;
     _chart.current?.destroy();
 
@@ -70,7 +70,7 @@ export const HistoryChart = ({
         backgroundColor: "white",
       },
       title: {
-        text: history.unit_name,
+        text: historyHighcharts.unit_name,
       },
       xAxis: {
         type: "datetime",
@@ -129,7 +129,7 @@ export const HistoryChart = ({
         enabled: true,
       },
     });
-  }, [history]);
+  }, [historyHighcharts]);
 
   return <div ref={_ref} />;
 };

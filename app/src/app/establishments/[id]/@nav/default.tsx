@@ -24,6 +24,7 @@ export default async function NavSlot(
       <SidebarLink href={`/establishments/${id}/statistical-variables`}>
         Statistical variables
       </SidebarLink>
+      <SidebarLink href={`/establishments/${id}/history`}>History</SidebarLink>
       <SidebarLink href={`/establishments/${id}/links`}>
         Links and external references
       </SidebarLink>

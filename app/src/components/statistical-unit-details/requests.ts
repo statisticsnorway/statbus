@@ -163,7 +163,7 @@ export async function getStatisticalUnitStats(
   return { stats, error: errorWithName };
 }
 
-export async function getStatisticalUnitHistory(
+export async function getStatisticalUnitHistoryHighcharts(
   unitId: number,
   unitType: "enterprise" | "enterprise_group" | "legal_unit" | "establishment"
 ) {
@@ -208,4 +208,21 @@ export async function getStatisticalUnitHistory(
       error: { ...postgrestError, name: "supabase-error" },
     };
   }
+}
+
+export async function getStatisticalUnitHistory(
+  unitId: number,
+  unitType: "enterprise" | "enterprise_group" | "legal_unit" | "establishment"
+) {
+  const client = await getServerRestClient();
+  const { data, error } = await client
+    .from("statistical_unit")
+    .select(
+      "valid_from,name,physical_region(code,name),primary_activity_category(code,name),status(code,name)"
+    )
+    .eq("unit_id", unitId)
+    .eq("unit_type", unitType)
+    .order("valid_from");
+
+  return { data, error };
 }

@@ -10,12 +10,15 @@ export async function GET(request: NextRequest) {
   const unitType = searchParams.get("unit_type") as
     UnitType;
   const series_codes = searchParams.get("series_codes")?.split(",");
+  const yearParam = searchParams.get("year");
+  const year = yearParam ? parseInt(yearParam, 10) : undefined;
 
   const client = await getServerRestClient();
   const { data, error } = await client.rpc("statistical_history_highcharts", {
     p_resolution: resolution,
     p_unit_type: unitType,
     p_series_codes: series_codes,
+    p_year: year,
   });
 
   if (error) {

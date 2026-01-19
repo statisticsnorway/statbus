@@ -9,10 +9,10 @@ import { HistoryChart } from "@/components/statistical-unit-details/unit-history
 import UnitHistoryTable from "@/components/statistical-unit-details/unit-history-table";
 
 export const metadata: Metadata = {
-  title: "Enterprise | History",
+  title: "Establishment | History",
 };
 
-export default async function EnterpriseHistoryPage(props: {
+export default async function EstablishmentHistoryPage(props: {
   readonly params: Promise<{ id: string }>;
 }) {
   const params = await props.params;
@@ -23,8 +23,8 @@ export default async function EnterpriseHistoryPage(props: {
     { data: historyHighcharts, error: highchartsError },
     { data: unitHistory, error: unitHistoryError },
   ] = await Promise.all([
-    getStatisticalUnitHistoryHighcharts(parseInt(id, 10), "enterprise"),
-    getStatisticalUnitHistory(parseInt(id, 10), "enterprise"),
+    getStatisticalUnitHistoryHighcharts(parseInt(id, 10), "establishment"),
+    getStatisticalUnitHistory(parseInt(id, 10), "establishment"),
   ]);
 
   if (highchartsError || unitHistoryError) {

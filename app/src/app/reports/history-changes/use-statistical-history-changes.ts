@@ -6,13 +6,17 @@ import { fetchWithAuthRefresh } from "@/context/RestClientStore";
 export const useStatisticalHistoryChanges = (
   unitType: UnitType,
   resolution: Enums<"history_resolution"> = "year",
-  series_codes: string[]
+  series_codes: string[],
+  year?: number
 ) => {
   const urlSearchParams = new URLSearchParams();
 
   urlSearchParams.set("resolution", resolution);
   urlSearchParams.set("unit_type", unitType);
   urlSearchParams.set("series_codes", series_codes.join(","));
+  if (year) {
+    urlSearchParams.set("year", year.toString());
+  }
 
   const fetcher = (url: string) =>
     fetchWithAuthRefresh(url).then((res) => res.json());
