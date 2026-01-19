@@ -37,9 +37,8 @@
                                        ->  GroupAggregate
                                              ->  Sort
                                                    Sort Key: timeline_establishment.establishment_id
-                                                   ->  Index Scan using idx_timeline_establishment_enterprise_id on timeline_establishment
-                                                         Index Cond: (enterprise_id = en_1.id)
-                                                         Filter: ((t_1.valid_from < valid_until) AND (valid_from < t_1.valid_until))
+                                                   ->  Seq Scan on timeline_establishment
+                                                         Filter: ((t_1.valid_from < valid_until) AND (valid_from < t_1.valid_until) AND (enterprise_id = en_1.id))
                ->  Limit
                      ->  Sort
                            Sort Key: enplu_1.valid_from DESC, enplu_1.legal_unit_id DESC
@@ -48,9 +47,8 @@
          ->  Limit
                ->  Sort
                      Sort Key: enpes_1.valid_from DESC, enpes_1.establishment_id DESC
-                     ->  Index Scan using idx_timeline_establishment_enterprise_id on timeline_establishment enpes_1
-                           Index Cond: (enterprise_id = en.id)
-                           Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until))
+                     ->  Seq Scan on timeline_establishment enpes_1
+                           Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (enterprise_id = en.id))
    ->  Memoize
          Cache Key: en.edit_comment, en.edit_by_user_id, en.edit_at, enplu_1.last_edit_comment, enplu_1.last_edit_by_user_id, enplu_1.last_edit_at, enpes_1.last_edit_comment, enpes_1.last_edit_by_user_id, enpes_1.last_edit_at
          Cache Mode: binary
@@ -101,5 +99,5 @@
                              ->  Result
                        ->  ProjectSet
                              ->  Result
-(101 rows)
+(99 rows)
 

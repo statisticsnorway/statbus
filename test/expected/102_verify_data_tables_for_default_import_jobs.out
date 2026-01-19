@@ -340,10 +340,10 @@ Describing table for definition: legal_unit_job_provided (Job: t54_lu_tc, Data T
  fax_number                           | text                      |           |          | 
  contact_id                           | integer                   |           |          | 
  employees_raw                        | text                      |           |          | 
- turnover_raw                         | text                      |           |          | 
  employees                            | integer                   |           |          | 
- turnover                             | numeric                   |           |          | 
  stat_for_unit_employees_id           | integer                   |           |          | 
+ turnover_raw                         | text                      |           |          | 
+ turnover                             | numeric                   |           |          | 
  stat_for_unit_turnover_id            | integer                   |           |          | 
  tag_path_raw                         | text                      |           |          | 
  tag_path                             | ltree                     |           |          | 
@@ -480,10 +480,10 @@ Describing table for definition: legal_unit_source_dates (Job: t54_lu_sd, Data T
  fax_number                           | text                      |           |          | 
  contact_id                           | integer                   |           |          | 
  employees_raw                        | text                      |           |          | 
- turnover_raw                         | text                      |           |          | 
  employees                            | integer                   |           |          | 
- turnover                             | numeric                   |           |          | 
  stat_for_unit_employees_id           | integer                   |           |          | 
+ turnover_raw                         | text                      |           |          | 
+ turnover                             | numeric                   |           |          | 
  stat_for_unit_turnover_id            | integer                   |           |          | 
  tag_path_raw                         | text                      |           |          | 
  tag_path                             | ltree                     |           |          | 
@@ -619,10 +619,10 @@ Describing table for definition: establishment_for_lu_job_provided (Job: t54_est
  fax_number                           | text                      |           |          | 
  contact_id                           | integer                   |           |          | 
  employees_raw                        | text                      |           |          | 
- turnover_raw                         | text                      |           |          | 
  employees                            | integer                   |           |          | 
- turnover                             | numeric                   |           |          | 
  stat_for_unit_employees_id           | integer                   |           |          | 
+ turnover_raw                         | text                      |           |          | 
+ turnover                             | numeric                   |           |          | 
  stat_for_unit_turnover_id            | integer                   |           |          | 
  tag_path_raw                         | text                      |           |          | 
  tag_path                             | ltree                     |           |          | 
@@ -758,10 +758,10 @@ Describing table for definition: establishment_for_lu_source_dates (Job: t54_est
  fax_number                           | text                      |           |          | 
  contact_id                           | integer                   |           |          | 
  employees_raw                        | text                      |           |          | 
- turnover_raw                         | text                      |           |          | 
  employees                            | integer                   |           |          | 
- turnover                             | numeric                   |           |          | 
  stat_for_unit_employees_id           | integer                   |           |          | 
+ turnover_raw                         | text                      |           |          | 
+ turnover                             | numeric                   |           |          | 
  stat_for_unit_turnover_id            | integer                   |           |          | 
  tag_path_raw                         | text                      |           |          | 
  tag_path                             | ltree                     |           |          | 
@@ -896,10 +896,10 @@ Describing table for definition: establishment_without_lu_job_provided (Job: t54
  fax_number                           | text                      |           |          | 
  contact_id                           | integer                   |           |          | 
  employees_raw                        | text                      |           |          | 
- turnover_raw                         | text                      |           |          | 
  employees                            | integer                   |           |          | 
- turnover                             | numeric                   |           |          | 
  stat_for_unit_employees_id           | integer                   |           |          | 
+ turnover_raw                         | text                      |           |          | 
+ turnover                             | numeric                   |           |          | 
  stat_for_unit_turnover_id            | integer                   |           |          | 
  tag_path_raw                         | text                      |           |          | 
  tag_path                             | ltree                     |           |          | 
@@ -1034,10 +1034,10 @@ Describing table for definition: establishment_without_lu_source_dates (Job: t54
  fax_number                           | text                      |           |          | 
  contact_id                           | integer                   |           |          | 
  employees_raw                        | text                      |           |          | 
- turnover_raw                         | text                      |           |          | 
  employees                            | integer                   |           |          | 
- turnover                             | numeric                   |           |          | 
  stat_for_unit_employees_id           | integer                   |           |          | 
+ turnover_raw                         | text                      |           |          | 
+ turnover                             | numeric                   |           |          | 
  stat_for_unit_turnover_id            | integer                   |           |          | 
  tag_path_raw                         | text                      |           |          | 
  tag_path                             | ltree                     |           |          | 
@@ -1097,10 +1097,10 @@ Describing table for definition: generic_unit_stats_update_job_provided (Job: t5
  data_source_code_raw       | text                      |           |          | 
  data_source_id             | integer                   |           |          | 
  employees_raw              | text                      |           |          | 
- turnover_raw               | text                      |           |          | 
  employees                  | integer                   |           |          | 
- turnover                   | numeric                   |           |          | 
  stat_for_unit_employees_id | integer                   |           |          | 
+ turnover_raw               | text                      |           |          | 
+ turnover                   | numeric                   |           |          | 
  stat_for_unit_turnover_id  | integer                   |           |          | 
  edit_comment_raw           | text                      |           |          | 
  edit_by_user_id            | integer                   |           |          | 
@@ -1156,10 +1156,10 @@ Describing table for definition: generic_unit_stats_update_source_dates (Job: t5
  data_source_code_raw       | text                      |           |          | 
  data_source_id             | integer                   |           |          | 
  employees_raw              | text                      |           |          | 
- turnover_raw               | text                      |           |          | 
  employees                  | integer                   |           |          | 
- turnover                   | numeric                   |           |          | 
  stat_for_unit_employees_id | integer                   |           |          | 
+ turnover_raw               | text                      |           |          | 
+ turnover                   | numeric                   |           |          | 
  stat_for_unit_turnover_id  | integer                   |           |          | 
  edit_comment_raw           | text                      |           |          | 
  edit_by_user_id            | integer                   |           |          | 

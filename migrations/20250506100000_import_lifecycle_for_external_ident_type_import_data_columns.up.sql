@@ -7,8 +7,9 @@ DECLARE
     v_step_id INT;
     v_ident_type RECORD;
     v_def RECORD;
-    v_current_priority INT;
+    v_base_priority INT;
     v_active_codes TEXT[];
+    v_calculated_priority INT;
 BEGIN
     SELECT id INTO v_step_id FROM public.import_step WHERE code = 'external_idents';
     IF v_step_id IS NULL THEN
@@ -19,18 +20,26 @@ BEGIN
     SELECT array_agg(code ORDER BY priority) INTO v_active_codes FROM public.external_ident_type_active;
     RAISE DEBUG '[import.generate_external_ident_data_columns] For step_id % (external_idents), ensuring data columns for active codes: %', v_step_id, v_active_codes;
 
-    SELECT COALESCE(MAX(idc.priority), 0) INTO v_current_priority
-    FROM public.import_data_column idc WHERE idc.step_id = v_step_id;
+    -- Get the highest priority among non-dynamic columns (those without purpose='source_input')
+    -- For external_idents step, this should be 4 (from establishment_id)
+    SELECT COALESCE(MAX(idc.priority), 0) INTO v_base_priority
+    FROM public.import_data_column idc 
+    WHERE idc.step_id = v_step_id 
+      AND idc.purpose != 'source_input';
 
     -- Add source_input column for each active external_ident_type for the step
-    FOR v_ident_type IN SELECT code FROM public.external_ident_type_active ORDER BY priority
+    -- Expected baseline: tax_ident_raw (priority=1) -> 7, stat_ident_raw (priority=2) -> 8
+    -- With base_priority = 4, formula: base_priority + 2 + v_ident_type.priority
+    FOR v_ident_type IN SELECT code, priority FROM public.external_ident_type_active ORDER BY priority
     LOOP
-        v_current_priority := v_current_priority + 1;
+        v_calculated_priority := v_base_priority + 2 + v_ident_type.priority;
+        
         INSERT INTO public.import_data_column (step_id, column_name, column_type, purpose, is_nullable, is_uniquely_identifying, priority)
-        VALUES (v_step_id, v_ident_type.code || '_raw', 'TEXT', 'source_input', true, true, v_current_priority)
+        VALUES (v_step_id, v_ident_type.code || '_raw', 'TEXT', 'source_input', true, true, v_calculated_priority)
         ON CONFLICT (step_id, column_name) DO UPDATE SET
             priority = EXCLUDED.priority,
-            is_uniquely_identifying = EXCLUDED.is_uniquely_identifying;
+            is_uniquely_identifying = EXCLUDED.is_uniquely_identifying
+        WHERE public.import_data_column.priority != EXCLUDED.priority;  -- Only update if priority changed
     END LOOP;
 END;
 $$;

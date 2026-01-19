@@ -3459,10 +3459,22 @@ NOTICE:  Dropped index su_ss_turnover_count_idx
 NOTICE:  Dropped index su_ss_turnover_sum_idx
 NOTICE:  Created index su_ei_tax_ident for external_ident_type
 NOTICE:  Created index su_ei_stat_ident for external_ident_type
+NOTICE:  Dropped index su_ei_stat_ident_idx
+NOTICE:  Dropped index su_ei_tax_ident_idx
+NOTICE:  Created index su_ei_tax_ident for external_ident_type
+NOTICE:  Created index su_ei_stat_ident for external_ident_type
 NOTICE:  Created indices for stat_definition employees
 NOTICE:  Created indices for stat_definition turnover
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
+NOTICE:  Dropped index su_s_employees_idx
+NOTICE:  Dropped index su_s_turnover_idx
+NOTICE:  Dropped index su_ss_employees_count_idx
+NOTICE:  Dropped index su_ss_employees_sum_idx
+NOTICE:  Dropped index su_ss_turnover_count_idx
+NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Created indices for stat_definition employees
+NOTICE:  Created indices for stat_definition turnover
 NOTICE:  Dropped index su_s_employees_idx
 NOTICE:  Dropped index su_s_turnover_idx
 NOTICE:  Dropped index su_ss_employees_count_idx

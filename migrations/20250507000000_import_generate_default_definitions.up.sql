@@ -19,10 +19,15 @@ BEGIN
 
     RAISE DEBUG '[Sync Mappings Def ID %] Synchronizing mappings for step % (Definition: active=%, custom=%).', p_definition_id, p_step_code, v_def.active, v_def.custom;
 
+    -- Get the current max priority for this definition once, before the loop
+    SELECT COALESCE(MAX(priority), 0) INTO v_max_priority
+    FROM public.import_source_column WHERE definition_id = p_definition_id;
+
     FOR v_data_col IN
         SELECT
             dc.id AS data_column_id,
             dc.column_name AS data_column_name,
+            dc.priority AS data_column_priority,
             regexp_replace(dc.column_name, '_raw$', '') AS source_column_name
         FROM public.import_data_column dc
         JOIN public.import_step s ON dc.step_id = s.id
@@ -30,6 +35,7 @@ BEGIN
         WHERE ids.definition_id = p_definition_id
           AND s.code = p_step_code
           AND dc.purpose = 'source_input'
+        ORDER BY dc.priority
     LOOP
         -- Ensure import_source_column exists
         SELECT id INTO v_source_col_id
@@ -37,13 +43,17 @@ BEGIN
         WHERE definition_id = p_definition_id AND column_name = v_data_col.source_column_name;
 
         IF NOT FOUND THEN
-            SELECT COALESCE(MAX(priority), 0) + 1 INTO v_max_priority
-            FROM public.import_source_column WHERE definition_id = p_definition_id;
+            -- Use sequential priority assignment to avoid conflicts
+            -- Increment max priority and assign to new source column
+            v_max_priority := v_max_priority + 1;
 
             INSERT INTO public.import_source_column (definition_id, column_name, priority)
             VALUES (p_definition_id, v_data_col.source_column_name, v_max_priority)
             RETURNING id INTO v_source_col_id;
-            RAISE DEBUG '[Sync Mappings Def ID %] Created source column "%" (ID: %) for data column ID %.', p_definition_id, v_data_col.source_column_name, v_source_col_id, v_data_col.data_column_id;
+            RAISE DEBUG '[Sync Mappings Def ID %] Created source column "%" (ID: %) with priority % for data column ID %.', p_definition_id, v_data_col.source_column_name, v_source_col_id, v_max_priority, v_data_col.data_column_id;
+        ELSE
+            -- Column already exists, preserve it
+            RAISE DEBUG '[Sync Mappings Def ID %] Source column "%" already exists (ID: %), preserving it.', p_definition_id, v_data_col.source_column_name, v_source_col_id;
         END IF;
 
         -- Ensure import_mapping exists. If newly created by this sync, it should be a valid, non-ignored mapping.
@@ -60,10 +70,6 @@ BEGIN
     -- Re-validate the definition after potential changes
     PERFORM admin.validate_import_definition(p_definition_id);
     RAISE DEBUG '[Sync Mappings Def ID %] Finished synchronizing mappings for step % and re-validated.', p_definition_id, p_step_code;
-
-EXCEPTION
-    WHEN OTHERS THEN
-        RAISE WARNING '[Sync Mappings Def ID %] Error during import.synchronize_definition_step_mappings for step %: %', p_definition_id, p_step_code, SQLERRM;
 END;
 $$;
 

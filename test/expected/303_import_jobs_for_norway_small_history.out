@@ -717,10 +717,10 @@ Triggers:
  fax_number                           | text                      |           |          | 
  contact_id                           | integer                   |           |          | 
  employees_raw                        | text                      |           |          | 
- turnover_raw                         | text                      |           |          | 
  employees                            | integer                   |           |          | 
- turnover                             | numeric                   |           |          | 
  stat_for_unit_employees_id           | integer                   |           |          | 
+ turnover_raw                         | text                      |           |          | 
+ turnover                             | numeric                   |           |          | 
  stat_for_unit_turnover_id            | integer                   |           |          | 
  tag_path_raw                         | text                      |           |          | 
  tag_path                             | ltree                     |           |          | 
@@ -2154,8 +2154,26 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "is_uniquely_identifying": false                                     +
          },                                                                       +
          {                                                                        +
-             "purpose": "source_input",                                           +
+             "purpose": "internal",                                               +
              "priority": 2,                                                       +
+             "column_name": "employees",                                          +
+             "column_type": "INTEGER",                                            +
+             "is_nullable": true,                                                 +
+             "default_value": null,                                               +
+             "is_uniquely_identifying": false                                     +
+         },                                                                       +
+         {                                                                        +
+             "purpose": "pk_id",                                                  +
+             "priority": 3,                                                       +
+             "column_name": "stat_for_unit_employees_id",                         +
+             "column_type": "INTEGER",                                            +
+             "is_nullable": true,                                                 +
+             "default_value": null,                                               +
+             "is_uniquely_identifying": false                                     +
+         },                                                                       +
+         {                                                                        +
+             "purpose": "source_input",                                           +
+             "priority": 4,                                                       +
              "column_name": "turnover_raw",                                       +
              "column_type": "TEXT",                                               +
              "is_nullable": true,                                                 +
@@ -2164,27 +2182,9 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          },                                                                       +
          {                                                                        +
              "purpose": "internal",                                               +
-             "priority": 3,                                                       +
-             "column_name": "employees",                                          +
-             "column_type": "INTEGER",                                            +
-             "is_nullable": true,                                                 +
-             "default_value": null,                                               +
-             "is_uniquely_identifying": false                                     +
-         },                                                                       +
-         {                                                                        +
-             "purpose": "internal",                                               +
-             "priority": 4,                                                       +
+             "priority": 5,                                                       +
              "column_name": "turnover",                                           +
              "column_type": "NUMERIC",                                            +
-             "is_nullable": true,                                                 +
-             "default_value": null,                                               +
-             "is_uniquely_identifying": false                                     +
-         },                                                                       +
-         {                                                                        +
-             "purpose": "pk_id",                                                  +
-             "priority": 5,                                                       +
-             "column_name": "stat_for_unit_employees_id",                         +
-             "column_type": "INTEGER",                                            +
              "is_nullable": true,                                                 +
              "default_value": null,                                               +
              "is_uniquely_identifying": false                                     +
@@ -2685,10 +2685,10 @@ Triggers:
  fax_number                           | text                      |           |          | 
  contact_id                           | integer                   |           |          | 
  employees_raw                        | text                      |           |          | 
- turnover_raw                         | text                      |           |          | 
  employees                            | integer                   |           |          | 
- turnover                             | numeric                   |           |          | 
  stat_for_unit_employees_id           | integer                   |           |          | 
+ turnover_raw                         | text                      |           |          | 
+ turnover                             | numeric                   |           |          | 
  stat_for_unit_turnover_id            | integer                   |           |          | 
  tag_path_raw                         | text                      |           |          | 
  tag_path                             | ltree                     |           |          | 
@@ -4113,8 +4113,26 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "is_uniquely_identifying": false                                       +
          },                                                                         +
          {                                                                          +
-             "purpose": "source_input",                                             +
+             "purpose": "internal",                                                 +
              "priority": 2,                                                         +
+             "column_name": "employees",                                            +
+             "column_type": "INTEGER",                                              +
+             "is_nullable": true,                                                   +
+             "default_value": null,                                                 +
+             "is_uniquely_identifying": false                                       +
+         },                                                                         +
+         {                                                                          +
+             "purpose": "pk_id",                                                    +
+             "priority": 3,                                                         +
+             "column_name": "stat_for_unit_employees_id",                           +
+             "column_type": "INTEGER",                                              +
+             "is_nullable": true,                                                   +
+             "default_value": null,                                                 +
+             "is_uniquely_identifying": false                                       +
+         },                                                                         +
+         {                                                                          +
+             "purpose": "source_input",                                             +
+             "priority": 4,                                                         +
              "column_name": "turnover_raw",                                         +
              "column_type": "TEXT",                                                 +
              "is_nullable": true,                                                   +
@@ -4123,27 +4141,9 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          },                                                                         +
          {                                                                          +
              "purpose": "internal",                                                 +
-             "priority": 3,                                                         +
-             "column_name": "employees",                                            +
-             "column_type": "INTEGER",                                              +
-             "is_nullable": true,                                                   +
-             "default_value": null,                                                 +
-             "is_uniquely_identifying": false                                       +
-         },                                                                         +
-         {                                                                          +
-             "purpose": "internal",                                                 +
-             "priority": 4,                                                         +
+             "priority": 5,                                                         +
              "column_name": "turnover",                                             +
              "column_type": "NUMERIC",                                              +
-             "is_nullable": true,                                                   +
-             "default_value": null,                                                 +
-             "is_uniquely_identifying": false                                       +
-         },                                                                         +
-         {                                                                          +
-             "purpose": "pk_id",                                                    +
-             "priority": 5,                                                         +
-             "column_name": "stat_for_unit_employees_id",                           +
-             "column_type": "INTEGER",                                              +
              "is_nullable": true,                                                   +
              "default_value": null,                                                 +
              "is_uniquely_identifying": false                                       +

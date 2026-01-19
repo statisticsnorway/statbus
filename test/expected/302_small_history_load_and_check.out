@@ -588,10 +588,10 @@ FROM def;
  fax_number                           | text                      |           |          |                              | extended |              | 
  contact_id                           | integer                   |           |          |                              | plain    |              | 
  employees_raw                        | text                      |           |          |                              | extended |              | 
- turnover_raw                         | text                      |           |          |                              | extended |              | 
  employees                            | integer                   |           |          |                              | plain    |              | 
- turnover                             | numeric                   |           |          |                              | main     |              | 
  stat_for_unit_employees_id           | integer                   |           |          |                              | plain    |              | 
+ turnover_raw                         | text                      |           |          |                              | extended |              | 
+ turnover                             | numeric                   |           |          |                              | main     |              | 
  stat_for_unit_turnover_id            | integer                   |           |          |                              | plain    |              | 
  tag_path_raw                         | text                      |           |          |                              | extended |              | 
  tag_path                             | ltree                     |           |          |                              | extended |              | 
