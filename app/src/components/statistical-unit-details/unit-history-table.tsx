@@ -15,7 +15,7 @@ export default function UnitHistoryTable({
   if (!unitHistory) return;
   return (
     <Table>
-      <TableHeader>
+      <TableHeader className="bg-gray-50 border-t-1">
         <TableRow>
           <TableHead>Valid from</TableHead>
           <TableHead>Name</TableHead>
