@@ -61,9 +61,90 @@ atom awaits the completion of the core atom's refresh if subsequent logic or com
         - The `PathSaver` component continuously saves the user's last authenticated location. The `RedirectGuard` component later reads this state when it needs to trigger a redirect, ensuring the value is stable and correct.
 
 
+## API Architecture: Direct `/rest` vs Next.js `/api` Routes
+
+**CRITICAL**: Prefer direct browser-to-`/rest` requests over proxying through Next.js `/api` routes.
+
+### Why Direct `/rest` Requests Are Preferred
+
+1. **Easier Debugging**: Direct `/rest` calls expose the actual request/response to and from the database, making it trivial to inspect what PostgREST is doing.
+2. **User Integration**: Users can observe `/rest` calls in their browser's Network tab, learning the API patterns and enabling them to integrate their own systems using API keys.
+3. **Transparency**: STATBUS offers API keys for external integrations. Direct `/rest` calls from the browser demonstrate the exact same API that external users will consume.
+4. **Performance**: Eliminates an unnecessary proxy layer and reduces server-side compute.
+5. **Security**: JWT tokens map directly to database roles with RLS policies. There are typically NO server-side secrets needed—authentication and authorization happen entirely at the database layer via PostgREST.
+
+### When to Use Each Pattern
+
+**Use Direct `/rest` Requests (Preferred)**:
+- All standard CRUD operations (GET, POST, PATCH, DELETE)
+- Filtered queries, pagination, sorting
+- Calling database functions via PostgREST RPC
+- Any operation where the database schema/RLS provides sufficient security
+
+**Use Next.js `/api` Routes (Only When Required)**:
+- **Performance optimizations** requiring direct database access (e.g., bulk uploads using PostgreSQL `COPY` command—see upload routes as reference)
+- Operations requiring environment variables/secrets not exposed to browser (rare—JWT authentication eliminates most needs)
+- Complex orchestration across multiple external services
+- Webhook handlers from external systems
+- Operations requiring server-side rate limiting beyond database capabilities
+
+### Security: JWT Role Switching in `/api` Routes
+
+**CRITICAL**: When using direct database connections in `/api` routes, `auth.jwt_switch_role()` **MUST** be called **BEFORE** `BEGIN`:
+
+- ✅ **Correct**: `jwt_switch_role()` → `BEGIN` → operations → `COMMIT`
+- ❌ **Vulnerable**: `BEGIN` → `jwt_switch_role()` → operations (user could `ROLLBACK` to become `authenticator`)
+
+Role changes inside a transaction are rolled back with `ROLLBACK`, allowing SQL injection to escalate privileges.
+
+### Implementation Pattern
+
+**Direct `/rest` Request (Preferred):**
+```typescript
+// In a component or Jotai atom
+const response = await fetch('/rest/legal_units?id=eq.123', {
+  headers: {
+    'Authorization': `Bearer ${token}`,
+    'Accept': 'application/json',
+  },
+});
+```
+
+**Next.js `/api` Route (Only When Necessary):**
+```typescript
+// app/api/import/upload/route.ts - Performance optimization example
+export async function POST(request: NextRequest) {
+  // Extract JWT from cookies (same security model as /rest)
+  const accessToken = request.cookies.get('statbus')?.value;
+  if (!accessToken) {
+    return NextResponse.json({ message: "Authentication required" }, { status: 401 });
+  }
+  
+  // Connect as authenticator role, then switch to user's role via JWT
+  const pool = new Pool({
+    host: dbHost, port: dbPort, database: dbName,
+    user: "authenticator",
+    password: process.env.POSTGRES_AUTHENTICATOR_PASSWORD,
+  });
+  const pgClient = await pool.connect();
+  
+  // CRITICAL: Switch role BEFORE BEGIN to prevent ROLLBACK attack
+  // If inside transaction, malicious SQL could ROLLBACK to become authenticator
+  await pgClient.query('SELECT auth.jwt_switch_role($1)', [accessToken]);
+  
+  await pgClient.query('BEGIN');
+  // Now perform efficient bulk operation with user's permissions
+  await pgClient.query('COPY my_table FROM STDIN ...', streamData);
+  await pgClient.query('COMMIT');
+  
+  return NextResponse.json({ imported: count });
+}
+```
+
 ## Data Fetching (SWR)
 - `useSWR` is primarily used for fetching, caching, and revalidating component-level or UI-specific server state. This is suitable for data that doesn't need to be deeply integrated into the global Jotai state or shared across many distant parts of the application.
 - Key SWR features like revalidation on focus/interval, local mutation, and request deduplication are beneficial for such use cases.
+- **Data Source**: SWR should primarily fetch from `/rest` endpoints (see API Architecture above), not `/api` routes, unless there's a specific reason requiring server-side logic.
 - **Interaction with Jotai**:
     - SWR's fetch keys can be derived from Jotai atoms (e.g., `useAtomValue(derivedParamsAtom)`). Changes in these Jotai atoms will naturally trigger SWR to re-fetch with the new key. This pattern is used in `SearchResults.tsx`.
     - SWR-fetched data can be synced back to global Jotai atoms using `useGuardedEffect` and `setAtom` if the data needs to be globally accessible or trigger other Jotai-dependent logic (as seen in `SearchResults.tsx` with `searchResultAtom`).

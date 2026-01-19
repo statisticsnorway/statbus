@@ -194,6 +194,14 @@ import { Pool } from 'pg';
 - Use `@/` for absolute imports from `app/src/`
 - Named exports preferred over default exports
 
+**API Architecture:**
+- **CRITICAL**: Prefer direct browser-to-`/rest` requests over Next.js `/api` routes
+- Why: Easier debugging, enables user integration, transparency, better performance
+- Direct `/rest` shows actual database requests/responses (PostgREST)
+- Users can learn API patterns from browser Network tab for their own integrations
+- Security: JWT tokens map to database roles—NO server-side secrets typically needed
+- Only use `/api` routes for performance optimizations (e.g., bulk upload via COPY) or webhooks
+
 **State Management (Jotai):**
 - **CRITICAL**: Small, independent atoms prevent re-render loops
 - If state can change independently, it MUST be in its own atom
