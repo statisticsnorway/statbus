@@ -74,6 +74,8 @@ export type TableColumnCode =
   | "legal_form"
   | "data_sources"
   | "physical_address"
+  | "physical_country_iso_2"
+  | "domestic"
   | "birth_date"
   | "death_date"
   | "status"

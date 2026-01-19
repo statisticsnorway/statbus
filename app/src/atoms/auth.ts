@@ -401,18 +401,13 @@ export const useIsAuthenticated = (): boolean => {
 // PERMISSIONS
 // ============================================================================
 
-export const userRoleAtom = atom(
-  (get) =>
-    get(currentUserAtom)?.statbus_role as
-      | "admin_user"
-      | "regular_user"
-      | "restricted_user"
-      | "external_user"
-);
+export type UserRole =
+  | "admin_user"
+  | "regular_user"
+  | "restricted_user"
+  | "external_user";
 
-export const permissionAtom = atom((get) => {
-  const role = get(userRoleAtom);
-
+export const getUserPermissions = (role: UserRole | null | undefined) => {
   const permissions = {
     canEdit: false,
     canImport: false,
@@ -436,8 +431,17 @@ export const permissionAtom = atom((get) => {
       break;
   }
   return permissions;
+};
+
+export const userRoleAtom = atom(
+  (get) => get(currentUserAtom)?.statbus_role as UserRole
+);
+
+export const permissionAtom = atom((get) => {
+  const role = get(userRoleAtom);
+  return getUserPermissions(role);
 });
 
 export const usePermission = () => {
   return useAtomValue(permissionAtom);
-};
+};                                         

@@ -26,6 +26,7 @@ import {
   sectorDeriveStateUpdateFromValues,
   activityCategoryDeriveStateUpdateFromValues,
   statusDeriveStateUpdateFromValues,
+  domesticDeriveStateUpdateFromValues,
   lastEditByUserDeriveStateUpdateFromValues,
   unitSizeDeriveStateUpdateFromValues,
   dataSourceDeriveStateUpdateFromValues,
@@ -42,7 +43,8 @@ import {
   LAST_EDIT_BY_USER,
   UNIT_SIZE,
   DATA_SOURCE,
-} from '../app/search/filters/url-search-params'
+  DOMESTIC,
+} from "../app/search/filters/url-search-params";
 
 import { selectedTimeContextAtom } from './app'
 import { restClientAtom } from './rest-client'
@@ -402,6 +404,22 @@ const availableTableColumnsAtomUnstable = atom<TableColumn[]>((get) => {
     },
     {
       type: "Adaptable",
+      code: "physical_country_iso_2",
+      label: "Country",
+      visible: false,
+      stat_code: null,
+      profiles: ["All"],
+    },
+    {
+      type: "Adaptable",
+      code: "domestic",
+      label: "Domestic",
+      visible: false,
+      stat_code: null,
+      profiles: ["All"],
+    },
+    {
+      type: "Adaptable",
       code: "birth_date",
       label: "Birth Date",
       visible: false,
@@ -479,6 +497,14 @@ export const initializeTableColumnsAtom = atom(null, (get, set) => {
     set(tableColumnsAtom, availableColumns);
     return;
   }
+
+   if (storedColumns.length === 0) {
+     const initColumns = availableColumns.map((col) =>
+       col.type === "Adaptable" ? { ...col, visible: true } : col
+     );
+     set(tableColumnsAtom, initColumns);
+     return;
+   }
 
   const mergedColumns = availableColumns.map((availCol) => {
     const storedCol = storedColumns.find(
@@ -648,6 +674,16 @@ const derivedApiSearchParamsAtomUnstable = atom((get) => {
           invalidCodesDeriveStateUpdateFromValues(invalidCodesValue);
         if (invalidCodesAction.type === "set_query")
           actionPayloadPart = invalidCodesAction.payload;
+        break;
+      case DOMESTIC:
+       const domesticValue =
+         Array.isArray(appParamValue) && appParamValue.length > 0
+           ? (appParamValue[0] as string | null)
+           : null;
+        const domesticAction =
+          domesticDeriveStateUpdateFromValues(domesticValue);
+        if (domesticAction.type === "set_query")
+          actionPayloadPart = domesticAction.payload;
         break;
       case LEGAL_FORM:
         const ensuredLegalFormValues = Array.isArray(appParamValue)

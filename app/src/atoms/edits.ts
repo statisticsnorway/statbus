@@ -28,8 +28,7 @@ export const setEditTargetAtom = atom(
     fieldId: string | null,
     options?: { validFrom?: string | null; validTo?: string | null }
   ) => {
-    set(currentEditAtom, (prev) => ({
-      ...prev,
+    set(currentEditAtom, () => ({
       fieldId: fieldId,
       validFrom: options?.validFrom ?? null,
       validTo: options?.validTo ?? null,

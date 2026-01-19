@@ -16,6 +16,7 @@ import { ColumnSelectorButton } from "./column-selector-button";
 import StatusFilter from "../filters/status/status-filter";
 import UnitSizeFilter from "../filters/unit-size/unit-size-filter";
 import LastEditByUserFilter from "../filters/last-edit-by-user/last-edit-by-user-filter";
+import DomesticFilter from "../filters/domestic-filter";
 
 export default function TableToolbar() {
   return (
@@ -25,17 +26,20 @@ export default function TableToolbar() {
         <ExternalIdentFilter />
       </FilterWrapper>
       <UnitTypeFilter />
-      <FilterWrapper columnCode="sector">
-        <SectorFilter />
+      <FilterWrapper columnCode="activity">
+        <ActivityCategoryFilter />
       </FilterWrapper>
       <FilterWrapper columnCode="region">
         <RegionFilter />
       </FilterWrapper>
+      <FilterWrapper columnCode="sector">
+        <SectorFilter />
+      </FilterWrapper>
       <FilterWrapper columnCode="legal_form">
         <LegalFormFilter />
       </FilterWrapper>
-      <FilterWrapper columnCode="activity">
-        <ActivityCategoryFilter />
+      <FilterWrapper columnCode="domestic">
+        <DomesticFilter />
       </FilterWrapper>
       <FilterWrapper columnCode="status">
         <StatusFilter />

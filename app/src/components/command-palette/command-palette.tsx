@@ -24,6 +24,7 @@ import {
   Binary,
   ChartColumn,
   Users,
+  KeyRound,
 } from "lucide-react";
 
 import {
@@ -37,6 +38,7 @@ import {
 } from "@/components/ui/command";
 import { DialogDescription, DialogTitle } from "@radix-ui/react-dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
+import { ApiKeyDialog } from "./api-key-dialog";
 
 
 export function CommandPalette() {
@@ -74,7 +76,13 @@ export function CommandPalette() {
 
   const handleResetAll = () => {
     setOpen(false);
-    const event = new CustomEvent('show-reset-dialog');
+    const event = new CustomEvent("show-reset-dialog");
+    document.dispatchEvent(event);
+  };
+
+  const handleShowApiKey = () => {
+    setOpen(false);
+    const event = new CustomEvent("show-api-key-dialog");
     document.dispatchEvent(event);
   };
 
@@ -149,6 +157,13 @@ export function CommandPalette() {
             >
               <LogOut className="mr-2 h-4 w-4" />
               <span>Logout</span>
+            </CommandItem>
+            <CommandItem
+              onSelect={handleShowApiKey}
+              value="show copy api key token"
+            >
+              <KeyRound className="mr-2 h-4 w-4" />
+              <span>Show API key</span>
             </CommandItem>
           </CommandGroup>
           {(canAccessGettingStarted || canImport) && (
@@ -293,6 +308,7 @@ export function CommandPalette() {
         </CommandList>
       </CommandDialog>
       <ResetConfirmationDialog />
+      <ApiKeyDialog />
     </>
   );
 }

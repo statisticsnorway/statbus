@@ -18,6 +18,7 @@ import {
 import { statbusUsersAtom, externalIdentTypesAtom } from "@/atoms/base-data";
 import { useAtomValue } from "jotai";
 import { Tables } from "@/lib/database.types";
+import { Square, SquareCheckBig } from "lucide-react";
 
 interface SearchResultTableRowProps {
   unit: StatisticalUnit;
@@ -69,6 +70,8 @@ export const StatisticalUnitTableRow = ({
     allStatuses.find(({ id }: Tables<'status'>) => id === status_id);
 
   const status = getStatusById(unit.status_id);
+
+  const notUsedForCounting = status?.used_for_counting === false;
 
   const getUnitSizeById = (unit_size_id: number | null) =>
     allUnitSizes.find(({ id }: Tables<'unit_size'>) => id === unit_size_id);
@@ -122,7 +125,16 @@ export const StatisticalUnitTableRow = ({
   return (
     <TableRow
       key={`row-${bodyRowSuffix(unit)}`}
-      className={cn("", isInBasket ? "bg-gray-100" : "")}
+      className={cn(
+        "",
+        isInBasket ? "bg-gray-100" : "",
+        notUsedForCounting && "italic text-gray-500"
+      )}
+      title={
+        notUsedForCounting
+          ? `This unit has status ${status.name} and is therefore not counted`
+          : ""
+      }
     >
       {columns.map((column: TableColumn) => {
         if (column.type === "Adaptable" && !column.visible) {
@@ -136,10 +148,7 @@ export const StatisticalUnitTableRow = ({
                 key={`cell-${bodyCellSuffix(unit, column)}`}
                 className={getCellClassName(column)}
               >
-                <div
-                  className="flex items-center space-x-3 leading-tight"
-                  title={unit.name ?? ""}
-                >
+                <div className="flex items-center space-x-3 leading-tight">
                   <StatisticalUnitIcon
                     type={unit.unit_type}
                     className="w-5"
@@ -393,6 +402,36 @@ export const StatisticalUnitTableRow = ({
               </TableCell>
             );
 
+          case "physical_country_iso_2":
+            return (
+              <TableCell
+                key={`cell-${bodyCellSuffix(unit, column)}`}
+                className={getCellClassName(column)}
+              >
+                <div className="flex flex-col space-y-0.5 leading-tight">
+                  <span className="whitespace-nowrap">
+                    {unit.physical_country_iso_2}
+                  </span>
+                </div>
+              </TableCell>
+            );
+          case "domestic":
+            return (
+              <TableCell
+                key={`cell-${bodyCellSuffix(unit, column)}`}
+                className={getCellClassName(column)}
+              >
+                <div className="flex flex-col space-y-0.5 leading-tight">
+                  <span className="text-gray-700 whitespace-nowrap">
+                    {unit.domestic ? (
+                      <SquareCheckBig size={16} />
+                    ) : (
+                      <Square size={16} />
+                    )}
+                  </span>
+                </div>
+              </TableCell>
+            );
           case "birth_date":
             return (
               <TableCell

@@ -203,6 +203,30 @@ export function statusDeriveStateUpdateFromValues(
   } as SearchAction;
   return result;
 }                      
+export const DOMESTIC = "domestic";
+
+export function domesticDeriveStateUpdateFromSearchParams(
+  urlSearchParams: URLSearchParams
+): SearchAction {
+  const initialValue = urlSearchParams.get(DOMESTIC);
+  return domesticDeriveStateUpdateFromValues(initialValue);
+}
+
+export function domesticDeriveStateUpdateFromValues(
+  value: string | null
+): SearchAction {
+  let result = {
+    type: "set_query",
+    payload: {
+      app_param_name: DOMESTIC,
+      api_param_name: DOMESTIC,
+      api_param_value:
+        value === "true" ? `is.true` : value === "false" ? `is.false` : null,
+      app_param_values: value !== null ? [value] : [],
+    },
+  } as SearchAction;
+  return result;
+}                      
 
 export const UNIT_SIZE = "unit_size_code";
 
