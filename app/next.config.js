@@ -70,8 +70,10 @@ if (isDevelopment) {
       : `http://${originalBrowserRestUrl}`;
 
     // Step 2: Determine the local Next.js app URL.
+    // Use local.statbus.org instead of localhost to avoid cross-origin issues
+    // when accessing the app via local.statbus.org
     const localAppPort = process.env.PORT || 3000;
-    const actualLocalAppUrl = `http://localhost:${localAppPort}`;
+    const actualLocalAppUrl = `http://local.statbus.org:${localAppPort}`;
     // Store this also in an internal environment variable.
     process.env.INTERNAL_LOCAL_APP_URL = actualLocalAppUrl;
     
