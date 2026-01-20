@@ -1,0 +1,280 @@
+BEGIN;
+\i test/setup.sql
+-- While the datestyle is set for the database, the pg_regress tool sets the MDY format
+-- to ensure consistent date formatting, so we must manually override this
+SET datestyle TO 'ISO, DMY';
+\if :{?DEBUG}
+SET client_min_messages TO debug1;
+\else
+SET client_min_messages TO NOTICE;
+\endif
+-- Create temporary function to execute queries as system user
+CREATE OR REPLACE FUNCTION test.sudo_exec(
+    sql text,
+    OUT results jsonb
+) RETURNS jsonb
+SECURITY DEFINER LANGUAGE plpgsql AS $sudo_exec$
+DECLARE
+    result_rows jsonb;
+BEGIN
+    -- Check if the SQL starts with common DDL keywords
+    IF sql ~* '^\s*(CREATE|DROP|ALTER|TRUNCATE|GRANT|REVOKE|ANALYZE)' THEN
+        -- For DDL statements, execute directly
+        EXECUTE sql;
+        results := '[]'::jsonb;
+    ELSE
+        -- For DML/queries, wrap in a SELECT to capture results
+        EXECUTE format('
+            SELECT COALESCE(
+                jsonb_agg(row_to_json(t)),
+                ''[]''::jsonb
+            )
+            FROM (%s) t',
+            sql
+        ) INTO result_rows;
+        results := result_rows;
+    END IF;
+END;
+$sudo_exec$;
+-- Grant execute to public since this is for testing
+GRANT EXECUTE ON FUNCTION test.sudo_exec(text) TO PUBLIC;
+\echo Add users for testing purposes
+Add users for testing purposes
+SELECT * FROM public.user_create(p_display_name => 'Test Admin', p_email => 'test.admin@statbus.org', p_statbus_role => 'admin_user'::statbus_role, p_password => 'Admin#123!');
+         email          |  password  
+------------------------+------------
+ test.admin@statbus.org | Admin#123!
+(1 row)
+
+SELECT * FROM public.user_create(p_display_name => 'Test Regular', p_email => 'test.regular@statbus.org', p_statbus_role => 'regular_user'::statbus_role, p_password => 'Regular#123!');
+          email           |   password   
+--------------------------+--------------
+ test.regular@statbus.org | Regular#123!
+(1 row)
+
+SELECT * FROM public.user_create(p_display_name => 'Test Restricted', p_email => 'test.restricted@statbus.org', p_statbus_role => 'restricted_user'::statbus_role, p_password => 'Restricted#123!');
+            email            |    password     
+-----------------------------+-----------------
+ test.restricted@statbus.org | Restricted#123!
+(1 row)
+
+CREATE OR REPLACE PROCEDURE test.remove_pg_temp_for_tx_user_switch(p_keep_tables text[] DEFAULT '{}')
+LANGUAGE plpgsql
+AS $remove_pg_temp_for_tx_user_switch$
+DECLARE
+    rec record;
+    v_found_count integer := 0;
+BEGIN
+    RAISE DEBUG 'Running test.remove_pg_temp_for_tx_user_switch(p_keep_tables => %)...', p_keep_tables;
+    -- Remove temporary cache tables used by import, as we switch user inside the *same* transaction,
+    -- and the new user can not modify tables owned by the previous import.
+    -- This generic loop cleans up all tables and views in the pg_temp schema, except those specified to keep.
+    FOR rec IN
+        SELECT
+            c.relname,
+            c.relkind
+        FROM pg_catalog.pg_class AS c
+        LEFT JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+        WHERE c.relkind IN ('r', 'p', 'v', 'm') AND n.oid = pg_my_temp_schema() -- r=table, p=partitioned, v=view, m=materialized
+          AND c.relname <> ALL(p_keep_tables)
+    LOOP
+        v_found_count := v_found_count + 1;
+        IF rec.relkind IN ('r', 'p', 'm') THEN
+            RAISE DEBUG '  -> Dropping temp TABLE %', rec.relname;
+            EXECUTE format('DROP TABLE IF EXISTS pg_temp.%I CASCADE', rec.relname);
+        ELSIF rec.relkind = 'v' THEN
+            RAISE DEBUG '  -> Dropping temp VIEW %', rec.relname;
+            EXECUTE format('DROP VIEW IF EXISTS pg_temp.%I CASCADE', rec.relname);
+        END IF;
+    END LOOP;
+
+    RAISE DEBUG '...finished test.remove_pg_temp_for_tx_user_switch(). Found and dropped % objects.', v_found_count;
+
+    -- This procedure is part of the sql_saga extension and has its own cleanup logic.
+    -- While the loop above handles tables/views, this call ensures any other temporary
+    -- objects it creates are also cleaned up.
+    CALL sql_saga.temporal_merge_drop_temp_tables();
+END;
+$remove_pg_temp_for_tx_user_switch$;
+\echo "Setting up Statbus using the web provided examples"
+"Setting up Statbus using the web provided examples"
+-- A Super User configures statbus.
+CALL test.set_user_from_email('test.admin@statbus.org');
+\echo "User selected the Activity Category Standard"
+"User selected the Activity Category Standard"
+INSERT INTO settings(activity_category_standard_id,country_id)
+SELECT (SELECT id FROM activity_category_standard WHERE code = 'isic_v4')
+     , (SELECT id FROM public.country WHERE iso_2 = 'UN')
+ON CONFLICT (only_one_setting)
+DO UPDATE SET
+    activity_category_standard_id = EXCLUDED.activity_category_standard_id,
+    country_id = EXCLUDED.country_id;
+;
+\echo "User uploads the sample regions"
+"User uploads the sample regions"
+\copy public.region_upload(path, name) FROM 'app/public/demo/regions_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+SAVEPOINT before_loading_units;
+SELECT
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
+ establishment_count | legal_unit_count | enterprise_count 
+---------------------+------------------+------------------
+                   0 |                0 |                0
+(1 row)
+
+-- Create Import Job for Legal Units
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
+    'import_317_lu_era',
+    'Import Legal Units Era (317_legal_unit_update.sql)',
+    'Import job for legal units from test/data/03_norwegian-legal-units-over-time.csv using legal_unit_source_dates definition.',
+    'Test data load (317_legal_unit_update.sql)';
+\echo "User uploads the legal units over time (via import job: import_317_lu_era)"
+"User uploads the legal units over time (via import job: import_317_lu_era)"
+\copy public.import_317_lu_era_upload(stat_ident,name,birth_date,primary_activity_category_code,legal_form_code,sector_code,valid_from,valid_to) FROM 'test/data/316_legal_unit_updates.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo Run worker processing for import jobs
+Run worker processing for import jobs
+--SET client_min_messages TO DEBUG1;
+CALL worker.process_tasks(p_queue => 'import');
+--SET client_min_messages TO NOTICE;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
+   queue   |   state   | count 
+-----------+-----------+-------
+ analytics | pending   |     4
+ import    | completed |    47
+(2 rows)
+
+\echo "Checking unit counts after import processing"
+"Checking unit counts after import processing"
+SELECT
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
+ establishment_count | legal_unit_count | enterprise_count 
+---------------------+------------------+------------------
+                   0 |                1 |                1
+(1 row)
+
+\echo "Inspecting import job data for import_317_lu_era"
+"Inspecting import job data for import_317_lu_era"
+SELECT row_id, state, errors, stat_ident_raw, name_raw, data_source_code_raw, merge_status
+FROM public.import_317_lu_era_data
+ORDER BY row_id
+LIMIT 5;
+ row_id |   state   | errors | stat_ident_raw |          name_raw          | data_source_code_raw |                       merge_status                       
+--------+-----------+--------+----------------+----------------------------+----------------------+----------------------------------------------------------
+      1 | processed | {}     | 2              | EQUATOR GLOBE SOLUTIONS    |                      | {"legal_unit": "APPLIED", "primary_activity": "APPLIED"}
+      2 | processed | {}     | 2              | EQUATOR GLOBE SOLUTIONS #2 |                      | {"legal_unit": "APPLIED", "primary_activity": "APPLIED"}
+      3 | processed | {}     | 2              | EQUATOR GLOBE SOLUTIONS #2 |                      | {"legal_unit": "APPLIED", "primary_activity": "APPLIED"}
+(3 rows)
+
+\echo "Checking import job status for import_317_lu_era"
+"Checking import job status for import_317_lu_era"
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
+       (SELECT COUNT(*) FROM public.import_317_lu_era_data dr WHERE dr.state = 'error') AS error_rows
+FROM public.import_job
+WHERE slug = 'import_317_lu_era'
+ORDER BY slug;
+       slug        |  state   | total_rows | imported_rows | has_error | error_rows 
+-------------------+----------+------------+---------------+-----------+------------
+ import_317_lu_era | finished |          3 |             3 | f         |          0
+(1 row)
+
+\echo Run worker processing for analytics tasks
+Run worker processing for analytics tasks
+CALL worker.process_tasks(p_queue => 'analytics');
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
+   queue   |   state   | count 
+-----------+-----------+-------
+ analytics | completed |     6
+ import    | completed |    47
+(2 rows)
+
+\echo "Checking legal unit"
+"Checking legal unit"
+SELECT name, valid_from, valid_to
+ FROM legal_unit
+ ORDER BY valid_from;
+            name            | valid_from |  valid_to  
+----------------------------+------------+------------
+ EQUATOR GLOBE SOLUTIONS    | 2023-01-01 | 2023-12-31
+ EQUATOR GLOBE SOLUTIONS #2 | 2024-01-01 | 2025-12-31
+(2 rows)
+
+SELECT category_id, valid_from, valid_to
+ FROM activity
+ ORDER BY  valid_from;
+ category_id | valid_from |  valid_to  
+-------------+------------+------------
+         483 | 2023-01-01 | 2024-12-31
+         485 | 2025-01-01 | 2025-12-31
+(2 rows)
+
+ SELECT name, primary_activity_category_path, valid_from, valid_to FROM statistical_unit WHERE unit_type = 'legal_unit';
+            name            | primary_activity_category_path | valid_from |  valid_to  
+----------------------------+--------------------------------+------------+------------
+ EQUATOR GLOBE SOLUTIONS    | I.56.1.0                       | 2023-01-01 | 2023-12-31
+ EQUATOR GLOBE SOLUTIONS #2 | I.56.1.0                       | 2024-01-01 | 2024-12-31
+ EQUATOR GLOBE SOLUTIONS #2 | I.56.2.1                       | 2025-01-01 | 2025-12-31
+(3 rows)
+
+ 
+SAVEPOINT before_update_on_name;
+\echo "Update name for exact same dates as first activity row"
+"Update name for exact same dates as first activity row"
+UPDATE legal_unit__for_portion_of_valid
+ SET name = 'EQUATOR SOLUTIONS', valid_from = '2023-01-01', valid_to = '2024-12-31'
+ WHERE id = (SELECT id FROM public.legal_unit WHERE name = 'EQUATOR GLOBE SOLUTIONS');
+ \echo Run worker processing for analytics tasks
+Run worker processing for analytics tasks
+ CALL worker.process_tasks(p_queue => 'analytics');
+ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
+   queue   |   state   | count 
+-----------+-----------+-------
+ analytics | completed |     9
+ import    | completed |    47
+(2 rows)
+
+\echo "Checking legal unit after update"
+"Checking legal unit after update"
+SELECT name, valid_from, valid_to
+ FROM legal_unit
+ ORDER BY valid_from;
+            name            | valid_from |  valid_to  
+----------------------------+------------+------------
+ EQUATOR SOLUTIONS          | 2023-01-01 | 2024-12-31
+ EQUATOR GLOBE SOLUTIONS #2 | 2025-01-01 | 2025-12-31
+(2 rows)
+
+\echo "Checking activity after update"
+"Checking activity after update"
+SELECT category_id, valid_from, valid_to
+  FROM activity
+  ORDER BY  valid_from;
+ category_id | valid_from |  valid_to  
+-------------+------------+------------
+         483 | 2023-01-01 | 2024-12-31
+         485 | 2025-01-01 | 2025-12-31
+(2 rows)
+
+ 
+SELECT name, primary_activity_category_path, valid_from, valid_to FROM statistical_unit WHERE unit_type = 'legal_unit';
+            name            | primary_activity_category_path | valid_from |  valid_to  
+----------------------------+--------------------------------+------------+------------
+ EQUATOR SOLUTIONS          | I.56.1.0                       | 2023-01-01 | 2024-12-31
+ EQUATOR GLOBE SOLUTIONS #2 | I.56.2.1                       | 2025-01-01 | 2025-12-31
+(2 rows)
+
+ROLLBACK TO SAVEPOINT before_update_on_name;
+SELECT name, valid_from, valid_to
+ FROM legal_unit
+ ORDER BY valid_from;
+            name            | valid_from |  valid_to  
+----------------------------+------------+------------
+ EQUATOR GLOBE SOLUTIONS    | 2023-01-01 | 2023-12-31
+ EQUATOR GLOBE SOLUTIONS #2 | 2024-01-01 | 2025-12-31
+(2 rows)
+
+ROLLBACK;
