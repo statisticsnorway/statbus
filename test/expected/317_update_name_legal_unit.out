@@ -212,9 +212,69 @@ SELECT category_id, valid_from, valid_to
          485 | 2025-01-01 | 2025-12-31
 (2 rows)
 
+ SELECT name, primary_activity_category_path, valid_from, valid_to FROM statistical_unit WHERE unit_type = 'legal_unit';
+            name            | primary_activity_category_path | valid_from |  valid_to  
+----------------------------+--------------------------------+------------+------------
+ EQUATOR GLOBE SOLUTIONS    | I.56.1.0                       | 2023-01-01 | 2023-12-31
+ EQUATOR GLOBE SOLUTIONS #2 | I.56.1.0                       | 2024-01-01 | 2024-12-31
+ EQUATOR GLOBE SOLUTIONS #2 | I.56.2.1                       | 2025-01-01 | 2025-12-31
+(3 rows)
+
+ 
 SAVEPOINT before_update_on_name;
 \echo "Update name for exact same dates as first activity row"
 "Update name for exact same dates as first activity row"
 UPDATE legal_unit__for_portion_of_valid
  SET name = 'EQUATOR SOLUTIONS', valid_from = '2023-01-01', valid_to = '2024-12-31'
  WHERE id = (SELECT id FROM public.legal_unit WHERE name = 'EQUATOR GLOBE SOLUTIONS');
+ \echo Run worker processing for analytics tasks
+Run worker processing for analytics tasks
+ CALL worker.process_tasks(p_queue => 'analytics');
+ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
+   queue   |   state   | count 
+-----------+-----------+-------
+ analytics | completed |     9
+ import    | completed |    47
+(2 rows)
+
+\echo "Checking legal unit after update"
+"Checking legal unit after update"
+SELECT name, valid_from, valid_to
+ FROM legal_unit
+ ORDER BY valid_from;
+            name            | valid_from |  valid_to  
+----------------------------+------------+------------
+ EQUATOR SOLUTIONS          | 2023-01-01 | 2024-12-31
+ EQUATOR GLOBE SOLUTIONS #2 | 2025-01-01 | 2025-12-31
+(2 rows)
+
+\echo "Checking activity after update"
+"Checking activity after update"
+SELECT category_id, valid_from, valid_to
+  FROM activity
+  ORDER BY  valid_from;
+ category_id | valid_from |  valid_to  
+-------------+------------+------------
+         483 | 2023-01-01 | 2024-12-31
+         485 | 2025-01-01 | 2025-12-31
+(2 rows)
+
+ 
+SELECT name, primary_activity_category_path, valid_from, valid_to FROM statistical_unit WHERE unit_type = 'legal_unit';
+            name            | primary_activity_category_path | valid_from |  valid_to  
+----------------------------+--------------------------------+------------+------------
+ EQUATOR SOLUTIONS          | I.56.1.0                       | 2023-01-01 | 2024-12-31
+ EQUATOR GLOBE SOLUTIONS #2 | I.56.2.1                       | 2025-01-01 | 2025-12-31
+(2 rows)
+
+ROLLBACK TO SAVEPOINT before_update_on_name;
+SELECT name, valid_from, valid_to
+ FROM legal_unit
+ ORDER BY valid_from;
+            name            | valid_from |  valid_to  
+----------------------------+------------+------------
+ EQUATOR GLOBE SOLUTIONS    | 2023-01-01 | 2023-12-31
+ EQUATOR GLOBE SOLUTIONS #2 | 2024-01-01 | 2025-12-31
+(2 rows)
+
+ROLLBACK;

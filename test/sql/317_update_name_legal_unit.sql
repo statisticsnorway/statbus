@@ -79,6 +79,8 @@ SELECT category_id, valid_from, valid_to
  FROM activity
  ORDER BY  valid_from;
 
+ SELECT name, primary_activity_category_path, valid_from, valid_to FROM statistical_unit WHERE unit_type = 'legal_unit';
+ 
 SAVEPOINT before_update_on_name;
 
 \echo "Update name for exact same dates as first activity row"
@@ -86,13 +88,23 @@ UPDATE legal_unit__for_portion_of_valid
  SET name = 'EQUATOR SOLUTIONS', valid_from = '2023-01-01', valid_to = '2024-12-31'
  WHERE id = (SELECT id FROM public.legal_unit WHERE name = 'EQUATOR GLOBE SOLUTIONS');
 
+ \echo Run worker processing for analytics tasks
+ CALL worker.process_tasks(p_queue => 'analytics');
+ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Checking legal unit after update"
 
--- SELECT *
 SELECT name, valid_from, valid_to
  FROM legal_unit
  ORDER BY valid_from;
+
+\echo "Checking activity after update"
+
+SELECT category_id, valid_from, valid_to
+  FROM activity
+  ORDER BY  valid_from;
+ 
+SELECT name, primary_activity_category_path, valid_from, valid_to FROM statistical_unit WHERE unit_type = 'legal_unit';
 
 ROLLBACK TO SAVEPOINT before_update_on_name;
 
