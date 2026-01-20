@@ -162,7 +162,7 @@ Enumerated types used across the schema, with their possible values.
 ## Import System
 Handles the ingestion of data from external files.
 
-- `import_definition(id, slug, name, data_source_id, user_id, valid_time_from, created_at, updated_at, active, note, strategy, mode, custom, valid, validation_error, default_retention_period)`
+- `import_definition(id, slug, name, data_source_id, user_id, valid_time_from, created_at, updated_at, active, note, strategy, mode, custom, valid, validation_error, default_retention_period, import_as_null)`
   - Key FKs: data_source_id, user_id.
   - Enums: `mode` (`public.import_mode`), `strategy` (`public.import_strategy`), `valid_time_from` (`public.import_valid_time_from`).
 - `import_step(id, code, name, created_at, updated_at, priority, analyse_procedure, process_procedure, is_holistic)`

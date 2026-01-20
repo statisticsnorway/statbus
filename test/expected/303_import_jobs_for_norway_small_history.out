@@ -892,6 +892,13 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          "active": true,                                                          +
          "custom": true,                                                          +
          "strategy": "insert_or_update",                                          +
+         "import_as_null": [                                                      +
+             "",                                                                  +
+             "NA",                                                                +
+             "N/A",                                                               +
+             "NULL",                                                              +
+             "NONE"                                                               +
+         ],                                                                       +
          "valid_time_from": "job_provided",                                       +
          "validation_error": null,                                                +
          "default_retention_period": "@ 1 year 6 mons"                            +
@@ -2860,6 +2867,13 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          "active": true,                                                            +
          "custom": true,                                                            +
          "strategy": "insert_or_update",                                            +
+         "import_as_null": [                                                        +
+             "",                                                                    +
+             "NA",                                                                  +
+             "N/A",                                                                 +
+             "NULL",                                                                +
+             "NONE"                                                                 +
+         ],                                                                         +
          "valid_time_from": "job_provided",                                         +
          "validation_error": null,                                                  +
          "default_retention_period": "@ 1 year 6 mons"                              +

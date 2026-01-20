@@ -102,6 +102,7 @@ CREATE TABLE public.import_definition(
     valid boolean NOT NULL DEFAULT false, -- Indicates if the definition passes validation checks
     validation_error text,                -- Stores validation error messages if not valid
     default_retention_period INTERVAL NOT NULL DEFAULT '18 months'::INTERVAL, -- Default period after which related job data can be cleaned up
+    import_as_null text[] NOT NULL DEFAULT ARRAY['', 'NA', 'N/A', 'NULL', 'NONE'], -- Values to treat as NULL during import (case-insensitive)
     created_at timestamp with time zone NOT NULL DEFAULT NOW(),
     updated_at timestamp with time zone NOT NULL DEFAULT NOW()
     -- Removed draft column and draft_valid_error_states constraint
@@ -116,6 +117,7 @@ COMMENT ON COLUMN public.import_definition.valid_time_from IS 'Declaratively def
 COMMENT ON COLUMN public.import_definition.valid IS 'Indicates if the definition passes validation checks.';
 COMMENT ON COLUMN public.import_definition.validation_error IS 'Stores validation error messages if not valid.';
 COMMENT ON COLUMN public.import_definition.default_retention_period IS 'Default period after which related job data (job record, _upload, _data tables) can be cleaned up. Calculated from job creation time.';
+COMMENT ON COLUMN public.import_definition.import_as_null IS 'Array of text values to treat as NULL during import. Matching is case-insensitive. Default includes empty string, NA, N/A, NULL, and NONE.';
 
 -- Removed import_definition_validate_before function and trigger
 -- Validation logic should be consolidated or handled differently if needed beyond job creation check.
@@ -2339,6 +2341,8 @@ DECLARE
     current_target_data_column JSONB;
     error_message TEXT;
     snapshot JSONB := job.definition_snapshot;
+    null_values TEXT[]; -- For import_as_null processing
+    null_case_expr TEXT; -- For CASE expression generation
 BEGIN
     RAISE DEBUG '[Job %] Preparing data: Moving from % to %', job.id, job.upload_table_name, job.data_table_name;
 
@@ -2391,7 +2395,20 @@ BEGIN
             IF current_source_column IS NULL OR current_source_column = 'null'::jsonb THEN
                  RAISE EXCEPTION '[Job %] Could not find source column details for source_column_id % in mapping ID %.', job.id, current_mapping->>'source_column_id', current_mapping->>'id';
             END IF;
-            select_expressions_list := array_append(select_expressions_list, format($$NULLIF(%I, '')$$, current_source_column->>'column_name'));
+            -- Generate CASE expression for case-insensitive null value matching
+            -- Get import_as_null array from the definition snapshot
+            SELECT ARRAY(
+                SELECT jsonb_array_elements_text(job.definition_snapshot->'import_definition'->'import_as_null')
+            ) INTO null_values;
+            
+            -- Build CASE WHEN conditions for each null value (case-insensitive)
+            null_case_expr := format('CASE WHEN UPPER(%I) IN (%s) THEN NULL ELSE %I END',
+                current_source_column->>'column_name',
+                (SELECT string_agg(format('UPPER(%L)', trim(nv)), ', ') FROM unnest(null_values) AS nv),
+                current_source_column->>'column_name'
+            );
+            
+            select_expressions_list := array_append(select_expressions_list, null_case_expr);
         ELSE
             -- This case should be prevented by the CHECK constraint on import_mapping table
             RAISE EXCEPTION '[Job %] Mapping ID % for target data column % (ID: %) has no valid source (column/value/expression). This should not happen.', job.id, current_mapping->>'id', current_target_data_column->>'column_name', current_target_data_column->>'id';

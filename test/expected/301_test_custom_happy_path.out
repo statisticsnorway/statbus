@@ -841,6 +841,121 @@ ORDER BY su.valid_from, su.valid_to;
 (1 row)
 
 ROLLBACK TO scenario_71_c_informal_es_lifecycle;
+-- Scenario 71.D: import_as_null Configuration - Data Cleaning with Null Representations
+SAVEPOINT scenario_71_d_import_as_null;
+\echo "Scenario 71.D: Testing import_as_null configuration for data cleaning"
+"Scenario 71.D: Testing import_as_null configuration for data cleaning"
+\echo "Create import job for testing null representations (NA, N/A, NULL, NONE, empty string)"
+"Create import job for testing null representations (NA, N/A, NULL, NONE, empty string)"
+DO $$
+DECLARE
+    v_definition_id INT;
+BEGIN
+    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_custom_test71';
+    IF v_definition_id IS NULL THEN RAISE EXCEPTION 'Import definition legal_unit_custom_test71 not found.'; END IF;
+    INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
+    VALUES (v_definition_id, 'import_71_d_null_handling', 'Test 71.D: Null value handling', 'Test import_as_null');
+END $$;
+\echo "Insert test data with various null representations"
+"Insert test data with various null representations"
+INSERT INTO public.import_71_d_null_handling_upload(
+    tax_ident, nin_ident, name, birth_date, valid_from, valid_to, physical_region_code, physical_country_iso_2,
+    primary_activity_category_code, legal_form_code, sector_code, men_employees, women_employees, data_source_code
+) VALUES
+-- Row 1: Normal values (no nulls)
+('71D00001', 'NIN71D01', 'Company With Data', '2020-01-01', '2024-01-01', 'infinity', '0301', 'NO', '01.110', 'AS', '2100', '30', '20', 'nlr'),
+-- Row 2: Empty strings (should become NULL)
+('71D00002', '', 'Company Empty Strings', '2020-01-01', '2024-01-01', 'infinity', '', 'NO', '01.110', 'AS', '2100', '', '', 'nlr'),
+-- Row 3: 'NA' uppercase (should become NULL)
+('71D00003', 'NA', 'Company NA Uppercase', '2020-01-01', '2024-01-01', 'infinity', 'NA', 'NO', '01.110', 'AS', '2100', 'NA', 'NA', 'nlr'),
+-- Row 4: 'na' lowercase (should become NULL, case-insensitive)
+('71D00004', 'na', 'Company NA Lowercase', '2020-01-01', '2024-01-01', 'infinity', 'na', 'NO', '01.110', 'AS', '2100', 'na', 'na', 'nlr'),
+-- Row 5: 'N/A' uppercase (should become NULL)
+('71D00005', 'N/A', 'Company N/A Uppercase', '2020-01-01', '2024-01-01', 'infinity', 'N/A', 'NO', '01.110', 'AS', '2100', 'N/A', 'N/A', 'nlr'),
+-- Row 6: 'n/a' lowercase (should become NULL, case-insensitive)
+('71D00006', 'n/a', 'Company N/A Lowercase', '2020-01-01', '2024-01-01', 'infinity', 'n/a', 'NO', '01.110', 'AS', '2100', 'n/a', 'n/a', 'nlr'),
+-- Row 7: 'NULL' uppercase (should become NULL)
+('71D00007', 'NULL', 'Company NULL Uppercase', '2020-01-01', '2024-01-01', 'infinity', 'NULL', 'NO', '01.110', 'AS', '2100', 'NULL', 'NULL', 'nlr'),
+-- Row 8: 'null' lowercase (should become NULL, case-insensitive)
+('71D00008', 'null', 'Company NULL Lowercase', '2020-01-01', '2024-01-01', 'infinity', 'null', 'NO', '01.110', 'AS', '2100', 'null', 'null', 'nlr'),
+-- Row 9: 'Null' mixed case (should become NULL, case-insensitive)
+('71D00009', 'Null', 'Company NULL Mixed', '2020-01-01', '2024-01-01', 'infinity', 'Null', 'NO', '01.110', 'AS', '2100', 'Null', 'Null', 'nlr'),
+-- Row 10: 'NONE' uppercase (should become NULL)
+('71D00010', 'NONE', 'Company NONE Uppercase', '2020-01-01', '2024-01-01', 'infinity', 'NONE', 'NO', '01.110', 'AS', '2100', 'NONE', 'NONE', 'nlr'),
+-- Row 11: 'none' lowercase (should become NULL, case-insensitive)
+('71D00011', 'none', 'Company NONE Lowercase', '2020-01-01', '2024-01-01', 'infinity', 'none', 'NO', '01.110', 'AS', '2100', 'none', 'none', 'nlr'),
+-- Row 12: 'None' mixed case (should become NULL, case-insensitive)
+('71D00012', 'None', 'Company NONE Mixed', '2020-01-01', '2024-01-01', 'infinity', 'None', 'NO', '01.110', 'AS', '2100', 'None', 'None', 'nlr'),
+-- Row 13: Non-matching value (should NOT become NULL - 'NULLIFY' is not in the list)
+('71D00013', 'NULLIFY', 'Company With NULLIFY', '2020-01-01', '2024-01-01', 'infinity', 'NULLIFY', 'NO', '01.110', 'AS', '2100', 'NULLIFY', 'NULLIFY', 'nlr');
+\echo "Process the import job"
+"Process the import job"
+CALL worker.process_tasks(p_queue => 'import');
+\echo "Check import job status - should be finished with all rows processed"
+"Check import job status - should be finished with all rows processed"
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
+       (SELECT COUNT(*) FROM public.import_71_d_null_handling_data dr WHERE dr.state = 'error') AS error_rows
+FROM public.import_job WHERE slug = 'import_71_d_null_handling';
+           slug            |  state   | total_rows | imported_rows | has_error | error_rows 
+---------------------------+----------+------------+---------------+-----------+------------
+ import_71_d_null_handling | finished |         13 |            12 | f         |          1
+(1 row)
+
+\echo "Verify null conversion in data table - check raw values vs processed values"
+"Verify null conversion in data table - check raw values vs processed values"
+SELECT 
+    row_id,
+    tax_ident_raw,
+    nin_ident_raw,
+    physical_region_code_raw,
+    men_employees_raw,
+    women_employees_raw,
+    CASE WHEN nin_ident_raw IS NULL THEN '<NULL>' ELSE nin_ident_raw END as nin_check,
+    CASE WHEN physical_region_code_raw IS NULL THEN '<NULL>' ELSE physical_region_code_raw END as region_check,
+    CASE WHEN men_employees_raw IS NULL THEN '<NULL>' ELSE men_employees_raw END as men_emp_check,
+    state
+FROM public.import_71_d_null_handling_data
+ORDER BY row_id;
+ row_id | tax_ident_raw | nin_ident_raw | physical_region_code_raw | men_employees_raw | women_employees_raw | nin_check | region_check | men_emp_check |   state   
+--------+---------------+---------------+--------------------------+-------------------+---------------------+-----------+--------------+---------------+-----------
+      1 | 71D00001      | NIN71D01      | 0301                     | 30                | 20                  | NIN71D01  | 0301         | 30            | processed
+      2 | 71D00002      |               |                          |                   |                     | <NULL>    | <NULL>       | <NULL>        | processed
+      3 | 71D00003      |               |                          |                   |                     | <NULL>    | <NULL>       | <NULL>        | processed
+      4 | 71D00004      |               |                          |                   |                     | <NULL>    | <NULL>       | <NULL>        | processed
+      5 | 71D00005      |               |                          |                   |                     | <NULL>    | <NULL>       | <NULL>        | processed
+      6 | 71D00006      |               |                          |                   |                     | <NULL>    | <NULL>       | <NULL>        | processed
+      7 | 71D00007      |               |                          |                   |                     | <NULL>    | <NULL>       | <NULL>        | processed
+      8 | 71D00008      |               |                          |                   |                     | <NULL>    | <NULL>       | <NULL>        | processed
+      9 | 71D00009      |               |                          |                   |                     | <NULL>    | <NULL>       | <NULL>        | processed
+     10 | 71D00010      |               |                          |                   |                     | <NULL>    | <NULL>       | <NULL>        | processed
+     11 | 71D00011      |               |                          |                   |                     | <NULL>    | <NULL>       | <NULL>        | processed
+     12 | 71D00012      |               |                          |                   |                     | <NULL>    | <NULL>       | <NULL>        | processed
+     13 | 71D00013      | NULLIFY       | NULLIFY                  | NULLIFY           | NULLIFY             | NULLIFY   | NULLIFY      | NULLIFY       | error
+(13 rows)
+
+\echo "Verify that non-matching values were NOT converted to NULL"
+"Verify that non-matching values were NOT converted to NULL"
+SELECT COUNT(*) as non_null_count
+FROM public.import_71_d_null_handling_data
+WHERE nin_ident_raw = 'NULLIFY' AND physical_region_code_raw = 'NULLIFY';
+ non_null_count 
+----------------
+              1
+(1 row)
+
+\echo "Count rows with NULL values after conversion (should be 11 rows with NULLs, 1 with 'NULLIFY', 1 with actual data)"
+"Count rows with NULL values after conversion (should be 11 rows with NULLs, 1 with 'NULLIFY', 1 with actual data)"
+SELECT 
+    COUNT(*) FILTER (WHERE nin_ident_raw IS NULL) as null_nin_count,
+    COUNT(*) FILTER (WHERE nin_ident_raw IS NOT NULL AND nin_ident_raw != 'NULLIFY') as non_null_nin_count,
+    COUNT(*) FILTER (WHERE nin_ident_raw = 'NULLIFY') as nullify_count
+FROM public.import_71_d_null_handling_data;
+ null_nin_count | non_null_nin_count | nullify_count 
+----------------+--------------------+---------------
+             11 |                  1 |             1
+(1 row)
+
+ROLLBACK TO scenario_71_d_import_as_null;
 \echo "Final counts after all test blocks for Test 71 (should be same as initial due to rollbacks)"
 "Final counts after all test blocks for Test 71 (should be same as initial due to rollbacks)"
 SELECT

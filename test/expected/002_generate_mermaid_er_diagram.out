@@ -301,6 +301,7 @@ erDiagram
 		boolean valid
 		text validation_error
 		interval default_retention_period
+		text[] import_as_null
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
 	}
