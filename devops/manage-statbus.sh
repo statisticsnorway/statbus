@@ -15,6 +15,13 @@ fi
 WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 cd $WORKSPACE
 
+# Set TTY_INPUT to /dev/tty if available (interactive), otherwise /dev/null (non-interactive)
+if [ -e /dev/tty ]; then
+  export TTY_INPUT=/dev/tty
+else
+  export TTY_INPUT=/dev/null
+fi
+
 # Add support for an optional profile as an extra argument for start and stop,
 # and when present add the proper `--profile ...` argument.
 action=${1:-}
@@ -355,19 +362,19 @@ case "$action" in
                   ;;
               'vim'|'tui')
                   echo "Running vim -d for test: $test"
-                  vim -d $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
+                  vim -d $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < "$TTY_INPUT"
                   ;;
               'vimo')
                   echo "Running vim -d -o for test: $test"
-                  vim -d -o $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
+                  vim -d -o $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < "$TTY_INPUT"
                   ;;
               'pipe')
                   echo "Running diff for test: $test"
                   # Note the pipe from /dev/tty to avoid the diff alias running an interactive program.
                   if [[ "$line_limit" =~ ^[0-9]+$ ]]; then
-                    diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty | head -n "$line_limit" || true
+                    diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < "$TTY_INPUT" | head -n "$line_limit" || true
                   else
-                    diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty || true
+                    diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < "$TTY_INPUT" || true
                   fi
                   ;;
               *)
@@ -397,7 +404,7 @@ case "$action" in
           if [ "$ui_choice" != "pipe" ]; then
               echo "Next test: $test"
               echo "Press C to continue, s to skip, or b to break (default: C)"
-              read -n 1 -s input < /dev/tty
+              read -n 1 -s input < "$TTY_INPUT"
               if [ "$input" = "b" ]; then
                   break
               elif [ "$input" = "s" ]; then
@@ -412,19 +419,19 @@ case "$action" in
                   ;;
               'vim'|'tui')
                   echo "Running vim -d for test: $test"
-                  vim -d $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
+                  vim -d $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < "$TTY_INPUT"
                   ;;
               'vimo')
                   echo "Running vim -d -o for test: $test"
-                  vim -d -o $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
+                  vim -d -o $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < "$TTY_INPUT"
                   ;;
               'pipe')
                   echo "Running diff for test: $test"
                   # Note the pipe from /dev/tty to avoid the diff alias running an interactive program.
                   if [[ "$line_limit" =~ ^[0-9]+$ ]]; then
-                    diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty | head -n "$line_limit" || true
+                    diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < "$TTY_INPUT" | head -n "$line_limit" || true
                   else
-                    diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty || true
+                    diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < "$TTY_INPUT" || true
                   fi
                   ;;
               *)
