@@ -343,12 +343,26 @@ case "$action" in
     ;;
     'diff-fail-first' )
       if [ ! -f "$WORKSPACE/test/regression.out" ]; then
-          echo "File $WORKSPACE/test/regression.out not found. Nothing to diff."
+          echo "Error: File $WORKSPACE/test/regression.out not found."
+          echo "Run tests first: ./devops/manage-statbus.sh test fast"
+          exit 1
+      fi
+      
+      if [ ! -r "$WORKSPACE/test/regression.out" ]; then
+          echo "Error: Cannot read $WORKSPACE/test/regression.out"
           exit 1
       fi
 
-      # Extract the full test name from the regression output
-      test_line=$(grep -E '^not ok' "$WORKSPACE/test/regression.out" | head -n 1)
+      # Extract the full test name from the regression output (use -a to force text mode)
+      test_line=$(grep -a -E '^not ok' "$WORKSPACE/test/regression.out" | head -n 1)
+      
+      # Check if grep failed to find proper test results
+      if [[ "$test_line" =~ ^Binary\ file.*matches$ ]]; then
+          echo "Error: Cannot parse test results. The regression.out file may be corrupted."
+          echo "Try running tests again: ./devops/manage-statbus.sh test fast"
+          exit 1
+      fi
+      
       if [ -n "$test_line" ]; then
           # Extract the full test name (e.g., "01_load_web_examples")
           test=$(echo "$test_line" | sed -E 's/not ok[[:space:]]+[0-9]+[[:space:]]+- ([^[:space:]]+).*/\1/')
@@ -372,9 +386,9 @@ case "$action" in
                   echo "Running diff for test: $test"
                   # Note the pipe from /dev/tty to avoid the diff alias running an interactive program.
                   if [[ "$line_limit" =~ ^[0-9]+$ ]]; then
-                    diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < "$TTY_INPUT" | head -n "$line_limit" || true
+                    diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out | head -n "$line_limit" || true
                   else
-                    diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < "$TTY_INPUT" || true
+                    diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out || true
                   fi
                   ;;
               *)
@@ -388,12 +402,31 @@ case "$action" in
     ;;
     'diff-fail-all' )
       if [ ! -f "$WORKSPACE/test/regression.out" ]; then
-          echo "File $WORKSPACE/test/regression.out not found. Nothing to diff."
+          echo "Error: File $WORKSPACE/test/regression.out not found."
+          echo "Run tests first: ./devops/manage-statbus.sh test fast"
+          exit 1
+      fi
+      
+      if [ ! -r "$WORKSPACE/test/regression.out" ]; then
+          echo "Error: Cannot read $WORKSPACE/test/regression.out"
           exit 1
       fi
 
       ui_choice=${1:-pipe} # Get UI choice from the first argument to diff-fail-all, default to pipe
       line_limit=${2:-}
+      
+      # Check if grep will work properly (use -a to force text mode)
+      first_line=$(grep -a -E '^not ok' "$WORKSPACE/test/regression.out" | head -n 1)
+      if [[ "$first_line" =~ ^Binary\ file.*matches$ ]]; then
+          echo "Error: Cannot parse test results. The regression.out file may be corrupted."
+          echo "Try running tests again: ./devops/manage-statbus.sh test fast"
+          exit 1
+      fi
+      
+      if [ -z "$first_line" ]; then
+          echo "No failing tests found in regression.out"
+          exit 0
+      fi
 
       # Use process substitution to avoid running the loop in a subshell,
       # which can have subtle side effects on variable scope and signal handling.
@@ -429,9 +462,9 @@ case "$action" in
                   echo "Running diff for test: $test"
                   # Note the pipe from /dev/tty to avoid the diff alias running an interactive program.
                   if [[ "$line_limit" =~ ^[0-9]+$ ]]; then
-                    diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < "$TTY_INPUT" | head -n "$line_limit" || true
+                    diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out | head -n "$line_limit" || true
                   else
-                    diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < "$TTY_INPUT" || true
+                    diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out || true
                   fi
                   ;;
               *)
@@ -439,15 +472,21 @@ case "$action" in
                   exit 1
               ;;
           esac
-      done < <(grep -E '^not ok' "$WORKSPACE/test/regression.out")
+      done < <(grep -a -E '^not ok' "$WORKSPACE/test/regression.out")
     ;;
     'make-all-failed-test-results-expected' )
         if [ ! -f "$WORKSPACE/test/regression.out" ]; then
-            echo "No regression.out file found. Run tests first to generate failures."
+            echo "Error: No regression.out file found."
+            echo "Run tests first: ./devops/manage-statbus.sh test fast"
+            exit 1
+        fi
+        
+        if [ ! -r "$WORKSPACE/test/regression.out" ]; then
+            echo "Error: Cannot read $WORKSPACE/test/regression.out"
             exit 1
         fi
 
-        grep -E '^not ok' "$WORKSPACE/test/regression.out" | while read -r test_line; do
+        grep -a -E '^not ok' "$WORKSPACE/test/regression.out" | while read -r test_line; do
             # Extract the full test name (e.g., "01_load_web_examples")
             test=$(echo "$test_line" | sed -E 's/not ok[[:space:]]+[0-9]+[[:space:]]+- ([^[:space:]]+).*/\1/')
             if [ -f "$WORKSPACE/test/results/$test.out" ]; then
