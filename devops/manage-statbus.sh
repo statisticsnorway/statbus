@@ -210,13 +210,15 @@ case "$action" in
         # Check for --update-expected flag and filter it out
         update_expected=false
         TEST_ARGS=()
-        for arg in "${ORIGINAL_ARGS[@]}"; do
-            if [ "$arg" = "--update-expected" ]; then
-                update_expected=true
-            else
-                TEST_ARGS+=("$arg")
-            fi
-        done
+        if [ ${#ORIGINAL_ARGS[@]} -gt 0 ]; then
+            for arg in "${ORIGINAL_ARGS[@]}"; do
+                if [ "$arg" = "--update-expected" ]; then
+                    update_expected=true
+                else
+                    TEST_ARGS+=("$arg")
+                fi
+            done
+        fi
         
         # Check if no arguments were provided
         if [ ${#TEST_ARGS[@]} -eq 0 ]; then
