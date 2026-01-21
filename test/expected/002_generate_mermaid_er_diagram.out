@@ -1158,6 +1158,7 @@ erDiagram
 		name era_name
 		name trigger_name
 		text current_func
+		name[] generated_columns
 	}
 	worker_command_registry["worker.command_registry"] {
 		text command
