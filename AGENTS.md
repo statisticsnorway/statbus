@@ -13,6 +13,14 @@ echo "SELECT ..." | ./devops/manage-statbus.sh psql  # Single-line query
 ./devops/manage-statbus.sh generate-types   # Generate TypeScript types from schema
 ```
 
+### Database Inspection Patterns
+```bash
+echo "\d tablename" | ./devops/manage-statbus.sh psql           # Table structure
+echo "\dt pattern*" | ./devops/manage-statbus.sh psql           # Find tables by pattern
+echo "\dv viewname" | ./devops/manage-statbus.sh psql           # View definition
+echo "SELECT ..." | ./devops/manage-statbus.sh psql             # Single queries
+```
+
 **⚠️ DESTRUCTIVE Operations (LOCAL DEVELOPMENT ONLY - NEVER IN PRODUCTION):**
 ```bash
 ./devops/manage-statbus.sh create-db           # Create database with migrations
