@@ -714,7 +714,7 @@ CREATE TABLE public.import_job(
     data_table_name text NOT NULL,   -- Name of the table holding processed/intermediate data
     priority integer,                -- Priority for worker queue processing
     analysis_batch_size integer NOT NULL DEFAULT 32768, -- Batch size for analysis phase
-    processing_batch_size integer NOT NULL DEFAULT 200, -- Batch size for processing phase
+    processing_batch_size integer NOT NULL DEFAULT 1000, -- Batch size for processing phase
     definition_snapshot JSONB,       -- Snapshot of definition metadata at job creation time
     preparing_data_at timestamp with time zone,
     analysis_start_at timestamp with time zone, -- Timestamp analysis phase started
