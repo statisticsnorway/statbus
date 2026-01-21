@@ -11,10 +11,14 @@ CREATE TABLE public.person_for_unit (
     data_source_id integer REFERENCES public.data_source(id) ON DELETE RESTRICT,
     establishment_id integer,
     legal_unit_id integer,
+    edit_comment character varying(512),
+    edit_by_user_id integer NOT NULL,
+    edit_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
     CONSTRAINT "One and only one statistical unit id must be set"
     CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL
         OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL
-        )
+        ),
+    CONSTRAINT person_for_unit_edit_by_user_id_fkey FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT
 );
 CREATE INDEX ix_person_for_unit_person_id ON public.person_for_unit USING btree (person_id);
 CREATE INDEX ix_person_for_unit_person_role_id ON public.person_for_unit USING btree (person_role_id);
@@ -24,10 +28,11 @@ CREATE INDEX ix_person_for_unit_establishment_id ON public.person_for_unit USING
 CREATE INDEX ix_person_for_unit_legal_unit_id_valid_range ON public.person_for_unit USING gist (legal_unit_id, valid_range);
 CREATE INDEX ix_person_for_unit_establishment_id_valid_range ON public.person_for_unit USING gist (establishment_id, valid_range);
 CREATE INDEX ix_person_for_unit_valid_range ON public.person_for_unit USING gist (valid_range);
+CREATE INDEX ix_person_for_unit_edit_by_user_id ON public.person_for_unit(edit_by_user_id);
 
 -- Activate era handling with valid_range as the authoritative column.
 -- The trigger will synchronize valid_from, valid_until, and valid_to from valid_range.
-SELECT sql_saga.add_era('public.person_for_unit', 'valid_range');
+SELECT sql_saga.add_era('public.person_for_unit', 'valid_range', 'valid', ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']);
 -- This creates a PRIMARY KEY with WITHOUT OVERLAPS to ensure that
 -- there are no overlapping time periods for the same person_for_unit ID.
 SELECT sql_saga.add_unique_key(

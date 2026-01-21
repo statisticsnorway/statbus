@@ -473,6 +473,9 @@ erDiagram
 		integer data_source_id
 		integer establishment_id
 		integer legal_unit_id
+		character_varying(512) edit_comment
+		integer edit_by_user_id
+		timestamp_with_time_zone edit_at
 	}
 	person_role["person_role"] {
 		integer id
@@ -1091,6 +1094,7 @@ erDiagram
 		name sync_temporal_trg_function_name
 		name audit_schema_name
 		name audit_table_name
+		name[] ephemeral_columns
 	}
 	sql_saga_foreign_keys["sql_saga.foreign_keys"] {
 		name foreign_key_name
@@ -1159,6 +1163,7 @@ erDiagram
 		name trigger_name
 		text current_func
 		name[] generated_columns
+		name[] ephemeral_columns
 	}
 	worker_command_registry["worker.command_registry"] {
 		text command
@@ -1259,6 +1264,7 @@ erDiagram
 	location }o--o| legal_unit : location_legal_unit_id_valid
 	location }o--o| region : location_region_id_fkey
 	person }|--o| country : person_country_id_fkey
+	person_for_unit }o--|| auth_user : person_for_unit_edit_by_user_id_fkey
 	person_for_unit }o--o| data_source : person_for_unit_data_source_id_fkey
 	person_for_unit }o--|| establishment : person_for_unit_establishment_id_valid
 	person_for_unit }o--o| establishment : person_for_unit_establishment_id_valid

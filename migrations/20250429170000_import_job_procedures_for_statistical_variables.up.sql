@@ -381,8 +381,7 @@ BEGIN
                 feedback_status_column => 'merge_status',
                 feedback_status_key => 'stat_' || v_stat_def.stat_code,
                 feedback_error_column => 'errors',
-                feedback_error_key => 'stat_' || v_stat_def.stat_code,
-                ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at', 'created_at']
+                feedback_error_key => 'stat_' || v_stat_def.stat_code
             );
 
             -- Feedback is written directly back to the data table by sql_saga, no need for manual UPDATE.

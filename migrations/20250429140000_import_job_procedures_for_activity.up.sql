@@ -302,8 +302,7 @@ BEGIN
             feedback_status_column => 'merge_status',
             feedback_status_key => p_step_code,
             feedback_error_column => 'errors',
-            feedback_error_key => p_step_code,
-            ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
+            feedback_error_key => p_step_code
         );
 
         v_sql := format($$ SELECT count(*) FROM public.%1$I WHERE row_id <@ $1 AND errors->%2$L IS NOT NULL $$,

@@ -178,8 +178,7 @@ BEGIN
             feedback_status_column => 'merge_status',
             feedback_status_key => 'contact',
             feedback_error_column => 'errors',
-            feedback_error_key => 'contact',
-            ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
+            feedback_error_key => 'contact'
         );
 
         v_sql := format($$ SELECT count(*) FROM public.%1$I WHERE row_id <@ $1 AND errors->'contact' IS NOT NULL $$, v_data_table_name);

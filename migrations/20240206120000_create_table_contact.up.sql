@@ -49,7 +49,7 @@ CREATE INDEX ON contact (legal_unit_id) WHERE establishment_id IS NULL;
 
 -- Activate era handling with valid_range as the authoritative column.
 -- The trigger will synchronize valid_from, valid_until, and valid_to from valid_range.
-SELECT sql_saga.add_era('public.contact', 'valid_range');
+SELECT sql_saga.add_era('public.contact', 'valid_range', 'valid', ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']);
 -- This creates a PRIMARY KEY with WITHOUT OVERLAPS to ensure that there are
 -- no overlapping time periods for the same contact ID.
 SELECT sql_saga.add_unique_key(

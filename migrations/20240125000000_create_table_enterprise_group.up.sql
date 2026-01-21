@@ -35,7 +35,7 @@ $$;
 
 -- Activate era handling with valid_range as the authoritative column.
 -- The trigger will synchronize valid_from, valid_until, and valid_to from valid_range.
-SELECT sql_saga.add_era('public.enterprise_group', 'valid_range');
+SELECT sql_saga.add_era('public.enterprise_group', 'valid_range', 'valid', ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']);
 -- This creates a GIST exclusion constraint (`enterprise_group_id_valid_excl`) to ensure
 -- that there are no overlapping time periods for the same enterprise_group ID. This constraint is
 -- backed by a GIST index, which also accelerates temporal queries on the primary key.

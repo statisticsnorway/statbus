@@ -61,8 +61,8 @@ These tables link to any of the four core statistical units:
 - `person(id, personal_ident, given_name, middle_name, family_name, country_id, created_at, birth_date, sex, phone_number, mobile_number, address_part1, address_part2, address_part3)`
   - Key FKs: country_id.
   - Enums: `sex` (`public.person_sex`).
-- `person_for_unit(id, person_id, person_role_id, data_source_id, establishment_id, legal_unit_id, valid_range, valid_from, valid_to, valid_until)` (temporal)
-  - Key FKs: data_source_id, establishment_id, legal_unit_id, person_id, person_role_id, valid_range, valid_range.
+- `person_for_unit(id, person_id, person_role_id, data_source_id, establishment_id, legal_unit_id, edit_by_user_id, valid_range, valid_from, valid_to, valid_until, edit_at, edit_comment)` (temporal)
+  - Key FKs: data_source_id, edit_by_user_id, establishment_id, legal_unit_id, person_id, person_role_id, valid_range, valid_range.
 - `person_role(id, code, name, created_at, updated_at, active, custom)`
 
 ### Statistics

@@ -318,8 +318,7 @@ BEGIN
                     source_table => 'temp_es_demotion_source'::regclass,
                     primary_identity_columns => ARRAY['id'],
                     mode => 'PATCH_FOR_PORTION_OF',
-                    row_id_column => 'row_id',
-                    ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
+                    row_id_column => 'row_id'
                 );
                 FOR v_batch_result IN SELECT * FROM pg_temp.temporal_merge_feedback WHERE status = 'ERROR' LOOP RAISE WARNING '[Job %] process_establishment: Error during PFLU demotion for EST ID %: %', p_job_id, (v_batch_result.target_entity_ids->0->>'id')::INT, v_batch_result.error_message; END LOOP;
                 TRUNCATE TABLE temp_es_demotion_source;
@@ -345,8 +344,7 @@ BEGIN
                     source_table => 'temp_es_demotion_source'::regclass,
                     primary_identity_columns => ARRAY['id'],
                     mode => 'PATCH_FOR_PORTION_OF',
-                    row_id_column => 'row_id',
-                    ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
+                    row_id_column => 'row_id'
                 );
                 FOR v_batch_result IN SELECT * FROM pg_temp.temporal_merge_feedback WHERE status = 'ERROR' LOOP RAISE WARNING '[Job %] process_establishment: Error during PFE demotion for EST ID %: %', p_job_id, (v_batch_result.target_entity_ids->0->>'id')::INT, v_batch_result.error_message; END LOOP;
                 TRUNCATE TABLE temp_es_demotion_source;
@@ -376,8 +374,7 @@ BEGIN
             feedback_status_column => 'merge_status',
             feedback_status_key => 'establishment',
             feedback_error_column => 'errors',
-            feedback_error_key => 'establishment',
-            ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at', 'invalid_codes']
+            feedback_error_key => 'establishment'
         );
 
         -- Process feedback
