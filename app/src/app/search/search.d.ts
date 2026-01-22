@@ -25,10 +25,18 @@ export type SearchResult = {
   count: number;
 };
 
-export interface ConditionalValue {
+// PostgREST filter operators
+export type PostgrestOperator = 'eq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in';
+
+// A single condition (operator + value)
+export interface Condition {
   operator: PostgrestOperator;
   operand: string;
 }
+
+// Multiple conditions combined with implicit AND
+// Can be a single condition or multiple conditions
+export type ConditionalValue = Condition | { conditions: Condition[] };
 
 export interface SetOrder {
   type: "set_order";

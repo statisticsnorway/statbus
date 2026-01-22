@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { PlusCircle } from "lucide-react";
+import { PlusCircle, X } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -20,17 +20,28 @@ import {
 import { ConditionalValueBadge } from "@/app/search/components/conditional-value-badge";
 import { cn } from "@/lib/utils";
 import { Command } from "@/components/ui/command";
-import { ConditionalValue } from "../search";
+import { ConditionalValue, Condition } from "../search";
 
 interface ITableFilterCustomProps {
   title: string;
-  selected: {
-    operator: string;
-    operand: string;
-  } | null;
-  onChange: ({ operand, operator }: ConditionalValue) => void;
+  selected: ConditionalValue | null;
+  onChange: (value: ConditionalValue) => void;
   onReset: () => void;
   className?: string;
+}
+
+// Helper to normalize ConditionalValue to array of Conditions
+function toConditionsArray(value: ConditionalValue | null): Condition[] {
+  if (!value) return [];
+  if ('conditions' in value) return value.conditions;
+  return [value];
+}
+
+// Helper to normalize array of Conditions to ConditionalValue
+function fromConditionsArray(conditions: Condition[]): ConditionalValue | null {
+  if (conditions.length === 0) return null;
+  if (conditions.length === 1) return conditions[0];
+  return { conditions };
 }
 
 export function ConditionalFilter({
@@ -41,23 +52,54 @@ export function ConditionalFilter({
   className,
 }: ITableFilterCustomProps) {
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
-  const [operator, setOperator] = useState<string | null>(
-    selected?.operator ?? "eq"
-  );
-  const [operand, setOperand] = useState<string | null>(
-    selected?.operand ?? null
+  const [conditions, setConditions] = useState<Condition[]>(() => 
+    toConditionsArray(selected).length > 0 
+      ? toConditionsArray(selected) 
+      : [{ operator: 'eq', operand: '' }]
   );
 
   const updateFilter = useCallback(() => {
-    if (!operand || !operator) return;
-    onChange({ operator, operand: operand });
-    setIsPopoverOpen(false);
-  }, [operator, operand, onChange]);
+    // Filter out empty conditions
+    const validConditions = conditions.filter(c => c.operand.trim() !== '');
+    if (validConditions.length === 0) return;
+    
+    const value = fromConditionsArray(validConditions);
+    if (value) {
+      onChange(value);
+      setIsPopoverOpen(false);
+    }
+  }, [conditions, onChange]);
+
+  const addCondition = useCallback(() => {
+    setConditions([...conditions, { operator: 'eq', operand: '' }]);
+  }, [conditions]);
+
+  const removeCondition = useCallback((index: number) => {
+    const newConditions = conditions.filter((_, i) => i !== index);
+    // Keep at least one condition row
+    if (newConditions.length === 0) {
+      setConditions([{ operator: 'eq', operand: '' }]);
+    } else {
+      setConditions(newConditions);
+    }
+  }, [conditions]);
+
+  const updateCondition = useCallback((index: number, field: 'operator' | 'operand', value: string) => {
+    const newConditions = [...conditions];
+    newConditions[index] = { ...newConditions[index], [field]: value };
+    setConditions(newConditions);
+  }, [conditions]);
 
   useGuardedEffect(() => {
-    setOperator(selected?.operator ?? "eq");
-    setOperand(selected?.operand ?? "");
+    const selectedConditions = toConditionsArray(selected);
+    if (selectedConditions.length > 0) {
+      setConditions(selectedConditions);
+    } else {
+      setConditions([{ operator: 'eq', operand: '' }]);
+    }
   }, [selected], 'ConditionalFilter:syncStateFromSelected');
+
+  const hasValue = toConditionsArray(selected).some(c => c.operand.trim() !== '');
 
   return (
     <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
@@ -68,58 +110,88 @@ export function ConditionalFilter({
         >
           <PlusCircle className="mr-2 h-4 w-4" />
           {title}
-          {selected?.operand && selected.operator ? (
+          {hasValue ? (
             <>
               <Separator orientation="vertical" className="h-1/2" />
-              <ConditionalValueBadge
-                operator={selected.operator}
-                operand={selected.operand}
-              />
+              <ConditionalValueBadge value={selected!} />
             </>
           ) : null}
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-auto max-w-[350px] p-0 md:max-w-[500px]"
+        className="w-auto max-w-[400px] p-0 md:max-w-[600px]"
         align="start"
       >
-        <Command className="flex flex-row justify-between gap-2 p-2">
-          <Select
-            value={operator ?? ""}
-            onValueChange={(value) => setOperator(value)}
-          >
-            <SelectTrigger className="w-auto max-w-[180px] space-x-2">
-              <SelectValue placeholder="Condition" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="eq">=</SelectItem>
-              <SelectItem value="gt">&gt;</SelectItem>
-              <SelectItem value="lt">&lt;</SelectItem>
-              <SelectItem value="in">In list</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input
-            className="w-auto max-w-[80px]"
-            value={operand ?? ""}
-            onChange={(e) => setOperand(e.target.value.trim())}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                updateFilter();
-              }
-            }}
-          />
-
-          <Button onClick={updateFilter} variant="outline">
-            OK
-          </Button>
-        </Command>
-        {selected?.operand && selected.operator ? (
-          <div className="w-full p-2 pt-0">
-            <Button onClick={onReset} variant="outline" className="w-full">
-              Clear
+        <div className="p-2 space-y-2">
+          {conditions.map((condition, index) => (
+            <div key={index} className="flex flex-col gap-2">
+              {index > 0 && (
+                <div className="text-xs text-muted-foreground text-center font-medium">
+                  AND
+                </div>
+              )}
+              <Command className="flex flex-row justify-between gap-2">
+                <Select
+                  value={condition.operator}
+                  onValueChange={(value) => updateCondition(index, 'operator', value)}
+                >
+                  <SelectTrigger className="w-auto max-w-[180px] space-x-2">
+                    <SelectValue placeholder="Operator" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="eq">=</SelectItem>
+                    <SelectItem value="gt">&gt;</SelectItem>
+                    <SelectItem value="gte">≥</SelectItem>
+                    <SelectItem value="lt">&lt;</SelectItem>
+                    <SelectItem value="lte">≤</SelectItem>
+                    <SelectItem value="in">in</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input
+                  className="w-auto max-w-[100px]"
+                  value={condition.operand}
+                  onChange={(e) => updateCondition(index, 'operand', e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      updateFilter();
+                    }
+                  }}
+                  placeholder="value"
+                />
+                {conditions.length > 1 && (
+                  <Button
+                    onClick={() => removeCondition(index)}
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 w-9 p-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </Command>
+            </div>
+          ))}
+          
+          <div className="flex gap-2 pt-1">
+            <Button
+              onClick={addCondition}
+              variant="outline"
+              size="sm"
+              className="flex-1"
+            >
+              + Add
+            </Button>
+            <Button onClick={updateFilter} variant="default" size="sm" className="flex-1">
+              Apply
             </Button>
           </div>
-        ) : null}
+
+          {hasValue && (
+            <Button onClick={onReset} variant="outline" size="sm" className="w-full">
+              Clear
+            </Button>
+          )}
+        </div>
       </PopoverContent>
     </Popover>
   );

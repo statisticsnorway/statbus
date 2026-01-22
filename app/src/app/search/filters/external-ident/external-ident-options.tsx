@@ -3,6 +3,7 @@ import { useSearchFilters } from "@/atoms/search";
 import { useCallback, useMemo } from "react";
 import { ConditionalFilter } from "@/app/search/components/conditional-filter";
 import { Tables } from "@/lib/database.types";
+import { ConditionalValue } from "@/app/search/search";
 
 export default function ExternalIdentOptions({ externalIdentType }: {
   readonly externalIdentType: Tables<"external_ident_type_ordered">;
@@ -10,10 +11,19 @@ export default function ExternalIdentOptions({ externalIdentType }: {
   const { filters, updateFilters } = useSearchFilters();
   const currentFilterValue = filters[externalIdentType.code!] as string | undefined;
 
-  const update = useCallback(async (operand: string | null) => {
+  const update = useCallback(async (value: ConditionalValue | null) => {
     const newFilters = { ...filters };
-    if (operand && operand.trim() !== '') {
-      newFilters[externalIdentType.code!] = operand;
+    if (value) {
+      // External idents only support single eq condition, so extract the operand
+      const operand = 'conditions' in value 
+        ? value.conditions[0]?.operand 
+        : value.operand;
+      
+      if (operand && operand.trim() !== '') {
+        newFilters[externalIdentType.code!] = operand;
+      } else {
+        delete newFilters[externalIdentType.code!];
+      }
     } else {
       delete newFilters[externalIdentType.code!];
     }
@@ -28,7 +38,7 @@ export default function ExternalIdentOptions({ externalIdentType }: {
 
   const selected_value = useMemo(() => 
     currentFilterValue && currentFilterValue.length > 0 
-      ? { operator: "eq", operand: currentFilterValue } 
+      ? { operator: "eq" as const, operand: currentFilterValue } 
       : null
   , [currentFilterValue]);
 
@@ -37,7 +47,7 @@ export default function ExternalIdentOptions({ externalIdentType }: {
       className="p-2 h-9"
       title={externalIdentType.name!}
       selected={selected_value}
-      onChange={({operand}) => update(operand)}
+      onChange={update}
       onReset={reset}
     />
   );

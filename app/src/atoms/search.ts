@@ -32,6 +32,7 @@ import {
   dataSourceDeriveStateUpdateFromValues,
   externalIdentDeriveStateUpdateFromValues,
   statisticalVariableDeriveStateUpdateFromValue,
+  statisticalVariableParse,
   SEARCH,
   UNIT_TYPE,
   INVALID_CODES,
@@ -814,20 +815,11 @@ const derivedApiSearchParamsAtomUnstable = atom((get) => {
           (def) => def.code === appParamName
         );
         if (statDef) {
-          let parsedStatVarValue: { operator: string; operand: string } | null =
-            null;
-          if (
-            typeof appParamValue === "string" &&
-            appParamValue.includes(":")
-          ) {
-            const [op, val] = appParamValue.split(":", 2);
-            parsedStatVarValue = { operator: op, operand: val };
-          } else if (appParamValue === null) {
-            // This case means the filter was cleared
-            parsedStatVarValue = null;
-          }
-          // If appParamValue is not a string "op:val" or null, it's an invalid state for stat var,
-          // statisticalVariableDeriveStateUpdateFromValue will handle `null` by not setting the param.
+          // Parse the statistical variable value (handles both single and multi-condition)
+          const parsedStatVarValue = typeof appParamValue === "string"
+            ? statisticalVariableParse(appParamValue)
+            : null;
+          
           const statisticalVariableAction =
             statisticalVariableDeriveStateUpdateFromValue(
               statDef,
@@ -844,10 +836,23 @@ const derivedApiSearchParamsAtomUnstable = atom((get) => {
       actionPayloadPart.api_param_name &&
       actionPayloadPart.api_param_value
     ) {
-      params.set(
-        actionPayloadPart.api_param_name,
-        actionPayloadPart.api_param_value
-      );
+      // Check if this is a multi-condition filter (marked with MULTI:)
+      if (actionPayloadPart.api_param_value.startsWith('MULTI:')) {
+        // Extract individual conditions and append them separately
+        const conditions = actionPayloadPart.api_param_value
+          .substring(6) // Remove 'MULTI:' prefix
+          .split('|');
+        
+        for (const condition of conditions) {
+          params.append(actionPayloadPart.api_param_name, condition);
+        }
+      } else {
+        // Single condition - use set() as before
+        params.set(
+          actionPayloadPart.api_param_name,
+          actionPayloadPart.api_param_value
+        );
+      }
     }
     // If api_param_value is null, the parameter is intentionally not added.
   });

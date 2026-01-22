@@ -1,28 +1,44 @@
 import { Badge } from "@/components/ui/badge";
 import * as React from "react";
-import { ConditionalValue } from "../search";
+import { ConditionalValue, Condition } from "../search";
 
-export function ConditionalValueBadge({ operator, operand: value }: ConditionalValue) {
-  function resolveSymbol(condition: string) {
-    switch (condition) {
+interface ConditionalValueBadgeProps {
+  value: ConditionalValue;
+}
+
+export function ConditionalValueBadge({ value }: ConditionalValueBadgeProps) {
+  function resolveSymbol(operator: string) {
+    switch (operator) {
       case "eq":
-        return "";
+        return "=";
       case "gt":
         return ">";
+      case "gte":
+        return "≥";
       case "lt":
         return "<";
+      case "lte":
+        return "≤";
       case "in":
-        return "in";
+        return "∈";
       default:
-        return "";
+        return operator;
     }
   }
 
-  const prefix = resolveSymbol(operator);
+  function formatCondition(condition: Condition): string {
+    const symbol = resolveSymbol(condition.operator);
+    return `${symbol}${condition.operand}`;
+  }
+
+  // Handle both single and multiple conditions
+  const displayText = 'conditions' in value 
+    ? value.conditions.map(formatCondition).join(' AND ')
+    : formatCondition(value);
 
   return (
     <Badge variant="secondary" className="rounded-sm px-2 font-normal">
-      {prefix} {value}
+      {displayText}
     </Badge>
   );
 }
