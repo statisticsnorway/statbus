@@ -60,7 +60,7 @@ $$;
 -- Create auth tables
 CREATE TABLE IF NOT EXISTS auth.user (
   id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  sub uuid UNIQUE NOT NULL DEFAULT gen_random_uuid(),
+  sub uuid UNIQUE NOT NULL DEFAULT uuidv7(),
   display_name text UNIQUE NOT NULL CHECK (display_name <> ''),
   email text UNIQUE NOT NULL,
   password text,
@@ -149,7 +149,7 @@ GRANT EXECUTE ON FUNCTION auth.get_request_ip() TO authenticated, anon;
 -- Create a table for refresh sessions
 CREATE TABLE IF NOT EXISTS auth.refresh_session (
   id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  jti uuid UNIQUE NOT NULL DEFAULT public.gen_random_uuid(),
+  jti uuid UNIQUE NOT NULL DEFAULT uuidv7(),
   user_id integer NOT NULL REFERENCES auth.user(id) ON DELETE CASCADE,
   refresh_version integer NOT NULL DEFAULT 0,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -236,7 +236,7 @@ GRANT INSERT, UPDATE, DELETE ON auth.user TO admin_user;
 -- Create table for API keys
 CREATE TABLE IF NOT EXISTS auth.api_key (
   id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  jti uuid UNIQUE NOT NULL DEFAULT public.gen_random_uuid(), -- Corresponds to JWT ID claim
+  jti uuid UNIQUE NOT NULL DEFAULT uuidv7(), -- Corresponds to JWT ID claim
   user_id integer NOT NULL REFERENCES auth.user(id) ON DELETE CASCADE,
   description text,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -1387,7 +1387,7 @@ BEGIN
   
   -- Add JTI if not in additional claims
   IF NOT p_additional_claims ? 'jti' THEN
-    v_claims := v_claims || jsonb_build_object('jti', public.gen_random_uuid()::text);
+    v_claims := v_claims || jsonb_build_object('jti', uuidv7()::text);
   END IF;
   
   -- Merge additional claims
@@ -1890,7 +1890,7 @@ AS $create_api_key$
 DECLARE
   _user_id integer;
   _expires_at timestamptz;
-  _jti uuid := public.gen_random_uuid();
+  _jti uuid := uuidv7();
   _result public.api_key;
 BEGIN
   -- Get current user ID
