@@ -201,12 +201,45 @@ export type Database = {
                 WHERE attrelid = view_oid AND attname = base_table_name || '_id' AND NOT attisdropped
             )
         ),
+        -- sql_saga regular_to_temporal FKs (not in pg_constraint, only in sql_saga.foreign_keys)
+        sql_saga_regular_to_temporal AS (
+            SELECT 
+                src_class.oid as conrelid,
+                sfk.foreign_key_name as conname,
+                -- Get column numbers for the FK columns
+                (SELECT array_agg(a.attnum ORDER BY ord)
+                 FROM unnest(sfk.column_names) WITH ORDINALITY AS cols(col_name, ord)
+                 JOIN pg_attribute a ON a.attrelid = src_class.oid AND a.attname = cols.col_name
+                ) as conkey,
+                (SELECT string_agg(col_name, '", "' ORDER BY ord) 
+                 FROM unnest(sfk.column_names) WITH ORDINALITY AS cols(col_name, ord)
+                ) as columns,
+                -- Get referenced columns from the unique key
+                (SELECT string_agg(col_name, '", "' ORDER BY ord)
+                 FROM unnest(suk.column_names) WITH ORDINALITY AS cols(col_name, ord)
+                ) as referenced_columns,
+                suk.table_name as referenced_relation_name,
+                tgt_class.relkind as referenced_relation_kind
+            FROM sql_saga.foreign_keys sfk
+            JOIN sql_saga.unique_keys suk ON suk.unique_key_name = sfk.unique_key_name
+            JOIN pg_class src_class ON src_class.relname = sfk.table_name
+            JOIN pg_namespace src_ns ON src_class.relnamespace = src_ns.oid AND src_ns.nspname = sfk.table_schema
+            JOIN pg_class tgt_class ON tgt_class.relname = suk.table_name
+            JOIN pg_namespace tgt_ns ON tgt_class.relnamespace = tgt_ns.oid AND tgt_ns.nspname = suk.table_schema
+            WHERE sfk.type = 'regular_to_temporal'
+              AND sfk.table_schema = v_schema_name
+              AND suk.table_schema = v_schema_name
+        ),
         all_relations AS (
             -- Only explicit FK constraints (computed relationships are handled via SetofOptions)
             -- Include FKs within same schema
             SELECT conrelid, conname, conkey, columns, referenced_columns, referenced_relation_name, referenced_relation_kind
             FROM fk_constraints
             WHERE referenced_schema_name = v_schema_name
+            UNION ALL
+            -- sql_saga regular_to_temporal FKs (non-native temporal references)
+            SELECT conrelid, conname, conkey, columns, referenced_columns, referenced_relation_name, referenced_relation_kind
+            FROM sql_saga_regular_to_temporal
             UNION ALL
             -- Remap FKs to auth.user -> public.user (if the view exists)
             SELECT conrelid, conname, conkey, columns, referenced_columns,
