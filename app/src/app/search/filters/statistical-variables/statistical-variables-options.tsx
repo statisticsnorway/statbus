@@ -4,6 +4,7 @@ import { ConditionalFilter } from "@/app/search/components/conditional-filter";
 import { useCallback, useMemo } from "react";
 import { Tables } from "@/lib/database.types";
 import { statisticalVariableParse } from "../url-search-params";
+import { ConditionalValue } from "@/app/search/search";
 
 export default function StatisticalVariablesOptions({ statDefinition }:
   {
@@ -16,11 +17,20 @@ export default function StatisticalVariablesOptions({ statDefinition }:
     statisticalVariableParse(currentFilterString) // Parse the string value from filters
     , [currentFilterString]);
 
-  const update = useCallback(async (value : {operator: string, operand: string} | null) => {
+  const update = useCallback(async (value: ConditionalValue | null) => {
     const newFilters = { ...filters };
-    if (value && value.operand !== undefined && value.operand !== null && String(value.operand).trim() !== '') {
-      // Format the value as a string, e.g., "operator:operand"
-      newFilters[statDefinition.code!] = `${value.operator}:${value.operand}`;
+    if (value) {
+      // Convert ConditionalValue to string format
+      if ('conditions' in value) {
+        // Multiple conditions: "op:val,op:val"
+        const conditionsStr = value.conditions
+          .map(c => `${c.operator}:${c.operand}`)
+          .join(',');
+        newFilters[statDefinition.code!] = conditionsStr;
+      } else {
+        // Single condition: "op:val"
+        newFilters[statDefinition.code!] = `${value.operator}:${value.operand}`;
+      }
     } else {
       delete newFilters[statDefinition.code!];
     }

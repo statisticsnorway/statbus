@@ -1,5 +1,5 @@
 import { generateFTSQuery } from "@/app/search/generate-fts-query";
-import { SearchAction } from "../search";
+import { SearchAction, Condition, ConditionalValue } from "../search";
 import { Tables } from "@/lib/database.types";
 
 export const SEARCH = "search";
@@ -343,46 +343,68 @@ export function externalIdentDeriveStateUpdateFromValues(
 
 
 /**
- * Parses a raw string value into an object containing the operator and operand.
+ * Parses a raw string value into a ConditionalValue (single or multiple conditions).
  *
- * Supports parsing of various operator formats, including:
- * - Standard format: 'operator.operand'
- * - 'in' format with parentheses: 'in.(operand1, operand2, ...)'
+ * Supports parsing of various formats:
+ * - Single condition: 'operator:operand' (e.g., 'gte:100')
+ * - Multiple conditions (implicit AND): 'op:val,op:val' (e.g., 'gte:100,lt:200')
+ * - Legacy API formats: 'operator.operand', 'in.(operand1,operand2)'
  *
  * @param {string | null} rawValue - The raw string input to be parsed.
- *   - Example: 'eq.100', 'gt.50', 'in.(10,20,30)'
- *
- * @returns {{ operator: string; operand: string } | null}
- *   - An object with `operator` and `operand` properties if parsing is successful.
- *   - Returns `null` if the input is `null` or does not match the expected pattern.
+ * @returns {ConditionalValue | null} - Parsed conditions or null if invalid
  */
-export function statisticalVariableParse(rawValue: string | null): { operator: string; operand: string } | null {
+export function statisticalVariableParse(rawValue: string | null): ConditionalValue | null {
   if (rawValue == null) {
     return null;
   }
 
-  // Regex for 'in.(...)' format
+  // Check for comma-separated multiple conditions: 'op:val,op:val'
+  // Only if it contains both comma AND colon (to distinguish from legacy formats)
+  if (rawValue.includes(',') && rawValue.includes(':')) {
+    const parts = rawValue.split(',');
+    const conditions: Condition[] = [];
+    
+    for (const part of parts) {
+      const trimmed = part.trim();
+      const colonMatch = trimmed.match(/^(?<operator>[^:]+):(?<operand>.+)$/);
+      if (colonMatch?.groups) {
+        conditions.push({
+          operator: colonMatch.groups.operator as any,
+          operand: colonMatch.groups.operand
+        });
+      } else {
+        // Invalid format in one part, reject the whole thing
+        return null;
+      }
+    }
+    
+    if (conditions.length > 0) {
+      return { conditions };
+    }
+  }
+
+  // Regex for 'in.(...)' format (legacy API format)
   const inRegex = /^(?<operator>in)\.\((?<operand>.*)\)$/;
   const inMatch = rawValue.match(inRegex);
   if (inMatch?.groups) {
-    return { operator: inMatch.groups.operator, operand: inMatch.groups.operand };
+    return { operator: inMatch.groups.operator as any, operand: inMatch.groups.operand };
   }
 
-  // Regex for standard 'operator.operand' format (used by API, but not for app state string)
+  // Regex for standard 'operator.operand' format (legacy API format)
   const standardDotRegex = /^(?<operator>[^.]+)\.(?<operand>[^()]+)$/;
   const standardDotMatch = rawValue.match(standardDotRegex);
   if (standardDotMatch?.groups) {
-    return { operator: standardDotMatch.groups.operator, operand: standardDotMatch.groups.operand };
+    return { operator: standardDotMatch.groups.operator as any, operand: standardDotMatch.groups.operand };
   }
 
-  // Regex for 'operator:operand' format (used in app state for statistical variables)
+  // Regex for 'operator:operand' format (single condition, current format)
   const colonRegex = /^(?<operator>[^:]+):(?<operand>.+)$/;
   const colonMatch = rawValue.match(colonRegex);
   if (colonMatch?.groups) {
-    return { operator: colonMatch.groups.operator, operand: colonMatch.groups.operand };
+    return { operator: colonMatch.groups.operator as any, operand: colonMatch.groups.operand };
   }
   
-  // Return null if no regex matches the expected formats for parsing from app state string
+  // Return null if no regex matches the expected formats
   return null;
 }
 
@@ -403,20 +425,36 @@ export function statisticalVariablesDeriveStateUpdateFromSearchParams(
 
 export function statisticalVariableDeriveStateUpdateFromValue(
   statDefinition: Tables<"stat_definition_ordered">,
-  value: {operator: string, operand: string} | null,
+  value: ConditionalValue | null,
 ): SearchAction  {
   let apiParamValue = null;
-  let appParamValues = [];
+  let appParamValues: string[] = [];
 
   if (value) {
-    if (value.operator === "in") {
-      // Assume the operand is a comma-separated string, and format it accordingly
-      const formattedOperand = `(${value.operand})`;
-      apiParamValue = `${value.operator}.${formattedOperand}`;
-      appParamValues.push(apiParamValue);
+    // Check if it's multiple conditions
+    if ('conditions' in value) {
+      // Multiple conditions - will be handled as multiple API params in atoms/search.ts
+      // For now, store them as comma-separated in api_param_value (marker for multi-param generation)
+      const apiParams = value.conditions.map(c => {
+        if (c.operator === "in") {
+          return `${c.operator}.(${c.operand})`;
+        } else {
+          return `${c.operator}.${c.operand}`;
+        }
+      });
+      // Special marker format to indicate multiple params needed
+      apiParamValue = `MULTI:${apiParams.join('|')}`;
+      appParamValues = value.conditions.map(c => `${c.operator}:${c.operand}`);
     } else {
-      apiParamValue = `${value.operator}.${value.operand}`;
-      appParamValues.push(apiParamValue);
+      // Single condition (backward compatible)
+      if (value.operator === "in") {
+        // Assume the operand is a comma-separated string, and format it accordingly
+        const formattedOperand = `(${value.operand})`;
+        apiParamValue = `${value.operator}.${formattedOperand}`;
+      } else {
+        apiParamValue = `${value.operator}.${value.operand}`;
+      }
+      appParamValues.push(`${value.operator}:${value.operand}`);
     }
   }
 
