@@ -271,6 +271,7 @@ export type Database = {
         formatted_relations AS (
             SELECT
                 ar.conrelid,
+                ar.conname,  -- Add constraint name for deterministic ordering
                 ar.columns,  -- Keep columns for view inheritance check
                 format(
                     E'          {\n' ||
@@ -305,7 +306,8 @@ export type Database = {
                     E',\n'
                     ORDER BY
                         CASE WHEN referenced_relation_kind IN ('r', 'p') THEN 1 ELSE 2 END,
-                        referenced_relation_name
+                        referenced_relation_name,
+                        conname  -- Add constraint name as tie-breaker for deterministic ordering
                 ) || E'\n' ||
                 '        ]'
                  AS relationships_ts
@@ -316,6 +318,7 @@ export type Database = {
         formatted_auth_relations AS (
             SELECT
                 ar.conrelid,
+                ar.conname,  -- Add constraint name for deterministic ordering
                 ar.constrained_relation_name,
                 format(
                     E'          {\n' ||
@@ -348,6 +351,7 @@ export type Database = {
             -- From public schema tables
             SELECT DISTINCT
                 v.oid as view_oid,
+                fr.conname,  -- Add constraint name for deterministic ordering
                 fr.formatted_ts,
                 fr.referenced_relation_name,
                 fr.referenced_relation_kind
@@ -374,6 +378,7 @@ export type Database = {
             -- From auth tables that have public views
             SELECT DISTINCT
                 v.oid as view_oid,
+                far.conname,  -- Add constraint name for deterministic ordering
                 far.formatted_ts,
                 far.referenced_relation_name,
                 far.referenced_relation_kind
@@ -392,7 +397,8 @@ export type Database = {
                     E',\n'
                     ORDER BY
                         CASE WHEN referenced_relation_kind IN ('r', 'p') THEN 1 ELSE 2 END,
-                        referenced_relation_name
+                        referenced_relation_name,
+                        conname  -- Add constraint name as tie-breaker for deterministic ordering
                 ) || E'\n' ||
                 '        ]'
                  AS relationships_ts
