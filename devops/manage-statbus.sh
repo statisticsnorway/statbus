@@ -821,6 +821,10 @@ EOS
         ;;
 
      'generate-types' )
+        # NOTE: This command is replaced by running the test:
+        #   ./devops/manage-statbus.sh test 016_generate_typescript_types_from_db
+        # which uses devops/generate_database_types.sql to generate types from SQL.
+        # The code below is kept for troubleshooting if the SQL generator has issues.
         pushd $WORKSPACE/app
         # Activate the Node.js version from .nvmrc using fnm
         eval "$(fnm env --use-on-cd)" || { echo "Failed to set up fnm environment"; exit 1; }
@@ -831,7 +835,7 @@ EOS
         db_url="postgresql://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/$PGDATABASE?sslmode=disable"
         
         # This run will not prompt for confirmation since the package is already installed
-        echo "Generating TypeScript types file..."
+        echo "Generating TypeScript types file using Supabase CLI (legacy)..."
         npx --yes supabase@beta gen types typescript --db-url "$db_url" > src/lib/database.types.ts
       ;;
     'compile-run-and-trace-dev-app-in-container' )
