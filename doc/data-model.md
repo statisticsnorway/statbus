@@ -67,7 +67,7 @@ These tables link to any of the four core statistical units:
 
 ### Statistics
 
-- `stat_for_unit(id, value_int, value_float, value_string, value_bool, stat_definition_id, data_source_id, establishment_id, legal_unit_id, edit_by_user_id, valid_range, valid_from, valid_to, valid_until, created_at, edit_at, edit_comment)` (temporal)
+- `stat_for_unit(id, value_int, value_float, value_string, value_bool, stat_definition_id, data_source_id, establishment_id, legal_unit_id, edit_by_user_id, valid_range, valid_from, valid_to, valid_until, edit_at, edit_comment)` (temporal)
   - Key FKs: data_source_id, edit_by_user_id, establishment_id, legal_unit_id, stat_definition_id, valid_range, valid_range.
 - `stat_definition(id, code, type, name, frequency, description, priority, archived)`
   - Enums: `frequency` (`public.stat_frequency`), `type` (`public.stat_type`).

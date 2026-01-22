@@ -579,7 +579,6 @@ erDiagram
 		double_precision value_float
 		character_varying value_string
 		boolean value_bool
-		timestamp_with_time_zone created_at
 		character_varying(512) edit_comment
 		integer edit_by_user_id
 		timestamp_with_time_zone edit_at
