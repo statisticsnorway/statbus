@@ -26,7 +26,7 @@ BEGIN
   | boolean
   | null
   | { [key: string]: Json | undefined }
-  | Json[];
+  | Json[]
 
 export type Database = {
 ';
@@ -80,6 +80,7 @@ export type Database = {
             SELECT
                 con.conrelid,
                 con.conname,
+                con.conkey, -- FK column numbers for isOneToOne check
                 (SELECT string_agg(a.attname, '", "') FROM pg_attribute AS a WHERE a.attrelid = con.conrelid AND a.attnum = ANY(con.conkey)) AS columns,
                 con.confrelid,
                 (SELECT string_agg(a.attname, '", "') FROM pg_attribute AS a WHERE a.attrelid = con.confrelid AND a.attnum = ANY(con.confkey)) AS referenced_columns,
@@ -96,49 +97,37 @@ export type Database = {
               AND referenced_class.relkind IN ('r', 'p') -- Only FKs to tables
         ),
         all_relations AS (
-            -- The original FK to the table, if it's in the same schema
-            SELECT conrelid, conname, columns, referenced_columns, referenced_relation_name, referenced_relation_kind
+            -- Only explicit FK constraints (computed relationships are handled via SetofOptions)
+            SELECT conrelid, conname, conkey, columns, referenced_columns, referenced_relation_name, referenced_relation_kind
             FROM fk_constraints
             WHERE referenced_schema_name = v_schema_name
-            UNION ALL
-            -- The synthetic FKs for views on the referenced table (from any schema)
-            SELECT DISTINCT
-                fk.conrelid,
-                fk.conname,
-                fk.columns,
-                fk.referenced_columns,
-                v.relname as referenced_relation_name,
-                v.relkind AS referenced_relation_kind
-            FROM fk_constraints fk
-            JOIN pg_depend d ON d.refobjid = fk.confrelid
-            JOIN pg_rewrite r ON r.oid = d.objid
-            JOIN pg_class v ON v.oid = r.ev_class
-            WHERE d.classid = 'pg_rewrite'::regclass
-              AND d.refclassid = 'pg_class'::regclass
-              AND d.deptype = 'n' -- normal dependency
-              AND v.relkind IN ('v', 'm')
-              AND v.relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = v_schema_name)
-              AND v.relname LIKE fk.referenced_relation_name || '%'
         ),
         formatted_relations AS (
             SELECT
-                conrelid,
+                ar.conrelid,
                 format(
                     E'          {\n' ||
-                    E'            foreignKeyName: "%s",\n' ||
-                    E'            columns: ["%s"],\n' ||
-                    E'            isOneToOne: false,\n' ||
-                    E'            referencedRelation: "%s",\n' ||
+                    E'            foreignKeyName: "%s"\n' ||
+                    E'            columns: ["%s"]\n' ||
+                    E'            isOneToOne: %s\n' ||
+                    E'            referencedRelation: "%s"\n' ||
                     E'            referencedColumns: ["%s"]\n' ||
                     E'          }',
-                    conname,
-                    columns,
-                    referenced_relation_name,
-                    referenced_columns
+                    ar.conname,
+                    ar.columns,
+                    -- isOneToOne is true if the FK columns have a unique or primary key constraint
+                    CASE WHEN EXISTS (
+                        SELECT 1 FROM pg_constraint uc 
+                        WHERE uc.conrelid = ar.conrelid 
+                          AND uc.contype IN ('u', 'p')
+                          AND uc.conkey = ar.conkey
+                    ) THEN 'true' ELSE 'false' END,
+                    ar.referenced_relation_name,
+                    ar.referenced_columns
                 ) as formatted_ts,
-                referenced_relation_name,
-                referenced_relation_kind
-            FROM all_relations
+                ar.referenced_relation_name,
+                ar.referenced_relation_kind
+            FROM all_relations ar
         ),
         table_relationships AS (
             SELECT
@@ -156,8 +145,9 @@ export type Database = {
             FROM formatted_relations
             GROUP BY conrelid
         ),
+        -- Views inherit relationships from their base tables
         view_base_relations AS (
-            SELECT DISTINCT -- a view might use a table in multiple ways
+            SELECT DISTINCT
                 v.oid as view_oid,
                 fr.formatted_ts,
                 fr.referenced_relation_name,
@@ -166,9 +156,9 @@ export type Database = {
             JOIN pg_rewrite r ON r.ev_class = v.oid
             JOIN pg_depend d ON d.objid = r.oid
             JOIN formatted_relations fr ON fr.conrelid = d.refobjid
-            WHERE v.relkind IN ('v', 'm')
+            WHERE v.relkind IN ('v', 'm') -- views and materialized views
               AND v.relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = v_schema_name)
-              AND d.refclassid = 'pg_class'::regclass -- depends on a table/view
+              AND d.refclassid = 'pg_class'::regclass
               AND d.deptype = 'n' -- normal dependency
         ),
         view_relationships AS (
@@ -188,8 +178,13 @@ export type Database = {
             GROUP BY view_oid
         ),
         all_relationships AS (
-            SELECT conrelid, relationships_ts FROM table_relationships
+            -- Tables get relationships from table_relationships (explicit FKs + inferred)
+            SELECT tr.conrelid, tr.relationships_ts 
+            FROM table_relationships tr
+            JOIN pg_class c ON c.oid = tr.conrelid
+            WHERE c.relkind IN ('r', 'p') -- only actual tables
             UNION ALL
+            -- Views get relationships from view_relationships (inherited from base tables)
             SELECT conrelid, relationships_ts FROM view_relationships
         ),
         columns AS (
@@ -277,7 +272,7 @@ export type Database = {
             SELECT
                 c.relkind,
                 table_name,
-                string_agg('          ' || column_name || ': ' || base_ts_type || (CASE WHEN NOT attnotnull THEN ' | null' ELSE '' END), E',\n' ORDER BY column_name) as row_columns,
+                string_agg('          ' || column_name || ': ' || base_ts_type || (CASE WHEN NOT attnotnull THEN ' | null' ELSE '' END), E'\n' ORDER BY column_name) as row_columns,
                 string_agg(
                     '          ' || column_name ||
                     CASE
@@ -292,7 +287,7 @@ export type Database = {
                             base_ts_type ||
                             (CASE WHEN NOT attnotnull THEN ' | null' ELSE '' END)
                     END,
-                    E',\n' ORDER BY column_name
+                    E'\n' ORDER BY column_name
                 ) as insert_columns,
                 string_agg(
                     '          ' || column_name ||
@@ -302,7 +297,7 @@ export type Database = {
                         -- For all other columns, it's optional
                         ELSE '?: ' || base_ts_type || (CASE WHEN NOT attnotnull THEN ' | null' ELSE '' END)
                     END,
-                    E',\n' ORDER BY column_name
+                    E'\n' ORDER BY column_name
                 ) as update_columns,
                 r.relationships_ts
             FROM columns c
@@ -377,33 +372,81 @@ export type Database = {
                         SELECT string_agg(
                             '          ' || COALESCE(NULLIF(f.arg_names[s.idx], ''), 'arg' || (s.idx - 1)) || '?: ' ||
                             CASE
-                                WHEN t.typtype = 'e' THEN format('Database["%s"]["Enums"]["%s"]', tn.nspname, t.typname)
-                                WHEN t.typtype = 'c' THEN format('Database["%s"]["CompositeTypes"]["%s"]', tn.nspname, t.typname)
+                                -- Enums: only reference if in included schemas
+                                WHEN t.typtype = 'e' AND tn.nspname = ANY(v_schemas) THEN format('Database["%s"]["Enums"]["%s"]', tn.nspname, t.typname)
+                                WHEN t.typtype = 'e' THEN 'unknown'
+                                -- Composite types: determine if it's a table, view, or pure composite type
+                                WHEN t.typtype = 'c' AND tn.nspname = ANY(v_schemas) THEN
+                                    CASE tc.relkind
+                                        WHEN 'r' THEN format('Database["%s"]["Tables"]["%s"]["Row"]', tn.nspname, t.typname) -- table
+                                        WHEN 'p' THEN format('Database["%s"]["Tables"]["%s"]["Row"]', tn.nspname, t.typname) -- partitioned table
+                                        WHEN 'v' THEN format('Database["%s"]["Views"]["%s"]["Row"]', tn.nspname, t.typname) -- view
+                                        WHEN 'm' THEN format('Database["%s"]["Views"]["%s"]["Row"]', tn.nspname, t.typname) -- materialized view
+                                        WHEN 'c' THEN format('Database["%s"]["CompositeTypes"]["%s"]', tn.nspname, t.typname) -- pure composite
+                                        ELSE 'unknown'
+                                    END
+                                WHEN t.typtype = 'c' THEN 'unknown'
+                                -- Arrays
                                 WHEN t.typcategory = 'A' THEN
                                     CASE
-                                        WHEN t_element.typtype = 'e' THEN format('Database["%s"]["Enums"]["%s"][]', tn.nspname, t_element.typname)
-                                        WHEN t_element.typtype = 'c' THEN format('Database["%s"]["CompositeTypes"]["%s"][]', tn.nspname, t_element.typname)
+                                        WHEN t_element.typtype = 'e' AND tn.nspname = ANY(v_schemas) THEN format('Database["%s"]["Enums"]["%s"][]', tn.nspname, t_element.typname)
+                                        WHEN t_element.typtype = 'e' THEN 'unknown[]'
+                                        WHEN t_element.typtype = 'c' AND tn.nspname = ANY(v_schemas) THEN
+                                            CASE tc_element.relkind
+                                                WHEN 'r' THEN format('Database["%s"]["Tables"]["%s"]["Row"][]', tn.nspname, t_element.typname)
+                                                WHEN 'p' THEN format('Database["%s"]["Tables"]["%s"]["Row"][]', tn.nspname, t_element.typname)
+                                                WHEN 'v' THEN format('Database["%s"]["Views"]["%s"]["Row"][]', tn.nspname, t_element.typname)
+                                                WHEN 'm' THEN format('Database["%s"]["Views"]["%s"]["Row"][]', tn.nspname, t_element.typname)
+                                                WHEN 'c' THEN format('Database["%s"]["CompositeTypes"]["%s"][]', tn.nspname, t_element.typname)
+                                                ELSE 'unknown[]'
+                                            END
+                                        WHEN t_element.typtype = 'c' THEN 'unknown[]'
                                         ELSE CASE t_element.typname WHEN 'bool' THEN 'boolean[]' WHEN 'int2' THEN 'number[]' WHEN 'int4' THEN 'number[]' WHEN 'int8' THEN 'number[]' WHEN 'float4' THEN 'number[]' WHEN 'float8' THEN 'number[]' WHEN 'numeric' THEN 'number[]' WHEN 'text' THEN 'string[]' WHEN 'varchar' THEN 'string[]' WHEN 'char' THEN 'string[]' WHEN 'uuid' THEN 'string[]' WHEN 'date' THEN 'string[]' WHEN 'timestamp' THEN 'string[]' WHEN 'timestamptz' THEN 'string[]' WHEN 'json' THEN 'Json[]' WHEN 'jsonb' THEN 'Json[]' ELSE 'unknown[]' END
                                     END
                                 ELSE
                                     CASE t.typname WHEN 'bool' THEN 'boolean' WHEN 'int2' THEN 'number' WHEN 'int4' THEN 'number' WHEN 'int8' THEN 'number' WHEN 'float4' THEN 'number' WHEN 'float8' THEN 'number' WHEN 'numeric' THEN 'number' WHEN 'text' THEN 'string' WHEN 'varchar' THEN 'string' WHEN 'char' THEN 'string' WHEN 'uuid' THEN 'string' WHEN 'date' THEN 'string' WHEN 'timestamp' THEN 'string' WHEN 'timestamptz' THEN 'string' WHEN 'json' THEN 'Json' WHEN 'jsonb' THEN 'Json' WHEN 'ltree' THEN 'unknown' ELSE 'unknown' END
                             END,
-                            E',\n' ORDER BY s.idx
+                            E'\n' ORDER BY s.idx
                         )
                         FROM generate_subscripts(f.arg_types, 1) AS s(idx)
                         JOIN pg_type t ON t.oid = f.arg_types[s.idx]
                         JOIN pg_namespace tn ON tn.oid = t.typnamespace
                         LEFT JOIN pg_type t_element ON t_element.oid = t.typelem
+                        LEFT JOIN pg_class tc ON tc.oid = t.typrelid -- for determining table/view/composite
+                        LEFT JOIN pg_class tc_element ON tc_element.oid = t_element.typrelid -- for array element type
                     ) || E'\n' || '        }'
                 END as args_ts,
                 '        Returns: ' ||
                 CASE
-                    WHEN rt.typtype = 'e' THEN format('Database["%s"]["Enums"]["%s"]', rtn.nspname, rt.typname)
-                    WHEN rt.typtype = 'c' THEN format('Database["%s"]["CompositeTypes"]["%s"]', rtn.nspname, rt.typname)
+                    -- Enums: only reference if in included schemas
+                    WHEN rt.typtype = 'e' AND rtn.nspname = ANY(v_schemas) THEN format('Database["%s"]["Enums"]["%s"]', rtn.nspname, rt.typname)
+                    WHEN rt.typtype = 'e' THEN 'unknown'
+                    -- Composite types: determine if it's a table, view, or pure composite type
+                    WHEN rt.typtype = 'c' AND rtn.nspname = ANY(v_schemas) THEN
+                        CASE rtc.relkind
+                            WHEN 'r' THEN format('Database["%s"]["Tables"]["%s"]["Row"]', rtn.nspname, rt.typname) -- table
+                            WHEN 'p' THEN format('Database["%s"]["Tables"]["%s"]["Row"]', rtn.nspname, rt.typname) -- partitioned table
+                            WHEN 'v' THEN format('Database["%s"]["Views"]["%s"]["Row"]', rtn.nspname, rt.typname) -- view
+                            WHEN 'm' THEN format('Database["%s"]["Views"]["%s"]["Row"]', rtn.nspname, rt.typname) -- materialized view
+                            WHEN 'c' THEN format('Database["%s"]["CompositeTypes"]["%s"]', rtn.nspname, rt.typname) -- pure composite
+                            ELSE 'unknown'
+                        END
+                    WHEN rt.typtype = 'c' THEN 'unknown'
+                    -- Arrays
                     WHEN rt.typcategory = 'A' THEN
                         CASE
-                            WHEN rt_element.typtype = 'e' THEN format('Database["%s"]["Enums"]["%s"][]', rtn.nspname, rt_element.typname)
-                            WHEN rt_element.typtype = 'c' THEN format('Database["%s"]["CompositeTypes"]["%s"][]', rtn.nspname, rt_element.typname)
+                            WHEN rt_element.typtype = 'e' AND rtn.nspname = ANY(v_schemas) THEN format('Database["%s"]["Enums"]["%s"][]', rtn.nspname, rt_element.typname)
+                            WHEN rt_element.typtype = 'e' THEN 'unknown[]'
+                            WHEN rt_element.typtype = 'c' AND rtn.nspname = ANY(v_schemas) THEN
+                                CASE rtc_element.relkind
+                                    WHEN 'r' THEN format('Database["%s"]["Tables"]["%s"]["Row"][]', rtn.nspname, rt_element.typname)
+                                    WHEN 'p' THEN format('Database["%s"]["Tables"]["%s"]["Row"][]', rtn.nspname, rt_element.typname)
+                                    WHEN 'v' THEN format('Database["%s"]["Views"]["%s"]["Row"][]', rtn.nspname, rt_element.typname)
+                                    WHEN 'm' THEN format('Database["%s"]["Views"]["%s"]["Row"][]', rtn.nspname, rt_element.typname)
+                                    WHEN 'c' THEN format('Database["%s"]["CompositeTypes"]["%s"][]', rtn.nspname, rt_element.typname)
+                                    ELSE 'unknown[]'
+                                END
+                            WHEN rt_element.typtype = 'c' THEN 'unknown[]'
                             ELSE CASE rt_element.typname WHEN 'bool' THEN 'boolean[]' WHEN 'int2' THEN 'number[]' WHEN 'int4' THEN 'number[]' WHEN 'int8' THEN 'number[]' WHEN 'float4' THEN 'number[]' WHEN 'float8' THEN 'number[]' WHEN 'numeric' THEN 'number[]' WHEN 'text' THEN 'string[]' WHEN 'varchar' THEN 'string[]' WHEN 'char' THEN 'string[]' WHEN 'uuid' THEN 'string[]' WHEN 'date' THEN 'string[]' WHEN 'timestamp' THEN 'string[]' WHEN 'timestamptz' THEN 'string[]' WHEN 'json' THEN 'Json[]' WHEN 'jsonb' THEN 'Json[]' ELSE 'unknown[]' END
                         END
                     ELSE
@@ -414,19 +457,44 @@ export type Database = {
             JOIN pg_type rt ON rt.oid = f.return_type_oid
             JOIN pg_namespace rtn ON rtn.oid = rt.typnamespace
             LEFT JOIN pg_type rt_element ON rt_element.oid = rt.typelem
+            LEFT JOIN pg_class rtc ON rtc.oid = rt.typrelid -- for determining table/view/composite
+            LEFT JOIN pg_class rtc_element ON rtc_element.oid = rt_element.typrelid -- for array element type
+        ),
+        -- Add SetofOptions for computed relationships (functions that take a row and return SETOF)
+        function_setof_options AS (
+            SELECT
+                f.oid,
+                f.function_name,
+                -- from: the argument table/view name
+                (SELECT t.typname FROM pg_type t WHERE t.oid = f.arg_types[1]) as from_type,
+                -- to: the return table/view name
+                rt.typname as to_type,
+                f.returns_set
+            FROM functions f
+            JOIN pg_type rt ON rt.oid = f.return_type_oid
+            WHERE f.arg_count = 1  -- single argument
+              AND f.returns_set    -- returns SETOF
+              AND rt.typtype = 'c' -- returns composite type (table/view row)
+              AND (SELECT t.typtype FROM pg_type t WHERE t.oid = f.arg_types[1]) = 'c' -- arg is composite
         ),
         function_overloads AS (
             SELECT
-                function_name,
+                fs.function_name,
                 array_agg(
                     '{' || E'\n' ||
-                    args_ts || E',\n' ||
-                    returns_ts || E'\n' ||
+                    fs.args_ts || E'\n' ||
+                    fs.returns_ts ||
+                    -- Add SetofOptions if this is a computed relationship function
+                    COALESCE((
+                        SELECT E'\n        SetofOptions: {\n          from: "' || fso.from_type || E'"\n          to: "' || fso.to_type || E'"\n          isOneToOne: true\n          isSetofReturn: true\n        }'
+                        FROM function_setof_options fso
+                        WHERE fso.oid = fs.oid
+                    ), '') || E'\n' ||
                     '      }'
-                    ORDER BY oid
+                    ORDER BY fs.oid
                 ) AS signatures
-            FROM function_signatures
-            GROUP BY function_name
+            FROM function_signatures fs
+            GROUP BY fs.function_name
         )
         SELECT
             '    Functions: {' || E'\n' ||
@@ -478,7 +546,7 @@ export type Database = {
                 type_name,
                 string_agg(
                     '        ' || column_name || ': ' || ts_type || (CASE WHEN NOT attnotnull THEN ' | null' ELSE '' END),
-                    E',\n' ORDER BY attnum
+                    E'\n' ORDER BY attnum
                 ) AS columns_ts
             FROM composite_type_columns
             GROUP BY type_name
@@ -517,36 +585,30 @@ export type Database = {
 }
 ';
 
-    -- Append helper types
+    -- Append helper types (matching Supabase's exact format)
     v_output := v_output || $$
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
-
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+type PublicSchema = Database[Extract<keyof Database, "public">]
 
 export type Tables<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+  PublicTableNameOrOptions extends
+    | keyof (PublicSchema["Tables"] & PublicSchema["Views"])
+    | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
+        Database[PublicTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
+      Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+  : PublicTableNameOrOptions extends keyof (PublicSchema["Tables"] &
+        PublicSchema["Views"])
+    ? (PublicSchema["Tables"] &
+        PublicSchema["Views"])[PublicTableNameOrOptions] extends {
         Row: infer R
       }
       ? R
@@ -554,28 +616,20 @@ export type Tables<
     : never
 
 export type TablesInsert<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+  PublicTableNameOrOptions extends
+    | keyof PublicSchema["Tables"]
+    | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
+    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
         Insert: infer I
       }
       ? I
@@ -583,28 +637,20 @@ export type TablesInsert<
     : never
 
 export type TablesUpdate<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+  PublicTableNameOrOptions extends
+    | keyof PublicSchema["Tables"]
+    | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
+    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
         Update: infer U
       }
       ? U
@@ -612,37 +658,37 @@ export type TablesUpdate<
     : never
 
 export type Enums<
-  DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
+  PublicEnumNameOrOptions extends
+    | keyof PublicSchema["Enums"]
+    | { schema: keyof Database },
+  EnumName extends PublicEnumNameOrOptions extends {
+    schema: keyof Database
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
+> = PublicEnumNameOrOptions extends {
+  schema: keyof Database
 }
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+  ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
+    ? PublicSchema["Enums"][PublicEnumNameOrOptions]
     : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
+    | keyof PublicSchema["CompositeTypes"]
+    | { schema: keyof Database },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  },
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    schema: keyof Database
+  }
+    ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-},
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+  schema: keyof Database
+}
+  ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof PublicSchema["CompositeTypes"]
+    ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
 $$;
 
