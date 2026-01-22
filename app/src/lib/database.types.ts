@@ -1069,11 +1069,11 @@ export type Database = {
             referencedColumns: ["enterprise_id"]
           },
           {
-            foreignKeyName: "establishment_unit_size_id_fkey"
-            columns: ["unit_size_id"]
+            foreignKeyName: "establishment_sector_id_fkey"
+            columns: ["sector_id"]
             isOneToOne: false
             referencedRelation: "timeline_establishment_def"
-            referencedColumns: ["unit_size_id"]
+            referencedColumns: ["sector_id"]
           },
           {
             foreignKeyName: "establishment_status_id_fkey"
@@ -1083,32 +1083,11 @@ export type Database = {
             referencedColumns: ["status_id"]
           },
           {
-            foreignKeyName: "establishment_sector_id_fkey"
-            columns: ["sector_id"]
-            isOneToOne: false
-            referencedRelation: "timeline_establishment_def"
-            referencedColumns: ["sector_id"]
-          },
-          {
-            foreignKeyName: "establishment_sector_id_fkey"
-            columns: ["sector_id"]
-            isOneToOne: false
-            referencedRelation: "timeline_legal_unit_def"
-            referencedColumns: ["sector_id"]
-          },
-          {
             foreignKeyName: "establishment_unit_size_id_fkey"
             columns: ["unit_size_id"]
             isOneToOne: false
-            referencedRelation: "timeline_legal_unit_def"
+            referencedRelation: "timeline_establishment_def"
             referencedColumns: ["unit_size_id"]
-          },
-          {
-            foreignKeyName: "establishment_status_id_fkey"
-            columns: ["status_id"]
-            isOneToOne: false
-            referencedRelation: "timeline_legal_unit_def"
-            referencedColumns: ["status_id"]
           },
           {
             foreignKeyName: "establishment_legal_unit_id_valid"
@@ -1116,6 +1095,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "timeline_legal_unit_def"
             referencedColumns: ["legal_unit_id"]
+          },
+          {
+            foreignKeyName: "establishment_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "timeline_legal_unit_def"
+            referencedColumns: ["sector_id"]
+          },
+          {
+            foreignKeyName: "establishment_status_id_fkey"
+            columns: ["status_id"]
+            isOneToOne: false
+            referencedRelation: "timeline_legal_unit_def"
+            referencedColumns: ["status_id"]
+          },
+          {
+            foreignKeyName: "establishment_unit_size_id_fkey"
+            columns: ["unit_size_id"]
+            isOneToOne: false
+            referencedRelation: "timeline_legal_unit_def"
+            referencedColumns: ["unit_size_id"]
           },
           {
             foreignKeyName: "establishment_unit_size_id_fkey"
@@ -2053,13 +2053,6 @@ export type Database = {
             referencedColumns: ["enterprise_id"]
           },
           {
-            foreignKeyName: "legal_unit_status_id_fkey"
-            columns: ["status_id"]
-            isOneToOne: false
-            referencedRelation: "timeline_establishment_def"
-            referencedColumns: ["status_id"]
-          },
-          {
             foreignKeyName: "legal_unit_sector_id_fkey"
             columns: ["sector_id"]
             isOneToOne: false
@@ -2067,32 +2060,18 @@ export type Database = {
             referencedColumns: ["sector_id"]
           },
           {
+            foreignKeyName: "legal_unit_status_id_fkey"
+            columns: ["status_id"]
+            isOneToOne: false
+            referencedRelation: "timeline_establishment_def"
+            referencedColumns: ["status_id"]
+          },
+          {
             foreignKeyName: "legal_unit_unit_size_id_fkey"
             columns: ["unit_size_id"]
             isOneToOne: false
             referencedRelation: "timeline_establishment_def"
             referencedColumns: ["unit_size_id"]
-          },
-          {
-            foreignKeyName: "legal_unit_unit_size_id_fkey"
-            columns: ["unit_size_id"]
-            isOneToOne: false
-            referencedRelation: "timeline_legal_unit_def"
-            referencedColumns: ["unit_size_id"]
-          },
-          {
-            foreignKeyName: "legal_unit_sector_id_fkey"
-            columns: ["sector_id"]
-            isOneToOne: false
-            referencedRelation: "timeline_legal_unit_def"
-            referencedColumns: ["sector_id"]
-          },
-          {
-            foreignKeyName: "legal_unit_status_id_fkey"
-            columns: ["status_id"]
-            isOneToOne: false
-            referencedRelation: "timeline_legal_unit_def"
-            referencedColumns: ["status_id"]
           },
           {
             foreignKeyName: "legal_unit_legal_form_id_fkey"
@@ -2100,6 +2079,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "timeline_legal_unit_def"
             referencedColumns: ["legal_form_id"]
+          },
+          {
+            foreignKeyName: "legal_unit_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "timeline_legal_unit_def"
+            referencedColumns: ["sector_id"]
+          },
+          {
+            foreignKeyName: "legal_unit_status_id_fkey"
+            columns: ["status_id"]
+            isOneToOne: false
+            referencedRelation: "timeline_legal_unit_def"
+            referencedColumns: ["status_id"]
+          },
+          {
+            foreignKeyName: "legal_unit_unit_size_id_fkey"
+            columns: ["unit_size_id"]
+            isOneToOne: false
+            referencedRelation: "timeline_legal_unit_def"
+            referencedColumns: ["unit_size_id"]
           },
           {
             foreignKeyName: "legal_unit_unit_size_id_fkey"
@@ -5858,13 +5858,6 @@ export type Database = {
             referencedColumns: ["enterprise_id"]
           },
           {
-            foreignKeyName: "establishment_unit_size_id_fkey"
-            columns: ["unit_size_id"]
-            isOneToOne: false
-            referencedRelation: "timeline_establishment_def"
-            referencedColumns: ["unit_size_id"]
-          },
-          {
             foreignKeyName: "establishment_sector_id_fkey"
             columns: ["sector_id"]
             isOneToOne: false
@@ -5879,11 +5872,11 @@ export type Database = {
             referencedColumns: ["status_id"]
           },
           {
-            foreignKeyName: "establishment_status_id_fkey"
-            columns: ["status_id"]
+            foreignKeyName: "establishment_unit_size_id_fkey"
+            columns: ["unit_size_id"]
             isOneToOne: false
-            referencedRelation: "timeline_legal_unit_def"
-            referencedColumns: ["status_id"]
+            referencedRelation: "timeline_establishment_def"
+            referencedColumns: ["unit_size_id"]
           },
           {
             foreignKeyName: "establishment_legal_unit_id_valid"
@@ -5893,18 +5886,25 @@ export type Database = {
             referencedColumns: ["legal_unit_id"]
           },
           {
-            foreignKeyName: "establishment_unit_size_id_fkey"
-            columns: ["unit_size_id"]
-            isOneToOne: false
-            referencedRelation: "timeline_legal_unit_def"
-            referencedColumns: ["unit_size_id"]
-          },
-          {
             foreignKeyName: "establishment_sector_id_fkey"
             columns: ["sector_id"]
             isOneToOne: false
             referencedRelation: "timeline_legal_unit_def"
             referencedColumns: ["sector_id"]
+          },
+          {
+            foreignKeyName: "establishment_status_id_fkey"
+            columns: ["status_id"]
+            isOneToOne: false
+            referencedRelation: "timeline_legal_unit_def"
+            referencedColumns: ["status_id"]
+          },
+          {
+            foreignKeyName: "establishment_unit_size_id_fkey"
+            columns: ["unit_size_id"]
+            isOneToOne: false
+            referencedRelation: "timeline_legal_unit_def"
+            referencedColumns: ["unit_size_id"]
           },
           {
             foreignKeyName: "establishment_unit_size_id_fkey"
@@ -6500,20 +6500,6 @@ export type Database = {
             referencedColumns: ["unit_size_id"]
           },
           {
-            foreignKeyName: "legal_unit_unit_size_id_fkey"
-            columns: ["unit_size_id"]
-            isOneToOne: false
-            referencedRelation: "timeline_legal_unit_def"
-            referencedColumns: ["unit_size_id"]
-          },
-          {
-            foreignKeyName: "legal_unit_status_id_fkey"
-            columns: ["status_id"]
-            isOneToOne: false
-            referencedRelation: "timeline_legal_unit_def"
-            referencedColumns: ["status_id"]
-          },
-          {
             foreignKeyName: "legal_unit_legal_form_id_fkey"
             columns: ["legal_form_id"]
             isOneToOne: false
@@ -6526,6 +6512,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "timeline_legal_unit_def"
             referencedColumns: ["sector_id"]
+          },
+          {
+            foreignKeyName: "legal_unit_status_id_fkey"
+            columns: ["status_id"]
+            isOneToOne: false
+            referencedRelation: "timeline_legal_unit_def"
+            referencedColumns: ["status_id"]
+          },
+          {
+            foreignKeyName: "legal_unit_unit_size_id_fkey"
+            columns: ["unit_size_id"]
+            isOneToOne: false
+            referencedRelation: "timeline_legal_unit_def"
+            referencedColumns: ["unit_size_id"]
           },
           {
             foreignKeyName: "legal_unit_unit_size_id_fkey"
@@ -8469,13 +8469,6 @@ export type Database = {
             referencedColumns: ["enterprise_id"]
           },
           {
-            foreignKeyName: "establishment_unit_size_id_fkey"
-            columns: ["unit_size_id"]
-            isOneToOne: false
-            referencedRelation: "timeline_establishment_def"
-            referencedColumns: ["unit_size_id"]
-          },
-          {
             foreignKeyName: "establishment_sector_id_fkey"
             columns: ["sector_id"]
             isOneToOne: false
@@ -8490,6 +8483,20 @@ export type Database = {
             referencedColumns: ["status_id"]
           },
           {
+            foreignKeyName: "establishment_unit_size_id_fkey"
+            columns: ["unit_size_id"]
+            isOneToOne: false
+            referencedRelation: "timeline_establishment_def"
+            referencedColumns: ["unit_size_id"]
+          },
+          {
+            foreignKeyName: "establishment_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "timeline_legal_unit_def"
+            referencedColumns: ["sector_id"]
+          },
+          {
             foreignKeyName: "establishment_status_id_fkey"
             columns: ["status_id"]
             isOneToOne: false
@@ -8502,13 +8509,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "timeline_legal_unit_def"
             referencedColumns: ["unit_size_id"]
-          },
-          {
-            foreignKeyName: "establishment_sector_id_fkey"
-            columns: ["sector_id"]
-            isOneToOne: false
-            referencedRelation: "timeline_legal_unit_def"
-            referencedColumns: ["sector_id"]
           },
           {
             foreignKeyName: "establishment_unit_size_id_fkey"
@@ -8865,6 +8865,20 @@ export type Database = {
             referencedColumns: ["enterprise_id"]
           },
           {
+            foreignKeyName: "legal_unit_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "timeline_establishment_def"
+            referencedColumns: ["sector_id"]
+          },
+          {
+            foreignKeyName: "legal_unit_status_id_fkey"
+            columns: ["status_id"]
+            isOneToOne: false
+            referencedRelation: "timeline_establishment_def"
+            referencedColumns: ["status_id"]
+          },
+          {
             foreignKeyName: "legal_unit_unit_size_id_fkey"
             columns: ["unit_size_id"]
             isOneToOne: false
@@ -8872,39 +8886,25 @@ export type Database = {
             referencedColumns: ["unit_size_id"]
           },
           {
-            foreignKeyName: "legal_unit_sector_id_fkey"
-            columns: ["sector_id"]
-            isOneToOne: false
-            referencedRelation: "timeline_establishment_def"
-            referencedColumns: ["sector_id"]
-          },
-          {
-            foreignKeyName: "legal_unit_status_id_fkey"
-            columns: ["status_id"]
-            isOneToOne: false
-            referencedRelation: "timeline_establishment_def"
-            referencedColumns: ["status_id"]
-          },
-          {
-            foreignKeyName: "legal_unit_status_id_fkey"
-            columns: ["status_id"]
-            isOneToOne: false
-            referencedRelation: "timeline_legal_unit_def"
-            referencedColumns: ["status_id"]
-          },
-          {
-            foreignKeyName: "legal_unit_sector_id_fkey"
-            columns: ["sector_id"]
-            isOneToOne: false
-            referencedRelation: "timeline_legal_unit_def"
-            referencedColumns: ["sector_id"]
-          },
-          {
             foreignKeyName: "legal_unit_legal_form_id_fkey"
             columns: ["legal_form_id"]
             isOneToOne: false
             referencedRelation: "timeline_legal_unit_def"
             referencedColumns: ["legal_form_id"]
+          },
+          {
+            foreignKeyName: "legal_unit_sector_id_fkey"
+            columns: ["sector_id"]
+            isOneToOne: false
+            referencedRelation: "timeline_legal_unit_def"
+            referencedColumns: ["sector_id"]
+          },
+          {
+            foreignKeyName: "legal_unit_status_id_fkey"
+            columns: ["status_id"]
+            isOneToOne: false
+            referencedRelation: "timeline_legal_unit_def"
+            referencedColumns: ["status_id"]
           },
           {
             foreignKeyName: "legal_unit_unit_size_id_fkey"
