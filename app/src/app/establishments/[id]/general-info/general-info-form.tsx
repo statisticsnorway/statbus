@@ -8,13 +8,14 @@ import { SubmissionFeedbackDebugInfo } from "@/components/form/submission-feedba
 import { useStatisticalUnitDetails } from "@/components/statistical-unit-details/use-unit-details";
 import Loading from "@/components/statistical-unit-details/loading";
 import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
-import { updateEstablishment } from "../update-establishment-server-actions";
+import { updateEstablishment, updateEstablishmentImage, deleteEstablishmentImage } from "../update-establishment-server-actions";
 import { updateLocation } from "@/app/legal-units/[id]/update-legal-unit-server-actions";
 import { useDetailsPageData } from "@/atoms/edits";
 import { useSWRConfig } from "swr";
 import { EditableFieldWithMetadata } from "@/components/form/editable-field-with-metadata";
 import { SelectFormField } from "@/components/form/select-form-field";
 import { EditableFieldGroup } from "@/components/form/editable-field-group";
+import { EditableImageFieldWithMetadata } from "@/components/form/editable-image-field-with-metadata";
 
 export default function GeneralInfoForm({ id }: { readonly id: string }) {
   const [state, formAction] = useActionState(
@@ -29,6 +30,7 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
     updateLocation.bind(null, id, "establishment"),
     null
   );
+
   const { externalIdentTypes } = useBaseData();
   const { regions, countries } = useDetailsPageData();
 
@@ -78,6 +80,15 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
         value={establishment?.name || ""}
         response={state}
         formAction={formAction}
+        metadata={establishment}
+      />
+      <EditableImageFieldWithMetadata
+        fieldId="image"
+        label="Image"
+        imageId={establishment?.image_id}
+        unitType="establishment"
+        formAction={formAction}
+        response={state}
         metadata={establishment}
       />
       <div className="grid lg:grid-cols-2 gap-4 p-3">

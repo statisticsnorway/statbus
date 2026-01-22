@@ -106,6 +106,137 @@ export async function updateLegalUnit(
   return { status: "success", message: "Legal unit successfully updated" };
 }
 
+export async function updateLegalUnitImage(
+  id: string,
+  _prevState: any,
+  formData: FormData
+): Promise<UpdateResponse> {
+  const client = await getServerRestClient();
+  const logger = await createServerLogger();
+
+  try {
+    const file = formData.get("image") as File;
+    if (!file) {
+      return {
+        status: "error",
+        message: "No image file provided",
+      };
+    }
+
+    // Convert file to base64
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+    const base64Data = buffer.toString("base64");
+
+    // Insert image into public.image table
+    const { data: imageData, error: imageError } = await client
+      .from("image")
+      .insert({
+        data: base64Data,
+        type: file.type,
+      })
+      .select("id")
+      .single();
+
+    if (imageError || !imageData) {
+      logger.error(imageError, "failed to insert image");
+      return {
+        status: "error",
+        message: imageError?.message || "Failed to upload image",
+      };
+    }
+
+    // Update legal_unit with new image_id
+    const { error: updateError } = await client
+      .from("legal_unit")
+      .update({ image_id: imageData.id })
+      .eq("id", parseInt(id, 10));
+
+    if (updateError) {
+      logger.error(updateError, "failed to update legal_unit image_id");
+      return {
+        status: "error",
+        message: updateError.message,
+      };
+    }
+
+    revalidatePath("/legal-units/[id]", "page");
+    return {
+      status: "success",
+      message: "Image uploaded successfully",
+    };
+  } catch (error) {
+    logger.error(error, "failed to upload legal unit image");
+    return {
+      status: "error",
+      message: "Failed to upload image",
+    };
+  }
+}
+
+export async function deleteLegalUnitImage(
+  id: string,
+  _prevState: any
+): Promise<UpdateResponse> {
+  const client = await getServerRestClient();
+  const logger = await createServerLogger();
+
+  try {
+    // Get current image_id before clearing it (from any temporal version)
+    const { data: legalUnits, error: fetchError } = await client
+      .from("legal_unit")
+      .select("image_id")
+      .eq("id", parseInt(id, 10))
+      .limit(1);
+
+    if (fetchError || !legalUnits || legalUnits.length === 0 || !legalUnits[0].image_id) {
+      return {
+        status: "error",
+        message: "No image to delete",
+      };
+    }
+
+    const imageId = legalUnits[0].image_id;
+
+    // Clear image_id from ALL temporal versions of this legal_unit
+    const { error: updateError } = await client
+      .from("legal_unit")
+      .update({ image_id: null })
+      .eq("id", parseInt(id, 10));
+
+    if (updateError) {
+      logger.error(updateError, "failed to clear legal_unit image_id");
+      return {
+        status: "error",
+        message: updateError.message,
+      };
+    }
+
+    // Delete the image record (optional - could keep for audit trail)
+    const { error: deleteError } = await client
+      .from("image")
+      .delete()
+      .eq("id", imageId);
+
+    if (deleteError) {
+      logger.error(deleteError, "failed to delete image record");
+      // Don't fail - image_id is already cleared
+    }
+
+    revalidatePath("/legal-units/[id]", "page");
+    return {
+      status: "success",
+      message: "Image deleted successfully",
+    };
+  } catch (error) {
+    logger.error(error, "failed to delete legal unit image");
+    return {
+      status: "error",
+      message: "Failed to delete image",
+    };
+  }
+}
+
 export async function updateLocation(
   id: string,
   unitType: "establishment" | "legal_unit",

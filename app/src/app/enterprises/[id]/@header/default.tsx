@@ -32,6 +32,8 @@ export default function Slot() {
           ? "border-informal-400 bg-informal-300"
           : "border-enterprise-200 bg-enterprise-100"
       }
+      unitType="enterprise"
+      unitTypeLabel="Enterprise"
     />
   );
 }
