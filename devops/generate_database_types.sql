@@ -77,6 +77,7 @@ export type Database = {
 
         -- Generate Tables, Views, Functions, Composite Types
         WITH fk_constraints AS (
+            -- FKs from tables in public schema
             SELECT
                 con.conrelid,
                 con.conname,
@@ -86,7 +87,8 @@ export type Database = {
                 (SELECT string_agg(a.attname, '", "') FROM pg_attribute AS a WHERE a.attrelid = con.confrelid AND a.attnum = ANY(con.confkey)) AS referenced_columns,
                 referenced_class.relname as referenced_relation_name,
                 referenced_class.relkind as referenced_relation_kind,
-                referenced_ns.nspname as referenced_schema_name
+                referenced_ns.nspname as referenced_schema_name,
+                constrained_ns.nspname as constrained_schema_name
             FROM pg_constraint AS con
             JOIN pg_class AS constrained_class ON con.conrelid = constrained_class.oid
             JOIN pg_namespace AS constrained_ns ON constrained_class.relnamespace = constrained_ns.oid
@@ -96,11 +98,63 @@ export type Database = {
               AND con.contype = 'f'
               AND referenced_class.relkind IN ('r', 'p') -- Only FKs to tables
         ),
+        -- FKs from auth tables that have views in public schema
+        auth_fk_constraints AS (
+            SELECT
+                con.conrelid,
+                con.conname,
+                con.conkey,
+                (SELECT string_agg(a.attname, '", "') FROM pg_attribute AS a WHERE a.attrelid = con.conrelid AND a.attnum = ANY(con.conkey)) AS columns,
+                con.confrelid,
+                (SELECT string_agg(a.attname, '", "') FROM pg_attribute AS a WHERE a.attrelid = con.confrelid AND a.attnum = ANY(con.confkey)) AS referenced_columns,
+                -- Remap auth.user -> public.user
+                CASE 
+                    WHEN referenced_ns.nspname = 'auth' AND referenced_class.relname = 'user'
+                         AND EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON c.relnamespace = n.oid 
+                                     WHERE n.nspname = v_schema_name AND c.relname = 'user' AND c.relkind = 'v')
+                    THEN 'user'::name
+                    ELSE referenced_class.relname
+                END as referenced_relation_name,
+                CASE 
+                    WHEN referenced_ns.nspname = 'auth' AND referenced_class.relname = 'user'
+                    THEN 'v'::"char"
+                    ELSE referenced_class.relkind
+                END as referenced_relation_kind,
+                referenced_ns.nspname as referenced_schema_name,
+                constrained_class.relname as constrained_relation_name
+            FROM pg_constraint AS con
+            JOIN pg_class AS constrained_class ON con.conrelid = constrained_class.oid
+            JOIN pg_namespace AS constrained_ns ON constrained_class.relnamespace = constrained_ns.oid
+            JOIN pg_class AS referenced_class ON con.confrelid = referenced_class.oid
+            JOIN pg_namespace AS referenced_ns ON referenced_class.relnamespace = referenced_ns.oid
+            WHERE constrained_ns.nspname = 'auth'
+              AND con.contype = 'f'
+              AND referenced_class.relkind IN ('r', 'p')
+              -- Only include if there's a corresponding view in public schema
+              AND EXISTS (
+                  SELECT 1 FROM pg_class c JOIN pg_namespace n ON c.relnamespace = n.oid
+                  WHERE n.nspname = v_schema_name AND c.relname = constrained_class.relname AND c.relkind = 'v'
+              )
+        ),
         all_relations AS (
             -- Only explicit FK constraints (computed relationships are handled via SetofOptions)
+            -- Include FKs within same schema
             SELECT conrelid, conname, conkey, columns, referenced_columns, referenced_relation_name, referenced_relation_kind
             FROM fk_constraints
             WHERE referenced_schema_name = v_schema_name
+            UNION ALL
+            -- Remap FKs to auth.user -> public.user (if the view exists)
+            SELECT conrelid, conname, conkey, columns, referenced_columns,
+                   'user'::name as referenced_relation_name,
+                   'v'::"char" as referenced_relation_kind  -- It's a view
+            FROM fk_constraints
+            WHERE referenced_schema_name = 'auth'
+              AND referenced_relation_name = 'user'
+              AND EXISTS (
+                  SELECT 1 FROM pg_class c
+                  JOIN pg_namespace n ON c.relnamespace = n.oid
+                  WHERE n.nspname = v_schema_name AND c.relname = 'user' AND c.relkind = 'v'
+              )
         ),
         formatted_relations AS (
             SELECT
@@ -145,8 +199,40 @@ export type Database = {
             FROM formatted_relations
             GROUP BY conrelid
         ),
+        -- Format auth FKs for views over auth tables
+        formatted_auth_relations AS (
+            SELECT
+                ar.conrelid,
+                ar.constrained_relation_name,
+                format(
+                    E'          {\n' ||
+                    E'            foreignKeyName: "%s"\n' ||
+                    E'            columns: ["%s"]\n' ||
+                    E'            isOneToOne: %s\n' ||
+                    E'            referencedRelation: "%s"\n' ||
+                    E'            referencedColumns: ["%s"]\n' ||
+                    E'          }',
+                    ar.conname,
+                    ar.columns,
+                    CASE WHEN EXISTS (
+                        SELECT 1 FROM pg_constraint uc 
+                        WHERE uc.conrelid = ar.conrelid 
+                          AND uc.contype IN ('u', 'p')
+                          AND uc.conkey = ar.conkey
+                    ) THEN 'true' ELSE 'false' END,
+                    ar.referenced_relation_name,
+                    ar.referenced_columns
+                ) as formatted_ts,
+                ar.referenced_relation_name,
+                ar.referenced_relation_kind
+            FROM auth_fk_constraints ar
+            -- Only include if target is in public schema or remapped to public
+            WHERE ar.referenced_schema_name = v_schema_name 
+               OR (ar.referenced_schema_name = 'auth' AND ar.referenced_relation_name = 'user')
+        ),
         -- Views inherit relationships from their base tables
         view_base_relations AS (
+            -- From public schema tables
             SELECT DISTINCT
                 v.oid as view_oid,
                 fr.formatted_ts,
@@ -160,6 +246,18 @@ export type Database = {
               AND v.relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = v_schema_name)
               AND d.refclassid = 'pg_class'::regclass
               AND d.deptype = 'n' -- normal dependency
+            UNION
+            -- From auth tables that have public views
+            SELECT DISTINCT
+                v.oid as view_oid,
+                far.formatted_ts,
+                far.referenced_relation_name,
+                far.referenced_relation_kind
+            FROM pg_class v
+            JOIN pg_namespace vn ON v.relnamespace = vn.oid
+            JOIN formatted_auth_relations far ON far.constrained_relation_name = v.relname
+            WHERE v.relkind = 'v'
+              AND vn.nspname = v_schema_name
         ),
         view_relationships AS (
             SELECT
