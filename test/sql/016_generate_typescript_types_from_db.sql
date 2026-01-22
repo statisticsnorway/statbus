@@ -1,0 +1,15 @@
+\set ECHO none
+\i /statbus/devops/generate_database_types.sql
+DROP FUNCTION IF EXISTS public.generate_typescript_types();
+\t off
+\a
+\set ECHO all
+SELECT 'TypeScript types generated in app/src/lib/database.types.ts' AS result;
+WITH stats AS (
+    SELECT 
+        (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON c.relnamespace = n.oid WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')) as table_count,
+        (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON c.relnamespace = n.oid WHERE n.nspname = 'public' AND c.relkind IN ('v', 'm')) as view_count,
+        (SELECT count(*) FROM pg_type t JOIN pg_namespace n ON t.typnamespace = n.oid WHERE n.nspname = 'public' AND t.typtype = 'e') as enum_count,
+        (SELECT count(*) FROM pg_constraint c JOIN pg_class cl ON cl.oid = c.conrelid JOIN pg_namespace n ON n.oid = cl.relnamespace WHERE n.nspname = 'public' AND c.contype = 'f') as fk_count
+)
+SELECT format('Stats: %s tables, %s views, %s enums, %s FK constraints', table_count, view_count, enum_count, fk_count) AS database_stats FROM stats;
