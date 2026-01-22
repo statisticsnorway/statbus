@@ -136,6 +136,71 @@ export type Database = {
                   WHERE n.nspname = v_schema_name AND c.relname = constrained_class.relname AND c.relkind = 'v'
               )
         ),
+        -- Find views that transitively depend on FK target tables and expose their id column
+        -- This enables queries like .select('*, data_source_available(*)') in addition to .select('*, data_source(*)')
+        view_aliases AS (
+            WITH RECURSIVE view_deps AS (
+                -- Base: direct view dependencies on tables in public schema
+                SELECT 
+                    t.oid as base_table_oid,
+                    t.relname as base_table_name,
+                    v.oid as view_oid,
+                    v.relname as view_name,
+                    1 as depth
+                FROM pg_class t 
+                JOIN pg_namespace tn ON t.relnamespace = tn.oid
+                JOIN pg_rewrite r ON TRUE
+                JOIN pg_class v ON r.ev_class = v.oid AND v.relkind = 'v'
+                JOIN pg_namespace vn ON v.relnamespace = vn.oid
+                JOIN pg_depend d ON d.objid = r.oid AND d.refobjid = t.oid
+                WHERE tn.nspname = v_schema_name 
+                  AND vn.nspname = v_schema_name
+                  AND t.relkind IN ('r', 'p')  -- base tables only
+                  AND d.refclassid = 'pg_class'::regclass 
+                  AND d.deptype = 'n'
+                UNION
+                -- Recursive: views that depend on views that depend on the base table
+                SELECT 
+                    vd.base_table_oid,
+                    vd.base_table_name,
+                    v.oid,
+                    v.relname,
+                    vd.depth + 1
+                FROM view_deps vd
+                JOIN pg_rewrite r ON TRUE
+                JOIN pg_class v ON r.ev_class = v.oid AND v.relkind = 'v'
+                JOIN pg_namespace vn ON v.relnamespace = vn.oid
+                JOIN pg_depend d ON d.objid = r.oid AND d.refobjid = vd.view_oid
+                WHERE vn.nspname = v_schema_name
+                  AND d.refclassid = 'pg_class'::regclass 
+                  AND d.deptype = 'n'
+                  AND vd.depth < 5  -- limit recursion
+            )
+            SELECT DISTINCT 
+                base_table_oid,
+                base_table_name,
+                view_oid,
+                view_name,
+                -- Determine which column in the view corresponds to the base table's id
+                -- Either 'id' directly, or '{table_name}_id' (e.g., 'enterprise_id' for enterprise)
+                CASE 
+                    WHEN EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = view_oid AND attname = 'id' AND NOT attisdropped)
+                    THEN 'id'
+                    WHEN EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid = view_oid AND attname = base_table_name || '_id' AND NOT attisdropped)
+                    THEN base_table_name || '_id'
+                    ELSE NULL
+                END as view_id_column
+            FROM view_deps
+            -- Only include views that have either 'id' or '{table_name}_id' column
+            WHERE EXISTS (
+                SELECT 1 FROM pg_attribute 
+                WHERE attrelid = view_oid AND attname = 'id' AND NOT attisdropped
+            )
+            OR EXISTS (
+                SELECT 1 FROM pg_attribute 
+                WHERE attrelid = view_oid AND attname = base_table_name || '_id' AND NOT attisdropped
+            )
+        ),
         all_relations AS (
             -- Only explicit FK constraints (computed relationships are handled via SetofOptions)
             -- Include FKs within same schema
@@ -155,10 +220,25 @@ export type Database = {
                   JOIN pg_namespace n ON c.relnamespace = n.oid
                   WHERE n.nspname = v_schema_name AND c.relname = 'user' AND c.relkind = 'v'
               )
+            UNION ALL
+            -- View aliases: for each FK to a table, also create relationships to views that expose the same id
+            SELECT 
+                fk.conrelid, 
+                fk.conname, 
+                fk.conkey, 
+                fk.columns, 
+                va.view_id_column as referenced_columns,  -- Use the view's column (id or {table}_id)
+                va.view_name as referenced_relation_name,
+                'v'::"char" as referenced_relation_kind
+            FROM fk_constraints fk
+            JOIN view_aliases va ON va.base_table_name = fk.referenced_relation_name
+            WHERE fk.referenced_schema_name = v_schema_name
+              AND va.view_id_column IS NOT NULL  -- Must have a matching id column
         ),
         formatted_relations AS (
             SELECT
                 ar.conrelid,
+                ar.columns,  -- Keep columns for view inheritance check
                 format(
                     E'          {\n' ||
                     E'            foreignKeyName: "%s"\n' ||
@@ -230,7 +310,7 @@ export type Database = {
             WHERE ar.referenced_schema_name = v_schema_name 
                OR (ar.referenced_schema_name = 'auth' AND ar.referenced_relation_name = 'user')
         ),
-        -- Views inherit relationships from their base tables
+        -- Views inherit relationships from their base tables ONLY if they have all the FK columns
         view_base_relations AS (
             -- From public schema tables
             SELECT DISTINCT
@@ -246,6 +326,17 @@ export type Database = {
               AND v.relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = v_schema_name)
               AND d.refclassid = 'pg_class'::regclass
               AND d.deptype = 'n' -- normal dependency
+              -- Only inherit FK if view has ALL the FK columns
+              AND NOT EXISTS (
+                  SELECT 1 
+                  FROM unnest(string_to_array(fr.columns, '", "')) AS col_name
+                  WHERE NOT EXISTS (
+                      SELECT 1 FROM pg_attribute a 
+                      WHERE a.attrelid = v.oid 
+                        AND a.attname = col_name 
+                        AND NOT a.attisdropped
+                  )
+              )
             UNION
             -- From auth tables that have public views
             SELECT DISTINCT
