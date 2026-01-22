@@ -207,8 +207,27 @@ SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT 
 ----------------------+----------+--------------------+------------+---------------+-----------
  import_309_esflu_wsd | finished |                    |         26 |            25 | f
  import_309_eswlu_wsd | finished |                    |         12 |            12 | f
- import_309_lu_wsd    | finished |                    |         75 |            69 | f
+ import_309_lu_wsd    | finished |                    |         76 |            69 | f
 (3 rows)
+
+\echo "Checking for any errors in import_309_lu_wsd_data (including ErrorLine entries)"
+"Checking for any errors in import_309_lu_wsd_data (including ErrorLine entries)"
+SELECT row_id, tax_ident_raw, stat_ident_raw, name_raw, state, action, 
+       errors
+FROM public.import_309_lu_wsd_data 
+WHERE name_raw LIKE 'ErrorLine%' OR state = 'error' OR errors::text != '{}'
+ORDER BY row_id
+LIMIT 20;
+ row_id | tax_ident_raw | stat_ident_raw |     name_raw     | state | action |                                                            errors                                                             
+--------+---------------+----------------+------------------+-------+--------+-------------------------------------------------------------------------------------------------------------------------------
+     58 | 2212760166    | 99959          | ErrorLine1       | error | skip   | {"tax_ident_raw": "Duplicate identifier: tax_ident=2212760166 appears in 4 rows: 58, 59, 60, 61"}
+     59 | 2212760166    | 99960          | ErrorLine2       | error | skip   | {"tax_ident_raw": "Duplicate identifier: tax_ident=2212760166 appears in 4 rows: 58, 59, 60, 61"}
+     60 | 2212760166    | 99961          | ErrorLine3       | error | skip   | {"tax_ident_raw": "Duplicate identifier: tax_ident=2212760166 appears in 4 rows: 58, 59, 60, 61"}
+     61 | 2212760166    | 99962          | ErrorLine4       | error | skip   | {"tax_ident_raw": "Duplicate identifier: tax_ident=2212760166 appears in 4 rows: 58, 59, 60, 61"}
+     74 | 3300598       | 22             | Amman RIAD 13-14 | error | skip   | {"physical_region_code_raw": "An error on a related new entity row caused this row to be skipped. Source error row(s): {75}"}
+     75 | 3300598       | 22             | Amman RIAD 13-14 | error | skip   | {"physical_country_iso_2_raw": "Country is required and must be valid when other physical address details are provided."}
+     76 | 3300598       | 22             | Amman RIAD 13-14 | error | skip   | {"physical_region_code_raw": "An error on a related new entity row caused this row to be skipped. Source error row(s): {75}"}
+(7 rows)
 
 \echo "Unit counts after initial load"
 "Unit counts after initial load"

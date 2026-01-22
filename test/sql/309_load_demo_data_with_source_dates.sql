@@ -63,6 +63,14 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 \echo "Checking import job statuses for Initial Load"
 SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug LIKE 'import_309_%' AND slug NOT LIKE '%turnover%' ORDER BY slug;
 
+\echo "Checking for any errors in import_309_lu_wsd_data (including ErrorLine entries)"
+SELECT row_id, tax_ident_raw, stat_ident_raw, name_raw, state, action, 
+       errors
+FROM public.import_309_lu_wsd_data 
+WHERE name_raw LIKE 'ErrorLine%' OR state = 'error' OR errors::text != '{}'
+ORDER BY row_id
+LIMIT 20;
+
 \echo "Unit counts after initial load"
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,

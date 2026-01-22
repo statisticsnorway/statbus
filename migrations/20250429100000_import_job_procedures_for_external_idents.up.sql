@@ -162,13 +162,13 @@ BEGIN
 
         IF v_add_separator THEN v_unpivot_sql := v_unpivot_sql || ' UNION ALL '; END IF;
         v_unpivot_sql := v_unpivot_sql || format(
-            $$SELECT dt.row_id,
+             $$SELECT dt.row_id,
                      %1$L AS source_column_name_in_data_table, -- This is the name of the column in _data table (e.g., 'tax_ident_raw')
                      %2$L AS ident_type_code_to_join_on,     -- This is the external_ident_type.code (e.g., 'tax_ident')
                      NULLIF(dt.%3$I, '') AS ident_value
              FROM public.%4$I dt
              JOIN temp_relevant_rows tr ON tr.data_row_id = dt.row_id
-             WHERE NULLIF(dt.%5$I, '') IS NOT NULL AND dt.action IS DISTINCT FROM 'skip'$$,
+             WHERE NULLIF(dt.%5$I, '') IS NOT NULL$$,
              v_col_rec.raw_column_name, -- %1$L Name of column in _data table
              v_col_rec.ident_code,      -- %2$L Code to join with external_ident_type
              v_col_rec.raw_column_name, -- %3$I Column to select value from in _data table
@@ -521,9 +521,14 @@ BEGIN
                 obe.rn_in_batch_for_entity, -- Pass through for operation determination
                 -- OPTIMIZED: Replaced correlated subquery with a join to the pre-aggregated ExistingIdents CTE
                 (
-                    SELECT jsonb_object_agg(
+                     -- Build error showing: Input {a:X, b:Y} matches existing unit {a:X, b:Z} - attempting to change b from Z to Y
+                     SELECT jsonb_object_agg(
                         input_data.ident_code || '_raw',
-                        'Identifier ' || input_data.ident_code || ' value ''' || input_data.input_value || ''' from input attempts to change existing value ''' || (existing.idents->>input_data.ident_code) || ''''
+                        'Input ' || obe.entity_signature::text || 
+                        ' matches existing unit ' || existing.idents::text || 
+                        ' but attempts to change ' || input_data.ident_code || 
+                        ' from ''' || (existing.idents->>input_data.ident_code) || 
+                        ''' to ''' || input_data.input_value || ''''
                     )
                     FROM (SELECT key AS ident_code, value#>>'{}' AS input_value FROM jsonb_each(obe.entity_signature)) AS input_data
                     WHERE existing.idents ? input_data.ident_code -- The identifier type exists for this unit in the DB
@@ -614,7 +619,27 @@ BEGIN
         PropagatedErrors AS (
             SELECT
                 od.*,
-                (od.base_error_jsonb || COALESCE(od.unstable_identifier_errors_jsonb, '{}'::jsonb)) as final_error_jsonb,
+                -- Merge base_error_jsonb and unstable_identifier_errors_jsonb intelligently:
+                -- If a key exists in both, concatenate the messages with "; " separator
+                (
+                    SELECT jsonb_object_agg(
+                        key,
+                        CASE 
+                            WHEN od.base_error_jsonb ? key AND od.unstable_identifier_errors_jsonb ? key 
+                            THEN (od.base_error_jsonb->>key) || '; ' || (od.unstable_identifier_errors_jsonb->>key)
+                            WHEN od.base_error_jsonb ? key 
+                            THEN od.base_error_jsonb->>key
+                            ELSE od.unstable_identifier_errors_jsonb->>key
+                        END
+                    )
+                    FROM (
+                        SELECT DISTINCT key 
+                        FROM jsonb_each(od.base_error_jsonb) 
+                        UNION 
+                        SELECT DISTINCT key 
+                        FROM jsonb_each(COALESCE(od.unstable_identifier_errors_jsonb, '{}'::jsonb))
+                    ) AS all_keys(key)
+                ) as final_error_jsonb,
                 -- Check if any row within the same new entity has an error.
                 BOOL_OR((od.base_error_jsonb || COALESCE(od.unstable_identifier_errors_jsonb, '{}'::jsonb)) != '{}'::jsonb)
                     OVER (PARTITION BY CASE WHEN od.final_lu_id IS NULL AND od.final_est_id IS NULL THEN od.entity_signature ELSE jsonb_build_object('data_row_id', od.data_row_id) END) as entity_has_error,
@@ -644,12 +669,13 @@ BEGIN
             pe.final_est_id AS resolved_est_id,
             pe.operation,
             CASE
+                -- Note: action from previous step is not available in this CTE, will be merged in UPDATE statement
                 WHEN pe.entity_has_error THEN 'skip'::public.import_row_action_type -- Priority 1: Entity-wide Error
                 WHEN %2$L::public.import_strategy = 'insert_only' AND pe.operation != 'insert'::public.import_row_operation_type THEN 'skip'::public.import_row_action_type -- %2$L is v_strategy
                 WHEN %2$L::public.import_strategy = 'replace_only' AND pe.operation != 'replace'::public.import_row_operation_type THEN 'skip'::public.import_row_action_type -- %2$L is v_strategy
                 WHEN %2$L::public.import_strategy = 'update_only' AND pe.operation != 'update'::public.import_row_operation_type THEN 'skip'::public.import_row_action_type -- %2$L is v_strategy
                 ELSE 'use'::public.import_row_action_type
-            END as action,
+            END as action,  -- Will be merged with existing action in UPDATE to preserve 'skip' from previous steps
             pe.actual_founding_row_id AS derived_founding_row_id
         FROM PropagatedErrors pe;
     $$,
@@ -669,7 +695,10 @@ BEGIN
     v_set_clause := format($$
         state = CASE WHEN ru.error_jsonb IS NOT NULL AND ru.error_jsonb != '{}'::jsonb THEN 'error'::public.import_data_state ELSE 'analysing'::public.import_data_state END,
         errors = CASE WHEN ru.error_jsonb IS NOT NULL AND ru.error_jsonb != '{}'::jsonb THEN dt.errors || ru.error_jsonb ELSE dt.errors - %1$L::TEXT[] END,
-        action = ru.action,
+        action = CASE 
+            WHEN dt.action = 'skip'::public.import_row_action_type THEN 'skip'::public.import_row_action_type -- Preserve skip from previous steps
+            ELSE ru.action 
+        END,
         operation = ru.operation,
         founding_row_id = ru.derived_founding_row_id,
         last_completed_priority = %2$L

@@ -156,7 +156,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | pending   |     3
- import    | completed |    49
+ import    | completed |    47
 (2 rows)
 
 \echo "Checking unit counts after import processing"
@@ -203,7 +203,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
    queue   |   state   | count 
 -----------+-----------+-------
  analytics | completed |     5
- import    | completed |    49
+ import    | completed |    47
 (2 rows)
 
 \echo "Checking legal units"
