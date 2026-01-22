@@ -140,6 +140,7 @@ BEGIN
     PERFORM admin.add_rls_regular_user_can_read('public.statistical_history_facet'::regclass);
     --
     -- ########### add_rls_regular_user_can_edit ###########
+    PERFORM admin.add_rls_regular_user_can_edit('public.image'::regclass);
     PERFORM admin.add_rls_regular_user_can_edit('public.establishment'::regclass);
     PERFORM admin.add_rls_regular_user_can_edit('public.legal_unit'::regclass);
     PERFORM admin.add_rls_regular_user_can_edit('public.enterprise'::regclass);

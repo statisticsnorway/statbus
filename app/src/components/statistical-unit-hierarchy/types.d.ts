@@ -232,6 +232,7 @@ declare interface LegalUnit extends StatisticalUnit {
   sector: Sector;
   status: Status;
   unit_size: UnitSize;
+  image_id: number | null;
 }
 
 declare interface Establishment extends StatisticalUnit {
@@ -246,6 +247,7 @@ declare interface Establishment extends StatisticalUnit {
   contact: Contact;
   status: Status;
   unit_size: UnitSize;
+  image_id: number | null;
 }
 
 declare interface StatisticalUnitHierarchy {

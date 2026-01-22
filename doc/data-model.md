@@ -12,16 +12,18 @@ The system revolves around four main statistical units, often with temporal vali
   - Key FKs: data_source_id, edit_by_user_id, enterprise_group_type_id, foreign_participation_id, reorg_type_id, unit_size_id.
 - `enterprise(id, short_name, edit_by_user_id, edit_at, active, edit_comment)` (EN)
   - Key FKs: edit_by_user_id.
-- `legal_unit(id, short_name, name, invalid_codes, sector_id, status_id, legal_form_id, edit_by_user_id, unit_size_id, foreign_participation_id, data_source_id, enterprise_id, valid_range, valid_from, valid_to, valid_until, edit_at, birth_date, death_date, free_econ_zone, edit_comment, primary_for_enterprise)` (LU) (temporal)
-  - Key FKs: data_source_id, edit_by_user_id, enterprise_id, foreign_participation_id, legal_form_id, sector_id, status_id, unit_size_id.
-- `establishment(id, short_name, name, invalid_codes, sector_id, status_id, edit_by_user_id, unit_size_id, data_source_id, enterprise_id, legal_unit_id, valid_range, valid_from, valid_to, valid_until, edit_at, birth_date, death_date, free_econ_zone, edit_comment, primary_for_legal_unit, primary_for_enterprise)` (EST) (temporal)
-  - Key FKs: data_source_id, edit_by_user_id, enterprise_id, legal_unit_id, sector_id, status_id, unit_size_id, valid_range.
+- `legal_unit(id, short_name, name, invalid_codes, sector_id, status_id, legal_form_id, edit_by_user_id, unit_size_id, foreign_participation_id, data_source_id, enterprise_id, image_id, valid_range, valid_from, valid_to, valid_until, edit_at, birth_date, death_date, free_econ_zone, edit_comment, primary_for_enterprise)` (LU) (temporal)
+  - Key FKs: data_source_id, edit_by_user_id, enterprise_id, foreign_participation_id, image_id, legal_form_id, sector_id, status_id, unit_size_id.
+- `establishment(id, short_name, name, invalid_codes, sector_id, status_id, edit_by_user_id, unit_size_id, data_source_id, enterprise_id, legal_unit_id, image_id, valid_range, valid_from, valid_to, valid_until, edit_at, birth_date, death_date, free_econ_zone, edit_comment, primary_for_legal_unit, primary_for_enterprise)` (EST) (temporal)
+  - Key FKs: data_source_id, edit_by_user_id, enterprise_id, image_id, legal_unit_id, sector_id, status_id, unit_size_id, valid_range.
 
 ## Common Links for Core Units (EG, EN, LU, EST)
 These tables link to any of the four core statistical units:
 
 - `external_ident(id, ident, type_id, establishment_id, legal_unit_id, enterprise_id, enterprise_group_id, edit_by_user_id, edit_at, edit_comment)`
   - Key FKs: edit_by_user_id, enterprise_id, type_id.
+- `image(id, type, uploaded_by_user_id, uploaded_at, data)`
+  - Key FKs: uploaded_by_user_id.
 - `tag_for_unit(id, tag_id, establishment_id, legal_unit_id, enterprise_id, enterprise_group_id, edit_by_user_id, created_at, edit_at, edit_comment)`
   - Key FKs: edit_by_user_id, enterprise_id, tag_id.
 - `unit_notes(id, notes, establishment_id, legal_unit_id, enterprise_id, enterprise_group_id, edit_by_user_id, created_at, edit_at, edit_comment)`

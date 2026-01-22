@@ -34,7 +34,52 @@ export async function updateEstablishment(
   try {
     const { error: metadataError, metadata } = await getEditMetadata(client);
     if (metadataError) return metadataError;
-    const payload = { ...validatedFields.data, ...metadata };
+    
+    // Handle image upload/delete
+    let imageId: number | null | undefined = undefined;
+    const deleteImage = formData.get("delete_image") === "true";
+    const imageFile = formData.get("image") as File | null;
+    
+    if (deleteImage) {
+      // User wants to delete the image
+      imageId = null;
+    } else if (imageFile && imageFile.size > 0) {
+      // User uploaded a new image - store as binary (hex-encoded for PostgREST)
+      const bytes = await imageFile.arrayBuffer();
+      const buffer = Buffer.from(bytes);
+      // PostgREST accepts bytea as hex-encoded string with \x prefix
+      const hexData = "\\x" + buffer.toString("hex");
+      
+      const { data: imageData, error: imageError } = await client
+        .from("image")
+        .insert({
+          data: hexData,
+          type: imageFile.type,
+        })
+        .select("id")
+        .single();
+      
+      if (imageError || !imageData) {
+        const logger = await createServerLogger();
+        logger.error(imageError, "failed to insert image");
+        return {
+          status: "error",
+          message: imageError?.message || "Failed to upload image",
+        };
+      }
+      
+      imageId = imageData.id;
+    }
+    
+    // Extract image-related fields that shouldn't be sent to database
+    const { image, delete_image, ...dataFields } = validatedFields.data;
+    
+    const payload = { 
+      ...dataFields, 
+      ...metadata,
+      ...(imageId !== undefined && { image_id: imageId })
+    };
+    
     const { data: overlappingRows, error: overlapError } = await client
       .from("establishment")
       .select("*")
@@ -82,6 +127,143 @@ export async function updateEstablishment(
   }
 
   return { status: "success", message: "Establishment successfully updated" };
+}
+
+export async function updateEstablishmentImage(
+  id: string,
+  _prevState: any,
+  formData: FormData
+): Promise<UpdateResponse> {
+  const client = await getServerRestClient();
+  const logger = await createServerLogger();
+
+  try {
+    const file = formData.get("image") as File;
+    if (!file) {
+      return {
+        status: "error",
+        message: "No image file provided",
+      };
+    }
+
+    // Convert file to base64
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+    const base64Data = buffer.toString("base64");
+
+    // Insert image into public.image table
+    const { data: imageData, error: imageError } = await client
+      .from("image")
+      .insert({
+        data: base64Data,
+        type: file.type,
+      })
+      .select("id")
+      .single();
+
+    if (imageError || !imageData) {
+      logger.error(imageError, "failed to insert image");
+      return {
+        status: "error",
+        message: imageError?.message || "Failed to upload image",
+      };
+    }
+
+    // Update only the currently valid temporal version
+    // Note: This updates the specific temporal version that's currently in view
+    // We need to find which temporal range is currently being viewed
+    const today = new Date().toISOString().split('T')[0];
+    
+    const { error: updateError } = await client
+      .from("establishment")
+      .update({ image_id: imageData.id })
+      .eq("id", parseInt(id, 10))
+      .lte("valid_from", today)
+      .gte("valid_to", today);
+
+    if (updateError) {
+      logger.error(updateError, "failed to update establishment image_id");
+      return {
+        status: "error",
+        message: updateError.message,
+      };
+    }
+
+    revalidatePath("/establishments/[id]", "page");
+    return {
+      status: "success",
+      message: "Image uploaded successfully",
+    };
+  } catch (error) {
+    logger.error(error, "failed to upload establishment image");
+    return {
+      status: "error",
+      message: "Failed to upload image",
+    };
+  }
+}
+
+export async function deleteEstablishmentImage(
+  id: string,
+  _prevState: any
+): Promise<UpdateResponse> {
+  const client = await getServerRestClient();
+  const logger = await createServerLogger();
+
+  try {
+    // Get current image_id before clearing it (from any temporal version)
+    const { data: establishments, error: fetchError } = await client
+      .from("establishment")
+      .select("image_id")
+      .eq("id", parseInt(id, 10))
+      .limit(1);
+
+    if (fetchError || !establishments || establishments.length === 0 || !establishments[0].image_id) {
+      return {
+        status: "error",
+        message: "No image to delete",
+      };
+    }
+
+    const imageId = establishments[0].image_id;
+
+    // Clear image_id from ALL temporal versions of this establishment
+    const { error: updateError } = await client
+      .from("establishment")
+      .update({ image_id: null })
+      .eq("id", parseInt(id, 10));
+
+    if (updateError) {
+      logger.error(updateError, "failed to clear establishment image_id");
+      return {
+        status: "error",
+        message: updateError.message,
+      };
+    }
+
+    // Delete the image record (optional - could keep for audit trail)
+    const { error: deleteError } = await client
+      .from("image")
+      .delete()
+      .eq("id", imageId);
+
+    if (deleteError) {
+      logger.error(deleteError, "failed to delete image record");
+      // Don't fail - image_id is already cleared
+    }
+
+    revalidatePath("/establishments/[id]", "page");
+    return {
+      status: "success",
+      message: "Image deleted successfully",
+    };
+  } catch (error) {
+    logger.error(error, "failed to delete establishment image");
+    return {
+      status: "error",
+      message: "Failed to delete image",
+    };
+  }
 }
 
 export async function setPrimaryEstablishment(id: number) {

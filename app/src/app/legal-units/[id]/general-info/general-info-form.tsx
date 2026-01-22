@@ -2,8 +2,10 @@
 import {
   updateLegalUnit,
   updateLocation,
+  updateLegalUnitImage,
+  deleteLegalUnitImage,
 } from "@/app/legal-units/[id]/update-legal-unit-server-actions";
-import React, { useActionState, useEffect, useState } from "react";
+import React, { useActionState, useEffect, useState, startTransition } from "react";
 import { z } from "zod";
 import { generalInfoSchema } from "@/app/legal-units/[id]/general-info/validation";
 import { FormField } from "@/components/form/form-field";
@@ -20,6 +22,8 @@ import { EditableFieldGroup } from "@/components/form/editable-field-group";
 import { SelectFormField } from "@/components/form/select-form-field";
 import { useDetailsPageData } from "@/atoms/edits";
 import { useSWRConfig } from "swr";
+import { UnitImage } from "@/components/unit-image";
+import { ImageUpload } from "@/components/image-upload";
 
 export default function GeneralInfoForm({ id }: { readonly id: string }) {
   const [state, formAction] = useActionState(
@@ -33,6 +37,14 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
 
   const [locationState, locationAction] = useActionState(
     updateLocation.bind(null, id, "legal_unit"),
+    null
+  );
+  const [imageState, imageAction] = useActionState(
+    updateLegalUnitImage.bind(null, id),
+    null
+  );
+  const [deleteImageState, deleteImageAction] = useActionState(
+    deleteLegalUnitImage.bind(null, id),
     null
   );
   const { externalIdentTypes } = useBaseData();
@@ -54,11 +66,13 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
     if (
       externalIdentState?.status === "success" ||
       state?.status === "success" ||
-      locationState?.status === "success"
+      locationState?.status === "success" ||
+      imageState?.status === "success" ||
+      deleteImageState?.status === "success"
     ) {
       mutate((key) => Array.isArray(key) && key.includes(id));
     }
-  }, [externalIdentState, state, locationState, mutate, id]);
+  }, [externalIdentState, state, locationState, imageState, deleteImageState, mutate, id]);
   if (!isClient) {
     return <Loading />;
   }
@@ -91,6 +105,40 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
         formAction={formAction}
         metadata={legalUnit}
       />
+      <EditableFieldGroup
+        fieldGroupId="unit-image"
+        title="Image"
+        action={imageAction}
+        response={imageState}
+      >
+        {({ isEditing }) => (
+          <div className="flex items-center gap-4">
+            <UnitImage
+              imageId={legalUnit?.image_id}
+              unitType="legal_unit"
+              className="h-24 w-24"
+              isEditing={isEditing}
+              onDelete={() => {
+                startTransition(() => {
+                  deleteImageAction();
+                });
+              }}
+            />
+            {isEditing && (
+              <ImageUpload
+                onFileSelect={async (file) => {
+                  const formData = new FormData();
+                  formData.append("image", file);
+                  startTransition(() => {
+                    imageAction(formData);
+                  });
+                }}
+                maxSizeMB={4}
+              />
+            )}
+          </div>
+        )}
+      </EditableFieldGroup>
       <div className="grid lg:grid-cols-2 gap-4 p-2">
         {externalIdentTypes.map(
           (type: Tables<"external_ident_type_active">) => {

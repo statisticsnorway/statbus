@@ -11,6 +11,8 @@ interface HeaderSlotProps {
   readonly error: PostgrestError | null;
   readonly loading?: boolean;
   readonly className?: string;
+  readonly unitType?: "establishment" | "legal_unit" | "enterprise" | "enterprise_group";
+  readonly unitTypeLabel?: string;
 }
 
 export default function HeaderSlot({
@@ -19,6 +21,8 @@ export default function HeaderSlot({
   error,
   loading,
   className,
+  unitType,
+  unitTypeLabel,
 }: HeaderSlotProps) {
   if (loading) {
     return <DetailsPageHeaderSkeleton className={className} />;
@@ -47,6 +51,8 @@ export default function HeaderSlot({
     <DetailsPageHeader
       title={unit.name ?? "Unnamed"}
       className={cn("", className)}
+      unitType={unitType}
+      unitTypeLabel={unitTypeLabel}
     />
   );
 }

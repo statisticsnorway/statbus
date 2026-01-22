@@ -23,6 +23,7 @@ CREATE TABLE public.establishment (
     primary_for_legal_unit boolean,
     primary_for_enterprise boolean,
     invalid_codes jsonb,
+    image_id integer REFERENCES public.image(id),
     CONSTRAINT "Must have either legal_unit_id or enterprise_id"
     CHECK( enterprise_id IS NOT NULL AND legal_unit_id IS     NULL
         OR enterprise_id IS     NULL AND legal_unit_id IS NOT NULL
@@ -54,6 +55,9 @@ CREATE INDEX ix_establishment_valid_range ON public.establishment USING gist (va
 
 CREATE INDEX establishment_enterprise_id_primary_for_enterprise_idx ON public.establishment(enterprise_id, primary_for_enterprise) WHERE enterprise_id IS NOT NULL;
 CREATE INDEX establishment_legal_unit_id_primary_for_legal_unit_idx ON public.establishment(legal_unit_id, primary_for_legal_unit) WHERE legal_unit_id IS NOT NULL;
+
+COMMENT ON COLUMN public.establishment.image_id IS 
+  'Reference to unit image (logo/photo) stored in image table';
 
 CREATE OR REPLACE FUNCTION admin.establishment_id_exists(fk_id integer) RETURNS boolean LANGUAGE sql STABLE STRICT AS $$
     SELECT fk_id IS NULL OR EXISTS (SELECT 1 FROM public.establishment WHERE id = fk_id);

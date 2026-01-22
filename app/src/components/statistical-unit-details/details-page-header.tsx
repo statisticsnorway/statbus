@@ -1,15 +1,20 @@
 import { cn } from "@/lib/utils";
+import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
 
 interface DetailsPageHeaderProps {
   title: string | null;
   subtitle?: string;
   className?: string;
+  unitType?: "establishment" | "legal_unit" | "enterprise" | "enterprise_group";
+  unitTypeLabel?: string;
 }
 
 export const DetailsPageHeader = ({
   title,
   subtitle,
   className,
+  unitType,
+  unitTypeLabel,
 }: DetailsPageHeaderProps) => (
   <div
     className={cn(
@@ -17,10 +22,20 @@ export const DetailsPageHeader = ({
       className
     )}
   >
-    <h2 className="text-2xl font-semibold tracking-tight">{title}</h2>
-    <p className="text-sm">
-      {subtitle ?? <span>Manage settings for {title}</span>}
-    </p>
+    <div className="flex items-start justify-between gap-4">
+      <div className="flex-1 min-w-0">
+        <h2 className="text-2xl font-semibold tracking-tight">{title}</h2>
+        <p className="text-sm">
+          {subtitle ?? <span>Manage settings for {title}</span>}
+        </p>
+      </div>
+      {unitType && (
+        <div className="flex flex-col items-center gap-1 text-xs text-gray-600">
+          <StatisticalUnitIcon type={unitType} className="h-8 w-8" />
+          {unitTypeLabel && <span className="font-medium">{unitTypeLabel}</span>}
+        </div>
+      )}
+    </div>
   </div>
 );
 

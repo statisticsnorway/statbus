@@ -19,6 +19,8 @@ export default function Slot() {
           ? "border-informal-200 bg-informal-50"
           : "border-establishment-200 bg-establishment-100"
       }
+      unitType="establishment"
+      unitTypeLabel="Establishment"
     />
   );
 }

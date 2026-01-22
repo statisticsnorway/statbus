@@ -14,6 +14,8 @@ export default function Slot() {
       error={error}
       loading={isLoading}
       className="border-legal_unit-200 bg-legal_unit-100"
+      unitType="legal_unit"
+      unitTypeLabel="Legal Unit"
     />
   );
 }
