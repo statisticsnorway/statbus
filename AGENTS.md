@@ -41,11 +41,11 @@ docker compose exec db psql -U postgres -d statbus_local  # Direct psql access
 
 ### Testing
 ```bash
-./devops/manage-statbus.sh test all                          # Run all pg_regress tests
-./devops/manage-statbus.sh test fast                         # Run fast tests only (good for quick iteration)
-./devops/manage-statbus.sh test 015_my_test                  # Run single test (prefix number)
-./devops/manage-statbus.sh test 300_test 2>&1 | tee tmp/x.log  # Save output to log file for later review
-./devops/manage-statbus.sh diff-fail-all pipe                # Show diffs for all failed tests
+./devops/manage-statbus.sh test fast 2>&1 | tee tmp/test-fast.log         # Run fast tests only (good for quick iteration)
+./devops/manage-statbus.sh test 015_my_test                               # Run single test (prefix number)
+./devops/manage-statbus.sh test 300_test 2>&1 | tee tmp/test-300_test.log # Save output to log file for later review
+./devops/manage-statbus.sh diff-fail-all pipe                             # Show diffs for all failed tests
+./devops/manage-statbus.sh test all                                       # Run all pg_regress tests (EXTREMELY SLOW)
 
 # IMPORTANT: Use tee to save output - prevents wasting time re-running slow tests
 # Test results are in test/results/*.out and can be compared to test/expected/*.out
