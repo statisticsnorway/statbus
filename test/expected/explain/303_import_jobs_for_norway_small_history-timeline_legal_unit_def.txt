@@ -11,9 +11,11 @@
                                              ->  Nested Loop Left Join
                                                    ->  Nested Loop Left Join
                                                          ->  Nested Loop Left Join
+                                                               Join Filter: (pol.region_id = por.id)
                                                                ->  Nested Loop Left Join
                                                                      ->  Nested Loop Left Join
                                                                            ->  Nested Loop Left Join
+                                                                                 Join Filter: (phl.region_id = phr.id)
                                                                                  ->  Nested Loop Left Join
                                                                                        ->  Nested Loop Left Join
                                                                                              ->  Nested Loop Left Join
@@ -97,11 +99,8 @@
                                                                                                                Sort Key: l.id DESC
                                                                                                                ->  Seq Scan on location l
                                                                                                                      Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (legal_unit_id = lu.id) AND (type = 'physical'::location_type))
-                                                                                 ->  Memoize
-                                                                                       Cache Key: phl.region_id
-                                                                                       Cache Mode: logical
+                                                                                 ->  Materialize
                                                                                        ->  Index Scan using region_pkey on region phr
-                                                                                             Index Cond: (id = phl.region_id)
                                                                            ->  Memoize
                                                                                  Cache Key: phl.country_id
                                                                                  Cache Mode: logical
@@ -116,11 +115,8 @@
                                                                                              Sort Key: l_1.id DESC
                                                                                              ->  Seq Scan on location l_1
                                                                                                    Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (legal_unit_id = lu.id) AND (type = 'postal'::location_type))
-                                                               ->  Memoize
-                                                                     Cache Key: pol.region_id
-                                                                     Cache Mode: logical
+                                                               ->  Materialize
                                                                      ->  Index Scan using region_pkey on region por
-                                                                           Index Cond: (id = pol.region_id)
                                                          ->  Memoize
                                                                Cache Key: pol.country_id
                                                                Cache Mode: logical
@@ -204,5 +200,5 @@
                              ->  Result
                        ->  ProjectSet
                              ->  Result
-(204 rows)
+(200 rows)
 
