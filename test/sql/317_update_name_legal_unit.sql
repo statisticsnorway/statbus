@@ -84,7 +84,7 @@ SELECT category_id, valid_from, valid_to
  FROM activity
  ORDER BY  valid_from;
 
- SELECT name, primary_activity_category_path, sector_id, valid_from, valid_to FROM statistical_unit WHERE unit_type = 'legal_unit';
+ SELECT name, primary_activity_category_path, sector_id, valid_from, valid_to FROM statistical_unit WHERE unit_type = 'legal_unit' ORDER BY valid_from;
  
 SAVEPOINT before_update_on_name;
 
@@ -118,7 +118,7 @@ SELECT category_id, valid_from, valid_to
   FROM activity
   ORDER BY  valid_from;
  
-SELECT name, primary_activity_category_path, sector_id, valid_from, valid_to FROM statistical_unit WHERE unit_type = 'legal_unit';
+SELECT name, primary_activity_category_path, sector_id, valid_from, valid_to FROM statistical_unit WHERE unit_type = 'legal_unit' ORDER BY valid_from;
 
 ROLLBACK TO SAVEPOINT before_update_on_name;
 
