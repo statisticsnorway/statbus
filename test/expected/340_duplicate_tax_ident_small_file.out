@@ -151,6 +151,73 @@ SELECT
 Run worker processing for import jobs
 --SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
-WARNING:  [Job 16] helper_process_external_idents: Error during batch operation: duplicate key value violates unique constraint "external_ident_type_for_ident"
-WARNING:  [Job 16] process_legal_unit: Unhandled error during batch operation: duplicate key value violates unique constraint "external_ident_type_for_ident"
-WARNING:  [Job 16] Error processing batch: duplicate key value violates unique constraint "external_ident_type_for_ident". Context: SQL statement "
+--SET client_min_messages TO NOTICE;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
+   queue   |   state   | count 
+-----------+-----------+-------
+ analytics | pending   |     3
+ import    | completed |    47
+(2 rows)
+
+\echo "Checking unit counts after import processing"
+"Checking unit counts after import processing"
+SELECT
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
+ establishment_count | legal_unit_count | enterprise_count 
+---------------------+------------------+------------------
+                   0 |                3 |                3
+(1 row)
+
+\echo "Inspecting import job data for import_340_lu_idents"
+"Inspecting import job data for import_340_lu_idents"
+SELECT row_id, state, errors, stat_ident_raw, name_raw, tax_ident_raw, merge_status
+FROM public.import_340_lu_idents_data
+ORDER BY row_id
+LIMIT 5;
+ row_id |   state   |                                       errors                                        | stat_ident_raw |         name_raw         | tax_ident_raw |       merge_status        
+--------+-----------+-------------------------------------------------------------------------------------+----------------+--------------------------+---------------+---------------------------
+      1 | processed | {}                                                                                  | 8204401        | NILE PEARL WATER         | 4672419       | {"legal_unit": "APPLIED"}
+      2 | error     | {"tax_ident_raw": "Duplicate identifier: tax_ident=267777 appears in 2 rows: 2, 3"} | 92890834       | EQUATOR GLOBE SOLUTIONS  | 267777        | {}
+      3 | error     | {"tax_ident_raw": "Duplicate identifier: tax_ident=267777 appears in 2 rows: 2, 3"} |                | ENTEBBE FUEL ENTERPRISES | 267777        | {}
+      4 | processed | {}                                                                                  | 71426750       | KAMPALA DIGITAL ARTS     | 8040655       | {"legal_unit": "APPLIED"}
+      5 | processed | {}                                                                                  | 10234244       | VICTORIA FRESH FARMS     | 364755        | {"legal_unit": "APPLIED"}
+(5 rows)
+
+\echo "Checking import job status for import_340_lu_idents"
+"Checking import job status for import_340_lu_idents"
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
+       (SELECT COUNT(*) FROM public.import_340_lu_idents_data dr WHERE dr.state = 'error') AS error_rows
+FROM public.import_job
+WHERE slug = 'import_340_lu_idents'
+ORDER BY slug;
+         slug         |  state   | total_rows | imported_rows | has_error | error_rows 
+----------------------+----------+------------+---------------+-----------+------------
+ import_340_lu_idents | finished |          5 |             3 | f         |          2
+(1 row)
+
+\echo Run worker processing for analytics tasks
+Run worker processing for analytics tasks
+CALL worker.process_tasks(p_queue => 'analytics');
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
+   queue   |   state   | count 
+-----------+-----------+-------
+ analytics | completed |     5
+ import    | completed |    47
+(2 rows)
+
+\echo "Checking legal units"
+"Checking legal units"
+SELECT name, external_idents, unit_type
+ FROM statistical_unit
+ WHERE unit_type = 'legal_unit'
+ ORDER BY external_idents->>'stat_ident';
+         name         |                  external_idents                   | unit_type  
+----------------------+----------------------------------------------------+------------
+ VICTORIA FRESH FARMS | {"tax_ident": "364755", "stat_ident": "10234244"}  | legal_unit
+ KAMPALA DIGITAL ARTS | {"tax_ident": "8040655", "stat_ident": "71426750"} | legal_unit
+ NILE PEARL WATER     | {"tax_ident": "4672419", "stat_ident": "8204401"}  | legal_unit
+(3 rows)
+
+ROLLBACK;
