@@ -159,15 +159,15 @@ SELECT
 
 \echo "Inspecting import job data for import_317_lu_era"
 "Inspecting import job data for import_317_lu_era"
-SELECT row_id, state, errors, stat_ident_raw, name_raw, data_source_code_raw, merge_status
+SELECT row_id, state, errors, stat_ident_raw, name_raw, primary_activity_category_code_raw, sector_code_raw, data_source_code_raw, merge_status
 FROM public.import_317_lu_era_data
 ORDER BY row_id
 LIMIT 5;
- row_id |   state   | errors | stat_ident_raw |          name_raw          | data_source_code_raw |                       merge_status                       
---------+-----------+--------+----------------+----------------------------+----------------------+----------------------------------------------------------
-      1 | processed | {}     | 2              | EQUATOR GLOBE SOLUTIONS    |                      | {"legal_unit": "APPLIED", "primary_activity": "APPLIED"}
-      2 | processed | {}     | 2              | EQUATOR GLOBE SOLUTIONS #2 |                      | {"legal_unit": "APPLIED", "primary_activity": "APPLIED"}
-      3 | processed | {}     | 2              | EQUATOR GLOBE SOLUTIONS #2 |                      | {"legal_unit": "APPLIED", "primary_activity": "APPLIED"}
+ row_id |   state   | errors | stat_ident_raw |          name_raw          | primary_activity_category_code_raw | sector_code_raw | data_source_code_raw |                       merge_status                       
+--------+-----------+--------+----------------+----------------------------+------------------------------------+-----------------+----------------------+----------------------------------------------------------
+      1 | processed | {}     | 2              | EQUATOR GLOBE SOLUTIONS    | 5610                               | 6100            |                      | {"legal_unit": "APPLIED", "primary_activity": "APPLIED"}
+      2 | processed | {}     | 2              | EQUATOR GLOBE SOLUTIONS #2 | 5610                               | 6500            |                      | {"legal_unit": "APPLIED", "primary_activity": "APPLIED"}
+      3 | processed | {}     | 2              | EQUATOR GLOBE SOLUTIONS #2 | 5621                               | 6500            |                      | {"legal_unit": "APPLIED", "primary_activity": "APPLIED"}
 (3 rows)
 
 \echo "Checking import job status for import_317_lu_era"
@@ -192,8 +192,8 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
  import    | completed |    47
 (2 rows)
 
-\echo "Checking legal unit"
-"Checking legal unit"
+\echo "Checking legal unit (name and sector are separate columns)"
+"Checking legal unit (name and sector are separate columns)"
 SELECT name, valid_from, valid_to
  FROM legal_unit
  ORDER BY valid_from;
@@ -201,6 +201,16 @@ SELECT name, valid_from, valid_to
 ----------------------------+------------+------------
  EQUATOR GLOBE SOLUTIONS    | 2023-01-01 | 2023-12-31
  EQUATOR GLOBE SOLUTIONS #2 | 2024-01-01 | 2025-12-31
+(2 rows)
+
+SELECT s.code as sector_code, lu.valid_from, lu.valid_to
+ FROM legal_unit lu
+ JOIN sector s ON lu.sector_id = s.id
+ ORDER BY lu.valid_from;
+ sector_code | valid_from |  valid_to  
+-------------+------------+------------
+ 6100        | 2023-01-01 | 2023-12-31
+ 6500        | 2024-01-01 | 2025-12-31
 (2 rows)
 
 SELECT category_id, valid_from, valid_to
@@ -212,18 +222,20 @@ SELECT category_id, valid_from, valid_to
          485 | 2025-01-01 | 2025-12-31
 (2 rows)
 
- SELECT name, primary_activity_category_path, valid_from, valid_to FROM statistical_unit WHERE unit_type = 'legal_unit';
-            name            | primary_activity_category_path | valid_from |  valid_to  
-----------------------------+--------------------------------+------------+------------
- EQUATOR GLOBE SOLUTIONS    | I.56.1.0                       | 2023-01-01 | 2023-12-31
- EQUATOR GLOBE SOLUTIONS #2 | I.56.1.0                       | 2024-01-01 | 2024-12-31
- EQUATOR GLOBE SOLUTIONS #2 | I.56.2.1                       | 2025-01-01 | 2025-12-31
+ SELECT name, primary_activity_category_path, sector_id, valid_from, valid_to FROM statistical_unit WHERE unit_type = 'legal_unit';
+            name            | primary_activity_category_path | sector_id | valid_from |  valid_to  
+----------------------------+--------------------------------+-----------+------------+------------
+ EQUATOR GLOBE SOLUTIONS    | I.56.1.0                       |        28 | 2023-01-01 | 2023-12-31
+ EQUATOR GLOBE SOLUTIONS #2 | I.56.1.0                       |        29 | 2024-01-01 | 2024-12-31
+ EQUATOR GLOBE SOLUTIONS #2 | I.56.2.1                       |        29 | 2025-01-01 | 2025-12-31
 (3 rows)
 
  
 SAVEPOINT before_update_on_name;
 \echo "Update name for exact same dates as first activity row"
 "Update name for exact same dates as first activity row"
+\echo "Note: sector_id differs between 2023 (6100) and 2024 (6500), so no coalescing should occur"
+"Note: sector_id differs between 2023 (6100) and 2024 (6500), so no coalescing should occur"
 UPDATE legal_unit__for_portion_of_valid
  SET name = 'EQUATOR SOLUTIONS', valid_from = '2023-01-01', valid_to = '2024-12-31'
  WHERE id = (SELECT id FROM public.legal_unit WHERE name = 'EQUATOR GLOBE SOLUTIONS');
@@ -237,16 +249,31 @@ Run worker processing for analytics tasks
  import    | completed |    47
 (2 rows)
 
-\echo "Checking legal unit after update"
-"Checking legal unit after update"
-SELECT name, valid_from, valid_to
- FROM legal_unit
+\echo "Checking legal unit after update - should have 3 rows (different sector prevents coalescing)"
+"Checking legal unit after update - should have 3 rows (different sector prevents coalescing)"
+SELECT lu.name, s.code, lu.valid_from, lu.valid_to
+ FROM legal_unit lu
+ JOIN sector s ON lu.sector_id = s.id
  ORDER BY valid_from;
-            name            | valid_from |  valid_to  
-----------------------------+------------+------------
- EQUATOR SOLUTIONS          | 2023-01-01 | 2024-12-31
- EQUATOR GLOBE SOLUTIONS #2 | 2025-01-01 | 2025-12-31
-(2 rows)
+            name            | code | valid_from |  valid_to  
+----------------------------+------+------------+------------
+ EQUATOR SOLUTIONS          | 6100 | 2023-01-01 | 2023-12-31
+ EQUATOR SOLUTIONS          | 6500 | 2024-01-01 | 2024-12-31
+ EQUATOR GLOBE SOLUTIONS #2 | 6500 | 2025-01-01 | 2025-12-31
+(3 rows)
+
+\echo "Checking sector - should show preserved sector_id per period"
+"Checking sector - should show preserved sector_id per period"
+SELECT s.code as sector_code, lu.valid_from, lu.valid_to
+ FROM legal_unit lu
+ JOIN sector s ON lu.sector_id = s.id
+ ORDER BY lu.valid_from;
+ sector_code | valid_from |  valid_to  
+-------------+------------+------------
+ 6100        | 2023-01-01 | 2023-12-31
+ 6500        | 2024-01-01 | 2024-12-31
+ 6500        | 2025-01-01 | 2025-12-31
+(3 rows)
 
 \echo "Checking activity after update"
 "Checking activity after update"
@@ -260,12 +287,13 @@ SELECT category_id, valid_from, valid_to
 (2 rows)
 
  
-SELECT name, primary_activity_category_path, valid_from, valid_to FROM statistical_unit WHERE unit_type = 'legal_unit';
-            name            | primary_activity_category_path | valid_from |  valid_to  
-----------------------------+--------------------------------+------------+------------
- EQUATOR SOLUTIONS          | I.56.1.0                       | 2023-01-01 | 2024-12-31
- EQUATOR GLOBE SOLUTIONS #2 | I.56.2.1                       | 2025-01-01 | 2025-12-31
-(2 rows)
+SELECT name, primary_activity_category_path, sector_id, valid_from, valid_to FROM statistical_unit WHERE unit_type = 'legal_unit';
+            name            | primary_activity_category_path | sector_id | valid_from |  valid_to  
+----------------------------+--------------------------------+-----------+------------+------------
+ EQUATOR SOLUTIONS          | I.56.1.0                       |        28 | 2023-01-01 | 2023-12-31
+ EQUATOR SOLUTIONS          | I.56.1.0                       |        29 | 2024-01-01 | 2024-12-31
+ EQUATOR GLOBE SOLUTIONS #2 | I.56.2.1                       |        29 | 2025-01-01 | 2025-12-31
+(3 rows)
 
 ROLLBACK TO SAVEPOINT before_update_on_name;
 SELECT name, valid_from, valid_to

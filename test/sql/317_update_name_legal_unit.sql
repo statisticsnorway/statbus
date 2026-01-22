@@ -53,7 +53,7 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
 \echo "Inspecting import job data for import_317_lu_era"
-SELECT row_id, state, errors, stat_ident_raw, name_raw, data_source_code_raw, merge_status
+SELECT row_id, state, errors, stat_ident_raw, name_raw, primary_activity_category_code_raw, sector_code_raw, data_source_code_raw, merge_status
 FROM public.import_317_lu_era_data
 ORDER BY row_id
 LIMIT 5;
@@ -69,21 +69,27 @@ ORDER BY slug;
 CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
-\echo "Checking legal unit"
+\echo "Checking legal unit (name and sector are separate columns)"
 
 SELECT name, valid_from, valid_to
  FROM legal_unit
  ORDER BY valid_from;
 
+SELECT s.code as sector_code, lu.valid_from, lu.valid_to
+ FROM legal_unit lu
+ JOIN sector s ON lu.sector_id = s.id
+ ORDER BY lu.valid_from;
+
 SELECT category_id, valid_from, valid_to
  FROM activity
  ORDER BY  valid_from;
 
- SELECT name, primary_activity_category_path, valid_from, valid_to FROM statistical_unit WHERE unit_type = 'legal_unit';
+ SELECT name, primary_activity_category_path, sector_id, valid_from, valid_to FROM statistical_unit WHERE unit_type = 'legal_unit';
  
 SAVEPOINT before_update_on_name;
 
 \echo "Update name for exact same dates as first activity row"
+\echo "Note: sector_id differs between 2023 (6100) and 2024 (6500), so no coalescing should occur"
 UPDATE legal_unit__for_portion_of_valid
  SET name = 'EQUATOR SOLUTIONS', valid_from = '2023-01-01', valid_to = '2024-12-31'
  WHERE id = (SELECT id FROM public.legal_unit WHERE name = 'EQUATOR GLOBE SOLUTIONS');
@@ -92,11 +98,19 @@ UPDATE legal_unit__for_portion_of_valid
  CALL worker.process_tasks(p_queue => 'analytics');
  SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
-\echo "Checking legal unit after update"
+\echo "Checking legal unit after update - should have 3 rows (different sector prevents coalescing)"
 
-SELECT name, valid_from, valid_to
- FROM legal_unit
+SELECT lu.name, s.code, lu.valid_from, lu.valid_to
+ FROM legal_unit lu
+ JOIN sector s ON lu.sector_id = s.id
  ORDER BY valid_from;
+
+\echo "Checking sector - should show preserved sector_id per period"
+
+SELECT s.code as sector_code, lu.valid_from, lu.valid_to
+ FROM legal_unit lu
+ JOIN sector s ON lu.sector_id = s.id
+ ORDER BY lu.valid_from;
 
 \echo "Checking activity after update"
 
@@ -104,10 +118,9 @@ SELECT category_id, valid_from, valid_to
   FROM activity
   ORDER BY  valid_from;
  
-SELECT name, primary_activity_category_path, valid_from, valid_to FROM statistical_unit WHERE unit_type = 'legal_unit';
+SELECT name, primary_activity_category_path, sector_id, valid_from, valid_to FROM statistical_unit WHERE unit_type = 'legal_unit';
 
 ROLLBACK TO SAVEPOINT before_update_on_name;
-
 
 SELECT name, valid_from, valid_to
  FROM legal_unit
