@@ -21,6 +21,7 @@ export type Database = {
           legal_unit_id: number | null
           type: Database["public"]["Enums"]["activity_type"]
           valid_from: string
+          valid_range: unknown
           valid_to: string | null
           valid_until: string | null
         }
@@ -35,6 +36,7 @@ export type Database = {
           legal_unit_id?: number | null
           type: Database["public"]["Enums"]["activity_type"]
           valid_from: string
+          valid_range: unknown
           valid_to?: string | null
           valid_until?: string | null
         }
@@ -49,6 +51,7 @@ export type Database = {
           legal_unit_id?: number | null
           type?: Database["public"]["Enums"]["activity_type"]
           valid_from?: string
+          valid_range?: unknown
           valid_to?: string | null
           valid_until?: string | null
         }
@@ -108,6 +111,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "user"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_establishment_id_valid"
+            columns: ["establishment_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "establishment"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "activity_establishment_id_valid"
+            columns: ["establishment_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "establishment__for_portion_of_valid"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "activity_legal_unit_id_valid"
+            columns: ["legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "activity_legal_unit_id_valid"
+            columns: ["legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit__for_portion_of_valid"
+            referencedColumns: ["id", "valid_range"]
           },
         ]
       }
@@ -310,6 +341,7 @@ export type Database = {
           mobile_number: string | null
           phone_number: string | null
           valid_from: string
+          valid_range: unknown
           valid_to: string | null
           valid_until: string | null
           web_address: string | null
@@ -328,6 +360,7 @@ export type Database = {
           mobile_number?: string | null
           phone_number?: string | null
           valid_from: string
+          valid_range: unknown
           valid_to?: string | null
           valid_until?: string | null
           web_address?: string | null
@@ -346,6 +379,7 @@ export type Database = {
           mobile_number?: string | null
           phone_number?: string | null
           valid_from?: string
+          valid_range?: unknown
           valid_to?: string | null
           valid_until?: string | null
           web_address?: string | null
@@ -385,6 +419,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "user"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_establishment_id_valid"
+            columns: ["establishment_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "establishment"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "contact_establishment_id_valid"
+            columns: ["establishment_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "establishment__for_portion_of_valid"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "contact_legal_unit_id_valid"
+            columns: ["legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "contact_legal_unit_id_valid"
+            columns: ["legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit__for_portion_of_valid"
+            referencedColumns: ["id", "valid_range"]
           },
         ]
       }
@@ -542,6 +604,7 @@ export type Database = {
           short_name: string | null
           unit_size_id: number | null
           valid_from: string
+          valid_range: unknown
           valid_to: string | null
           valid_until: string | null
         }
@@ -561,6 +624,7 @@ export type Database = {
           short_name?: string | null
           unit_size_id?: number | null
           valid_from: string
+          valid_range: unknown
           valid_to?: string | null
           valid_until?: string | null
         }
@@ -580,6 +644,7 @@ export type Database = {
           short_name?: string | null
           unit_size_id?: number | null
           valid_from?: string
+          valid_range?: unknown
           valid_to?: string | null
           valid_until?: string | null
         }
@@ -786,6 +851,7 @@ export type Database = {
           status_id: number
           unit_size_id: number | null
           valid_from: string
+          valid_range: unknown
           valid_to: string | null
           valid_until: string | null
         }
@@ -809,6 +875,7 @@ export type Database = {
           status_id: number
           unit_size_id?: number | null
           valid_from: string
+          valid_range: unknown
           valid_to?: string | null
           valid_until?: string | null
         }
@@ -832,6 +899,7 @@ export type Database = {
           status_id?: number
           unit_size_id?: number | null
           valid_from?: string
+          valid_range?: unknown
           valid_to?: string | null
           valid_until?: string | null
         }
@@ -884,6 +952,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "timeline_enterprise_def"
             referencedColumns: ["enterprise_id"]
+          },
+          {
+            foreignKeyName: "establishment_legal_unit_id_valid"
+            columns: ["legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "establishment_legal_unit_id_valid"
+            columns: ["legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit__for_portion_of_valid"
+            referencedColumns: ["id", "valid_range"]
           },
           {
             foreignKeyName: "establishment_sector_id_fkey"
@@ -1165,6 +1247,7 @@ export type Database = {
           data_source_id: number | null
           default_retention_period: unknown
           id: number
+          import_as_null: string[]
           mode: Database["public"]["Enums"]["import_mode"]
           name: string
           note: string | null
@@ -1183,6 +1266,7 @@ export type Database = {
           data_source_id?: number | null
           default_retention_period?: unknown
           id?: never
+          import_as_null?: string[]
           mode: Database["public"]["Enums"]["import_mode"]
           name: string
           note?: string | null
@@ -1201,6 +1285,7 @@ export type Database = {
           data_source_id?: number | null
           default_retention_period?: unknown
           id?: never
+          import_as_null?: string[]
           mode?: Database["public"]["Enums"]["import_mode"]
           name?: string
           note?: string | null
@@ -1650,6 +1735,7 @@ export type Database = {
           status_id: number
           unit_size_id: number | null
           valid_from: string
+          valid_range: unknown
           valid_to: string | null
           valid_until: string | null
         }
@@ -1673,6 +1759,7 @@ export type Database = {
           status_id: number
           unit_size_id?: number | null
           valid_from: string
+          valid_range: unknown
           valid_to?: string | null
           valid_until?: string | null
         }
@@ -1696,6 +1783,7 @@ export type Database = {
           status_id?: number
           unit_size_id?: number | null
           valid_from?: string
+          valid_range?: unknown
           valid_to?: string | null
           valid_until?: string | null
         }
@@ -1898,6 +1986,7 @@ export type Database = {
           region_id: number | null
           type: Database["public"]["Enums"]["location_type"]
           valid_from: string
+          valid_range: unknown
           valid_to: string | null
           valid_until: string | null
         }
@@ -1921,6 +2010,7 @@ export type Database = {
           region_id?: number | null
           type: Database["public"]["Enums"]["location_type"]
           valid_from: string
+          valid_range: unknown
           valid_to?: string | null
           valid_until?: string | null
         }
@@ -1944,6 +2034,7 @@ export type Database = {
           region_id?: number | null
           type?: Database["public"]["Enums"]["location_type"]
           valid_from?: string
+          valid_range?: unknown
           valid_to?: string | null
           valid_until?: string | null
         }
@@ -2003,6 +2094,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "user"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_establishment_id_valid"
+            columns: ["establishment_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "establishment"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "location_establishment_id_valid"
+            columns: ["establishment_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "establishment__for_portion_of_valid"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "location_legal_unit_id_valid"
+            columns: ["legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "location_legal_unit_id_valid"
+            columns: ["legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit__for_portion_of_valid"
+            referencedColumns: ["id", "valid_range"]
           },
           {
             foreignKeyName: "location_region_id_fkey"
@@ -2096,34 +2215,46 @@ export type Database = {
       person_for_unit: {
         Row: {
           data_source_id: number | null
+          edit_at: string
+          edit_by_user_id: number
+          edit_comment: string | null
           establishment_id: number | null
           id: number
           legal_unit_id: number | null
           person_id: number
           person_role_id: number | null
           valid_from: string
+          valid_range: unknown
           valid_to: string | null
           valid_until: string | null
         }
         Insert: {
           data_source_id?: number | null
+          edit_at?: string
+          edit_by_user_id: number
+          edit_comment?: string | null
           establishment_id?: number | null
           id?: number
           legal_unit_id?: number | null
           person_id: number
           person_role_id?: number | null
           valid_from: string
+          valid_range: unknown
           valid_to?: string | null
           valid_until?: string | null
         }
         Update: {
           data_source_id?: number | null
+          edit_at?: string
+          edit_by_user_id?: number
+          edit_comment?: string | null
           establishment_id?: number | null
           id?: number
           legal_unit_id?: number | null
           person_id?: number
           person_role_id?: number | null
           valid_from?: string
+          valid_range?: unknown
           valid_to?: string | null
           valid_until?: string | null
         }
@@ -2155,6 +2286,41 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "data_source_used_def"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_for_unit_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_for_unit_establishment_id_valid"
+            columns: ["establishment_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "establishment"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "person_for_unit_establishment_id_valid"
+            columns: ["establishment_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "establishment__for_portion_of_valid"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "person_for_unit_legal_unit_id_valid"
+            columns: ["legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "person_for_unit_legal_unit_id_valid"
+            columns: ["legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit__for_portion_of_valid"
+            referencedColumns: ["id", "valid_range"]
           },
           {
             foreignKeyName: "person_for_unit_person_id_fkey"
@@ -2548,7 +2714,6 @@ export type Database = {
       }
       stat_for_unit: {
         Row: {
-          created_at: string
           data_source_id: number | null
           edit_at: string
           edit_by_user_id: number
@@ -2558,6 +2723,7 @@ export type Database = {
           legal_unit_id: number | null
           stat_definition_id: number
           valid_from: string
+          valid_range: unknown
           valid_to: string | null
           valid_until: string | null
           value_bool: boolean | null
@@ -2566,7 +2732,6 @@ export type Database = {
           value_string: string | null
         }
         Insert: {
-          created_at?: string
           data_source_id?: number | null
           edit_at?: string
           edit_by_user_id: number
@@ -2576,6 +2741,7 @@ export type Database = {
           legal_unit_id?: number | null
           stat_definition_id: number
           valid_from: string
+          valid_range: unknown
           valid_to?: string | null
           valid_until?: string | null
           value_bool?: boolean | null
@@ -2584,7 +2750,6 @@ export type Database = {
           value_string?: string | null
         }
         Update: {
-          created_at?: string
           data_source_id?: number | null
           edit_at?: string
           edit_by_user_id?: number
@@ -2594,6 +2759,7 @@ export type Database = {
           legal_unit_id?: number | null
           stat_definition_id?: number
           valid_from?: string
+          valid_range?: unknown
           valid_to?: string | null
           valid_until?: string | null
           value_bool?: boolean | null
@@ -2636,6 +2802,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "user"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stat_for_unit_establishment_id_valid"
+            columns: ["establishment_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "establishment"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "stat_for_unit_establishment_id_valid"
+            columns: ["establishment_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "establishment__for_portion_of_valid"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "stat_for_unit_legal_unit_id_valid"
+            columns: ["legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "stat_for_unit_legal_unit_id_valid"
+            columns: ["legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit__for_portion_of_valid"
+            referencedColumns: ["id", "valid_range"]
           },
           {
             foreignKeyName: "stat_for_unit_stat_definition_id_fkey"
@@ -4267,6 +4461,7 @@ export type Database = {
           legal_unit_id: number | null
           type: Database["public"]["Enums"]["activity_type"] | null
           valid_from: string | null
+          valid_range: unknown
           valid_to: string | null
           valid_until: string | null
         }
@@ -4281,6 +4476,7 @@ export type Database = {
           legal_unit_id?: number | null
           type?: Database["public"]["Enums"]["activity_type"] | null
           valid_from?: string | null
+          valid_range?: unknown
           valid_to?: string | null
           valid_until?: string | null
         }
@@ -4295,6 +4491,7 @@ export type Database = {
           legal_unit_id?: number | null
           type?: Database["public"]["Enums"]["activity_type"] | null
           valid_from?: string | null
+          valid_range?: unknown
           valid_to?: string | null
           valid_until?: string | null
         }
@@ -4354,6 +4551,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "user"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_establishment_id_valid"
+            columns: ["establishment_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "establishment"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "activity_establishment_id_valid"
+            columns: ["establishment_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "establishment__for_portion_of_valid"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "activity_legal_unit_id_valid"
+            columns: ["legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "activity_legal_unit_id_valid"
+            columns: ["legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit__for_portion_of_valid"
+            referencedColumns: ["id", "valid_range"]
           },
         ]
       }
@@ -4480,6 +4705,7 @@ export type Database = {
           mobile_number: string | null
           phone_number: string | null
           valid_from: string | null
+          valid_range: unknown
           valid_to: string | null
           valid_until: string | null
           web_address: string | null
@@ -4498,6 +4724,7 @@ export type Database = {
           mobile_number?: string | null
           phone_number?: string | null
           valid_from?: string | null
+          valid_range?: unknown
           valid_to?: string | null
           valid_until?: string | null
           web_address?: string | null
@@ -4516,6 +4743,7 @@ export type Database = {
           mobile_number?: string | null
           phone_number?: string | null
           valid_from?: string | null
+          valid_range?: unknown
           valid_to?: string | null
           valid_until?: string | null
           web_address?: string | null
@@ -4555,6 +4783,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "user"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_establishment_id_valid"
+            columns: ["establishment_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "establishment"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "contact_establishment_id_valid"
+            columns: ["establishment_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "establishment__for_portion_of_valid"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "contact_legal_unit_id_valid"
+            columns: ["legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "contact_legal_unit_id_valid"
+            columns: ["legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit__for_portion_of_valid"
+            referencedColumns: ["id", "valid_range"]
           },
         ]
       }
@@ -4742,6 +4998,7 @@ export type Database = {
           short_name: string | null
           unit_size_id: number | null
           valid_from: string | null
+          valid_range: unknown
           valid_to: string | null
           valid_until: string | null
         }
@@ -4761,6 +5018,7 @@ export type Database = {
           short_name?: string | null
           unit_size_id?: number | null
           valid_from?: string | null
+          valid_range?: unknown
           valid_to?: string | null
           valid_until?: string | null
         }
@@ -4780,6 +5038,7 @@ export type Database = {
           short_name?: string | null
           unit_size_id?: number | null
           valid_from?: string | null
+          valid_range?: unknown
           valid_to?: string | null
           valid_until?: string | null
         }
@@ -5106,6 +5365,7 @@ export type Database = {
           status_id: number | null
           unit_size_id: number | null
           valid_from: string | null
+          valid_range: unknown
           valid_to: string | null
           valid_until: string | null
         }
@@ -5129,6 +5389,7 @@ export type Database = {
           status_id?: number | null
           unit_size_id?: number | null
           valid_from?: string | null
+          valid_range?: unknown
           valid_to?: string | null
           valid_until?: string | null
         }
@@ -5152,6 +5413,7 @@ export type Database = {
           status_id?: number | null
           unit_size_id?: number | null
           valid_from?: string | null
+          valid_range?: unknown
           valid_to?: string | null
           valid_until?: string | null
         }
@@ -5204,6 +5466,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "timeline_enterprise_def"
             referencedColumns: ["enterprise_id"]
+          },
+          {
+            foreignKeyName: "establishment_legal_unit_id_valid"
+            columns: ["legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "establishment_legal_unit_id_valid"
+            columns: ["legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit__for_portion_of_valid"
+            referencedColumns: ["id", "valid_range"]
           },
           {
             foreignKeyName: "establishment_sector_id_fkey"
@@ -5608,6 +5884,7 @@ export type Database = {
           status_id: number | null
           unit_size_id: number | null
           valid_from: string | null
+          valid_range: unknown
           valid_to: string | null
           valid_until: string | null
         }
@@ -5631,6 +5908,7 @@ export type Database = {
           status_id?: number | null
           unit_size_id?: number | null
           valid_from?: string | null
+          valid_range?: unknown
           valid_to?: string | null
           valid_until?: string | null
         }
@@ -5654,6 +5932,7 @@ export type Database = {
           status_id?: number | null
           unit_size_id?: number | null
           valid_from?: string | null
+          valid_range?: unknown
           valid_to?: string | null
           valid_until?: string | null
         }
@@ -5856,6 +6135,7 @@ export type Database = {
           region_id: number | null
           type: Database["public"]["Enums"]["location_type"] | null
           valid_from: string | null
+          valid_range: unknown
           valid_to: string | null
           valid_until: string | null
         }
@@ -5879,6 +6159,7 @@ export type Database = {
           region_id?: number | null
           type?: Database["public"]["Enums"]["location_type"] | null
           valid_from?: string | null
+          valid_range?: unknown
           valid_to?: string | null
           valid_until?: string | null
         }
@@ -5902,6 +6183,7 @@ export type Database = {
           region_id?: number | null
           type?: Database["public"]["Enums"]["location_type"] | null
           valid_from?: string | null
+          valid_range?: unknown
           valid_to?: string | null
           valid_until?: string | null
         }
@@ -5963,6 +6245,34 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "location_establishment_id_valid"
+            columns: ["establishment_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "establishment"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "location_establishment_id_valid"
+            columns: ["establishment_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "establishment__for_portion_of_valid"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "location_legal_unit_id_valid"
+            columns: ["legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "location_legal_unit_id_valid"
+            columns: ["legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit__for_portion_of_valid"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
             foreignKeyName: "location_region_id_fkey"
             columns: ["region_id"]
             isOneToOne: false
@@ -5981,34 +6291,46 @@ export type Database = {
       person_for_unit__for_portion_of_valid: {
         Row: {
           data_source_id: number | null
+          edit_at: string | null
+          edit_by_user_id: number | null
+          edit_comment: string | null
           establishment_id: number | null
           id: number | null
           legal_unit_id: number | null
           person_id: number | null
           person_role_id: number | null
           valid_from: string | null
+          valid_range: unknown
           valid_to: string | null
           valid_until: string | null
         }
         Insert: {
           data_source_id?: number | null
+          edit_at?: string | null
+          edit_by_user_id?: number | null
+          edit_comment?: string | null
           establishment_id?: number | null
           id?: number | null
           legal_unit_id?: number | null
           person_id?: number | null
           person_role_id?: number | null
           valid_from?: string | null
+          valid_range?: unknown
           valid_to?: string | null
           valid_until?: string | null
         }
         Update: {
           data_source_id?: number | null
+          edit_at?: string | null
+          edit_by_user_id?: number | null
+          edit_comment?: string | null
           establishment_id?: number | null
           id?: number | null
           legal_unit_id?: number | null
           person_id?: number | null
           person_role_id?: number | null
           valid_from?: string | null
+          valid_range?: unknown
           valid_to?: string | null
           valid_until?: string | null
         }
@@ -6040,6 +6362,41 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "data_source_used_def"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_for_unit_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_for_unit_establishment_id_valid"
+            columns: ["establishment_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "establishment"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "person_for_unit_establishment_id_valid"
+            columns: ["establishment_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "establishment__for_portion_of_valid"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "person_for_unit_legal_unit_id_valid"
+            columns: ["legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "person_for_unit_legal_unit_id_valid"
+            columns: ["legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit__for_portion_of_valid"
+            referencedColumns: ["id", "valid_range"]
           },
           {
             foreignKeyName: "person_for_unit_person_id_fkey"
@@ -6701,7 +7058,6 @@ export type Database = {
       }
       stat_for_unit__for_portion_of_valid: {
         Row: {
-          created_at: string | null
           data_source_id: number | null
           edit_at: string | null
           edit_by_user_id: number | null
@@ -6711,6 +7067,7 @@ export type Database = {
           legal_unit_id: number | null
           stat_definition_id: number | null
           valid_from: string | null
+          valid_range: unknown
           valid_to: string | null
           valid_until: string | null
           value_bool: boolean | null
@@ -6719,7 +7076,6 @@ export type Database = {
           value_string: string | null
         }
         Insert: {
-          created_at?: string | null
           data_source_id?: number | null
           edit_at?: string | null
           edit_by_user_id?: number | null
@@ -6729,6 +7085,7 @@ export type Database = {
           legal_unit_id?: number | null
           stat_definition_id?: number | null
           valid_from?: string | null
+          valid_range?: unknown
           valid_to?: string | null
           valid_until?: string | null
           value_bool?: boolean | null
@@ -6737,7 +7094,6 @@ export type Database = {
           value_string?: string | null
         }
         Update: {
-          created_at?: string | null
           data_source_id?: number | null
           edit_at?: string | null
           edit_by_user_id?: number | null
@@ -6747,6 +7103,7 @@ export type Database = {
           legal_unit_id?: number | null
           stat_definition_id?: number | null
           valid_from?: string | null
+          valid_range?: unknown
           valid_to?: string | null
           valid_until?: string | null
           value_bool?: boolean | null
@@ -6789,6 +7146,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "user"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stat_for_unit_establishment_id_valid"
+            columns: ["establishment_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "establishment"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "stat_for_unit_establishment_id_valid"
+            columns: ["establishment_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "establishment__for_portion_of_valid"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "stat_for_unit_legal_unit_id_valid"
+            columns: ["legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit"
+            referencedColumns: ["id", "valid_range"]
+          },
+          {
+            foreignKeyName: "stat_for_unit_legal_unit_id_valid"
+            columns: ["legal_unit_id", "valid_range"]
+            isOneToOne: false
+            referencedRelation: "legal_unit__for_portion_of_valid"
+            referencedColumns: ["id", "valid_range"]
           },
           {
             foreignKeyName: "stat_for_unit_stat_definition_id_fkey"
@@ -7110,13 +7495,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["primary_activity_category_id"]
-            isOneToOne: false
-            referencedRelation: "activity_category"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "activity_category_id_fkey"
             columns: ["secondary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category"
@@ -7126,7 +7504,7 @@ export type Database = {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["primary_activity_category_id"]
             isOneToOne: false
-            referencedRelation: "activity_category_available"
+            referencedRelation: "activity_category"
             referencedColumns: ["id"]
           },
           {
@@ -7139,13 +7517,20 @@ export type Database = {
           {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["primary_activity_category_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_available"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_category_id_fkey"
+            columns: ["secondary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used_def"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["secondary_activity_category_id"]
+            columns: ["primary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used_def"
             referencedColumns: ["id"]
@@ -7352,13 +7737,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["primary_activity_category_id"]
-            isOneToOne: false
-            referencedRelation: "activity_category"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "activity_category_id_fkey"
             columns: ["secondary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category"
@@ -7368,7 +7746,7 @@ export type Database = {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["primary_activity_category_id"]
             isOneToOne: false
-            referencedRelation: "activity_category_available"
+            referencedRelation: "activity_category"
             referencedColumns: ["id"]
           },
           {
@@ -7381,13 +7759,20 @@ export type Database = {
           {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["primary_activity_category_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_available"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_category_id_fkey"
+            columns: ["secondary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used_def"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["secondary_activity_category_id"]
+            columns: ["primary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used_def"
             referencedColumns: ["id"]
@@ -7436,13 +7821,6 @@ export type Database = {
           },
           {
             foreignKeyName: "location_country_id_fkey"
-            columns: ["physical_country_id"]
-            isOneToOne: false
-            referencedRelation: "country"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "location_country_id_fkey"
             columns: ["postal_country_id"]
             isOneToOne: false
             referencedRelation: "country"
@@ -7452,7 +7830,7 @@ export type Database = {
             foreignKeyName: "location_country_id_fkey"
             columns: ["physical_country_id"]
             isOneToOne: false
-            referencedRelation: "country_used_def"
+            referencedRelation: "country"
             referencedColumns: ["id"]
           },
           {
@@ -7466,7 +7844,7 @@ export type Database = {
             foreignKeyName: "location_country_id_fkey"
             columns: ["physical_country_id"]
             isOneToOne: false
-            referencedRelation: "country_view"
+            referencedRelation: "country_used_def"
             referencedColumns: ["id"]
           },
           {
@@ -7477,10 +7855,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "location_region_id_fkey"
-            columns: ["physical_region_id"]
+            foreignKeyName: "location_country_id_fkey"
+            columns: ["physical_country_id"]
             isOneToOne: false
-            referencedRelation: "region"
+            referencedRelation: "country_view"
             referencedColumns: ["id"]
           },
           {
@@ -7493,13 +7871,20 @@ export type Database = {
           {
             foreignKeyName: "location_region_id_fkey"
             columns: ["physical_region_id"]
+            isOneToOne: false
+            referencedRelation: "region"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_region_id_fkey"
+            columns: ["postal_region_id"]
             isOneToOne: false
             referencedRelation: "region_used_def"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "location_region_id_fkey"
-            columns: ["postal_region_id"]
+            columns: ["physical_region_id"]
             isOneToOne: false
             referencedRelation: "region_used_def"
             referencedColumns: ["id"]
