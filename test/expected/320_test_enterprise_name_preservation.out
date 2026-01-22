@@ -1,0 +1,855 @@
+-- Test: Enterprise Name Preservation
+-- 
+-- Verifies that enterprise attributes (name, address, etc.) come from the PRIMARY 
+-- legal unit or establishment, not just any unit that happens to have a later valid_from.
+--
+-- The fix uses a WHERE filter: primary_for_enterprise = true
+-- (not ORDER BY sorting)
+BEGIN;
+\i test/setup.sql
+-- While the datestyle is set for the database, the pg_regress tool sets the MDY format
+-- to ensure consistent date formatting, so we must manually override this
+SET datestyle TO 'ISO, DMY';
+\if :{?DEBUG}
+SET client_min_messages TO debug1;
+\else
+SET client_min_messages TO NOTICE;
+\endif
+-- Create temporary function to execute queries as system user
+CREATE OR REPLACE FUNCTION test.sudo_exec(
+    sql text,
+    OUT results jsonb
+) RETURNS jsonb
+SECURITY DEFINER LANGUAGE plpgsql AS $sudo_exec$
+DECLARE
+    result_rows jsonb;
+BEGIN
+    -- Check if the SQL starts with common DDL keywords
+    IF sql ~* '^\s*(CREATE|DROP|ALTER|TRUNCATE|GRANT|REVOKE|ANALYZE)' THEN
+        -- For DDL statements, execute directly
+        EXECUTE sql;
+        results := '[]'::jsonb;
+    ELSE
+        -- For DML/queries, wrap in a SELECT to capture results
+        EXECUTE format('
+            SELECT COALESCE(
+                jsonb_agg(row_to_json(t)),
+                ''[]''::jsonb
+            )
+            FROM (%s) t',
+            sql
+        ) INTO result_rows;
+        results := result_rows;
+    END IF;
+END;
+$sudo_exec$;
+-- Grant execute to public since this is for testing
+GRANT EXECUTE ON FUNCTION test.sudo_exec(text) TO PUBLIC;
+\echo Add users for testing purposes
+Add users for testing purposes
+SELECT * FROM public.user_create(p_display_name => 'Test Admin', p_email => 'test.admin@statbus.org', p_statbus_role => 'admin_user'::statbus_role, p_password => 'Admin#123!');
+         email          |  password  
+------------------------+------------
+ test.admin@statbus.org | Admin#123!
+(1 row)
+
+SELECT * FROM public.user_create(p_display_name => 'Test Regular', p_email => 'test.regular@statbus.org', p_statbus_role => 'regular_user'::statbus_role, p_password => 'Regular#123!');
+          email           |   password   
+--------------------------+--------------
+ test.regular@statbus.org | Regular#123!
+(1 row)
+
+SELECT * FROM public.user_create(p_display_name => 'Test Restricted', p_email => 'test.restricted@statbus.org', p_statbus_role => 'restricted_user'::statbus_role, p_password => 'Restricted#123!');
+            email            |    password     
+-----------------------------+-----------------
+ test.restricted@statbus.org | Restricted#123!
+(1 row)
+
+CREATE OR REPLACE PROCEDURE test.remove_pg_temp_for_tx_user_switch(p_keep_tables text[] DEFAULT '{}')
+LANGUAGE plpgsql
+AS $remove_pg_temp_for_tx_user_switch$
+DECLARE
+    rec record;
+    v_found_count integer := 0;
+BEGIN
+    RAISE DEBUG 'Running test.remove_pg_temp_for_tx_user_switch(p_keep_tables => %)...', p_keep_tables;
+    -- Remove temporary cache tables used by import, as we switch user inside the *same* transaction,
+    -- and the new user can not modify tables owned by the previous import.
+    -- This generic loop cleans up all tables and views in the pg_temp schema, except those specified to keep.
+    FOR rec IN
+        SELECT
+            c.relname,
+            c.relkind
+        FROM pg_catalog.pg_class AS c
+        LEFT JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+        WHERE c.relkind IN ('r', 'p', 'v', 'm') AND n.oid = pg_my_temp_schema() -- r=table, p=partitioned, v=view, m=materialized
+          AND c.relname <> ALL(p_keep_tables)
+    LOOP
+        v_found_count := v_found_count + 1;
+        IF rec.relkind IN ('r', 'p', 'm') THEN
+            RAISE DEBUG '  -> Dropping temp TABLE %', rec.relname;
+            EXECUTE format('DROP TABLE IF EXISTS pg_temp.%I CASCADE', rec.relname);
+        ELSIF rec.relkind = 'v' THEN
+            RAISE DEBUG '  -> Dropping temp VIEW %', rec.relname;
+            EXECUTE format('DROP VIEW IF EXISTS pg_temp.%I CASCADE', rec.relname);
+        END IF;
+    END LOOP;
+
+    RAISE DEBUG '...finished test.remove_pg_temp_for_tx_user_switch(). Found and dropped % objects.', v_found_count;
+
+    -- This procedure is part of the sql_saga extension and has its own cleanup logic.
+    -- While the loop above handles tables/views, this call ensures any other temporary
+    -- objects it creates are also cleaned up.
+    CALL sql_saga.temporal_merge_drop_temp_tables();
+END;
+$remove_pg_temp_for_tx_user_switch$;
+-- Reset sequences for stable IDs in this test
+ALTER TABLE public.legal_unit ALTER COLUMN id RESTART WITH 1;
+ALTER TABLE public.establishment ALTER COLUMN id RESTART WITH 1;
+ALTER TABLE public.enterprise ALTER COLUMN id RESTART WITH 1;
+-- A Super User configures statbus.
+CALL test.set_user_from_email('test.admin@statbus.org');
+\i samples/norway/getting-started.sql
+\i samples/norway/settings.sql
+INSERT INTO settings(activity_category_standard_id,country_id)
+SELECT (SELECT id FROM activity_category_standard WHERE code = 'nace_v2.1')
+     , (SELECT id FROM public.country WHERE iso_2 = 'NO')
+ON CONFLICT (only_one_setting)
+DO UPDATE SET
+   activity_category_standard_id = EXCLUDED.activity_category_standard_id,
+   country_id = EXCLUDED.country_id
+   WHERE settings.only_one_setting = EXCLUDED.only_one_setting;
+;
+\i samples/norway/activity_category/activity_category_norway.sql
+\copy public.activity_category_available_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/regions/norway-regions-2024.sql
+\copy public.region_upload(path, name) FROM 'samples/norway/regions/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/sector/sector_norway.sql
+\copy public.sector_custom_only FROM 'samples/norway/sector/sector_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/legal_form/legal_form_norway.sql
+\copy public.legal_form_custom_only FROM 'samples/norway/legal_form/legal_form_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/data_source/data_source_norway.sql
+\copy public.data_source_custom (code, name) FROM 'samples/norway/data_source/data_source_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo 'Test: Enterprise Name Preservation During Legal Unit Linking'
+Test: Enterprise Name Preservation During Legal Unit Linking
+-- Get Import Definition ID for Legal Units
+\set import_definition_slug '''legal_unit_source_dates'''
+SELECT id AS import_def_id FROM public.import_definition WHERE slug = :import_definition_slug \gset
+\if :{?import_def_id}
+\else
+    \warn 'FAIL: Could not find import definition with slug :' :import_definition_slug '. This test requires it to exist.'
+    \quit
+\endif
+-- Define test constants
+\set user_email_literal '''test.admin@statbus.org'''
+\set default_edit_comment '''Test 320 Enterprise Name Preservation'''
+-- ============================================================================
+-- Scenario 1: Link newer legal unit to existing enterprise
+-- Enterprise name should stay with the PRIMARY legal unit
+-- ============================================================================
+\echo ''
+
+\echo 'Scenario 1: Create enterprise with primary LU, then link a newer LU'
+Scenario 1: Create enterprise with primary LU, then link a newer LU
+SAVEPOINT scenario_1;
+-- Step 1: Create initial legal unit (becomes primary for new enterprise)
+\echo 'Step 1: Creating primary legal unit "Main Company Ltd"'
+Step 1: Creating primary legal unit "Main Company Ltd"
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+VALUES (:import_def_id, 'test320_main_company', 'Main Company Creation', 'Test 320 Main', :default_edit_comment);
+INSERT INTO public.test320_main_company_upload (
+    tax_ident, name, valid_from, valid_to, sector_code, legal_form_code, 
+    data_source_code, birth_date, physical_address_part1, physical_postcode, 
+    physical_postplace, physical_region_code, physical_country_iso_2, primary_activity_category_code
+) VALUES (
+    'MAIN001', 'Main Company Ltd', '2023-01-01', '2023-12-31', '2100', 'AS', 
+    'mi', '2023-01-01', 'Main St 1', '1000', 'Oslo', '0301', 'NO', '01.110'
+);
+CALL worker.process_tasks(p_queue => 'import');
+-- Get enterprise ID
+SELECT lu.enterprise_id AS main_enterprise_id
+FROM public.legal_unit lu
+JOIN public.external_ident ei ON ei.legal_unit_id = lu.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
+WHERE ei.ident = 'MAIN001' LIMIT 1 \gset
+-- Step 2: Create subsidiary with later valid_from
+\echo 'Step 2: Creating subsidiary "Subsidiary Company AS" with later valid_from'
+Step 2: Creating subsidiary "Subsidiary Company AS" with later valid_from
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+VALUES (:import_def_id, 'test320_subsidiary', 'Subsidiary Company Creation', 'Test 320 Sub', :default_edit_comment);
+INSERT INTO public.test320_subsidiary_upload (
+    tax_ident, name, valid_from, valid_to, sector_code, legal_form_code, 
+    data_source_code, birth_date, physical_address_part1, physical_postcode, 
+    physical_postplace, physical_region_code, physical_country_iso_2, primary_activity_category_code
+) VALUES (
+    'SUB001', 'Subsidiary Company AS', '2023-06-01', '2023-12-31', '3100', 'AS', 
+    'mi', '2023-06-01', 'Sub St 2', '5000', 'Bergen', '4601', 'NO', '02.100'
+);
+CALL worker.process_tasks(p_queue => 'import');
+-- Get subsidiary legal unit ID
+SELECT lu.id AS sub_legal_unit_id
+FROM public.legal_unit lu
+JOIN public.external_ident ei ON ei.legal_unit_id = lu.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
+WHERE ei.ident = 'SUB001' LIMIT 1 \gset
+-- Step 3: Link subsidiary to main enterprise
+\echo 'Step 3: Linking subsidiary to main enterprise'
+Step 3: Linking subsidiary to main enterprise
+SELECT public.connect_legal_unit_to_enterprise(
+    :sub_legal_unit_id, 
+    :main_enterprise_id, 
+    '2023-06-01'::date, 
+    'infinity'::date
+) AS connection_result;
+                                              connection_result                                              
+-------------------------------------------------------------------------------------------------------------
+ {"new_enterprise_id": 1, "old_enterprise_id": 2, "deleted_enterprise_id": 2, "updated_legal_unit_ids": [2]}
+(1 row)
+
+CALL worker.process_tasks(p_queue => 'analytics');
+-- Step 4: Verify enterprise name is preserved
+\echo 'Step 4: Verify enterprise name stays "Main Company Ltd" (from primary LU)'
+Step 4: Verify enterprise name stays "Main Company Ltd" (from primary LU)
+SELECT 
+    ten.enterprise_id,
+    ten.name AS enterprise_name,
+    ten.valid_from,
+    ten.valid_until
+FROM public.timeline_enterprise ten
+WHERE ten.enterprise_id = :main_enterprise_id
+ORDER BY ten.valid_from;
+ enterprise_id | enterprise_name  | valid_from | valid_until 
+---------------+------------------+------------+-------------
+             1 | Main Company Ltd | 2023-01-01 | 2023-06-01
+             1 | Main Company Ltd | 2023-06-01 | 2024-01-01
+(2 rows)
+
+-- Show legal units and their primary status
+\echo 'Legal units in enterprise (primary_for_enterprise status):'
+Legal units in enterprise (primary_for_enterprise status):
+SELECT 
+    lu.name AS legal_unit_name,
+    ei.ident AS tax_ident,
+    lu.primary_for_enterprise,
+    lu.valid_from
+FROM public.legal_unit lu
+JOIN public.external_ident ei ON ei.legal_unit_id = lu.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
+WHERE lu.enterprise_id = :main_enterprise_id
+ORDER BY lu.valid_from;
+    legal_unit_name    | tax_ident | primary_for_enterprise | valid_from 
+-----------------------+-----------+------------------------+------------
+ Main Company Ltd      | MAIN001   | t                      | 2023-01-01
+ Subsidiary Company AS | SUB001    | f                      | 2023-06-01
+(2 rows)
+
+ROLLBACK TO scenario_1;
+\echo 'Scenario 1 complete.'
+Scenario 1 complete.
+-- ============================================================================
+-- Scenario 2: Informal establishment gets formal legal unit
+-- Legal unit name should take priority over establishment name
+-- ============================================================================
+\echo ''
+
+\echo 'Scenario 2: Enterprise with informal ES, then connect LU - LU name takes priority'
+Scenario 2: Enterprise with informal ES, then connect LU - LU name takes priority
+SAVEPOINT scenario_2;
+-- Get import definition for informal establishments
+\set es_import_definition_slug '''establishment_without_lu_source_dates'''
+SELECT id AS es_import_def_id FROM public.import_definition WHERE slug = :es_import_definition_slug \gset
+\if :{?es_import_def_id}
+\else
+    \warn 'FAIL: Could not find import definition with slug :' :es_import_definition_slug '. This test requires it to exist.'
+    \quit
+\endif
+-- Step 1: Create informal establishment
+\echo 'Step 1: Creating informal establishment "Street Vendor Shop"'
+Step 1: Creating informal establishment "Street Vendor Shop"
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+VALUES (:es_import_def_id, 'test320_informal_es', 'Informal ES', 'Test 320 Informal', :default_edit_comment);
+INSERT INTO public.test320_informal_es_upload (
+    tax_ident, name, valid_from, valid_to, birth_date, 
+    physical_address_part1, physical_postcode, physical_postplace, 
+    physical_region_code, physical_country_iso_2, primary_activity_category_code,
+    data_source_code
+) VALUES (
+    'INFORMAL001', 'Street Vendor Shop', '2023-01-01', '2023-12-31', '2023-01-01',
+    'Market Square 1', '1000', 'Oslo', '0301', 'NO', '47.810', 'mi'
+);
+CALL worker.process_tasks(p_queue => 'import');
+CALL worker.process_tasks(p_queue => 'analytics');
+-- Get enterprise ID
+SELECT est.enterprise_id AS informal_enterprise_id
+FROM public.establishment est
+JOIN public.external_ident ei ON ei.establishment_id = est.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
+WHERE ei.ident = 'INFORMAL001' LIMIT 1 \gset
+\echo 'Enterprise name before LU connection (from ES):'
+Enterprise name before LU connection (from ES):
+SELECT ten.name AS enterprise_name
+FROM public.timeline_enterprise ten
+WHERE ten.enterprise_id = :informal_enterprise_id;
+  enterprise_name   
+--------------------
+ Street Vendor Shop
+(1 row)
+
+-- Step 2: Create formal legal unit
+\echo 'Step 2: Creating formal legal unit "Registered Business Ltd"'
+Step 2: Creating formal legal unit "Registered Business Ltd"
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+VALUES (:import_def_id, 'test320_formal_lu', 'Formal LU', 'Test 320 Formal', :default_edit_comment);
+INSERT INTO public.test320_formal_lu_upload (
+    tax_ident, name, valid_from, valid_to, sector_code, legal_form_code, 
+    data_source_code, birth_date, physical_address_part1, physical_postcode, 
+    physical_postplace, physical_region_code, physical_country_iso_2, primary_activity_category_code
+) VALUES (
+    'FORMAL001', 'Registered Business Ltd', '2023-01-01', '2023-12-31', '2100', 'AS', 
+    'mi', '2023-01-01', 'Business Park 1', '1000', 'Oslo', '0301', 'NO', '47.810'
+);
+CALL worker.process_tasks(p_queue => 'import');
+-- Get legal unit ID
+SELECT lu.id AS formal_lu_id
+FROM public.legal_unit lu
+JOIN public.external_ident ei ON ei.legal_unit_id = lu.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
+WHERE ei.ident = 'FORMAL001' LIMIT 1 \gset
+-- Step 3: Connect legal unit to enterprise
+\echo 'Step 3: Connecting legal unit to informal enterprise'
+Step 3: Connecting legal unit to informal enterprise
+SELECT public.connect_legal_unit_to_enterprise(
+    :formal_lu_id, 
+    :informal_enterprise_id, 
+    '2023-01-01'::date, 
+    'infinity'::date
+) AS connection_result;
+                                              connection_result                                              
+-------------------------------------------------------------------------------------------------------------
+ {"new_enterprise_id": 3, "old_enterprise_id": 4, "deleted_enterprise_id": 4, "updated_legal_unit_ids": [3]}
+(1 row)
+
+CALL worker.process_tasks(p_queue => 'analytics');
+\echo 'Enterprise name after LU connection (should be from LU):'
+Enterprise name after LU connection (should be from LU):
+SELECT ten.name AS enterprise_name
+FROM public.timeline_enterprise ten
+WHERE ten.enterprise_id = :informal_enterprise_id;
+     enterprise_name     
+-------------------------
+ Registered Business Ltd
+(1 row)
+
+ROLLBACK TO scenario_2;
+\echo 'Scenario 2 complete.'
+Scenario 2 complete.
+-- ============================================================================
+-- Scenario 3: Complex Enterprise Merging with Background Noise
+-- Tests: (lu1, lu2*->en1) (lu3*->en2), connect lu1->en2, connect lu2->en2, set lu1*
+-- Plus unrelated units to expose join bugs
+-- ============================================================================
+\echo ''
+
+\echo '============================================================================'
+============================================================================
+\echo 'Scenario 3: Complex Enterprise Merging with Background Noise'
+Scenario 3: Complex Enterprise Merging with Background Noise
+\echo '============================================================================'
+============================================================================
+SAVEPOINT scenario_3;
+-- First, create "background noise" - unrelated units that should NOT affect results
+-- This exposes bugs in JOINs that might accidentally pick up wrong units
+\echo 'Creating background noise: Unrelated formal LU with ES'
+Creating background noise: Unrelated formal LU with ES
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+VALUES (:import_def_id, 'test320_noise_lu', 'Noise LU', 'Background noise', :default_edit_comment);
+INSERT INTO public.test320_noise_lu_upload (
+    tax_ident, name, valid_from, valid_to, sector_code, legal_form_code, 
+    data_source_code, birth_date, physical_address_part1, physical_postcode, 
+    physical_postplace, physical_region_code, physical_country_iso_2, primary_activity_category_code
+) VALUES (
+    'NOISE_LU001', 'Unrelated Formal Corp', '2023-01-01', '2023-12-31', '2100', 'AS', 
+    'mi', '2023-01-01', 'Noise St 99', '9999', 'Hammerfest', '5601', 'NO', '01.110'
+);
+CALL worker.process_tasks(p_queue => 'import');
+\echo 'Creating background noise: Unrelated informal ES (no LU)'
+Creating background noise: Unrelated informal ES (no LU)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+VALUES (:es_import_def_id, 'test320_noise_es', 'Noise ES', 'Background noise', :default_edit_comment);
+INSERT INTO public.test320_noise_es_upload (
+    tax_ident, name, valid_from, valid_to, birth_date, 
+    physical_address_part1, physical_postcode, physical_postplace, 
+    physical_region_code, physical_country_iso_2, primary_activity_category_code,
+    data_source_code
+) VALUES (
+    'NOISE_ES001', 'Unrelated Street Vendor', '2023-01-01', '2023-12-31', '2023-01-01',
+    'Remote Market 1', '9990', 'Vardø', '5601', 'NO', '47.810', 'mi'
+);
+CALL worker.process_tasks(p_queue => 'import');
+\echo 'Creating background noise: Another LU without any ES'
+Creating background noise: Another LU without any ES
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+VALUES (:import_def_id, 'test320_noise_lu_no_es', 'Noise LU no ES', 'Background noise', :default_edit_comment);
+INSERT INTO public.test320_noise_lu_no_es_upload (
+    tax_ident, name, valid_from, valid_to, sector_code, legal_form_code, 
+    data_source_code, birth_date, physical_address_part1, physical_postcode, 
+    physical_postplace, physical_region_code, physical_country_iso_2, primary_activity_category_code
+) VALUES (
+    'NOISE_LU002', 'Holding Company Only', '2023-01-01', '2023-12-31', '6400', 'AS', 
+    'mi', '2023-01-01', 'Holding St 1', '1000', 'Oslo', '0301', 'NO', '64.200'
+);
+CALL worker.process_tasks(p_queue => 'import');
+CALL worker.process_tasks(p_queue => 'analytics');
+\echo ''
+
+\echo 'Background noise created. Now setting up main test scenario.'
+Background noise created. Now setting up main test scenario.
+\echo ''
+
+-- Now create the main test scenario:
+-- Enterprise 1: lu1 "Alpha Corp", lu2 "Beta Corp"* (primary)
+-- Enterprise 2: lu3 "Gamma Corp"* (primary)
+\echo 'Step 1: Creating lu1 "Alpha Corp" -> en1'
+Step 1: Creating lu1 "Alpha Corp" -> en1
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+VALUES (:import_def_id, 'test320_alpha', 'Alpha Corp', 'Scenario 3', :default_edit_comment);
+INSERT INTO public.test320_alpha_upload (
+    tax_ident, name, valid_from, valid_to, sector_code, legal_form_code, 
+    data_source_code, birth_date, physical_address_part1, physical_postcode, 
+    physical_postplace, physical_region_code, physical_country_iso_2, primary_activity_category_code
+) VALUES (
+    'ALPHA001', 'Alpha Corp', '2023-01-01', '2023-12-31', '2100', 'AS', 
+    'mi', '2023-01-01', 'Alpha St 1', '1000', 'Oslo', '0301', 'NO', '62.010'
+);
+CALL worker.process_tasks(p_queue => 'import');
+-- Get lu1 and en1 IDs
+SELECT lu.id AS lu1_id, lu.enterprise_id AS en1_id
+FROM public.legal_unit lu
+JOIN public.external_ident ei ON ei.legal_unit_id = lu.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
+WHERE ei.ident = 'ALPHA001' LIMIT 1 \gset
+\echo 'Step 2: Creating lu2 "Beta Corp" -> separate enterprise initially'
+Step 2: Creating lu2 "Beta Corp" -> separate enterprise initially
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+VALUES (:import_def_id, 'test320_beta', 'Beta Corp', 'Scenario 3', :default_edit_comment);
+INSERT INTO public.test320_beta_upload (
+    tax_ident, name, valid_from, valid_to, sector_code, legal_form_code, 
+    data_source_code, birth_date, physical_address_part1, physical_postcode, 
+    physical_postplace, physical_region_code, physical_country_iso_2, primary_activity_category_code
+) VALUES (
+    'BETA001', 'Beta Corp', '2023-01-01', '2023-12-31', '2100', 'AS', 
+    'mi', '2023-01-01', 'Beta St 2', '5000', 'Bergen', '4601', 'NO', '62.020'
+);
+CALL worker.process_tasks(p_queue => 'import');
+-- Get lu2 ID
+SELECT lu.id AS lu2_id
+FROM public.legal_unit lu
+JOIN public.external_ident ei ON ei.legal_unit_id = lu.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
+WHERE ei.ident = 'BETA001' LIMIT 1 \gset
+\echo 'Step 3: Connect lu2 to en1, then set lu2 as primary for en1'
+Step 3: Connect lu2 to en1, then set lu2 as primary for en1
+-- Connect lu2 to en1
+SELECT public.connect_legal_unit_to_enterprise(:lu2_id, :en1_id, '2023-01-01'::date, 'infinity'::date) AS connect_lu2_to_en1;
+                                             connect_lu2_to_en1                                              
+-------------------------------------------------------------------------------------------------------------
+ {"new_enterprise_id": 8, "old_enterprise_id": 9, "deleted_enterprise_id": 9, "updated_legal_unit_ids": [7]}
+(1 row)
+
+-- Set lu2 as primary (so en1 name becomes "Beta Corp")
+SELECT public.set_primary_legal_unit_for_enterprise(:lu2_id, '2023-01-01'::date, 'infinity'::date) AS set_lu2_primary;
+                                            set_lu2_primary                                             
+--------------------------------------------------------------------------------------------------------
+ {"set_primary": {"id": 7, "table": "legal_unit"}, "unset_primary": [{"id": 6, "table": "legal_unit"}]}
+(1 row)
+
+CALL worker.process_tasks(p_queue => 'analytics');
+\echo 'After setup - en1 should have name "Beta Corp" (from primary lu2):'
+After setup - en1 should have name "Beta Corp" (from primary lu2):
+SELECT ten.enterprise_id, ten.name AS enterprise_name
+FROM public.timeline_enterprise ten
+WHERE ten.enterprise_id = :en1_id;
+ enterprise_id | enterprise_name 
+---------------+-----------------
+             8 | Beta Corp
+(1 row)
+
+\echo 'LUs in en1 (lu2 should be primary):'
+LUs in en1 (lu2 should be primary):
+SELECT ei.ident AS tax_ident, lu.name, lu.primary_for_enterprise
+FROM public.legal_unit lu
+JOIN public.external_ident ei ON ei.legal_unit_id = lu.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
+WHERE lu.enterprise_id = :en1_id
+ORDER BY lu.name;
+ tax_ident |    name    | primary_for_enterprise 
+-----------+------------+------------------------
+ ALPHA001  | Alpha Corp | f
+ BETA001   | Beta Corp  | t
+(2 rows)
+
+\echo 'Step 4: Creating lu3 "Gamma Corp" -> en2 (separate enterprise)'
+Step 4: Creating lu3 "Gamma Corp" -> en2 (separate enterprise)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+VALUES (:import_def_id, 'test320_gamma', 'Gamma Corp', 'Scenario 3', :default_edit_comment);
+INSERT INTO public.test320_gamma_upload (
+    tax_ident, name, valid_from, valid_to, sector_code, legal_form_code, 
+    data_source_code, birth_date, physical_address_part1, physical_postcode, 
+    physical_postplace, physical_region_code, physical_country_iso_2, primary_activity_category_code
+) VALUES (
+    'GAMMA001', 'Gamma Corp', '2023-01-01', '2023-12-31', '3500', 'AS', 
+    'mi', '2023-01-01', 'Gamma St 3', '7000', 'Trondheim', '5001', 'NO', '35.110'
+);
+CALL worker.process_tasks(p_queue => 'import');
+CALL worker.process_tasks(p_queue => 'analytics');
+-- Get lu3 and en2 IDs
+SELECT lu.id AS lu3_id, lu.enterprise_id AS en2_id
+FROM public.legal_unit lu
+JOIN public.external_ident ei ON ei.legal_unit_id = lu.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
+WHERE ei.ident = 'GAMMA001' LIMIT 1 \gset
+\echo ''
+
+\echo 'Initial state established:'
+Initial state established:
+\echo '  en1: lu1 "Alpha Corp", lu2 "Beta Corp"* (primary) -> enterprise name "Beta Corp"'
+  en1: lu1 "Alpha Corp", lu2 "Beta Corp"* (primary) -> enterprise name "Beta Corp"
+\echo '  en2: lu3 "Gamma Corp"* (primary) -> enterprise name "Gamma Corp"'
+  en2: lu3 "Gamma Corp"* (primary) -> enterprise name "Gamma Corp"
+\echo ''
+
+\echo 'Current enterprise names:'
+Current enterprise names:
+SELECT ten.enterprise_id, ten.name AS enterprise_name
+FROM public.timeline_enterprise ten
+WHERE ten.enterprise_id IN (:en1_id, :en2_id)
+ORDER BY ten.enterprise_id;
+ enterprise_id | enterprise_name 
+---------------+-----------------
+             8 | Beta Corp
+            10 | Gamma Corp
+(2 rows)
+
+-- ============================================================================
+-- Now the critical test sequence
+-- ============================================================================
+\echo ''
+
+\echo '--- TEST SEQUENCE START ---'
+--- TEST SEQUENCE START ---
+\echo ''
+
+\echo 'Step 5: Connect lu1 (non-primary) from en1 to en2'
+Step 5: Connect lu1 (non-primary) from en1 to en2
+\echo 'Expected: en2 name stays "Gamma Corp" (lu3 is still primary for en2)'
+Expected: en2 name stays "Gamma Corp" (lu3 is still primary for en2)
+SELECT public.connect_legal_unit_to_enterprise(:lu1_id, :en2_id, '2023-01-01'::date, 'infinity'::date) AS connect_lu1_to_en2;
+                                               connect_lu1_to_en2                                                
+-----------------------------------------------------------------------------------------------------------------
+ {"new_enterprise_id": 10, "old_enterprise_id": 8, "deleted_enterprise_id": null, "updated_legal_unit_ids": [6]}
+(1 row)
+
+CALL worker.process_tasks(p_queue => 'analytics');
+\echo 'After moving lu1 to en2:'
+After moving lu1 to en2:
+\echo 'en1 enterprise name (should still be "Beta Corp"):'
+en1 enterprise name (should still be "Beta Corp"):
+SELECT ten.enterprise_id, ten.name AS enterprise_name
+FROM public.timeline_enterprise ten
+WHERE ten.enterprise_id = :en1_id;
+ enterprise_id | enterprise_name 
+---------------+-----------------
+             8 | Beta Corp
+(1 row)
+
+\echo 'en2 enterprise name (should still be "Gamma Corp" - lu3 is primary):'
+en2 enterprise name (should still be "Gamma Corp" - lu3 is primary):
+SELECT ten.enterprise_id, ten.name AS enterprise_name
+FROM public.timeline_enterprise ten
+WHERE ten.enterprise_id = :en2_id;
+ enterprise_id | enterprise_name 
+---------------+-----------------
+            10 | Gamma Corp
+(1 row)
+
+\echo 'LUs in en2 (lu3 should be primary):'
+LUs in en2 (lu3 should be primary):
+SELECT ei.ident AS tax_ident, lu.name, lu.primary_for_enterprise
+FROM public.legal_unit lu
+JOIN public.external_ident ei ON ei.legal_unit_id = lu.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
+WHERE lu.enterprise_id = :en2_id
+ORDER BY lu.name;
+ tax_ident |    name    | primary_for_enterprise 
+-----------+------------+------------------------
+ ALPHA001  | Alpha Corp | f
+ GAMMA001  | Gamma Corp | t
+(2 rows)
+
+\echo ''
+
+\echo 'Step 6: Connect lu2 (primary of en1) to en2'
+Step 6: Connect lu2 (primary of en1) to en2
+\echo 'Expected: en1 should be DELETED (no LUs left), en2 name stays "Gamma Corp"'
+Expected: en1 should be DELETED (no LUs left), en2 name stays "Gamma Corp"
+SELECT public.connect_legal_unit_to_enterprise(:lu2_id, :en2_id, '2023-01-01'::date, 'infinity'::date) AS connect_lu2_to_en2;
+                                              connect_lu2_to_en2                                              
+--------------------------------------------------------------------------------------------------------------
+ {"new_enterprise_id": 10, "old_enterprise_id": 8, "deleted_enterprise_id": 8, "updated_legal_unit_ids": [7]}
+(1 row)
+
+CALL worker.process_tasks(p_queue => 'analytics');
+\echo 'After moving lu2 to en2:'
+After moving lu2 to en2:
+\echo 'en1 should be deleted (expecting 0 rows):'
+en1 should be deleted (expecting 0 rows):
+SELECT ten.enterprise_id, ten.name AS enterprise_name
+FROM public.timeline_enterprise ten
+WHERE ten.enterprise_id = :en1_id;
+ enterprise_id | enterprise_name 
+---------------+-----------------
+(0 rows)
+
+\echo 'en1 enterprise should not exist (expecting 0 rows):'
+en1 enterprise should not exist (expecting 0 rows):
+SELECT id FROM public.enterprise WHERE id = :en1_id;
+ id 
+----
+(0 rows)
+
+\echo 'en2 enterprise name (should still be "Gamma Corp"):'
+en2 enterprise name (should still be "Gamma Corp"):
+SELECT ten.enterprise_id, ten.name AS enterprise_name
+FROM public.timeline_enterprise ten
+WHERE ten.enterprise_id = :en2_id;
+ enterprise_id | enterprise_name 
+---------------+-----------------
+            10 | Gamma Corp
+(1 row)
+
+\echo 'All LUs now in en2 (lu3 still primary):'
+All LUs now in en2 (lu3 still primary):
+SELECT ei.ident AS tax_ident, lu.name, lu.primary_for_enterprise
+FROM public.legal_unit lu
+JOIN public.external_ident ei ON ei.legal_unit_id = lu.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
+WHERE lu.enterprise_id = :en2_id
+ORDER BY lu.name;
+ tax_ident |    name    | primary_for_enterprise 
+-----------+------------+------------------------
+ ALPHA001  | Alpha Corp | f
+ BETA001   | Beta Corp  | f
+ GAMMA001  | Gamma Corp | t
+(3 rows)
+
+\echo ''
+
+\echo 'Step 7: Set lu1 as primary for en2'
+Step 7: Set lu1 as primary for en2
+\echo 'Expected: en2 name changes to "Alpha Corp"'
+Expected: en2 name changes to "Alpha Corp"
+SELECT public.set_primary_legal_unit_for_enterprise(:lu1_id, '2023-01-01'::date, 'infinity'::date) AS set_lu1_primary;
+                                            set_lu1_primary                                             
+--------------------------------------------------------------------------------------------------------
+ {"set_primary": {"id": 6, "table": "legal_unit"}, "unset_primary": [{"id": 8, "table": "legal_unit"}]}
+(1 row)
+
+CALL worker.process_tasks(p_queue => 'analytics');
+\echo 'After setting lu1 as primary:'
+After setting lu1 as primary:
+\echo 'en2 enterprise name (should now be "Alpha Corp"):'
+en2 enterprise name (should now be "Alpha Corp"):
+SELECT ten.enterprise_id, ten.name AS enterprise_name
+FROM public.timeline_enterprise ten
+WHERE ten.enterprise_id = :en2_id;
+ enterprise_id | enterprise_name 
+---------------+-----------------
+            10 | Alpha Corp
+(1 row)
+
+\echo 'Final LU state in en2 (lu1 should be primary now):'
+Final LU state in en2 (lu1 should be primary now):
+SELECT ei.ident AS tax_ident, lu.name, lu.primary_for_enterprise
+FROM public.legal_unit lu
+JOIN public.external_ident ei ON ei.legal_unit_id = lu.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
+WHERE lu.enterprise_id = :en2_id
+ORDER BY lu.name;
+ tax_ident |    name    | primary_for_enterprise 
+-----------+------------+------------------------
+ ALPHA001  | Alpha Corp | t
+ BETA001   | Beta Corp  | f
+ GAMMA001  | Gamma Corp | f
+(3 rows)
+
+\echo ''
+
+\echo '--- VERIFICATION: Background noise should be unaffected ---'
+--- VERIFICATION: Background noise should be unaffected ---
+\echo ''
+
+\echo 'Noise LU enterprise should exist and have correct name:'
+Noise LU enterprise should exist and have correct name:
+SELECT ten.name AS enterprise_name
+FROM public.timeline_enterprise ten
+JOIN public.legal_unit lu ON lu.enterprise_id = ten.enterprise_id
+JOIN public.external_ident ei ON ei.legal_unit_id = lu.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
+WHERE ei.ident = 'NOISE_LU001';
+    enterprise_name    
+-----------------------
+ Unrelated Formal Corp
+(1 row)
+
+\echo 'Noise ES (informal) enterprise should exist and have correct name:'
+Noise ES (informal) enterprise should exist and have correct name:
+SELECT ten.name AS enterprise_name
+FROM public.timeline_enterprise ten
+JOIN public.establishment es ON es.enterprise_id = ten.enterprise_id
+JOIN public.external_ident ei ON ei.establishment_id = es.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
+WHERE ei.ident = 'NOISE_ES001';
+     enterprise_name     
+-------------------------
+ Unrelated Street Vendor
+(1 row)
+
+\echo 'Noise LU (no ES) enterprise should exist and have correct name:'
+Noise LU (no ES) enterprise should exist and have correct name:
+SELECT ten.name AS enterprise_name
+FROM public.timeline_enterprise ten
+JOIN public.legal_unit lu ON lu.enterprise_id = ten.enterprise_id
+JOIN public.external_ident ei ON ei.legal_unit_id = lu.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
+WHERE ei.ident = 'NOISE_LU002';
+   enterprise_name    
+----------------------
+ Holding Company Only
+(1 row)
+
+\echo ''
+
+\echo 'Scenario 3 Summary:'
+Scenario 3 Summary:
+\echo '  1. Created background noise (unrelated LU with ES, informal ES, LU without ES)'
+  1. Created background noise (unrelated LU with ES, informal ES, LU without ES)
+\echo '  2. Set up en1 with lu1 + lu2* (primary), en2 with lu3* (primary)'
+  2. Set up en1 with lu1 + lu2* (primary), en2 with lu3* (primary)
+\echo '  3. Moved lu1 to en2 -> en2 name stayed "Gamma Corp" (correct)'
+  3. Moved lu1 to en2 -> en2 name stayed "Gamma Corp" (correct)
+\echo '  4. Moved lu2 to en2 -> en1 deleted, en2 name stayed "Gamma Corp" (correct)'
+  4. Moved lu2 to en2 -> en1 deleted, en2 name stayed "Gamma Corp" (correct)
+\echo '  5. Set lu1 as primary -> en2 name changed to "Alpha Corp" (correct)'
+  5. Set lu1 as primary -> en2 name changed to "Alpha Corp" (correct)
+\echo '  6. Background noise unaffected throughout (correct)'
+  6. Background noise unaffected throughout (correct)
+ROLLBACK TO scenario_3;
+\echo 'Scenario 3 complete.'
+Scenario 3 complete.
+-- ============================================================================
+-- Scenario 4: Primary establishment handling with mixed formal/informal units
+-- Tests that ES primary_for_enterprise is respected when no primary LU exists
+-- ============================================================================
+\echo ''
+
+\echo '============================================================================'
+============================================================================
+\echo 'Scenario 4: Informal ES becomes formal - primary ES handling'
+Scenario 4: Informal ES becomes formal - primary ES handling
+\echo '============================================================================'
+============================================================================
+SAVEPOINT scenario_4;
+\echo 'Step 1: Create informal ES "Market Stall" -> en1'
+Step 1: Create informal ES "Market Stall" -> en1
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+VALUES (:es_import_def_id, 'test320_market_stall', 'Market Stall', 'Scenario 4', :default_edit_comment);
+INSERT INTO public.test320_market_stall_upload (
+    tax_ident, name, valid_from, valid_to, birth_date, 
+    physical_address_part1, physical_postcode, physical_postplace, 
+    physical_region_code, physical_country_iso_2, primary_activity_category_code,
+    data_source_code
+) VALUES (
+    'STALL001', 'Market Stall', '2023-01-01', '2023-12-31', '2023-01-01',
+    'Town Square 1', '1000', 'Oslo', '0301', 'NO', '47.810', 'mi'
+);
+CALL worker.process_tasks(p_queue => 'import');
+CALL worker.process_tasks(p_queue => 'analytics');
+-- Get ES and enterprise IDs
+SELECT es.id AS es1_id, es.enterprise_id AS es1_en_id
+FROM public.establishment es
+JOIN public.external_ident ei ON ei.establishment_id = es.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
+WHERE ei.ident = 'STALL001' LIMIT 1 \gset
+\echo 'Initial enterprise name (from informal ES):'
+Initial enterprise name (from informal ES):
+SELECT ten.name AS enterprise_name
+FROM public.timeline_enterprise ten
+WHERE ten.enterprise_id = :es1_en_id;
+ enterprise_name 
+-----------------
+ Market Stall
+(1 row)
+
+\echo 'Step 2: Create second informal ES "Food Cart" -> separate enterprise'
+Step 2: Create second informal ES "Food Cart" -> separate enterprise
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+VALUES (:es_import_def_id, 'test320_food_cart', 'Food Cart', 'Scenario 4', :default_edit_comment);
+INSERT INTO public.test320_food_cart_upload (
+    tax_ident, name, valid_from, valid_to, birth_date, 
+    physical_address_part1, physical_postcode, physical_postplace, 
+    physical_region_code, physical_country_iso_2, primary_activity_category_code,
+    data_source_code
+) VALUES (
+    'CART001', 'Food Cart', '2023-01-01', '2023-12-31', '2023-01-01',
+    'Station Plaza 1', '1000', 'Oslo', '0301', 'NO', '56.102', 'mi'
+);
+CALL worker.process_tasks(p_queue => 'import');
+CALL worker.process_tasks(p_queue => 'analytics');
+-- Get ES2 ID
+SELECT es.id AS es2_id, es.enterprise_id AS es2_en_id
+FROM public.establishment es
+JOIN public.external_ident ei ON ei.establishment_id = es.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
+WHERE ei.ident = 'CART001' LIMIT 1 \gset
+\echo 'Step 3: Create formal LU "Registered Vendor Ltd" and connect to es1 enterprise'
+Step 3: Create formal LU "Registered Vendor Ltd" and connect to es1 enterprise
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+VALUES (:import_def_id, 'test320_vendor_lu', 'Vendor LU', 'Scenario 4', :default_edit_comment);
+INSERT INTO public.test320_vendor_lu_upload (
+    tax_ident, name, valid_from, valid_to, sector_code, legal_form_code, 
+    data_source_code, birth_date, physical_address_part1, physical_postcode, 
+    physical_postplace, physical_region_code, physical_country_iso_2, primary_activity_category_code
+) VALUES (
+    'VENDOR001', 'Registered Vendor Ltd', '2023-01-01', '2023-12-31', '2100', 'AS', 
+    'mi', '2023-01-01', 'Vendor St 1', '1000', 'Oslo', '0301', 'NO', '47.810'
+);
+CALL worker.process_tasks(p_queue => 'import');
+-- Get LU ID
+SELECT lu.id AS vendor_lu_id
+FROM public.legal_unit lu
+JOIN public.external_ident ei ON ei.legal_unit_id = lu.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
+WHERE ei.ident = 'VENDOR001' LIMIT 1 \gset
+\echo 'Connect LU to es1 enterprise (LU name should take priority):'
+Connect LU to es1 enterprise (LU name should take priority):
+SELECT public.connect_legal_unit_to_enterprise(:vendor_lu_id, :es1_en_id, '2023-01-01'::date, 'infinity'::date) AS connect_result;
+                                                 connect_result                                                 
+----------------------------------------------------------------------------------------------------------------
+ {"new_enterprise_id": 11, "old_enterprise_id": 13, "deleted_enterprise_id": 13, "updated_legal_unit_ids": [9]}
+(1 row)
+
+CALL worker.process_tasks(p_queue => 'analytics');
+\echo 'Enterprise name after LU connection (should be "Registered Vendor Ltd"):'
+Enterprise name after LU connection (should be "Registered Vendor Ltd"):
+SELECT ten.name AS enterprise_name
+FROM public.timeline_enterprise ten
+WHERE ten.enterprise_id = :es1_en_id;
+    enterprise_name    
+-----------------------
+ Registered Vendor Ltd
+(1 row)
+
+\echo 'Units in enterprise:'
+Units in enterprise:
+SELECT 'LU' AS type, ei.ident, lu.name, lu.primary_for_enterprise
+FROM public.legal_unit lu
+JOIN public.external_ident ei ON ei.legal_unit_id = lu.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
+WHERE lu.enterprise_id = :es1_en_id
+UNION ALL
+SELECT 'ES' AS type, ei.ident, es.name, es.primary_for_enterprise
+FROM public.establishment es
+JOIN public.external_ident ei ON ei.establishment_id = es.id AND ei.type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident')
+WHERE es.enterprise_id = :es1_en_id
+ORDER BY type, name;
+ type |   ident   |         name          | primary_for_enterprise 
+------+-----------+-----------------------+------------------------
+ ES   | STALL001  | Market Stall          | t
+ LU   | VENDOR001 | Registered Vendor Ltd | t
+(2 rows)
+
+ROLLBACK TO scenario_4;
+\echo 'Scenario 4 complete.'
+Scenario 4 complete.
+ROLLBACK;
