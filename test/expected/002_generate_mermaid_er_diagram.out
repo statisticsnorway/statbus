@@ -242,6 +242,7 @@ erDiagram
 		boolean primary_for_legal_unit
 		boolean primary_for_enterprise
 		jsonb invalid_codes
+		integer image_id
 	}
 	external_ident["external_ident"] {
 		integer id
@@ -272,6 +273,13 @@ erDiagram
 		boolean custom
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
+	}
+	image["image"] {
+		integer id
+		bytea data
+		text type
+		timestamp_with_time_zone uploaded_at
+		integer uploaded_by_user_id
 	}
 	import_data_column["import_data_column"] {
 		integer id
@@ -421,6 +429,7 @@ erDiagram
 		integer enterprise_id
 		boolean primary_for_enterprise
 		jsonb invalid_codes
+		integer image_id
 	}
 	location["location"] {
 		integer id
@@ -1224,6 +1233,7 @@ erDiagram
 	establishment }o--|| auth_user : establishment_edit_by_user_id_fkey
 	establishment }o--o| data_source : establishment_data_source_id_fkey
 	establishment }o--o| enterprise : establishment_enterprise_id_fkey
+	establishment }o--o| image : establishment_image_id_fkey
 	establishment }o--|| legal_unit : establishment_legal_unit_id_valid
 	establishment }o--o| legal_unit : establishment_legal_unit_id_valid
 	establishment }o--o| sector : establishment_sector_id_fkey
@@ -1233,6 +1243,7 @@ erDiagram
 	external_ident }o--o| enterprise : external_ident_enterprise_id_fkey
 	external_ident }o--|| external_ident_type : external_ident_type_id_fkey
 	external_ident_type }o--o| tag : external_ident_type_by_tag_id_fkey
+	image }o--o| auth_user : image_uploaded_by_user_id_fkey
 	import_data_column }|--|| import_step : import_data_column_step_id_fkey
 	import_definition }o--o| auth_user : import_definition_user_id_fkey
 	import_definition }o--o| data_source : import_definition_data_source_id_fkey
@@ -1250,6 +1261,7 @@ erDiagram
 	legal_unit }o--o| data_source : legal_unit_data_source_id_fkey
 	legal_unit }o--|| enterprise : legal_unit_enterprise_id_fkey
 	legal_unit }o--o| foreign_participation : legal_unit_foreign_participation_id_fkey
+	legal_unit }o--o| image : legal_unit_image_id_fkey
 	legal_unit }o--o| legal_form : legal_unit_legal_form_id_fkey
 	legal_unit }o--o| sector : legal_unit_sector_id_fkey
 	legal_unit }o--|| status : legal_unit_status_id_fkey

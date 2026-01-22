@@ -22,7 +22,8 @@ CREATE TABLE public.legal_unit (
     data_source_id integer REFERENCES public.data_source(id) ON DELETE RESTRICT,
     enterprise_id integer NOT NULL REFERENCES public.enterprise(id) ON DELETE RESTRICT,
     primary_for_enterprise boolean NOT NULL,
-    invalid_codes jsonb
+    invalid_codes jsonb,
+    image_id integer REFERENCES public.image(id)
 );
 
 CREATE INDEX ix_legal_unit_data_source_id ON public.legal_unit USING btree (data_source_id);
@@ -35,6 +36,9 @@ CREATE INDEX ix_legal_unit_name ON public.legal_unit USING btree (name);
 CREATE INDEX ix_legal_unit_size_id ON public.legal_unit USING btree (unit_size_id);
 CREATE INDEX ix_legal_unit_edit_by_user_id ON public.legal_unit USING btree (edit_by_user_id);
 CREATE INDEX ix_legal_unit_valid_range ON public.legal_unit USING gist (valid_range);
+
+COMMENT ON COLUMN public.legal_unit.image_id IS 
+  'Reference to unit image (logo/photo) stored in image table';
 
 
 CREATE FUNCTION admin.legal_unit_id_exists(fk_id integer) RETURNS boolean LANGUAGE sql STABLE STRICT AS $$

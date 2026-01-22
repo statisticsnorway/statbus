@@ -50,6 +50,7 @@ DECLARE
         )),
         (2, 1, 1, 'Common Links for Core Units (EG, EN, LU, EST)', 'These tables link to any of the four core statistical units:', jsonb_build_array(
             '{"schema": "public", "name": "external_ident"}'::jsonb,
+            '{"schema": "public", "name": "image"}'::jsonb,
             '{"schema": "public", "name": "tag_for_unit"}'::jsonb,
             '{"schema": "public", "name": "unit_notes"}'::jsonb,
             '{"schema": "public", "name": "enterprise_external_idents", "type": "VIEW"}'::jsonb

@@ -1,0 +1,95 @@
+--
+-- Test image storage functionality
+-- Tests bytea storage with EXTERNAL TOAST strategy and image_data() RPC
+--
+
+-- Start transaction for clean test
+BEGIN;
+
+-- Test 1: Insert a small PNG image (1x1 pixel transparent PNG)
+-- This is a valid minimal PNG file (89 50 4E 47... = PNG signature)
+INSERT INTO public.image (data, type) 
+VALUES (
+  decode('89504e470d0a1a0a0000000d494844520000000100000001080600000001f15c48940000000a49444154789c6300010000050001', 'hex'),
+  'image/png'
+);
+
+-- Verify the insert worked
+SELECT type, length(data) as data_length, uploaded_at IS NOT NULL as has_timestamp
+FROM public.image
+ORDER BY id DESC LIMIT 1;
+
+-- Test 2: Verify EXTERNAL storage strategy
+SELECT 
+  attname, 
+  CASE attstorage
+    WHEN 'e' THEN 'EXTERNAL'
+    ELSE 'NOT_EXTERNAL'
+  END as storage
+FROM pg_attribute
+WHERE attrelid = 'public.image'::regclass
+AND attname = 'data';
+
+-- Test 3: Test image_data() function
+SELECT length(public.image_data(currval('public.image_id_seq')::integer)) as retrieved_length;
+
+-- Test 4: Verify size constraint (4MB limit)
+DO $$
+BEGIN
+  -- Try to insert data larger than 4MB (should fail)
+  BEGIN
+    INSERT INTO public.image (data, type) 
+    VALUES (
+      repeat('x', 4194305)::bytea,  -- 4MB + 1 byte
+      'image/png'
+    );
+    RAISE EXCEPTION 'Size constraint should have prevented insert';
+  EXCEPTION
+    WHEN check_violation THEN
+      RAISE NOTICE 'Size constraint working correctly';
+  END;
+END $$;
+
+-- Test 5: Verify FK relationships
+SELECT 
+  COUNT(*) as legal_unit_has_image_id_column
+FROM information_schema.columns 
+WHERE table_schema = 'public' 
+  AND table_name = 'legal_unit' 
+  AND column_name = 'image_id';
+
+SELECT 
+  COUNT(*) as establishment_has_image_id_column
+FROM information_schema.columns 
+WHERE table_schema = 'public' 
+  AND table_name = 'establishment' 
+  AND column_name = 'image_id';
+
+-- Test 6: Verify FK constraint works
+-- Try to insert invalid image_id (should fail with FK violation)
+DO $$
+BEGIN
+  BEGIN
+    UPDATE public.image 
+    SET uploaded_by_user_id = 99999  -- Non-existent user
+    WHERE id = currval('public.image_id_seq')::integer;
+    RAISE EXCEPTION 'FK constraint should have prevented update';
+  EXCEPTION
+    WHEN foreign_key_violation THEN
+      RAISE NOTICE 'FK constraint working correctly';
+  END;
+END $$;
+
+-- Test 7: Verify RLS is enabled
+SELECT 
+  relname, 
+  CASE relrowsecurity 
+    WHEN true THEN 'ENABLED' 
+    ELSE 'DISABLED' 
+  END as rls_status
+FROM pg_class
+WHERE relname = 'image' 
+  AND relnamespace = 'public'::regnamespace;
+
+-- Cleanup
+ROLLBACK;
