@@ -242,8 +242,8 @@ FROM public.import_job WHERE slug = 'import_314_lu_wsd_p2';
 slug                   | import_314_lu_wsd_p2
 state                  | finished
 analysis_completed_pct | 100.00
-import_completed_pct   | 84.00
-total_rows             | 75
+import_completed_pct   | 82.89
+total_rows             | 76
 imported_rows          | 63
 error                  | 
 
@@ -253,98 +253,107 @@ error                  |
 \x
 SELECT row_id, state, action, operation, legal_unit_id, enterprise_id, errors, merge_status
 FROM public.import_314_lu_wsd_p2_data WHERE action = 'skip' OR state = 'error' ORDER BY row_id;
--[ RECORD 1 ]-+------------------------------------------------------------------------------------------------------------------------------
+-[ RECORD 1 ]-+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id        | 16
 state         | error
 action        | skip
 operation     | update
 legal_unit_id | 
 enterprise_id | 
-errors        | {"stat_ident_raw": "Identifier stat_ident value '232' from input attempts to change existing value '230'"}
+errors        | {"stat_ident_raw": "Input {\"tax_ident\": \"4711111\", \"stat_ident\": \"232\"} matches existing unit {\"tax_ident\": \"4711111\", \"stat_ident\": \"230\"} but attempts to change stat_ident from '230' to '232'"}
 merge_status  | {}
--[ RECORD 2 ]-+------------------------------------------------------------------------------------------------------------------------------
+-[ RECORD 2 ]-+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id        | 17
 state         | error
 action        | skip
 operation     | update
 legal_unit_id | 
 enterprise_id | 
-errors        | {"tax_ident_raw": "Identifier tax_ident value '4711110' from input attempts to change existing value '4711111'"}
+errors        | {"tax_ident_raw": "Input {\"tax_ident\": \"4711110\", \"stat_ident\": \"230\"} matches existing unit {\"tax_ident\": \"4711111\", \"stat_ident\": \"230\"} but attempts to change tax_ident from '4711111' to '4711110'"}
 merge_status  | {}
--[ RECORD 3 ]-+------------------------------------------------------------------------------------------------------------------------------
+-[ RECORD 3 ]-+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id        | 18
 state         | error
 action        | skip
 operation     | update
 legal_unit_id | 
 enterprise_id | 
-errors        | {"tax_ident_raw": "Identifier tax_ident value '4711110' from input attempts to change existing value '4711111'"}
+errors        | {"tax_ident_raw": "Input {\"tax_ident\": \"4711110\", \"stat_ident\": \"230\"} matches existing unit {\"tax_ident\": \"4711111\", \"stat_ident\": \"230\"} but attempts to change tax_ident from '4711111' to '4711110'"}
 merge_status  | {}
--[ RECORD 4 ]-+------------------------------------------------------------------------------------------------------------------------------
+-[ RECORD 4 ]-+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id        | 19
 state         | error
 action        | skip
 operation     | update
 legal_unit_id | 
 enterprise_id | 
-errors        | {"tax_ident_raw": "Identifier tax_ident value '4711110' from input attempts to change existing value '4711111'"}
+errors        | {"tax_ident_raw": "Input {\"tax_ident\": \"4711110\", \"stat_ident\": \"230\"} matches existing unit {\"tax_ident\": \"4711111\", \"stat_ident\": \"230\"} but attempts to change tax_ident from '4711111' to '4711110'"}
 merge_status  | {}
--[ RECORD 5 ]-+------------------------------------------------------------------------------------------------------------------------------
+-[ RECORD 5 ]-+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id        | 20
 state         | error
 action        | skip
 operation     | update
 legal_unit_id | 
 enterprise_id | 
-errors        | {"stat_ident_raw": "Identifier stat_ident value '232' from input attempts to change existing value '230'"}
+errors        | {"stat_ident_raw": "Input {\"tax_ident\": \"4711111\", \"stat_ident\": \"232\"} matches existing unit {\"tax_ident\": \"4711111\", \"stat_ident\": \"230\"} but attempts to change stat_ident from '230' to '232'"}
 merge_status  | {}
--[ RECORD 6 ]-+------------------------------------------------------------------------------------------------------------------------------
+-[ RECORD 6 ]-+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id        | 21
 state         | error
 action        | skip
 operation     | update
 legal_unit_id | 
 enterprise_id | 
-errors        | {"stat_ident_raw": "Identifier stat_ident value '232' from input attempts to change existing value '230'"}
+errors        | {"stat_ident_raw": "Input {\"tax_ident\": \"4711111\", \"stat_ident\": \"232\"} matches existing unit {\"tax_ident\": \"4711111\", \"stat_ident\": \"230\"} but attempts to change stat_ident from '230' to '232'"}
 merge_status  | {}
--[ RECORD 7 ]-+------------------------------------------------------------------------------------------------------------------------------
+-[ RECORD 7 ]-+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id        | 58
 state         | error
 action        | skip
-operation     | 
+operation     | insert
 legal_unit_id | 
 enterprise_id | 
-errors        | {"valid_from_raw": "Invalid date format: '2025M01'. SQLSTATE: 22007"}
+errors        | {"tax_ident_raw": "Duplicate identifier: tax_ident=2212760166 appears in 4 rows: 58, 59, 60, 61"}
 merge_status  | {}
--[ RECORD 8 ]-+------------------------------------------------------------------------------------------------------------------------------
+-[ RECORD 8 ]-+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id        | 59
 state         | error
 action        | skip
-operation     | update
+operation     | insert
 legal_unit_id | 
 enterprise_id | 
-errors        | {"tax_ident_raw": "Identifier tax_ident value '2212760166' from input attempts to change existing value '2212760144'"}
+errors        | {"tax_ident_raw": "Duplicate identifier: tax_ident=2212760166 appears in 4 rows: 58, 59, 60, 61"}
 merge_status  | {}
--[ RECORD 9 ]-+------------------------------------------------------------------------------------------------------------------------------
+-[ RECORD 9 ]-+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id        | 60
 state         | error
 action        | skip
-operation     | update
+operation     | insert
 legal_unit_id | 
 enterprise_id | 
-errors        | {"tax_ident_raw": "Identifier tax_ident value '2212760166' from input attempts to change existing value '2212760144'"}
+errors        | {"tax_ident_raw": "Duplicate identifier: tax_ident=2212760166 appears in 4 rows: 58, 59, 60, 61"}
 merge_status  | {}
--[ RECORD 10 ]+------------------------------------------------------------------------------------------------------------------------------
-row_id        | 73
+-[ RECORD 10 ]+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+row_id        | 61
+state         | error
+action        | skip
+operation     | insert
+legal_unit_id | 
+enterprise_id | 
+errors        | {"tax_ident_raw": "Duplicate identifier: tax_ident=2212760166 appears in 4 rows: 58, 59, 60, 61"}
+merge_status  | {}
+-[ RECORD 11 ]+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+row_id        | 74
 state         | error
 action        | skip
 operation     | update
 legal_unit_id | 14
 enterprise_id | 21
-errors        | {"physical_region_code_raw": "An error on a related new entity row caused this row to be skipped. Source error row(s): {74}"}
+errors        | {"physical_region_code_raw": "An error on a related new entity row caused this row to be skipped. Source error row(s): {75}"}
 merge_status  | {}
--[ RECORD 11 ]+------------------------------------------------------------------------------------------------------------------------------
-row_id        | 74
+-[ RECORD 12 ]+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+row_id        | 75
 state         | error
 action        | skip
 operation     | update
@@ -352,14 +361,14 @@ legal_unit_id | 14
 enterprise_id | 21
 errors        | {"physical_country_iso_2_raw": "Country is required and must be valid when other physical address details are provided."}
 merge_status  | {}
--[ RECORD 12 ]+------------------------------------------------------------------------------------------------------------------------------
-row_id        | 75
+-[ RECORD 13 ]+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+row_id        | 76
 state         | error
 action        | skip
 operation     | update
 legal_unit_id | 14
 enterprise_id | 21
-errors        | {"physical_region_code_raw": "An error on a related new entity row caused this row to be skipped. Source error row(s): {74}"}
+errors        | {"physical_region_code_raw": "An error on a related new entity row caused this row to be skipped. Source error row(s): {75}"}
 merge_status  | {}
 
 \x
@@ -403,239 +412,239 @@ error                  |
 "Inspecting Formal ES source dates data table for skipped/error rows"
 \x
 SELECT row_id, state, action, operation, legal_unit_id, establishment_id, errors, merge_status FROM public.import_314_esflu_wsd_p2_data WHERE action = 'skip' OR state = 'error' ORDER BY row_id;
--[ RECORD 1 ]----+--------------------------------------------------------------------------------------------------------------
+-[ RECORD 1 ]----+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 1
 state            | error
 action           | skip
 operation        | update
 legal_unit_id    | 
 establishment_id | 
-errors           | {"stat_ident_raw": "Identifier stat_ident value '91000' from input attempts to change existing value '1000'"}
+errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"92212760144\", \"stat_ident\": \"91000\"} matches existing unit {\"tax_ident\": \"92212760144\", \"stat_ident\": \"1000\"} but attempts to change stat_ident from '1000' to '91000'"}
 merge_status     | {}
--[ RECORD 2 ]----+--------------------------------------------------------------------------------------------------------------
+-[ RECORD 2 ]----+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 2
 state            | error
 action           | skip
 operation        | update
 legal_unit_id    | 
 establishment_id | 
-errors           | {"stat_ident_raw": "Identifier stat_ident value '91001' from input attempts to change existing value '1001'"}
+errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"92812760140\", \"stat_ident\": \"91001\"} matches existing unit {\"tax_ident\": \"92812760140\", \"stat_ident\": \"1001\"} but attempts to change stat_ident from '1001' to '91001'"}
 merge_status     | {}
--[ RECORD 3 ]----+--------------------------------------------------------------------------------------------------------------
+-[ RECORD 3 ]----+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 3
 state            | error
 action           | skip
 operation        | update
 legal_unit_id    | 
 establishment_id | 
-errors           | {"stat_ident_raw": "Identifier stat_ident value '91002' from input attempts to change existing value '1002'"}
+errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"92212760084\", \"stat_ident\": \"91002\"} matches existing unit {\"tax_ident\": \"92212760084\", \"stat_ident\": \"1002\"} but attempts to change stat_ident from '1002' to '91002'"}
 merge_status     | {}
--[ RECORD 4 ]----+--------------------------------------------------------------------------------------------------------------
+-[ RECORD 4 ]----+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 4
 state            | error
 action           | skip
 operation        | update
 legal_unit_id    | 
 establishment_id | 
-errors           | {"stat_ident_raw": "Identifier stat_ident value '91003' from input attempts to change existing value '1003'"}
+errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"92612760138\", \"stat_ident\": \"91003\"} matches existing unit {\"tax_ident\": \"92612760138\", \"stat_ident\": \"1003\"} but attempts to change stat_ident from '1003' to '91003'"}
 merge_status     | {}
--[ RECORD 5 ]----+--------------------------------------------------------------------------------------------------------------
+-[ RECORD 5 ]----+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 5
 state            | error
 action           | skip
 operation        | update
 legal_unit_id    | 
 establishment_id | 
-errors           | {"stat_ident_raw": "Identifier stat_ident value '91004' from input attempts to change existing value '1004'"}
+errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"92812760130\", \"stat_ident\": \"91004\"} matches existing unit {\"tax_ident\": \"92812760130\", \"stat_ident\": \"1004\"} but attempts to change stat_ident from '1004' to '91004'"}
 merge_status     | {}
--[ RECORD 6 ]----+--------------------------------------------------------------------------------------------------------------
+-[ RECORD 6 ]----+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 6
 state            | error
 action           | skip
 operation        | update
 legal_unit_id    | 
 establishment_id | 
-errors           | {"stat_ident_raw": "Identifier stat_ident value '91005' from input attempts to change existing value '1005'"}
+errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"92312760075\", \"stat_ident\": \"91005\"} matches existing unit {\"tax_ident\": \"92312760075\", \"stat_ident\": \"1005\"} but attempts to change stat_ident from '1005' to '91005'"}
 merge_status     | {}
--[ RECORD 7 ]----+--------------------------------------------------------------------------------------------------------------
+-[ RECORD 7 ]----+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 7
 state            | error
 action           | skip
 operation        | update
 legal_unit_id    | 
 establishment_id | 
-errors           | {"stat_ident_raw": "Identifier stat_ident value '91006' from input attempts to change existing value '1006'"}
+errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"92407020166\", \"stat_ident\": \"91006\"} matches existing unit {\"tax_ident\": \"92407020166\", \"stat_ident\": \"1006\"} but attempts to change stat_ident from '1006' to '91006'"}
 merge_status     | {}
--[ RECORD 8 ]----+--------------------------------------------------------------------------------------------------------------
+-[ RECORD 8 ]----+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 8
 state            | error
 action           | skip
 operation        | update
 legal_unit_id    | 
 establishment_id | 
-errors           | {"stat_ident_raw": "Identifier stat_ident value '91007' from input attempts to change existing value '1007'"}
+errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"92602025168\", \"stat_ident\": \"91007\"} matches existing unit {\"tax_ident\": \"92602025168\", \"stat_ident\": \"1007\"} but attempts to change stat_ident from '1007' to '91007'"}
 merge_status     | {}
--[ RECORD 9 ]----+--------------------------------------------------------------------------------------------------------------
+-[ RECORD 9 ]----+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 9
 state            | error
 action           | skip
 operation        | update
 legal_unit_id    | 
 establishment_id | 
-errors           | {"stat_ident_raw": "Identifier stat_ident value '91008' from input attempts to change existing value '1008'"}
+errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"92612760118\", \"stat_ident\": \"91008\"} matches existing unit {\"tax_ident\": \"92612760118\", \"stat_ident\": \"1008\"} but attempts to change stat_ident from '1008' to '91008'"}
 merge_status     | {}
--[ RECORD 10 ]---+--------------------------------------------------------------------------------------------------------------
+-[ RECORD 10 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 10
 state            | error
 action           | skip
 operation        | update
 legal_unit_id    | 
 establishment_id | 
-errors           | {"stat_ident_raw": "Identifier stat_ident value '91009' from input attempts to change existing value '1009'"}
+errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"92815384160\", \"stat_ident\": \"91009\"} matches existing unit {\"tax_ident\": \"92815384160\", \"stat_ident\": \"1009\"} but attempts to change stat_ident from '1009' to '91009'"}
 merge_status     | {}
--[ RECORD 11 ]---+--------------------------------------------------------------------------------------------------------------
+-[ RECORD 11 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 11
 state            | error
 action           | skip
 operation        | update
 legal_unit_id    | 
 establishment_id | 
-errors           | {"stat_ident_raw": "Identifier stat_ident value '91010' from input attempts to change existing value '1010'"}
+errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"92507020167\", \"stat_ident\": \"91010\"} matches existing unit {\"tax_ident\": \"92507020167\", \"stat_ident\": \"1010\"} but attempts to change stat_ident from '1010' to '91010'"}
 merge_status     | {}
--[ RECORD 12 ]---+--------------------------------------------------------------------------------------------------------------
+-[ RECORD 12 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 12
 state            | error
 action           | skip
 operation        | update
 legal_unit_id    | 
 establishment_id | 
-errors           | {"stat_ident_raw": "Identifier stat_ident value '91011' from input attempts to change existing value '1011'"}
+errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"945000\", \"stat_ident\": \"91011\"} matches existing unit {\"tax_ident\": \"945000\", \"stat_ident\": \"1011\"} but attempts to change stat_ident from '1011' to '91011'"}
 merge_status     | {}
--[ RECORD 13 ]---+--------------------------------------------------------------------------------------------------------------
+-[ RECORD 13 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 13
 state            | error
 action           | skip
 operation        | update
 legal_unit_id    | 
 establishment_id | 
-errors           | {"stat_ident_raw": "Identifier stat_ident value '91012' from input attempts to change existing value '1012'"}
+errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"9358000\", \"stat_ident\": \"91012\"} matches existing unit {\"tax_ident\": \"9358000\", \"stat_ident\": \"1012\"} but attempts to change stat_ident from '1012' to '91012'"}
 merge_status     | {}
--[ RECORD 14 ]---+--------------------------------------------------------------------------------------------------------------
+-[ RECORD 14 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 14
 state            | error
 action           | skip
 operation        | update
 legal_unit_id    | 
 establishment_id | 
-errors           | {"stat_ident_raw": "Identifier stat_ident value '91013' from input attempts to change existing value '1013'"}
+errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"946001\", \"stat_ident\": \"91013\"} matches existing unit {\"tax_ident\": \"946001\", \"stat_ident\": \"1013\"} but attempts to change stat_ident from '1013' to '91013'"}
 merge_status     | {}
--[ RECORD 15 ]---+--------------------------------------------------------------------------------------------------------------
+-[ RECORD 15 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 15
 state            | error
 action           | skip
 operation        | update
 legal_unit_id    | 
 establishment_id | 
-errors           | {"stat_ident_raw": "Identifier stat_ident value '91014' from input attempts to change existing value '1014'"}
+errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"95340521\", \"stat_ident\": \"91014\"} matches existing unit {\"tax_ident\": \"95340521\", \"stat_ident\": \"1014\"} but attempts to change stat_ident from '1014' to '91014'"}
 merge_status     | {}
--[ RECORD 16 ]---+--------------------------------------------------------------------------------------------------------------
+-[ RECORD 16 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 16
 state            | error
 action           | skip
 operation        | update
 legal_unit_id    | 
 establishment_id | 
-errors           | {"stat_ident_raw": "Identifier stat_ident value '91015' from input attempts to change existing value '1015'"}
+errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"92220794\", \"stat_ident\": \"91015\"} matches existing unit {\"tax_ident\": \"92220794\", \"stat_ident\": \"1015\"} but attempts to change stat_ident from '1015' to '91015'"}
 merge_status     | {}
--[ RECORD 17 ]---+--------------------------------------------------------------------------------------------------------------
+-[ RECORD 17 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 17
 state            | error
 action           | skip
 operation        | update
 legal_unit_id    | 
 establishment_id | 
-errors           | {"stat_ident_raw": "Identifier stat_ident value '91016' from input attempts to change existing value '1016'"}
+errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"922501\", \"stat_ident\": \"91016\"} matches existing unit {\"tax_ident\": \"922501\", \"stat_ident\": \"1016\"} but attempts to change stat_ident from '1016' to '91016'"}
 merge_status     | {}
--[ RECORD 18 ]---+--------------------------------------------------------------------------------------------------------------
+-[ RECORD 18 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 18
 state            | error
 action           | skip
 operation        | update
 legal_unit_id    | 
 establishment_id | 
-errors           | {"stat_ident_raw": "Identifier stat_ident value '91017' from input attempts to change existing value '1017'"}
+errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"9397611\", \"stat_ident\": \"91017\"} matches existing unit {\"tax_ident\": \"9397611\", \"stat_ident\": \"1017\"} but attempts to change stat_ident from '1017' to '91017'"}
 merge_status     | {}
--[ RECORD 19 ]---+--------------------------------------------------------------------------------------------------------------
+-[ RECORD 19 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 19
 state            | error
 action           | skip
 operation        | update
 legal_unit_id    | 
 establishment_id | 
-errors           | {"stat_ident_raw": "Identifier stat_ident value '91018' from input attempts to change existing value '1018'"}
+errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"9397622\", \"stat_ident\": \"91018\"} matches existing unit {\"tax_ident\": \"9397622\", \"stat_ident\": \"1018\"} but attempts to change stat_ident from '1018' to '91018'"}
 merge_status     | {}
--[ RECORD 20 ]---+--------------------------------------------------------------------------------------------------------------
+-[ RECORD 20 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 20
 state            | error
 action           | skip
 operation        | update
 legal_unit_id    | 
 establishment_id | 
-errors           | {"stat_ident_raw": "Identifier stat_ident value '91019' from input attempts to change existing value '1019'"}
+errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"92200019\", \"stat_ident\": \"91019\"} matches existing unit {\"tax_ident\": \"92200019\", \"stat_ident\": \"1019\"} but attempts to change stat_ident from '1019' to '91019'"}
 merge_status     | {}
--[ RECORD 21 ]---+--------------------------------------------------------------------------------------------------------------
+-[ RECORD 21 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 21
 state            | error
 action           | skip
 operation        | update
 legal_unit_id    | 
 establishment_id | 
-errors           | {"stat_ident_raw": "Identifier stat_ident value '91020' from input attempts to change existing value '1020'"}
+errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"93300598\", \"stat_ident\": \"91020\"} matches existing unit {\"tax_ident\": \"93300598\", \"stat_ident\": \"1020\"} but attempts to change stat_ident from '1020' to '91020'"}
 merge_status     | {}
--[ RECORD 22 ]---+--------------------------------------------------------------------------------------------------------------
+-[ RECORD 22 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 22
 state            | error
 action           | skip
 operation        | update
 legal_unit_id    | 
 establishment_id | 
-errors           | {"stat_ident_raw": "Identifier stat_ident value '91021' from input attempts to change existing value '1021'"}
+errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"94711111\", \"stat_ident\": \"91021\"} matches existing unit {\"tax_ident\": \"94711111\", \"stat_ident\": \"1021\"} but attempts to change stat_ident from '1021' to '91021'"}
 merge_status     | {}
--[ RECORD 23 ]---+--------------------------------------------------------------------------------------------------------------
+-[ RECORD 23 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 23
 state            | error
 action           | skip
 operation        | update
 legal_unit_id    | 
 establishment_id | 
-errors           | {"stat_ident_raw": "Identifier stat_ident value '91022' from input attempts to change existing value '1022'"}
+errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"93998011\", \"stat_ident\": \"91022\"} matches existing unit {\"tax_ident\": \"93998011\", \"stat_ident\": \"1022\"} but attempts to change stat_ident from '1022' to '91022'"}
 merge_status     | {}
--[ RECORD 24 ]---+--------------------------------------------------------------------------------------------------------------
+-[ RECORD 24 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 24
 state            | error
 action           | skip
 operation        | update
 legal_unit_id    | 
 establishment_id | 
-errors           | {"stat_ident_raw": "Identifier stat_ident value '91023' from input attempts to change existing value '1023'"}
+errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"947111112\", \"stat_ident\": \"91023\"} matches existing unit {\"tax_ident\": \"947111112\", \"stat_ident\": \"1023\"} but attempts to change stat_ident from '1023' to '91023'"}
 merge_status     | {}
--[ RECORD 25 ]---+--------------------------------------------------------------------------------------------------------------
+-[ RECORD 25 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 25
 state            | error
 action           | skip
 operation        | update
 legal_unit_id    | 
 establishment_id | 
-errors           | {"stat_ident_raw": "Identifier stat_ident value '91024' from input attempts to change existing value '1024'"}
+errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"947111113\", \"stat_ident\": \"91024\"} matches existing unit {\"tax_ident\": \"947111113\", \"stat_ident\": \"1024\"} but attempts to change stat_ident from '1024' to '91024'"}
 merge_status     | {}
--[ RECORD 26 ]---+--------------------------------------------------------------------------------------------------------------
+-[ RECORD 26 ]---+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 26
 state            | error
 action           | skip
 operation        | update
 legal_unit_id    | 
 establishment_id | 
-errors           | {"stat_ident_raw": "Identifier stat_ident value '91024' from input attempts to change existing value '1024'"}
+errors           | {"stat_ident_raw": "Input {\"tax_ident\": \"947111113\", \"stat_ident\": \"91024\"} matches existing unit {\"tax_ident\": \"947111113\", \"stat_ident\": \"1024\"} but attempts to change stat_ident from '1024' to '91024'"}
 merge_status     | {}
 
 \x
@@ -679,101 +688,101 @@ error                  |
 "Inspecting Informal ES source dates data table for skipped/error rows"
 \x
 SELECT row_id, state, action, operation, establishment_id, errors, merge_status FROM public.import_314_eswlu_wsd_p2_data WHERE action = 'skip' OR state = 'error' ORDER BY row_id;
--[ RECORD 1 ]----+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-[ RECORD 1 ]----+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 1
 state            | error
 action           | skip
 operation        | update
 establishment_id | 
-errors           | {"tax_ident_raw": "Identifier tax_ident value '1' from input attempts to change existing value '945000'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1011\"}"}
+errors           | {"tax_ident_raw": "Input {\"tax_ident\": \"1\", \"stat_ident\": \"1011\"} matches existing unit {\"tax_ident\": \"945000\", \"stat_ident\": \"1011\"} but attempts to change tax_ident from '945000' to '1'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1011\"}"}
 merge_status     | {}
--[ RECORD 2 ]----+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-[ RECORD 2 ]----+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 2
 state            | error
 action           | skip
 operation        | update
 establishment_id | 
-errors           | {"tax_ident_raw": "Identifier tax_ident value '2' from input attempts to change existing value '9358000'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1012\"}"}
+errors           | {"tax_ident_raw": "Input {\"tax_ident\": \"2\", \"stat_ident\": \"1012\"} matches existing unit {\"tax_ident\": \"9358000\", \"stat_ident\": \"1012\"} but attempts to change tax_ident from '9358000' to '2'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1012\"}"}
 merge_status     | {}
--[ RECORD 3 ]----+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-[ RECORD 3 ]----+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 3
 state            | error
 action           | skip
 operation        | update
 establishment_id | 
-errors           | {"tax_ident_raw": "Identifier tax_ident value '3' from input attempts to change existing value '946001'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1013\"}"}
+errors           | {"tax_ident_raw": "Input {\"tax_ident\": \"3\", \"stat_ident\": \"1013\"} matches existing unit {\"tax_ident\": \"946001\", \"stat_ident\": \"1013\"} but attempts to change tax_ident from '946001' to '3'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1013\"}"}
 merge_status     | {}
--[ RECORD 4 ]----+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-[ RECORD 4 ]----+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 4
 state            | error
 action           | skip
 operation        | update
 establishment_id | 
-errors           | {"tax_ident_raw": "Identifier tax_ident value '4' from input attempts to change existing value '922501'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1016\"}"}
+errors           | {"tax_ident_raw": "Input {\"tax_ident\": \"4\", \"stat_ident\": \"1016\"} matches existing unit {\"tax_ident\": \"922501\", \"stat_ident\": \"1016\"} but attempts to change tax_ident from '922501' to '4'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1016\"}"}
 merge_status     | {}
--[ RECORD 5 ]----+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-[ RECORD 5 ]----+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 5
 state            | error
 action           | skip
 operation        | update
 establishment_id | 
-errors           | {"tax_ident_raw": "Identifier tax_ident value '5' from input attempts to change existing value '9397611'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1017\"}"}
+errors           | {"tax_ident_raw": "Input {\"tax_ident\": \"5\", \"stat_ident\": \"1017\"} matches existing unit {\"tax_ident\": \"9397611\", \"stat_ident\": \"1017\"} but attempts to change tax_ident from '9397611' to '5'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1017\"}"}
 merge_status     | {}
--[ RECORD 6 ]----+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-[ RECORD 6 ]----+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 6
 state            | error
 action           | skip
 operation        | update
 establishment_id | 
-errors           | {"tax_ident_raw": "Identifier tax_ident value '6' from input attempts to change existing value '9397622'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1018\"}"}
+errors           | {"tax_ident_raw": "Input {\"tax_ident\": \"6\", \"stat_ident\": \"1018\"} matches existing unit {\"tax_ident\": \"9397622\", \"stat_ident\": \"1018\"} but attempts to change tax_ident from '9397622' to '6'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1018\"}"}
 merge_status     | {}
--[ RECORD 7 ]----+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-[ RECORD 7 ]----+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 7
 state            | error
 action           | skip
 operation        | update
 establishment_id | 
-errors           | {"tax_ident_raw": "Identifier tax_ident value '7' from input attempts to change existing value '92200019'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1019\"}"}
+errors           | {"tax_ident_raw": "Input {\"tax_ident\": \"7\", \"stat_ident\": \"1019\"} matches existing unit {\"tax_ident\": \"92200019\", \"stat_ident\": \"1019\"} but attempts to change tax_ident from '92200019' to '7'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1019\"}"}
 merge_status     | {}
--[ RECORD 8 ]----+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-[ RECORD 8 ]----+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 8
 state            | error
 action           | skip
 operation        | update
 establishment_id | 
-errors           | {"tax_ident_raw": "Identifier tax_ident value '8' from input attempts to change existing value '93300598'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1020\"}"}
+errors           | {"tax_ident_raw": "Input {\"tax_ident\": \"8\", \"stat_ident\": \"1020\"} matches existing unit {\"tax_ident\": \"93300598\", \"stat_ident\": \"1020\"} but attempts to change tax_ident from '93300598' to '8'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1020\"}"}
 merge_status     | {}
--[ RECORD 9 ]----+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-[ RECORD 9 ]----+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 9
 state            | error
 action           | skip
 operation        | update
 establishment_id | 
-errors           | {"tax_ident_raw": "Identifier tax_ident value '9' from input attempts to change existing value '94711111'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1021\"}"}
+errors           | {"tax_ident_raw": "Input {\"tax_ident\": \"9\", \"stat_ident\": \"1021\"} matches existing unit {\"tax_ident\": \"94711111\", \"stat_ident\": \"1021\"} but attempts to change tax_ident from '94711111' to '9'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1021\"}"}
 merge_status     | {}
--[ RECORD 10 ]---+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-[ RECORD 10 ]---+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 10
 state            | error
 action           | skip
 operation        | update
 establishment_id | 
-errors           | {"tax_ident_raw": "Identifier tax_ident value '10' from input attempts to change existing value '93998011'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1022\"}"}
+errors           | {"tax_ident_raw": "Input {\"tax_ident\": \"10\", \"stat_ident\": \"1022\"} matches existing unit {\"tax_ident\": \"93998011\", \"stat_ident\": \"1022\"} but attempts to change tax_ident from '93998011' to '10'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1022\"}"}
 merge_status     | {}
--[ RECORD 11 ]---+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-[ RECORD 11 ]---+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 11
 state            | error
 action           | skip
 operation        | update
 establishment_id | 
-errors           | {"tax_ident_raw": "Identifier tax_ident value '11' from input attempts to change existing value '947111112'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1023\"}"}
+errors           | {"tax_ident_raw": "Input {\"tax_ident\": \"11\", \"stat_ident\": \"1023\"} matches existing unit {\"tax_ident\": \"947111112\", \"stat_ident\": \"1023\"} but attempts to change tax_ident from '947111112' to '11'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1023\"}"}
 merge_status     | {}
--[ RECORD 12 ]---+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-[ RECORD 12 ]---+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id           | 12
 state            | error
 action           | skip
 operation        | update
 establishment_id | 
-errors           | {"tax_ident_raw": "Identifier tax_ident value '12' from input attempts to change existing value '947111113'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1024\"}"}
+errors           | {"tax_ident_raw": "Input {\"tax_ident\": \"12\", \"stat_ident\": \"1024\"} matches existing unit {\"tax_ident\": \"947111113\", \"stat_ident\": \"1024\"} but attempts to change tax_ident from '947111113' to '12'", "stat_ident_raw": "Identifier already used by a Formal Establishment: {\"stat_ident_raw\": \"1024\"}"}
 merge_status     | {}
 
 \x
@@ -867,10 +876,10 @@ error                             |
 slug                              | import_314_lu_wsd_p2
 state                             | finished
 analysis_completed_pct            | 100.00
-completed_analysis_steps_weighted | 7500
-total_analysis_steps_weighted     | 7500
-import_completed_pct              | 84.00
-total_rows                        | 75
+completed_analysis_steps_weighted | 7600
+total_analysis_steps_weighted     | 7600
+import_completed_pct              | 82.89
+total_rows                        | 76
 imported_rows                     | 63
 error                             | 
 

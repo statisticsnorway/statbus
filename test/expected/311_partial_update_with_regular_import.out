@@ -145,7 +145,7 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug = 'import_311_lu_wsd' ORDER BY slug;
        slug        |  state   | time_context_ident | total_rows | imported_rows | has_error 
 -------------------+----------+--------------------+------------+---------------+-----------
- import_311_lu_wsd | finished |                    |         75 |            69 | f
+ import_311_lu_wsd | finished |                    |         76 |            69 | f
 (1 row)
 
 \echo "Run worker processing for analytics tasks - Initial Load"
@@ -240,94 +240,94 @@ SELECT
     jsonb_pretty(merge_status) as merge_status
 FROM public.import_311_lu_partial_update_data
 ORDER BY row_id;
--[ RECORD 1 ]+-------------------------------------------------------------------------------------------------------------------------
+-[ RECORD 1 ]+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id       | 1
 operation    | update
 state        | error
-errors       | {                                                                                                                       +
-             |     "tax_ident_raw": "Identifier tax_ident value '2212760166' from input attempts to change existing value '2212760144'"+
+errors       | {                                                                                                                                                                                                                                  +
+             |     "tax_ident_raw": "Input {\"tax_ident\": \"2212760166\", \"stat_ident\": \"1\"} matches existing unit {\"tax_ident\": \"2212760144\", \"stat_ident\": \"1\"} but attempts to change tax_ident from '2212760144' to '2212760166'"+
              | }
-merge_status | {                                                                                                                       +
+merge_status | {                                                                                                                                                                                                                                  +
              | }
--[ RECORD 2 ]+-------------------------------------------------------------------------------------------------------------------------
+-[ RECORD 2 ]+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id       | 2
 operation    | update
 state        | processed
-errors       | {                                                                                                                       +
+errors       | {                                                                                                                                                                                                                                  +
              | }
-merge_status | {                                                                                                                       +
-             |     "legal_unit": "APPLIED",                                                                                            +
-             |     "stat_turnover": "APPLIED"                                                                                          +
+merge_status | {                                                                                                                                                                                                                                  +
+             |     "legal_unit": "APPLIED",                                                                                                                                                                                                       +
+             |     "stat_turnover": "APPLIED"                                                                                                                                                                                                     +
              | }
--[ RECORD 3 ]+-------------------------------------------------------------------------------------------------------------------------
+-[ RECORD 3 ]+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id       | 3
 operation    | update
 state        | processed
-errors       | {                                                                                                                       +
+errors       | {                                                                                                                                                                                                                                  +
              | }
-merge_status | {                                                                                                                       +
-             |     "legal_unit": "APPLIED",                                                                                            +
-             |     "stat_turnover": "APPLIED"                                                                                          +
+merge_status | {                                                                                                                                                                                                                                  +
+             |     "legal_unit": "APPLIED",                                                                                                                                                                                                       +
+             |     "stat_turnover": "APPLIED"                                                                                                                                                                                                     +
              | }
--[ RECORD 4 ]+-------------------------------------------------------------------------------------------------------------------------
+-[ RECORD 4 ]+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id       | 4
 operation    | update
 state        | processed
-errors       | {                                                                                                                       +
+errors       | {                                                                                                                                                                                                                                  +
              | }
-merge_status | {                                                                                                                       +
-             |     "legal_unit": "APPLIED",                                                                                            +
-             |     "stat_turnover": "APPLIED"                                                                                          +
+merge_status | {                                                                                                                                                                                                                                  +
+             |     "legal_unit": "APPLIED",                                                                                                                                                                                                       +
+             |     "stat_turnover": "APPLIED"                                                                                                                                                                                                     +
              | }
--[ RECORD 5 ]+-------------------------------------------------------------------------------------------------------------------------
+-[ RECORD 5 ]+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id       | 5
 operation    | update
 state        | processed
-errors       | {                                                                                                                       +
+errors       | {                                                                                                                                                                                                                                  +
              | }
-merge_status | {                                                                                                                       +
-             |     "legal_unit": "APPLIED",                                                                                            +
-             |     "stat_turnover": "APPLIED"                                                                                          +
+merge_status | {                                                                                                                                                                                                                                  +
+             |     "legal_unit": "APPLIED",                                                                                                                                                                                                       +
+             |     "stat_turnover": "APPLIED"                                                                                                                                                                                                     +
              | }
--[ RECORD 6 ]+-------------------------------------------------------------------------------------------------------------------------
+-[ RECORD 6 ]+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id       | 6
 operation    | update
 state        | processed
-errors       | {                                                                                                                       +
+errors       | {                                                                                                                                                                                                                                  +
              | }
-merge_status | {                                                                                                                       +
-             |     "legal_unit": "APPLIED",                                                                                            +
-             |     "stat_turnover": "APPLIED"                                                                                          +
+merge_status | {                                                                                                                                                                                                                                  +
+             |     "legal_unit": "APPLIED",                                                                                                                                                                                                       +
+             |     "stat_turnover": "APPLIED"                                                                                                                                                                                                     +
              | }
--[ RECORD 7 ]+-------------------------------------------------------------------------------------------------------------------------
+-[ RECORD 7 ]+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id       | 7
 operation    | update
 state        | processed
-errors       | {                                                                                                                       +
+errors       | {                                                                                                                                                                                                                                  +
              | }
-merge_status | {                                                                                                                       +
-             |     "legal_unit": "APPLIED",                                                                                            +
-             |     "stat_turnover": "APPLIED"                                                                                          +
+merge_status | {                                                                                                                                                                                                                                  +
+             |     "legal_unit": "APPLIED",                                                                                                                                                                                                       +
+             |     "stat_turnover": "APPLIED"                                                                                                                                                                                                     +
              | }
--[ RECORD 8 ]+-------------------------------------------------------------------------------------------------------------------------
+-[ RECORD 8 ]+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id       | 8
 operation    | update
 state        | processed
-errors       | {                                                                                                                       +
+errors       | {                                                                                                                                                                                                                                  +
              | }
-merge_status | {                                                                                                                       +
-             |     "legal_unit": "APPLIED",                                                                                            +
-             |     "stat_turnover": "APPLIED"                                                                                          +
+merge_status | {                                                                                                                                                                                                                                  +
+             |     "legal_unit": "APPLIED",                                                                                                                                                                                                       +
+             |     "stat_turnover": "APPLIED"                                                                                                                                                                                                     +
              | }
--[ RECORD 9 ]+-------------------------------------------------------------------------------------------------------------------------
+-[ RECORD 9 ]+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 row_id       | 9
 operation    | update
 state        | processed
-errors       | {                                                                                                                       +
+errors       | {                                                                                                                                                                                                                                  +
              | }
-merge_status | {                                                                                                                       +
-             |     "legal_unit": "APPLIED",                                                                                            +
-             |     "stat_turnover": "APPLIED"                                                                                          +
+merge_status | {                                                                                                                                                                                                                                  +
+             |     "legal_unit": "APPLIED",                                                                                                                                                                                                       +
+             |     "stat_turnover": "APPLIED"                                                                                                                                                                                                     +
              | }
 
 \x auto

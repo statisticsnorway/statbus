@@ -1,0 +1,816 @@
+BEGIN;
+\i test/setup.sql
+-- While the datestyle is set for the database, the pg_regress tool sets the MDY format
+-- to ensure consistent date formatting, so we must manually override this
+SET datestyle TO 'ISO, DMY';
+\if :{?DEBUG}
+SET client_min_messages TO debug1;
+\else
+SET client_min_messages TO NOTICE;
+\endif
+-- Create temporary function to execute queries as system user
+CREATE OR REPLACE FUNCTION test.sudo_exec(
+    sql text,
+    OUT results jsonb
+) RETURNS jsonb
+SECURITY DEFINER LANGUAGE plpgsql AS $sudo_exec$
+DECLARE
+    result_rows jsonb;
+BEGIN
+    -- Check if the SQL starts with common DDL keywords
+    IF sql ~* '^\s*(CREATE|DROP|ALTER|TRUNCATE|GRANT|REVOKE|ANALYZE)' THEN
+        -- For DDL statements, execute directly
+        EXECUTE sql;
+        results := '[]'::jsonb;
+    ELSE
+        -- For DML/queries, wrap in a SELECT to capture results
+        EXECUTE format('
+            SELECT COALESCE(
+                jsonb_agg(row_to_json(t)),
+                ''[]''::jsonb
+            )
+            FROM (%s) t',
+            sql
+        ) INTO result_rows;
+        results := result_rows;
+    END IF;
+END;
+$sudo_exec$;
+-- Grant execute to public since this is for testing
+GRANT EXECUTE ON FUNCTION test.sudo_exec(text) TO PUBLIC;
+\echo Add users for testing purposes
+Add users for testing purposes
+SELECT * FROM public.user_create(p_display_name => 'Test Admin', p_email => 'test.admin@statbus.org', p_statbus_role => 'admin_user'::statbus_role, p_password => 'Admin#123!');
+         email          |  password  
+------------------------+------------
+ test.admin@statbus.org | Admin#123!
+(1 row)
+
+SELECT * FROM public.user_create(p_display_name => 'Test Regular', p_email => 'test.regular@statbus.org', p_statbus_role => 'regular_user'::statbus_role, p_password => 'Regular#123!');
+          email           |   password   
+--------------------------+--------------
+ test.regular@statbus.org | Regular#123!
+(1 row)
+
+SELECT * FROM public.user_create(p_display_name => 'Test Restricted', p_email => 'test.restricted@statbus.org', p_statbus_role => 'restricted_user'::statbus_role, p_password => 'Restricted#123!');
+            email            |    password     
+-----------------------------+-----------------
+ test.restricted@statbus.org | Restricted#123!
+(1 row)
+
+CREATE OR REPLACE PROCEDURE test.remove_pg_temp_for_tx_user_switch(p_keep_tables text[] DEFAULT '{}')
+LANGUAGE plpgsql
+AS $remove_pg_temp_for_tx_user_switch$
+DECLARE
+    rec record;
+    v_found_count integer := 0;
+BEGIN
+    RAISE DEBUG 'Running test.remove_pg_temp_for_tx_user_switch(p_keep_tables => %)...', p_keep_tables;
+    -- Remove temporary cache tables used by import, as we switch user inside the *same* transaction,
+    -- and the new user can not modify tables owned by the previous import.
+    -- This generic loop cleans up all tables and views in the pg_temp schema, except those specified to keep.
+    FOR rec IN
+        SELECT
+            c.relname,
+            c.relkind
+        FROM pg_catalog.pg_class AS c
+        LEFT JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+        WHERE c.relkind IN ('r', 'p', 'v', 'm') AND n.oid = pg_my_temp_schema() -- r=table, p=partitioned, v=view, m=materialized
+          AND c.relname <> ALL(p_keep_tables)
+    LOOP
+        v_found_count := v_found_count + 1;
+        IF rec.relkind IN ('r', 'p', 'm') THEN
+            RAISE DEBUG '  -> Dropping temp TABLE %', rec.relname;
+            EXECUTE format('DROP TABLE IF EXISTS pg_temp.%I CASCADE', rec.relname);
+        ELSIF rec.relkind = 'v' THEN
+            RAISE DEBUG '  -> Dropping temp VIEW %', rec.relname;
+            EXECUTE format('DROP VIEW IF EXISTS pg_temp.%I CASCADE', rec.relname);
+        END IF;
+    END LOOP;
+
+    RAISE DEBUG '...finished test.remove_pg_temp_for_tx_user_switch(). Found and dropped % objects.', v_found_count;
+
+    -- This procedure is part of the sql_saga extension and has its own cleanup logic.
+    -- While the loop above handles tables/views, this call ensures any other temporary
+    -- objects it creates are also cleaned up.
+    CALL sql_saga.temporal_merge_drop_temp_tables();
+END;
+$remove_pg_temp_for_tx_user_switch$;
+\echo "Setting up Statbus using the web provided examples"
+"Setting up Statbus using the web provided examples"
+-- A Super User configures statbus.
+CALL test.set_user_from_email('test.admin@statbus.org');
+\i samples/demo/getting-started.sql
+-- Set the activity category standard to ISIC v4 for the demo data.
+\echo "User selected the Activity Category Standard"
+"User selected the Activity Category Standard"
+INSERT INTO settings(activity_category_standard_id,country_id)
+SELECT (SELECT id FROM activity_category_standard WHERE code = 'isic_v4')
+     , (SELECT id FROM public.country WHERE iso_2 = 'UN')
+ON CONFLICT (only_one_setting)
+DO UPDATE SET
+    activity_category_standard_id = EXCLUDED.activity_category_standard_id,
+    country_id = EXCLUDED.country_id;
+\echo "User uploads the demo activity categories"
+"User uploads the demo activity categories"
+\copy public.activity_category_available_custom(path,name) FROM 'app/public/demo/activity_custom_isic_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo "User uploads the demo regions"
+"User uploads the demo regions"
+\copy public.region_upload(path, name) FROM 'app/public/demo/regions_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo "User uploads the demo sectors"
+"User uploads the demo sectors"
+\copy public.sector_custom_only(path,name,description) FROM 'app/public/demo/sectors_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo "User uploads the demo legal forms"
+"User uploads the demo legal forms"
+\copy public.legal_form_custom_only(code,name) FROM 'app/public/demo/legal_forms_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+-- The demo data uses data sources that are part of the core database seed.
+-- This file is included for structural consistency with other sample data sets.
+SAVEPOINT before_loading_units;
+SELECT
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
+ establishment_count | legal_unit_count | enterprise_count 
+---------------------+------------------+------------------
+                   0 |                0 |                0
+(1 row)
+
+-- Create Import Job for Legal Units
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_job_provided'),
+    'import_341_lu_idents',
+    'Import Legal Units duplicate Idents (341_duplicate_tax_ident_big_file.sql)',
+    'Import job for legal units from test/data/341_duplicate_tax_ident_big_file.csv using legal_unit_job_provided definition.',
+    'Test data load (341_duplicate_tax_ident_big_file.sql)',
+    'r_year_curr';
+\echo "User uploads the legal units over time (via import job: import_341_lu_idents)"
+"User uploads the legal units over time (via import job: import_341_lu_idents)"
+\copy public.import_341_lu_idents_upload(name,stat_ident,tax_ident) FROM 'test/data/341_duplicate_tax_ident_big_file.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo Run worker processing for import jobs
+Run worker processing for import jobs
+--SET client_min_messages TO DEBUG1;
+CALL worker.process_tasks(p_queue => 'import');
+--SET client_min_messages TO NOTICE;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
+   queue   |   state   | count 
+-----------+-----------+-------
+ analytics | pending   |     3
+ import    | completed |    47
+(2 rows)
+
+\echo "Checking unit counts after import processing"
+"Checking unit counts after import processing"
+SELECT
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
+ establishment_count | legal_unit_count | enterprise_count 
+---------------------+------------------+------------------
+                   0 |              597 |              597
+(1 row)
+
+\echo "Inspecting import job data for import_341_lu_idents"
+"Inspecting import job data for import_341_lu_idents"
+SELECT row_id, state, errors, stat_ident_raw, name_raw, tax_ident_raw, merge_status
+FROM public.import_341_lu_idents_data
+WHERE tax_ident_raw = '01'
+ORDER BY row_id
+LIMIT 5;
+ row_id | state |                                         errors                                         | stat_ident_raw |              name_raw               | tax_ident_raw | merge_status 
+--------+-------+----------------------------------------------------------------------------------------+----------------+-------------------------------------+---------------+--------------
+      1 | error | {"tax_ident_raw": "Duplicate identifier: tax_ident=01 appears in 3 rows: 1, 232, 600"} | 1001           | SOCIETE AL BATHAE DE TRAVAUX DIVERS | 01            | {}
+    232 | error | {"tax_ident_raw": "Duplicate identifier: tax_ident=01 appears in 3 rows: 1, 232, 600"} |                | AFLA TRANS                          | 01            | {}
+    600 | error | {"tax_ident_raw": "Duplicate identifier: tax_ident=01 appears in 3 rows: 1, 232, 600"} | 1003           | MR SOUSSI NEAIMI BRAHIM             | 01            | {}
+(3 rows)
+
+\echo "Checking import job status for import_341_lu_idents"
+"Checking import job status for import_341_lu_idents"
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
+       (SELECT COUNT(*) FROM public.import_341_lu_idents_data dr WHERE dr.state = 'error') AS error_rows
+FROM public.import_job
+WHERE slug = 'import_341_lu_idents'
+ORDER BY slug;
+         slug         |  state   | total_rows | imported_rows | has_error | error_rows 
+----------------------+----------+------------+---------------+-----------+------------
+ import_341_lu_idents | finished |        600 |           597 | f         |          3
+(1 row)
+
+\echo Run worker processing for analytics tasks
+Run worker processing for analytics tasks
+CALL worker.process_tasks(p_queue => 'analytics');
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
+   queue   |   state   | count 
+-----------+-----------+-------
+ analytics | completed |     5
+ import    | completed |    47
+(2 rows)
+
+\echo "Checking legal units"
+"Checking legal units"
+SELECT name, external_idents, unit_type
+ FROM statistical_unit
+ WHERE unit_type = 'legal_unit'
+ ORDER BY external_idents->>'stat_ident';
+                                name                                |                   external_idents                    | unit_type  
+--------------------------------------------------------------------+------------------------------------------------------+------------
+ STE ASSURANCES EL FAJR SARL AU                                     | {"tax_ident": "14456376", "stat_ident": "101162613"} | legal_unit
+ STE BERANA SARL                                                    | {"tax_ident": "40179539", "stat_ident": "101708136"} | legal_unit
+ SECUPROM SARL                                                      | {"tax_ident": "33593376", "stat_ident": "102010351"} | legal_unit
+ STE ABDOU DE CARRELAGE ET TRAVAUX                                  | {"tax_ident": "37601877", "stat_ident": "103186576"} | legal_unit
+ STE MAYSSOUN TRANS SARL                                            | {"tax_ident": "18726221", "stat_ident": "104132328"} | legal_unit
+ MR AMIDOUN HASSAN BEN BRAHIM                                       | {"tax_ident": "37597309", "stat_ident": "105389789"} | legal_unit
+ ASSAFAR LMAHFOUD                                                   | {"tax_ident": "4501823", "stat_ident": "105909145"}  | legal_unit
+ SOCIETE LARAFIL                                                    | {"tax_ident": "3160306", "stat_ident": "106882579"}  | legal_unit
+ STE TAOURIRT PRESS                                                 | {"tax_ident": "25053867", "stat_ident": "108203803"} | legal_unit
+ STUDIO FITNESS                                                     | {"tax_ident": "45695005", "stat_ident": "108502277"} | legal_unit
+ BRAINYSOLUTION                                                     | {"stat_ident": "110877969"}                          | legal_unit
+ TELEM TELESURVEILLANCE MAROC SA                                    | {"tax_ident": "45898291", "stat_ident": "111499880"} | legal_unit
+ BEL KESTALI ABDELHAK                                               | {"tax_ident": "34408552", "stat_ident": "111769864"} | legal_unit
+ STE QUEBEC ALGUE SARL AU                                           | {"tax_ident": "40112813", "stat_ident": "111797954"} | legal_unit
+ LAHKIM                                                             | {"tax_ident": "20747862", "stat_ident": "112086429"} | legal_unit
+ STE MAISON D HT TANOUTE SARL                                       | {"tax_ident": "48545164", "stat_ident": "112542733"} | legal_unit
+ SAFARI  CASH                                                       | {"tax_ident": "42023520", "stat_ident": "112609421"} | legal_unit
+ STE EVER 7 OPTIC SARL                                              | {"tax_ident": "4908290", "stat_ident": "113579926"}  | legal_unit
+ TAHADITE                                                           | {"tax_ident": "31847691", "stat_ident": "113597811"} | legal_unit
+ STE PLASNAS SARL                                                   | {"tax_ident": "6580900", "stat_ident": "117614015"}  | legal_unit
+ ARGANIC CONCEPTION SARL                                            | {"tax_ident": "3315219", "stat_ident": "119269075"}  | legal_unit
+ STE FID SERVICES                                                   | {"tax_ident": "3374172", "stat_ident": "119625551"}  | legal_unit
+ MTC MAROC                                                          | {"tax_ident": "33607796", "stat_ident": "120846640"} | legal_unit
+ WH WORK SARL                                                       | {"tax_ident": "6990231", "stat_ident": "121405301"}  | legal_unit
+ CLIMA PUR SOLUTIONS SARL                                           | {"stat_ident": "121970022"}                          | legal_unit
+ LAGRAINI IMMOBILIER SARLAU                                         | {"stat_ident": "122106024"}                          | legal_unit
+ STE SOHAKSE SARL                                                   | {"tax_ident": "31820606", "stat_ident": "123890723"} | legal_unit
+ AB ELEVATION SARLAU                                                | {"tax_ident": "15302620", "stat_ident": "125009253"} | legal_unit
+ SOCIETE BUSZAK SARL                                                | {"tax_ident": "26063811", "stat_ident": "125147982"} | legal_unit
+ STE ASSAMIA IMPORT EXPORT SARL                                     | {"stat_ident": "126110306"}                          | legal_unit
+ STE LEC SARL                                                       | {"tax_ident": "40402722", "stat_ident": "127329270"} | legal_unit
+ SARL  TIZNIT  MEDICAL                                              | {"tax_ident": "2262078", "stat_ident": "128557130"}  | legal_unit
+ PATISSERIE LES FLEURS SARL                                         | {"tax_ident": "40464820", "stat_ident": "128697778"} | legal_unit
+ COOPERATIVE LAITIERE SALMIA                                        | {"tax_ident": "18746827", "stat_ident": "128757594"} | legal_unit
+ OTMANI ADILCAR SARL AU                                             | {"tax_ident": "81106780", "stat_ident": "129619581"} | legal_unit
+ STE CONNECT COMPUTER SARL AU                                       | {"tax_ident": "1006775", "stat_ident": "130367794"}  | legal_unit
+ DORSALINE                                                          | {"tax_ident": "25031570", "stat_ident": "130636364"} | legal_unit
+ MR AKIOUD MOHAMED                                                  | {"tax_ident": "40132887", "stat_ident": "132594552"} | legal_unit
+ STE GUENGUANE TRANS SARL                                           | {"tax_ident": "40452900", "stat_ident": "134497166"} | legal_unit
+ HAMIDALLAH BOUCHRA                                                 | {"tax_ident": "14403628", "stat_ident": "137778089"} | legal_unit
+ DR OUHABI KHADIJA                                                  | {"tax_ident": "1033049", "stat_ident": "140842279"}  | legal_unit
+ MR EL AMRANI EL HASSAN                                             | {"tax_ident": "3332502", "stat_ident": "141018394"}  | legal_unit
+ STE DARWIN SA                                                      | {"tax_ident": "45001180", "stat_ident": "141130451"} | legal_unit
+ IMPERIAL DESIGN SARL                                               | {"tax_ident": "15188741", "stat_ident": "142657189"} | legal_unit
+ VIABUILD                                                           | {"tax_ident": "48507064", "stat_ident": "143676295"} | legal_unit
+ TAIRANE NEGOCE AFRICAIN SARL                                       | {"tax_ident": "40126512", "stat_ident": "146391184"} | legal_unit
+ BENSLIMANE DES TRAVAUX DIVERS ET N                                 | {"tax_ident": "40160683", "stat_ident": "147312684"} | legal_unit
+ STE ECOLE CARLES PRIVEE DESTHETIQU                                 | {"tax_ident": "6950422", "stat_ident": "148511949"}  | legal_unit
+ STE MAROC TIR LOGISTIC                                             | {"tax_ident": "85300550", "stat_ident": "149473158"} | legal_unit
+ STE ARAFAT ELEC SARL AU                                            | {"tax_ident": "6509758", "stat_ident": "151616656"}  | legal_unit
+ MR BAIKEM AHMED                                                    | {"tax_ident": "2861813", "stat_ident": "151873001"}  | legal_unit
+ STE  J P  ALU SARL AU                                              | {"tax_ident": "1087932", "stat_ident": "154328818"}  | legal_unit
+ CAVALI SPA SARL                                                    | {"tax_ident": "20689323", "stat_ident": "154729851"} | legal_unit
+ STE A F FOURNITURE DE CONFECTION S                                 | {"tax_ident": "26115110", "stat_ident": "155160691"} | legal_unit
+ STE BOULATKAR CONSTRUCTION SARL                                    | {"tax_ident": "40135996", "stat_ident": "155766741"} | legal_unit
+ PRESSING EL HAMOUMI SARL                                           | {"tax_ident": "3727591", "stat_ident": "156428260"}  | legal_unit
+ STE NOUVELLE TRAVAUX DIVERS EAU POTA                               | {"tax_ident": "40250004", "stat_ident": "157059972"} | legal_unit
+ BET BELBATRAV                                                      | {"tax_ident": "14435172", "stat_ident": "159003511"} | legal_unit
+ PNEUMATIQUE   ADDIWANE SARLAU                                      | {"tax_ident": "50489945", "stat_ident": "162303632"} | legal_unit
+ FREELANCE INGENIEUR                                                | {"tax_ident": "6993431", "stat_ident": "163095493"}  | legal_unit
+ STE SAM BATITRAV                                                   | {"tax_ident": "70904612", "stat_ident": "165519685"} | legal_unit
+ STE DIXSO                                                          | {"tax_ident": "4120755", "stat_ident": "165733085"}  | legal_unit
+ HOT GARD SARL                                                      | {"tax_ident": "24843106", "stat_ident": "165884952"} | legal_unit
+ STARSERVICES SARL                                                  | {"tax_ident": "40249322", "stat_ident": "167283772"} | legal_unit
+ STE CHABAB TARMIM SARL AU                                          | {"tax_ident": "50620984", "stat_ident": "169035432"} | legal_unit
+ BAFFMAC                                                            | {"tax_ident": "20714502", "stat_ident": "170441831"} | legal_unit
+ STE BINAECOM SARL                                                  | {"tax_ident": "37741742", "stat_ident": "171378485"} | legal_unit
+ ATIKIA                                                             | {"tax_ident": "42764950", "stat_ident": "171407787"} | legal_unit
+ HAFSAOUI BADREDDINE                                                | {"tax_ident": "14488466", "stat_ident": "172209857"} | legal_unit
+ STE BEN CALL CENTER SARL                                           | {"tax_ident": "45930139", "stat_ident": "172516924"} | legal_unit
+ TECHNITAM                                                          | {"tax_ident": "4941143", "stat_ident": "172555118"}  | legal_unit
+ COFLAGA MAROC SARL                                                 | {"tax_ident": "24842851", "stat_ident": "173245535"} | legal_unit
+ LA SOCIETE F S TRANS SARL                                          | {"tax_ident": "1920822", "stat_ident": "173373352"}  | legal_unit
+ HASSI LABYAD IV                                                    | {"tax_ident": "20708437", "stat_ident": "174535130"} | legal_unit
+ MYCAFE                                                             | {"tax_ident": "14454452", "stat_ident": "177796653"} | legal_unit
+ AUTO ECOLE ROUSAFI SARL                                            | {"tax_ident": "47281871", "stat_ident": "178888208"} | legal_unit
+ HIGH PLASTICS SARL AU                                              | {"tax_ident": "15212677", "stat_ident": "179024614"} | legal_unit
+ FADIA II                                                           | {"tax_ident": "14491256", "stat_ident": "179149296"} | legal_unit
+ OUMIZANE BOIS                                                      | {"stat_ident": "181213881"}                          | legal_unit
+ SOCIETE ANTEMETA MEA SARL                                          | {"tax_ident": "45747804", "stat_ident": "182169434"} | legal_unit
+ DEMOCONSTRUCTION                                                   | {"tax_ident": "25231931", "stat_ident": "183249467"} | legal_unit
+ STE MED DE MATERIAUX DE CONSTUCTIO                                 | {"tax_ident": "24812353", "stat_ident": "183274123"} | legal_unit
+ BEN SAID FER SARL                                                  | {"tax_ident": "5790877", "stat_ident": "183571890"}  | legal_unit
+ BOUBRIK TRAVAUX SARL                                               | {"tax_ident": "20791281", "stat_ident": "183925942"} | legal_unit
+ TAZI ABDELFATTAH                                                   | {"tax_ident": "45637558", "stat_ident": "184898164"} | legal_unit
+ ENNAKIYA 2                                                         | {"tax_ident": "14412577", "stat_ident": "185902318"} | legal_unit
+ AFRAITE FATH ALLAH (ANA)                                           | {"tax_ident": "18720436", "stat_ident": "187304774"} | legal_unit
+ EL MOUEDDENE YOUSSEF                                               | {"tax_ident": "6525111", "stat_ident": "188885167"}  | legal_unit
+ STE FIRST BISINESS AND PRODUCT                                     | {"stat_ident": "193234609"}                          | legal_unit
+ STE LOGISTIC TRANSPORT SUR SARL AU                                 | {"tax_ident": "3348833", "stat_ident": "195765396"}  | legal_unit
+ STE EL HALIM TRANS SARL AU                                         | {"tax_ident": "15273236", "stat_ident": "197841705"} | legal_unit
+ VOITH TURBO SA                                                     | {"tax_ident": "37708583", "stat_ident": "200083516"} | legal_unit
+ NEW PRESSING SARL                                                  | {"tax_ident": "67300687", "stat_ident": "200575182"} | legal_unit
+ EL KACEM AHMED                                                     | {"tax_ident": "40177052", "stat_ident": "201773033"} | legal_unit
+ DLS IMMO                                                           | {"tax_ident": "3384587", "stat_ident": "203462752"}  | legal_unit
+ MR AARAB ABDELKADER                                                | {"tax_ident": "1067030", "stat_ident": "204956047"}  | legal_unit
+ STE JANAT ALUM SARL                                                | {"tax_ident": "26104511", "stat_ident": "207426012"} | legal_unit
+ B.2R.M MINERAUX SARL                                               | {"tax_ident": "15241055", "stat_ident": "208109961"} | legal_unit
+ MTR   ESAOUI BOUKHIAR                                              | {"stat_ident": "209193735"}                          | legal_unit
+ ZAGOURA MULTI TRAV SARL AU                                         | {"tax_ident": "4101254", "stat_ident": "209244356"}  | legal_unit
+ STE LE GRAND CAFE MELLA SARL                                       | {"tax_ident": "2260504", "stat_ident": "209752695"}  | legal_unit
+ NT SOFT SARL                                                       | {"tax_ident": "39502212", "stat_ident": "210623372"} | legal_unit
+ STE FORMACION CONTINUA EL ESTRECH                                  | {"tax_ident": "61801110", "stat_ident": "211649148"} | legal_unit
+ STE GRARRI TRAVAUX SARL                                            | {"tax_ident": "851680", "stat_ident": "211709671"}   | legal_unit
+ STE   MOHI  CARS  SARL  AU                                         | {"tax_ident": "37665019", "stat_ident": "211979756"} | legal_unit
+ EURO BOOKING LOGISTICS SARL                                        | {"tax_ident": "2521424", "stat_ident": "212855382"}  | legal_unit
+ STE AGRI ELEVEURE SARL                                             | {"tax_ident": "14455991", "stat_ident": "212997650"} | legal_unit
+ GOLF DU NORD IMPORT                                                | {"tax_ident": "50372407", "stat_ident": "213045948"} | legal_unit
+ TAMESNA IRRIGATION                                                 | {"tax_ident": "15177535", "stat_ident": "214036762"} | legal_unit
+ ZEMMAMA RACHID ET TAWFIK                                           | {"tax_ident": "14418485", "stat_ident": "214269562"} | legal_unit
+ STE CARREAUX PAVE DU MAROC (CAPAV)                                 | {"tax_ident": "47292954", "stat_ident": "214617449"} | legal_unit
+ MR LOUDIYI MOHAMED                                                 | {"tax_ident": "50495380", "stat_ident": "214905520"} | legal_unit
+ ODO MAROC SARL AU                                                  | {"tax_ident": "2265406", "stat_ident": "215002217"}  | legal_unit
+ MOHAMED KARIM DAOUDI                                               | {"tax_ident": "4510470", "stat_ident": "216141763"}  | legal_unit
+ THE GREENS AND FAIRWAYS MANAGEMENT SERVICES                        | {"stat_ident": "217094787"}                          | legal_unit
+ STE CONNAISSANCE DES PIERRES SARL                                  | {"tax_ident": "3367206", "stat_ident": "220928109"}  | legal_unit
+ STE RADI TACHBIBTE SARLAU                                          | {"tax_ident": "1030629", "stat_ident": "221336216"}  | legal_unit
+ STE URANUS NEGOCE SARL                                             | {"tax_ident": "1114994", "stat_ident": "222589334"}  | legal_unit
+ STE EL BOUALAYE FRUIT SARL                                         | {"tax_ident": "24998083", "stat_ident": "223728981"} | legal_unit
+ STE ABIDACH SARL AU                                                | {"tax_ident": "14514390", "stat_ident": "224021395"} | legal_unit
+ RESTAURANT LARA SARL AU                                            | {"tax_ident": "20709535", "stat_ident": "225237838"} | legal_unit
+ MR CHENTOUF ABDESLAM                                               | {"stat_ident": "226501363"}                          | legal_unit
+ ASEA BROWN BOVERI "ABB"                                            | {"tax_ident": "5790311", "stat_ident": "227130247"}  | legal_unit
+ STE GALERIE DE TALBORJT                                            | {"tax_ident": "42715346", "stat_ident": "228056090"} | legal_unit
+ STE TRI SARL                                                       | {"stat_ident": "228169965"}                          | legal_unit
+ PHARMACIE ARRUIT                                                   | {"tax_ident": "14444807", "stat_ident": "228222307"} | legal_unit
+ STE TRANSPORT EL ABASSIA SARL                                      | {"tax_ident": "20738321", "stat_ident": "230020948"} | legal_unit
+ A ROUIS BTP SARL                                                   | {"tax_ident": "37645828", "stat_ident": "231307816"} | legal_unit
+ NEC MAROC SUCC                                                     | {"tax_ident": "24843898", "stat_ident": "235832460"} | legal_unit
+ REX OIL IMPORT SARL                                                | {"tax_ident": "6949424", "stat_ident": "235925218"}  | legal_unit
+ NADO CASH                                                          | {"tax_ident": "40471335", "stat_ident": "237727596"} | legal_unit
+ STE SAMOCTRAP SARL                                                 | {"tax_ident": "20721794", "stat_ident": "237729822"} | legal_unit
+ REHMANI BUILDING SARL AU                                           | {"tax_ident": "40180121", "stat_ident": "238855325"} | legal_unit
+ CLINIQUE CHAOUIA                                                   | {"tax_ident": "37682841", "stat_ident": "242136854"} | legal_unit
+ SOCIETE F R S RENT CAR SARL                                        | {"tax_ident": "75750135", "stat_ident": "242309535"} | legal_unit
+ BOUREZZA MOHAMED AMINE                                             | {"tax_ident": "1031246", "stat_ident": "242916288"}  | legal_unit
+ STE LIRANO SARL AU                                                 | {"tax_ident": "31858571", "stat_ident": "244009156"} | legal_unit
+ SUCCESS CENTER                                                     | {"tax_ident": "20792492", "stat_ident": "244948844"} | legal_unit
+ STE ABRAR PRO SARL                                                 | {"tax_ident": "1000182", "stat_ident": "247823074"}  | legal_unit
+ STE EUSTANGER TRANSPORT SARL                                       | {"tax_ident": "98388718", "stat_ident": "248415683"} | legal_unit
+ STE MAXICOFF GROUPE SARL AU                                        | {"tax_ident": "3345938", "stat_ident": "248424575"}  | legal_unit
+ MR HASSBANE HASSANE                                                | {"tax_ident": "6950309", "stat_ident": "254360773"}  | legal_unit
+ NORTH AFRICA FURNITURE SARL                                        | {"tax_ident": "23003043", "stat_ident": "256547418"} | legal_unit
+ hamza elec pro sarl au                                             | {"tax_ident": "50260547", "stat_ident": "256563077"} | legal_unit
+ AMINE TRUCKING SARL                                                | {"tax_ident": "6504525", "stat_ident": "256723028"}  | legal_unit
+ STE MANALVER SARL                                                  | {"stat_ident": "257410718"}                          | legal_unit
+ INTER SWEET                                                        | {"tax_ident": "2520219", "stat_ident": "258565523"}  | legal_unit
+ STE PARTCHEESE SARL                                                | {"tax_ident": "45202871", "stat_ident": "258595128"} | legal_unit
+ ADIL                                                               | {"tax_ident": "40204068", "stat_ident": "259701635"} | legal_unit
+ CAFE AL MANBAT                                                     | {"tax_ident": "6529918", "stat_ident": "262113501"}  | legal_unit
+ ARKAM IMPORT EXPORT                                                | {"tax_ident": "14452533", "stat_ident": "262192919"} | legal_unit
+ STE DES TRAVX OMAR BRAHIM SARL                                     | {"tax_ident": "77409260", "stat_ident": "262664175"} | legal_unit
+ STE WEST MOTORS SARL                                               | {"tax_ident": "49202500", "stat_ident": "264081789"} | legal_unit
+ GROUPE HMIDOUCH AMENAGEMENT                                        | {"tax_ident": "40455266", "stat_ident": "266270959"} | legal_unit
+ DR AMMAR NADIA                                                     | {"stat_ident": "267126680"}                          | legal_unit
+ RABAL INTERNATIONAL GROUP SARL                                     | {"tax_ident": "16401780", "stat_ident": "267988768"} | legal_unit
+ TRANS BENOUAHI                                                     | {"stat_ident": "269270380"}                          | legal_unit
+ FLASH BACK ELECTRONIC SARL                                         | {"tax_ident": "45942561", "stat_ident": "269308473"} | legal_unit
+ LIMPIO PRESSING                                                    | {"tax_ident": "18796317", "stat_ident": "269729314"} | legal_unit
+ STE D'ETUDES ET DE REPRESENTATIONS INDUSTRIELLES AU MAROC (SERIMA) | {"tax_ident": "20689750", "stat_ident": "269883706"} | legal_unit
+ BOUHOU  MOHAMED                                                    | {"tax_ident": "33609029", "stat_ident": "270273221"} | legal_unit
+ VALVTEC SARL                                                       | {"tax_ident": "20772011", "stat_ident": "270976772"} | legal_unit
+ STE IMTACAR                                                        | {"tax_ident": "15209846", "stat_ident": "272896463"} | legal_unit
+ MORGAN SCHOOL PRIVE                                                | {"tax_ident": "15222514", "stat_ident": "272956784"} | legal_unit
+ IHANSAL MENUISERIE SARL                                            | {"tax_ident": "24824186", "stat_ident": "273167053"} | legal_unit
+ STE OIL AL ABBASSIA SARLAU                                         | {"tax_ident": "14416426", "stat_ident": "274938315"} | legal_unit
+ MAROTAS SARL AU                                                    | {"tax_ident": "3334040", "stat_ident": "277067261"}  | legal_unit
+ SODIAZ SARL                                                        | {"stat_ident": "278623305"}                          | legal_unit
+ EVENTS ADVISOR                                                     | {"tax_ident": "45654388", "stat_ident": "281655563"} | legal_unit
+ ETS EL HOUDA SARL                                                  | {"tax_ident": "40292897", "stat_ident": "286917613"} | legal_unit
+ STE MKM GENERAL TRADING SARL                                       | {"tax_ident": "14366960", "stat_ident": "290443763"} | legal_unit
+ STE UPA CAR SARL                                                   | {"tax_ident": "20686228", "stat_ident": "290537632"} | legal_unit
+ SAHRAOUI EL GOTAIBI                                                | {"tax_ident": "50577194", "stat_ident": "292062148"} | legal_unit
+ SQUALLI HOUSSANI SAAD                                              | {"tax_ident": "14418234", "stat_ident": "334652626"} | legal_unit
+ STE OUARZAZATE STATION DE SERVICE ARL                              | {"tax_ident": "6926027", "stat_ident": "400829056"}  | legal_unit
+ DISSIDENTS SARL                                                    | {"tax_ident": "3385571", "stat_ident": "401873626"}  | legal_unit
+ ROPA SARL                                                          | {"tax_ident": "50307369", "stat_ident": "407612285"} | legal_unit
+ SOGELAB SARLAU                                                     | {"tax_ident": "39512481", "stat_ident": "408604820"} | legal_unit
+ LUX GARDEN                                                         | {"tax_ident": "20719784", "stat_ident": "408730112"} | legal_unit
+ ZAHRAOUI SALAH                                                     | {"tax_ident": "15169140", "stat_ident": "409120334"} | legal_unit
+ STE MARBRERIE COM                                                  | {"tax_ident": "24910241", "stat_ident": "410429632"} | legal_unit
+ SARL MINOTERIE SANABILE EL BARAKA                                  | {"stat_ident": "410537746"}                          | legal_unit
+ FIRE KEY SARL AU                                                   | {"tax_ident": "40480924", "stat_ident": "410947873"} | legal_unit
+ MEDICAL MASSAGE SARLAU                                             | {"tax_ident": "45867986", "stat_ident": "411149957"} | legal_unit
+ HORTI IMMO MYC                                                     | {"tax_ident": "50108223", "stat_ident": "413024178"} | legal_unit
+ MARKETS DEVELOPMENT SARL                                           | {"tax_ident": "18774086", "stat_ident": "413053076"} | legal_unit
+ EL HARRAK KAOUTAR                                                  | {"stat_ident": "413185139"}                          | legal_unit
+ MAADMES SERVICES ET TRAVAUX SARL                                   | {"tax_ident": "67514057", "stat_ident": "413266981"} | legal_unit
+ ELECTRO SECURITE SYSTEMS SARL                                      | {"tax_ident": "39443764", "stat_ident": "414808877"} | legal_unit
+ JAWHARA PRINT SARL                                                 | {"tax_ident": "37684345", "stat_ident": "415719667"} | legal_unit
+ CHAQCHAQ  ADIL                                                     | {"tax_ident": "40472868", "stat_ident": "416507488"} | legal_unit
+ MR MAHYAOUI NOUREDDINE                                             | {"tax_ident": "40448096", "stat_ident": "417094037"} | legal_unit
+ LUXURY BOUTIQUE SARL AU                                            | {"tax_ident": "50494347", "stat_ident": "417618847"} | legal_unit
+ STE LUSINE ELECTRIQUE SA                                           | {"tax_ident": "25977841", "stat_ident": "417788902"} | legal_unit
+ YAKSUL TRAVAUX SARLAU                                              | {"tax_ident": "48537075", "stat_ident": "417796275"} | legal_unit
+ ELECTRO HBILOU SARL                                                | {"tax_ident": "40422427", "stat_ident": "418351300"} | legal_unit
+ STE PERFECT CONS SARL                                              | {"tax_ident": "76148387", "stat_ident": "420147214"} | legal_unit
+ MACHO TRAV                                                         | {"tax_ident": "26173716", "stat_ident": "422561201"} | legal_unit
+ SARL LES FACADES DU SOUSS                                          | {"tax_ident": "24880960", "stat_ident": "423586973"} | legal_unit
+ STE CONETRAV  SARL                                                 | {"tax_ident": "50196202", "stat_ident": "424664279"} | legal_unit
+ TALHA AHMED                                                        | {"tax_ident": "45505158", "stat_ident": "425918209"} | legal_unit
+ C Q A L LAB SARL AU                                                | {"tax_ident": "24321210", "stat_ident": "427403117"} | legal_unit
+ R CONTROL SARL                                                     | {"tax_ident": "40299444", "stat_ident": "429190240"} | legal_unit
+ PROKREAB MAROC SA                                                  | {"tax_ident": "37607354", "stat_ident": "429376863"} | legal_unit
+ TOP TRANSPORT ALLIANCE SARLAU                                      | {"tax_ident": "14449916", "stat_ident": "430695962"} | legal_unit
+ ALAOUI MDAGHRI GHITA                                               | {"tax_ident": "42779583", "stat_ident": "432238565"} | legal_unit
+ SARL DARAA ENERGY                                                  | {"tax_ident": "14425984", "stat_ident": "434805025"} | legal_unit
+ HARASSI YOUNES                                                     | {"tax_ident": "2861462", "stat_ident": "435227579"}  | legal_unit
+ STE SLAOUI DE BATIMENT ET AMENAGEMEN                               | {"tax_ident": "6506233", "stat_ident": "438618337"}  | legal_unit
+ SOUSSANI                                                           | {"tax_ident": "40205784", "stat_ident": "439140521"} | legal_unit
+ MR EL GHAZI JAMAL                                                  | {"tax_ident": "18728202", "stat_ident": "443116006"} | legal_unit
+ AUTO ECOLE EL MOUHASSIB NADIA                                      | {"tax_ident": "1114857", "stat_ident": "443255644"}  | legal_unit
+ SOUIHLI BAT SARL AU                                                | {"tax_ident": "14381772", "stat_ident": "443654051"} | legal_unit
+ ROCCO RENT SARL AU                                                 | {"tax_ident": "40209804", "stat_ident": "446578906"} | legal_unit
+ KOHEN SAID MOHAMMED                                                | {"tax_ident": "15162355", "stat_ident": "447551431"} | legal_unit
+ CUBAMI SARLAU                                                      | {"tax_ident": "56907760", "stat_ident": "447887392"} | legal_unit
+ SOCIETE TRANSGLOBES TOUR SARL                                      | {"tax_ident": "25007065", "stat_ident": "448980462"} | legal_unit
+ SOCIETE GENIE FORESTIER ET RURAL                                   | {"tax_ident": "83338221", "stat_ident": "450577528"} | legal_unit
+ TAFOUKTE                                                           | {"tax_ident": "18784446", "stat_ident": "450921472"} | legal_unit
+ STE IFNISOFT  SARL                                                 | {"tax_ident": "37501395", "stat_ident": "451453659"} | legal_unit
+ STE T J R CONSTRUCTION SARL AU                                     | {"tax_ident": "6903855", "stat_ident": "454610910"}  | legal_unit
+ HONGFU SARL AU                                                     | {"tax_ident": "18790570", "stat_ident": "455965775"} | legal_unit
+ BG PROMO                                                           | {"tax_ident": "6991061", "stat_ident": "456213935"}  | legal_unit
+ MR EL AMILE MOHAMED                                                | {"tax_ident": "18735813", "stat_ident": "456845041"} | legal_unit
+ RADIOVEILLE LUXE RADIO                                             | {"tax_ident": "14468568", "stat_ident": "457346714"} | legal_unit
+ BOUDIMEX SARL                                                      | {"tax_ident": "26185092", "stat_ident": "458715323"} | legal_unit
+ SOCIETE MALINAS TRADING SARL                                       | {"tax_ident": "15164127", "stat_ident": "458831723"} | legal_unit
+ SKAT SERVICE                                                       | {"tax_ident": "15271640", "stat_ident": "459227706"} | legal_unit
+ STE DREM NEGOCE SARLAU                                             | {"tax_ident": "40711284", "stat_ident": "460825677"} | legal_unit
+ STE OMSER                                                          | {"tax_ident": "18789205", "stat_ident": "461230653"} | legal_unit
+ EL BOUYOUSFI LAHCEN                                                | {"tax_ident": "40175762", "stat_ident": "466251718"} | legal_unit
+ STE SERMALEV  SARL                                                 | {"tax_ident": "39427555", "stat_ident": "466535543"} | legal_unit
+ STE LAB CONSTRUCTION                                               | {"tax_ident": "1660966", "stat_ident": "469137668"}  | legal_unit
+ ASSAHEL                                                            | {"tax_ident": "37546734", "stat_ident": "473255017"} | legal_unit
+ CASAEASY                                                           | {"tax_ident": "18784321", "stat_ident": "473609974"} | legal_unit
+ STE LE GEANT DE CONSTRUCTION SARL                                  | {"tax_ident": "24830760", "stat_ident": "474121246"} | legal_unit
+ SIJI TRANS                                                         | {"tax_ident": "2223122", "stat_ident": "474759123"}  | legal_unit
+ GERMAN ALL WORKS SARL                                              | {"tax_ident": "26073847", "stat_ident": "475260792"} | legal_unit
+ BELZA-MED CALL SARL                                                | {"tax_ident": "24301763", "stat_ident": "475713662"} | legal_unit
+ STE TIZROTIN                                                       | {"tax_ident": "45775314", "stat_ident": "476211901"} | legal_unit
+ 3A PHONE  SA                                                       | {"tax_ident": "24203480", "stat_ident": "477013866"} | legal_unit
+ STE MOUADOU CAR SARL AU                                            | {"tax_ident": "70724057", "stat_ident": "477306785"} | legal_unit
+ CHOROUK PARK SARL                                                  | {"tax_ident": "83100126", "stat_ident": "477329926"} | legal_unit
+ M.P TRANSPORT SARL                                                 | {"tax_ident": "48570499", "stat_ident": "477442989"} | legal_unit
+ SGPM SERVICES                                                      | {"tax_ident": "4510414", "stat_ident": "478178977"}  | legal_unit
+ AMOTECH DESIGN SARL                                                | {"tax_ident": "15232232", "stat_ident": "478862829"} | legal_unit
+ STE ATTRACTIVE NEGOCE SARL AU                                      | {"tax_ident": "4550654", "stat_ident": "480461410"}  | legal_unit
+ STE STROG INDUSTRIE SARL                                           | {"tax_ident": "15240127", "stat_ident": "480640454"} | legal_unit
+ AL JAWHARA SUD                                                     | {"stat_ident": "481392004"}                          | legal_unit
+ STE WEBDECLIC SARL                                                 | {"stat_ident": "482480222"}                          | legal_unit
+ STE  CALL  LUX  SARL                                               | {"tax_ident": "50092995", "stat_ident": "484339992"} | legal_unit
+ J.K.Y TRAVAUX                                                      | {"tax_ident": "14403864", "stat_ident": "485168132"} | legal_unit
+ LA GENERALE DE RECYCLAGE SARL                                      | {"tax_ident": "6101787", "stat_ident": "485176418"}  | legal_unit
+ GOOD GOODS AUTOS SARLAU                                            | {"tax_ident": "24844051", "stat_ident": "488567273"} | legal_unit
+ CHOUFARI LAILA                                                     | {"tax_ident": "42766871", "stat_ident": "490815148"} | legal_unit
+ MBARKI ABDELLAH                                                    | {"tax_ident": "20760473", "stat_ident": "490946403"} | legal_unit
+ MESSOUAK CONTRACTOR                                                | {"tax_ident": "75302560", "stat_ident": "492766464"} | legal_unit
+ STE AYOUR AMEZRAYE SARL                                            | {"tax_ident": "42763099", "stat_ident": "493192052"} | legal_unit
+ KINAB PLAST                                                        | {"tax_ident": "3341107", "stat_ident": "494780226"}  | legal_unit
+ STE RIMAL FOUNTY                                                   | {"tax_ident": "1920857", "stat_ident": "494808215"}  | legal_unit
+ HAMZA KALLOUCHI                                                    | {"stat_ident": "494816501"}                          | legal_unit
+ STE T.D.SAF SARL AU                                                | {"tax_ident": "3101175", "stat_ident": "495030002"}  | legal_unit
+ STE EL MANO CERAME SARL                                            | {"tax_ident": "50117172", "stat_ident": "495131648"} | legal_unit
+ KHALID PECHE                                                       | {"tax_ident": "20783813", "stat_ident": "496720630"} | legal_unit
+ STE ALLO CIM                                                       | {"tax_ident": "15160867", "stat_ident": "496799139"} | legal_unit
+ GUEDIRA IBTISSAME                                                  | {"tax_ident": "40393625", "stat_ident": "497287573"} | legal_unit
+ STE AL BAYNA DE TRAVAUX ET DE COMMER                               | {"tax_ident": "6900296", "stat_ident": "498044880"}  | legal_unit
+ ART TOILE SARL AU                                                  | {"tax_ident": "14438422", "stat_ident": "515076969"} | legal_unit
+ ALUMEGA                                                            | {"tax_ident": "42300580", "stat_ident": "517348082"} | legal_unit
+ OUSSAMA MOTOS                                                      | {"tax_ident": "68960670", "stat_ident": "517543601"} | legal_unit
+ HASNA ASSURANCE                                                    | {"tax_ident": "40449382", "stat_ident": "518421348"} | legal_unit
+ MR BERRADA EL AZIZI                                                | {"tax_ident": "25256558", "stat_ident": "519271110"} | legal_unit
+ ALPHA SED                                                          | {"tax_ident": "20713008", "stat_ident": "521498773"} | legal_unit
+ STE FUTCHA TRANS SARL                                              | {"tax_ident": "46604775", "stat_ident": "521952350"} | legal_unit
+ LAHCEN DESERT SERVICES SARL                                        | {"tax_ident": "37605991", "stat_ident": "523651971"} | legal_unit
+ STE TAGRATI ALUM SARL AU                                           | {"tax_ident": "42735466", "stat_ident": "524386141"} | legal_unit
+ STE JOUD TAAMIR                                                    | {"tax_ident": "48570301", "stat_ident": "524585902"} | legal_unit
+ AZAGHAR PRESSING                                                   | {"tax_ident": "20783772", "stat_ident": "525138596"} | legal_unit
+ KING BUREAU SARL                                                   | {"tax_ident": "39518952", "stat_ident": "525860440"} | legal_unit
+ STE NZY TVX DIVERS SARLAU                                          | {"tax_ident": "3381956", "stat_ident": "526387775"}  | legal_unit
+ ASFAR AL MAWADA                                                    | {"tax_ident": "6900656", "stat_ident": "526494071"}  | legal_unit
+ IMPORT ET EXPORT DE JOUETS (COMPTO                                 | {"tax_ident": "40297602", "stat_ident": "526831450"} | legal_unit
+ SMICOTRAV SARL                                                     | {"tax_ident": "25060085", "stat_ident": "531293955"} | legal_unit
+ STE ONAYA                                                          | {"tax_ident": "1661137", "stat_ident": "533325804"}  | legal_unit
+ MR TKITAK  MOHAMMED                                                | {"tax_ident": "212060", "stat_ident": "534868710"}   | legal_unit
+ TERTIA 1                                                           | {"tax_ident": "48588400", "stat_ident": "538733855"} | legal_unit
+ STE SOBENALLA                                                      | {"tax_ident": "14398559", "stat_ident": "539595135"} | legal_unit
+ STE SAHARA GARDEN SARL                                             | {"tax_ident": "3307035", "stat_ident": "540578471"}  | legal_unit
+ AYA INOX                                                           | {"tax_ident": "40399166", "stat_ident": "540693053"} | legal_unit
+ MS CREATIVE                                                        | {"tax_ident": "50339147", "stat_ident": "542216862"} | legal_unit
+ ZRIMEK EL HADJ E POLYSSET ZRIMEK                                   | {"tax_ident": "6509048", "stat_ident": "546322992"}  | legal_unit
+ IALLALEN                                                           | {"tax_ident": "20733936", "stat_ident": "547422631"} | legal_unit
+ S.M-DESIGN                                                         | {"tax_ident": "24977349", "stat_ident": "548052020"} | legal_unit
+ STE HAMID HALOUI CONSULTING                                        | {"tax_ident": "25074071", "stat_ident": "548063740"} | legal_unit
+ BEN DENTAL SARL AU                                                 | {"tax_ident": "42780185", "stat_ident": "548523175"} | legal_unit
+ SOCIETE DE GESTION DU PORT DE TANGER-VILLE (SGPTV)                 | {"stat_ident": "548589358"}                          | legal_unit
+ STE TOUCHKA CARS SARL                                              | {"stat_ident": "549446493"}                          | legal_unit
+ STE FADIL ASSISTANCE                                               | {"tax_ident": "34449869", "stat_ident": "550950296"} | legal_unit
+ EL FIDDI BRAHIM                                                    | {"tax_ident": "14417316", "stat_ident": "551631724"} | legal_unit
+ SARL CADAIC                                                        | {"tax_ident": "3348633", "stat_ident": "553532520"}  | legal_unit
+ STE MERCADO SARL AU                                                | {"tax_ident": "45754831", "stat_ident": "554187773"} | legal_unit
+ SOCIETE CONBAZTIR SARL                                             | {"tax_ident": "24836781", "stat_ident": "554537478"} | legal_unit
+ STME MAROC SARLAU                                                  | {"tax_ident": "20729184", "stat_ident": "555353389"} | legal_unit
+ STE SIGMADEV SARL AU                                               | {"tax_ident": "75765089", "stat_ident": "555451504"} | legal_unit
+ YAS IMMO SARLAU                                                    | {"tax_ident": "16090510", "stat_ident": "556445752"} | legal_unit
+ RED PIECES AUTOS                                                   | {"stat_ident": "557473750"}                          | legal_unit
+ NILE SERVICES SARL A U                                             | {"tax_ident": "75764942", "stat_ident": "559475182"} | legal_unit
+ STERA ETS STABLE "SUCCURSALE"                                      | {"tax_ident": "40479196", "stat_ident": "560166310"} | legal_unit
+ SOCIETE PROTEC SOFT MAROC                                          | {"tax_ident": "6980343", "stat_ident": "561526835"}  | legal_unit
+ ZERALYCAR SARL AU                                                  | {"tax_ident": "76145818", "stat_ident": "561695169"} | legal_unit
+ STE SPRING BEE SCHOOL PRIVE                                        | {"tax_ident": "15291173", "stat_ident": "564175036"} | legal_unit
+ STE MD FER SARL AU                                                 | {"tax_ident": "50372081", "stat_ident": "565824238"} | legal_unit
+ SKY TRADING                                                        | {"tax_ident": "18757230", "stat_ident": "569816594"} | legal_unit
+ LB TRANSFERT                                                       | {"tax_ident": "25233101", "stat_ident": "570503577"} | legal_unit
+ STE SOTTRA FOOD SARL                                               | {"tax_ident": "45955486", "stat_ident": "573040432"} | legal_unit
+ LA INDUSTRIE                                                       | {"tax_ident": "36122650", "stat_ident": "573605658"} | legal_unit
+ STE MOUAOUIN TRANS                                                 | {"tax_ident": "4935064", "stat_ident": "574169167"}  | legal_unit
+ SARL TIMOULAY FERONERIE                                            | {"tax_ident": "37521343", "stat_ident": "574329118"} | legal_unit
+ CHANGE KASRIOUI SARL                                               | {"tax_ident": "33658841", "stat_ident": "574341545"} | legal_unit
+ FARAJ MED                                                          | {"tax_ident": "47368474", "stat_ident": "575613760"} | legal_unit
+ STE IMMOBILIERE DIWANE SARL                                        | {"tax_ident": "1100488", "stat_ident": "576922149"}  | legal_unit
+ EL AYAT RACHID &EL HADI ABDELAZIZ                                  | {"tax_ident": "40251136", "stat_ident": "579981487"} | legal_unit
+ GHALIM MOHAMED                                                     | {"tax_ident": "5701476", "stat_ident": "581502468"}  | legal_unit
+ L HORTICULTURE MODERNE  SARL                                       | {"tax_ident": "40465128", "stat_ident": "586576477"} | legal_unit
+ ENER GRID CONSILTSARL AU                                           | {"tax_ident": "45739826", "stat_ident": "591357163"} | legal_unit
+ STE HGSM NEGOCE SARL                                               | {"stat_ident": "592778821"}                          | legal_unit
+ SALI 33 SARL                                                       | {"tax_ident": "40395617", "stat_ident": "593526024"} | legal_unit
+ STE IRRI GROUPE SARL                                               | {"tax_ident": "76145432", "stat_ident": "596607590"} | legal_unit
+ EL BAKKALI ISSAOUI REDOUAN                                         | {"tax_ident": "1007129", "stat_ident": "598395424"}  | legal_unit
+ PROXI ENETGIE                                                      | {"tax_ident": "14373769", "stat_ident": "598853243"} | legal_unit
+ AIT BIHI AHMED                                                     | {"tax_ident": "50591071", "stat_ident": "599412510"} | legal_unit
+ BRICO PLANET SARL                                                  | {"tax_ident": "5300095", "stat_ident": "601540951"}  | legal_unit
+ NAIMA FLEX SARL                                                    | {"tax_ident": "50277797", "stat_ident": "607017209"} | legal_unit
+ TRAVELLER NEGOCE SARL AU                                           | {"tax_ident": "37701426", "stat_ident": "608575976"} | legal_unit
+ CIMIA TECHNOLOGY  EX VT-SERCURITY                                  | {"tax_ident": "24949894", "stat_ident": "609895075"} | legal_unit
+ TRANSGET                                                           | {"tax_ident": "33683523", "stat_ident": "610173749"} | legal_unit
+ SOCIETE LAJOUAD VISION                                             | {"tax_ident": "15234476", "stat_ident": "612996146"} | legal_unit
+ STE P.C TEL SNC                                                    | {"tax_ident": "18728709", "stat_ident": "613271685"} | legal_unit
+ IB GROUP                                                           | {"tax_ident": "5750462", "stat_ident": "614312720"}  | legal_unit
+ TEM ARGANA                                                         | {"tax_ident": "47249676", "stat_ident": "614315144"} | legal_unit
+ ETS FATH DE DISTR DE GAZ EFADIGAZ                                  | {"tax_ident": "37550791", "stat_ident": "618709244"} | legal_unit
+ SOCIETE BEN DESIGN SARL                                            | {"tax_ident": "15178435", "stat_ident": "619269521"} | legal_unit
+ STE AKM CAR SARL AU                                                | {"tax_ident": "6902798", "stat_ident": "620648840"}  | legal_unit
+ STE GBAV INGENIERIE SARL                                           | {"stat_ident": "623006546"}                          | legal_unit
+ STE SK MM TRANS SARL                                               | {"tax_ident": "45895696", "stat_ident": "623704542"} | legal_unit
+ STE LIVE EQUIPEMENT SARL                                           | {"stat_ident": "624878747"}                          | legal_unit
+ AHESION CONSULTING                                                 | {"tax_ident": "3340955", "stat_ident": "625029503"}  | legal_unit
+ STE MEPOTRAVE TRADING                                              | {"tax_ident": "3348989", "stat_ident": "626120044"}  | legal_unit
+ STE LEHBI TRANS SARL                                               | {"tax_ident": "40416152", "stat_ident": "626751352"} | legal_unit
+ STE CHATTABI TRAVAUX SARL                                          | {"tax_ident": "37552585", "stat_ident": "627767933"} | legal_unit
+ SOCIETE A B ARCHITECTE                                             | {"tax_ident": "18773417", "stat_ident": "629091072"} | legal_unit
+ CHEBLI INOX SARL AU                                                | {"stat_ident": "631485154"}                          | legal_unit
+ KT SOUDAGE CHAUDRONNERIE                                           | {"tax_ident": "3382847", "stat_ident": "632691388"}  | legal_unit
+ MRS TRAGHA M HAMDI ET MAZOUZI MED                                  | {"tax_ident": "34155431", "stat_ident": "633690488"} | legal_unit
+ IMAGIA MAROC  SARL                                                 | {"tax_ident": "40438440", "stat_ident": "634335540"} | legal_unit
+ YAYATEX SARL                                                       | {"tax_ident": "47233266", "stat_ident": "635680305"} | legal_unit
+ HIDKI FATINE                                                       | {"tax_ident": "518062", "stat_ident": "639749352"}   | legal_unit
+ CLICHY CHANGE                                                      | {"tax_ident": "40303703", "stat_ident": "640539500"} | legal_unit
+ STE MADMI MULTI SERVICES SARL                                      | {"tax_ident": "20725608", "stat_ident": "641834852"} | legal_unit
+ STE GR SABRINA  SARL AU                                            | {"tax_ident": "45674488", "stat_ident": "646535716"} | legal_unit
+ BOU LHOUSSAINE IMPORT EXPORT SARL                                  | {"tax_ident": "77633186", "stat_ident": "647708911"} | legal_unit
+ MR AMMOR SAAD                                                      | {"tax_ident": "4905399", "stat_ident": "648010722"}  | legal_unit
+ WEFIXIT SARL                                                       | {"tax_ident": "25050974", "stat_ident": "650677111"} | legal_unit
+ MAISON D'HOTE PALM PALACE                                          | {"stat_ident": "652887495"}                          | legal_unit
+ STE IRAHALEN SARL                                                  | {"tax_ident": "34495326", "stat_ident": "654384834"} | legal_unit
+ STE EL OUAFAE COCHES SARL                                          | {"tax_ident": "92435432", "stat_ident": "655680994"} | legal_unit
+ PR ELECRTY SARL                                                    | {"tax_ident": "3315539", "stat_ident": "660036702"}  | legal_unit
+ MERIEM GUESSOUS JARDIN DE TGHAT                                    | {"tax_ident": "50162635", "stat_ident": "661683577"} | legal_unit
+ EDDASSI EL HASSANE                                                 | {"tax_ident": "31811576", "stat_ident": "663727954"} | legal_unit
+ SYNAPSIA DEVELOPPEMENT                                             | {"tax_ident": "91630105", "stat_ident": "663805352"} | legal_unit
+ CHINMAR FISHERIES SA                                               | {"tax_ident": "37705311", "stat_ident": "665736864"} | legal_unit
+ BEN HAMID TRANSPORT SARL                                           | {"tax_ident": "3383708", "stat_ident": "666220046"}  | legal_unit
+ AMRANI HANCHI IDRISSI MOUAD                                        | {"tax_ident": "25006055", "stat_ident": "666385249"} | legal_unit
+ DAABOUL AHMAD                                                      | {"tax_ident": "3383623", "stat_ident": "667292807"}  | legal_unit
+ STE IBRABAT SARL AU                                                | {"tax_ident": "24915960", "stat_ident": "667905725"} | legal_unit
+ STE SANI FASHION SARL AU                                           | {"tax_ident": "36106200", "stat_ident": "667951090"} | legal_unit
+ MR LOUGMANI FOUAD                                                  | {"tax_ident": "14438702", "stat_ident": "670624856"} | legal_unit
+ MAIJI JAMAL                                                        | {"tax_ident": "49700730", "stat_ident": "676254795"} | legal_unit
+ STE TOTORIEGOS SARL                                                | {"tax_ident": "953719", "stat_ident": "676887622"}   | legal_unit
+ STE CHOUKRI TRANSPORT                                              | {"tax_ident": "3306342", "stat_ident": "679773471"}  | legal_unit
+ GO PLUS SARL                                                       | {"tax_ident": "40132600", "stat_ident": "681421562"} | legal_unit
+ STE CERAMEK                                                        | {"tax_ident": "29154300", "stat_ident": "683684793"} | legal_unit
+ NOBLE WOOD SARL AU                                                 | {"tax_ident": "18742668", "stat_ident": "683703587"} | legal_unit
+ COMPAGNIE PUBLIC AMENAGEMENT INVESTI                               | {"tax_ident": "18753794", "stat_ident": "685496471"} | legal_unit
+ STE NICE  GUARD                                                    | {"tax_ident": "40421432", "stat_ident": "687093638"} | legal_unit
+ QUATRE VENTI SARL                                                  | {"tax_ident": "3376628", "stat_ident": "688225407"}  | legal_unit
+ LES TARBOUCHETTES SARL                                             | {"tax_ident": "3349095", "stat_ident": "690133576"}  | legal_unit
+ STE  ASSURANCES  SIDI BENNOUR  SAR                                 | {"tax_ident": "3301749", "stat_ident": "690711940"}  | legal_unit
+ CONSTRUCTION BUILDING SPACE                                        | {"tax_ident": "20866095", "stat_ident": "692273741"} | legal_unit
+ TOUS  DOMAINES                                                     | {"tax_ident": "40424126", "stat_ident": "698166893"} | legal_unit
+ SOCIETE MATEPO SARL                                                | {"tax_ident": "42800401", "stat_ident": "700098813"} | legal_unit
+ AMRANI OUSSAMA                                                     | {"tax_ident": "25087069", "stat_ident": "701090334"} | legal_unit
+ VANO CAFE                                                          | {"tax_ident": "48532740", "stat_ident": "701272715"} | legal_unit
+ AZZ MENAGE SARL                                                    | {"tax_ident": "18736293", "stat_ident": "701392347"} | legal_unit
+ AQEL LILBINAE SARL AU                                              | {"tax_ident": "15268142", "stat_ident": "702949195"} | legal_unit
+ DROUSSI ALLAL                                                      | {"tax_ident": "39507136", "stat_ident": "707141821"} | legal_unit
+ ECOLE AZHAR ARRIAD PRIVEE                                          | {"tax_ident": "33647520", "stat_ident": "713394580"} | legal_unit
+ MR NAKHLI ABDELLATIF                                               | {"tax_ident": "24981680", "stat_ident": "724642540"} | legal_unit
+ TAFGEST SARL                                                       | {"tax_ident": "1962154", "stat_ident": "725777945"}  | legal_unit
+ CHEDDAD EL MOSTAFA                                                 | {"tax_ident": "18723235", "stat_ident": "727671162"} | legal_unit
+ AMARI   RACHID                                                     | {"tax_ident": "39490382", "stat_ident": "727696929"} | legal_unit
+ OUADIRGA FATIHA                                                    | {"tax_ident": "50249931", "stat_ident": "727986414"} | legal_unit
+ BENYAHIA NAOUAL                                                    | {"tax_ident": "47261584", "stat_ident": "729663605"} | legal_unit
+ LE GRAND ZENATA                                                    | {"tax_ident": "15201924", "stat_ident": "731100417"} | legal_unit
+ STE ACOM DEVELOPPEMENT SARL                                        | {"tax_ident": "31889227", "stat_ident": "731509837"} | legal_unit
+ DIAMANT CASH                                                       | {"tax_ident": "14492946", "stat_ident": "732918054"} | legal_unit
+ ANAIS TRANSPORT SARL AU                                            | {"tax_ident": "20710558", "stat_ident": "733620090"} | legal_unit
+ TOP KHADAMAT SARLAU                                                | {"tax_ident": "39493645", "stat_ident": "733754779"} | legal_unit
+ AJANEF HMAMA                                                       | {"tax_ident": "4100256", "stat_ident": "736619010"}  | legal_unit
+ BENADDI SERVICES                                                   | {"tax_ident": "15163409", "stat_ident": "737208080"} | legal_unit
+ RESTAURANT CHEZ YEM MA                                             | {"tax_ident": "25033222", "stat_ident": "738094218"} | legal_unit
+ EL AOUADI NACEUR                                                   | {"tax_ident": "18782540", "stat_ident": "740950260"} | legal_unit
+ AFIR SAMIRA                                                        | {"tax_ident": "682348", "stat_ident": "742802354"}   | legal_unit
+ EL OUTIA EQUIPEMENT                                                | {"tax_ident": "50273535", "stat_ident": "744718005"} | legal_unit
+ ETABLISSEMENT CHARIF NOUR PRIVE                                    | {"tax_ident": "1100205", "stat_ident": "751462434"}  | legal_unit
+ STE HM EXPERT SARL AU                                              | {"tax_ident": "1111725", "stat_ident": "754341718"}  | legal_unit
+ S A ADDICSIA                                                       | {"tax_ident": "1020771", "stat_ident": "754879864"}  | legal_unit
+ MR GUERMANE BRAHIM                                                 | {"stat_ident": "755386284"}                          | legal_unit
+ STE MEDLA CONSULTING                                               | {"stat_ident": "757705291"}                          | legal_unit
+ STELOKA VOYAGES SARL                                               | {"tax_ident": "25238908", "stat_ident": "759703491"} | legal_unit
+ S Y T E R SARL                                                     | {"tax_ident": "37635451", "stat_ident": "762190836"} | legal_unit
+ TROIS D COM SARL AU                                                | {"tax_ident": "50159723", "stat_ident": "762873068"} | legal_unit
+ SPECIALACIER SARL                                                  | {"tax_ident": "88404631", "stat_ident": "763699992"} | legal_unit
+ DOUNIA SAFAA                                                       | {"tax_ident": "18788641", "stat_ident": "767471777"} | legal_unit
+ MANDRI  CAR  S A R L                                               | {"tax_ident": "34480880", "stat_ident": "768394085"} | legal_unit
+ STE INSTADIV SARL D ASSOCIE UNIQUE                                 | {"tax_ident": "3750421", "stat_ident": "768507960"}  | legal_unit
+ PRAMESTA                                                           | {"tax_ident": "33677496", "stat_ident": "769208279"} | legal_unit
+ JP CARS SARL AU                                                    | {"tax_ident": "37620899", "stat_ident": "769229804"} | legal_unit
+ BEPOB SARL                                                         | {"tax_ident": "3308541", "stat_ident": "769379142"}  | legal_unit
+ MAK  COMPANY                                                       | {"tax_ident": "20780552", "stat_ident": "769642254"} | legal_unit
+ SARL AU SOKADITRAV                                                 | {"tax_ident": "33638436", "stat_ident": "772746759"} | legal_unit
+ STE ANNAB TRANSFERT                                                | {"tax_ident": "3760063", "stat_ident": "775771139"}  | legal_unit
+ SYS TECHNOLOGY                                                     | {"tax_ident": "14371559", "stat_ident": "779384892"} | legal_unit
+ EL GUANA                                                           | {"tax_ident": "25257879", "stat_ident": "780718644"} | legal_unit
+ SOCIETE TRANSPORT MARYAMO                                          | {"tax_ident": "14467772", "stat_ident": "781479385"} | legal_unit
+ JAMAL                                                              | {"tax_ident": "1114944", "stat_ident": "782090687"}  | legal_unit
+ BEACHBALBOA SARL                                                   | {"tax_ident": "18723306", "stat_ident": "784147390"} | legal_unit
+ STE LAVAGE ENTRETIEN EXPRESS SARL                                  | {"tax_ident": "3368159", "stat_ident": "787444077"}  | legal_unit
+ ALFA TRAV  SARL AU                                                 | {"tax_ident": "1960210", "stat_ident": "796100723"}  | legal_unit
+ STE TIFROUINE TRANSPORT SARL                                       | {"tax_ident": "40233497", "stat_ident": "797994344"} | legal_unit
+ G4 TRAVAUX MAROC SARL AU                                           | {"tax_ident": "512576", "stat_ident": "800757935"}   | legal_unit
+ SOMENTRAV                                                          | {"tax_ident": "40438642", "stat_ident": "800839575"} | legal_unit
+ STE ALCHTECH SARL                                                  | {"tax_ident": "3700611", "stat_ident": "801532420"}  | legal_unit
+ ONE DREAM                                                          | {"tax_ident": "40444444", "stat_ident": "804793943"} | legal_unit
+ LES JARDIN DE YANICE SARL                                          | {"tax_ident": "14369314", "stat_ident": "805625315"} | legal_unit
+ STE AIT RED IMPORT EXPORT SARL                                     | {"tax_ident": "1640884", "stat_ident": "807730821"}  | legal_unit
+ JEDD CAFE S N C                                                    | {"tax_ident": "25028239", "stat_ident": "809522792"} | legal_unit
+ NASSILI ABDELMAJID                                                 | {"tax_ident": "26064652", "stat_ident": "814304286"} | legal_unit
+ BIGFOREST SARL AU                                                  | {"tax_ident": "20727109", "stat_ident": "817093846"} | legal_unit
+ ZIDANE ABDELILAH                                                   | {"tax_ident": "39471317", "stat_ident": "819866733"} | legal_unit
+ AUTO PLAZA                                                         | {"tax_ident": "25296180", "stat_ident": "823935477"} | legal_unit
+ STE B LINESUD                                                      | {"tax_ident": "45933961", "stat_ident": "826211543"} | legal_unit
+ LE RIAD DU SAVOIR SARL AU                                          | {"tax_ident": "3304982", "stat_ident": "826467480"}  | legal_unit
+ atelier be sarl                                                    | {"tax_ident": "15250133", "stat_ident": "832614351"} | legal_unit
+ JAPRIM SARL                                                        | {"tax_ident": "25068916", "stat_ident": "833506145"} | legal_unit
+ DOUMOU INOX SARL                                                   | {"tax_ident": "24868643", "stat_ident": "833871816"} | legal_unit
+ LABRIKI SAID                                                       | {"tax_ident": "20742816", "stat_ident": "835601749"} | legal_unit
+ STE TELMIRA TRAVAUX SARL                                           | {"stat_ident": "839255821"}                          | legal_unit
+ DRIOUECH ABDELKADER                                                | {"tax_ident": "40462391", "stat_ident": "841320507"} | legal_unit
+ STE MAHFOUDI ET SADIKI SARL                                        | {"tax_ident": "42766081", "stat_ident": "841758825"} | legal_unit
+ AEDGE PARTNERS SARLAU                                              | {"tax_ident": "18754689", "stat_ident": "841821368"} | legal_unit
+ L OR D ORIENT                                                      | {"tax_ident": "80310970", "stat_ident": "842667086"} | legal_unit
+ 2SR TRAVAUX(EX BOMBI CONSTRUCTION)                                 | {"tax_ident": "24991334", "stat_ident": "844611534"} | legal_unit
+ BARAKA BUSINESS                                                    | {"tax_ident": "23518560", "stat_ident": "845830094"} | legal_unit
+ MR TAGHCHIT L HOUSSAINE                                            | {"tax_ident": "42746020", "stat_ident": "847316824"} | legal_unit
+ STE EXPORT KHALDI SARL                                             | {"tax_ident": "15254240", "stat_ident": "847776461"} | legal_unit
+ RAJELEC                                                            | {"tax_ident": "14444658", "stat_ident": "848364626"} | legal_unit
+ EURO BAGAGES SARL                                                  | {"tax_ident": "15212759", "stat_ident": "850248850"} | legal_unit
+ PREMIUM ACCOUNTING SOLUTOIN                                        | {"tax_ident": "14476411", "stat_ident": "850278556"} | legal_unit
+ SNC STE FIDUCIEIRE ARQAM                                           | {"tax_ident": "18755493", "stat_ident": "850702427"} | legal_unit
+ STE RAS GAZ SARL                                                   | {"tax_ident": "1102416", "stat_ident": "851249566"}  | legal_unit
+ TANINE LARBI ET BENGADA "INST TRI                                  | {"tax_ident": "34308194", "stat_ident": "851439223"} | legal_unit
+ TAPISSERIE LOUBIHI                                                 | {"tax_ident": "15269948", "stat_ident": "852019102"} | legal_unit
+ GHISSASSI AHMED                                                    | {"tax_ident": "24920016", "stat_ident": "852104075"} | legal_unit
+ DR BOUZID KHALIL                                                   | {"tax_ident": "20732904", "stat_ident": "852238764"} | legal_unit
+ SKANDIACAR SARL AU                                                 | {"tax_ident": "40467134", "stat_ident": "852571190"} | legal_unit
+ FIRST AUTOMATION SARL AU                                           | {"tax_ident": "3770131", "stat_ident": "852813791"}  | legal_unit
+ STE HIGH HOME SARL AU                                              | {"tax_ident": "50090516", "stat_ident": "859105152"} | legal_unit
+ JULIEN CHARLES COLOMBANI                                           | {"tax_ident": "18809186", "stat_ident": "859329767"} | legal_unit
+ SARL ETS OMARIS DE MEUBLES                                         | {"tax_ident": "33678398", "stat_ident": "863705376"} | legal_unit
+ DAOUDI                                                             | {"tax_ident": "26100357", "stat_ident": "864090750"} | legal_unit
+ SARL STE DAYCOM                                                    | {"stat_ident": "864171582"}                          | legal_unit
+ STE TOUS TRAVAUX METALLIQUES SARL                                  | {"tax_ident": "5702203", "stat_ident": "864542812"}  | legal_unit
+ SAHARA FERRAILLE                                                   | {"tax_ident": "3701711", "stat_ident": "866385004"}  | legal_unit
+ BAKNET DISTRIBUTION SARL AU                                        | {"tax_ident": "16191028", "stat_ident": "869295812"} | legal_unit
+ GREAT FINITION  SARLAU                                             | {"tax_ident": "47286863", "stat_ident": "870551152"} | legal_unit
+ BENESSAHRAOUI MOHAMED AMINE                                        | {"tax_ident": "48567034", "stat_ident": "872305034"} | legal_unit
+ TANAN MOHAMED                                                      | {"tax_ident": "1622682", "stat_ident": "872694751"}  | legal_unit
+ STE GC CO DUR SARL                                                 | {"tax_ident": "15194185", "stat_ident": "873662327"} | legal_unit
+ QAOUTAR                                                            | {"tax_ident": "18814787", "stat_ident": "876130773"} | legal_unit
+ MAPAVRI SARL AU                                                    | {"tax_ident": "33671036", "stat_ident": "877203130"} | legal_unit
+ AMEHMOUL SAID                                                      | {"tax_ident": "37695502", "stat_ident": "877505143"} | legal_unit
+ SAKANE ARRAHA                                                      | {"tax_ident": "37649118", "stat_ident": "877570417"} | legal_unit
+ MYJAPY   SARLAU                                                    | {"tax_ident": "3334274", "stat_ident": "879268321"}  | legal_unit
+ STE SCODIAM SARL AU                                                | {"tax_ident": "44300763", "stat_ident": "882534389"} | legal_unit
+ STE MAROC TEAM LOGISTIC SARL                                       | {"tax_ident": "39380369", "stat_ident": "882840446"} | legal_unit
+ STE NEW LINE 3 SARL                                                | {"tax_ident": "40800402", "stat_ident": "883855209"} | legal_unit
+ STYLEC SARL                                                        | {"tax_ident": "51618009", "stat_ident": "884056582"} | legal_unit
+ STE DALLAGE AL JANOUB                                              | {"tax_ident": "3346444", "stat_ident": "884872594"}  | legal_unit
+ RAHHALI CONSEIL                                                    | {"tax_ident": "73960883", "stat_ident": "885350019"} | legal_unit
+ STE SAKIA EL HAMRA CONSEIL SARL AU                                 | {"tax_ident": "3306973", "stat_ident": "887716213"}  | legal_unit
+ PNEUMATIQUE FATIMA ZOHRA SARL                                      | {"tax_ident": "40196680", "stat_ident": "889066937"} | legal_unit
+ TRADEMARK TM                                                       | {"tax_ident": "40805651", "stat_ident": "889113821"} | legal_unit
+ STE TAZA MATIQUE                                                   | {"tax_ident": "18732310", "stat_ident": "889983585"} | legal_unit
+ GRACELEC SARL AU                                                   | {"tax_ident": "4922660", "stat_ident": "893485588"}  | legal_unit
+ STE IMMOBILIERE EL BOUZIDI SARL                                    | {"tax_ident": "15199323", "stat_ident": "895263318"} | legal_unit
+ KANZAOUI MAROUANE                                                  | {"tax_ident": "20731155", "stat_ident": "895270893"} | legal_unit
+ ALOTEL SARLAU                                                      | {"tax_ident": "14409049", "stat_ident": "897812600"} | legal_unit
+ MR MOHAMED CHAKIB LARAKI PP                                        | {"tax_ident": "20697095", "stat_ident": "898589004"} | legal_unit
+ CHERIF ABDELHAK                                                    | {"tax_ident": "1088280", "stat_ident": "898820891"}  | legal_unit
+ STE HIDAR TRAVAUX DIVERS SARL AU                                   | {"tax_ident": "14367934", "stat_ident": "899437045"} | legal_unit
+ STE DIREC ET ORG DE TRAVAUX EN AFR                                 | {"tax_ident": "15270183", "stat_ident": "900266902"} | legal_unit
+ UP PARTNERS                                                        | {"tax_ident": "15231736", "stat_ident": "901035727"} | legal_unit
+ NUJOUM MUSTAFA                                                     | {"tax_ident": "14499283", "stat_ident": "901586001"} | legal_unit
+ STE DELTA PACK SARL                                                | {"tax_ident": "24821798", "stat_ident": "901620656"} | legal_unit
+ KAZIBAT                                                            | {"tax_ident": "33646023", "stat_ident": "901636319"} | legal_unit
+ PICNIC CAR SARL                                                    | {"tax_ident": "14397069", "stat_ident": "902437476"} | legal_unit
+ STE NEW WOY TRAV SARL AU                                           | {"tax_ident": "6901512", "stat_ident": "902909342"}  | legal_unit
+ STE MAJOR COMPANY MARKETING SARL                                   | {"tax_ident": "33409880", "stat_ident": "903647855"} | legal_unit
+ STE ALUMINIUM TADLA SARL                                           | {"tax_ident": "1031001", "stat_ident": "904694849"}  | legal_unit
+ SPORTS WORLD MANAGMENT SARLAU                                      | {"tax_ident": "91450249", "stat_ident": "905087495"} | legal_unit
+ FIMED CONSEILS                                                     | {"tax_ident": "14479628", "stat_ident": "905213595"} | legal_unit
+ MR SASLAMI MOHAMMED                                                | {"tax_ident": "25207153", "stat_ident": "912442119"} | legal_unit
+ CAMAR CONSULTING SARL AU                                           | {"tax_ident": "18741543", "stat_ident": "913003002"} | legal_unit
+ STE TAFTACHNA TRANSPORT SARL                                       | {"tax_ident": "18802101", "stat_ident": "913655932"} | legal_unit
+ CENTRALE EXPRESSION DEVELOP AUDIO                                  | {"tax_ident": "48561452", "stat_ident": "914305933"} | legal_unit
+ STE T C I R A SARL AU                                              | {"tax_ident": "20735227", "stat_ident": "918483906"} | legal_unit
+ SOZAY PROMO                                                        | {"stat_ident": "918508558"}                          | legal_unit
+ MEGADINE SERVICES                                                  | {"tax_ident": "14487691", "stat_ident": "918765105"} | legal_unit
+ DR HADDOUCHI MOHAMMED                                              | {"tax_ident": "40434058", "stat_ident": "920143515"} | legal_unit
+ ALBAYT ADDAHABI SARL                                               | {"tax_ident": "24936275", "stat_ident": "921730978"} | legal_unit
+ ETABLISS TANTAUI POUR LEDUCA ET ENS                                | {"tax_ident": "26181193", "stat_ident": "922251445"} | legal_unit
+ EMACAM SARL AU                                                     | {"tax_ident": "15161121", "stat_ident": "923275302"} | legal_unit
+ AISSAOUI PARTS                                                     | {"tax_ident": "82153376", "stat_ident": "923908024"} | legal_unit
+ RAPIDE ASSURANCES                                                  | {"tax_ident": "4949054", "stat_ident": "925680292"}  | legal_unit
+ STE MTARGET LABS SARL                                              | {"stat_ident": "927505007"}                          | legal_unit
+ DIAMANT DES FETES SARL                                             | {"tax_ident": "40239901", "stat_ident": "928062957"} | legal_unit
+ COOPERATIVE LAITIERE OUARKZIZ                                      | {"tax_ident": "18772102", "stat_ident": "928113073"} | legal_unit
+ STE HOLDING NEGOCE IMMO                                            | {"tax_ident": "2264512", "stat_ident": "928356684"}  | legal_unit
+ STE SATTOUR SARL                                                   | {"tax_ident": "18815292", "stat_ident": "928654455"} | legal_unit
+ ACH TRAVAUX                                                        | {"tax_ident": "40217426", "stat_ident": "928793083"} | legal_unit
+ STE GVB TRANS  SARL                                                | {"tax_ident": "55064776", "stat_ident": "928831883"} | legal_unit
+ STE BOUTALI                                                        | {"tax_ident": "3332336", "stat_ident": "928907766"}  | legal_unit
+ BELSOUR MENUISERIE                                                 | {"tax_ident": "14403975", "stat_ident": "928927570"} | legal_unit
+ ACHPER TRANS SARL                                                  | {"tax_ident": "1115121", "stat_ident": "929176740"}  | legal_unit
+ STE DAKIR TRAVAUX SARL                                             | {"tax_ident": "40132075", "stat_ident": "930149164"} | legal_unit
+ MERCOKEY MAROC SARLAU                                              | {"stat_ident": "930724191"}                          | legal_unit
+ MME BENABDELJELIL BELYAMANI                                        | {"tax_ident": "2200632", "stat_ident": "931673983"}  | legal_unit
+ ORGEC SARL                                                         | {"tax_ident": "6990395", "stat_ident": "933310556"}  | legal_unit
+ STE JRAMNA SARL AU                                                 | {"tax_ident": "40186461", "stat_ident": "937534706"} | legal_unit
+ STE MARJITEC SARL                                                  | {"tax_ident": "50675009", "stat_ident": "939155919"} | legal_unit
+ STE KSAR SHAMA                                                     | {"tax_ident": "40258075", "stat_ident": "942974887"} | legal_unit
+ RAK PRODUCTS WATER                                                 | {"tax_ident": "14419371", "stat_ident": "944472024"} | legal_unit
+ SAMITIR SARL                                                       | {"tax_ident": "18775945", "stat_ident": "946363928"} | legal_unit
+ EL IDRISSI TISSAFI FATIMA                                          | {"tax_ident": "14483421", "stat_ident": "947059395"} | legal_unit
+ MR GUOUGUOUCH AHMED                                                | {"tax_ident": "14490132", "stat_ident": "947780431"} | legal_unit
+ SOMAGARD SARL                                                      | {"tax_ident": "83020076", "stat_ident": "947782047"} | legal_unit
+ MRS IMSEG HASSAN ET MUSTAPHA                                       | {"stat_ident": "950216444"}                          | legal_unit
+ SOCIETE ALOMRANE BENI MELLAL                                       | {"stat_ident": "951009218"}                          | legal_unit
+ YARRA EVEN SARL AU                                                 | {"tax_ident": "15602591", "stat_ident": "951275966"} | legal_unit
+ FISCALITE DE LA CAPITALE SARL                                      | {"tax_ident": "40459035", "stat_ident": "952007510"} | legal_unit
+ STE NAUTUSMA SARL AU                                               | {"tax_ident": "20715914", "stat_ident": "954601349"} | legal_unit
+ STE MAP TP                                                         | {"tax_ident": "20688533", "stat_ident": "955891954"} | legal_unit
+ SAHARA CONSTRUCTION SARL                                           | {"tax_ident": "15164001", "stat_ident": "956021185"} | legal_unit
+ HARBAZ ALI                                                         | {"tax_ident": "6523190", "stat_ident": "956717666"}  | legal_unit
+ NEGASET                                                            | {"tax_ident": "37737764", "stat_ident": "958043334"} | legal_unit
+ CAFE RAYAN  SARL                                                   | {"tax_ident": "70600378", "stat_ident": "961122072"} | legal_unit
+ ARTMED                                                             | {"tax_ident": "20786344", "stat_ident": "962927383"} | legal_unit
+ SOLATRAB SARL                                                      | {"tax_ident": "24810623", "stat_ident": "963443810"} | legal_unit
+ STE YACOVETI                                                       | {"tax_ident": "4907370", "stat_ident": "964429772"}  | legal_unit
+ TAXI EURO MED SARL                                                 | {"tax_ident": "39382688", "stat_ident": "965963483"} | legal_unit
+ STE JAOUDA ALUMINIUM SARL                                          | {"tax_ident": "50150209", "stat_ident": "967677959"} | legal_unit
+ AK ENERGY SARL                                                     | {"tax_ident": "14461579", "stat_ident": "968137293"} | legal_unit
+ SONIP LILISKAN SARL AU                                             | {"tax_ident": "14420794", "stat_ident": "968600974"} | legal_unit
+ LA MAISON PANDORE                                                  | {"tax_ident": "24885841", "stat_ident": "969409411"} | legal_unit
+ FIDUCIAIRE REGIONALE D'EL JADIDA SA                                | {"tax_ident": "14454830", "stat_ident": "970746795"} | legal_unit
+ LASLIMI NARJISSE                                                   | {"tax_ident": "37117560", "stat_ident": "972406509"} | legal_unit
+ STE AL HIDAYA GYM                                                  | {"tax_ident": "34450910", "stat_ident": "972625161"} | legal_unit
+ IGLY ART SARL AU                                                   | {"tax_ident": "25225535", "stat_ident": "972808350"} | legal_unit
+ MR BENDAHMANE ABDELKHALEK                                          | {"tax_ident": "24848061", "stat_ident": "975461605"} | legal_unit
+ YOUR DAY EVENT SARLAU                                              | {"tax_ident": "33673293", "stat_ident": "979415969"} | legal_unit
+ FAYLI TOURS SARL AU                                                | {"tax_ident": "25232649", "stat_ident": "981092150"} | legal_unit
+ VAPORFY                                                            | {"stat_ident": "982590495"}                          | legal_unit
+ AZIZ GAZ                                                           | {"tax_ident": "37696452", "stat_ident": "983085401"} | legal_unit
+ AABOUCHE ABDERRAHIM ET AABOUCHE RACHID                             | {"tax_ident": "18811511", "stat_ident": "983358516"} | legal_unit
+ MASTER TECHNICS SARL                                               | {"tax_ident": "3120196", "stat_ident": "984577076"}  | legal_unit
+ MR SAYHI JAMAL                                                     | {"tax_ident": "40269043", "stat_ident": "985619929"} | legal_unit
+ LES TERRASSES DES PRES SARLAU                                      | {"tax_ident": "14489026", "stat_ident": "985963065"} | legal_unit
+ STE MARK BETON SARL AU                                             | {"tax_ident": "14484683", "stat_ident": "987179104"} | legal_unit
+ STE KATA TRAVAUX SARL                                              | {"tax_ident": "15266952", "stat_ident": "987361481"} | legal_unit
+ ARRAYANE QUINQUERIE SARL AU                                        | {"tax_ident": "40120917", "stat_ident": "989652503"} | legal_unit
+ STE SOLAKRA SARL                                                   | {"tax_ident": "3301608", "stat_ident": "992539059"}  | legal_unit
+ RIYADE ATAFAWOUK SARL                                              | {"tax_ident": "47271219", "stat_ident": "994788146"} | legal_unit
+ COOPERATIVE ELAAHD DE MENUISERIE                                   | {"tax_ident": "97064844", "stat_ident": "994857460"} | legal_unit
+ RENOBATECH SARL                                                    | {"tax_ident": "23300913", "stat_ident": "995043881"} | legal_unit
+ AL MORSHID POUR LE COMMERCE GENERAL                                | {"tax_ident": "20692105", "stat_ident": "995047016"} | legal_unit
+ MAHMAL ABDERRAHIM                                                  | {"tax_ident": "45646963", "stat_ident": "997681473"} | legal_unit
+(597 rows)
+
+ROLLBACK;

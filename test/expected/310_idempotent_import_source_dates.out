@@ -207,7 +207,7 @@ SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT 
 ----------------------+----------+--------------------+------------+---------------+-----------
  import_310_esflu_wsd | finished |                    |         26 |            25 | f
  import_310_eswlu_wsd | finished |                    |         12 |            12 | f
- import_310_lu_wsd    | finished |                    |         75 |            69 | f
+ import_310_lu_wsd    | finished |                    |         76 |            69 | f
 (3 rows)
 
 \echo "Unit counts after initial load"

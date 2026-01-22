@@ -125,6 +125,8 @@ BEGIN
         'inconsistent_establishment', 
         'ambiguous_unit_type'
     ];
+    -- Note: duplicate identifier errors use the actual column names (e.g., 'tax_ident_raw')
+    -- so they're already included in v_error_keys_to_clear_arr from source_input_ident_codes
     -- Ensure uniqueness (though direct conflict between source_input names and general keys is unlikely)
     SELECT array_agg(DISTINCT e) INTO v_error_keys_to_clear_arr FROM unnest(v_error_keys_to_clear_arr) e;
     RAISE DEBUG '[Job %] analyse_external_idents: Error keys to clear for this step: %', p_job_id, v_error_keys_to_clear_arr;
@@ -160,13 +162,13 @@ BEGIN
 
         IF v_add_separator THEN v_unpivot_sql := v_unpivot_sql || ' UNION ALL '; END IF;
         v_unpivot_sql := v_unpivot_sql || format(
-            $$SELECT dt.row_id,
+             $$SELECT dt.row_id,
                      %1$L AS source_column_name_in_data_table, -- This is the name of the column in _data table (e.g., 'tax_ident_raw')
                      %2$L AS ident_type_code_to_join_on,     -- This is the external_ident_type.code (e.g., 'tax_ident')
                      NULLIF(dt.%3$I, '') AS ident_value
              FROM public.%4$I dt
              JOIN temp_relevant_rows tr ON tr.data_row_id = dt.row_id
-             WHERE NULLIF(dt.%5$I, '') IS NOT NULL AND dt.action IS DISTINCT FROM 'skip'$$,
+             WHERE NULLIF(dt.%5$I, '') IS NOT NULL$$,
              v_col_rec.raw_column_name, -- %1$L Name of column in _data table
              v_col_rec.ident_code,      -- %2$L Code to join with external_ident_type
              v_col_rec.raw_column_name, -- %3$I Column to select value from in _data table
@@ -271,6 +273,96 @@ BEGIN
 
     DROP TABLE temp_raw_unpivoted_idents;
 
+    -- Step 1b: Detect duplicate identifiers across multiple rows
+    -- Store mapping of (data_row_id, source_ident_code) -> duplicate info
+    IF to_regclass('pg_temp.temp_duplicate_idents') IS NOT NULL THEN
+        DROP TABLE temp_duplicate_idents;
+    END IF;
+    CREATE TEMP TABLE temp_duplicate_idents (
+        data_row_id INTEGER,
+        source_ident_code TEXT,
+        ident_type_code TEXT,
+        ident_value TEXT,
+        affected_row_ids INTEGER[],
+        row_count INTEGER,
+        PRIMARY KEY (data_row_id, source_ident_code)
+    ) ON COMMIT DROP;
+
+    v_sql := $$
+        WITH DuplicateGroups AS (
+            SELECT
+                tui.ident_type_code,
+                tui.ident_value,
+                array_agg(DISTINCT tui.data_row_id ORDER BY tui.data_row_id) AS affected_row_ids,
+                COUNT(DISTINCT tui.data_row_id) AS row_count,
+                -- Check if all rows resolve to the same entity
+                COUNT(DISTINCT COALESCE(tui.resolved_lu_id, 0)) AS distinct_lu_count,
+                COUNT(DISTINCT COALESCE(tui.resolved_est_id, 0)) AS distinct_est_count
+            FROM temp_unpivoted_idents tui
+            WHERE tui.ident_type_id IS NOT NULL
+              AND tui.ident_value IS NOT NULL
+              AND tui.is_cross_type_conflict IS FALSE
+            GROUP BY tui.ident_type_code, tui.ident_value
+            HAVING COUNT(DISTINCT tui.data_row_id) > 1
+               -- Only flag as duplicate if rows represent DIFFERENT entities:
+               -- - Different existing entities (different resolved_lu_id or resolved_est_id)
+               -- - Mix of new and existing entities (potential conflict)
+               -- NOTE: Multiple NEW entities with same identifier are NOT flagged here.
+               --       They will be grouped by entity_signature, so if they're the same entity
+               --       (temporal data), they share the same founding_row_id and are fine.
+               AND (
+                   -- Case 1: Different existing legal units
+                   COUNT(DISTINCT tui.resolved_lu_id) FILTER (WHERE tui.resolved_lu_id IS NOT NULL) > 1
+                   OR 
+                   -- Case 2: Different existing establishments
+                   COUNT(DISTINCT tui.resolved_est_id) FILTER (WHERE tui.resolved_est_id IS NOT NULL) > 1
+                   OR 
+                   -- Case 3: Mix of new and existing entities (one tries to create, another updates)
+                   (COUNT(*) FILTER (WHERE tui.resolved_lu_id IS NULL AND tui.resolved_est_id IS NULL) > 0
+                    AND COUNT(*) FILTER (WHERE tui.resolved_lu_id IS NOT NULL OR tui.resolved_est_id IS NOT NULL) > 0)
+               )
+        )
+        INSERT INTO temp_duplicate_idents (data_row_id, source_ident_code, ident_type_code, ident_value, affected_row_ids, row_count)
+        SELECT
+            tui.data_row_id,
+            tui.source_ident_code,
+            dg.ident_type_code,
+            dg.ident_value,
+            dg.affected_row_ids,
+            dg.row_count
+        FROM DuplicateGroups dg
+        JOIN temp_unpivoted_idents tui 
+            ON tui.ident_type_code = dg.ident_type_code 
+            AND tui.ident_value = dg.ident_value
+            AND tui.data_row_id = ANY(dg.affected_row_ids);
+    $$;
+    RAISE DEBUG '[Job %] analyse_external_idents: Detecting duplicate identifiers with SQL: %', p_job_id, v_sql;
+    EXECUTE v_sql;
+
+    -- Debug: Log detected duplicates
+    DECLARE
+        dup_rec RECORD;
+        dup_count INT;
+    BEGIN
+        v_sql := 'SELECT COUNT(DISTINCT (ident_type_code, ident_value)) FROM temp_duplicate_idents';
+        EXECUTE v_sql INTO dup_count;
+        RAISE DEBUG '[Job %] analyse_external_idents: Found % duplicate identifier group(s)', p_job_id, COALESCE(dup_count, 0);
+        
+        IF dup_count > 0 THEN
+            FOR dup_rec IN
+                SELECT DISTINCT ON (ident_type_code, ident_value)
+                    ident_type_code, ident_value, affected_row_ids, row_count
+                FROM temp_duplicate_idents 
+                ORDER BY ident_type_code, ident_value 
+                LIMIT 10
+            LOOP
+                RAISE DEBUG '[Job %]   DUPLICATE: type=%, value=%, rows=%, count=%',
+                    p_job_id, dup_rec.ident_type_code, dup_rec.ident_value, 
+                    dup_rec.affected_row_ids, dup_rec.row_count;
+            END LOOP;
+        END IF;
+    END;
+
     -- Debug: Log contents of temp_unpivoted_idents (sample from relevant rows)
     DECLARE
         tui_rec RECORD;
@@ -367,6 +459,38 @@ BEGIN
                 FIRST_VALUE(rc.data_row_id) OVER (PARTITION BY rc.entity_signature ORDER BY rc.valid_from NULLS LAST, rc.data_row_id) as actual_founding_row_id
             FROM RowChecks rc
         ),
+        -- Detect NEW entity duplicates: same identifier used by different entity_signatures
+        NewEntityDuplicateGroups AS (
+            SELECT
+                tui.ident_type_code,
+                tui.ident_value,
+                array_agg(DISTINCT obe.data_row_id ORDER BY obe.data_row_id) AS affected_row_ids,
+                COUNT(DISTINCT obe.entity_signature) AS distinct_entity_count
+            FROM temp_unpivoted_idents tui
+            JOIN OrderedBatchEntities obe ON obe.data_row_id = tui.data_row_id
+            WHERE tui.ident_type_id IS NOT NULL
+              AND tui.ident_value IS NOT NULL
+              AND tui.resolved_lu_id IS NULL
+              AND tui.resolved_est_id IS NULL
+              AND obe.final_lu_id IS NULL
+              AND obe.final_est_id IS NULL
+            GROUP BY tui.ident_type_code, tui.ident_value
+            HAVING COUNT(DISTINCT obe.entity_signature) > 1
+        ),
+        NewEntityDuplicates AS (
+            SELECT
+                tui.data_row_id,
+                tui.source_ident_code,
+                nedg.ident_type_code,
+                nedg.ident_value,
+                nedg.affected_row_ids,
+                array_length(nedg.affected_row_ids, 1) AS row_count
+            FROM NewEntityDuplicateGroups nedg
+            JOIN temp_unpivoted_idents tui
+                ON tui.ident_type_code = nedg.ident_type_code
+                AND tui.ident_value = nedg.ident_value
+                AND tui.data_row_id = ANY(nedg.affected_row_ids)
+        ),
         -- OPTIMIZED: Pre-calculates existing identifiers for all entities found in the batch.
         -- This is done by first selecting the distinct entities from the batch, then joining
         -- to the identifiers table. This avoids a fan-out that would otherwise occur if joining directly.
@@ -397,9 +521,14 @@ BEGIN
                 obe.rn_in_batch_for_entity, -- Pass through for operation determination
                 -- OPTIMIZED: Replaced correlated subquery with a join to the pre-aggregated ExistingIdents CTE
                 (
-                    SELECT jsonb_object_agg(
+                     -- Build error showing: Input {a:X, b:Y} matches existing unit {a:X, b:Z} - attempting to change b from Z to Y
+                     SELECT jsonb_object_agg(
                         input_data.ident_code || '_raw',
-                        'Identifier ' || input_data.ident_code || ' value ''' || input_data.input_value || ''' from input attempts to change existing value ''' || (existing.idents->>input_data.ident_code) || ''''
+                        'Input ' || obe.entity_signature::text || 
+                        ' matches existing unit ' || existing.idents::text || 
+                        ' but attempts to change ' || input_data.ident_code || 
+                        ' from ''' || (existing.idents->>input_data.ident_code) || 
+                        ''' to ''' || input_data.input_value || ''''
                     )
                     FROM (SELECT key AS ident_code, value#>>'{}' AS input_value FROM jsonb_each(obe.entity_signature)) AS input_data
                     WHERE existing.idents ? input_data.ident_code -- The identifier type exists for this unit in the DB
@@ -436,7 +565,27 @@ BEGIN
                          WHERE obe.final_lu_id IS NOT NULL AND obe.final_est_id IS NOT NULL AND obe.final_lu_id != obe.final_est_id),
                         '{}'::jsonb
                     ) ||
-                    COALESCE(obe.cross_type_conflict_errors, '{}'::jsonb)
+                    COALESCE(obe.cross_type_conflict_errors, '{}'::jsonb) ||
+                    COALESCE(
+                        (SELECT jsonb_object_agg(
+                            tdi.source_ident_code,
+                            'Duplicate identifier: ' || tdi.ident_type_code || '=' || tdi.ident_value || 
+                            ' appears in ' || tdi.row_count || ' rows: ' || array_to_string(tdi.affected_row_ids, ', ')
+                         )
+                         FROM temp_duplicate_idents tdi
+                         WHERE tdi.data_row_id = obe.data_row_id),
+                        '{}'::jsonb
+                    ) ||
+                    COALESCE(
+                        (SELECT jsonb_object_agg(
+                            ned.source_ident_code,
+                            'Duplicate identifier: ' || ned.ident_type_code || '=' || ned.ident_value || 
+                            ' appears in ' || ned.row_count || ' rows: ' || array_to_string(ned.affected_row_ids, ', ')
+                         )
+                         FROM NewEntityDuplicates ned
+                         WHERE ned.data_row_id = obe.data_row_id),
+                        '{}'::jsonb
+                    )
                 ) as base_error_jsonb
             FROM OrderedBatchEntities obe
             -- Join to a distinct list of IDs to prevent fan-out on temporal tables
@@ -470,7 +619,27 @@ BEGIN
         PropagatedErrors AS (
             SELECT
                 od.*,
-                (od.base_error_jsonb || COALESCE(od.unstable_identifier_errors_jsonb, '{}'::jsonb)) as final_error_jsonb,
+                -- Merge base_error_jsonb and unstable_identifier_errors_jsonb intelligently:
+                -- If a key exists in both, concatenate the messages with "; " separator
+                (
+                    SELECT jsonb_object_agg(
+                        key,
+                        CASE 
+                            WHEN od.base_error_jsonb ? key AND od.unstable_identifier_errors_jsonb ? key 
+                            THEN (od.base_error_jsonb->>key) || '; ' || (od.unstable_identifier_errors_jsonb->>key)
+                            WHEN od.base_error_jsonb ? key 
+                            THEN od.base_error_jsonb->>key
+                            ELSE od.unstable_identifier_errors_jsonb->>key
+                        END
+                    )
+                    FROM (
+                        SELECT DISTINCT key 
+                        FROM jsonb_each(od.base_error_jsonb) 
+                        UNION 
+                        SELECT DISTINCT key 
+                        FROM jsonb_each(COALESCE(od.unstable_identifier_errors_jsonb, '{}'::jsonb))
+                    ) AS all_keys(key)
+                ) as final_error_jsonb,
                 -- Check if any row within the same new entity has an error.
                 BOOL_OR((od.base_error_jsonb || COALESCE(od.unstable_identifier_errors_jsonb, '{}'::jsonb)) != '{}'::jsonb)
                     OVER (PARTITION BY CASE WHEN od.final_lu_id IS NULL AND od.final_est_id IS NULL THEN od.entity_signature ELSE jsonb_build_object('data_row_id', od.data_row_id) END) as entity_has_error,
@@ -500,12 +669,13 @@ BEGIN
             pe.final_est_id AS resolved_est_id,
             pe.operation,
             CASE
+                -- Note: action from previous step is not available in this CTE, will be merged in UPDATE statement
                 WHEN pe.entity_has_error THEN 'skip'::public.import_row_action_type -- Priority 1: Entity-wide Error
                 WHEN %2$L::public.import_strategy = 'insert_only' AND pe.operation != 'insert'::public.import_row_operation_type THEN 'skip'::public.import_row_action_type -- %2$L is v_strategy
                 WHEN %2$L::public.import_strategy = 'replace_only' AND pe.operation != 'replace'::public.import_row_operation_type THEN 'skip'::public.import_row_action_type -- %2$L is v_strategy
                 WHEN %2$L::public.import_strategy = 'update_only' AND pe.operation != 'update'::public.import_row_operation_type THEN 'skip'::public.import_row_action_type -- %2$L is v_strategy
                 ELSE 'use'::public.import_row_action_type
-            END as action,
+            END as action,  -- Will be merged with existing action in UPDATE to preserve 'skip' from previous steps
             pe.actual_founding_row_id AS derived_founding_row_id
         FROM PropagatedErrors pe;
     $$,
@@ -525,7 +695,10 @@ BEGIN
     v_set_clause := format($$
         state = CASE WHEN ru.error_jsonb IS NOT NULL AND ru.error_jsonb != '{}'::jsonb THEN 'error'::public.import_data_state ELSE 'analysing'::public.import_data_state END,
         errors = CASE WHEN ru.error_jsonb IS NOT NULL AND ru.error_jsonb != '{}'::jsonb THEN dt.errors || ru.error_jsonb ELSE dt.errors - %1$L::TEXT[] END,
-        action = ru.action,
+        action = CASE 
+            WHEN dt.action = 'skip'::public.import_row_action_type THEN 'skip'::public.import_row_action_type -- Preserve skip from previous steps
+            ELSE ru.action 
+        END,
         operation = ru.operation,
         founding_row_id = ru.derived_founding_row_id,
         last_completed_priority = %2$L
