@@ -13,20 +13,11 @@ CREATE TABLE public.contact (
     landline character varying(50),
     mobile_number character varying(50),
     fax_number character varying(50),
-    CONSTRAINT "One information must be provided" CHECK (
-        web_address IS NOT NULL OR
-        email_address IS NOT NULL OR
-        phone_number IS NOT NULL OR
-        landline IS NOT NULL OR
-        mobile_number IS NOT NULL OR
-        fax_number IS NOT NULL
-    ),
+    CONSTRAINT "One information must be provided" CHECK (num_nonnulls(web_address, email_address, phone_number, landline, mobile_number, fax_number) >= 1),
     establishment_id integer,
     legal_unit_id integer,
     CONSTRAINT "One and only one statistical unit id must be set"
-    CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL
-        OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL
-        ),
+    CHECK (num_nonnulls(establishment_id, legal_unit_id) = 1),
     data_source_id integer REFERENCES public.data_source(id),
     edit_comment character varying(512),
     edit_by_user_id integer NOT NULL REFERENCES auth.user(id) ON DELETE RESTRICT,

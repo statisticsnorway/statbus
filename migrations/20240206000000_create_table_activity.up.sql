@@ -17,9 +17,7 @@ CREATE TABLE public.activity (
     establishment_id integer,
     legal_unit_id integer,
     CONSTRAINT "One and only one statistical unit id must be set"
-    CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL
-        OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL
-        )
+    CHECK (num_nonnulls(establishment_id, legal_unit_id) = 1)
 );
 CREATE INDEX ix_activity_type ON public.activity USING btree (type);
 CREATE INDEX ix_activity_category_id ON public.activity USING btree (category_id);

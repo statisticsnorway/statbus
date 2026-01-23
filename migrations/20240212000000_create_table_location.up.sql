@@ -26,8 +26,7 @@ CREATE TABLE public.location (
     edit_by_user_id integer NOT NULL REFERENCES auth.user(id) ON DELETE RESTRICT,
     edit_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
     CONSTRAINT "coordinates require both latitude and longitude"
-      CHECK((latitude IS NOT NULL AND longitude IS NOT NULL)
-         OR (latitude IS NULL AND longitude IS NULL)),
+      CHECK (num_nonnulls(latitude, longitude) IN (0, 2)),
     CONSTRAINT "altitude requires coordinates"
       CHECK(CASE
                 WHEN altitude IS NOT NULL THEN

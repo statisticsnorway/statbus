@@ -14,8 +14,7 @@ CREATE TABLE public.region (
     CONSTRAINT "parent_id is required for child"
       CHECK(public.nlevel(path) = 1 OR parent_id IS NOT NULL),
     CONSTRAINT "center coordinates all or nothing"
-      CHECK((center_latitude IS NOT NULL AND center_longitude IS NOT NULL)
-         OR (center_latitude IS NULL     AND center_longitude IS NULL)),
+      CHECK (num_nonnulls(center_latitude, center_longitude) IN (0, 2)),
     CONSTRAINT "altitude requires coordinates"
       CHECK(CASE
                 WHEN center_altitude IS NOT NULL THEN

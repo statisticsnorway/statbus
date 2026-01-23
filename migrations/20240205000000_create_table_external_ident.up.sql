@@ -30,11 +30,7 @@ CREATE TABLE public.external_ident (
         shape != 'hierarchical' OR nlevel(idents) = nlevel(labels)
     ),
     CONSTRAINT "One and only one statistical unit id must be set"
-    CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
-        OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
-        OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_id IS NOT NULL AND enterprise_group_id IS     NULL
-        OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS NOT NULL
-        )
+    CHECK (num_nonnulls(establishment_id, legal_unit_id, enterprise_id, enterprise_group_id) = 1)
 );
 
 -- Regular identifiers: unique per type
@@ -52,13 +48,13 @@ CREATE INDEX external_ident_hierarchical_gist
 ON public.external_ident USING GIST (idents) 
 WHERE shape = 'hierarchical';
 
--- One identifier per type per unit (unchanged)
-CREATE UNIQUE INDEX external_ident_type_for_establishment ON public.external_ident(type_id, establishment_id) WHERE establishment_id IS NOT NULL;
-CREATE UNIQUE INDEX external_ident_type_for_legal_unit ON public.external_ident(type_id, legal_unit_id) WHERE legal_unit_id IS NOT NULL;
-CREATE UNIQUE INDEX external_ident_type_for_enterprise ON public.external_ident(type_id, enterprise_id) WHERE enterprise_id IS NOT NULL;
-CREATE UNIQUE INDEX external_ident_type_for_enterprise_group ON public.external_ident(type_id, enterprise_group_id) WHERE enterprise_group_id IS NOT NULL;
+-- One identifier per type per unit - consolidated with NULLS NOT DISTINCT
+-- Replaces 4 partial indexes with 1 comprehensive index
+CREATE UNIQUE INDEX external_ident_type_unit_association_nulls_not_distinct
+ON public.external_ident(type_id, establishment_id, legal_unit_id, enterprise_id, enterprise_group_id) 
+NULLS NOT DISTINCT;
 
--- Lookup indexes (unchanged)
+-- Lookup indexes
 CREATE INDEX external_ident_establishment_id_idx ON public.external_ident(establishment_id);
 CREATE INDEX external_ident_legal_unit_id_idx ON public.external_ident(legal_unit_id);
 CREATE INDEX external_ident_enterprise_id_idx ON public.external_ident(enterprise_id);

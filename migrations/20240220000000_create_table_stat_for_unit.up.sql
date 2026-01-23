@@ -11,19 +11,12 @@ CREATE TABLE public.stat_for_unit (
     establishment_id integer,
     legal_unit_id integer,
     CONSTRAINT "One and only one statistical unit id must be set"
-    CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL
-        OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL
-        ),
+    CHECK (num_nonnulls(establishment_id, legal_unit_id) = 1),
     value_int INTEGER,
     value_float FLOAT,
     value_string VARCHAR,
     value_bool BOOLEAN,
-    CHECK(
-        (value_int IS NOT NULL AND value_float IS     NULL AND value_string IS     NULL AND value_bool IS     NULL) OR
-        (value_int IS     NULL AND value_float IS NOT NULL AND value_string IS     NULL AND value_bool IS     NULL) OR
-        (value_int IS     NULL AND value_float IS     NULL AND value_string IS NOT NULL AND value_bool IS     NULL) OR
-        (value_int IS     NULL AND value_float IS     NULL AND value_string IS     NULL AND value_bool IS NOT NULL)
-    ),
+    CHECK (num_nonnulls(value_int, value_float, value_string, value_bool) = 1),
     -- Note: Audit columns (edit_by_user_id, edit_at) are populated by import procedures
     -- using values derived during the import job prepare step.
     edit_comment character varying(512),
