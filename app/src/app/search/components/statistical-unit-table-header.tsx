@@ -239,7 +239,7 @@ export function StatisticalUnitTableHeader({
               );
           }
         })}
-        <TableHead />
+        <TableHead className="sticky right-0 bg-gray-50" />
       </TableRow>
     </TableHeader>
   );

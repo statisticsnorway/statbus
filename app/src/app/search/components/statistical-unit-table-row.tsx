@@ -524,7 +524,7 @@ export const StatisticalUnitTableRow = ({
             );
         }
       })}
-      <TableCell key="column-action" className="py-2 p-1 text-right">
+      <TableCell key="column-action" className="py-2 p-1 text-right sticky right-0 bg-white">
         <SearchResultTableRowDropdownMenu unit={unit} />
       </TableCell>
     </TableRow>
