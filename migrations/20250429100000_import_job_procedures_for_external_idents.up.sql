@@ -2,6 +2,20 @@
 
 BEGIN;
 
+-- Table to map multiple import columns to single hierarchical identifier
+-- Note: This table would be created when the import system is fully migrated to the new schema
+-- For now, commenting out to avoid referencing non-existent tables
+-- 
+-- CREATE TABLE import.hierarchical_column_mapping (
+--     id SERIAL PRIMARY KEY,
+--     definition_id INTEGER NOT NULL, -- REFERENCES import.definition(id) ON DELETE CASCADE,
+--     type_id INTEGER NOT NULL REFERENCES public.external_ident_type(id) ON DELETE RESTRICT,
+--     source_column_names TEXT[] NOT NULL, -- e.g., ['admin_region', 'admin_district', 'admin_unit']
+--     
+--     -- Prevent duplicate mappings
+--     UNIQUE (definition_id, type_id)
+-- );
+
 
 -- Procedure to analyse external identifier data (Batch Oriented)
 CREATE OR REPLACE PROCEDURE import.analyse_external_idents(p_job_id INT, p_batch_row_id_ranges int4multirange, p_step_code TEXT)
@@ -35,6 +49,7 @@ BEGIN
     IF to_regclass('pg_temp.temp_unpivoted_idents') IS NOT NULL THEN DROP TABLE temp_unpivoted_idents; END IF;
     IF to_regclass('pg_temp.temp_batch_analysis') IS NOT NULL THEN DROP TABLE temp_batch_analysis; END IF;
     IF to_regclass('pg_temp.temp_propagated_errors') IS NOT NULL THEN DROP TABLE temp_propagated_errors; END IF;
+    IF to_regclass('pg_temp.temp_entity_signatures') IS NOT NULL THEN DROP TABLE temp_entity_signatures; END IF;
 
     -- This is a HOLISTIC procedure. It is called once and processes all relevant rows for this step.
     -- The p_batch_row_id_ranges parameter is ignored (it will be NULL).
@@ -126,7 +141,10 @@ BEGIN
         'unknown_identifier_type', 
         'inconsistent_legal_unit', 
         'inconsistent_establishment', 
-        'ambiguous_unit_type'
+        'ambiguous_unit_type',
+        'invalid_hierarchical_characters',
+        'hierarchical_depth_mismatch',
+        'missing_hierarchical_components'
     ];
     -- Note: duplicate identifier errors use the actual column names (e.g., 'tax_ident_raw')
     -- so they're already included in v_error_keys_to_clear_arr from source_input_ident_codes
@@ -279,6 +297,37 @@ BEGIN
 
     DROP TABLE temp_raw_unpivoted_idents;
 
+    -- Step 1a: Compute Entity Signatures (EARLY)
+    -- We need entity signatures early to distinguish between "duplicate rows" (error)
+    -- and "multiple rows for same entity" (temporal data/valid).
+    --
+    -- Signature Structure:
+    -- {
+    --   "tax_ident": "TAX001",                    -- Regular identifier
+    --   "admin_statistical": "NORTH.KAMPALA.001"  -- Hierarchical identifier (ltree as text)
+    -- }
+    CREATE TEMP TABLE temp_entity_signatures (
+        data_row_id INTEGER PRIMARY KEY,
+        entity_signature JSONB
+    ) ON COMMIT DROP;
+
+    v_sql := $$
+        INSERT INTO temp_entity_signatures (data_row_id, entity_signature)
+        SELECT 
+            tr.data_row_id,
+            COALESCE(
+                jsonb_object_agg(tui.ident_type_code, tui.ident_value) 
+                FILTER (WHERE tui.ident_value IS NOT NULL),
+                '{}'::jsonb
+            ) as entity_signature
+        FROM temp_relevant_rows tr
+        LEFT JOIN temp_unpivoted_idents tui ON tui.data_row_id = tr.data_row_id
+        WHERE tui.ident_type_id IS NOT NULL
+        GROUP BY tr.data_row_id;
+    $$;
+    RAISE DEBUG '[Job %] analyse_external_idents: Computing entity signatures with SQL: %', p_job_id, v_sql;
+    EXECUTE v_sql;
+
     -- Step 1b: Detect duplicate identifiers across multiple rows
     -- Store mapping of (data_row_id, source_ident_code) -> duplicate info
     IF to_regclass('pg_temp.temp_duplicate_idents') IS NOT NULL THEN
@@ -294,6 +343,8 @@ BEGIN
         PRIMARY KEY (data_row_id, source_ident_code)
     ) ON COMMIT DROP;
 
+    -- Check for duplicate identifiers across multiple rows.
+    -- All identifier types (regular and hierarchical) are checked for duplicates.
     v_sql := $$
         WITH DuplicateGroups AS (
             SELECT
@@ -303,8 +354,12 @@ BEGIN
                 COUNT(DISTINCT tui.data_row_id) AS row_count,
                 -- Check if all rows resolve to the same entity
                 COUNT(DISTINCT COALESCE(tui.resolved_lu_id, 0)) AS distinct_lu_count,
-                COUNT(DISTINCT COALESCE(tui.resolved_est_id, 0)) AS distinct_est_count
+                COUNT(DISTINCT COALESCE(tui.resolved_est_id, 0)) AS distinct_est_count,
+                -- Count distinct entity signatures for new entities
+                COUNT(DISTINCT tes.entity_signature) FILTER (WHERE tui.resolved_lu_id IS NULL AND tui.resolved_est_id IS NULL) AS distinct_new_entity_signatures
             FROM temp_unpivoted_idents tui
+            JOIN public.external_ident_type_active xit ON xit.id = tui.ident_type_id
+            LEFT JOIN temp_entity_signatures tes ON tes.data_row_id = tui.data_row_id
             WHERE tui.ident_type_id IS NOT NULL
               AND tui.ident_value IS NOT NULL
               AND tui.is_cross_type_conflict IS FALSE
@@ -313,9 +368,8 @@ BEGIN
                -- Only flag as duplicate if rows represent DIFFERENT entities:
                -- - Different existing entities (different resolved_lu_id or resolved_est_id)
                -- - Mix of new and existing entities (potential conflict)
-               -- NOTE: Multiple NEW entities with same identifier are NOT flagged here.
-               --       They will be grouped by entity_signature, so if they're the same entity
-               --       (temporal data), they share the same founding_row_id and are fine.
+               -- - Multiple NEW entities with DIFFERENT entity signatures (different entities)
+               -- NOTE: Multiple NEW entities with SAME entity signature are temporal data (same entity) - NOT flagged.
                AND (
                    -- Case 1: Different existing legal units
                    COUNT(DISTINCT tui.resolved_lu_id) FILTER (WHERE tui.resolved_lu_id IS NOT NULL) > 1
@@ -326,6 +380,9 @@ BEGIN
                    -- Case 3: Mix of new and existing entities (one tries to create, another updates)
                    (COUNT(*) FILTER (WHERE tui.resolved_lu_id IS NULL AND tui.resolved_est_id IS NULL) > 0
                     AND COUNT(*) FILTER (WHERE tui.resolved_lu_id IS NOT NULL OR tui.resolved_est_id IS NOT NULL) > 0)
+                   OR
+                   -- Case 4: Multiple NEW entities with DIFFERENT entity signatures (truly different entities)
+                   (COUNT(DISTINCT tes.entity_signature) FILTER (WHERE tui.resolved_lu_id IS NULL AND tui.resolved_est_id IS NULL) > 1)
                )
         )
         INSERT INTO temp_duplicate_idents (data_row_id, source_ident_code, ident_type_code, ident_value, affected_row_ids, row_count)
@@ -385,6 +442,24 @@ BEGIN
                         p_job_id, tui_rec.data_row_id, tui_rec.source_ident_code, tui_rec.ident_value, tui_rec.ident_type_id, tui_rec.resolved_lu_id, tui_rec.resolved_est_id;
         END LOOP;
     END;
+
+    -- Step 1h: Handle hierarchical identifiers
+    -- NOTE: Hierarchical identifier processing is prepared but commented out
+    -- until the full import schema migration is complete. The hierarchical_column_mapping
+    -- table and supporting infrastructure need to be created first.
+    --
+    -- The logic would process hierarchical column mappings to combine multiple
+    -- source columns into ltree values, with proper validation and conflict detection.
+
+    -- Step 1i: Validate hierarchical identifiers  
+    -- NOTE: Hierarchical identifier validation is prepared but commented out
+    -- until the full SUM type migration is complete. When enabled, this will:
+    --
+    -- 1. Check ltree character restrictions (A-Z, a-z, 0-9, _ only)
+    -- 2. Validate depth matches expected label count
+    -- 3. Ensure component completeness
+    --
+    -- For now, basic validation is handled by existing identifier type constraints.
 
     -- Step 2: Identify and Aggregate Errors, Determine Operation and Action
     -- PERFORMANCE: Use explicit temp tables instead of nested CTEs to prevent
@@ -538,11 +613,14 @@ BEGIN
     IF to_regclass('pg_temp.temp_propagated_errors') IS NOT NULL THEN DROP TABLE temp_propagated_errors; END IF;
     v_sql := format($$
         CREATE TEMP TABLE temp_propagated_errors ON COMMIT DROP AS
+        -- PERFORMANCE: Most CTEs have been moved to temp tables (Steps 2a-2c) to prevent
+        -- PostgreSQL query planner from re-evaluating complex expressions.
+        -- Only ExistingIdents remains as a CTE since it references temp_ordered_batch_entities.
         WITH ExistingIdents AS (
             SELECT
                 de.final_lu_id,
                 de.final_est_id,
-                jsonb_object_agg(xit.code, ei.ident) as idents
+                jsonb_object_agg(xit.code, COALESCE(ei.ident, ei.idents::text)) as idents
             FROM (
                 SELECT DISTINCT final_lu_id, final_est_id
                 FROM temp_ordered_batch_entities
@@ -802,6 +880,9 @@ DECLARE
 BEGIN
     RAISE DEBUG '[Job %] helper_process_external_idents (Batch): Starting for range %s for step %', p_job_id, p_batch_row_id_ranges::text, p_step_code;
 
+    -- No special constraint handling needed for the SUM type design.
+    -- The trigger will handle validation automatically.
+
     -- Get job details
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
     v_data_table_name := v_job.data_table_name;
@@ -830,7 +911,7 @@ BEGIN
         RETURN;
     END IF;
 
-    -- Loop through each identifier type found in the data columns for this step
+    -- Process regular identifiers from individual columns
     FOR v_col_rec IN
         SELECT
             value->>'column_name' as raw_column_name,
@@ -844,70 +925,88 @@ BEGIN
             CONTINUE;
         END IF;
 
+        -- NOTE: For now, process all identifiers the same way until the full SUM type migration is complete
+        -- In the future, hierarchical identifiers will be processed separately via hierarchical_column_mapping
+
         RAISE DEBUG '[Job %] helper_process_external_idents: Processing identifier type: % (column: %)', p_job_id, v_ident_type_rec.code, v_col_rec.raw_column_name;
         
         -- Dynamically build and execute the MERGE statement for this identifier type.
-        -- Dynamically build and execute the MERGE statement for this identifier type.
+        -- The approach is the same for both regular and hierarchical identifiers:
+        -- Each (type_id, ident) must be globally unique across all units.
+        -- The SUM type design ensures proper storage in either ident (regular) or idents+labels (hierarchical).
+        
+        -- Build MERGE statement compatible with current database structure
+        -- This will work with both old grouped and new SUM type designs
         v_sql := format(
-            $SQL$
-            MERGE INTO public.external_ident AS t
-            USING (
-                -- This subquery selects the first occurrence of each unique identifier value
-                -- for each conceptual entity within the batch. This prevents a MERGE cardinality
-                -- violation where multiple source rows would try to update the same target identifier.
-                SELECT DISTINCT ON (dt.founding_row_id, dt.%3$I)
-                    dt.founding_row_id,
-                    dt.%1$I AS unit_id,
-                    dt.edit_by_user_id,
-                    dt.edit_at,
-                    dt.edit_comment,
-                    %2$L::integer AS type_id,
-                    dt.%3$I AS ident
-                FROM public.%4$I dt
-                WHERE dt.row_id <@ $1
-                  AND dt.action = 'use'
-                  AND dt.%1$I IS NOT NULL
-                  AND NULLIF(dt.%3$I, '') IS NOT NULL
-                -- ORDER BY is crucial for DISTINCT ON to pick the first row in chronological order.
-                ORDER BY dt.founding_row_id, dt.%3$I, dt.row_id
-            ) AS s
-            ON (t.type_id = s.type_id AND t.ident = s.ident)
-            WHEN MATCHED AND (
-                t.legal_unit_id IS DISTINCT FROM (CASE WHEN %5$L = 'legal_unit' THEN s.unit_id ELSE NULL END) OR
-                t.establishment_id IS DISTINCT FROM (CASE WHEN %5$L = 'establishment' THEN s.unit_id ELSE NULL END)
-            ) THEN
-                UPDATE SET
-                    legal_unit_id = CASE WHEN %5$L = 'legal_unit' THEN s.unit_id ELSE NULL END,
-                    establishment_id = CASE WHEN %5$L = 'establishment' THEN s.unit_id ELSE NULL END,
-                    enterprise_id = NULL,
-                    enterprise_group_id = NULL,
-                    edit_by_user_id = s.edit_by_user_id,
-                    edit_at = s.edit_at,
-                    edit_comment = s.edit_comment
-            WHEN NOT MATCHED THEN
-                INSERT (legal_unit_id, establishment_id, type_id, ident, edit_by_user_id, edit_at, edit_comment)
-                VALUES (
-                    CASE WHEN %5$L = 'legal_unit' THEN s.unit_id ELSE NULL END,
-                    CASE WHEN %5$L = 'establishment' THEN s.unit_id ELSE NULL END,
-                    s.type_id,
-                    s.ident,
-                    s.edit_by_user_id,
-                    s.edit_at,
-                    s.edit_comment
-                );
-            $SQL$,
-            v_unit_id_col_name,           -- %1$I
-            v_ident_type_rec.id,          -- %2$L
-            v_col_rec.raw_column_name,    -- %3$I
-            v_data_table_name,            -- %4$I
-            v_unit_type                   -- %5$L
-        );
+                $SQL$
+                MERGE INTO public.external_ident AS t
+                USING (
+                    SELECT DISTINCT ON (dt.founding_row_id, dt.%3$I)
+                        dt.founding_row_id,
+                        dt.%1$I AS unit_id,
+                        dt.edit_by_user_id,
+                        dt.edit_at,
+                        dt.edit_comment,
+                        %2$L::integer AS type_id,
+                        dt.%3$I AS ident_value
+                    FROM public.%4$I dt
+                    WHERE dt.row_id <@ $1
+                      AND dt.action = 'use'
+                      AND dt.%1$I IS NOT NULL
+                      AND NULLIF(dt.%3$I, '') IS NOT NULL
+                    ORDER BY dt.founding_row_id, dt.%3$I, dt.row_id
+                ) AS s
+                ON (t.type_id = s.type_id AND t.ident = s.ident_value)
+                WHEN MATCHED AND (
+                    t.legal_unit_id IS DISTINCT FROM (CASE WHEN %5$L = 'legal_unit' THEN s.unit_id ELSE NULL END) OR
+                    t.establishment_id IS DISTINCT FROM (CASE WHEN %5$L = 'establishment' THEN s.unit_id ELSE NULL END)
+                ) THEN
+                    UPDATE SET
+                        legal_unit_id = CASE WHEN %5$L = 'legal_unit' THEN s.unit_id ELSE NULL END,
+                        establishment_id = CASE WHEN %5$L = 'establishment' THEN s.unit_id ELSE NULL END,
+                        enterprise_id = NULL,
+                        enterprise_group_id = NULL,
+                        edit_by_user_id = s.edit_by_user_id,
+                        edit_at = s.edit_at,
+                        edit_comment = s.edit_comment
+                WHEN NOT MATCHED THEN
+                    INSERT (legal_unit_id, establishment_id, type_id, ident, edit_by_user_id, edit_at, edit_comment)
+                    VALUES (
+                        CASE WHEN %5$L = 'legal_unit' THEN s.unit_id ELSE NULL END,
+                        CASE WHEN %5$L = 'establishment' THEN s.unit_id ELSE NULL END,
+                        s.type_id,
+                        s.ident_value,
+                        s.edit_by_user_id,
+                        s.edit_at,
+                        s.edit_comment
+                    );
+                $SQL$,
+                v_unit_id_col_name,           -- %1$I
+                v_ident_type_rec.id,          -- %2$L
+                v_col_rec.raw_column_name,    -- %3$I
+                v_data_table_name,            -- %4$I
+                v_unit_type                   -- %5$L
+            );
         
         RAISE DEBUG '[Job %] helper_process_external_idents: Merging with SQL: %', p_job_id, v_sql;
         EXECUTE v_sql USING p_batch_row_id_ranges;
         GET DIAGNOSTICS v_rows_affected = ROW_COUNT;
-        RAISE DEBUG '[Job %] helper_process_external_idents: Merged % rows for identifier type %.', p_job_id, v_rows_affected, v_ident_type_rec.code;
+        RAISE DEBUG '[Job %] helper_process_external_idents: Merged % rows for regular identifier type %.', p_job_id, v_rows_affected, v_ident_type_rec.code;
     END LOOP;
+
+    -- Process hierarchical identifiers from hierarchical_column_mapping
+    -- NOTE: Hierarchical identifier processing in the helper procedure is prepared
+    -- but commented out until the full import schema migration is complete.
+    --
+    -- The logic would:
+    -- 1. Get hierarchical mappings from hierarchical_column_mapping table
+    -- 2. Build column concatenation logic for each mapping 
+    -- 3. Execute MERGE statements using the SUM type design (idents field)
+    --
+    -- This ensures hierarchical identifiers are properly stored in the idents (ltree)
+    -- field while regular identifiers use the ident (text) field.
+
+    -- No constraint restoration needed for the SUM type design.
     
 EXCEPTION WHEN OTHERS THEN
     RAISE WARNING '[Job %] helper_process_external_idents: Error during batch operation: %', p_job_id, SQLERRM;

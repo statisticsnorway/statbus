@@ -20,8 +20,9 @@ The system revolves around four main statistical units, often with temporal vali
 ## Common Links for Core Units (EG, EN, LU, EST)
 These tables link to any of the four core statistical units:
 
-- `external_ident(id, ident, type_id, establishment_id, legal_unit_id, enterprise_id, enterprise_group_id, edit_by_user_id, edit_at, edit_comment)`
+- `external_ident(id, type_id, ident, idents, labels, establishment_id, legal_unit_id, enterprise_id, enterprise_group_id, edit_by_user_id, edit_at, shape, edit_comment)`
   - Key FKs: edit_by_user_id, enterprise_id, type_id.
+  - Enums: `shape` (`public.external_ident_shape`).
 - `image(id, type, uploaded_by_user_id, uploaded_at, data)`
   - Key FKs: uploaded_by_user_id.
 - `tag_for_unit(id, tag_id, establishment_id, legal_unit_id, enterprise_id, enterprise_group_id, edit_by_user_id, created_at, edit_at, edit_comment)`
@@ -80,14 +81,14 @@ These tables typically store codes, names, and flags for `custom` and `active` s
 - `data_source(id, code, name, created_at, updated_at, active, custom)`
 - `enterprise_group_type(id, code, name, created_at, updated_at, active, custom)`
 - `enterprise_group_role(id, code, name, created_at, updated_at, active, custom)`
-- `external_ident_type(id, code, name, by_tag_id, description, priority, archived)`
-  - Key FKs: by_tag_id.
+- `external_ident_type(id, code, name, labels, shape, description, priority, archived)`
+  - Enums: `shape` (`public.external_ident_shape`).
 - `foreign_participation(id, code, name, created_at, updated_at, active, custom)`
 - `legal_form(id, code, name, created_at, updated_at, active, custom)`
 - `reorg_type(id, code, name, created_at, updated_at, active, description, custom)`
 - `sector(id, path, label, code, name, parent_id, created_at, updated_at, active, description, custom)`
 - `status(id, code, name, created_at, updated_at, active, assigned_by_default, used_for_counting, priority, custom)`
-- `tag(id, path, label, code, name, type, parent_id, context_valid_on, created_at, updated_at, active, level, description, context_valid_from, context_valid_to, context_valid_until, is_scoped_tag)`
+- `tag(id, path, label, code, name, type, parent_id, context_valid_on, created_at, updated_at, active, level, description, context_valid_from, context_valid_to, context_valid_until)`
   - Key FKs: parent_id.
   - Enums: `type` (`public.tag_type`).
 - `unit_size(id, code, name, created_at, updated_at, active, custom)`
@@ -99,6 +100,7 @@ Enumerated types used across the schema, with their possible values.
 - **`public.activity_category_code_behaviour`**: `digits`, `dot_after_two_digits`
 - **`public.activity_type`**: `primary`, `secondary`, `ancilliary`
 - **`public.allen_interval_relation`**: `precedes`, `meets`, `overlaps`, `starts`, `during`, `finishes`, `equals`, `overlapped_by`, `started_by`, `contains`, `finished_by`, `met_by`, `preceded_by`
+- **`public.external_ident_shape`**: `regular`, `hierarchical`
 - **`public.hierarchy_scope`**: `all`, `tree`, `details`
 - **`public.history_resolution`**: `year`, `year-month`
 - **`public.import_data_column_purpose`**: `source_input`, `internal`, `pk_id`, `metadata`

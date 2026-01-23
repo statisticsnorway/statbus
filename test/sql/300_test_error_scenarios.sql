@@ -562,4 +562,6 @@ SELECT
 ROLLBACK TO main_test_70_start;
 \echo "Test 70 completed and rolled back to main start."
 
+
+
 ROLLBACK; -- Final rollback for the entire transaction

@@ -17,7 +17,6 @@ CREATE TABLE public.tag (
     context_valid_to date,
     context_valid_until date GENERATED ALWAYS AS (context_valid_to + INTERVAL '1 day') STORED,
     context_valid_on date,
-    is_scoped_tag bool NOT NULL DEFAULT false,
     created_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
     updated_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
     CONSTRAINT "context_valid_from_lt_context_valid_until"

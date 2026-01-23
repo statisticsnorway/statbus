@@ -246,8 +246,11 @@ erDiagram
 	}
 	external_ident["external_ident"] {
 		integer id
-		character_varying(50) ident
 		integer type_id
+		external_ident_shape shape
+		character_varying(50) ident
+		ltree idents
+		ltree labels
 		integer establishment_id
 		integer legal_unit_id
 		integer enterprise_id
@@ -260,7 +263,8 @@ erDiagram
 		integer id
 		character_varying(128) code
 		character_varying(50) name
-		integer by_tag_id
+		external_ident_shape shape
+		ltree labels
 		text description
 		integer priority
 		boolean archived
@@ -779,7 +783,6 @@ erDiagram
 		date context_valid_to
 		date context_valid_until
 		date context_valid_on
-		boolean is_scoped_tag
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
 	}
@@ -1239,8 +1242,7 @@ erDiagram
 	establishment }o--o| unit_size : establishment_unit_size_id_fkey
 	external_ident }o--|| auth_user : external_ident_edit_by_user_id_fkey
 	external_ident }o--o| enterprise : external_ident_enterprise_id_fkey
-	external_ident }o--|| external_ident_type : external_ident_type_id_fkey
-	external_ident_type }o--o| tag : external_ident_type_by_tag_id_fkey
+	external_ident }|--|| external_ident_type : external_ident_type_id_fkey
 	image }o--o| auth_user : image_uploaded_by_user_id_fkey
 	import_data_column }|--|| import_step : import_data_column_step_id_fkey
 	import_definition }o--o| auth_user : import_definition_user_id_fkey
