@@ -55,6 +55,7 @@ import {
   initializeTableColumnsAtom,
   searchResultAtom,
   selectedUnitsAtom,
+  tableColumnsHydrationEffectAtom,
 } from './search';
 import {
   refreshWorkerStatusAtom,
@@ -82,6 +83,9 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   // inspector, not by Jotai effects.
   useAtomValue(pageUnloadDetectorEffectAtom);
   useAtomValue(journalUnificationEffectAtom);
+  
+  // Activate table columns hydration detection effect
+  useAtomValue(tableColumnsHydrationEffectAtom);
 
   const authStatusDetails = useAtomValue(authStatusDetailsAtom);
   const isAuthenticated = useAtomValue(isUserConsideredAuthenticatedForUIAtom);

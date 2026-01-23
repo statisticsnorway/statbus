@@ -10,6 +10,7 @@
 
 import { atom } from 'jotai'
 import { atomWithStorage, selectAtom } from 'jotai/utils'
+import { atomEffect } from 'jotai-effect'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { useCallback, useEffect, useMemo } from 'react'
 import { isEqual } from 'moderndash'
@@ -196,6 +197,34 @@ export const tableColumnsAtom = atomWithStorage<TableColumn[]>(
   "search-columns-state", // Matches COLUMN_LOCALSTORAGE_NAME from original provider
   [] // Initialized as empty; will be populated by an initializer atom/effect
 );
+
+// Hydration state atom tracks when tableColumnsAtom has completed hydration
+export const tableColumnsHydratedAtom = atom<boolean>(false);
+
+// Hydration effect that detects when atomWithStorage has completed hydration
+export const tableColumnsHydrationEffectAtom = atomEffect((get, set) => {
+  const storedColumns = get(tableColumnsAtom);
+  const isHydrated = get(tableColumnsHydratedAtom);
+  
+  // Skip if already hydrated
+  if (isHydrated) {
+    return;
+  }
+  
+  // Check localStorage directly to see if we have persisted data
+  const hasStorageData = typeof window !== 'undefined' && 
+                         localStorage.getItem('search-columns-state') !== null;
+  
+  // Mark as hydrated if either:
+  // 1. We have data from storage (successful hydration), OR
+  // 2. We have no stored data but the atom is stable (confirmed empty)
+  const shouldMarkHydrated = hasStorageData || 
+                            (!hasStorageData && storedColumns.length === 0);
+  
+  if (shouldMarkHydrated) {
+    set(tableColumnsHydratedAtom, true);
+  }
+});
 
 // ============================================================================
 // ASYNC ACTION ATOMS (Search)
@@ -482,13 +511,32 @@ import { baseDataAtom } from "./base-data";
 // Atom to initialize table columns by merging available columns with stored preferences
 export const initializeTableColumnsAtom = atom(null, (get, set) => {
   const baseData = get(baseDataAtom);
-  if (baseData.loading) {
-    // Guard: Do not initialize columns until base data (and thus stat definitions) is loaded.
-    // This prevents a double-initialization which was the root cause of the re-render loop.
+  const isHydrated = get(tableColumnsHydratedAtom);
+  
+  // Guard: Do not initialize columns until base data is loaded and free of errors.
+  // If baseData has an error, it returns initial empty arrays. Initializing against
+  // these empty arrays would destructively wipe the user's column preferences.
+  if (baseData.loading || baseData.error) {
+    console.log('initializeTableColumnsAtom: Skipping - baseData loading or error', { loading: baseData.loading, error: baseData.error });
+    return;
+  }
+
+  // NEW GUARD: Wait for hydration to complete before proceeding
+  if (!isHydrated) {
+    console.log('initializeTableColumnsAtom: Skipping - tableColumnsAtom not yet hydrated');
     return;
   }
 
   const availableColumns = get(availableTableColumnsAtom);
+  
+  // Safety Guard: Prevent destructive merge with partial data.
+  // If we have no adaptable (statistic) columns but do have static columns,
+  // it's likely baseData failed to load stats correctly. Abort to prevent 
+  // overwriting preferences with an incomplete column list.
+  const hasAdaptableColumns = availableColumns.some(col => col.type === 'Adaptable');
+  if (availableColumns.length > 0 && !hasAdaptableColumns) {
+    return; // Skip if no adaptable columns detected, likely partial data load
+  }
   const storedColumns = get(tableColumnsAtom); // Preferences from localStorage
 
   if (availableColumns.length === 0 && storedColumns.length === 0) {
@@ -499,13 +547,14 @@ export const initializeTableColumnsAtom = atom(null, (get, set) => {
     return;
   }
 
-   if (storedColumns.length === 0) {
-     const initColumns = availableColumns.map((col) =>
-       col.type === "Adaptable" ? { ...col, visible: true } : col
-     );
-     set(tableColumnsAtom, initColumns);
-     return;
-   }
+  if (storedColumns.length === 0) {
+    // Fresh initialization for new users - hydration effect ensures this is safe
+    const initColumns = availableColumns.map((col) =>
+      col.type === "Adaptable" ? { ...col, visible: true } : col
+    );
+    set(tableColumnsAtom, initColumns);
+    return;
+  }
 
   const mergedColumns = availableColumns.map((availCol) => {
     const storedCol = storedColumns.find(
@@ -517,12 +566,18 @@ export const initializeTableColumnsAtom = atom(null, (get, set) => {
             sc.stat_code === availCol.stat_code))
     );
     if (availCol.type === "Adaptable") {
+      const resultVisible = storedCol && storedCol.type === "Adaptable"
+        ? storedCol.visible
+        : availCol.visible;
+      
+      // Debug: Log when we're falling back to availCol.visible (this is the bug!)
+      if (!storedCol && availCol.visible !== false) {
+        console.warn('🔥 POTENTIAL BUG: No stored match for', availCol.code, 'falling back to default visible:', availCol.visible);
+      }
+      
       return {
         ...availCol,
-        visible:
-          storedCol && storedCol.type === "Adaptable"
-            ? storedCol.visible
-            : availCol.visible,
+        visible: resultVisible,
       };
     }
     return availCol; // For 'Always' type columns
