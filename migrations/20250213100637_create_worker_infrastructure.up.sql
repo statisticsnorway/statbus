@@ -1031,6 +1031,11 @@ FOREIGN KEY (command) REFERENCES worker.command_registry(command);
 CREATE INDEX idx_tasks_scheduled_at ON worker.tasks (scheduled_at)
 WHERE state = 'pending'::worker.task_state AND scheduled_at IS NOT NULL;
 
+-- Create missing composite index for efficient pending task selection
+CREATE INDEX idx_worker_tasks_pending_priority 
+ON worker.tasks (state, priority) 
+WHERE state = 'pending'::worker.task_state;
+
 
 -- Function to reset abandoned processing tasks
 -- This is used when the worker starts to reset any tasks that were left in 'processing' state
