@@ -714,7 +714,7 @@ CREATE TABLE public.import_job(
     data_table_name text NOT NULL,   -- Name of the table holding processed/intermediate data
     priority integer,                -- Priority for worker queue processing
     analysis_batch_size integer NOT NULL DEFAULT 32768, -- Batch size for analysis phase
-    processing_batch_size integer NOT NULL DEFAULT 1000, -- Batch size for processing phase
+    processing_batch_size integer NOT NULL DEFAULT 1280, -- Batch size for processing phase
     definition_snapshot JSONB,       -- Snapshot of definition metadata at job creation time
     preparing_data_at timestamp with time zone,
     analysis_start_at timestamp with time zone, -- Timestamp analysis phase started
@@ -782,7 +782,7 @@ CREATE TABLE public.import_job(
     )
 );
 COMMENT ON COLUMN public.import_job.analysis_batch_size IS 'The number of rows to process in a single batch during the analysis phase.';
-COMMENT ON COLUMN public.import_job.processing_batch_size IS 'The number of rows to process in a single batch during the processing phase.';
+COMMENT ON COLUMN public.import_job.processing_batch_size IS 'The number of rows to process in a single batch during the processing phase. Optimized to 1280 for performance breakeven threshold';
 COMMENT ON COLUMN public.import_job.edit_comment IS 'Default edit comment to be applied to records processed by this job.';
 COMMENT ON COLUMN public.import_job.definition_snapshot IS 'Captures the complete state of an `import_definition` and its related entities at job creation. This ensures immutable processing. The structure is a JSONB object with keys corresponding to the source tables/views:
 - `import_definition`: A JSON representation of the `public.import_definition` row.
