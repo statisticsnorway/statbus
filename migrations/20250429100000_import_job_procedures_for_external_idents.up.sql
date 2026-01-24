@@ -40,6 +40,9 @@ BEGIN
     -- The p_batch_row_id_ranges parameter is ignored (it will be NULL).
     RAISE DEBUG '[Job %] analyse_external_idents (Holistic): Starting analysis.', p_job_id;
 
+    -- FUNDAMENTAL ALGORITHM IMPROVEMENT: Set optimal settings for external_idents processing
+    PERFORM admin.set_optimal_external_idents_settings();
+
     -- Get job details and snapshot
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
     v_data_table_name := v_job.data_table_name;
@@ -270,6 +273,9 @@ BEGIN
     $$, v_job_mode);
     RAISE DEBUG '[Job %] analyse_external_idents: Populating temp_unpivoted_idents with resolved data: %', p_job_id, v_sql;
     EXECUTE v_sql;
+
+    -- FUNDAMENTAL ALGORITHM IMPROVEMENT: Index the temp table for optimal performance
+    PERFORM admin.index_temp_unpivoted_idents('temp_unpivoted_idents');
 
     DROP TABLE temp_raw_unpivoted_idents;
 
@@ -890,5 +896,37 @@ EXCEPTION WHEN OTHERS THEN
     RAISE;
 END;
 $helper_process_external_idents$;
+
+-- FUNDAMENTAL ALGORITHM IMPROVEMENTS: Standard temp table indexing function
+-- Always create these indexes when processing external_idents
+CREATE OR REPLACE FUNCTION admin.index_temp_unpivoted_idents(table_name TEXT)
+RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+    -- Always beneficial: index on lookup columns
+    EXECUTE format('CREATE INDEX IF NOT EXISTS %I_lookup_idx ON %I (ident_type_code, ident_value)', table_name, table_name);
+    
+    -- Always beneficial: hash index for equality lookups  
+    EXECUTE format('CREATE INDEX IF NOT EXISTS %I_hash_idx ON %I USING HASH (ident_value)', table_name, table_name);
+    
+    -- Always beneficial: index on data_row_id for result joining
+    EXECUTE format('CREATE INDEX IF NOT EXISTS %I_data_row_idx ON %I (data_row_id)', table_name, table_name);
+    
+    -- Always beneficial: update statistics
+    EXECUTE format('ANALYZE %I', table_name);
+END;
+$$;
+
+-- FUNDAMENTAL ALGORITHM IMPROVEMENTS: Optimized settings for identifier processing
+-- These are always good for large JOIN operations
+CREATE OR REPLACE FUNCTION admin.set_optimal_external_idents_settings()
+RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+    SET LOCAL work_mem = '1GB';           -- Allow large hash tables in memory
+    SET LOCAL enable_hashjoin = on;       -- Use hash joins for large lookups
+    SET LOCAL enable_nestloop = off;      -- Avoid nested loops for large datasets
+    SET LOCAL enable_mergejoin = off;     -- Avoid expensive sorts for joins
+    SET LOCAL random_page_cost = 1.1;     -- Optimize for modern storage
+END;
+$$;
 
 COMMIT;

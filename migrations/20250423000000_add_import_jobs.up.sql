@@ -2199,7 +2199,7 @@ BEGIN
                             SELECT row_id
                             FROM public.%1$I
                             WHERE state IN (%2$L, 'error') AND last_completed_priority < %3$L
-                            ORDER BY row_id
+                             ORDER BY state, last_completed_priority, row_id
                             LIMIT %4$L
                             FOR UPDATE SKIP LOCKED
                         )
@@ -2282,7 +2282,7 @@ BEGIN
             SELECT row_id
             FROM public.%1$I
             WHERE state = 'processing' AND action = 'use'
-            ORDER BY row_id
+                             ORDER BY state, action, row_id
             LIMIT %2$L
             FOR UPDATE SKIP LOCKED
         )

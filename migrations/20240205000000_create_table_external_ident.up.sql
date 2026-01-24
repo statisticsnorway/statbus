@@ -30,5 +30,14 @@ CREATE INDEX external_ident_enterprise_id_idx ON public.external_ident(enterpris
 CREATE INDEX external_ident_enterprise_group_id_idx ON public.external_ident(enterprise_group_id);
 CREATE INDEX ix_external_ident_edit_by_user_id ON public.external_ident USING btree (edit_by_user_id);
 
+-- FUNDAMENTAL ALGORITHM IMPROVEMENTS: Always-beneficial indexes for import performance
+-- These help ANY import regardless of data characteristics
+CREATE INDEX external_ident_lookup_covering_idx 
+ON public.external_ident (type_id, ident) 
+INCLUDE (legal_unit_id, establishment_id);
+
+CREATE INDEX external_ident_ident_hash_idx 
+ON public.external_ident USING HASH (ident);
+
 COMMENT ON TABLE public.external_ident IS 'Stores the actual external identifier values and links them to their type (external_ident_type). This table acts as a central lookup for resolving external IDs.';
 END;
