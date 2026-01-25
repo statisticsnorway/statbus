@@ -13,11 +13,17 @@ PG_PARAMS="$PG_PARAMS -c logging_collector=off"
 PG_PARAMS="$PG_PARAMS -c log_destination=stderr"
 
 # Dynamic memory configuration (overrides postgresql.conf)
-# These can be set in the .env file. See tmp/db-memory-todo.md for tuning guidance.
+# All memory settings are derived from DB_MEM_LIMIT in .env.config (single source of truth).
+# These are calculated by the CLI and passed via environment variables.
+# See tmp/db-memory-todo.md for tuning rationale.
 PG_PARAMS="$PG_PARAMS -c shared_buffers=${DB_SHARED_BUFFERS:-1GB}"
 PG_PARAMS="$PG_PARAMS -c maintenance_work_mem=${DB_MAINTENANCE_WORK_MEM:-1GB}"
 PG_PARAMS="$PG_PARAMS -c effective_cache_size=${DB_EFFECTIVE_CACHE_SIZE:-3GB}"
-PG_PARAMS="$PG_PARAMS -c work_mem=${DB_WORK_MEM:-100MB}"
+PG_PARAMS="$PG_PARAMS -c work_mem=${DB_WORK_MEM:-40MB}"
+# temp_buffers must be set at server startup; cannot be changed after temp tables are accessed
+PG_PARAMS="$PG_PARAMS -c temp_buffers=${DB_TEMP_BUFFERS:-512MB}"
+# wal_buffers controls WAL write buffering; larger values reduce disk I/O
+PG_PARAMS="$PG_PARAMS -c wal_buffers=${DB_WAL_BUFFERS:-64MB}"
 
 # Default logging levels (these match postgresql.conf but will be overridden if DEBUG=true)
 # These values are set here to be passed as command-line arguments,

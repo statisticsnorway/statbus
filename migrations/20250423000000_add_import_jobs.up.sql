@@ -175,10 +175,73 @@ COMMENT ON TABLE public.import_definition_step IS 'Connects an import definition
 
 -- Removed trigger prevent_non_draft_definition_step_changes
 
+-- Session-Level Import Optimization Function
+-- Called by worker when processing import tasks to temporarily boost PostgreSQL settings
+-- for heavy import operations. These are session-level overrides that revert after the
+-- transaction completes, allowing aggressive memory usage during imports without
+-- affecting other concurrent operations.
+--
+-- Server-level memory settings (configured via DB_MEM_LIMIT in .env.config):
+--   work_mem, maintenance_work_mem, temp_buffers, wal_buffers, etc.
+-- are set conservatively to allow multiple concurrent operations.
+--
+-- This function boosts memory settings specifically for import batch processing.
+CREATE OR REPLACE FUNCTION admin.set_optimal_import_session_settings()
+RETURNS void 
+LANGUAGE plpgsql 
+SECURITY DEFINER  -- Required: regular users can't change PostgreSQL settings
+SET search_path = public, admin, pg_temp
+AS $set_optimal_import_session_settings$
+BEGIN
+    -- Memory boosts for import operations (session-level, reverts after transaction)
+    -- These override the conservative server defaults during batch imports.
+    -- Note: temp_buffers and wal_buffers cannot be changed at runtime.
+    SET LOCAL work_mem = '1GB';                    -- Boost for large hash joins and sorts
+    SET LOCAL maintenance_work_mem = '2GB';        -- Boost for index operations during temporal_merge
+    
+    -- Join strategy optimization (session-level, reverts after transaction)
+    SET LOCAL enable_hashjoin = on;                -- Prefer hash joins for large lookups
+    SET LOCAL enable_nestloop = off;               -- Avoid nested loops for large datasets  
+    SET LOCAL enable_mergejoin = off;              -- Avoid expensive sort-based merge joins
+    
+    -- Query optimizer hints for import workloads (session-level)
+    SET LOCAL random_page_cost = 1.1;              -- Optimize for modern storage (SSD)
+    SET LOCAL cpu_tuple_cost = 0.01;               -- Slight preference for CPU over I/O
+    SET LOCAL hash_mem_multiplier = 8.0;           -- Allow very large hash tables
+    
+    -- Enable more aggressive query optimization for complex import operations
+    SET LOCAL from_collapse_limit = 20;            -- Allow more complex query flattening
+    SET LOCAL join_collapse_limit = 20;            -- Allow more join reordering for optimization
+    
+    -- Log the optimization application for debugging
+    RAISE DEBUG 'Import session optimization applied: work_mem=1GB, maintenance_work_mem=2GB, hash_mem_multiplier=8x';
+END;
+$set_optimal_import_session_settings$;
+
+-- Grant execution to application user role (worker processes run as statbus_dev)
+GRANT EXECUTE ON FUNCTION admin.set_optimal_import_session_settings() TO statbus_dev;
+
+-- Comment explaining the function's purpose and usage
+COMMENT ON FUNCTION admin.set_optimal_import_session_settings() IS 
+'Applies session-level PostgreSQL optimizations for import operations. 
+Called by worker when processing import queue tasks. Boosts work_mem and 
+maintenance_work_mem beyond server defaults for batch processing. Uses 
+SECURITY DEFINER since regular users cannot change PostgreSQL settings. 
+All settings use SET LOCAL and automatically revert after the transaction completes.';
+
 -- Procedure to notify about import_job_process start
 CREATE PROCEDURE worker.notify_is_importing_start()
 LANGUAGE plpgsql AS $procedure$
 BEGIN
+    -- Apply session-level PostgreSQL optimizations for import operations
+    -- This ensures all subsequent queries in this transaction benefit from:
+    -- - Increased work_mem (1GB) for large hash tables and sorts
+    -- - Optimized join strategies (hash joins preferred over merge/nested loops)
+    -- - Large hash_mem_multiplier (8x) for complex operations
+    -- Settings automatically revert when transaction completes
+    PERFORM admin.set_optimal_import_session_settings();
+    
+    -- Notify that importing has started
     PERFORM pg_notify('worker_status', json_build_object('type', 'is_importing', 'status', true)::text);
 END;
 $procedure$;
