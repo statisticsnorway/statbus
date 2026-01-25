@@ -192,6 +192,8 @@ module Statbus
       db_mem_limit : String
 
     # Type-safe derived memory configuration structure
+    # All memory settings are derived from DB_MEM_LIMIT for consistent scaling.
+    # See tmp/db-memory-todo.md for tuning rationale.
     record DbMemoryEnv,
       db_shm_size : String,
       db_mem_limit : String,
@@ -199,7 +201,9 @@ module Statbus
       db_shared_buffers : String,
       db_maintenance_work_mem : String,
       db_effective_cache_size : String,
-      db_work_mem : String
+      db_work_mem : String,
+      db_temp_buffers : String,
+      db_wal_buffers : String
 
     # Configuration values that are derived from other settings
     record DerivedEnv,
@@ -396,12 +400,28 @@ module Statbus
         end
 
         # Calculate derived memory values based on DB_MEM_LIMIT
-        # See tmp/db-memory-todo.md for rationale.
+        # All PostgreSQL memory settings scale from this single source of truth.
+        # See tmp/db-memory-todo.md for detailed rationale.
+        #
+        # Memory allocation strategy (for 4GB total):
+        #   shared_buffers:       25% = 1GB    (main buffer cache)
+        #   effective_cache_size: 75% = 3GB    (planner hint for OS cache)
+        #   maintenance_work_mem: 25% = 1GB    (VACUUM, CREATE INDEX, etc.)
+        #   work_mem:             1%  = 40MB   (per-operation sorts/hashes, multiplied by queries)
+        #   temp_buffers:        12.5% = 512MB (temporary tables, min 256MB for imports)
+        #   wal_buffers:         ~1.5% = 64MB  (WAL write buffering, min 16MB, max 256MB)
+        #
         mem_limit_mb = parse_mem_size_to_mb(config.db_mem_limit)
         shared_buffers_mb = (mem_limit_mb * 0.25).to_i64
         maintenance_work_mem_mb = (mem_limit_mb * 0.25).to_i64
         effective_cache_size_mb = (mem_limit_mb * 0.75).to_i64
         work_mem_mb = Math.max(4_i64, mem_limit_mb // 100) # Min 4MB for safety
+        # temp_buffers: ~12.5% of memory, min 256MB for import temp tables
+        # Must be set at server startup (can't be changed after temp tables are accessed)
+        temp_buffers_mb = Math.max(256_i64, mem_limit_mb // 8)
+        # wal_buffers: ~1.5% of memory, clamped between 16MB and 256MB
+        # Larger values reduce disk I/O by buffering more WAL before write
+        wal_buffers_mb = Math.min(256_i64, Math.max(16_i64, (mem_limit_mb * 0.015).to_i64))
         reservation_mb = (mem_limit_mb // 2).to_i64
 
         db_mem = DbMemoryEnv.new(
@@ -411,7 +431,9 @@ module Statbus
           db_shared_buffers: format_mb_for_pg(shared_buffers_mb),
           db_maintenance_work_mem: format_mb_for_pg(maintenance_work_mem_mb),
           db_effective_cache_size: format_mb_for_pg(effective_cache_size_mb),
-          db_work_mem: format_mb_for_pg(work_mem_mb)
+          db_work_mem: format_mb_for_pg(work_mem_mb),
+          db_temp_buffers: format_mb_for_pg(temp_buffers_mb),
+          db_wal_buffers: format_mb_for_pg(wal_buffers_mb)
         )
 
         # Calculate derived values
@@ -606,7 +628,7 @@ module Statbus
 
         # PostgreSQL memory configuration
         # These control the docker container resource limits and postgresql.conf settings.
-        # They are derived from DB_MEM_LIMIT in .env.config.
+        # All values are derived from DB_MEM_LIMIT in .env.config (single source of truth).
         env.set("DB_MEM_LIMIT", db_mem.db_mem_limit)
         env.set("DB_SHM_SIZE", db_mem.db_shm_size)
         env.set("DB_MEM_RESERVATION", db_mem.db_mem_reservation)
@@ -614,6 +636,8 @@ module Statbus
         env.set("DB_MAINTENANCE_WORK_MEM", db_mem.db_maintenance_work_mem)
         env.set("DB_EFFECTIVE_CACHE_SIZE", db_mem.db_effective_cache_size)
         env.set("DB_WORK_MEM", db_mem.db_work_mem)
+        env.set("DB_TEMP_BUFFERS", db_mem.db_temp_buffers)
+        env.set("DB_WAL_BUFFERS", db_mem.db_wal_buffers)
         
         env.set("ACCESS_JWT_EXPIRY", config.access_jwt_expiry)
         env.set("REFRESH_JWT_EXPIRY", config.refresh_jwt_expiry)

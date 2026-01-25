@@ -108,6 +108,7 @@ DROP FUNCTION IF EXISTS admin.import_job_notify();
 DROP FUNCTION IF EXISTS admin.import_job_derive();
 DROP PROCEDURE IF EXISTS worker.notify_is_importing_start();
 DROP PROCEDURE IF EXISTS worker.notify_is_importing_stop();
+DROP FUNCTION IF EXISTS admin.set_optimal_import_session_settings();
 DROP FUNCTION IF EXISTS admin.trigger_validate_import_definition();
 DROP FUNCTION IF EXISTS admin.validate_import_definition(INT);
 DROP FUNCTION IF EXISTS admin.import_job_next_state(public.import_job);

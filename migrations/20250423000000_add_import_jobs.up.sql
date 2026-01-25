@@ -175,10 +175,73 @@ COMMENT ON TABLE public.import_definition_step IS 'Connects an import definition
 
 -- Removed trigger prevent_non_draft_definition_step_changes
 
+-- Session-Level Import Optimization Function
+-- Called by worker when processing import tasks to temporarily boost PostgreSQL settings
+-- for heavy import operations. These are session-level overrides that revert after the
+-- transaction completes, allowing aggressive memory usage during imports without
+-- affecting other concurrent operations.
+--
+-- Server-level memory settings (configured via DB_MEM_LIMIT in .env.config):
+--   work_mem, maintenance_work_mem, temp_buffers, wal_buffers, etc.
+-- are set conservatively to allow multiple concurrent operations.
+--
+-- This function boosts memory settings specifically for import batch processing.
+CREATE OR REPLACE FUNCTION admin.set_optimal_import_session_settings()
+RETURNS void 
+LANGUAGE plpgsql 
+SECURITY DEFINER  -- Required: regular users can't change PostgreSQL settings
+SET search_path = public, admin, pg_temp
+AS $set_optimal_import_session_settings$
+BEGIN
+    -- Memory boosts for import operations (session-level, reverts after transaction)
+    -- These override the conservative server defaults during batch imports.
+    -- Note: temp_buffers and wal_buffers cannot be changed at runtime.
+    SET LOCAL work_mem = '1GB';                    -- Boost for large hash joins and sorts
+    SET LOCAL maintenance_work_mem = '2GB';        -- Boost for index operations during temporal_merge
+    
+    -- Join strategy optimization (session-level, reverts after transaction)
+    SET LOCAL enable_hashjoin = on;                -- Prefer hash joins for large lookups
+    SET LOCAL enable_nestloop = off;               -- Avoid nested loops for large datasets  
+    SET LOCAL enable_mergejoin = off;              -- Avoid expensive sort-based merge joins
+    
+    -- Query optimizer hints for import workloads (session-level)
+    SET LOCAL random_page_cost = 1.1;              -- Optimize for modern storage (SSD)
+    SET LOCAL cpu_tuple_cost = 0.01;               -- Slight preference for CPU over I/O
+    SET LOCAL hash_mem_multiplier = 8.0;           -- Allow very large hash tables
+    
+    -- Enable more aggressive query optimization for complex import operations
+    SET LOCAL from_collapse_limit = 20;            -- Allow more complex query flattening
+    SET LOCAL join_collapse_limit = 20;            -- Allow more join reordering for optimization
+    
+    -- Log the optimization application for debugging
+    RAISE DEBUG 'Import session optimization applied: work_mem=1GB, maintenance_work_mem=2GB, hash_mem_multiplier=8x';
+END;
+$set_optimal_import_session_settings$;
+
+-- Grant execution to application user role (worker processes run as statbus_dev)
+GRANT EXECUTE ON FUNCTION admin.set_optimal_import_session_settings() TO statbus_dev;
+
+-- Comment explaining the function's purpose and usage
+COMMENT ON FUNCTION admin.set_optimal_import_session_settings() IS 
+'Applies session-level PostgreSQL optimizations for import operations. 
+Called by worker when processing import queue tasks. Boosts work_mem and 
+maintenance_work_mem beyond server defaults for batch processing. Uses 
+SECURITY DEFINER since regular users cannot change PostgreSQL settings. 
+All settings use SET LOCAL and automatically revert after the transaction completes.';
+
 -- Procedure to notify about import_job_process start
 CREATE PROCEDURE worker.notify_is_importing_start()
 LANGUAGE plpgsql AS $procedure$
 BEGIN
+    -- Apply session-level PostgreSQL optimizations for import operations
+    -- This ensures all subsequent queries in this transaction benefit from:
+    -- - Increased work_mem (1GB) for large hash tables and sorts
+    -- - Optimized join strategies (hash joins preferred over merge/nested loops)
+    -- - Large hash_mem_multiplier (8x) for complex operations
+    -- Settings automatically revert when transaction completes
+    PERFORM admin.set_optimal_import_session_settings();
+    
+    -- Notify that importing has started
     PERFORM pg_notify('worker_status', json_build_object('type', 'is_importing', 'status', true)::text);
 END;
 $procedure$;
@@ -714,7 +777,7 @@ CREATE TABLE public.import_job(
     data_table_name text NOT NULL,   -- Name of the table holding processed/intermediate data
     priority integer,                -- Priority for worker queue processing
     analysis_batch_size integer NOT NULL DEFAULT 32768, -- Batch size for analysis phase
-    processing_batch_size integer NOT NULL DEFAULT 1000, -- Batch size for processing phase
+    processing_batch_size integer NOT NULL DEFAULT 1280, -- Batch size for processing phase
     definition_snapshot JSONB,       -- Snapshot of definition metadata at job creation time
     preparing_data_at timestamp with time zone,
     analysis_start_at timestamp with time zone, -- Timestamp analysis phase started
@@ -782,7 +845,7 @@ CREATE TABLE public.import_job(
     )
 );
 COMMENT ON COLUMN public.import_job.analysis_batch_size IS 'The number of rows to process in a single batch during the analysis phase.';
-COMMENT ON COLUMN public.import_job.processing_batch_size IS 'The number of rows to process in a single batch during the processing phase.';
+COMMENT ON COLUMN public.import_job.processing_batch_size IS 'The number of rows to process in a single batch during the processing phase. Optimized to 1280 for performance breakeven threshold';
 COMMENT ON COLUMN public.import_job.edit_comment IS 'Default edit comment to be applied to records processed by this job.';
 COMMENT ON COLUMN public.import_job.definition_snapshot IS 'Captures the complete state of an `import_definition` and its related entities at job creation. This ensures immutable processing. The structure is a JSONB object with keys corresponding to the source tables/views:
 - `import_definition`: A JSON representation of the `public.import_definition` row.
@@ -2199,7 +2262,7 @@ BEGIN
                             SELECT row_id
                             FROM public.%1$I
                             WHERE state IN (%2$L, 'error') AND last_completed_priority < %3$L
-                            ORDER BY row_id
+                             ORDER BY state, last_completed_priority, row_id
                             LIMIT %4$L
                             FOR UPDATE SKIP LOCKED
                         )
@@ -2282,7 +2345,7 @@ BEGIN
             SELECT row_id
             FROM public.%1$I
             WHERE state = 'processing' AND action = 'use'
-            ORDER BY row_id
+                             ORDER BY state, action, row_id
             LIMIT %2$L
             FOR UPDATE SKIP LOCKED
         )

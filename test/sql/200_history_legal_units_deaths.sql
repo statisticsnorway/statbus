@@ -63,7 +63,8 @@ SELECT resolution, year, month, unit_type, countable_count AS count, births, dea
 FROM public.statistical_history
 WHERE resolution = 'year'
 AND year < 2013
-AND unit_type = 'legal_unit';
+AND unit_type = 'legal_unit'
+ORDER BY year, month;
 
 
 \echo "Check statistical unit history by year-month - deaths should be 1 for year-month 2011-12 and 2012-12"
@@ -71,7 +72,8 @@ SELECT resolution, year, month, unit_type, countable_count AS count, births, dea
 FROM public.statistical_history
 WHERE resolution = 'year-month'
 AND year < 2013
-AND unit_type = 'legal_unit';
+AND unit_type = 'legal_unit'
+ORDER BY year, month;
 
 
 \x
@@ -129,14 +131,16 @@ SELECT resolution, year, month, unit_type, countable_count AS count, births, dea
 FROM public.statistical_history
 WHERE resolution = 'year'
 AND year < 2013
-AND unit_type = 'legal_unit';
+AND unit_type = 'legal_unit'
+ORDER BY year, month;
 
 \echo "Check statistical unit history by year-month - deaths should be 1 for year-month 2011-1 and 2012-12"
 SELECT resolution, year, month, unit_type, countable_count AS count, births, deaths
 FROM public.statistical_history
 WHERE resolution = 'year-month'
 AND year < 2013
-AND unit_type = 'legal_unit';
+AND unit_type = 'legal_unit'
+ORDER BY year, month;
 
 
 \x
@@ -194,14 +198,16 @@ SELECT resolution, year, month, unit_type, countable_count AS count, births, dea
 FROM public.statistical_history
 WHERE resolution = 'year'
 AND year < 2013
-AND unit_type = 'legal_unit';
+AND unit_type = 'legal_unit'
+ORDER BY year, month;
 
 \echo "Check statistical unit history by year-month - deaths should be 1 for year-month 2011-1 and 2012-1"
 SELECT resolution, year, month, unit_type, countable_count AS count, births, deaths
 FROM public.statistical_history
 WHERE resolution = 'year-month'
 AND year < 2013
-AND unit_type = 'legal_unit';
+AND unit_type = 'legal_unit'
+ORDER BY year, month;
 
 
 
