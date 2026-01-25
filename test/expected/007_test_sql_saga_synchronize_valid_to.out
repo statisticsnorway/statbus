@@ -121,13 +121,14 @@ SELECT sql_saga.add_era(
     'valid_range'
 );
 NOTICE:  sql_saga: Created trigger "temporal_table_synchronize_temporal_columns_trigger" on table trigger_test.temporal_table to synchronize columns: valid_to, valid_from, valid_until
+NOTICE:  sql_saga: Created GIST index "temporal_table_valid_range_gist_idx" on column trigger_test.temporal_table.valid_range for temporal_merge performance
  add_era 
 ---------
  t
 (1 row)
 
 SELECT sql_saga.add_unique_key('trigger_test.temporal_table',ARRAY['id'], key_type => 'primary'::sql_saga.unique_key_type);
-NOTICE:  sql_saga: altering table trigger_test.temporal_table to add constraints: ALTER COLUMN id SET NOT NULL, ADD PRIMARY KEY (id, valid_range WITHOUT OVERLAPS)
+NOTICE:  sql_saga: Added constraints to table trigger_test.temporal_table: ALTER COLUMN id SET NOT NULL; ADD PRIMARY KEY (id, valid_range WITHOUT OVERLAPS)
      add_unique_key      
 -------------------------
  temporal_table_id_valid
