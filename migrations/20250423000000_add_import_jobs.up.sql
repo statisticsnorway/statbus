@@ -218,8 +218,8 @@ BEGIN
 END;
 $set_optimal_import_session_settings$;
 
--- Grant execution to application user role (worker processes run as statbus_dev)
-GRANT EXECUTE ON FUNCTION admin.set_optimal_import_session_settings() TO statbus_dev;
+-- Grant execution to application user role - so users can adjust for running imports manually.
+GRANT EXECUTE ON FUNCTION admin.set_optimal_import_session_settings() TO authenticated;
 
 -- Comment explaining the function's purpose and usage
 COMMENT ON FUNCTION admin.set_optimal_import_session_settings() IS 
