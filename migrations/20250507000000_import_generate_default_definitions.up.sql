@@ -105,11 +105,12 @@ $$;
 
 -- Procedure to clean up orphaned source columns and mappings for default definitions
 CREATE OR REPLACE PROCEDURE import.cleanup_orphaned_synced_mappings()
-LANGUAGE plpgsql AS $$
+LANGUAGE plpgsql AS $cleanup_orphaned_synced_mappings$
 DECLARE
     v_def RECORD;
     v_source_col RECORD;
     v_data_column_exists BOOLEAN;
+    v_is_dynamic_column BOOLEAN;
 BEGIN
     RAISE DEBUG '--> Running import.cleanup_orphaned_synced_mappings...';
     FOR v_def IN
@@ -121,16 +122,44 @@ BEGIN
             FROM public.import_source_column isc
             WHERE isc.definition_id = v_def.id
         LOOP
-            -- An import_source_column is an orphan ONLY if it is dynamically generated (i.e., its name
-            -- matches a code in external_ident_type or stat_definition) AND its corresponding `source_input`
-            -- data column no longer exists. Statically defined source columns are ignored.
+            -- An import_source_column is an orphan ONLY if it is dynamically generated AND its 
+            -- corresponding `source_input` data column no longer exists.
+            -- 
+            -- Dynamically generated columns include:
+            -- 1. Regular external_ident_type codes (e.g., 'tax_ident')
+            -- 2. Hierarchical external_ident_type component columns (e.g., 'admin_statistical_region')
+            -- 3. stat_definition codes
+            -- 4. legal_unit prefixed external ident codes (e.g., 'legal_unit_tax_ident')
+            
             v_data_column_exists := true; -- Assume not an orphan by default
-            IF v_source_col.column_name IN (SELECT code FROM public.external_ident_type) OR
-               v_source_col.column_name IN (SELECT code FROM public.stat_definition) OR
-               (v_source_col.column_name LIKE 'legal_unit_%' AND
-                replace(v_source_col.column_name, 'legal_unit_', '') IN (SELECT code FROM public.external_ident_type))
-            THEN
-                -- This appears to be a dynamically managed source column. Check if its data column still exists.
+            v_is_dynamic_column := false;
+            
+            -- Check if this is a dynamic column from external_ident_type (regular or hierarchical component)
+            IF v_source_col.column_name IN (SELECT code FROM public.external_ident_type) THEN
+                -- Regular external ident type code
+                v_is_dynamic_column := true;
+            ELSIF EXISTS (
+                -- Hierarchical component column: matches pattern {code}_{label}
+                -- where code is a hierarchical external_ident_type and label is one of its labels
+                SELECT 1 
+                FROM public.external_ident_type eit
+                WHERE eit.shape = 'hierarchical'
+                  AND eit.labels IS NOT NULL
+                  AND v_source_col.column_name LIKE eit.code || '_%'
+                  AND substring(v_source_col.column_name FROM length(eit.code) + 2) = ANY(
+                      string_to_array(ltree2text(eit.labels), '.')
+                  )
+            ) THEN
+                v_is_dynamic_column := true;
+            ELSIF v_source_col.column_name IN (SELECT code FROM public.stat_definition) THEN
+                v_is_dynamic_column := true;
+            ELSIF v_source_col.column_name LIKE 'legal_unit_%' AND
+                  replace(v_source_col.column_name, 'legal_unit_', '') IN (SELECT code FROM public.external_ident_type) THEN
+                v_is_dynamic_column := true;
+            END IF;
+            
+            IF v_is_dynamic_column THEN
+                -- This is a dynamically managed source column. Check if its data column still exists.
                 SELECT EXISTS (
                     SELECT 1
                     FROM public.import_definition_step ids
@@ -152,7 +181,7 @@ BEGIN
     END LOOP;
     RAISE DEBUG 'Finished import.cleanup_orphaned_synced_mappings.';
 END;
-$$;
+$cleanup_orphaned_synced_mappings$;
 
 -- Register lifecycle callback for synchronizing default definition mappings
 -- This should run after data columns are generated/updated.
@@ -307,7 +336,9 @@ DECLARE
     ];
     es_no_lu_explicit_source_cols TEXT[] := es_no_lu_source_cols || ARRAY['valid_from', 'valid_to'];
 
-    active_ext_ident_codes TEXT[];
+    active_ext_ident_source_cols TEXT[];
+    v_eit RECORD;
+    v_label TEXT;
     nlr_data_source_id INT;
     census_data_source_id INT;
     survey_data_source_id INT;
@@ -328,18 +359,31 @@ BEGIN
     -- Ensure external_ident data columns are generated (should be idempotent)
     CALL import.generate_external_ident_data_columns();
 
-    -- Get active external identifier codes to append to source column lists
-    SELECT array_agg(code ORDER BY priority) INTO active_ext_ident_codes FROM public.external_ident_type_active;
-    IF active_ext_ident_codes IS NULL THEN
-        active_ext_ident_codes := ARRAY[]::TEXT[];
-    END IF;
+    -- Build list of source column names for external identifiers
+    -- Regular types: just the code (e.g., 'tax_ident')
+    -- Hierarchical types: {code}_{label} for each label (e.g., 'admin_statistical_region', 'admin_statistical_district')
+    active_ext_ident_source_cols := ARRAY[]::TEXT[];
+    FOR v_eit IN 
+        SELECT code, shape, labels 
+        FROM public.external_ident_type_active 
+        ORDER BY priority
+    LOOP
+        IF v_eit.shape = 'regular' THEN
+            active_ext_ident_source_cols := active_ext_ident_source_cols || v_eit.code;
+        ELSIF v_eit.shape = 'hierarchical' AND v_eit.labels IS NOT NULL THEN
+            FOREACH v_label IN ARRAY string_to_array(ltree2text(v_eit.labels), '.')
+            LOOP
+                active_ext_ident_source_cols := active_ext_ident_source_cols || (v_eit.code || '_' || v_label);
+            END LOOP;
+        END IF;
+    END LOOP;
 
-    lu_source_cols := lu_source_cols || active_ext_ident_codes;
-    lu_explicit_source_cols := lu_explicit_source_cols || active_ext_ident_codes;
-    es_source_cols := es_source_cols || active_ext_ident_codes;
-    es_explicit_source_cols := es_explicit_source_cols || active_ext_ident_codes;
-    es_no_lu_source_cols := es_no_lu_source_cols || active_ext_ident_codes;
-    es_no_lu_explicit_source_cols := es_no_lu_explicit_source_cols || active_ext_ident_codes;
+    lu_source_cols := lu_source_cols || active_ext_ident_source_cols;
+    lu_explicit_source_cols := lu_explicit_source_cols || active_ext_ident_source_cols;
+    es_source_cols := es_source_cols || active_ext_ident_source_cols;
+    es_explicit_source_cols := es_explicit_source_cols || active_ext_ident_source_cols;
+    es_no_lu_source_cols := es_no_lu_source_cols || active_ext_ident_source_cols;
+    es_no_lu_explicit_source_cols := es_no_lu_explicit_source_cols || active_ext_ident_source_cols;
 
     -- 1. Legal Units (Job Provided Time)
     INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id, custom)
@@ -388,14 +432,14 @@ BEGIN
     VALUES ('generic_unit_stats_update_job_provided', 'Unit Stats Update (Job Provided Time)', 'Updates statistical variables for existing units. Validity is determined by a time context or explicit dates on the job.', 'replace_only', 'generic_unit', 'job_provided', false, survey_data_source_id, FALSE)
     RETURNING id INTO def_id;
     PERFORM import.link_steps_to_definition(def_id, ARRAY['external_idents', 'data_source', 'valid_time', 'statistical_variables', 'edit_info', 'metadata']);
-    PERFORM import.create_source_and_mappings_for_definition(def_id, active_ext_ident_codes); -- Pass active external ident codes
+    PERFORM import.create_source_and_mappings_for_definition(def_id, active_ext_ident_source_cols); -- Pass active external ident source columns
 
     -- 8. Unit Stats Update (via Source File Dates)
     INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id, custom)
     VALUES ('generic_unit_stats_update_source_dates', 'Unit Stats Update (Source Dates)', 'Updates statistical variables for existing units using explicit valid_from/valid_to from the source file.', 'replace_only', 'generic_unit', 'source_columns', false, survey_data_source_id, FALSE)
     RETURNING id INTO def_id;
     PERFORM import.link_steps_to_definition(def_id, ARRAY['external_idents', 'data_source', 'valid_time', 'statistical_variables', 'edit_info', 'metadata']);
-    PERFORM import.create_source_and_mappings_for_definition(def_id, ARRAY['valid_from', 'valid_to'] || active_ext_ident_codes); -- Pass valid_from, valid_to, and active external ident codes
+    PERFORM import.create_source_and_mappings_for_definition(def_id, ARRAY['valid_from', 'valid_to'] || active_ext_ident_source_cols); -- Pass valid_from, valid_to, and active external ident source columns
 
 END $$;
 

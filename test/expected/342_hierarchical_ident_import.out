@@ -1,0 +1,734 @@
+BEGIN;
+\i test/setup.sql
+-- While the datestyle is set for the database, the pg_regress tool sets the MDY format
+-- to ensure consistent date formatting, so we must manually override this
+SET datestyle TO 'ISO, DMY';
+\if :{?DEBUG}
+SET client_min_messages TO debug1;
+\else
+SET client_min_messages TO NOTICE;
+\endif
+-- Create temporary function to execute queries as system user
+CREATE OR REPLACE FUNCTION test.sudo_exec(
+    sql text,
+    OUT results jsonb
+) RETURNS jsonb
+SECURITY DEFINER LANGUAGE plpgsql AS $sudo_exec$
+DECLARE
+    result_rows jsonb;
+BEGIN
+    -- Check if the SQL starts with common DDL keywords
+    IF sql ~* '^\s*(CREATE|DROP|ALTER|TRUNCATE|GRANT|REVOKE|ANALYZE)' THEN
+        -- For DDL statements, execute directly
+        EXECUTE sql;
+        results := '[]'::jsonb;
+    ELSE
+        -- For DML/queries, wrap in a SELECT to capture results
+        EXECUTE format('
+            SELECT COALESCE(
+                jsonb_agg(row_to_json(t)),
+                ''[]''::jsonb
+            )
+            FROM (%s) t',
+            sql
+        ) INTO result_rows;
+        results := result_rows;
+    END IF;
+END;
+$sudo_exec$;
+-- Grant execute to public since this is for testing
+GRANT EXECUTE ON FUNCTION test.sudo_exec(text) TO PUBLIC;
+\echo Add users for testing purposes
+Add users for testing purposes
+SELECT * FROM public.user_create(p_display_name => 'Test Admin', p_email => 'test.admin@statbus.org', p_statbus_role => 'admin_user'::statbus_role, p_password => 'Admin#123!');
+         email          |  password  
+------------------------+------------
+ test.admin@statbus.org | Admin#123!
+(1 row)
+
+SELECT * FROM public.user_create(p_display_name => 'Test Regular', p_email => 'test.regular@statbus.org', p_statbus_role => 'regular_user'::statbus_role, p_password => 'Regular#123!');
+          email           |   password   
+--------------------------+--------------
+ test.regular@statbus.org | Regular#123!
+(1 row)
+
+SELECT * FROM public.user_create(p_display_name => 'Test Restricted', p_email => 'test.restricted@statbus.org', p_statbus_role => 'restricted_user'::statbus_role, p_password => 'Restricted#123!');
+            email            |    password     
+-----------------------------+-----------------
+ test.restricted@statbus.org | Restricted#123!
+(1 row)
+
+CREATE OR REPLACE PROCEDURE test.remove_pg_temp_for_tx_user_switch(p_keep_tables text[] DEFAULT '{}')
+LANGUAGE plpgsql
+AS $remove_pg_temp_for_tx_user_switch$
+DECLARE
+    rec record;
+    v_found_count integer := 0;
+BEGIN
+    RAISE DEBUG 'Running test.remove_pg_temp_for_tx_user_switch(p_keep_tables => %)...', p_keep_tables;
+    -- Remove temporary cache tables used by import, as we switch user inside the *same* transaction,
+    -- and the new user can not modify tables owned by the previous import.
+    -- This generic loop cleans up all tables and views in the pg_temp schema, except those specified to keep.
+    FOR rec IN
+        SELECT
+            c.relname,
+            c.relkind
+        FROM pg_catalog.pg_class AS c
+        LEFT JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+        WHERE c.relkind IN ('r', 'p', 'v', 'm') AND n.oid = pg_my_temp_schema() -- r=table, p=partitioned, v=view, m=materialized
+          AND c.relname <> ALL(p_keep_tables)
+    LOOP
+        v_found_count := v_found_count + 1;
+        IF rec.relkind IN ('r', 'p', 'm') THEN
+            RAISE DEBUG '  -> Dropping temp TABLE %', rec.relname;
+            EXECUTE format('DROP TABLE IF EXISTS pg_temp.%I CASCADE', rec.relname);
+        ELSIF rec.relkind = 'v' THEN
+            RAISE DEBUG '  -> Dropping temp VIEW %', rec.relname;
+            EXECUTE format('DROP VIEW IF EXISTS pg_temp.%I CASCADE', rec.relname);
+        END IF;
+    END LOOP;
+
+    RAISE DEBUG '...finished test.remove_pg_temp_for_tx_user_switch(). Found and dropped % objects.', v_found_count;
+
+    -- This procedure is part of the sql_saga extension and has its own cleanup logic.
+    -- While the loop above handles tables/views, this call ensures any other temporary
+    -- objects it creates are also cleaned up.
+    CALL sql_saga.temporal_merge_drop_temp_tables();
+END;
+$remove_pg_temp_for_tx_user_switch$;
+\echo "Test 342: Hierarchical External Identifiers - Import System Integration"
+"Test 342: Hierarchical External Identifiers - Import System Integration"
+\echo "Testing hierarchical identifier import: column generation, validation, analysis, and processing"
+"Testing hierarchical identifier import: column generation, validation, analysis, and processing"
+-- A Super User configures statbus.
+CALL test.set_user_from_email('test.admin@statbus.org');
+\i samples/norway/getting-started.sql
+\i samples/norway/settings.sql
+INSERT INTO settings(activity_category_standard_id,country_id)
+SELECT (SELECT id FROM activity_category_standard WHERE code = 'nace_v2.1')
+     , (SELECT id FROM public.country WHERE iso_2 = 'NO')
+ON CONFLICT (only_one_setting)
+DO UPDATE SET
+   activity_category_standard_id = EXCLUDED.activity_category_standard_id,
+   country_id = EXCLUDED.country_id
+   WHERE settings.only_one_setting = EXCLUDED.only_one_setting;
+;
+\i samples/norway/activity_category/activity_category_norway.sql
+\copy public.activity_category_available_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/regions/norway-regions-2024.sql
+\copy public.region_upload(path, name) FROM 'samples/norway/regions/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/sector/sector_norway.sql
+\copy public.sector_custom_only FROM 'samples/norway/sector/sector_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/legal_form/legal_form_norway.sql
+\copy public.legal_form_custom_only FROM 'samples/norway/legal_form/legal_form_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/data_source/data_source_norway.sql
+\copy public.data_source_custom (code, name) FROM 'samples/norway/data_source/data_source_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+SELECT acs.code FROM public.settings AS s JOIN activity_category_standard AS acs ON s.activity_category_standard_id = acs.id;
+   code    
+-----------
+ nace_v2.1
+(1 row)
+
+SAVEPOINT before_loading_units;
+SELECT
+    (SELECT COUNT(DISTINCT id) FROM public.establishment) AS establishment_count,
+    (SELECT COUNT(DISTINCT id) FROM public.legal_unit) AS legal_unit_count,
+    (SELECT COUNT(DISTINCT id) FROM public.enterprise) AS enterprise_count;
+ establishment_count | legal_unit_count | enterprise_count 
+---------------------+------------------+------------------
+                   0 |                0 |                0
+(1 row)
+
+-- ============================================================================
+-- Test 342.1: Setup - Create Hierarchical Identifier Type and Verify Column Generation
+-- ============================================================================
+\echo "=============================================================="
+"=============================================================="
+\echo "Test 342.1: Hierarchical Identifier Type Setup and Column Generation"
+"Test 342.1: Hierarchical Identifier Type Setup and Column Generation"
+\echo "=============================================================="
+"=============================================================="
+-- Setup: Create a hierarchical identifier type (Uganda-style: region.district.seq)
+\echo "Creating hierarchical identifier type 'surveyor_ident' with labels 'region.district.seq'"
+"Creating hierarchical identifier type 'surveyor_ident' with labels 'region.district.seq'"
+INSERT INTO public.external_ident_type (code, name, shape, labels, description, priority, archived)
+VALUES ('surveyor_ident', 'Surveyor Identifier', 'hierarchical', 'region.district.seq',
+        'Region/District/Sequence hierarchical composite key', 50, false);
+NOTICE:  Dropped index su_ei_stat_ident_idx
+NOTICE:  Dropped index su_ei_tax_ident_idx
+NOTICE:  Dropped index su_s_employees_idx
+NOTICE:  Dropped index su_s_turnover_idx
+NOTICE:  Dropped index su_ss_employees_count_idx
+NOTICE:  Dropped index su_ss_employees_sum_idx
+NOTICE:  Dropped index su_ss_turnover_count_idx
+NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Created index su_ei_tax_ident for external_ident_type
+NOTICE:  Created index su_ei_stat_ident for external_ident_type
+NOTICE:  Created index su_ei_surveyor_ident for external_ident_type
+NOTICE:  Created indices for stat_definition employees
+NOTICE:  Created indices for stat_definition turnover
+-- Verify the type was created correctly
+\echo "Verifying hierarchical identifier type:"
+"Verifying hierarchical identifier type:"
+SELECT eit.code, eit.shape, eit.labels, eit.priority
+FROM public.external_ident_type eit
+WHERE eit.code = 'surveyor_ident';
+      code      |    shape     |       labels        | priority 
+----------------+--------------+---------------------+----------
+ surveyor_ident | hierarchical | region.district.seq |       50
+(1 row)
+
+-- Verify data columns were generated for external_idents step
+\echo "Verifying import data columns were generated:"
+"Verifying import data columns were generated:"
+SELECT idc.column_name, idc.column_type, idc.purpose, idc.priority, idc.is_uniquely_identifying
+FROM public.import_data_column idc
+JOIN public.import_step ist ON ist.id = idc.step_id
+WHERE ist.code = 'external_idents'
+  AND idc.column_name LIKE 'surveyor_ident%'
+ORDER BY idc.priority;
+         column_name         | column_type |   purpose    | priority | is_uniquely_identifying 
+-----------------------------+-------------+--------------+----------+-------------------------
+ surveyor_ident_region_raw   | TEXT        | source_input |      556 | t
+ surveyor_ident_district_raw | TEXT        | source_input |      557 | t
+ surveyor_ident_seq_raw      | TEXT        | source_input |      558 | t
+ surveyor_ident_path         | LTREE       | internal     |      559 | f
+(4 rows)
+
+-- Verify we have the expected columns:
+-- surveyor_ident_region_raw (source_input, TEXT)
+-- surveyor_ident_district_raw (source_input, TEXT)
+-- surveyor_ident_seq_raw (source_input, TEXT)
+-- surveyor_ident_path (internal, LTREE)
+\echo "Expected 4 columns: surveyor_ident_region_raw, surveyor_ident_district_raw, surveyor_ident_seq_raw, surveyor_ident_path"
+"Expected 4 columns: surveyor_ident_region_raw, surveyor_ident_district_raw, surveyor_ident_seq_raw, surveyor_ident_path"
+SELECT COUNT(*) AS column_count FROM public.import_data_column idc
+JOIN public.import_step ist ON ist.id = idc.step_id
+WHERE ist.code = 'external_idents'
+  AND idc.column_name LIKE 'surveyor_ident%';
+ column_count 
+--------------
+            4
+(1 row)
+
+-- ============================================================================
+-- Test 342.2: Happy Path - Import Legal Unit with Hierarchical Identifier
+-- ============================================================================
+\echo "=============================================================="
+"=============================================================="
+\echo "Test 342.2: Happy Path - Import LU with Hierarchical Identifier"
+"Test 342.2: Happy Path - Import LU with Hierarchical Identifier"
+\echo "=============================================================="
+"=============================================================="
+-- Note: Lifecycle callbacks are automatically triggered when we insert into external_ident_type
+-- The columns are already generated from Test 342.1
+-- Create import job
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
+    'import_342_02_hier_lu',
+    'Test 342-02: LU with Hierarchical Ident',
+    'Importing LU with surveyor hierarchical identifier.',
+    'Test 342';
+-- Verify the upload table has the hierarchical columns
+\echo "Verifying upload table has hierarchical columns:"
+"Verifying upload table has hierarchical columns:"
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_schema = 'public'
+  AND table_name = 'import_342_02_hier_lu_upload'
+  AND column_name LIKE 'surveyor_ident%'
+ORDER BY ordinal_position;
+       column_name       | data_type 
+-------------------------+-----------
+ surveyor_ident_region   | text
+ surveyor_ident_district | text
+ surveyor_ident_seq      | text
+(3 rows)
+
+-- Insert data with all hierarchical components provided
+-- Note: Upload table uses source column names (without _raw suffix)
+INSERT INTO public.import_342_02_hier_lu_upload(
+    valid_from, valid_to, tax_ident, name, birth_date, death_date,
+    physical_address_part1, physical_postcode, physical_postplace,
+    physical_region_code, physical_country_iso_2,
+    primary_activity_category_code, secondary_activity_category_code,
+    sector_code, legal_form_code,
+    surveyor_ident_region, surveyor_ident_district, surveyor_ident_seq
+) VALUES
+('2020-01-01','2020-12-31','342020001','LU with Surveyor ID','2020-01-01',NULL,
+ 'Main St 1','1234','Oslo','0301','NO','01.110',NULL,'2100','AS',
+ 'NORTH', 'KAMPALA', '001');
+\echo "Run worker processing for import jobs"
+"Run worker processing for import jobs"
+CALL worker.process_tasks(p_queue => 'import');
+\echo "Import job status for 342_02_hier_lu:"
+"Import job status for 342_02_hier_lu:"
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details
+FROM public.import_job WHERE slug = 'import_342_02_hier_lu';
+         slug          |  state   | total_rows | imported_rows | has_error | error_details 
+-----------------------+----------+------------+---------------+-----------+---------------
+ import_342_02_hier_lu | finished |          1 |             1 | f         | 
+(1 row)
+
+\echo "Data table row status for import_342_02_hier_lu:"
+"Data table row status for import_342_02_hier_lu:"
+SELECT row_id, state, errors, merge_status, action, operation,
+       surveyor_ident_region_raw, surveyor_ident_district_raw, surveyor_ident_seq_raw,
+       surveyor_ident_path
+FROM public.import_342_02_hier_lu_data;
+ row_id |   state   | errors |                                       merge_status                                       | action | operation | surveyor_ident_region_raw | surveyor_ident_district_raw | surveyor_ident_seq_raw | surveyor_ident_path 
+--------+-----------+--------+------------------------------------------------------------------------------------------+--------+-----------+---------------------------+-----------------------------+------------------------+---------------------
+      1 | processed | {}     | {"legal_unit": "APPLIED", "primary_activity": "APPLIED", "physical_location": "APPLIED"} | use    | insert    | NORTH                     | KAMPALA                     | 001                    | NORTH.KAMPALA.001
+(1 row)
+
+\echo "Verification: Legal Units created:"
+"Verification: Legal Units created:"
+SELECT
+    lu.name,
+    ei_tax.ident AS tax_ident,
+    lu.valid_from, lu.valid_to
+FROM public.legal_unit lu
+JOIN public.external_ident ei_tax ON ei_tax.legal_unit_id = lu.id
+JOIN public.external_ident_type eit_tax ON eit_tax.id = ei_tax.type_id AND eit_tax.code = 'tax_ident'
+WHERE ei_tax.ident = '342020001';
+        name         | tax_ident | valid_from |  valid_to  
+---------------------+-----------+------------+------------
+ LU with Surveyor ID | 342020001 | 2020-01-01 | 2020-12-31
+(1 row)
+
+\echo "Verification: Hierarchical External Identifiers created:"
+"Verification: Hierarchical External Identifiers created:"
+SELECT
+    eit.code AS type_code,
+    eit.shape,
+    ei.idents,
+    ei.labels,
+    nlevel(ei.idents) AS depth,
+    lu.name AS legal_unit_name
+FROM public.external_ident ei
+JOIN public.external_ident_type eit ON eit.id = ei.type_id
+JOIN public.legal_unit lu ON lu.id = ei.legal_unit_id
+WHERE eit.code = 'surveyor_ident';
+   type_code    |    shape     |      idents       |       labels        | depth |   legal_unit_name   
+----------------+--------------+-------------------+---------------------+-------+---------------------
+ surveyor_ident | hierarchical | NORTH.KAMPALA.001 | region.district.seq |     3 | LU with Surveyor ID
+(1 row)
+
+-- ============================================================================
+-- Test 342.3: All-or-Nothing Validation - Partial Components Should Error
+-- ============================================================================
+\echo "=============================================================="
+"=============================================================="
+\echo "Test 342.3: All-or-Nothing Validation - Partial Components Error"
+"Test 342.3: All-or-Nothing Validation - Partial Components Error"
+\echo "=============================================================="
+"=============================================================="
+-- Create import job for partial test
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
+    'import_342_03_partial',
+    'Test 342-03: Partial Hierarchical Ident',
+    'Testing partial hierarchical identifier (should error).',
+    'Test 342';
+-- Insert data with PARTIAL hierarchical components (missing seq)
+INSERT INTO public.import_342_03_partial_upload(
+    valid_from, valid_to, tax_ident, name, birth_date, death_date,
+    physical_address_part1, physical_postcode, physical_postplace,
+    physical_region_code, physical_country_iso_2,
+    primary_activity_category_code, secondary_activity_category_code,
+    sector_code, legal_form_code,
+    surveyor_ident_region, surveyor_ident_district, surveyor_ident_seq
+) VALUES
+('2020-01-01','2020-12-31','342030001','LU Partial Hier','2020-01-01',NULL,
+ 'Main St 1','1234','Oslo','0301','NO','01.110',NULL,'2100','AS',
+ 'NORTH', 'KAMPALA', NULL);  -- seq is NULL (partial)
+CALL worker.process_tasks(p_queue => 'import');
+\echo "Import job status for 342_03_partial (expect error due to partial hierarchical):"
+"Import job status for 342_03_partial (expect error due to partial hierarchical):"
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details
+FROM public.import_job WHERE slug = 'import_342_03_partial';
+         slug          |  state   | total_rows | imported_rows | has_error | error_details 
+-----------------------+----------+------------+---------------+-----------+---------------
+ import_342_03_partial | finished |          1 |             0 | f         | 
+(1 row)
+
+\echo "Data table row status - should show error about missing components:"
+"Data table row status - should show error about missing components:"
+SELECT row_id, state, errors, action,
+       surveyor_ident_region_raw, surveyor_ident_district_raw, surveyor_ident_seq_raw,
+       surveyor_ident_path
+FROM public.import_342_03_partial_data;
+ row_id | state |                                                 errors                                                  | action | surveyor_ident_region_raw | surveyor_ident_district_raw | surveyor_ident_seq_raw | surveyor_ident_path 
+--------+-------+---------------------------------------------------------------------------------------------------------+--------+---------------------------+-----------------------------+------------------------+---------------------
+      1 | error | {"surveyor_ident_region_raw": "Hierarchical identifier requires all components: region, district, seq"} | skip   | NORTH                     | KAMPALA                     |                        | 
+(1 row)
+
+\echo "Verify no legal unit was created with tax_ident 342030001:"
+"Verify no legal unit was created with tax_ident 342030001:"
+SELECT COUNT(*) AS lu_count FROM public.legal_unit lu
+JOIN public.external_ident ei ON ei.legal_unit_id = lu.id
+JOIN public.external_ident_type eit ON eit.id = ei.type_id AND eit.code = 'tax_ident'
+WHERE ei.ident = '342030001';
+ lu_count 
+----------
+        0
+(1 row)
+
+-- ============================================================================
+-- Test 342.4: Invalid ltree Characters - Should Error
+-- ============================================================================
+\echo "=============================================================="
+"=============================================================="
+\echo "Test 342.4: Invalid ltree Characters - Should Error"
+"Test 342.4: Invalid ltree Characters - Should Error"
+\echo "=============================================================="
+"=============================================================="
+-- Create import job for invalid chars test
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
+    'import_342_04_invalid',
+    'Test 342-04: Invalid ltree chars',
+    'Testing invalid ltree characters (should error).',
+    'Test 342';
+-- Insert data with invalid characters in hierarchical component (dots are invalid)
+INSERT INTO public.import_342_04_invalid_upload(
+    valid_from, valid_to, tax_ident, name, birth_date, death_date,
+    physical_address_part1, physical_postcode, physical_postplace,
+    physical_region_code, physical_country_iso_2,
+    primary_activity_category_code, secondary_activity_category_code,
+    sector_code, legal_form_code,
+    surveyor_ident_region, surveyor_ident_district, surveyor_ident_seq
+) VALUES
+('2020-01-01','2020-12-31','342040001','LU Invalid Chars','2020-01-01',NULL,
+ 'Main St 1','1234','Oslo','0301','NO','01.110',NULL,'2100','AS',
+ 'NORTH', 'KAM.PALA', '001');  -- district has a dot (invalid for ltree label)
+CALL worker.process_tasks(p_queue => 'import');
+\echo "Import job status for 342_04_invalid (expect error due to invalid chars):"
+"Import job status for 342_04_invalid (expect error due to invalid chars):"
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details
+FROM public.import_job WHERE slug = 'import_342_04_invalid';
+         slug          |  state   | total_rows | imported_rows | has_error | error_details 
+-----------------------+----------+------------+---------------+-----------+---------------
+ import_342_04_invalid | finished |          1 |             0 | f         | 
+(1 row)
+
+\echo "Data table row status - should show error about invalid characters:"
+"Data table row status - should show error about invalid characters:"
+SELECT row_id, state, errors, action,
+       surveyor_ident_region_raw, surveyor_ident_district_raw, surveyor_ident_seq_raw,
+       surveyor_ident_path
+FROM public.import_342_04_invalid_data;
+ row_id | state |                                            errors                                             | action | surveyor_ident_region_raw | surveyor_ident_district_raw | surveyor_ident_seq_raw | surveyor_ident_path 
+--------+-------+-----------------------------------------------------------------------------------------------+--------+---------------------------+-----------------------------+------------------------+---------------------
+      1 | error | {"surveyor_ident_district_raw": "Invalid characters in district (allowed: A-Z, a-z, 0-9, _)"} | skip   | NORTH                     | KAM.PALA                    | 001                    | 
+(1 row)
+
+-- ============================================================================
+-- Test 342.5: Mixed Import - Regular + Hierarchical Identifiers Together
+-- ============================================================================
+\echo "=============================================================="
+"=============================================================="
+\echo "Test 342.5: Mixed Import - Regular + Hierarchical Identifiers"
+"Test 342.5: Mixed Import - Regular + Hierarchical Identifiers"
+\echo "=============================================================="
+"=============================================================="
+-- Create import job for mixed test
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
+    'import_342_05_mixed',
+    'Test 342-05: Mixed Regular and Hierarchical',
+    'Importing with both tax_ident (regular) and surveyor_ident (hierarchical).',
+    'Test 342';
+-- Insert multiple rows with both regular and hierarchical identifiers
+INSERT INTO public.import_342_05_mixed_upload(
+    valid_from, valid_to, tax_ident, name, birth_date, death_date,
+    physical_address_part1, physical_postcode, physical_postplace,
+    physical_region_code, physical_country_iso_2,
+    primary_activity_category_code, secondary_activity_category_code,
+    sector_code, legal_form_code,
+    surveyor_ident_region, surveyor_ident_district, surveyor_ident_seq
+) VALUES
+-- LU 1: Both regular and hierarchical
+('2020-01-01','2020-12-31','342050001','LU Mixed One','2020-01-01',NULL,
+ 'Main St 1','1234','Oslo','0301','NO','01.110',NULL,'2100','AS',
+ 'EAST', 'JINJA', '001'),
+-- LU 2: Only regular (hierarchical NULL)
+('2020-01-01','2020-12-31','342050002','LU Regular Only','2020-01-01',NULL,
+ 'Main St 2','1234','Oslo','0301','NO','02.200',NULL,'2100','AS',
+ NULL, NULL, NULL),
+-- LU 3: Both regular and hierarchical (different region)
+('2020-01-01','2020-12-31','342050003','LU Mixed Three','2020-01-01',NULL,
+ 'Main St 3','1234','Oslo','0301','NO','03.100',NULL,'2100','AS',
+ 'WEST', 'MBARARA', '001');
+CALL worker.process_tasks(p_queue => 'import');
+\echo "Import job status for 342_05_mixed:"
+"Import job status for 342_05_mixed:"
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details
+FROM public.import_job WHERE slug = 'import_342_05_mixed';
+        slug         |  state   | total_rows | imported_rows | has_error | error_details 
+---------------------+----------+------------+---------------+-----------+---------------
+ import_342_05_mixed | finished |          3 |             3 | f         | 
+(1 row)
+
+\echo "Data table row status:"
+"Data table row status:"
+SELECT row_id, state, errors, action, operation, tax_ident_raw,
+       surveyor_ident_region_raw, surveyor_ident_district_raw, surveyor_ident_seq_raw,
+       surveyor_ident_path
+FROM public.import_342_05_mixed_data
+ORDER BY row_id;
+ row_id |   state   | errors | action | operation | tax_ident_raw | surveyor_ident_region_raw | surveyor_ident_district_raw | surveyor_ident_seq_raw | surveyor_ident_path 
+--------+-----------+--------+--------+-----------+---------------+---------------------------+-----------------------------+------------------------+---------------------
+      1 | processed | {}     | use    | insert    | 342050001     | EAST                      | JINJA                       | 001                    | EAST.JINJA.001
+      2 | processed | {}     | use    | insert    | 342050002     |                           |                             |                        | 
+      3 | processed | {}     | use    | insert    | 342050003     | WEST                      | MBARARA                     | 001                    | WEST.MBARARA.001
+(3 rows)
+
+\echo "Verification: Legal Units created:"
+"Verification: Legal Units created:"
+SELECT
+    lu.name,
+    ei_tax.ident AS tax_ident,
+    lu.valid_from, lu.valid_to
+FROM public.legal_unit lu
+JOIN public.external_ident ei_tax ON ei_tax.legal_unit_id = lu.id
+JOIN public.external_ident_type eit_tax ON eit_tax.id = ei_tax.type_id AND eit_tax.code = 'tax_ident'
+WHERE ei_tax.ident IN ('342050001', '342050002', '342050003')
+ORDER BY ei_tax.ident;
+      name       | tax_ident | valid_from |  valid_to  
+-----------------+-----------+------------+------------
+ LU Mixed One    | 342050001 | 2020-01-01 | 2020-12-31
+ LU Regular Only | 342050002 | 2020-01-01 | 2020-12-31
+ LU Mixed Three  | 342050003 | 2020-01-01 | 2020-12-31
+(3 rows)
+
+\echo "Verification: All External Identifiers (both regular and hierarchical):"
+"Verification: All External Identifiers (both regular and hierarchical):"
+SELECT
+    eit.code AS type_code,
+    eit.shape,
+    COALESCE(ei.ident, ei.idents::text) AS identifier,
+    lu.name AS legal_unit_name
+FROM public.external_ident ei
+JOIN public.external_ident_type eit ON eit.id = ei.type_id
+JOIN public.legal_unit lu ON lu.id = ei.legal_unit_id
+WHERE ei.legal_unit_id IN (
+    SELECT lu2.id FROM public.legal_unit lu2
+    JOIN public.external_ident ei2 ON ei2.legal_unit_id = lu2.id
+    JOIN public.external_ident_type eit2 ON eit2.id = ei2.type_id AND eit2.code = 'tax_ident'
+    WHERE ei2.ident IN ('342050001', '342050002', '342050003')
+)
+ORDER BY lu.name, eit.code;
+   type_code    |    shape     |    identifier    | legal_unit_name 
+----------------+--------------+------------------+-----------------
+ surveyor_ident | hierarchical | EAST.JINJA.001   | LU Mixed One
+ tax_ident      | regular      | 342050001        | LU Mixed One
+ surveyor_ident | hierarchical | WEST.MBARARA.001 | LU Mixed Three
+ tax_ident      | regular      | 342050003        | LU Mixed Three
+ tax_ident      | regular      | 342050002        | LU Regular Only
+(5 rows)
+
+-- ============================================================================
+-- Test 342.6: Duplicate Detection for Hierarchical Identifiers
+-- ============================================================================
+\echo "=============================================================="
+"=============================================================="
+\echo "Test 342.6: Duplicate Detection for Hierarchical Identifiers"
+"Test 342.6: Duplicate Detection for Hierarchical Identifiers"
+\echo "=============================================================="
+"=============================================================="
+-- Create import job for duplicate test
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
+    'import_342_06_dupes',
+    'Test 342-06: Duplicate Hierarchical Idents',
+    'Testing duplicate hierarchical identifier detection.',
+    'Test 342';
+-- Insert two rows with the SAME hierarchical identifier (should error - duplicates)
+INSERT INTO public.import_342_06_dupes_upload(
+    valid_from, valid_to, tax_ident, name, birth_date, death_date,
+    physical_address_part1, physical_postcode, physical_postplace,
+    physical_region_code, physical_country_iso_2,
+    primary_activity_category_code, secondary_activity_category_code,
+    sector_code, legal_form_code,
+    surveyor_ident_region, surveyor_ident_district, surveyor_ident_seq
+) VALUES
+-- LU 1: First unit with surveyor ID CENTRAL.OSLO.099
+('2020-01-01','2020-12-31','342060001','LU First Duplicate','2020-01-01',NULL,
+ 'Main St 1','1234','Oslo','0301','NO','01.110',NULL,'2100','AS',
+ 'CENTRAL', 'OSLO', '099'),
+-- LU 2: DIFFERENT tax_ident but SAME surveyor ID - should be detected as duplicate
+('2020-01-01','2020-12-31','342060002','LU Second Duplicate','2020-01-01',NULL,
+ 'Main St 2','1234','Oslo','0301','NO','02.200',NULL,'2100','AS',
+ 'CENTRAL', 'OSLO', '099');  -- Same hierarchical ID as above!
+CALL worker.process_tasks(p_queue => 'import');
+\echo "Import job status for 342_06_dupes (expect errors for duplicate hierarchical):"
+"Import job status for 342_06_dupes (expect errors for duplicate hierarchical):"
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details
+FROM public.import_job WHERE slug = 'import_342_06_dupes';
+        slug         |  state   | total_rows | imported_rows | has_error | error_details 
+---------------------+----------+------------+---------------+-----------+---------------
+ import_342_06_dupes | finished |          2 |             0 | f         | 
+(1 row)
+
+\echo "Data table row status - both rows should show duplicate error:"
+"Data table row status - both rows should show duplicate error:"
+SELECT row_id, state, errors, action,
+       tax_ident_raw,
+       surveyor_ident_region_raw, surveyor_ident_district_raw, surveyor_ident_seq_raw,
+       surveyor_ident_path
+FROM public.import_342_06_dupes_data
+ORDER BY row_id;
+ row_id | state |                                                  errors                                                  | action | tax_ident_raw | surveyor_ident_region_raw | surveyor_ident_district_raw | surveyor_ident_seq_raw | surveyor_ident_path 
+--------+-------+----------------------------------------------------------------------------------------------------------+--------+---------------+---------------------------+-----------------------------+------------------------+---------------------
+      1 | error | {"surveyor_ident_path": "Duplicate identifier: surveyor_ident=CENTRAL.OSLO.099 appears in 2 rows: 1, 2"} | skip   | 342060001     | CENTRAL                   | OSLO                        | 099                    | CENTRAL.OSLO.099
+      2 | error | {"surveyor_ident_path": "Duplicate identifier: surveyor_ident=CENTRAL.OSLO.099 appears in 2 rows: 1, 2"} | skip   | 342060002     | CENTRAL                   | OSLO                        | 099                    | CENTRAL.OSLO.099
+(2 rows)
+
+-- ============================================================================
+-- Test 342.7: Two-Level Hierarchical Identifier (region.district only)
+-- ============================================================================
+\echo "=============================================================="
+"=============================================================="
+\echo "Test 342.7: Two-Level Hierarchical Identifier"
+"Test 342.7: Two-Level Hierarchical Identifier"
+\echo "=============================================================="
+"=============================================================="
+-- Create a simpler 2-level hierarchical identifier type
+INSERT INTO public.external_ident_type (code, name, shape, labels, description, priority, archived)
+VALUES ('region_code', 'Regional Code', 'hierarchical', 'region.district',
+        'Two-level regional code', 51, false);
+NOTICE:  Dropped index su_ei_stat_ident_idx
+NOTICE:  Dropped index su_ei_surveyor_ident_idx
+NOTICE:  Dropped index su_ei_tax_ident_idx
+NOTICE:  Dropped index su_s_employees_idx
+NOTICE:  Dropped index su_s_turnover_idx
+NOTICE:  Dropped index su_ss_employees_count_idx
+NOTICE:  Dropped index su_ss_employees_sum_idx
+NOTICE:  Dropped index su_ss_turnover_count_idx
+NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Created index su_ei_tax_ident for external_ident_type
+NOTICE:  Created index su_ei_stat_ident for external_ident_type
+NOTICE:  Created index su_ei_surveyor_ident for external_ident_type
+NOTICE:  Created index su_ei_region_code for external_ident_type
+NOTICE:  Created indices for stat_definition employees
+NOTICE:  Created indices for stat_definition turnover
+-- Note: Lifecycle callbacks are automatically triggered when we insert into external_ident_type
+\echo "Verifying 2-level hierarchical columns were generated:"
+"Verifying 2-level hierarchical columns were generated:"
+SELECT idc.column_name, idc.column_type, idc.purpose, idc.priority
+FROM public.import_data_column idc
+JOIN public.import_step ist ON ist.id = idc.step_id
+WHERE ist.code = 'external_idents'
+  AND idc.column_name LIKE 'region_code%'
+ORDER BY idc.priority;
+       column_name        | column_type |   purpose    | priority 
+--------------------------+-------------+--------------+----------
+ region_code_region_raw   | TEXT        | source_input |      567
+ region_code_district_raw | TEXT        | source_input |      568
+ region_code_path         | LTREE       | internal     |      569
+(3 rows)
+
+-- Create import job for 2-level test
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
+    'import_342_07_twolevel',
+    'Test 342-07: Two-Level Hierarchical',
+    'Testing 2-level hierarchical identifier.',
+    'Test 342';
+-- Insert data with 2-level hierarchical identifier
+INSERT INTO public.import_342_07_twolevel_upload(
+    valid_from, valid_to, tax_ident, name, birth_date, death_date,
+    physical_address_part1, physical_postcode, physical_postplace,
+    physical_region_code, physical_country_iso_2,
+    primary_activity_category_code, secondary_activity_category_code,
+    sector_code, legal_form_code,
+    region_code_region, region_code_district
+) VALUES
+('2020-01-01','2020-12-31','342070001','LU Two Level','2020-01-01',NULL,
+ 'Main St 1','1234','Oslo','0301','NO','01.110',NULL,'2100','AS',
+ 'SOUTHERN', 'BERGEN');
+CALL worker.process_tasks(p_queue => 'import');
+\echo "Import job status for 342_07_twolevel:"
+"Import job status for 342_07_twolevel:"
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details
+FROM public.import_job WHERE slug = 'import_342_07_twolevel';
+          slug          |  state   | total_rows | imported_rows | has_error | error_details 
+------------------------+----------+------------+---------------+-----------+---------------
+ import_342_07_twolevel | finished |          1 |             1 | f         | 
+(1 row)
+
+\echo "Data table row status:"
+"Data table row status:"
+SELECT row_id, state, errors, action, operation,
+       region_code_region_raw, region_code_district_raw, region_code_path
+FROM public.import_342_07_twolevel_data;
+ row_id |   state   | errors | action | operation | region_code_region_raw | region_code_district_raw | region_code_path 
+--------+-----------+--------+--------+-----------+------------------------+--------------------------+------------------
+      1 | processed | {}     | use    | insert    | SOUTHERN               | BERGEN                   | SOUTHERN.BERGEN
+(1 row)
+
+\echo "Verification: 2-level hierarchical identifier created:"
+"Verification: 2-level hierarchical identifier created:"
+SELECT
+    eit.code AS type_code,
+    ei.idents,
+    nlevel(ei.idents) AS depth,
+    lu.name AS legal_unit_name
+FROM public.external_ident ei
+JOIN public.external_ident_type eit ON eit.id = ei.type_id
+JOIN public.legal_unit lu ON lu.id = ei.legal_unit_id
+WHERE eit.code = 'region_code';
+  type_code  |     idents      | depth | legal_unit_name 
+-------------+-----------------+-------+-----------------
+ region_code | SOUTHERN.BERGEN |     2 | LU Two Level
+(1 row)
+
+-- ============================================================================
+-- Final Summary
+-- ============================================================================
+\echo "=============================================================="
+"=============================================================="
+\echo "Final Summary - Unit counts after all tests"
+"Final Summary - Unit counts after all tests"
+\echo "=============================================================="
+"=============================================================="
+SELECT
+    (SELECT COUNT(DISTINCT id) FROM public.establishment) AS establishment_count,
+    (SELECT COUNT(DISTINCT id) FROM public.legal_unit) AS legal_unit_count,
+    (SELECT COUNT(DISTINCT id) FROM public.enterprise) AS enterprise_count;
+ establishment_count | legal_unit_count | enterprise_count 
+---------------------+------------------+------------------
+                   0 |                5 |                5
+(1 row)
+
+\echo "All hierarchical external identifiers created:"
+"All hierarchical external identifiers created:"
+SELECT
+    eit.code AS type_code,
+    ei.idents,
+    nlevel(ei.idents) AS depth,
+    CASE 
+        WHEN ei.legal_unit_id IS NOT NULL THEN 'legal_unit'
+        WHEN ei.establishment_id IS NOT NULL THEN 'establishment'
+        ELSE 'unknown'
+    END AS unit_type
+FROM public.external_ident ei
+JOIN public.external_ident_type eit ON eit.id = ei.type_id
+WHERE eit.shape = 'hierarchical'
+ORDER BY eit.code, ei.idents;
+   type_code    |      idents       | depth | unit_type  
+----------------+-------------------+-------+------------
+ region_code    | SOUTHERN.BERGEN   |     2 | legal_unit
+ surveyor_ident | EAST.JINJA.001    |     3 | legal_unit
+ surveyor_ident | NORTH.KAMPALA.001 |     3 | legal_unit
+ surveyor_ident | WEST.MBARARA.001  |     3 | legal_unit
+(4 rows)
+
+ROLLBACK;
