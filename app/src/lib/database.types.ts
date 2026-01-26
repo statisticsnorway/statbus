@@ -21,7 +21,7 @@ export type Database = {
           legal_unit_id: number | null
           type: Database["public"]["Enums"]["activity_type"]
           valid_from: string
-          valid_range: unknown
+          valid_range: string
           valid_to: string | null
           valid_until: string | null
         },
@@ -36,7 +36,7 @@ export type Database = {
           legal_unit_id?: number | null
           type: Database["public"]["Enums"]["activity_type"]
           valid_from: string
-          valid_range: unknown
+          valid_range: string
           valid_to?: string | null
           valid_until?: string | null
         },
@@ -51,7 +51,7 @@ export type Database = {
           legal_unit_id?: number | null
           type?: Database["public"]["Enums"]["activity_type"]
           valid_from?: string
-          valid_range?: unknown
+          valid_range?: string
           valid_to?: string | null
           valid_until?: string | null
         },
@@ -168,7 +168,7 @@ export type Database = {
           level: number | null
           name: string
           parent_id: number | null
-          path: unknown
+          path: string
           standard_id: number
           updated_at: string
         },
@@ -183,7 +183,7 @@ export type Database = {
           level?: number | null
           name: string
           parent_id?: number | null
-          path: unknown
+          path: string
           standard_id: number
           updated_at?: string
         },
@@ -198,7 +198,7 @@ export type Database = {
           level?: number | null
           name?: string
           parent_id?: number | null
-          path?: unknown
+          path?: string
           standard_id?: number
           updated_at?: string
         },
@@ -328,8 +328,8 @@ export type Database = {
           id: number | null
           label: string | null
           name: string | null
-          parent_path: unknown | null
-          path: unknown | null
+          parent_path: string | null
+          path: string | null
           standard_code: string | null
         },
         Insert: {
@@ -338,8 +338,8 @@ export type Database = {
           id?: number | null
           label?: string | null
           name?: string | null
-          parent_path?: unknown | null
-          path?: unknown | null
+          parent_path?: string | null
+          path?: string | null
           standard_code?: string | null
         },
         Update: {
@@ -348,8 +348,8 @@ export type Database = {
           id?: number | null
           label?: string | null
           name?: string | null
-          parent_path?: unknown | null
-          path?: unknown | null
+          parent_path?: string | null
+          path?: string | null
           standard_code?: string | null
         },
         Relationships: []
@@ -369,7 +369,7 @@ export type Database = {
           mobile_number: string | null
           phone_number: string | null
           valid_from: string
-          valid_range: unknown
+          valid_range: string
           valid_to: string | null
           valid_until: string | null
           web_address: string | null
@@ -388,7 +388,7 @@ export type Database = {
           mobile_number?: string | null
           phone_number?: string | null
           valid_from: string
-          valid_range: unknown
+          valid_range: string
           valid_to?: string | null
           valid_until?: string | null
           web_address?: string | null
@@ -407,7 +407,7 @@ export type Database = {
           mobile_number?: string | null
           phone_number?: string | null
           valid_from?: string
-          valid_range?: unknown
+          valid_range?: string
           valid_to?: string | null
           valid_until?: string | null
           web_address?: string | null
@@ -646,7 +646,7 @@ export type Database = {
           short_name: string | null
           unit_size_id: number | null
           valid_from: string
-          valid_range: unknown
+          valid_range: string
           valid_to: string | null
           valid_until: string | null
         },
@@ -666,7 +666,7 @@ export type Database = {
           short_name?: string | null
           unit_size_id?: number | null
           valid_from: string
-          valid_range: unknown
+          valid_range: string
           valid_to?: string | null
           valid_until?: string | null
         },
@@ -686,7 +686,7 @@ export type Database = {
           short_name?: string | null
           unit_size_id?: number | null
           valid_from?: string
-          valid_range?: unknown
+          valid_range?: string
           valid_to?: string | null
           valid_until?: string | null
         },
@@ -908,7 +908,7 @@ export type Database = {
           status_id: number
           unit_size_id: number | null
           valid_from: string
-          valid_range: unknown
+          valid_range: string
           valid_to: string | null
           valid_until: string | null
         },
@@ -933,7 +933,7 @@ export type Database = {
           status_id: number
           unit_size_id?: number | null
           valid_from: string
-          valid_range: unknown
+          valid_range: string
           valid_to?: string | null
           valid_until?: string | null
         },
@@ -958,7 +958,7 @@ export type Database = {
           status_id?: number
           unit_size_id?: number | null
           valid_from?: string
-          valid_range?: unknown
+          valid_range?: string
           valid_to?: string | null
           valid_until?: string | null
         },
@@ -1150,8 +1150,8 @@ export type Database = {
           establishment_id: number | null
           id: number
           ident: string | null
-          idents: unknown | null
-          labels: unknown | null
+          idents: string | null
+          labels: string | null
           legal_unit_id: number | null
           shape: Database["public"]["Enums"]["external_ident_shape"]
           type_id: number
@@ -1165,8 +1165,8 @@ export type Database = {
           establishment_id?: number | null
           id?: number
           ident?: string | null
-          idents?: unknown | null
-          labels?: unknown | null
+          idents?: string | null
+          labels?: string | null
           legal_unit_id?: number | null
           shape: Database["public"]["Enums"]["external_ident_shape"]
           type_id: number
@@ -1180,8 +1180,8 @@ export type Database = {
           establishment_id?: number | null
           id?: number
           ident?: string | null
-          idents?: unknown | null
-          labels?: unknown | null
+          idents?: string | null
+          labels?: string | null
           legal_unit_id?: number | null
           shape?: Database["public"]["Enums"]["external_ident_shape"]
           type_id?: number
@@ -1237,7 +1237,7 @@ export type Database = {
           code: string
           description: string | null
           id: number
-          labels: unknown | null
+          labels: string | null
           name: string | null
           priority: number | null
           shape: Database["public"]["Enums"]["external_ident_shape"]
@@ -1247,7 +1247,7 @@ export type Database = {
           code: string
           description?: string | null
           id?: never
-          labels?: unknown | null
+          labels?: string | null
           name?: string | null
           priority?: number | null
           shape?: Database["public"]["Enums"]["external_ident_shape"]
@@ -1257,7 +1257,7 @@ export type Database = {
           code?: string
           description?: string | null
           id?: never
-          labels?: unknown | null
+          labels?: string | null
           name?: string | null
           priority?: number | null
           shape?: Database["public"]["Enums"]["external_ident_shape"]
@@ -1296,21 +1296,21 @@ export type Database = {
       },
       image: {
         Row: {
-          data: unknown
+          data: string
           id: number
           type: string
           uploaded_at: string
           uploaded_by_user_id: number | null
         },
         Insert: {
-          data: unknown
+          data: string
           id?: never
           type?: string
           uploaded_at?: string
           uploaded_by_user_id?: number | null
         },
         Update: {
-          data?: unknown
+          data?: string
           id?: never
           type?: string
           uploaded_at?: string
@@ -1382,7 +1382,7 @@ export type Database = {
           created_at: string
           custom: boolean
           data_source_id: number | null
-          default_retention_period: unknown
+          default_retention_period: string
           id: number
           import_as_null: string[]
           mode: Database["public"]["Enums"]["import_mode"]
@@ -1401,7 +1401,7 @@ export type Database = {
           created_at?: string
           custom?: boolean
           data_source_id?: number | null
-          default_retention_period?: unknown
+          default_retention_period?: string
           id?: never
           import_as_null?: string[]
           mode: Database["public"]["Enums"]["import_mode"]
@@ -1420,7 +1420,7 @@ export type Database = {
           created_at?: string
           custom?: boolean
           data_source_id?: number | null
-          default_retention_period?: unknown
+          default_retention_period?: string
           id?: never
           import_as_null?: string[]
           mode?: Database["public"]["Enums"]["import_mode"]
@@ -1757,36 +1757,36 @@ export type Database = {
       },
       import_step: {
         Row: {
-          analyse_procedure: unknown | null
+          analyse_procedure: string | null
           code: string
           created_at: string
           id: number
           is_holistic: boolean
           name: string
           priority: number
-          process_procedure: unknown | null
+          process_procedure: string | null
           updated_at: string
         },
         Insert: {
-          analyse_procedure?: unknown | null
+          analyse_procedure?: string | null
           code: string
           created_at?: string
           id?: never
           is_holistic: boolean
           name: string
           priority: number
-          process_procedure?: unknown | null
+          process_procedure?: string | null
           updated_at?: string
         },
         Update: {
-          analyse_procedure?: unknown | null
+          analyse_procedure?: string | null
           code?: string
           created_at?: string
           id?: never
           is_holistic?: boolean
           name?: string
           priority?: number
-          process_procedure?: unknown | null
+          process_procedure?: string | null
           updated_at?: string
         },
         Relationships: []
@@ -1861,7 +1861,7 @@ export type Database = {
           status_id: number
           unit_size_id: number | null
           valid_from: string
-          valid_range: unknown
+          valid_range: string
           valid_to: string | null
           valid_until: string | null
         },
@@ -1886,7 +1886,7 @@ export type Database = {
           status_id: number
           unit_size_id?: number | null
           valid_from: string
-          valid_range: unknown
+          valid_range: string
           valid_to?: string | null
           valid_until?: string | null
         },
@@ -1911,7 +1911,7 @@ export type Database = {
           status_id?: number
           unit_size_id?: number | null
           valid_from?: string
-          valid_range?: unknown
+          valid_range?: string
           valid_to?: string | null
           valid_until?: string | null
         },
@@ -2149,7 +2149,7 @@ export type Database = {
           region_id: number | null
           type: Database["public"]["Enums"]["location_type"]
           valid_from: string
-          valid_range: unknown
+          valid_range: string
           valid_to: string | null
           valid_until: string | null
         },
@@ -2173,7 +2173,7 @@ export type Database = {
           region_id?: number | null
           type: Database["public"]["Enums"]["location_type"]
           valid_from: string
-          valid_range: unknown
+          valid_range: string
           valid_to?: string | null
           valid_until?: string | null
         },
@@ -2197,7 +2197,7 @@ export type Database = {
           region_id?: number | null
           type?: Database["public"]["Enums"]["location_type"]
           valid_from?: string
-          valid_range?: unknown
+          valid_range?: string
           valid_to?: string | null
           valid_until?: string | null
         },
@@ -2401,7 +2401,7 @@ export type Database = {
           person_id: number
           person_role_id: number | null
           valid_from: string
-          valid_range: unknown
+          valid_range: string
           valid_to: string | null
           valid_until: string | null
         },
@@ -2416,7 +2416,7 @@ export type Database = {
           person_id: number
           person_role_id?: number | null
           valid_from: string
-          valid_range: unknown
+          valid_range: string
           valid_to?: string | null
           valid_until?: string | null
         },
@@ -2431,7 +2431,7 @@ export type Database = {
           person_id?: number
           person_role_id?: number | null
           valid_from?: string
-          valid_range?: unknown
+          valid_range?: string
           valid_to?: string | null
           valid_until?: string | null
         },
@@ -2584,7 +2584,7 @@ export type Database = {
           level: number | null
           name: string
           parent_id: number | null
-          path: unknown
+          path: string
         },
         Insert: {
           center_altitude?: number | null
@@ -2596,7 +2596,7 @@ export type Database = {
           level?: number | null
           name: string
           parent_id?: number | null
-          path: unknown
+          path: string
         },
         Update: {
           center_altitude?: number | null
@@ -2608,7 +2608,7 @@ export type Database = {
           level?: number | null
           name?: string
           parent_id?: number | null
-          path?: unknown
+          path?: string
         },
         Relationships: [
           {
@@ -2674,7 +2674,7 @@ export type Database = {
           label: string | null
           level: number | null
           name: string | null
-          path: unknown | null
+          path: string | null
         },
         Insert: {
           code?: string | null
@@ -2682,7 +2682,7 @@ export type Database = {
           label?: string | null
           level?: number | null
           name?: string | null
-          path?: unknown | null
+          path?: string | null
         },
         Update: {
           code?: string | null
@@ -2690,7 +2690,7 @@ export type Database = {
           label?: string | null
           level?: number | null
           name?: string | null
-          path?: unknown | null
+          path?: string | null
         },
         Relationships: []
       },
@@ -2765,7 +2765,7 @@ export type Database = {
           label: string
           name: string
           parent_id: number | null
-          path: unknown
+          path: string
           updated_at: string
         },
         Insert: {
@@ -2778,7 +2778,7 @@ export type Database = {
           label: string
           name: string
           parent_id?: number | null
-          path: unknown
+          path: string
           updated_at?: string
         },
         Update: {
@@ -2791,7 +2791,7 @@ export type Database = {
           label?: string
           name?: string
           parent_id?: number | null
-          path?: unknown
+          path?: string
           updated_at?: string
         },
         Relationships: []
@@ -2802,21 +2802,21 @@ export type Database = {
           id: number | null
           label: string | null
           name: string | null
-          path: unknown | null
+          path: string | null
         },
         Insert: {
           code?: string | null
           id?: number | null
           label?: string | null
           name?: string | null
-          path?: unknown | null
+          path?: string | null
         },
         Update: {
           code?: string | null
           id?: number | null
           label?: string | null
           name?: string | null
-          path?: unknown | null
+          path?: string | null
         },
         Relationships: []
       },
@@ -2928,7 +2928,7 @@ export type Database = {
           legal_unit_id: number | null
           stat_definition_id: number
           valid_from: string
-          valid_range: unknown
+          valid_range: string
           valid_to: string | null
           valid_until: string | null
           value_bool: boolean | null
@@ -2946,7 +2946,7 @@ export type Database = {
           legal_unit_id?: number | null
           stat_definition_id: number
           valid_from: string
-          valid_range: unknown
+          valid_range: string
           valid_to?: string | null
           valid_until?: string | null
           value_bool?: boolean | null
@@ -2964,7 +2964,7 @@ export type Database = {
           legal_unit_id?: number | null
           stat_definition_id?: number
           valid_from?: string
-          valid_range?: unknown
+          valid_range?: string
           valid_to?: string | null
           valid_until?: string | null
           value_bool?: boolean | null
@@ -3171,14 +3171,14 @@ export type Database = {
           physical_country_change_count: number | null
           physical_country_id: number | null
           physical_region_change_count: number | null
-          physical_region_path: unknown | null
+          physical_region_path: string | null
           primary_activity_category_change_count: number | null
-          primary_activity_category_path: unknown | null
+          primary_activity_category_path: string | null
           resolution: Database["public"]["Enums"]["history_resolution"] | null
           secondary_activity_category_change_count: number | null
-          secondary_activity_category_path: unknown | null
+          secondary_activity_category_path: string | null
           sector_change_count: number | null
-          sector_path: unknown | null
+          sector_path: string | null
           stats_summary: Json | null
           status_change_count: number | null
           status_id: number | null
@@ -3206,14 +3206,14 @@ export type Database = {
           physical_country_change_count?: number | null
           physical_country_id?: number | null
           physical_region_change_count?: number | null
-          physical_region_path?: unknown | null
+          physical_region_path?: string | null
           primary_activity_category_change_count?: number | null
-          primary_activity_category_path?: unknown | null
+          primary_activity_category_path?: string | null
           resolution?: Database["public"]["Enums"]["history_resolution"] | null
           secondary_activity_category_change_count?: number | null
-          secondary_activity_category_path?: unknown | null
+          secondary_activity_category_path?: string | null
           sector_change_count?: number | null
-          sector_path?: unknown | null
+          sector_path?: string | null
           stats_summary?: Json | null
           status_change_count?: number | null
           status_id?: number | null
@@ -3241,14 +3241,14 @@ export type Database = {
           physical_country_change_count?: number | null
           physical_country_id?: number | null
           physical_region_change_count?: number | null
-          physical_region_path?: unknown | null
+          physical_region_path?: string | null
           primary_activity_category_change_count?: number | null
-          primary_activity_category_path?: unknown | null
+          primary_activity_category_path?: string | null
           resolution?: Database["public"]["Enums"]["history_resolution"] | null
           secondary_activity_category_change_count?: number | null
-          secondary_activity_category_path?: unknown | null
+          secondary_activity_category_path?: string | null
           sector_change_count?: number | null
-          sector_path?: unknown | null
+          sector_path?: string | null
           stats_summary?: Json | null
           status_change_count?: number | null
           status_id?: number | null
@@ -3261,7 +3261,7 @@ export type Database = {
       },
       statistical_unit: {
         Row: {
-          activity_category_paths: unknown[] | null
+          activity_category_paths: string[] | null
           birth_date: string | null
           data_source_codes: string[] | null
           data_source_ids: number[] | null
@@ -3303,7 +3303,7 @@ export type Database = {
           physical_postplace: string | null
           physical_region_code: string | null
           physical_region_id: number | null
-          physical_region_path: unknown | null
+          physical_region_path: string | null
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
@@ -3316,26 +3316,26 @@ export type Database = {
           postal_postplace: string | null
           postal_region_code: string | null
           postal_region_id: number | null
-          postal_region_path: unknown | null
+          postal_region_path: string | null
           primary_activity_category_code: string | null
           primary_activity_category_id: number | null
-          primary_activity_category_path: unknown | null
+          primary_activity_category_path: string | null
           related_enterprise_ids: number[] | null
           related_establishment_ids: number[] | null
           related_legal_unit_ids: number[] | null
-          search: unknown | null
+          search: string | null
           secondary_activity_category_code: string | null
           secondary_activity_category_id: number | null
-          secondary_activity_category_path: unknown | null
+          secondary_activity_category_path: string | null
           sector_code: string | null
           sector_id: number | null
           sector_name: string | null
-          sector_path: unknown | null
+          sector_path: string | null
           stats: Json | null
           stats_summary: Json | null
           status_code: string | null
           status_id: number | null
-          tag_paths: unknown[] | null
+          tag_paths: string[] | null
           unit_id: number | null
           unit_size_code: string | null
           unit_size_id: number | null
@@ -3347,7 +3347,7 @@ export type Database = {
           web_address: string | null
         },
         Insert: {
-          activity_category_paths?: unknown[] | null
+          activity_category_paths?: string[] | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -3389,7 +3389,7 @@ export type Database = {
           physical_postplace?: string | null
           physical_region_code?: string | null
           physical_region_id?: number | null
-          physical_region_path?: unknown | null
+          physical_region_path?: string | null
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
@@ -3402,26 +3402,26 @@ export type Database = {
           postal_postplace?: string | null
           postal_region_code?: string | null
           postal_region_id?: number | null
-          postal_region_path?: unknown | null
+          postal_region_path?: string | null
           primary_activity_category_code?: string | null
           primary_activity_category_id?: number | null
-          primary_activity_category_path?: unknown | null
+          primary_activity_category_path?: string | null
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
-          search?: unknown | null
+          search?: string | null
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
-          secondary_activity_category_path?: unknown | null
+          secondary_activity_category_path?: string | null
           sector_code?: string | null
           sector_id?: number | null
           sector_name?: string | null
-          sector_path?: unknown | null
+          sector_path?: string | null
           stats?: Json | null
           stats_summary?: Json | null
           status_code?: string | null
           status_id?: number | null
-          tag_paths?: unknown[] | null
+          tag_paths?: string[] | null
           unit_id?: number | null
           unit_size_code?: string | null
           unit_size_id?: number | null
@@ -3433,7 +3433,7 @@ export type Database = {
           web_address?: string | null
         },
         Update: {
-          activity_category_paths?: unknown[] | null
+          activity_category_paths?: string[] | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -3475,7 +3475,7 @@ export type Database = {
           physical_postplace?: string | null
           physical_region_code?: string | null
           physical_region_id?: number | null
-          physical_region_path?: unknown | null
+          physical_region_path?: string | null
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
@@ -3488,26 +3488,26 @@ export type Database = {
           postal_postplace?: string | null
           postal_region_code?: string | null
           postal_region_id?: number | null
-          postal_region_path?: unknown | null
+          postal_region_path?: string | null
           primary_activity_category_code?: string | null
           primary_activity_category_id?: number | null
-          primary_activity_category_path?: unknown | null
+          primary_activity_category_path?: string | null
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
-          search?: unknown | null
+          search?: string | null
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
-          secondary_activity_category_path?: unknown | null
+          secondary_activity_category_path?: string | null
           sector_code?: string | null
           sector_id?: number | null
           sector_name?: string | null
-          sector_path?: unknown | null
+          sector_path?: string | null
           stats?: Json | null
           stats_summary?: Json | null
           status_code?: string | null
           status_id?: number | null
-          tag_paths?: unknown[] | null
+          tag_paths?: string[] | null
           unit_id?: number | null
           unit_size_code?: string | null
           unit_size_id?: number | null
@@ -3525,9 +3525,9 @@ export type Database = {
           count: number | null
           legal_form_id: number | null
           physical_country_id: number | null
-          physical_region_path: unknown | null
-          primary_activity_category_path: unknown | null
-          sector_path: unknown | null
+          physical_region_path: string | null
+          primary_activity_category_path: string | null
+          sector_path: string | null
           stats_summary: Json | null
           status_id: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
@@ -3539,9 +3539,9 @@ export type Database = {
           count?: number | null
           legal_form_id?: number | null
           physical_country_id?: number | null
-          physical_region_path?: unknown | null
-          primary_activity_category_path?: unknown | null
-          sector_path?: unknown | null
+          physical_region_path?: string | null
+          primary_activity_category_path?: string | null
+          sector_path?: string | null
           stats_summary?: Json | null
           status_id?: number | null
           unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
@@ -3553,9 +3553,9 @@ export type Database = {
           count?: number | null
           legal_form_id?: number | null
           physical_country_id?: number | null
-          physical_region_path?: unknown | null
-          primary_activity_category_path?: unknown | null
-          sector_path?: unknown | null
+          physical_region_path?: string | null
+          primary_activity_category_path?: string | null
+          sector_path?: string | null
           stats_summary?: Json | null
           status_id?: number | null
           unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
@@ -3619,7 +3619,7 @@ export type Database = {
           level: number | null
           name: string
           parent_id: number | null
-          path: unknown
+          path: string
           type: Database["public"]["Enums"]["tag_type"]
           updated_at: string
         },
@@ -3637,7 +3637,7 @@ export type Database = {
           level?: number | null
           name: string
           parent_id?: number | null
-          path: unknown
+          path: string
           type: Database["public"]["Enums"]["tag_type"]
           updated_at?: string
         },
@@ -3655,7 +3655,7 @@ export type Database = {
           level?: number | null
           name?: string
           parent_id?: number | null
-          path?: unknown
+          path?: string
           type?: Database["public"]["Enums"]["tag_type"]
           updated_at?: string
         },
@@ -3739,7 +3739,7 @@ export type Database = {
       },
       timeline_enterprise: {
         Row: {
-          activity_category_paths: unknown[] | null
+          activity_category_paths: string[] | null
           birth_date: string | null
           data_source_codes: string[] | null
           data_source_ids: number[] | null
@@ -3778,7 +3778,7 @@ export type Database = {
           physical_postplace: string | null
           physical_region_code: string | null
           physical_region_id: number | null
-          physical_region_path: unknown | null
+          physical_region_path: string | null
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
@@ -3791,23 +3791,23 @@ export type Database = {
           postal_postplace: string | null
           postal_region_code: string | null
           postal_region_id: number | null
-          postal_region_path: unknown | null
+          postal_region_path: string | null
           primary_activity_category_code: string | null
           primary_activity_category_id: number | null
-          primary_activity_category_path: unknown | null
+          primary_activity_category_path: string | null
           primary_establishment_id: number | null
           primary_legal_unit_id: number | null
           related_enterprise_ids: number[] | null
           related_establishment_ids: number[] | null
           related_legal_unit_ids: number[] | null
-          search: unknown | null
+          search: string | null
           secondary_activity_category_code: string | null
           secondary_activity_category_id: number | null
-          secondary_activity_category_path: unknown | null
+          secondary_activity_category_path: string | null
           sector_code: string | null
           sector_id: number | null
           sector_name: string | null
-          sector_path: unknown | null
+          sector_path: string | null
           stats_summary: Json | null
           status_code: string | null
           status_id: number | null
@@ -3822,7 +3822,7 @@ export type Database = {
           web_address: string | null
         },
         Insert: {
-          activity_category_paths?: unknown[] | null
+          activity_category_paths?: string[] | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -3861,7 +3861,7 @@ export type Database = {
           physical_postplace?: string | null
           physical_region_code?: string | null
           physical_region_id?: number | null
-          physical_region_path?: unknown | null
+          physical_region_path?: string | null
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
@@ -3874,23 +3874,23 @@ export type Database = {
           postal_postplace?: string | null
           postal_region_code?: string | null
           postal_region_id?: number | null
-          postal_region_path?: unknown | null
+          postal_region_path?: string | null
           primary_activity_category_code?: string | null
           primary_activity_category_id?: number | null
-          primary_activity_category_path?: unknown | null
+          primary_activity_category_path?: string | null
           primary_establishment_id?: number | null
           primary_legal_unit_id?: number | null
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
-          search?: unknown | null
+          search?: string | null
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
-          secondary_activity_category_path?: unknown | null
+          secondary_activity_category_path?: string | null
           sector_code?: string | null
           sector_id?: number | null
           sector_name?: string | null
-          sector_path?: unknown | null
+          sector_path?: string | null
           stats_summary?: Json | null
           status_code?: string | null
           status_id?: number | null
@@ -3905,7 +3905,7 @@ export type Database = {
           web_address?: string | null
         },
         Update: {
-          activity_category_paths?: unknown[] | null
+          activity_category_paths?: string[] | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -3944,7 +3944,7 @@ export type Database = {
           physical_postplace?: string | null
           physical_region_code?: string | null
           physical_region_id?: number | null
-          physical_region_path?: unknown | null
+          physical_region_path?: string | null
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
@@ -3957,23 +3957,23 @@ export type Database = {
           postal_postplace?: string | null
           postal_region_code?: string | null
           postal_region_id?: number | null
-          postal_region_path?: unknown | null
+          postal_region_path?: string | null
           primary_activity_category_code?: string | null
           primary_activity_category_id?: number | null
-          primary_activity_category_path?: unknown | null
+          primary_activity_category_path?: string | null
           primary_establishment_id?: number | null
           primary_legal_unit_id?: number | null
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
-          search?: unknown | null
+          search?: string | null
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
-          secondary_activity_category_path?: unknown | null
+          secondary_activity_category_path?: string | null
           sector_code?: string | null
           sector_id?: number | null
           sector_name?: string | null
-          sector_path?: unknown | null
+          sector_path?: string | null
           stats_summary?: Json | null
           status_code?: string | null
           status_id?: number | null
@@ -3991,7 +3991,7 @@ export type Database = {
       },
       timeline_establishment: {
         Row: {
-          activity_category_paths: unknown[] | null
+          activity_category_paths: string[] | null
           birth_date: string | null
           data_source_codes: string[] | null
           data_source_ids: number[] | null
@@ -4032,7 +4032,7 @@ export type Database = {
           physical_postplace: string | null
           physical_region_code: string | null
           physical_region_id: number | null
-          physical_region_path: unknown | null
+          physical_region_path: string | null
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
@@ -4045,23 +4045,23 @@ export type Database = {
           postal_postplace: string | null
           postal_region_code: string | null
           postal_region_id: number | null
-          postal_region_path: unknown | null
+          postal_region_path: string | null
           primary_activity_category_code: string | null
           primary_activity_category_id: number | null
-          primary_activity_category_path: unknown | null
+          primary_activity_category_path: string | null
           primary_for_enterprise: boolean | null
           primary_for_legal_unit: boolean | null
           related_enterprise_ids: number[] | null
           related_establishment_ids: number[] | null
           related_legal_unit_ids: number[] | null
-          search: unknown | null
+          search: string | null
           secondary_activity_category_code: string | null
           secondary_activity_category_id: number | null
-          secondary_activity_category_path: unknown | null
+          secondary_activity_category_path: string | null
           sector_code: string | null
           sector_id: number | null
           sector_name: string | null
-          sector_path: unknown | null
+          sector_path: string | null
           stats: Json | null
           stats_summary: Json | null
           status_code: string | null
@@ -4077,7 +4077,7 @@ export type Database = {
           web_address: string | null
         },
         Insert: {
-          activity_category_paths?: unknown[] | null
+          activity_category_paths?: string[] | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -4118,7 +4118,7 @@ export type Database = {
           physical_postplace?: string | null
           physical_region_code?: string | null
           physical_region_id?: number | null
-          physical_region_path?: unknown | null
+          physical_region_path?: string | null
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
@@ -4131,23 +4131,23 @@ export type Database = {
           postal_postplace?: string | null
           postal_region_code?: string | null
           postal_region_id?: number | null
-          postal_region_path?: unknown | null
+          postal_region_path?: string | null
           primary_activity_category_code?: string | null
           primary_activity_category_id?: number | null
-          primary_activity_category_path?: unknown | null
+          primary_activity_category_path?: string | null
           primary_for_enterprise?: boolean | null
           primary_for_legal_unit?: boolean | null
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
-          search?: unknown | null
+          search?: string | null
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
-          secondary_activity_category_path?: unknown | null
+          secondary_activity_category_path?: string | null
           sector_code?: string | null
           sector_id?: number | null
           sector_name?: string | null
-          sector_path?: unknown | null
+          sector_path?: string | null
           stats?: Json | null
           stats_summary?: Json | null
           status_code?: string | null
@@ -4163,7 +4163,7 @@ export type Database = {
           web_address?: string | null
         },
         Update: {
-          activity_category_paths?: unknown[] | null
+          activity_category_paths?: string[] | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -4204,7 +4204,7 @@ export type Database = {
           physical_postplace?: string | null
           physical_region_code?: string | null
           physical_region_id?: number | null
-          physical_region_path?: unknown | null
+          physical_region_path?: string | null
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
@@ -4217,23 +4217,23 @@ export type Database = {
           postal_postplace?: string | null
           postal_region_code?: string | null
           postal_region_id?: number | null
-          postal_region_path?: unknown | null
+          postal_region_path?: string | null
           primary_activity_category_code?: string | null
           primary_activity_category_id?: number | null
-          primary_activity_category_path?: unknown | null
+          primary_activity_category_path?: string | null
           primary_for_enterprise?: boolean | null
           primary_for_legal_unit?: boolean | null
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
-          search?: unknown | null
+          search?: string | null
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
-          secondary_activity_category_path?: unknown | null
+          secondary_activity_category_path?: string | null
           sector_code?: string | null
           sector_id?: number | null
           sector_name?: string | null
-          sector_path?: unknown | null
+          sector_path?: string | null
           stats?: Json | null
           stats_summary?: Json | null
           status_code?: string | null
@@ -4252,7 +4252,7 @@ export type Database = {
       },
       timeline_legal_unit: {
         Row: {
-          activity_category_paths: unknown[] | null
+          activity_category_paths: string[] | null
           birth_date: string | null
           data_source_codes: string[] | null
           data_source_ids: number[] | null
@@ -4292,7 +4292,7 @@ export type Database = {
           physical_postplace: string | null
           physical_region_code: string | null
           physical_region_id: number | null
-          physical_region_path: unknown | null
+          physical_region_path: string | null
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
@@ -4305,22 +4305,22 @@ export type Database = {
           postal_postplace: string | null
           postal_region_code: string | null
           postal_region_id: number | null
-          postal_region_path: unknown | null
+          postal_region_path: string | null
           primary_activity_category_code: string | null
           primary_activity_category_id: number | null
-          primary_activity_category_path: unknown | null
+          primary_activity_category_path: string | null
           primary_for_enterprise: boolean | null
           related_enterprise_ids: number[] | null
           related_establishment_ids: number[] | null
           related_legal_unit_ids: number[] | null
-          search: unknown | null
+          search: string | null
           secondary_activity_category_code: string | null
           secondary_activity_category_id: number | null
-          secondary_activity_category_path: unknown | null
+          secondary_activity_category_path: string | null
           sector_code: string | null
           sector_id: number | null
           sector_name: string | null
-          sector_path: unknown | null
+          sector_path: string | null
           stats: Json | null
           stats_summary: Json | null
           status_code: string | null
@@ -4336,7 +4336,7 @@ export type Database = {
           web_address: string | null
         },
         Insert: {
-          activity_category_paths?: unknown[] | null
+          activity_category_paths?: string[] | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -4376,7 +4376,7 @@ export type Database = {
           physical_postplace?: string | null
           physical_region_code?: string | null
           physical_region_id?: number | null
-          physical_region_path?: unknown | null
+          physical_region_path?: string | null
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
@@ -4389,22 +4389,22 @@ export type Database = {
           postal_postplace?: string | null
           postal_region_code?: string | null
           postal_region_id?: number | null
-          postal_region_path?: unknown | null
+          postal_region_path?: string | null
           primary_activity_category_code?: string | null
           primary_activity_category_id?: number | null
-          primary_activity_category_path?: unknown | null
+          primary_activity_category_path?: string | null
           primary_for_enterprise?: boolean | null
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
-          search?: unknown | null
+          search?: string | null
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
-          secondary_activity_category_path?: unknown | null
+          secondary_activity_category_path?: string | null
           sector_code?: string | null
           sector_id?: number | null
           sector_name?: string | null
-          sector_path?: unknown | null
+          sector_path?: string | null
           stats?: Json | null
           stats_summary?: Json | null
           status_code?: string | null
@@ -4420,7 +4420,7 @@ export type Database = {
           web_address?: string | null
         },
         Update: {
-          activity_category_paths?: unknown[] | null
+          activity_category_paths?: string[] | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -4460,7 +4460,7 @@ export type Database = {
           physical_postplace?: string | null
           physical_region_code?: string | null
           physical_region_id?: number | null
-          physical_region_path?: unknown | null
+          physical_region_path?: string | null
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
@@ -4473,22 +4473,22 @@ export type Database = {
           postal_postplace?: string | null
           postal_region_code?: string | null
           postal_region_id?: number | null
-          postal_region_path?: unknown | null
+          postal_region_path?: string | null
           primary_activity_category_code?: string | null
           primary_activity_category_id?: number | null
-          primary_activity_category_path?: unknown | null
+          primary_activity_category_path?: string | null
           primary_for_enterprise?: boolean | null
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
-          search?: unknown | null
+          search?: string | null
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
-          secondary_activity_category_path?: unknown | null
+          secondary_activity_category_path?: string | null
           sector_code?: string | null
           sector_id?: number | null
           sector_name?: string | null
-          sector_path?: unknown | null
+          sector_path?: string | null
           stats?: Json | null
           stats_summary?: Json | null
           status_code?: string | null
@@ -4661,7 +4661,7 @@ export type Database = {
           legal_unit_id: number | null
           type: Database["public"]["Enums"]["activity_type"] | null
           valid_from: string | null
-          valid_range: unknown | null
+          valid_range: string | null
           valid_to: string | null
           valid_until: string | null
         },
@@ -4676,7 +4676,7 @@ export type Database = {
           legal_unit_id?: number | null
           type?: Database["public"]["Enums"]["activity_type"] | null
           valid_from?: string | null
-          valid_range?: unknown | null
+          valid_range?: string | null
           valid_to?: string | null
           valid_until?: string | null
         },
@@ -4691,7 +4691,7 @@ export type Database = {
           legal_unit_id?: number | null
           type?: Database["public"]["Enums"]["activity_type"] | null
           valid_from?: string | null
-          valid_range?: unknown | null
+          valid_range?: string | null
           valid_to?: string | null
           valid_until?: string | null
         },
@@ -4804,8 +4804,8 @@ export type Database = {
           id: number | null
           label: string | null
           name: string | null
-          parent_path: unknown | null
-          path: unknown | null
+          parent_path: string | null
+          path: string | null
           standard_code: string | null
         },
         Insert: {
@@ -4815,8 +4815,8 @@ export type Database = {
           id?: number | null
           label?: string | null
           name?: string | null
-          parent_path?: unknown | null
-          path?: unknown | null
+          parent_path?: string | null
+          path?: string | null
           standard_code?: string | null
         },
         Update: {
@@ -4826,8 +4826,8 @@ export type Database = {
           id?: number | null
           label?: string | null
           name?: string | null
-          parent_path?: unknown | null
-          path?: unknown | null
+          parent_path?: string | null
+          path?: string | null
           standard_code?: string | null
         },
         Relationships: []
@@ -4836,17 +4836,17 @@ export type Database = {
         Row: {
           description: string | null
           name: string | null
-          path: unknown | null
+          path: string | null
         },
         Insert: {
           description?: string | null
           name?: string | null
-          path?: unknown | null
+          path?: string | null
         },
         Update: {
           description?: string | null
           name?: string | null
-          path?: unknown | null
+          path?: string | null
         },
         Relationships: []
       },
@@ -4856,7 +4856,7 @@ export type Database = {
           description: string | null
           label: string | null
           name: string | null
-          path: unknown | null
+          path: string | null
           standard: string | null
         },
         Insert: {
@@ -4864,7 +4864,7 @@ export type Database = {
           description?: string | null
           label?: string | null
           name?: string | null
-          path?: unknown | null
+          path?: string | null
           standard?: string | null
         },
         Update: {
@@ -4872,7 +4872,7 @@ export type Database = {
           description?: string | null
           label?: string | null
           name?: string | null
-          path?: unknown | null
+          path?: string | null
           standard?: string | null
         },
         Relationships: []
@@ -4883,7 +4883,7 @@ export type Database = {
           description: string | null
           label: string | null
           name: string | null
-          path: unknown | null
+          path: string | null
           standard: string | null
         },
         Insert: {
@@ -4891,7 +4891,7 @@ export type Database = {
           description?: string | null
           label?: string | null
           name?: string | null
-          path?: unknown | null
+          path?: string | null
           standard?: string | null
         },
         Update: {
@@ -4899,7 +4899,7 @@ export type Database = {
           description?: string | null
           label?: string | null
           name?: string | null
-          path?: unknown | null
+          path?: string | null
           standard?: string | null
         },
         Relationships: []
@@ -4911,8 +4911,8 @@ export type Database = {
           id: number | null
           label: string | null
           name: string | null
-          parent_path: unknown | null
-          path: unknown | null
+          parent_path: string | null
+          path: string | null
           standard_code: string | null
         },
         Insert: {
@@ -4921,8 +4921,8 @@ export type Database = {
           id?: number | null
           label?: string | null
           name?: string | null
-          parent_path?: unknown | null
-          path?: unknown | null
+          parent_path?: string | null
+          path?: string | null
           standard_code?: string | null
         },
         Update: {
@@ -4931,8 +4931,8 @@ export type Database = {
           id?: number | null
           label?: string | null
           name?: string | null
-          parent_path?: unknown | null
-          path?: unknown | null
+          parent_path?: string | null
+          path?: string | null
           standard_code?: string | null
         },
         Relationships: []
@@ -4993,7 +4993,7 @@ export type Database = {
           mobile_number: string | null
           phone_number: string | null
           valid_from: string | null
-          valid_range: unknown | null
+          valid_range: string | null
           valid_to: string | null
           valid_until: string | null
           web_address: string | null
@@ -5012,7 +5012,7 @@ export type Database = {
           mobile_number?: string | null
           phone_number?: string | null
           valid_from?: string | null
-          valid_range?: unknown | null
+          valid_range?: string | null
           valid_to?: string | null
           valid_until?: string | null
           web_address?: string | null
@@ -5031,7 +5031,7 @@ export type Database = {
           mobile_number?: string | null
           phone_number?: string | null
           valid_from?: string | null
-          valid_range?: unknown | null
+          valid_range?: string | null
           valid_to?: string | null
           valid_until?: string | null
           web_address?: string | null
@@ -5316,7 +5316,7 @@ export type Database = {
           short_name: string | null
           unit_size_id: number | null
           valid_from: string | null
-          valid_range: unknown | null
+          valid_range: string | null
           valid_to: string | null
           valid_until: string | null
         },
@@ -5336,7 +5336,7 @@ export type Database = {
           short_name?: string | null
           unit_size_id?: number | null
           valid_from?: string | null
-          valid_range?: unknown | null
+          valid_range?: string | null
           valid_to?: string | null
           valid_until?: string | null
         },
@@ -5356,7 +5356,7 @@ export type Database = {
           short_name?: string | null
           unit_size_id?: number | null
           valid_from?: string | null
-          valid_range?: unknown | null
+          valid_range?: string | null
           valid_to?: string | null
           valid_until?: string | null
         },
@@ -5698,7 +5698,7 @@ export type Database = {
           status_id: number | null
           unit_size_id: number | null
           valid_from: string | null
-          valid_range: unknown | null
+          valid_range: string | null
           valid_to: string | null
           valid_until: string | null
         },
@@ -5723,7 +5723,7 @@ export type Database = {
           status_id?: number | null
           unit_size_id?: number | null
           valid_from?: string | null
-          valid_range?: unknown | null
+          valid_range?: string | null
           valid_to?: string | null
           valid_until?: string | null
         },
@@ -5748,7 +5748,7 @@ export type Database = {
           status_id?: number | null
           unit_size_id?: number | null
           valid_from?: string | null
-          valid_range?: unknown | null
+          valid_range?: string | null
           valid_to?: string | null
           valid_until?: string | null
         },
@@ -5936,7 +5936,7 @@ export type Database = {
           code: string | null
           description: string | null
           id: number | null
-          labels: unknown | null
+          labels: string | null
           name: string | null
           priority: number | null
           shape: Database["public"]["Enums"]["external_ident_shape"] | null
@@ -5946,7 +5946,7 @@ export type Database = {
           code?: string | null
           description?: string | null
           id?: number | null
-          labels?: unknown | null
+          labels?: string | null
           name?: string | null
           priority?: number | null
           shape?: Database["public"]["Enums"]["external_ident_shape"] | null
@@ -5956,7 +5956,7 @@ export type Database = {
           code?: string | null
           description?: string | null
           id?: number | null
-          labels?: unknown | null
+          labels?: string | null
           name?: string | null
           priority?: number | null
           shape?: Database["public"]["Enums"]["external_ident_shape"] | null
@@ -5969,7 +5969,7 @@ export type Database = {
           code: string | null
           description: string | null
           id: number | null
-          labels: unknown | null
+          labels: string | null
           name: string | null
           priority: number | null
           shape: Database["public"]["Enums"]["external_ident_shape"] | null
@@ -5979,7 +5979,7 @@ export type Database = {
           code?: string | null
           description?: string | null
           id?: number | null
-          labels?: unknown | null
+          labels?: string | null
           name?: string | null
           priority?: number | null
           shape?: Database["public"]["Enums"]["external_ident_shape"] | null
@@ -5989,7 +5989,7 @@ export type Database = {
           code?: string | null
           description?: string | null
           id?: number | null
-          labels?: unknown | null
+          labels?: string | null
           name?: string | null
           priority?: number | null
           shape?: Database["public"]["Enums"]["external_ident_shape"] | null
@@ -6088,52 +6088,52 @@ export type Database = {
       },
       hypopg_hidden_indexes: {
         Row: {
-          am_name: unknown | null
-          index_name: unknown | null
-          indexrelid: unknown | null
+          am_name: string | null
+          index_name: string | null
+          indexrelid: number | null
           is_hypo: boolean | null
-          schema_name: unknown | null
-          table_name: unknown | null
+          schema_name: string | null
+          table_name: string | null
         },
         Insert: {
-          am_name?: unknown | null
-          index_name?: unknown | null
-          indexrelid?: unknown | null
+          am_name?: string | null
+          index_name?: string | null
+          indexrelid?: number | null
           is_hypo?: boolean | null
-          schema_name?: unknown | null
-          table_name?: unknown | null
+          schema_name?: string | null
+          table_name?: string | null
         },
         Update: {
-          am_name?: unknown | null
-          index_name?: unknown | null
-          indexrelid?: unknown | null
+          am_name?: string | null
+          index_name?: string | null
+          indexrelid?: number | null
           is_hypo?: boolean | null
-          schema_name?: unknown | null
-          table_name?: unknown | null
+          schema_name?: string | null
+          table_name?: string | null
         },
         Relationships: []
       },
       hypopg_list_indexes: {
         Row: {
-          am_name: unknown | null
+          am_name: string | null
           index_name: string | null
-          indexrelid: unknown | null
-          schema_name: unknown | null
-          table_name: unknown | null
+          indexrelid: number | null
+          schema_name: string | null
+          table_name: string | null
         },
         Insert: {
-          am_name?: unknown | null
+          am_name?: string | null
           index_name?: string | null
-          indexrelid?: unknown | null
-          schema_name?: unknown | null
-          table_name?: unknown | null
+          indexrelid?: number | null
+          schema_name?: string | null
+          table_name?: string | null
         },
         Update: {
-          am_name?: unknown | null
+          am_name?: string | null
           index_name?: string | null
-          indexrelid?: unknown | null
-          schema_name?: unknown | null
-          table_name?: unknown | null
+          indexrelid?: number | null
+          schema_name?: string | null
+          table_name?: string | null
         },
         Relationships: []
       },
@@ -6282,7 +6282,7 @@ export type Database = {
           status_id: number | null
           unit_size_id: number | null
           valid_from: string | null
-          valid_range: unknown | null
+          valid_range: string | null
           valid_to: string | null
           valid_until: string | null
         },
@@ -6307,7 +6307,7 @@ export type Database = {
           status_id?: number | null
           unit_size_id?: number | null
           valid_from?: string | null
-          valid_range?: unknown | null
+          valid_range?: string | null
           valid_to?: string | null
           valid_until?: string | null
         },
@@ -6332,7 +6332,7 @@ export type Database = {
           status_id?: number | null
           unit_size_id?: number | null
           valid_from?: string | null
-          valid_range?: unknown | null
+          valid_range?: string | null
           valid_to?: string | null
           valid_until?: string | null
         },
@@ -6570,7 +6570,7 @@ export type Database = {
           region_id: number | null
           type: Database["public"]["Enums"]["location_type"] | null
           valid_from: string | null
-          valid_range: unknown | null
+          valid_range: string | null
           valid_to: string | null
           valid_until: string | null
         },
@@ -6594,7 +6594,7 @@ export type Database = {
           region_id?: number | null
           type?: Database["public"]["Enums"]["location_type"] | null
           valid_from?: string | null
-          valid_range?: unknown | null
+          valid_range?: string | null
           valid_to?: string | null
           valid_until?: string | null
         },
@@ -6618,7 +6618,7 @@ export type Database = {
           region_id?: number | null
           type?: Database["public"]["Enums"]["location_type"] | null
           valid_from?: string | null
-          valid_range?: unknown | null
+          valid_range?: string | null
           valid_to?: string | null
           valid_until?: string | null
         },
@@ -6749,7 +6749,7 @@ export type Database = {
           person_id: number | null
           person_role_id: number | null
           valid_from: string | null
-          valid_range: unknown | null
+          valid_range: string | null
           valid_to: string | null
           valid_until: string | null
         },
@@ -6764,7 +6764,7 @@ export type Database = {
           person_id?: number | null
           person_role_id?: number | null
           valid_from?: string | null
-          valid_range?: unknown | null
+          valid_range?: string | null
           valid_to?: string | null
           valid_until?: string | null
         },
@@ -6779,7 +6779,7 @@ export type Database = {
           person_id?: number | null
           person_role_id?: number | null
           valid_from?: string | null
-          valid_range?: unknown | null
+          valid_range?: string | null
           valid_to?: string | null
           valid_until?: string | null
         },
@@ -7012,7 +7012,7 @@ export type Database = {
           label: string | null
           level: number | null
           name: string | null
-          path: unknown | null
+          path: string | null
         },
         Insert: {
           code?: string | null
@@ -7020,7 +7020,7 @@ export type Database = {
           label?: string | null
           level?: number | null
           name?: string | null
-          path?: unknown | null
+          path?: string | null
         },
         Update: {
           code?: string | null
@@ -7028,7 +7028,7 @@ export type Database = {
           label?: string | null
           level?: number | null
           name?: string | null
-          path?: unknown | null
+          path?: string | null
         },
         Relationships: []
       },
@@ -7181,7 +7181,7 @@ export type Database = {
           label: string | null
           name: string | null
           parent_id: number | null
-          path: unknown | null
+          path: string | null
           updated_at: string | null
         },
         Insert: {
@@ -7194,7 +7194,7 @@ export type Database = {
           label?: string | null
           name?: string | null
           parent_id?: number | null
-          path?: unknown | null
+          path?: string | null
           updated_at?: string | null
         },
         Update: {
@@ -7207,7 +7207,7 @@ export type Database = {
           label?: string | null
           name?: string | null
           parent_id?: number | null
-          path?: unknown | null
+          path?: string | null
           updated_at?: string | null
         },
         Relationships: []
@@ -7216,17 +7216,17 @@ export type Database = {
         Row: {
           description: string | null
           name: string | null
-          path: unknown | null
+          path: string | null
         },
         Insert: {
           description?: string | null
           name?: string | null
-          path?: unknown | null
+          path?: string | null
         },
         Update: {
           description?: string | null
           name?: string | null
-          path?: unknown | null
+          path?: string | null
         },
         Relationships: []
       },
@@ -7234,17 +7234,17 @@ export type Database = {
         Row: {
           description: string | null
           name: string | null
-          path: unknown | null
+          path: string | null
         },
         Insert: {
           description?: string | null
           name?: string | null
-          path?: unknown | null
+          path?: string | null
         },
         Update: {
           description?: string | null
           name?: string | null
-          path?: unknown | null
+          path?: string | null
         },
         Relationships: []
       },
@@ -7259,7 +7259,7 @@ export type Database = {
           label: string | null
           name: string | null
           parent_id: number | null
-          path: unknown | null
+          path: string | null
           updated_at: string | null
         },
         Insert: {
@@ -7272,7 +7272,7 @@ export type Database = {
           label?: string | null
           name?: string | null
           parent_id?: number | null
-          path?: unknown | null
+          path?: string | null
           updated_at?: string | null
         },
         Update: {
@@ -7285,7 +7285,7 @@ export type Database = {
           label?: string | null
           name?: string | null
           parent_id?: number | null
-          path?: unknown | null
+          path?: string | null
           updated_at?: string | null
         },
         Relationships: []
@@ -7294,17 +7294,17 @@ export type Database = {
         Row: {
           description: string | null
           name: string | null
-          path: unknown | null
+          path: string | null
         },
         Insert: {
           description?: string | null
           name?: string | null
-          path?: unknown | null
+          path?: string | null
         },
         Update: {
           description?: string | null
           name?: string | null
-          path?: unknown | null
+          path?: string | null
         },
         Relationships: []
       },
@@ -7314,21 +7314,21 @@ export type Database = {
           id: number | null
           label: string | null
           name: string | null
-          path: unknown | null
+          path: string | null
         },
         Insert: {
           code?: string | null
           id?: number | null
           label?: string | null
           name?: string | null
-          path?: unknown | null
+          path?: string | null
         },
         Update: {
           code?: string | null
           id?: number | null
           label?: string | null
           name?: string | null
-          path?: unknown | null
+          path?: string | null
         },
         Relationships: []
       },
@@ -7409,7 +7409,7 @@ export type Database = {
           legal_unit_id: number | null
           stat_definition_id: number | null
           valid_from: string | null
-          valid_range: unknown | null
+          valid_range: string | null
           valid_to: string | null
           valid_until: string | null
           value_bool: boolean | null
@@ -7427,7 +7427,7 @@ export type Database = {
           legal_unit_id?: number | null
           stat_definition_id?: number | null
           valid_from?: string | null
-          valid_range?: unknown | null
+          valid_range?: string | null
           valid_to?: string | null
           valid_until?: string | null
           value_bool?: boolean | null
@@ -7445,7 +7445,7 @@ export type Database = {
           legal_unit_id?: number | null
           stat_definition_id?: number | null
           valid_from?: string | null
-          valid_range?: unknown | null
+          valid_range?: string | null
           valid_to?: string | null
           valid_until?: string | null
           value_bool?: boolean | null
@@ -7556,7 +7556,7 @@ export type Database = {
       },
       statistical_unit_def: {
         Row: {
-          activity_category_paths: unknown[] | null
+          activity_category_paths: string[] | null
           birth_date: string | null
           data_source_codes: string[] | null
           data_source_ids: number[] | null
@@ -7598,7 +7598,7 @@ export type Database = {
           physical_postplace: string | null
           physical_region_code: string | null
           physical_region_id: number | null
-          physical_region_path: unknown | null
+          physical_region_path: string | null
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
@@ -7611,26 +7611,26 @@ export type Database = {
           postal_postplace: string | null
           postal_region_code: string | null
           postal_region_id: number | null
-          postal_region_path: unknown | null
+          postal_region_path: string | null
           primary_activity_category_code: string | null
           primary_activity_category_id: number | null
-          primary_activity_category_path: unknown | null
+          primary_activity_category_path: string | null
           related_enterprise_ids: number[] | null
           related_establishment_ids: number[] | null
           related_legal_unit_ids: number[] | null
-          search: unknown | null
+          search: string | null
           secondary_activity_category_code: string | null
           secondary_activity_category_id: number | null
-          secondary_activity_category_path: unknown | null
+          secondary_activity_category_path: string | null
           sector_code: string | null
           sector_id: number | null
           sector_name: string | null
-          sector_path: unknown | null
+          sector_path: string | null
           stats: Json | null
           stats_summary: Json | null
           status_code: string | null
           status_id: number | null
-          tag_paths: unknown[] | null
+          tag_paths: string[] | null
           unit_id: number | null
           unit_size_code: string | null
           unit_size_id: number | null
@@ -7642,7 +7642,7 @@ export type Database = {
           web_address: string | null
         },
         Insert: {
-          activity_category_paths?: unknown[] | null
+          activity_category_paths?: string[] | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -7684,7 +7684,7 @@ export type Database = {
           physical_postplace?: string | null
           physical_region_code?: string | null
           physical_region_id?: number | null
-          physical_region_path?: unknown | null
+          physical_region_path?: string | null
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
@@ -7697,26 +7697,26 @@ export type Database = {
           postal_postplace?: string | null
           postal_region_code?: string | null
           postal_region_id?: number | null
-          postal_region_path?: unknown | null
+          postal_region_path?: string | null
           primary_activity_category_code?: string | null
           primary_activity_category_id?: number | null
-          primary_activity_category_path?: unknown | null
+          primary_activity_category_path?: string | null
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
-          search?: unknown | null
+          search?: string | null
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
-          secondary_activity_category_path?: unknown | null
+          secondary_activity_category_path?: string | null
           sector_code?: string | null
           sector_id?: number | null
           sector_name?: string | null
-          sector_path?: unknown | null
+          sector_path?: string | null
           stats?: Json | null
           stats_summary?: Json | null
           status_code?: string | null
           status_id?: number | null
-          tag_paths?: unknown[] | null
+          tag_paths?: string[] | null
           unit_id?: number | null
           unit_size_code?: string | null
           unit_size_id?: number | null
@@ -7728,7 +7728,7 @@ export type Database = {
           web_address?: string | null
         },
         Update: {
-          activity_category_paths?: unknown[] | null
+          activity_category_paths?: string[] | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -7770,7 +7770,7 @@ export type Database = {
           physical_postplace?: string | null
           physical_region_code?: string | null
           physical_region_id?: number | null
-          physical_region_path?: unknown | null
+          physical_region_path?: string | null
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
@@ -7783,26 +7783,26 @@ export type Database = {
           postal_postplace?: string | null
           postal_region_code?: string | null
           postal_region_id?: number | null
-          postal_region_path?: unknown | null
+          postal_region_path?: string | null
           primary_activity_category_code?: string | null
           primary_activity_category_id?: number | null
-          primary_activity_category_path?: unknown | null
+          primary_activity_category_path?: string | null
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
-          search?: unknown | null
+          search?: string | null
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
-          secondary_activity_category_path?: unknown | null
+          secondary_activity_category_path?: string | null
           sector_code?: string | null
           sector_id?: number | null
           sector_name?: string | null
-          sector_path?: unknown | null
+          sector_path?: string | null
           stats?: Json | null
           stats_summary?: Json | null
           status_code?: string | null
           status_id?: number | null
-          tag_paths?: unknown[] | null
+          tag_paths?: string[] | null
           unit_id?: number | null
           unit_size_code?: string | null
           unit_size_id?: number | null
@@ -7820,9 +7820,9 @@ export type Database = {
           count: number | null
           legal_form_id: number | null
           physical_country_id: number | null
-          physical_region_path: unknown | null
-          primary_activity_category_path: unknown | null
-          sector_path: unknown | null
+          physical_region_path: string | null
+          primary_activity_category_path: string | null
+          sector_path: string | null
           stats_summary: Json | null
           status_id: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
@@ -7834,9 +7834,9 @@ export type Database = {
           count?: number | null
           legal_form_id?: number | null
           physical_country_id?: number | null
-          physical_region_path?: unknown | null
-          primary_activity_category_path?: unknown | null
-          sector_path?: unknown | null
+          physical_region_path?: string | null
+          primary_activity_category_path?: string | null
+          sector_path?: string | null
           stats_summary?: Json | null
           status_id?: number | null
           unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
@@ -7848,9 +7848,9 @@ export type Database = {
           count?: number | null
           legal_form_id?: number | null
           physical_country_id?: number | null
-          physical_region_path?: unknown | null
-          primary_activity_category_path?: unknown | null
-          sector_path?: unknown | null
+          physical_region_path?: string | null
+          primary_activity_category_path?: string | null
+          sector_path?: string | null
           stats_summary?: Json | null
           status_id?: number | null
           unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
@@ -7866,7 +7866,7 @@ export type Database = {
           ident: string | null
           name_when_input: string | null
           name_when_query: string | null
-          path: unknown | null
+          path: string | null
           scope: Database["public"]["Enums"]["relative_period_scope"] | null
           type: Database["public"]["Enums"]["time_context_type"] | null
           valid_from: string | null
@@ -7878,7 +7878,7 @@ export type Database = {
           ident?: string | null
           name_when_input?: string | null
           name_when_query?: string | null
-          path?: unknown | null
+          path?: string | null
           scope?: Database["public"]["Enums"]["relative_period_scope"] | null
           type?: Database["public"]["Enums"]["time_context_type"] | null
           valid_from?: string | null
@@ -7890,7 +7890,7 @@ export type Database = {
           ident?: string | null
           name_when_input?: string | null
           name_when_query?: string | null
-          path?: unknown | null
+          path?: string | null
           scope?: Database["public"]["Enums"]["relative_period_scope"] | null
           type?: Database["public"]["Enums"]["time_context_type"] | null
           valid_from?: string | null
@@ -7901,7 +7901,7 @@ export type Database = {
       },
       timeline_enterprise_def: {
         Row: {
-          activity_category_paths: unknown[] | null
+          activity_category_paths: string[] | null
           birth_date: string | null
           data_source_codes: string[] | null
           data_source_ids: number[] | null
@@ -7940,7 +7940,7 @@ export type Database = {
           physical_postplace: string | null
           physical_region_code: string | null
           physical_region_id: number | null
-          physical_region_path: unknown | null
+          physical_region_path: string | null
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
@@ -7953,23 +7953,23 @@ export type Database = {
           postal_postplace: string | null
           postal_region_code: string | null
           postal_region_id: number | null
-          postal_region_path: unknown | null
+          postal_region_path: string | null
           primary_activity_category_code: string | null
           primary_activity_category_id: number | null
-          primary_activity_category_path: unknown | null
+          primary_activity_category_path: string | null
           primary_establishment_id: number | null
           primary_legal_unit_id: number | null
           related_enterprise_ids: number[] | null
           related_establishment_ids: number[] | null
           related_legal_unit_ids: number[] | null
-          search: unknown | null
+          search: string | null
           secondary_activity_category_code: string | null
           secondary_activity_category_id: number | null
-          secondary_activity_category_path: unknown | null
+          secondary_activity_category_path: string | null
           sector_code: string | null
           sector_id: number | null
           sector_name: string | null
-          sector_path: unknown | null
+          sector_path: string | null
           stats_summary: Json | null
           status_code: string | null
           status_id: number | null
@@ -7984,7 +7984,7 @@ export type Database = {
           web_address: string | null
         },
         Insert: {
-          activity_category_paths?: unknown[] | null
+          activity_category_paths?: string[] | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -8023,7 +8023,7 @@ export type Database = {
           physical_postplace?: string | null
           physical_region_code?: string | null
           physical_region_id?: number | null
-          physical_region_path?: unknown | null
+          physical_region_path?: string | null
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
@@ -8036,23 +8036,23 @@ export type Database = {
           postal_postplace?: string | null
           postal_region_code?: string | null
           postal_region_id?: number | null
-          postal_region_path?: unknown | null
+          postal_region_path?: string | null
           primary_activity_category_code?: string | null
           primary_activity_category_id?: number | null
-          primary_activity_category_path?: unknown | null
+          primary_activity_category_path?: string | null
           primary_establishment_id?: number | null
           primary_legal_unit_id?: number | null
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
-          search?: unknown | null
+          search?: string | null
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
-          secondary_activity_category_path?: unknown | null
+          secondary_activity_category_path?: string | null
           sector_code?: string | null
           sector_id?: number | null
           sector_name?: string | null
-          sector_path?: unknown | null
+          sector_path?: string | null
           stats_summary?: Json | null
           status_code?: string | null
           status_id?: number | null
@@ -8067,7 +8067,7 @@ export type Database = {
           web_address?: string | null
         },
         Update: {
-          activity_category_paths?: unknown[] | null
+          activity_category_paths?: string[] | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -8106,7 +8106,7 @@ export type Database = {
           physical_postplace?: string | null
           physical_region_code?: string | null
           physical_region_id?: number | null
-          physical_region_path?: unknown | null
+          physical_region_path?: string | null
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
@@ -8119,23 +8119,23 @@ export type Database = {
           postal_postplace?: string | null
           postal_region_code?: string | null
           postal_region_id?: number | null
-          postal_region_path?: unknown | null
+          postal_region_path?: string | null
           primary_activity_category_code?: string | null
           primary_activity_category_id?: number | null
-          primary_activity_category_path?: unknown | null
+          primary_activity_category_path?: string | null
           primary_establishment_id?: number | null
           primary_legal_unit_id?: number | null
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
-          search?: unknown | null
+          search?: string | null
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
-          secondary_activity_category_path?: unknown | null
+          secondary_activity_category_path?: string | null
           sector_code?: string | null
           sector_id?: number | null
           sector_name?: string | null
-          sector_path?: unknown | null
+          sector_path?: string | null
           stats_summary?: Json | null
           status_code?: string | null
           status_id?: number | null
@@ -8153,7 +8153,7 @@ export type Database = {
       },
       timeline_establishment_def: {
         Row: {
-          activity_category_paths: unknown[] | null
+          activity_category_paths: string[] | null
           birth_date: string | null
           data_source_codes: string[] | null
           data_source_ids: number[] | null
@@ -8194,7 +8194,7 @@ export type Database = {
           physical_postplace: string | null
           physical_region_code: string | null
           physical_region_id: number | null
-          physical_region_path: unknown | null
+          physical_region_path: string | null
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
@@ -8207,23 +8207,23 @@ export type Database = {
           postal_postplace: string | null
           postal_region_code: string | null
           postal_region_id: number | null
-          postal_region_path: unknown | null
+          postal_region_path: string | null
           primary_activity_category_code: string | null
           primary_activity_category_id: number | null
-          primary_activity_category_path: unknown | null
+          primary_activity_category_path: string | null
           primary_for_enterprise: boolean | null
           primary_for_legal_unit: boolean | null
           related_enterprise_ids: number[] | null
           related_establishment_ids: number[] | null
           related_legal_unit_ids: number[] | null
-          search: unknown | null
+          search: string | null
           secondary_activity_category_code: string | null
           secondary_activity_category_id: number | null
-          secondary_activity_category_path: unknown | null
+          secondary_activity_category_path: string | null
           sector_code: string | null
           sector_id: number | null
           sector_name: string | null
-          sector_path: unknown | null
+          sector_path: string | null
           stats: Json | null
           stats_summary: Json | null
           status_code: string | null
@@ -8239,7 +8239,7 @@ export type Database = {
           web_address: string | null
         },
         Insert: {
-          activity_category_paths?: unknown[] | null
+          activity_category_paths?: string[] | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -8280,7 +8280,7 @@ export type Database = {
           physical_postplace?: string | null
           physical_region_code?: string | null
           physical_region_id?: number | null
-          physical_region_path?: unknown | null
+          physical_region_path?: string | null
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
@@ -8293,23 +8293,23 @@ export type Database = {
           postal_postplace?: string | null
           postal_region_code?: string | null
           postal_region_id?: number | null
-          postal_region_path?: unknown | null
+          postal_region_path?: string | null
           primary_activity_category_code?: string | null
           primary_activity_category_id?: number | null
-          primary_activity_category_path?: unknown | null
+          primary_activity_category_path?: string | null
           primary_for_enterprise?: boolean | null
           primary_for_legal_unit?: boolean | null
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
-          search?: unknown | null
+          search?: string | null
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
-          secondary_activity_category_path?: unknown | null
+          secondary_activity_category_path?: string | null
           sector_code?: string | null
           sector_id?: number | null
           sector_name?: string | null
-          sector_path?: unknown | null
+          sector_path?: string | null
           stats?: Json | null
           stats_summary?: Json | null
           status_code?: string | null
@@ -8325,7 +8325,7 @@ export type Database = {
           web_address?: string | null
         },
         Update: {
-          activity_category_paths?: unknown[] | null
+          activity_category_paths?: string[] | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -8366,7 +8366,7 @@ export type Database = {
           physical_postplace?: string | null
           physical_region_code?: string | null
           physical_region_id?: number | null
-          physical_region_path?: unknown | null
+          physical_region_path?: string | null
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
@@ -8379,23 +8379,23 @@ export type Database = {
           postal_postplace?: string | null
           postal_region_code?: string | null
           postal_region_id?: number | null
-          postal_region_path?: unknown | null
+          postal_region_path?: string | null
           primary_activity_category_code?: string | null
           primary_activity_category_id?: number | null
-          primary_activity_category_path?: unknown | null
+          primary_activity_category_path?: string | null
           primary_for_enterprise?: boolean | null
           primary_for_legal_unit?: boolean | null
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
-          search?: unknown | null
+          search?: string | null
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
-          secondary_activity_category_path?: unknown | null
+          secondary_activity_category_path?: string | null
           sector_code?: string | null
           sector_id?: number | null
           sector_name?: string | null
-          sector_path?: unknown | null
+          sector_path?: string | null
           stats?: Json | null
           stats_summary?: Json | null
           status_code?: string | null
@@ -8527,7 +8527,7 @@ export type Database = {
       },
       timeline_legal_unit_def: {
         Row: {
-          activity_category_paths: unknown[] | null
+          activity_category_paths: string[] | null
           birth_date: string | null
           data_source_codes: string[] | null
           data_source_ids: number[] | null
@@ -8567,7 +8567,7 @@ export type Database = {
           physical_postplace: string | null
           physical_region_code: string | null
           physical_region_id: number | null
-          physical_region_path: unknown | null
+          physical_region_path: string | null
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
@@ -8580,22 +8580,22 @@ export type Database = {
           postal_postplace: string | null
           postal_region_code: string | null
           postal_region_id: number | null
-          postal_region_path: unknown | null
+          postal_region_path: string | null
           primary_activity_category_code: string | null
           primary_activity_category_id: number | null
-          primary_activity_category_path: unknown | null
+          primary_activity_category_path: string | null
           primary_for_enterprise: boolean | null
           related_enterprise_ids: number[] | null
           related_establishment_ids: number[] | null
           related_legal_unit_ids: number[] | null
-          search: unknown | null
+          search: string | null
           secondary_activity_category_code: string | null
           secondary_activity_category_id: number | null
-          secondary_activity_category_path: unknown | null
+          secondary_activity_category_path: string | null
           sector_code: string | null
           sector_id: number | null
           sector_name: string | null
-          sector_path: unknown | null
+          sector_path: string | null
           stats: Json | null
           stats_summary: Json | null
           status_code: string | null
@@ -8611,7 +8611,7 @@ export type Database = {
           web_address: string | null
         },
         Insert: {
-          activity_category_paths?: unknown[] | null
+          activity_category_paths?: string[] | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -8651,7 +8651,7 @@ export type Database = {
           physical_postplace?: string | null
           physical_region_code?: string | null
           physical_region_id?: number | null
-          physical_region_path?: unknown | null
+          physical_region_path?: string | null
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
@@ -8664,22 +8664,22 @@ export type Database = {
           postal_postplace?: string | null
           postal_region_code?: string | null
           postal_region_id?: number | null
-          postal_region_path?: unknown | null
+          postal_region_path?: string | null
           primary_activity_category_code?: string | null
           primary_activity_category_id?: number | null
-          primary_activity_category_path?: unknown | null
+          primary_activity_category_path?: string | null
           primary_for_enterprise?: boolean | null
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
-          search?: unknown | null
+          search?: string | null
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
-          secondary_activity_category_path?: unknown | null
+          secondary_activity_category_path?: string | null
           sector_code?: string | null
           sector_id?: number | null
           sector_name?: string | null
-          sector_path?: unknown | null
+          sector_path?: string | null
           stats?: Json | null
           stats_summary?: Json | null
           status_code?: string | null
@@ -8695,7 +8695,7 @@ export type Database = {
           web_address?: string | null
         },
         Update: {
-          activity_category_paths?: unknown[] | null
+          activity_category_paths?: string[] | null
           birth_date?: string | null
           data_source_codes?: string[] | null
           data_source_ids?: number[] | null
@@ -8735,7 +8735,7 @@ export type Database = {
           physical_postplace?: string | null
           physical_region_code?: string | null
           physical_region_id?: number | null
-          physical_region_path?: unknown | null
+          physical_region_path?: string | null
           postal_address_part1?: string | null
           postal_address_part2?: string | null
           postal_address_part3?: string | null
@@ -8748,22 +8748,22 @@ export type Database = {
           postal_postplace?: string | null
           postal_region_code?: string | null
           postal_region_id?: number | null
-          postal_region_path?: unknown | null
+          postal_region_path?: string | null
           primary_activity_category_code?: string | null
           primary_activity_category_id?: number | null
-          primary_activity_category_path?: unknown | null
+          primary_activity_category_path?: string | null
           primary_for_enterprise?: boolean | null
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
-          search?: unknown | null
+          search?: string | null
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
-          secondary_activity_category_path?: unknown | null
+          secondary_activity_category_path?: string | null
           sector_code?: string | null
           sector_id?: number | null
           sector_name?: string | null
-          sector_path?: unknown | null
+          sector_path?: string | null
           stats?: Json | null
           stats_summary?: Json | null
           status_code?: string | null
@@ -9160,7 +9160,7 @@ export type Database = {
       },
       bytea_to_text: {
         Args: {
-          data?: unknown
+          data?: string
         }
         Returns: string
       },
@@ -9207,7 +9207,7 @@ export type Database = {
       create_api_key: {
         Args: {
           description?: string
-          duration?: unknown
+          duration?: string
         }
         Returns: Database["public"]["Views"]["api_key"]["Row"]
       },
@@ -9243,51 +9243,51 @@ export type Database = {
       },
       decrypt: {
         Args: {
-          arg0?: unknown
-          arg1?: unknown
+          arg0?: string
+          arg1?: string
           arg2?: string
         }
-        Returns: unknown
+        Returns: string
       },
       decrypt_iv: {
         Args: {
-          arg0?: unknown
-          arg1?: unknown
-          arg2?: unknown
+          arg0?: string
+          arg1?: string
+          arg2?: string
           arg3?: string
         }
-        Returns: unknown
+        Returns: string
       },
       digest: {
         Args: {
           arg0?: string
           arg1?: string
         }
-        Returns: unknown
+        Returns: string
       }
         | {
         Args: {
-          arg0?: unknown
+          arg0?: string
           arg1?: string
         }
-        Returns: unknown
+        Returns: string
       },
       encrypt: {
         Args: {
-          arg0?: unknown
-          arg1?: unknown
+          arg0?: string
+          arg1?: string
           arg2?: string
         }
-        Returns: unknown
+        Returns: string
       },
       encrypt_iv: {
         Args: {
-          arg0?: unknown
-          arg1?: unknown
-          arg2?: unknown
+          arg0?: string
+          arg1?: string
+          arg2?: string
           arg3?: string
         }
-        Returns: unknown
+        Returns: string
       },
       enterprise_hierarchy: {
         Args: {
@@ -9367,7 +9367,7 @@ export type Database = {
           arg0?: unknown
           arg1?: unknown
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: boolean
@@ -9419,7 +9419,7 @@ export type Database = {
           arg0?: unknown
           arg1?: boolean
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: boolean
@@ -9477,7 +9477,7 @@ export type Database = {
           arg0?: unknown
           arg1?: unknown
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: boolean
@@ -9497,9 +9497,9 @@ export type Database = {
       gbt_bytea_consistent: {
         Args: {
           arg0?: unknown
-          arg1?: unknown
+          arg1?: string
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: boolean
@@ -9551,7 +9551,7 @@ export type Database = {
           arg0?: unknown
           arg1?: unknown
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: boolean
@@ -9561,7 +9561,7 @@ export type Database = {
           arg0?: unknown
           arg1?: unknown
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: number
@@ -9619,7 +9619,7 @@ export type Database = {
           arg0?: unknown
           arg1?: string
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: boolean
@@ -9629,7 +9629,7 @@ export type Database = {
           arg0?: unknown
           arg1?: string
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: number
@@ -9693,7 +9693,7 @@ export type Database = {
           arg0?: unknown
           arg1?: unknown
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: boolean
@@ -9751,7 +9751,7 @@ export type Database = {
           arg0?: unknown
           arg1?: number
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: boolean
@@ -9761,7 +9761,7 @@ export type Database = {
           arg0?: unknown
           arg1?: number
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: number
@@ -9819,7 +9819,7 @@ export type Database = {
           arg0?: unknown
           arg1?: number
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: boolean
@@ -9829,7 +9829,7 @@ export type Database = {
           arg0?: unknown
           arg1?: number
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: number
@@ -9885,9 +9885,9 @@ export type Database = {
       gbt_inet_consistent: {
         Args: {
           arg0?: unknown
-          arg1?: unknown
+          arg1?: string
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: boolean
@@ -9939,7 +9939,7 @@ export type Database = {
           arg0?: unknown
           arg1?: number
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: boolean
@@ -9949,7 +9949,7 @@ export type Database = {
           arg0?: unknown
           arg1?: number
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: number
@@ -10007,7 +10007,7 @@ export type Database = {
           arg0?: unknown
           arg1?: number
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: boolean
@@ -10017,7 +10017,7 @@ export type Database = {
           arg0?: unknown
           arg1?: number
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: number
@@ -10075,7 +10075,7 @@ export type Database = {
           arg0?: unknown
           arg1?: number
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: boolean
@@ -10085,7 +10085,7 @@ export type Database = {
           arg0?: unknown
           arg1?: number
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: number
@@ -10141,9 +10141,9 @@ export type Database = {
       gbt_intv_consistent: {
         Args: {
           arg0?: unknown
-          arg1?: unknown
+          arg1?: string
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: boolean
@@ -10157,9 +10157,9 @@ export type Database = {
       gbt_intv_distance: {
         Args: {
           arg0?: unknown
-          arg1?: unknown
+          arg1?: string
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: number
@@ -10217,7 +10217,7 @@ export type Database = {
           arg0?: unknown
           arg1?: unknown
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: boolean
@@ -10273,9 +10273,9 @@ export type Database = {
       gbt_macad_consistent: {
         Args: {
           arg0?: unknown
-          arg1?: unknown
+          arg1?: string
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: boolean
@@ -10333,7 +10333,7 @@ export type Database = {
           arg0?: unknown
           arg1?: number
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: boolean
@@ -10383,9 +10383,9 @@ export type Database = {
       gbt_oid_consistent: {
         Args: {
           arg0?: unknown
-          arg1?: unknown
+          arg1?: number
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: boolean
@@ -10393,9 +10393,9 @@ export type Database = {
       gbt_oid_distance: {
         Args: {
           arg0?: unknown
-          arg1?: unknown
+          arg1?: number
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: number
@@ -10453,7 +10453,7 @@ export type Database = {
           arg0?: unknown
           arg1?: string
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: boolean
@@ -10505,7 +10505,7 @@ export type Database = {
           arg0?: unknown
           arg1?: unknown
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: boolean
@@ -10515,7 +10515,7 @@ export type Database = {
           arg0?: unknown
           arg1?: unknown
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: number
@@ -10573,7 +10573,7 @@ export type Database = {
           arg0?: unknown
           arg1?: unknown
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: boolean
@@ -10589,7 +10589,7 @@ export type Database = {
           arg0?: unknown
           arg1?: string
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: boolean
@@ -10599,7 +10599,7 @@ export type Database = {
           arg0?: unknown
           arg1?: string
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: number
@@ -10657,7 +10657,7 @@ export type Database = {
           arg0?: unknown
           arg1?: string
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: boolean
@@ -10667,7 +10667,7 @@ export type Database = {
           arg0?: unknown
           arg1?: string
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: number
@@ -10683,7 +10683,7 @@ export type Database = {
           arg0?: unknown
           arg1?: string
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: boolean
@@ -10824,7 +10824,7 @@ export type Database = {
         Args: {
           arg0?: number
         }
-        Returns: unknown
+        Returns: string
       },
       gen_random_uuid: {
         Args: never
@@ -10943,7 +10943,7 @@ export type Database = {
           arg0?: unknown
           arg1?: string
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: boolean
@@ -10959,7 +10959,7 @@ export type Database = {
           arg0?: unknown
           arg1?: string
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: number
@@ -11043,13 +11043,13 @@ export type Database = {
       },
       hash_ltree: {
         Args: {
-          arg0?: unknown
+          arg0?: string
         }
         Returns: number
       },
       hash_ltree_extended: {
         Args: {
-          arg0?: unknown
+          arg0?: string
           arg1?: number
         }
         Returns: number
@@ -11067,15 +11067,15 @@ export type Database = {
           arg1?: string
           arg2?: string
         }
-        Returns: unknown
+        Returns: string
       }
         | {
         Args: {
-          arg0?: unknown
-          arg1?: unknown
+          arg0?: string
+          arg1?: string
           arg2?: string
         }
-        Returns: unknown
+        Returns: string
       },
       http_delete: {
         Args: {
@@ -11175,29 +11175,29 @@ export type Database = {
       },
       hypopg_drop_index: {
         Args: {
-          indexid?: unknown
+          indexid?: number
         }
         Returns: boolean
       },
       hypopg_get_indexdef: {
         Args: {
-          indexid?: unknown
+          indexid?: number
         }
         Returns: string
       },
       hypopg_hidden_indexes: {
         Args: never
-        Returns: unknown[]
+        Returns: number[]
       },
       hypopg_hide_index: {
         Args: {
-          indexid?: unknown
+          indexid?: number
         }
         Returns: boolean
       },
       hypopg_relation_size: {
         Args: {
-          indexid?: unknown
+          indexid?: number
         }
         Returns: number
       },
@@ -11215,7 +11215,7 @@ export type Database = {
       },
       hypopg_unhide_index: {
         Args: {
-          indexid?: unknown
+          indexid?: number
         }
         Returns: boolean
       },
@@ -11354,15 +11354,15 @@ export type Database = {
       },
       index: {
         Args: {
-          arg0?: unknown
-          arg1?: unknown
+          arg0?: string
+          arg1?: string
         }
         Returns: number
       }
         | {
         Args: {
-          arg0?: unknown
-          arg1?: unknown
+          arg0?: string
+          arg1?: string
           arg2?: number
         }
         Returns: number
@@ -11396,10 +11396,10 @@ export type Database = {
       },
       interval_dist: {
         Args: {
-          arg0?: unknown
-          arg1?: unknown
+          arg0?: string
+          arg1?: string
         }
-        Returns: unknown
+        Returns: string
       },
       is_deriving_reports: {
         Args: never
@@ -11435,79 +11435,79 @@ export type Database = {
       },
       lca: {
         Args: {
-          arg0?: unknown[]
+          arg0?: string[]
         }
-        Returns: unknown
+        Returns: string
       }
         | {
         Args: {
-          arg0?: unknown
-          arg1?: unknown
+          arg0?: string
+          arg1?: string
         }
-        Returns: unknown
+        Returns: string
       }
         | {
         Args: {
-          arg0?: unknown
-          arg1?: unknown
-          arg2?: unknown
+          arg0?: string
+          arg1?: string
+          arg2?: string
         }
-        Returns: unknown
+        Returns: string
       }
         | {
         Args: {
-          arg0?: unknown
-          arg1?: unknown
-          arg2?: unknown
-          arg3?: unknown
+          arg0?: string
+          arg1?: string
+          arg2?: string
+          arg3?: string
         }
-        Returns: unknown
+        Returns: string
       }
         | {
         Args: {
-          arg0?: unknown
-          arg1?: unknown
-          arg2?: unknown
-          arg3?: unknown
-          arg4?: unknown
+          arg0?: string
+          arg1?: string
+          arg2?: string
+          arg3?: string
+          arg4?: string
         }
-        Returns: unknown
+        Returns: string
       }
         | {
         Args: {
-          arg0?: unknown
-          arg1?: unknown
-          arg2?: unknown
-          arg3?: unknown
-          arg4?: unknown
-          arg5?: unknown
+          arg0?: string
+          arg1?: string
+          arg2?: string
+          arg3?: string
+          arg4?: string
+          arg5?: string
         }
-        Returns: unknown
+        Returns: string
       }
         | {
         Args: {
-          arg0?: unknown
-          arg1?: unknown
-          arg2?: unknown
-          arg3?: unknown
-          arg4?: unknown
-          arg5?: unknown
-          arg6?: unknown
+          arg0?: string
+          arg1?: string
+          arg2?: string
+          arg3?: string
+          arg4?: string
+          arg5?: string
+          arg6?: string
         }
-        Returns: unknown
+        Returns: string
       }
         | {
         Args: {
-          arg0?: unknown
-          arg1?: unknown
-          arg2?: unknown
-          arg3?: unknown
-          arg4?: unknown
-          arg5?: unknown
-          arg6?: unknown
-          arg7?: unknown
+          arg0?: string
+          arg1?: string
+          arg2?: string
+          arg3?: string
+          arg4?: string
+          arg5?: string
+          arg6?: string
+          arg7?: string
         }
-        Returns: unknown
+        Returns: string
       },
       legal_form: {
         Args: {
@@ -11589,11 +11589,11 @@ export type Database = {
         Args: {
           arg0?: unknown
         }
-        Returns: unknown
+        Returns: string
       },
       lt_q_regex: {
         Args: {
-          arg0?: unknown
+          arg0?: string
           arg1?: unknown[]
         }
         Returns: boolean
@@ -11601,13 +11601,13 @@ export type Database = {
       lt_q_rregex: {
         Args: {
           arg0?: unknown[]
-          arg1?: unknown
+          arg1?: string
         }
         Returns: boolean
       },
       ltq_regex: {
         Args: {
-          arg0?: unknown
+          arg0?: string
           arg1?: unknown
         }
         Returns: boolean
@@ -11615,34 +11615,34 @@ export type Database = {
       ltq_rregex: {
         Args: {
           arg0?: unknown
-          arg1?: unknown
+          arg1?: string
         }
         Returns: boolean
       },
       ltree2text: {
         Args: {
-          arg0?: unknown
+          arg0?: string
         }
         Returns: string
       },
       ltree_addltree: {
         Args: {
-          arg0?: unknown
-          arg1?: unknown
+          arg0?: string
+          arg1?: string
         }
-        Returns: unknown
+        Returns: string
       },
       ltree_addtext: {
         Args: {
-          arg0?: unknown
+          arg0?: string
           arg1?: string
         }
-        Returns: unknown
+        Returns: string
       },
       ltree_cmp: {
         Args: {
-          arg0?: unknown
-          arg1?: unknown
+          arg0?: string
+          arg1?: string
         }
         Returns: number
       },
@@ -11655,9 +11655,9 @@ export type Database = {
       ltree_consistent: {
         Args: {
           arg0?: unknown
-          arg1?: unknown
+          arg1?: string
           arg2?: number
-          arg3?: unknown
+          arg3?: number
           arg4?: unknown
         }
         Returns: boolean
@@ -11670,15 +11670,15 @@ export type Database = {
       },
       ltree_eq: {
         Args: {
-          arg0?: unknown
-          arg1?: unknown
+          arg0?: string
+          arg1?: string
         }
         Returns: boolean
       },
       ltree_ge: {
         Args: {
-          arg0?: unknown
-          arg1?: unknown
+          arg0?: string
+          arg1?: string
         }
         Returns: boolean
       },
@@ -11702,8 +11702,8 @@ export type Database = {
       },
       ltree_gt: {
         Args: {
-          arg0?: unknown
-          arg1?: unknown
+          arg0?: string
+          arg1?: string
         }
         Returns: boolean
       },
@@ -11711,39 +11711,39 @@ export type Database = {
         Args: {
           arg0?: unknown
         }
-        Returns: unknown
+        Returns: string
       },
       ltree_isparent: {
         Args: {
-          arg0?: unknown
-          arg1?: unknown
+          arg0?: string
+          arg1?: string
         }
         Returns: boolean
       },
       ltree_le: {
         Args: {
-          arg0?: unknown
-          arg1?: unknown
+          arg0?: string
+          arg1?: string
         }
         Returns: boolean
       },
       ltree_lt: {
         Args: {
-          arg0?: unknown
-          arg1?: unknown
+          arg0?: string
+          arg1?: string
         }
         Returns: boolean
       },
       ltree_ne: {
         Args: {
-          arg0?: unknown
-          arg1?: unknown
+          arg0?: string
+          arg1?: string
         }
         Returns: boolean
       },
       ltree_out: {
         Args: {
-          arg0?: unknown
+          arg0?: string
         }
         Returns: unknown
       },
@@ -11766,12 +11766,12 @@ export type Database = {
         Args: {
           arg0?: unknown
         }
-        Returns: unknown
+        Returns: string
       },
       ltree_risparent: {
         Args: {
-          arg0?: unknown
-          arg1?: unknown
+          arg0?: string
+          arg1?: string
         }
         Returns: boolean
       },
@@ -11785,16 +11785,16 @@ export type Database = {
       },
       ltree_send: {
         Args: {
-          arg0?: unknown
+          arg0?: string
         }
-        Returns: unknown
+        Returns: string
       },
       ltree_textadd: {
         Args: {
           arg0?: string
-          arg1?: unknown
+          arg1?: string
         }
-        Returns: unknown
+        Returns: string
       },
       ltree_union: {
         Args: {
@@ -11806,7 +11806,7 @@ export type Database = {
       ltreeparentsel: {
         Args: {
           arg0?: unknown
-          arg1?: unknown
+          arg1?: number
           arg2?: unknown
           arg3?: number
         }
@@ -11814,7 +11814,7 @@ export type Database = {
       },
       ltxtq_exec: {
         Args: {
-          arg0?: unknown
+          arg0?: string
           arg1?: unknown
         }
         Returns: boolean
@@ -11840,7 +11840,7 @@ export type Database = {
       ltxtq_rexec: {
         Args: {
           arg0?: unknown
-          arg1?: unknown
+          arg1?: string
         }
         Returns: boolean
       },
@@ -11848,11 +11848,11 @@ export type Database = {
         Args: {
           arg0?: unknown
         }
-        Returns: unknown
+        Returns: string
       },
       nlevel: {
         Args: {
-          arg0?: unknown
+          arg0?: string
         }
         Returns: number
       },
@@ -11867,10 +11867,10 @@ export type Database = {
       },
       oid_dist: {
         Args: {
-          arg0?: unknown
-          arg1?: unknown
+          arg0?: number
+          arg1?: number
         }
-        Returns: unknown
+        Returns: number
       },
       physical_country: {
         Args: {
@@ -12098,9 +12098,9 @@ export type Database = {
           unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
           resolution?: Database["public"]["Enums"]["history_resolution"]
           year?: number
-          region_path?: unknown
-          activity_category_path?: unknown
-          sector_path?: unknown
+          region_path?: string
+          activity_category_path?: string
+          sector_path?: string
           status_id?: number
           legal_form_id?: number
           country_id?: number
@@ -12159,9 +12159,9 @@ export type Database = {
       statistical_unit_facet_drilldown: {
         Args: {
           unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
-          region_path?: unknown
-          activity_category_path?: unknown
-          sector_path?: unknown
+          region_path?: string
+          activity_category_path?: string
+          sector_path?: string
           status_id?: number
           legal_form_id?: number
           country_id?: number
@@ -12257,26 +12257,26 @@ export type Database = {
       },
       subltree: {
         Args: {
-          arg0?: unknown
+          arg0?: string
           arg1?: number
           arg2?: number
         }
-        Returns: unknown
+        Returns: string
       },
       subpath: {
         Args: {
-          arg0?: unknown
+          arg0?: string
           arg1?: number
           arg2?: number
         }
-        Returns: unknown
+        Returns: string
       }
         | {
         Args: {
-          arg0?: unknown
+          arg0?: string
           arg1?: number
         }
-        Returns: unknown
+        Returns: string
       },
       tag_for_unit_hierarchy: {
         Args: {
@@ -12291,14 +12291,14 @@ export type Database = {
         Args: {
           data?: string
         }
-        Returns: unknown
+        Returns: string
       },
       time_dist: {
         Args: {
           arg0?: unknown
           arg1?: unknown
         }
-        Returns: unknown
+        Returns: string
       },
       timepoints_calculate: {
         Args: {
@@ -12313,14 +12313,14 @@ export type Database = {
           arg0?: string
           arg1?: string
         }
-        Returns: unknown
+        Returns: string
       },
       tstz_dist: {
         Args: {
           arg0?: string
           arg1?: string
         }
-        Returns: unknown
+        Returns: string
       },
       unit_size: {
         Args: {
@@ -12348,7 +12348,7 @@ export type Database = {
       }
         | {
         Args: {
-          string?: unknown
+          string?: string
         }
         Returns: string
       }
@@ -12544,11 +12544,11 @@ export type Database = {
         year: number | null
         month: number | null
         unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
-        primary_activity_category_path: unknown | null
-        secondary_activity_category_path: unknown | null
-        sector_path: unknown | null
+        primary_activity_category_path: string | null
+        secondary_activity_category_path: string | null
+        sector_path: string | null
         legal_form_id: number | null
-        physical_region_path: unknown | null
+        physical_region_path: string | null
         physical_country_id: number | null
         unit_size_id: number | null
         status_id: number | null

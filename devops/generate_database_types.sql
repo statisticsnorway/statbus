@@ -456,6 +456,22 @@ export type Database = {
                                 WHEN 'timestamptz' THEN 'string[]'
                                 WHEN 'json' THEN 'Json[]'
                                 WHEN 'jsonb' THEN 'Json[]'
+                                WHEN 'ltree' THEN 'string[]'
+                                WHEN 'daterange' THEN 'string[]'
+                                WHEN 'tsrange' THEN 'string[]'
+                                WHEN 'tstzrange' THEN 'string[]'
+                                WHEN 'int4range' THEN 'string[]'
+                                WHEN 'int8range' THEN 'string[]'
+                                WHEN 'numrange' THEN 'string[]'
+                                WHEN 'tsvector' THEN 'string[]'
+                                WHEN 'name' THEN 'string[]'
+                                WHEN 'oid' THEN 'number[]'
+                                WHEN 'regproc' THEN 'string[]'
+                                WHEN 'interval' THEN 'string[]'
+                                WHEN 'bytea' THEN 'string[]'
+                                WHEN 'inet' THEN 'string[]'
+                                WHEN 'cidr' THEN 'string[]'
+                                WHEN 'macaddr' THEN 'string[]'
                                 ELSE 'unknown[]'
                             END
                         END
@@ -478,7 +494,22 @@ export type Database = {
                             WHEN 'timestamptz' THEN 'string'
                             WHEN 'json' THEN 'Json'
                             WHEN 'jsonb' THEN 'Json'
-                            WHEN 'ltree' THEN 'unknown'
+                            WHEN 'ltree' THEN 'string'
+                            WHEN 'daterange' THEN 'string'
+                            WHEN 'tsrange' THEN 'string'
+                            WHEN 'tstzrange' THEN 'string'
+                            WHEN 'int4range' THEN 'string'
+                            WHEN 'int8range' THEN 'string'
+                            WHEN 'numrange' THEN 'string'
+                            WHEN 'tsvector' THEN 'string'
+                            WHEN 'name' THEN 'string'
+                            WHEN 'oid' THEN 'number'
+                            WHEN 'regproc' THEN 'string'
+                            WHEN 'interval' THEN 'string'
+                            WHEN 'bytea' THEN 'string'
+                            WHEN 'inet' THEN 'string'
+                            WHEN 'cidr' THEN 'string'
+                            WHEN 'macaddr' THEN 'string'
                             ELSE 'unknown'
                         END
                 END AS base_ts_type
@@ -629,10 +660,10 @@ export type Database = {
                                                 ELSE 'unknown[]'
                                             END
                                         WHEN t_element.typtype = 'c' THEN 'unknown[]'
-                                        ELSE CASE t_element.typname WHEN 'bool' THEN 'boolean[]' WHEN 'int2' THEN 'number[]' WHEN 'int4' THEN 'number[]' WHEN 'int8' THEN 'number[]' WHEN 'float4' THEN 'number[]' WHEN 'float8' THEN 'number[]' WHEN 'numeric' THEN 'number[]' WHEN 'text' THEN 'string[]' WHEN 'varchar' THEN 'string[]' WHEN 'char' THEN 'string[]' WHEN 'uuid' THEN 'string[]' WHEN 'date' THEN 'string[]' WHEN 'timestamp' THEN 'string[]' WHEN 'timestamptz' THEN 'string[]' WHEN 'json' THEN 'Json[]' WHEN 'jsonb' THEN 'Json[]' ELSE 'unknown[]' END
+                                        ELSE CASE t_element.typname WHEN 'bool' THEN 'boolean[]' WHEN 'int2' THEN 'number[]' WHEN 'int4' THEN 'number[]' WHEN 'int8' THEN 'number[]' WHEN 'float4' THEN 'number[]' WHEN 'float8' THEN 'number[]' WHEN 'numeric' THEN 'number[]' WHEN 'text' THEN 'string[]' WHEN 'varchar' THEN 'string[]' WHEN 'char' THEN 'string[]' WHEN 'uuid' THEN 'string[]' WHEN 'date' THEN 'string[]' WHEN 'timestamp' THEN 'string[]' WHEN 'timestamptz' THEN 'string[]' WHEN 'json' THEN 'Json[]' WHEN 'jsonb' THEN 'Json[]' WHEN 'ltree' THEN 'string[]' WHEN 'daterange' THEN 'string[]' WHEN 'tsrange' THEN 'string[]' WHEN 'tstzrange' THEN 'string[]' WHEN 'int4range' THEN 'string[]' WHEN 'int8range' THEN 'string[]' WHEN 'numrange' THEN 'string[]' WHEN 'tsvector' THEN 'string[]' WHEN 'name' THEN 'string[]' WHEN 'oid' THEN 'number[]' WHEN 'regproc' THEN 'string[]' WHEN 'interval' THEN 'string[]' WHEN 'bytea' THEN 'string[]' WHEN 'inet' THEN 'string[]' WHEN 'cidr' THEN 'string[]' WHEN 'macaddr' THEN 'string[]' ELSE 'unknown[]' END
                                     END
                                 ELSE
-                                    CASE t.typname WHEN 'bool' THEN 'boolean' WHEN 'int2' THEN 'number' WHEN 'int4' THEN 'number' WHEN 'int8' THEN 'number' WHEN 'float4' THEN 'number' WHEN 'float8' THEN 'number' WHEN 'numeric' THEN 'number' WHEN 'text' THEN 'string' WHEN 'varchar' THEN 'string' WHEN 'char' THEN 'string' WHEN 'uuid' THEN 'string' WHEN 'date' THEN 'string' WHEN 'timestamp' THEN 'string' WHEN 'timestamptz' THEN 'string' WHEN 'json' THEN 'Json' WHEN 'jsonb' THEN 'Json' WHEN 'ltree' THEN 'unknown' ELSE 'unknown' END
+                                    CASE t.typname WHEN 'bool' THEN 'boolean' WHEN 'int2' THEN 'number' WHEN 'int4' THEN 'number' WHEN 'int8' THEN 'number' WHEN 'float4' THEN 'number' WHEN 'float8' THEN 'number' WHEN 'numeric' THEN 'number' WHEN 'text' THEN 'string' WHEN 'varchar' THEN 'string' WHEN 'char' THEN 'string' WHEN 'uuid' THEN 'string' WHEN 'date' THEN 'string' WHEN 'timestamp' THEN 'string' WHEN 'timestamptz' THEN 'string' WHEN 'json' THEN 'Json' WHEN 'jsonb' THEN 'Json' WHEN 'ltree' THEN 'string' WHEN 'daterange' THEN 'string' WHEN 'tsrange' THEN 'string' WHEN 'tstzrange' THEN 'string' WHEN 'int4range' THEN 'string' WHEN 'int8range' THEN 'string' WHEN 'numrange' THEN 'string' WHEN 'tsvector' THEN 'string' WHEN 'name' THEN 'string' WHEN 'oid' THEN 'number' WHEN 'regproc' THEN 'string' WHEN 'interval' THEN 'string' WHEN 'bytea' THEN 'string' WHEN 'inet' THEN 'string' WHEN 'cidr' THEN 'string' WHEN 'macaddr' THEN 'string' ELSE 'unknown' END
                             END,
                             E'\n' ORDER BY s.idx
                         )
@@ -675,10 +706,10 @@ export type Database = {
                                     ELSE 'unknown[]'
                                 END
                             WHEN rt_element.typtype = 'c' THEN 'unknown[]'
-                            ELSE CASE rt_element.typname WHEN 'bool' THEN 'boolean[]' WHEN 'int2' THEN 'number[]' WHEN 'int4' THEN 'number[]' WHEN 'int8' THEN 'number[]' WHEN 'float4' THEN 'number[]' WHEN 'float8' THEN 'number[]' WHEN 'numeric' THEN 'number[]' WHEN 'text' THEN 'string[]' WHEN 'varchar' THEN 'string[]' WHEN 'char' THEN 'string[]' WHEN 'uuid' THEN 'string[]' WHEN 'date' THEN 'string[]' WHEN 'timestamp' THEN 'string[]' WHEN 'timestamptz' THEN 'string[]' WHEN 'json' THEN 'Json[]' WHEN 'jsonb' THEN 'Json[]' ELSE 'unknown[]' END
+                            ELSE CASE rt_element.typname WHEN 'bool' THEN 'boolean[]' WHEN 'int2' THEN 'number[]' WHEN 'int4' THEN 'number[]' WHEN 'int8' THEN 'number[]' WHEN 'float4' THEN 'number[]' WHEN 'float8' THEN 'number[]' WHEN 'numeric' THEN 'number[]' WHEN 'text' THEN 'string[]' WHEN 'varchar' THEN 'string[]' WHEN 'char' THEN 'string[]' WHEN 'uuid' THEN 'string[]' WHEN 'date' THEN 'string[]' WHEN 'timestamp' THEN 'string[]' WHEN 'timestamptz' THEN 'string[]' WHEN 'json' THEN 'Json[]' WHEN 'jsonb' THEN 'Json[]' WHEN 'ltree' THEN 'string[]' WHEN 'daterange' THEN 'string[]' WHEN 'tsrange' THEN 'string[]' WHEN 'tstzrange' THEN 'string[]' WHEN 'int4range' THEN 'string[]' WHEN 'int8range' THEN 'string[]' WHEN 'numrange' THEN 'string[]' WHEN 'tsvector' THEN 'string[]' WHEN 'name' THEN 'string[]' WHEN 'oid' THEN 'number[]' WHEN 'regproc' THEN 'string[]' WHEN 'interval' THEN 'string[]' WHEN 'bytea' THEN 'string[]' WHEN 'inet' THEN 'string[]' WHEN 'cidr' THEN 'string[]' WHEN 'macaddr' THEN 'string[]' ELSE 'unknown[]' END
                         END
                     ELSE
-                        CASE rt.typname WHEN 'bool' THEN 'boolean' WHEN 'int2' THEN 'number' WHEN 'int4' THEN 'number' WHEN 'int8' THEN 'number' WHEN 'float4' THEN 'number' WHEN 'float8' THEN 'number' WHEN 'numeric' THEN 'number' WHEN 'text' THEN 'string' WHEN 'varchar' THEN 'string' WHEN 'char' THEN 'string' WHEN 'uuid' THEN 'string' WHEN 'date' THEN 'string' WHEN 'timestamp' THEN 'string' WHEN 'timestamptz' THEN 'string' WHEN 'json' THEN 'Json' WHEN 'jsonb' THEN 'Json' WHEN 'record' THEN 'Record<string, unknown>[]' WHEN 'ltree' THEN 'unknown' ELSE 'unknown' END
+                        CASE rt.typname WHEN 'bool' THEN 'boolean' WHEN 'int2' THEN 'number' WHEN 'int4' THEN 'number' WHEN 'int8' THEN 'number' WHEN 'float4' THEN 'number' WHEN 'float8' THEN 'number' WHEN 'numeric' THEN 'number' WHEN 'text' THEN 'string' WHEN 'varchar' THEN 'string' WHEN 'char' THEN 'string' WHEN 'uuid' THEN 'string' WHEN 'date' THEN 'string' WHEN 'timestamp' THEN 'string' WHEN 'timestamptz' THEN 'string' WHEN 'json' THEN 'Json' WHEN 'jsonb' THEN 'Json' WHEN 'record' THEN 'Record<string, unknown>[]' WHEN 'ltree' THEN 'string' WHEN 'daterange' THEN 'string' WHEN 'tsrange' THEN 'string' WHEN 'tstzrange' THEN 'string' WHEN 'int4range' THEN 'string' WHEN 'int8range' THEN 'string' WHEN 'numrange' THEN 'string' WHEN 'tsvector' THEN 'string' WHEN 'name' THEN 'string' WHEN 'oid' THEN 'number' WHEN 'regproc' THEN 'string' WHEN 'interval' THEN 'string' WHEN 'bytea' THEN 'string' WHEN 'inet' THEN 'string' WHEN 'cidr' THEN 'string' WHEN 'macaddr' THEN 'string' ELSE 'unknown' END
                 END ||
                 (CASE WHEN f.returns_set AND rt.typname <> 'record' THEN '[]' ELSE '' END) as returns_ts
             FROM functions f
@@ -753,10 +784,10 @@ export type Database = {
                         CASE
                             WHEN ct_element.typtype = 'e' THEN format('Database["%s"]["Enums"]["%s"][]', pn.nspname, ct_element.typname)
                             WHEN ct_element.typtype = 'c' THEN format('Database["%s"]["CompositeTypes"]["%s"][]', pn.nspname, ct_element.typname)
-                            ELSE CASE ct_element.typname WHEN 'bool' THEN 'boolean[]' WHEN 'int2' THEN 'number[]' WHEN 'int4' THEN 'number[]' WHEN 'int8' THEN 'number[]' WHEN 'float4' THEN 'number[]' WHEN 'float8' THEN 'number[]' WHEN 'numeric' THEN 'number[]' WHEN 'text' THEN 'string[]' WHEN 'varchar' THEN 'string[]' WHEN 'char' THEN 'string[]' WHEN 'uuid' THEN 'string[]' WHEN 'date' THEN 'string[]' WHEN 'timestamp' THEN 'string[]' WHEN 'timestamptz' THEN 'string[]' WHEN 'json' THEN 'Json[]' WHEN 'jsonb' THEN 'Json[]' ELSE 'unknown[]' END
+                            ELSE CASE ct_element.typname WHEN 'bool' THEN 'boolean[]' WHEN 'int2' THEN 'number[]' WHEN 'int4' THEN 'number[]' WHEN 'int8' THEN 'number[]' WHEN 'float4' THEN 'number[]' WHEN 'float8' THEN 'number[]' WHEN 'numeric' THEN 'number[]' WHEN 'text' THEN 'string[]' WHEN 'varchar' THEN 'string[]' WHEN 'char' THEN 'string[]' WHEN 'uuid' THEN 'string[]' WHEN 'date' THEN 'string[]' WHEN 'timestamp' THEN 'string[]' WHEN 'timestamptz' THEN 'string[]' WHEN 'json' THEN 'Json[]' WHEN 'jsonb' THEN 'Json[]' WHEN 'ltree' THEN 'string[]' WHEN 'daterange' THEN 'string[]' WHEN 'tsrange' THEN 'string[]' WHEN 'tstzrange' THEN 'string[]' WHEN 'int4range' THEN 'string[]' WHEN 'int8range' THEN 'string[]' WHEN 'numrange' THEN 'string[]' WHEN 'tsvector' THEN 'string[]' WHEN 'name' THEN 'string[]' WHEN 'oid' THEN 'number[]' WHEN 'regproc' THEN 'string[]' WHEN 'interval' THEN 'string[]' WHEN 'bytea' THEN 'string[]' WHEN 'inet' THEN 'string[]' WHEN 'cidr' THEN 'string[]' WHEN 'macaddr' THEN 'string[]' ELSE 'unknown[]' END
                         END
                     ELSE
-                        CASE ct.typname WHEN 'bool' THEN 'boolean' WHEN 'int2' THEN 'number' WHEN 'int4' THEN 'number' WHEN 'int8' THEN 'number' WHEN 'float4' THEN 'number' WHEN 'float8' THEN 'number' WHEN 'numeric' THEN 'number' WHEN 'text' THEN 'string' WHEN 'varchar' THEN 'string' WHEN 'char' THEN 'string' WHEN 'uuid' THEN 'string' WHEN 'date' THEN 'string' WHEN 'timestamp' THEN 'string' WHEN 'timestamptz' THEN 'string' WHEN 'json' THEN 'Json' WHEN 'jsonb' THEN 'Json' ELSE 'unknown' END
+                        CASE ct.typname WHEN 'bool' THEN 'boolean' WHEN 'int2' THEN 'number' WHEN 'int4' THEN 'number' WHEN 'int8' THEN 'number' WHEN 'float4' THEN 'number' WHEN 'float8' THEN 'number' WHEN 'numeric' THEN 'number' WHEN 'text' THEN 'string' WHEN 'varchar' THEN 'string' WHEN 'char' THEN 'string' WHEN 'uuid' THEN 'string' WHEN 'date' THEN 'string' WHEN 'timestamp' THEN 'string' WHEN 'timestamptz' THEN 'string' WHEN 'json' THEN 'Json' WHEN 'jsonb' THEN 'Json' WHEN 'ltree' THEN 'string' WHEN 'daterange' THEN 'string' WHEN 'tsrange' THEN 'string' WHEN 'tstzrange' THEN 'string' WHEN 'int4range' THEN 'string' WHEN 'int8range' THEN 'string' WHEN 'numrange' THEN 'string' WHEN 'tsvector' THEN 'string' WHEN 'name' THEN 'string' WHEN 'oid' THEN 'number' WHEN 'regproc' THEN 'string' WHEN 'interval' THEN 'string' WHEN 'bytea' THEN 'string' WHEN 'inet' THEN 'string' WHEN 'cidr' THEN 'string' WHEN 'macaddr' THEN 'string' ELSE 'unknown' END
                 END as ts_type
             FROM pg_type pt
             JOIN pg_namespace pn ON pn.oid = pt.typnamespace

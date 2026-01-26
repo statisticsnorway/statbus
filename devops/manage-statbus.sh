@@ -821,22 +821,10 @@ EOS
         ;;
 
      'generate-types' )
-        # NOTE: This command is replaced by running the test:
-        #   ./devops/manage-statbus.sh test 016_generate_typescript_types_from_db
-        # which uses devops/generate_database_types.sql to generate types from SQL.
-        # The code below is kept for troubleshooting if the SQL generator has issues.
-        pushd $WORKSPACE/app
-        # Activate the Node.js version from .nvmrc using fnm
-        eval "$(fnm env --use-on-cd)" || { echo "Failed to set up fnm environment"; exit 1; }
-        fnm use || { echo "Failed to activate Node version from .nvmrc"; exit 1; }
-        
-        # Get database connection details
-        eval $($WORKSPACE/devops/manage-statbus.sh postgres-variables) || { echo "Failed to get database variables"; exit 1; }
-        db_url="postgresql://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/$PGDATABASE?sslmode=disable"
-        
-        # This run will not prompt for confirmation since the package is already installed
-        echo "Generating TypeScript types file using Supabase CLI (legacy)..."
-        npx --yes supabase@beta gen types typescript --db-url "$db_url" > src/lib/database.types.ts
+        # Use our custom SQL-based type generator which properly handles ltree and other types
+        echo "Generating TypeScript types using SQL generator..."
+        $WORKSPACE/devops/manage-statbus.sh psql < $WORKSPACE/devops/generate_database_types.sql
+        echo "TypeScript types generated in app/src/lib/database.types.ts"
       ;;
     'compile-run-and-trace-dev-app-in-container' )
         echo "Stopping app container..."
