@@ -23,14 +23,4 @@ DO UPDATE SET
 -- The demo data uses data sources that are part of the core database seed.
 -- This file is included for structural consistency with other sample data sets.
 
--- Add hierarchical census identifier type for demo data
--- This demonstrates the hierarchical external identifier feature
--- Labels: census.region.surveyor.unit_no creates columns like census_ident_census, census_ident_region, etc.
-\echo "Adding hierarchical census identifier type"
-INSERT INTO public.external_ident_type 
-  (code, name, shape, labels, description, priority, archived)
-VALUES 
-  ('census_ident', 'Census Identifier', 'hierarchical', 
-   'census.region.surveyor.unit_no',
-   'Census survey identifier: census.region.surveyor.unit_no', 50, false);
 

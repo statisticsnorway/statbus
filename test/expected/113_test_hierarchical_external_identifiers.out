@@ -166,9 +166,10 @@ NOTICE:  Dropped index su_ss_employees_count_idx
 NOTICE:  Dropped index su_ss_employees_sum_idx
 NOTICE:  Dropped index su_ss_turnover_count_idx
 NOTICE:  Dropped index su_ss_turnover_sum_idx
-NOTICE:  Created index su_ei_tax_ident for external_ident_type
-NOTICE:  Created index su_ei_stat_ident for external_ident_type
-NOTICE:  Created index su_ei_test_surveyor_hierarchical for external_ident_type
+NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_test_surveyor_hierarchical_idx for external_ident_type
+NOTICE:  Created GIST ltree index su_ei_test_surveyor_hierarchical_ltree_gist_idx for hierarchical external_ident_type
 NOTICE:  Created indices for stat_definition employees
 NOTICE:  Created indices for stat_definition turnover
 INSERT INTO public.external_ident_type (code, name, shape, labels, description, priority, archived)
@@ -177,16 +178,19 @@ VALUES ('region_district', 'Regional District Code', 'hierarchical', 'region.dis
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_ei_test_surveyor_hierarchical_idx
+NOTICE:  Dropped index su_ei_test_surveyor_hierarchical_ltree_gist_idx
 NOTICE:  Dropped index su_s_employees_idx
 NOTICE:  Dropped index su_s_turnover_idx
 NOTICE:  Dropped index su_ss_employees_count_idx
 NOTICE:  Dropped index su_ss_employees_sum_idx
 NOTICE:  Dropped index su_ss_turnover_count_idx
 NOTICE:  Dropped index su_ss_turnover_sum_idx
-NOTICE:  Created index su_ei_tax_ident for external_ident_type
-NOTICE:  Created index su_ei_stat_ident for external_ident_type
-NOTICE:  Created index su_ei_test_surveyor_hierarchical for external_ident_type
-NOTICE:  Created index su_ei_region_district for external_ident_type
+NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_test_surveyor_hierarchical_idx for external_ident_type
+NOTICE:  Created GIST ltree index su_ei_test_surveyor_hierarchical_ltree_gist_idx for hierarchical external_ident_type
+NOTICE:  Created btree index su_ei_region_district_idx for external_ident_type
+NOTICE:  Created GIST ltree index su_ei_region_district_ltree_gist_idx for hierarchical external_ident_type
 NOTICE:  Created indices for stat_definition employees
 NOTICE:  Created indices for stat_definition turnover
 -- Verify the hierarchical setup
@@ -226,9 +230,10 @@ NOTICE:  Dropped index su_ss_employees_count_idx
 NOTICE:  Dropped index su_ss_employees_sum_idx
 NOTICE:  Dropped index su_ss_turnover_count_idx
 NOTICE:  Dropped index su_ss_turnover_sum_idx
-NOTICE:  Created index su_ei_tax_ident for external_ident_type
-NOTICE:  Created index su_ei_stat_ident for external_ident_type
-NOTICE:  Created index su_ei_test_surveyor for external_ident_type
+NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_test_surveyor_idx for external_ident_type
+NOTICE:  Created GIST ltree index su_ei_test_surveyor_ltree_gist_idx for hierarchical external_ident_type
 NOTICE:  Created indices for stat_definition employees
 NOTICE:  Created indices for stat_definition turnover
 -- Verify the hierarchical setup
@@ -360,9 +365,10 @@ NOTICE:  Dropped index su_ss_employees_count_idx
 NOTICE:  Dropped index su_ss_employees_sum_idx
 NOTICE:  Dropped index su_ss_turnover_count_idx
 NOTICE:  Dropped index su_ss_turnover_sum_idx
-NOTICE:  Created index su_ei_tax_ident for external_ident_type
-NOTICE:  Created index su_ei_stat_ident for external_ident_type
-NOTICE:  Created index su_ei_test_hierarchical_surveyor for external_ident_type
+NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_test_hierarchical_surveyor_idx for external_ident_type
+NOTICE:  Created GIST ltree index su_ei_test_hierarchical_surveyor_ltree_gist_idx for hierarchical external_ident_type
 NOTICE:  Created indices for stat_definition employees
 NOTICE:  Created indices for stat_definition turnover
 INSERT INTO public.external_ident_type (code, name, shape, labels, description, priority, archived)
@@ -371,16 +377,19 @@ VALUES ('region_district', 'Regional District Code', 'hierarchical', 'region.dis
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_ei_test_hierarchical_surveyor_idx
+NOTICE:  Dropped index su_ei_test_hierarchical_surveyor_ltree_gist_idx
 NOTICE:  Dropped index su_s_employees_idx
 NOTICE:  Dropped index su_s_turnover_idx
 NOTICE:  Dropped index su_ss_employees_count_idx
 NOTICE:  Dropped index su_ss_employees_sum_idx
 NOTICE:  Dropped index su_ss_turnover_count_idx
 NOTICE:  Dropped index su_ss_turnover_sum_idx
-NOTICE:  Created index su_ei_tax_ident for external_ident_type
-NOTICE:  Created index su_ei_stat_ident for external_ident_type
-NOTICE:  Created index su_ei_test_hierarchical_surveyor for external_ident_type
-NOTICE:  Created index su_ei_region_district for external_ident_type
+NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_test_hierarchical_surveyor_idx for external_ident_type
+NOTICE:  Created GIST ltree index su_ei_test_hierarchical_surveyor_ltree_gist_idx for hierarchical external_ident_type
+NOTICE:  Created btree index su_ei_region_district_idx for external_ident_type
+NOTICE:  Created GIST ltree index su_ei_region_district_ltree_gist_idx for hierarchical external_ident_type
 NOTICE:  Created indices for stat_definition employees
 NOTICE:  Created indices for stat_definition turnover
 -- Verify the hierarchical setup

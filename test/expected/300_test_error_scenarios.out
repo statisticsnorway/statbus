@@ -616,9 +616,9 @@ NOTICE:  Dropped index su_ss_employees_count_idx
 NOTICE:  Dropped index su_ss_employees_sum_idx
 NOTICE:  Dropped index su_ss_turnover_count_idx
 NOTICE:  Dropped index su_ss_turnover_sum_idx
-NOTICE:  Created index su_ei_tax_ident for external_ident_type
-NOTICE:  Created index su_ei_stat_ident for external_ident_type
-NOTICE:  Created index su_ei_custom_est_ident for external_ident_type
+NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_custom_est_ident_idx for external_ident_type
 NOTICE:  Created indices for stat_definition employees
 NOTICE:  Created indices for stat_definition turnover
 -- Sub-Scenario 70.7.1: Mode 'legal_unit' (using 'legal_unit_source_dates')
