@@ -515,7 +515,11 @@ BEGIN
             JOIN public.external_ident_type_active xit ON ei.type_id = xit.id
             GROUP BY de.final_lu_id, de.final_est_id
         ),
-        AnalysisWithOperation AS ( -- Determines operation based on DB existence and batch order
+        -- MATERIALIZED forces PostgreSQL to compute this CTE once and store results.
+        -- Without MATERIALIZED, the correlated subqueries for base_error_jsonb get re-evaluated
+        -- each time the column is referenced in downstream CTEs (especially in window functions),
+        -- causing O(n × subplans × references) performance degradation.
+        AnalysisWithOperation AS MATERIALIZED ( -- Determines operation based on DB existence and batch order
             SELECT
                 obe.data_row_id,
                 -- Make founding_row_id stable across jobs. Use a large offset for existing DB entities
@@ -601,6 +605,8 @@ BEGIN
                                              AND existing.final_est_id IS NOT DISTINCT FROM obe.final_est_id
         ),
         -- This CTE determines the operation based on whether the entity exists in the DB and its order within the batch.
+        -- Also pre-computes final_error_jsonb and row_has_error to avoid re-evaluating JSONB expressions
+        -- in the window functions of PropagatedErrors CTE.
         OperationDetermination AS (
             SELECT
                 awo.*,
@@ -619,21 +625,22 @@ BEGIN
                             WHEN %2$L::public.import_strategy IN ('insert_or_update', 'update_only') THEN 'update'::public.import_row_operation_type -- %2$L is v_strategy
                             ELSE 'replace'::public.import_row_operation_type
                         END
-                END as operation
+                END as operation,
+                -- Pre-compute final_error_jsonb: simple concatenation since keys are mutually exclusive
+                (COALESCE(awo.base_error_jsonb, '{}'::jsonb) || COALESCE(awo.unstable_identifier_errors_jsonb, '{}'::jsonb)) as final_error_jsonb,
+                -- Pre-compute row_has_error boolean to avoid re-evaluating JSONB expression in window functions
+                ((COALESCE(awo.base_error_jsonb, '{}'::jsonb) || COALESCE(awo.unstable_identifier_errors_jsonb, '{}'::jsonb)) != '{}'::jsonb) as row_has_error
             FROM AnalysisWithOperation awo
         ),
         PropagatedErrors AS (
             SELECT
                 od.*,
-                -- Simple concatenation: base_error_jsonb and unstable_identifier_errors_jsonb use different keys
-                -- (they check different error conditions that are mutually exclusive for the same identifier column).
-                -- The previous correlated subquery for "intelligent merging" was unnecessary and caused O(n²) performance.
-                (COALESCE(od.base_error_jsonb, '{}'::jsonb) || COALESCE(od.unstable_identifier_errors_jsonb, '{}'::jsonb)) as final_error_jsonb,
-                -- Check if any row within the same new entity has an error.
-                BOOL_OR((od.base_error_jsonb || COALESCE(od.unstable_identifier_errors_jsonb, '{}'::jsonb)) != '{}'::jsonb)
+                -- final_error_jsonb and row_has_error are pre-computed in OperationDetermination
+                -- Check if any row within the same new entity has an error (uses pre-computed boolean).
+                BOOL_OR(od.row_has_error)
                     OVER (PARTITION BY CASE WHEN od.final_lu_id IS NULL AND od.final_est_id IS NULL THEN od.entity_signature ELSE jsonb_build_object('data_row_id', od.data_row_id) END) as entity_has_error,
-                -- Collect row_ids of rows with errors within the same new entity.
-                array_remove(array_agg(CASE WHEN (od.base_error_jsonb || COALESCE(od.unstable_identifier_errors_jsonb, '{}'::jsonb)) != '{}'::jsonb THEN od.data_row_id ELSE NULL END)
+                -- Collect row_ids of rows with errors within the same new entity (uses pre-computed boolean).
+                array_remove(array_agg(CASE WHEN od.row_has_error THEN od.data_row_id ELSE NULL END)
                     OVER (PARTITION BY CASE WHEN od.final_lu_id IS NULL AND od.final_est_id IS NULL THEN od.entity_signature ELSE jsonb_build_object('data_row_id', od.data_row_id) END), NULL) as entity_error_source_row_ids
             FROM OperationDetermination od
         )
