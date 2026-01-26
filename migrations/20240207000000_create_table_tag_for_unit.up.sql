@@ -22,21 +22,12 @@ CREATE INDEX ix_tag_for_unit_enterprise_id_id ON public.tag_for_unit USING btree
 CREATE INDEX ix_tag_for_unit_enterprise_group_id_id ON public.tag_for_unit USING btree (enterprise_group_id);
 CREATE INDEX ix_tag_for_unit_edit_by_user_id ON public.tag_for_unit USING btree (edit_by_user_id);
 
--- Create partial unique indexes to enforce uniqueness per tag+unit combination
-CREATE UNIQUE INDEX tag_for_unit_tag_id_enterprise_group_id_partial_key
-ON public.tag_for_unit (tag_id, enterprise_group_id)
-WHERE enterprise_group_id IS NOT NULL;
-
-CREATE UNIQUE INDEX tag_for_unit_tag_id_enterprise_id_partial_key
-ON public.tag_for_unit (tag_id, enterprise_id)
-WHERE enterprise_id IS NOT NULL;
-
-CREATE UNIQUE INDEX tag_for_unit_tag_id_establishment_id_partial_key
-ON public.tag_for_unit (tag_id, establishment_id)
-WHERE establishment_id IS NOT NULL;
-
-CREATE UNIQUE INDEX tag_for_unit_tag_id_legal_unit_id_partial_key
-ON public.tag_for_unit (tag_id, legal_unit_id)
-WHERE legal_unit_id IS NOT NULL;
+-- One tag per unit - consolidated with NULLS NOT DISTINCT
+-- The CHECK constraint ensures exactly one unit_id is non-null,
+-- so NULLS NOT DISTINCT enforces uniqueness per tag+unit in one index.
+-- Replaces 4 partial unique indexes with 1 comprehensive index.
+CREATE UNIQUE INDEX tag_for_unit_tag_unit_consolidated_key 
+ON public.tag_for_unit (tag_id, establishment_id, legal_unit_id, enterprise_id, enterprise_group_id) 
+NULLS NOT DISTINCT;
 
 END;

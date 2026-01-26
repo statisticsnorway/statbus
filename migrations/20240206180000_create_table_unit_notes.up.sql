@@ -16,10 +16,13 @@ CREATE TABLE public.unit_notes (
     CHECK (num_nonnulls(establishment_id, legal_unit_id, enterprise_id, enterprise_group_id) = 1)
 );
 
-CREATE UNIQUE INDEX ix_unit_notes_establishment_id ON public.unit_notes USING btree (establishment_id);
-CREATE UNIQUE INDEX ix_unit_notes_legal_unit_id ON public.unit_notes USING btree (legal_unit_id);
-CREATE UNIQUE INDEX ix_unit_notes_enterprise_id ON public.unit_notes USING btree (enterprise_id);
-CREATE UNIQUE INDEX ix_unit_notes_enterprise_group_id ON public.unit_notes USING btree (enterprise_group_id);
+-- One notes record per unit - consolidated with NULLS NOT DISTINCT
+-- The CHECK constraint ensures exactly one unit_id is non-null,
+-- so NULLS NOT DISTINCT enforces uniqueness across all unit types in one index.
+-- Replaces 4 separate unique indexes with 1 comprehensive index.
+CREATE UNIQUE INDEX unit_notes_unit_consolidated_key 
+ON public.unit_notes (establishment_id, legal_unit_id, enterprise_id, enterprise_group_id) 
+NULLS NOT DISTINCT;
 
 CREATE INDEX ix_unit_notes_edit_by_user_id ON public.unit_notes USING btree (edit_by_user_id);
 
