@@ -15,9 +15,7 @@ CREATE TABLE public.person_for_unit (
     edit_by_user_id integer NOT NULL,
     edit_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
     CONSTRAINT "One and only one statistical unit id must be set"
-    CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL
-        OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL
-        ),
+    CHECK (num_nonnulls(establishment_id, legal_unit_id) = 1),
     CONSTRAINT person_for_unit_edit_by_user_id_fkey FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT
 );
 CREATE INDEX ix_person_for_unit_person_id ON public.person_for_unit USING btree (person_id);

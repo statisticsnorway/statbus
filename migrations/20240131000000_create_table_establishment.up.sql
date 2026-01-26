@@ -25,17 +25,11 @@ CREATE TABLE public.establishment (
     invalid_codes jsonb,
     image_id integer REFERENCES public.image(id),
     CONSTRAINT "Must have either legal_unit_id or enterprise_id"
-    CHECK( enterprise_id IS NOT NULL AND legal_unit_id IS     NULL
-        OR enterprise_id IS     NULL AND legal_unit_id IS NOT NULL
-        ),
+    CHECK (num_nonnulls(enterprise_id, legal_unit_id) = 1),
     CONSTRAINT "primary_for_legal_unit and legal_unit_id must be defined together"
-    CHECK( legal_unit_id IS NOT NULL AND primary_for_legal_unit IS NOT NULL
-        OR legal_unit_id IS     NULL AND primary_for_legal_unit IS     NULL
-        ),
+    CHECK (num_nonnulls(legal_unit_id, primary_for_legal_unit) IN (0, 2)),
     CONSTRAINT "primary_for_enterprise and enterprise_id must be defined together"
-    CHECK( enterprise_id IS NOT NULL AND primary_for_enterprise IS NOT NULL
-        OR enterprise_id IS     NULL AND primary_for_enterprise IS     NULL
-        ),
+    CHECK (num_nonnulls(enterprise_id, primary_for_enterprise) IN (0, 2)),
     CONSTRAINT "enterprise_id enables sector_id"
     CHECK( CASE WHEN enterprise_id IS NULL THEN sector_id IS NULL END)
 );
