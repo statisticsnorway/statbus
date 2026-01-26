@@ -612,6 +612,7 @@ Indexes:
     "import_10_lu_2015_sht_data_daterange_idx" gist (daterange(valid_from, valid_until, '[)'::text))
     "import_10_lu_2015_sht_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "import_10_lu_2015_sht_data_stat_ident_raw_idx" btree (stat_ident_raw)
+    "import_10_lu_2015_sht_data_state_action_row_id_idx" btree (state, action, row_id)
     "import_10_lu_2015_sht_data_state_last_completed_priority_ro_idx" btree (state, last_completed_priority, row_id)
     "import_10_lu_2015_sht_data_tax_ident_raw_idx" btree (tax_ident_raw)
 Policies:
