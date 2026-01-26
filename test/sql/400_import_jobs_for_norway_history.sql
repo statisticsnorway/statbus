@@ -1,3 +1,40 @@
+--
+-- Test: Import jobs for Norway history data
+--
+-- This test uses multiple transactions to allow worker.process_tasks() to
+-- commit between tasks, avoiding O(n^2) performance issues that occur when
+-- all batch processing happens in a single transaction.
+--
+-- CRITICAL: Upload order determines processing priority!
+-- - Older years must be uploaded before newer years (newer cuts older)
+-- - All LU uploads must happen before all ES uploads (ES depends on LU external_idents)
+--
+-- Structure:
+-- 0. Cleanup phase: Ensure clean state from any prior runs
+-- 1. Setup phase (transaction 1): Create definitions, jobs, load data in correct order
+-- 2. Processing phase (no transaction): Worker commits per-task
+-- 3. Verification phase (transaction 2): Check results
+-- 4. Cleanup phase: Remove test data unless PERSIST=true
+--
+
+-- ============================================================================
+-- PHASE 0: INITIAL CLEANUP AND PAUSE WORKER
+-- ============================================================================
+-- Reset any leftover data from prior test runs. This is necessary because
+-- the test commits data during execution, so a failed or interrupted run
+-- may leave data behind.
+\echo "Cleaning up any leftover data from prior runs"
+SELECT public.reset(true, 'getting-started');
+
+-- Pause the background worker so we control task processing order.
+-- Manual CALL worker.process_tasks() is NOT affected by pause.
+-- The worker will auto-resume after 1 hour if we forget to call resume.
+\echo "Pausing background worker for test duration"
+SELECT worker.pause('1 hour'::interval);
+
+-- ============================================================================
+-- PHASE 1: SETUP (in transaction so setup.sql helpers work)
+-- ============================================================================
 BEGIN;
 
 \i test/setup.sql
@@ -16,7 +53,8 @@ FROM public.import_definition
 WHERE slug LIKE 'brreg_%_2024'
 ORDER BY slug;
 
--- Per year jobs for hovedenhet
+-- Create ALL jobs at once (LU and ES)
+-- Per year jobs for hovedenhet (legal units)
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
 SELECT  def.id, 'import_lu_2015_h', '2015-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet 2015 History', 'This job handles the import of BRREG Hovedenhet history data for 2015.'
@@ -37,7 +75,7 @@ INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_val
 SELECT  def.id, 'import_lu_2018_h', '2018-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet 2018 History', 'This job handles the import of BRREG Hovedenhet history data for 2018.'
 FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, state;
 
--- Per year jobs for underenhet
+-- Per year jobs for underenhet (establishments)
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
 SELECT  def.id, 'import_es_2015_h', '2015-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet 2015 History', 'This job handles the import of BRREG Underenhet history data for 2015.'
@@ -76,35 +114,55 @@ FROM public.import_job
 WHERE slug = 'import_lu_2015_h'
 ORDER BY slug;
 
-\echo "Loading historical units"
+-- ============================================================================
+-- UPLOAD DATA IN CORRECT ORDER:
+-- 1. All LU uploads (oldest to newest) - these get lower priority numbers
+-- 2. All ES uploads (oldest to newest) - these get higher priority numbers
+-- This ensures all LU tasks complete before any ES tasks start
+-- ============================================================================
 
+\echo "Loading historical legal units (hovedenheter) - oldest first"
 \copy public.import_lu_2015_h_upload FROM 'samples/norway/history/2015-enheter.csv' WITH CSV HEADER;
 \copy public.import_lu_2016_h_upload FROM 'samples/norway/history/2016-enheter.csv' WITH CSV HEADER;
 \copy public.import_lu_2017_h_upload FROM 'samples/norway/history/2017-enheter.csv' WITH CSV HEADER;
 \copy public.import_lu_2018_h_upload FROM 'samples/norway/history/2018-enheter.csv' WITH CSV HEADER;
+
+\echo "Loading historical establishments (underenheter) - oldest first, AFTER all LU"
 \copy public.import_es_2015_h_upload FROM 'samples/norway/history/2015-underenheter.csv' WITH CSV HEADER;
 \copy public.import_es_2016_h_upload FROM 'samples/norway/history/2016-underenheter.csv' WITH CSV HEADER;
 \copy public.import_es_2017_h_upload FROM 'samples/norway/history/2017-underenheter.csv' WITH CSV HEADER;
 \copy public.import_es_2018_h_upload FROM 'samples/norway/history/2018-underenheter.csv' WITH CSV HEADER;
 
-\echo Check import job state before import
+\echo Check import job state before processing
 SELECT state, count(*) FROM import_job GROUP BY state;
 
 \echo Check data row state before import (should be empty as worker hasn't run prepare)
 SELECT state, count(*) FROM public.import_lu_2015_h_data GROUP BY state;
-
-\echo Check data row state before import (should be empty as worker hasn't run prepare)
 SELECT state, count(*) FROM public.import_es_2015_h_data GROUP BY state;
 
-\echo Run worker processing to run import jobs and generate computed data
+-- Commit setup so worker can see the data
+COMMIT;
+
+-- ============================================================================
+-- PHASE 2: PROCESSING (outside transaction - worker commits per task)
+-- ============================================================================
+-- Process LU tasks first (priorities 1-4), then ES tasks (priorities 5-8).
+-- This is CRITICAL because ES analysis needs to look up LU external_idents,
+-- which are only created AFTER the LU's process step completes.
+-- Using p_max_priority ensures all lower-priority tasks complete before
+-- higher-priority ones start.
+
+\echo "Processing legal unit imports first (priorities 1-4)"
+CALL worker.process_tasks(p_queue => 'import', p_max_priority => 4);
+
+\echo "Processing establishment imports (priorities 5-8)"
 -- Notice that 'WARNING:  Could not find primary_activity_category_code' is expected due to data quality issues, but should not hinder the import process.
--- Notice that only the import job tasks are executed, to avoid ongoing recalculation of computed data
-
--- Set higher logging level to debug import procedures
---SET client_min_messages = DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
---SET client_min_messages = NOTICE;
 
+-- ============================================================================
+-- PHASE 3: VERIFICATION (in transaction for consistent reads)
+-- ============================================================================
+BEGIN;
 
 \echo Check the states of the import job tasks.
 select queue,t.command,state,error from worker.tasks as t join worker.command_registry as c on t.command = c.command where t.command = 'import_job_process' order by priority;
@@ -137,14 +195,22 @@ SELECT row_id, errors, merge_status FROM public.import_es_2018_h_data WHERE stat
 \echo Check the state of all tasks before running analytics.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
--- Once the Imports are finished, then all the analytics can be processed, but only once.
+COMMIT;
+
+-- Run analytics outside transaction
 CALL worker.process_tasks(p_queue => 'analytics');
+
+BEGIN;
 
 \echo Check the state of all tasks after running analytics.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
-\echo Run any remaining tasks, there should be none.
+COMMIT;
+
+-- Run any remaining tasks outside transaction
 CALL worker.process_tasks();
+
+BEGIN;
 
 \echo Check the state of all tasks after running analytics.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
@@ -173,7 +239,15 @@ EXPLAIN ANALYZE SELECT * FROM public.timeline_enterprise_def;
 EXPLAIN ANALYZE SELECT * FROM public.statistical_unit_def;
 \o
 
-
 RESET client_min_messages;
 
-\i test/rollback_unless_persist_is_specified.sql
+COMMIT;
+
+-- ============================================================================
+-- PHASE 4: CLEANUP (unless PERSIST=true)
+-- ============================================================================
+-- Resume the background worker before cleanup
+\echo "Resuming background worker"
+SELECT worker.resume();
+
+\i test/cleanup_unless_persist_is_specified.sql
