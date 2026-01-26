@@ -1,14 +1,55 @@
 "use client";
-import { useLegalUnit } from "@/components/statistical-unit-details/use-unit-details";
+import { useLegalUnit, useStatisticalUnitDetails } from "@/components/statistical-unit-details/use-unit-details";
 import DataDump from "@/components/data-dump";
 import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
+import useSWR from "swr";
+import { getBrowserRestClient } from "@/context/RestClientStore";
+
+function useExternalIdents(legalUnitId: string) {
+  const { data, isLoading, error } = useSWR(
+    ["external_idents", legalUnitId],
+    async () => {
+      const client = await getBrowserRestClient();
+      const { data, error } = await client
+        .from("external_ident")
+        .select("*, external_ident_type:type_id(code, name, shape, labels)")
+        .eq("legal_unit_id", parseInt(legalUnitId, 10));
+      if (error) throw error;
+      return data;
+    },
+    { revalidateOnFocus: false }
+  );
+  return { externalIdents: data, isLoading, error };
+}
 
 export default function InspectDump({ id }: { readonly id: string }) {
-  const { legalUnit, error } = useLegalUnit(id);
+  const { legalUnit, error: legalUnitError } = useLegalUnit(id);
+  const { data: details, error: detailsError } = useStatisticalUnitDetails(id, "legal_unit");
+  const { externalIdents, error: externalIdentsError } = useExternalIdents(id);
 
-  if (error || !legalUnit) {
+  if (legalUnitError || !legalUnit) {
     return <UnitNotFound />;
   }
 
-  return <DataDump data={legalUnit} />;
+  const legalUnitDetails = details?.legal_unit?.[0];
+
+  return (
+    <div className="space-y-6">
+      <DataDump data={legalUnit} title="legal_unit (base table)" />
+      
+      {externalIdents && externalIdents.length > 0 && (
+        <DataDump 
+          data={externalIdents} 
+          title="external_ident (related records)" 
+        />
+      )}
+
+      {legalUnitDetails && (
+        <DataDump 
+          data={legalUnitDetails} 
+          title="statistical_unit_details (computed view)" 
+        />
+      )}
+    </div>
+  );
 }

@@ -105,8 +105,9 @@ export const EditableField = ({
                 disabled={!hasUnsavedChanges}
                 type="button"
                 onClick={handleSave}
+                variant={!currentValue && hasUnsavedChanges ? "destructive" : "default"}
               >
-                Save
+                {!currentValue && hasUnsavedChanges ? "Delete" : "Save"}
               </Button>
             </>
           )}
