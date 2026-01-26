@@ -2,6 +2,7 @@
 import { FormField } from "@/components/form/form-field";
 import { useBaseData } from "@/atoms/base-data";
 import { EditableField } from "@/components/form/editable-field";
+import { EditableHierarchicalField } from "@/components/form/editable-hierarchical-field";
 import { useActionState, useEffect, useState } from "react";
 import { updateExternalIdent } from "@/app/legal-units/[id]/update-external-ident-server-action";
 import { SubmissionFeedbackDebugInfo } from "@/components/form/submission-feedback-debug-info";
@@ -94,6 +95,22 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
       <div className="grid lg:grid-cols-2 gap-4 p-3">
         {externalIdentTypes.map((type) => {
           const value = establishment?.external_idents[type.code];
+          
+          // Use hierarchical field component for hierarchical identifier types
+          if (type.shape === "hierarchical" && type.labels) {
+            return (
+              <EditableHierarchicalField
+                key={type.code}
+                fieldId={`${type.code}`}
+                label={type.name ?? type.code!}
+                value={value}
+                identType={type}
+                response={externalIdentState}
+                formAction={externalIdentFormAction}
+              />
+            );
+          }
+          
           return (
             <EditableField
               key={type.code}

@@ -13,6 +13,7 @@ import { useBaseData } from "@/atoms/base-data";
 import { updateExternalIdent } from "@/app/legal-units/[id]/update-external-ident-server-action";
 import { Tables } from "@/lib/database.types";
 import { EditableField } from "@/components/form/editable-field";
+import { EditableHierarchicalField } from "@/components/form/editable-hierarchical-field";
 import { SubmissionFeedbackDebugInfo } from "@/components/form/submission-feedback-debug-info";
 import { useStatisticalUnitDetails } from "@/components/statistical-unit-details/use-unit-details";
 import Loading from "@/components/statistical-unit-details/loading";
@@ -143,6 +144,22 @@ export default function GeneralInfoForm({ id }: { readonly id: string }) {
         {externalIdentTypes.map(
           (type: Tables<"external_ident_type_active">) => {
             const value = legalUnit?.external_idents[type.code];
+            
+            // Use hierarchical field component for hierarchical identifier types
+            if (type.shape === "hierarchical" && type.labels) {
+              return (
+                <EditableHierarchicalField
+                  key={type.code}
+                  fieldId={`${type.code}`}
+                  label={type.name ?? type.code!}
+                  value={value}
+                  identType={type}
+                  response={externalIdentState}
+                  formAction={externalIdentFormAction}
+                />
+              );
+            }
+            
             return (
               <EditableField
                 key={type.code}
