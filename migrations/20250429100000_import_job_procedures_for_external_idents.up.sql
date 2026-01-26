@@ -625,27 +625,10 @@ BEGIN
         PropagatedErrors AS (
             SELECT
                 od.*,
-                -- Merge base_error_jsonb and unstable_identifier_errors_jsonb intelligently:
-                -- If a key exists in both, concatenate the messages with "; " separator
-                (
-                    SELECT jsonb_object_agg(
-                        key,
-                        CASE 
-                            WHEN od.base_error_jsonb ? key AND od.unstable_identifier_errors_jsonb ? key 
-                            THEN (od.base_error_jsonb->>key) || '; ' || (od.unstable_identifier_errors_jsonb->>key)
-                            WHEN od.base_error_jsonb ? key 
-                            THEN od.base_error_jsonb->>key
-                            ELSE od.unstable_identifier_errors_jsonb->>key
-                        END
-                    )
-                    FROM (
-                        SELECT DISTINCT key 
-                        FROM jsonb_each(od.base_error_jsonb) 
-                        UNION 
-                        SELECT DISTINCT key 
-                        FROM jsonb_each(COALESCE(od.unstable_identifier_errors_jsonb, '{}'::jsonb))
-                    ) AS all_keys(key)
-                ) as final_error_jsonb,
+                -- Simple concatenation: base_error_jsonb and unstable_identifier_errors_jsonb use different keys
+                -- (they check different error conditions that are mutually exclusive for the same identifier column).
+                -- The previous correlated subquery for "intelligent merging" was unnecessary and caused O(n²) performance.
+                (COALESCE(od.base_error_jsonb, '{}'::jsonb) || COALESCE(od.unstable_identifier_errors_jsonb, '{}'::jsonb)) as final_error_jsonb,
                 -- Check if any row within the same new entity has an error.
                 BOOL_OR((od.base_error_jsonb || COALESCE(od.unstable_identifier_errors_jsonb, '{}'::jsonb)) != '{}'::jsonb)
                     OVER (PARTITION BY CASE WHEN od.final_lu_id IS NULL AND od.final_est_id IS NULL THEN od.entity_signature ELSE jsonb_build_object('data_row_id', od.data_row_id) END) as entity_has_error,
