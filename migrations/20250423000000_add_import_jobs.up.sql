@@ -102,7 +102,7 @@ CREATE TABLE public.import_definition(
     valid boolean NOT NULL DEFAULT false, -- Indicates if the definition passes validation checks
     validation_error text,                -- Stores validation error messages if not valid
     default_retention_period INTERVAL NOT NULL DEFAULT '18 months'::INTERVAL, -- Default period after which related job data can be cleaned up
-    import_as_null text[] NOT NULL DEFAULT ARRAY['', 'NA', 'N/A', 'NULL', 'NONE'], -- Values to treat as NULL during import (case-insensitive)
+    import_as_null text[] NOT NULL DEFAULT ARRAY['', 'NA', 'N/A', 'NULL', 'NONE','NaN'], -- Values to treat as NULL during import (case-insensitive)
     created_at timestamp with time zone NOT NULL DEFAULT NOW(),
     updated_at timestamp with time zone NOT NULL DEFAULT NOW()
     -- Removed draft column and draft_valid_error_states constraint
