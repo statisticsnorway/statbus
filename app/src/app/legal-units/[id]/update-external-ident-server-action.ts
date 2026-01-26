@@ -6,6 +6,7 @@ import { z } from "zod";
 import { zfd } from "zod-form-data";
 import { baseDataStore } from "@/context/BaseDataStore";
 import { _parseAuthStatusRpcResponseToAuthStatus } from "@/lib/auth.types";
+import type { TablesInsert, TablesUpdate } from "@/lib/database.types";
 
 const externalIdentsSchema = zfd.formData(
   z.record(
@@ -119,7 +120,7 @@ export async function updateExternalIdent(
   if (isHierarchical && identType.labels) {
     newIdentValue = constructHierarchicalPath(
       identType.code!,
-      identType.labels,
+      identType.labels as string,
       validatedFields.data
     );
   } else {
@@ -156,33 +157,26 @@ export async function updateExternalIdent(
     } else if (!exisitingIdent || exisitingIdent.length === 0) {
       // Note: 'shape' and 'labels' are derived by trigger from type_id
       // but TypeScript requires them. The trigger will override our value.
-      const insertData: Record<string, unknown> = {
-        [unitIdField]: parseInt(id),
+      const insertData: TablesInsert<"external_ident"> = {
         type_id: identTypeId!,
         edit_by_user_id: userId,
         shape: identType.shape!, // Will be overwritten by trigger
+        ident: isHierarchical ? null : newIdentValue,
+        idents: isHierarchical ? newIdentValue : null,
+        // Dynamic field for legal_unit_id or establishment_id
+        ...(unitType === "legal_unit" 
+          ? { legal_unit_id: parseInt(id) } 
+          : { establishment_id: parseInt(id) }),
       };
-      
-      if (isHierarchical) {
-        insertData.idents = newIdentValue;
-      } else {
-        insertData.ident = newIdentValue;
-      }
       
       response = await client.from("external_ident").insert(insertData);
     } else {
-      const updateData: Record<string, unknown> = {
+      const updateData: TablesUpdate<"external_ident"> = {
         edit_by_user_id: userId,
         edit_at: new Date().toISOString(),
+        ident: isHierarchical ? null : newIdentValue,
+        idents: isHierarchical ? newIdentValue : null,
       };
-      
-      if (isHierarchical) {
-        updateData.idents = newIdentValue;
-        updateData.ident = null; // Clear the regular ident field
-      } else {
-        updateData.ident = newIdentValue;
-        updateData.idents = null; // Clear the hierarchical idents field
-      }
       
       response = await client
         .from("external_ident")
