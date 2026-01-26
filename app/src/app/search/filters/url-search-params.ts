@@ -325,16 +325,46 @@ export function externalIdentDeriveStateUpdateFromSearchParams(
   return externalIdentDeriveStateUpdateFromValues(maybeDefaultExternalIdentType, initialValue);
 }
 
+/**
+ * Convert a hierarchical identifier search pattern to a SQL LIKE pattern.
+ * 
+ * The input pattern uses '*' as wildcard (from UI/URL), converted to '%' for SQL LIKE.
+ * Examples:
+ * - "CENSUS2024.CENTRAL.*" => "CENSUS2024.CENTRAL.%"
+ * - "*.CENTRAL.*" => "%.CENTRAL.%"
+ * - "CENSUS2024" => "CENSUS2024" (exact prefix, no trailing wildcard needed)
+ */
+function convertToLikePattern(pattern: string): string {
+  // Replace * wildcards with % for SQL LIKE
+  return pattern.replace(/\*/g, '%');
+}
+
 export function externalIdentDeriveStateUpdateFromValues(
   externalIdentType: Tables<"external_ident_type_ordered">,
   value: string | null
 ): SearchAction {
-  let result = {
+  // For hierarchical types, use LIKE pattern matching
+  // For regular types, use exact match (eq)
+  const isHierarchical = externalIdentType.shape === "hierarchical";
+  
+  let apiParamValue: string | null = null;
+  if (value) {
+    if (isHierarchical) {
+      // Convert wildcard pattern to SQL LIKE pattern
+      const likePattern = convertToLikePattern(value);
+      apiParamValue = `like.${likePattern}`;
+    } else {
+      // Regular types use exact match
+      apiParamValue = `eq.${value}`;
+    }
+  }
+
+  const result = {
     type: "set_query",
     payload: {
       app_param_name: externalIdentType.code!,
       api_param_name: `external_idents->>${externalIdentType.code}`,
-      api_param_value: value ? `eq.${value}` : null,
+      api_param_value: apiParamValue,
       app_param_values: value ? [value] : [],
     },
   } as SearchAction;
