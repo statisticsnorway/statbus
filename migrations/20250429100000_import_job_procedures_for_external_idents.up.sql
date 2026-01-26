@@ -387,6 +387,143 @@ BEGIN
     END;
 
     -- Step 2: Identify and Aggregate Errors, Determine Operation and Action
+    -- PERFORMANCE: Use explicit temp tables instead of nested CTEs to prevent
+    -- PostgreSQL query planner from re-evaluating complex expressions.
+    -- Each temp table is created with silent removal pattern for transaction inspection.
+
+    -- Step 2a: Create temp_aggregated_idents - aggregates identifier data per row
+    IF to_regclass('pg_temp.temp_aggregated_idents') IS NOT NULL THEN DROP TABLE temp_aggregated_idents; END IF;
+    v_sql := format($$
+        CREATE TEMP TABLE temp_aggregated_idents ON COMMIT DROP AS
+        SELECT
+            tui.data_row_id,
+            COUNT(tui.ident_value) FILTER (WHERE tui.ident_value IS NOT NULL) AS num_raw_idents_with_value,
+            COUNT(tui.ident_type_id) FILTER (WHERE tui.ident_value IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS num_valid_type_idents_with_value,
+            array_agg(DISTINCT tui.source_ident_code) FILTER (WHERE tui.ident_value IS NOT NULL AND tui.ident_type_id IS NULL) as unknown_ident_codes,
+            array_to_string(array_agg(DISTINCT tui.source_ident_code) FILTER (WHERE tui.ident_value IS NOT NULL AND tui.ident_type_id IS NULL), ', ') as unknown_ident_codes_text,
+            array_agg(DISTINCT tui.source_ident_code) FILTER (WHERE tui.ident_value IS NOT NULL) as all_input_ident_codes_with_value,
+            COUNT(DISTINCT tui.resolved_lu_id) FILTER (WHERE tui.resolved_lu_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS distinct_lu_ids,
+            COUNT(DISTINCT tui.resolved_est_id) FILTER (WHERE tui.resolved_est_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS distinct_est_ids,
+            MAX(tui.resolved_lu_id) FILTER (WHERE tui.resolved_lu_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS final_lu_id,
+            MAX(tui.resolved_est_id) FILTER (WHERE tui.resolved_est_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS final_est_id,
+            jsonb_object_agg(tui.ident_type_code, tui.ident_value) FILTER (WHERE tui.ident_type_id IS NOT NULL AND tui.ident_value IS NOT NULL) AS entity_signature,
+            -- Pre-compute hash for fast COUNT(DISTINCT) comparisons
+            md5(COALESCE(jsonb_object_agg(tui.ident_type_code, tui.ident_value ORDER BY tui.ident_type_code) FILTER (WHERE tui.ident_type_id IS NOT NULL AND tui.ident_value IS NOT NULL), '{}')::text) AS entity_signature_hash,
+            -- Aggregate cross-type conflicts: key is source_ident_code, value is conflict message
+            jsonb_object_agg(
+                tui.source_ident_code,
+                'Identifier already used by a ' ||
+                CASE
+                    WHEN %2$L = 'legal_unit' AND tui.resolved_est_id IS NOT NULL THEN 'Establishment'
+                    WHEN %2$L = 'establishment_formal' THEN
+                        CASE
+                            WHEN tui.resolved_lu_id IS NOT NULL THEN 'Legal Unit'
+                            WHEN tui.resolved_est_id IS NOT NULL AND NOT tui.conflicting_est_is_formal THEN 'Informal Establishment'
+                            ELSE 'other conflicting unit for formal est'
+                        END
+                    WHEN %2$L = 'establishment_informal' THEN
+                        CASE
+                            WHEN tui.resolved_lu_id IS NOT NULL THEN 'Legal Unit'
+                            WHEN tui.resolved_est_id IS NOT NULL AND tui.conflicting_est_is_formal THEN 'Formal Establishment'
+                            ELSE 'other conflicting unit for informal est'
+                        END
+                    ELSE 'different unit type'
+                END || ': ' || tui.conflicting_unit_jsonb::TEXT
+            ) FILTER (WHERE tui.is_cross_type_conflict IS TRUE) AS cross_type_conflict_errors
+        FROM temp_unpivoted_idents tui
+        GROUP BY tui.data_row_id
+    $$, v_data_table_name, v_job_mode);
+    RAISE DEBUG '[Job %] analyse_external_idents: Creating temp_aggregated_idents: %', p_job_id, v_sql;
+    EXECUTE v_sql;
+
+    -- Step 2b: Create temp_ordered_batch_entities - joins with data table and computes window functions
+    IF to_regclass('pg_temp.temp_ordered_batch_entities') IS NOT NULL THEN DROP TABLE temp_ordered_batch_entities; END IF;
+    v_sql := format($$
+        CREATE TEMP TABLE temp_ordered_batch_entities ON COMMIT DROP AS
+        WITH RowChecks AS (
+            SELECT
+                orig.data_row_id,
+                dt.valid_from,
+                COALESCE(ai.num_raw_idents_with_value, 0) AS num_raw_idents_with_value,
+                COALESCE(ai.num_valid_type_idents_with_value, 0) AS num_valid_type_idents_with_value,
+                ai.unknown_ident_codes,
+                ai.unknown_ident_codes_text,
+                ai.all_input_ident_codes_with_value,
+                COALESCE(ai.distinct_lu_ids, 0) AS distinct_lu_ids,
+                COALESCE(ai.distinct_est_ids, 0) AS distinct_est_ids,
+                ai.final_lu_id,
+                ai.final_est_id,
+                COALESCE(ai.entity_signature, '{}'::jsonb) AS entity_signature,
+                ai.entity_signature_hash,
+                ai.cross_type_conflict_errors,
+                (SELECT array_agg(value->>'column_name') FROM jsonb_array_elements(%2$L) value) as all_source_input_ident_codes_for_step
+            FROM temp_relevant_rows orig
+            JOIN public.%1$I dt ON orig.data_row_id = dt.row_id
+            LEFT JOIN temp_aggregated_idents ai ON orig.data_row_id = ai.data_row_id
+        )
+        SELECT
+            rc.*,
+            ROW_NUMBER() OVER (PARTITION BY rc.entity_signature ORDER BY rc.valid_from NULLS LAST, rc.data_row_id) as rn_in_batch_for_entity,
+            FIRST_VALUE(rc.data_row_id) OVER (PARTITION BY rc.entity_signature ORDER BY rc.valid_from NULLS LAST, rc.data_row_id) as actual_founding_row_id
+        FROM RowChecks rc
+    $$, v_data_table_name, v_ident_data_cols);
+    RAISE DEBUG '[Job %] analyse_external_idents: Creating temp_ordered_batch_entities: %', p_job_id, v_sql;
+    EXECUTE v_sql;
+
+    -- Create indexes for efficient joins
+    CREATE INDEX ON temp_ordered_batch_entities (data_row_id);
+    CREATE INDEX ON temp_ordered_batch_entities (entity_signature_hash);
+    CREATE INDEX ON temp_ordered_batch_entities (final_lu_id, final_est_id);
+
+    -- Step 2c: Create temp_new_entity_duplicates - detects duplicate identifiers across different NEW entities
+    IF to_regclass('pg_temp.temp_new_entity_duplicates') IS NOT NULL THEN DROP TABLE temp_new_entity_duplicates; END IF;
+    CREATE TEMP TABLE temp_new_entity_duplicates (
+        data_row_id INTEGER,
+        source_ident_code TEXT,
+        ident_type_code TEXT,
+        ident_value TEXT,
+        affected_row_ids INTEGER[],
+        row_count INTEGER,
+        PRIMARY KEY (data_row_id, source_ident_code)
+    ) ON COMMIT DROP;
+
+    v_sql := $$
+        WITH NewEntityDuplicateGroups AS (
+            SELECT
+                tui.ident_type_code,
+                tui.ident_value,
+                array_agg(DISTINCT obe.data_row_id ORDER BY obe.data_row_id) AS affected_row_ids,
+                COUNT(DISTINCT obe.entity_signature_hash) AS distinct_entity_count
+            FROM temp_unpivoted_idents tui
+            JOIN temp_ordered_batch_entities obe ON obe.data_row_id = tui.data_row_id
+            WHERE tui.ident_type_id IS NOT NULL
+              AND tui.ident_value IS NOT NULL
+              AND tui.resolved_lu_id IS NULL
+              AND tui.resolved_est_id IS NULL
+              AND obe.final_lu_id IS NULL
+              AND obe.final_est_id IS NULL
+            GROUP BY tui.ident_type_code, tui.ident_value
+            HAVING COUNT(DISTINCT obe.entity_signature_hash) > 1
+        )
+        INSERT INTO temp_new_entity_duplicates (data_row_id, source_ident_code, ident_type_code, ident_value, affected_row_ids, row_count)
+        SELECT
+            tui.data_row_id,
+            tui.source_ident_code,
+            nedg.ident_type_code,
+            nedg.ident_value,
+            nedg.affected_row_ids,
+            array_length(nedg.affected_row_ids, 1) AS row_count
+        FROM NewEntityDuplicateGroups nedg
+        JOIN temp_unpivoted_idents tui
+            ON tui.ident_type_code = nedg.ident_type_code
+            AND tui.ident_value = nedg.ident_value
+            AND tui.data_row_id = ANY(nedg.affected_row_ids)
+    $$;
+    RAISE DEBUG '[Job %] analyse_external_idents: Creating temp_new_entity_duplicates: %', p_job_id, v_sql;
+    EXECUTE v_sql;
+
+    -- Step 2d: Create temp_batch_analysis - final analysis results
+    IF to_regclass('pg_temp.temp_batch_analysis') IS NOT NULL THEN DROP TABLE temp_batch_analysis; END IF;
     CREATE TEMP TABLE temp_batch_analysis (
         data_row_id INTEGER PRIMARY KEY,
         error_jsonb JSONB,
@@ -397,141 +534,33 @@ BEGIN
         derived_founding_row_id INTEGER
     ) ON COMMIT DROP;
 
+    -- Step 2e: Create temp_propagated_errors with simplified CTE chain (heavy lifting done in temp tables above)
+    IF to_regclass('pg_temp.temp_propagated_errors') IS NOT NULL THEN DROP TABLE temp_propagated_errors; END IF;
     v_sql := format($$
         CREATE TEMP TABLE temp_propagated_errors ON COMMIT DROP AS
-        WITH AggregatedIdents AS ( -- Stage 1: Aggregate unpivoted identifiers first to prevent fan-out.
-            SELECT
-                tui.data_row_id,
-                COUNT(tui.ident_value) FILTER (WHERE tui.ident_value IS NOT NULL) AS num_raw_idents_with_value,
-                COUNT(tui.ident_type_id) FILTER (WHERE tui.ident_value IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS num_valid_type_idents_with_value,
-                array_agg(DISTINCT tui.source_ident_code) FILTER (WHERE tui.ident_value IS NOT NULL AND tui.ident_type_id IS NULL) as unknown_ident_codes,
-                array_to_string(array_agg(DISTINCT tui.source_ident_code) FILTER (WHERE tui.ident_value IS NOT NULL AND tui.ident_type_id IS NULL), ', ') as unknown_ident_codes_text,
-                array_agg(DISTINCT tui.source_ident_code) FILTER (WHERE tui.ident_value IS NOT NULL) as all_input_ident_codes_with_value,
-                COUNT(DISTINCT tui.resolved_lu_id) FILTER (WHERE tui.resolved_lu_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS distinct_lu_ids,
-                COUNT(DISTINCT tui.resolved_est_id) FILTER (WHERE tui.resolved_est_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS distinct_est_ids,
-                MAX(tui.resolved_lu_id) FILTER (WHERE tui.resolved_lu_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS final_lu_id,
-                MAX(tui.resolved_est_id) FILTER (WHERE tui.resolved_est_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS final_est_id,
-                jsonb_object_agg(tui.ident_type_code, tui.ident_value) FILTER (WHERE tui.ident_type_id IS NOT NULL AND tui.ident_value IS NOT NULL) AS entity_signature,
-                -- Aggregate cross-type conflicts: key is source_ident_code, value is conflict message
-                jsonb_object_agg(
-                    tui.source_ident_code,
-                    'Identifier already used by a ' ||
-                    CASE
-                        WHEN %3$L = 'legal_unit' AND tui.resolved_est_id IS NOT NULL THEN 'Establishment'
-                        WHEN %3$L = 'establishment_formal' THEN
-                            CASE
-                                WHEN tui.resolved_lu_id IS NOT NULL THEN 'Legal Unit'
-                                WHEN tui.resolved_est_id IS NOT NULL AND NOT tui.conflicting_est_is_formal THEN 'Informal Establishment'
-                                ELSE 'other conflicting unit for formal est'
-                            END
-                        WHEN %3$L = 'establishment_informal' THEN
-                            CASE
-                                WHEN tui.resolved_lu_id IS NOT NULL THEN 'Legal Unit'
-                                WHEN tui.resolved_est_id IS NOT NULL AND tui.conflicting_est_is_formal THEN 'Formal Establishment'
-                                ELSE 'other conflicting unit for informal est'
-                            END
-                        ELSE 'different unit type'
-                    END || ': ' || tui.conflicting_unit_jsonb::TEXT
-                ) FILTER (WHERE tui.is_cross_type_conflict IS TRUE) AS cross_type_conflict_errors
-            FROM temp_unpivoted_idents tui
-            GROUP BY tui.data_row_id
-        ),
-        RowChecks AS ( -- Stage 2: Join original rows with the safe, pre-aggregated identifier data.
-            SELECT
-                orig.data_row_id,
-                dt.valid_from,
-                -- Explicitly list columns from AggregatedIdents to avoid pulling in its data_row_id,
-                -- which would create an ambiguous column reference in later CTEs.
-                ai.num_raw_idents_with_value,
-                ai.num_valid_type_idents_with_value,
-                ai.unknown_ident_codes,
-                ai.unknown_ident_codes_text,
-                ai.all_input_ident_codes_with_value,
-                ai.distinct_lu_ids,
-                ai.distinct_est_ids,
-                ai.final_lu_id,
-                ai.final_est_id,
-                ai.entity_signature,
-                ai.cross_type_conflict_errors,
-                (SELECT array_agg(value->>'column_name') FROM jsonb_array_elements(%4$L) value) as all_source_input_ident_codes_for_step -- %4$L is v_ident_data_cols
-            FROM temp_relevant_rows orig
-            JOIN public.%1$I dt ON orig.data_row_id = dt.row_id
-            LEFT JOIN AggregatedIdents ai ON orig.data_row_id = ai.data_row_id
-        ),
-        OrderedBatchEntities AS ( -- Orders rows within the batch that share the same entity signature
-            SELECT
-                rc.*, -- Select all columns from RowChecks
-                ROW_NUMBER() OVER (PARTITION BY rc.entity_signature ORDER BY rc.valid_from NULLS LAST, rc.data_row_id) as rn_in_batch_for_entity,
-                FIRST_VALUE(rc.data_row_id) OVER (PARTITION BY rc.entity_signature ORDER BY rc.valid_from NULLS LAST, rc.data_row_id) as actual_founding_row_id
-            FROM RowChecks rc
-        ),
-        -- Detect NEW entity duplicates: same identifier used by different entity_signatures
-        NewEntityDuplicateGroups AS (
-            SELECT
-                tui.ident_type_code,
-                tui.ident_value,
-                array_agg(DISTINCT obe.data_row_id ORDER BY obe.data_row_id) AS affected_row_ids,
-                COUNT(DISTINCT obe.entity_signature) AS distinct_entity_count
-            FROM temp_unpivoted_idents tui
-            JOIN OrderedBatchEntities obe ON obe.data_row_id = tui.data_row_id
-            WHERE tui.ident_type_id IS NOT NULL
-              AND tui.ident_value IS NOT NULL
-              AND tui.resolved_lu_id IS NULL
-              AND tui.resolved_est_id IS NULL
-              AND obe.final_lu_id IS NULL
-              AND obe.final_est_id IS NULL
-            GROUP BY tui.ident_type_code, tui.ident_value
-            HAVING COUNT(DISTINCT obe.entity_signature) > 1
-        ),
-        NewEntityDuplicates AS (
-            SELECT
-                tui.data_row_id,
-                tui.source_ident_code,
-                nedg.ident_type_code,
-                nedg.ident_value,
-                nedg.affected_row_ids,
-                array_length(nedg.affected_row_ids, 1) AS row_count
-            FROM NewEntityDuplicateGroups nedg
-            JOIN temp_unpivoted_idents tui
-                ON tui.ident_type_code = nedg.ident_type_code
-                AND tui.ident_value = nedg.ident_value
-                AND tui.data_row_id = ANY(nedg.affected_row_ids)
-        ),
-        -- OPTIMIZED: Pre-calculates existing identifiers for all entities found in the batch.
-        -- This is done by first selecting the distinct entities from the batch, then joining
-        -- to the identifiers table. This avoids a fan-out that would otherwise occur if joining directly.
-        ExistingIdents AS (
-            WITH DistinctEntities AS (
-                SELECT DISTINCT final_lu_id, final_est_id
-                FROM OrderedBatchEntities
-                WHERE final_lu_id IS NOT NULL OR final_est_id IS NOT NULL
-            )
+        WITH ExistingIdents AS (
             SELECT
                 de.final_lu_id,
                 de.final_est_id,
                 jsonb_object_agg(xit.code, ei.ident) as idents
-            FROM DistinctEntities de
+            FROM (
+                SELECT DISTINCT final_lu_id, final_est_id
+                FROM temp_ordered_batch_entities
+                WHERE final_lu_id IS NOT NULL OR final_est_id IS NOT NULL
+            ) de
             JOIN public.external_ident ei ON (ei.legal_unit_id = de.final_lu_id OR ei.establishment_id = de.final_est_id)
             JOIN public.external_ident_type_active xit ON ei.type_id = xit.id
             GROUP BY de.final_lu_id, de.final_est_id
         ),
-        -- MATERIALIZED forces PostgreSQL to compute this CTE once and store results.
-        -- Without MATERIALIZED, the correlated subqueries for base_error_jsonb get re-evaluated
-        -- each time the column is referenced in downstream CTEs (especially in window functions),
-        -- causing O(n × subplans × references) performance degradation.
-        AnalysisWithOperation AS MATERIALIZED ( -- Determines operation based on DB existence and batch order
+        AnalysisWithOperation AS (
             SELECT
                 obe.data_row_id,
-                -- Make founding_row_id stable across jobs. Use a large offset for existing DB entities
-                -- to prevent collision with row_id-based founders for new entities within this job.
                 COALESCE(obe.final_lu_id + 1000000000, obe.final_est_id + 2000000000, obe.actual_founding_row_id) as actual_founding_row_id,
                 obe.final_lu_id,
                 obe.final_est_id,
-                obe.entity_signature, -- Pass through for error propagation
-                obe.rn_in_batch_for_entity, -- Pass through for operation determination
-                -- OPTIMIZED: Replaced correlated subquery with a join to the pre-aggregated ExistingIdents CTE
+                obe.entity_signature,
+                obe.rn_in_batch_for_entity,
                 (
-                     -- Build error showing: Input {a:X, b:Y} matches existing unit {a:X, b:Z} - attempting to change b from Z to Y
                      SELECT jsonb_object_agg(
                         input_data.ident_code || '_raw',
                         'Input ' || obe.entity_signature::text || 
@@ -541,14 +570,14 @@ BEGIN
                         ''' to ''' || input_data.input_value || ''''
                     )
                     FROM (SELECT key AS ident_code, value#>>'{}' AS input_value FROM jsonb_each(obe.entity_signature)) AS input_data
-                    WHERE existing.idents ? input_data.ident_code -- The identifier type exists for this unit in the DB
+                    WHERE existing.idents ? input_data.ident_code
                       AND (existing.idents->>input_data.ident_code) IS DISTINCT FROM input_data.input_value
                 ) AS unstable_identifier_errors_jsonb,
                 (
                     COALESCE(
                         (SELECT jsonb_object_agg(code, 'No identifier specified')
                          FROM unnest(obe.all_source_input_ident_codes_for_step) code
-                         WHERE COALESCE(obe.num_raw_idents_with_value, 0) = 0),
+                         WHERE obe.num_raw_idents_with_value = 0),
                         '{}'::jsonb
                     ) ||
                     COALESCE(
@@ -592,13 +621,12 @@ BEGIN
                             'Duplicate identifier: ' || ned.ident_type_code || '=' || ned.ident_value || 
                             ' appears in ' || ned.row_count || ' rows: ' || array_to_string(ned.affected_row_ids, ', ')
                          )
-                         FROM NewEntityDuplicates ned
+                         FROM temp_new_entity_duplicates ned
                          WHERE ned.data_row_id = obe.data_row_id),
                         '{}'::jsonb
                     )
                 ) as base_error_jsonb
-            FROM OrderedBatchEntities obe
-            -- Join to a distinct list of IDs to prevent fan-out on temporal tables
+            FROM temp_ordered_batch_entities obe
             LEFT JOIN (SELECT DISTINCT id FROM public.legal_unit) lu ON lu.id = obe.final_lu_id
             LEFT JOIN (SELECT DISTINCT id FROM public.establishment) est ON est.id = obe.final_est_id
             LEFT JOIN ExistingIdents existing ON existing.final_lu_id IS NOT DISTINCT FROM obe.final_lu_id
