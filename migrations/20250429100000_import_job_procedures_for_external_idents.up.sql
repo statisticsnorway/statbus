@@ -2,8 +2,8 @@
 
 BEGIN;
 
-
 -- Procedure to analyse external identifier data (Batch Oriented)
+-- Supports both regular (single column) and hierarchical (multiple component columns) identifier types
 CREATE OR REPLACE PROCEDURE import.analyse_external_idents(p_job_id INT, p_batch_row_id_ranges int4multirange, p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_external_idents$
 DECLARE
@@ -26,8 +26,18 @@ DECLARE
     v_has_est_id_col BOOLEAN := FALSE;
     v_set_clause TEXT;
     v_strategy public.import_strategy;
-    v_job_mode public.import_mode; -- Added to use v_job_mode
-    v_cross_type_conflict_check_sql TEXT; -- For dynamic SQL based on job_mode
+    v_job_mode public.import_mode;
+    -- Hierarchical processing variables
+    v_hier_type RECORD;
+    v_hier_unpivot_sql TEXT;
+    v_labels_array TEXT[];
+    v_label TEXT;
+    v_label_index INT;
+    v_hier_select_cols TEXT;
+    v_hier_concat_expr TEXT;
+    v_hier_validation_expr TEXT;
+    v_hier_allornone_check TEXT;
+    v_path_col_name TEXT;
 BEGIN
     -- Clean up any lingering temp tables from a previous failed run in this session,
     -- using to_regclass to avoid noisy NOTICEs if the tables don't exist.
@@ -35,6 +45,9 @@ BEGIN
     IF to_regclass('pg_temp.temp_unpivoted_idents') IS NOT NULL THEN DROP TABLE temp_unpivoted_idents; END IF;
     IF to_regclass('pg_temp.temp_batch_analysis') IS NOT NULL THEN DROP TABLE temp_batch_analysis; END IF;
     IF to_regclass('pg_temp.temp_propagated_errors') IS NOT NULL THEN DROP TABLE temp_propagated_errors; END IF;
+    IF to_regclass('pg_temp.temp_entity_signatures') IS NOT NULL THEN DROP TABLE temp_entity_signatures; END IF;
+    IF to_regclass('pg_temp.temp_raw_unpivoted_idents') IS NOT NULL THEN DROP TABLE temp_raw_unpivoted_idents; END IF;
+    IF to_regclass('pg_temp.temp_hierarchical_validation') IS NOT NULL THEN DROP TABLE temp_hierarchical_validation; END IF;
 
     -- This is a HOLISTIC procedure. It is called once and processes all relevant rows for this step.
     -- The p_batch_row_id_ranges parameter is ignored (it will be NULL).
@@ -47,7 +60,7 @@ BEGIN
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
     v_data_table_name := v_job.data_table_name;
     v_strategy := (v_job.definition_snapshot->'import_definition'->>'strategy')::public.import_strategy;
-    v_job_mode := (v_job.definition_snapshot->'import_definition'->>'mode')::public.import_mode; -- Get job_mode
+    v_job_mode := (v_job.definition_snapshot->'import_definition'->>'mode')::public.import_mode;
 
     -- Find the target step details from the snapshot
     SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = 'external_idents';
@@ -102,13 +115,14 @@ BEGIN
         RAISE EXCEPTION '[Job %] Failed to load valid import_data_column_list from definition_snapshot', p_job_id;
     END IF;
 
-    -- Filter data columns relevant to this step
+    -- Filter data columns relevant to this step (both source_input and internal)
     SELECT jsonb_agg(value) INTO v_ident_data_cols
     FROM jsonb_array_elements(v_ident_data_cols) value
-    WHERE (value->>'step_id')::int = v_step.id AND value->>'purpose' = 'source_input';
+    WHERE (value->>'step_id')::int = v_step.id 
+      AND value->>'purpose' IN ('source_input', 'internal');
 
     IF v_ident_data_cols IS NULL OR jsonb_array_length(v_ident_data_cols) = 0 THEN
-         RAISE DEBUG '[Job %] analyse_external_idents: No external ident source_input data columns found in snapshot for step %. Skipping analysis.', p_job_id, v_step.id;
+         RAISE DEBUG '[Job %] analyse_external_idents: No external ident data columns found in snapshot for step %. Skipping analysis.', p_job_id, v_step.id;
          v_sql := format($$UPDATE public.%1$I dt SET last_completed_priority = %2$L WHERE EXISTS (SELECT 1 FROM temp_relevant_rows tr WHERE tr.data_row_id = dt.row_id)$$,
                         v_data_table_name /* %1$I */, v_step.priority /* %2$L */);
          RAISE DEBUG '[Job %] analyse_external_idents: Updating last_completed_priority for skipped rows (no columns) with SQL: %', p_job_id, v_sql;
@@ -119,18 +133,19 @@ BEGIN
     -- Build the list of error keys to clear, including all source_input columns for this step and general keys
     SELECT array_agg(value->>'column_name') INTO v_error_keys_to_clear_arr
     FROM jsonb_array_elements(v_ident_data_cols) value
-    WHERE value->>'column_name' IS NOT NULL;
+    WHERE value->>'column_name' IS NOT NULL AND value->>'purpose' = 'source_input';
 
     v_error_keys_to_clear_arr := COALESCE(v_error_keys_to_clear_arr, ARRAY[]::TEXT[]) || ARRAY[
         'missing_identifier_value', 
         'unknown_identifier_type', 
         'inconsistent_legal_unit', 
         'inconsistent_establishment', 
-        'ambiguous_unit_type'
+        'ambiguous_unit_type',
+        'invalid_hierarchical_characters',
+        'hierarchical_depth_mismatch',
+        'missing_hierarchical_components',
+        'hierarchical_incomplete'
     ];
-    -- Note: duplicate identifier errors use the actual column names (e.g., 'tax_ident_raw')
-    -- so they're already included in v_error_keys_to_clear_arr from source_input_ident_codes
-    -- Ensure uniqueness (though direct conflict between source_input names and general keys is unlikely)
     SELECT array_agg(DISTINCT e) INTO v_error_keys_to_clear_arr FROM unnest(v_error_keys_to_clear_arr) e;
     RAISE DEBUG '[Job %] analyse_external_idents: Error keys to clear for this step: %', p_job_id, v_error_keys_to_clear_arr;
 
@@ -138,51 +153,226 @@ BEGIN
     CREATE TEMP TABLE temp_unpivoted_idents (
         data_row_id INTEGER,
         ident_type_code TEXT,
-        source_ident_code TEXT, -- The code/column name from the _data table e.g. 'tax_ident'
-        ident_value TEXT,
+        source_ident_code TEXT, -- The code/column name from the _data table e.g. 'tax_ident' or 'admin_statistical_path'
+        ident_value TEXT,       -- For regular idents: the text value. For hierarchical: the ltree path as text
         ident_type_id INT,      -- Resolved ID from external_ident_type, NULL if source_ident_code is unknown
         resolved_lu_id INT,
         resolved_est_id INT,
         is_cross_type_conflict BOOLEAN,
         conflicting_unit_jsonb JSONB,
-        conflicting_est_is_formal BOOLEAN DEFAULT FALSE -- New: Flag if conflicting EST is formal
-        -- PRIMARY KEY (data_row_id, source_ident_code) -- Might be too restrictive if same source_ident_code appears multiple times (should not happen with current unpivot)
+        conflicting_est_is_formal BOOLEAN DEFAULT FALSE,
+        is_hierarchical BOOLEAN DEFAULT FALSE  -- Flag to distinguish hierarchical from regular
     ) ON COMMIT DROP;
 
+    -- Create a temp table for the raw, unpivoted identifiers first.
+    CREATE TEMP TABLE temp_raw_unpivoted_idents (
+        data_row_id INT,
+        source_ident_code TEXT,
+        ident_type_code TEXT,
+        ident_value TEXT,
+        is_hierarchical BOOLEAN DEFAULT FALSE
+    ) ON COMMIT DROP;
+
+    -- ============================================================================
+    -- Step 1a: Process REGULAR identifiers (single column per type)
+    -- ============================================================================
     v_unpivot_sql := '';
     v_add_separator := FALSE;
-    -- For external_idents step, the import_data_column.column_name is the raw source column (e.g., tax_ident_raw).
-    FOR v_col_rec IN SELECT
-                         value->>'column_name' as raw_column_name,
-                         replace(value->>'column_name', '_raw', '') as ident_code
-                     FROM jsonb_array_elements(v_ident_data_cols) value
+    
+    -- For regular external_idents step, the import_data_column.column_name is the raw source column (e.g., tax_ident_raw).
+    -- We only process columns that correspond to REGULAR external_ident_types
+    FOR v_col_rec IN 
+        SELECT
+            value->>'column_name' as raw_column_name,
+            replace(value->>'column_name', '_raw', '') as ident_code
+        FROM jsonb_array_elements(v_ident_data_cols) value
+        WHERE value->>'purpose' = 'source_input'
+          AND value->>'column_name' LIKE '%_raw'
+          -- Only include if this corresponds to a REGULAR external_ident_type
+          AND EXISTS (
+              SELECT 1 FROM public.external_ident_type_active eit
+              WHERE eit.code = replace(value->>'column_name', '_raw', '')
+                AND eit.shape = 'regular'
+          )
     LOOP
-        -- The ident_code is used to join with external_ident_type.code
         IF v_col_rec.raw_column_name IS NULL THEN
-             RAISE DEBUG '[Job %] analyse_external_idents: Skipping column as its name is null in import_data_column_list for step external_idents.', p_job_id;
+             RAISE DEBUG '[Job %] analyse_external_idents: Skipping column as its name is null.', p_job_id;
              CONTINUE;
         END IF;
 
         IF v_add_separator THEN v_unpivot_sql := v_unpivot_sql || ' UNION ALL '; END IF;
         v_unpivot_sql := v_unpivot_sql || format(
              $$SELECT dt.row_id,
-                     %1$L AS source_column_name_in_data_table, -- This is the name of the column in _data table (e.g., 'tax_ident_raw')
-                     %2$L AS ident_type_code_to_join_on,     -- This is the external_ident_type.code (e.g., 'tax_ident')
-                     NULLIF(dt.%3$I, '') AS ident_value
+                     %1$L AS source_column_name_in_data_table,
+                     %2$L AS ident_type_code_to_join_on,
+                     NULLIF(dt.%3$I, '') AS ident_value,
+                     FALSE AS is_hierarchical
              FROM public.%4$I dt
              JOIN temp_relevant_rows tr ON tr.data_row_id = dt.row_id
              WHERE NULLIF(dt.%5$I, '') IS NOT NULL$$,
              v_col_rec.raw_column_name, -- %1$L Name of column in _data table
              v_col_rec.ident_code,      -- %2$L Code to join with external_ident_type
-             v_col_rec.raw_column_name, -- %3$I Column to select value from in _data table
+             v_col_rec.raw_column_name, -- %3$I Column to select value from
              v_data_table_name,         -- %4$I
              v_col_rec.raw_column_name  -- %5$I
         );
         v_add_separator := TRUE;
     END LOOP;
 
+    -- ============================================================================
+    -- Step 1b: Process HIERARCHICAL identifiers (multiple component columns per type)
+    -- ============================================================================
+    
+    -- Create temp table to track hierarchical validation errors per row
+    CREATE TEMP TABLE temp_hierarchical_validation (
+        data_row_id INTEGER,
+        type_code TEXT,
+        error_jsonb JSONB,
+        combined_path TEXT,  -- The concatenated ltree path if valid
+        PRIMARY KEY (data_row_id, type_code)
+    ) ON COMMIT DROP;
+
+    -- Process each hierarchical identifier type
+    FOR v_hier_type IN
+        SELECT eit.id, eit.code, eit.labels
+        FROM public.external_ident_type_active eit
+        WHERE eit.shape = 'hierarchical'
+          AND eit.labels IS NOT NULL
+        ORDER BY eit.priority
+    LOOP
+        v_labels_array := string_to_array(ltree2text(v_hier_type.labels), '.');
+        v_path_col_name := v_hier_type.code || '_path';
+        
+        RAISE DEBUG '[Job %] analyse_external_idents: Processing hierarchical type "%" with labels: %', 
+            p_job_id, v_hier_type.code, v_labels_array;
+        
+        -- Build the validation and concatenation SQL for this hierarchical type
+        -- We need to:
+        -- 1. Check if ANY components are provided (to determine if we should validate)
+        -- 2. Check ALL-OR-NOTHING: if some provided, all must be provided
+        -- 3. Validate ltree characters for each component
+        -- 4. Concatenate into path
+        
+        v_hier_select_cols := '';
+        v_hier_concat_expr := '';
+        v_hier_validation_expr := '';
+        v_hier_allornone_check := '';
+        v_label_index := 0;
+        
+        FOREACH v_label IN ARRAY v_labels_array
+        LOOP
+            -- Build column references
+            IF v_label_index > 0 THEN
+                v_hier_concat_expr := v_hier_concat_expr || ' || ''.'' || ';
+                v_hier_allornone_check := v_hier_allornone_check || ' OR ';
+            END IF;
+            
+            v_hier_concat_expr := v_hier_concat_expr || format('COALESCE(NULLIF(dt.%I, ''''), '''')', 
+                v_hier_type.code || '_' || v_label || '_raw');
+            
+            v_hier_allornone_check := v_hier_allornone_check || format('NULLIF(dt.%I, '''') IS NOT NULL', 
+                v_hier_type.code || '_' || v_label || '_raw');
+            
+            -- Build validation expression for this component
+            IF v_label_index > 0 THEN
+                v_hier_validation_expr := v_hier_validation_expr || ' || ';
+            END IF;
+            v_hier_validation_expr := v_hier_validation_expr || format($val$
+                CASE 
+                    WHEN NULLIF(dt.%1$I, '') IS NOT NULL AND dt.%1$I !~ '^[A-Za-z0-9_]+$' 
+                    THEN jsonb_build_object(%2$L, 'Invalid characters in %3$s (allowed: A-Z, a-z, 0-9, _)')
+                    ELSE '{}'::jsonb
+                END
+            $val$, 
+                v_hier_type.code || '_' || v_label || '_raw',  -- %1$I column name
+                v_hier_type.code || '_' || v_label || '_raw',  -- %2$L error key
+                v_label                                         -- %3$s label name for message
+            );
+            
+            v_label_index := v_label_index + 1;
+        END LOOP;
+        
+        -- Insert hierarchical validation results
+        -- This handles:
+        -- 1. All-or-nothing validation
+        -- 2. Character validation for each component
+        -- 3. Path concatenation
+        v_sql := format($hier_val$
+            INSERT INTO temp_hierarchical_validation (data_row_id, type_code, error_jsonb, combined_path)
+            SELECT
+                dt.row_id,
+                %1$L AS type_code,
+                -- Error aggregation
+                CASE
+                    -- All-or-nothing check: if some components present but not all
+                    WHEN (%2$s) AND NOT (
+                        -- Check ALL components are present
+                        %3$s
+                    ) THEN jsonb_build_object(%4$L, 'Hierarchical identifier requires all components: ' || %5$L)
+                    -- Character validation errors
+                    WHEN (%2$s) THEN (%6$s)
+                    ELSE '{}'::jsonb
+                END AS error_jsonb,
+                -- Combined path (only if all components present and valid)
+                CASE
+                    WHEN (%3$s) THEN %7$s
+                    ELSE NULL
+                END AS combined_path
+            FROM public.%8$I dt
+            JOIN temp_relevant_rows tr ON tr.data_row_id = dt.row_id
+            WHERE (%2$s)  -- At least one component is provided
+        $hier_val$,
+            v_hier_type.code,              -- %1$L type code
+            v_hier_allornone_check,        -- %2$s any component present check
+            replace(v_hier_allornone_check, ' OR ', ' AND '),  -- %3$s all components present check
+            v_hier_type.code || '_' || v_labels_array[1] || '_raw',  -- %4$L first column for error key
+            array_to_string(v_labels_array, ', '),  -- %5$L labels list for error message
+            v_hier_validation_expr,        -- %6$s character validation
+            v_hier_concat_expr,            -- %7$s path concatenation
+            v_data_table_name              -- %8$I data table name
+        );
+        
+        RAISE DEBUG '[Job %] analyse_external_idents: Hierarchical validation SQL for type "%": %', p_job_id, v_hier_type.code, v_sql;
+        EXECUTE v_sql;
+        
+        -- Add to unpivot SQL for hierarchical types (using the combined path)
+        IF v_add_separator THEN v_unpivot_sql := v_unpivot_sql || ' UNION ALL '; END IF;
+        v_unpivot_sql := v_unpivot_sql || format(
+            $$SELECT 
+                thv.data_row_id AS row_id,
+                %1$L AS source_column_name_in_data_table,
+                %2$L AS ident_type_code_to_join_on,
+                thv.combined_path AS ident_value,
+                TRUE AS is_hierarchical
+            FROM temp_hierarchical_validation thv
+            WHERE thv.type_code = %2$L
+              AND thv.combined_path IS NOT NULL
+              AND (thv.error_jsonb IS NULL OR thv.error_jsonb = '{}'::jsonb)$$,
+            v_path_col_name,    -- %1$L source column name (the path column)
+            v_hier_type.code    -- %2$L type code
+        );
+        v_add_separator := TRUE;
+        
+        -- Update the _data table with the computed path for valid hierarchical identifiers
+        v_sql := format($path_update$
+            UPDATE public.%1$I dt SET
+                %2$I = thv.combined_path::ltree
+            FROM temp_hierarchical_validation thv
+            WHERE dt.row_id = thv.data_row_id
+              AND thv.type_code = %3$L
+              AND thv.combined_path IS NOT NULL
+              AND (thv.error_jsonb IS NULL OR thv.error_jsonb = '{}'::jsonb)
+        $path_update$,
+            v_data_table_name,  -- %1$I
+            v_path_col_name,    -- %2$I
+            v_hier_type.code    -- %3$L
+        );
+        RAISE DEBUG '[Job %] analyse_external_idents: Updating path column for type "%": %', p_job_id, v_hier_type.code, v_sql;
+        EXECUTE v_sql;
+    END LOOP;
+
     IF v_unpivot_sql = '' THEN
-        RAISE DEBUG '[Job %] analyse_external_idents: No external ident values found in batch (e.g. all source columns were NULL, or no relevant columns in snapshot for external_idents step). Skipping further analysis.', p_job_id;
+        RAISE DEBUG '[Job %] analyse_external_idents: No external ident values found in batch. Skipping further analysis.', p_job_id;
         v_sql := format($$
             UPDATE public.%1$I dt SET
                 state = %2$L,
@@ -191,51 +381,79 @@ BEGIN
                 action = %3$L,
                 last_completed_priority = %4$L
             WHERE EXISTS (SELECT 1 FROM temp_relevant_rows tr WHERE tr.data_row_id = dt.row_id);
-        $$, v_data_table_name /* %1$I */, 'error' /* %2$L */, 'skip'::public.import_row_action_type /* %3$L */, v_step.priority /* %4$L */);
+        $$, v_data_table_name, 'error', 'skip'::public.import_row_action_type, v_step.priority);
         RAISE DEBUG '[Job %] analyse_external_idents: Marking rows as error (no identifiers) with SQL: %', p_job_id, v_sql;
         EXECUTE v_sql;
         GET DIAGNOSTICS v_error_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] analyse_external_idents (Batch): Finished analysis for batch. Errors: % (all rows missing identifiers or mappings for external_idents step)', p_job_id, v_error_count;
-        IF to_regclass('pg_temp.temp_unpivoted_idents') IS NOT NULL THEN DROP TABLE temp_unpivoted_idents; END IF;
-        IF to_regclass('pg_temp.temp_relevant_rows') IS NOT NULL THEN DROP TABLE temp_relevant_rows; END IF;
+        RAISE DEBUG '[Job %] analyse_external_idents (Batch): Finished analysis for batch. Errors: % (all rows missing identifiers)', p_job_id, v_error_count;
         RETURN;
     END IF;
 
-    -- v_cross_type_conflict_check_sql is removed as this logic is now embedded into the
-    -- temp_unpivoted_idents population directly using is_cross_type_conflict and conflicting_unit_jsonb.
-
-    -- Create a temp table for the raw, unpivoted identifiers first.
-    CREATE TEMP TABLE temp_raw_unpivoted_idents (
-        data_row_id INT,
-        source_ident_code TEXT,
-        ident_type_code TEXT,
-        ident_value TEXT
-    ) ON COMMIT DROP;
-
-    v_sql := format('INSERT INTO temp_raw_unpivoted_idents %s', v_unpivot_sql);
+    -- Populate raw unpivoted idents
+    v_sql := format('INSERT INTO temp_raw_unpivoted_idents (data_row_id, source_ident_code, ident_type_code, ident_value, is_hierarchical) %s', v_unpivot_sql);
     RAISE DEBUG '[Job %] analyse_external_idents: Populating temp_raw_unpivoted_idents with SQL: %', p_job_id, v_sql;
     EXECUTE v_sql;
 
     -- Now, perform the lookup on only the unique identifiers from the batch.
+    -- For regular identifiers: lookup by ident field
+    -- For hierarchical identifiers: lookup by idents field (ltree)
     v_sql := format($$
         WITH distinct_idents AS (
-            SELECT DISTINCT ident_type_code, ident_value
+            SELECT DISTINCT ident_type_code, ident_value, is_hierarchical
             FROM temp_raw_unpivoted_idents
+        ),
+        -- Pre-validate hierarchical ident values before attempting ltree cast
+        distinct_idents_with_ltree AS (
+            SELECT 
+                di.*,
+                -- Only generate ltree value if it's hierarchical AND valid format
+                CASE 
+                    WHEN di.is_hierarchical 
+                         AND NULLIF(di.ident_value, '') IS NOT NULL
+                         AND di.ident_value ~ '^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)*$'
+                    THEN di.ident_value::ltree
+                    ELSE NULL
+                END AS ident_value_ltree
+            FROM distinct_idents di
         ),
         resolved_distinct_idents AS (
             SELECT
                 di.ident_type_code,
                 di.ident_value,
+                di.is_hierarchical,
                 xit.id AS ident_type_id,
-                xi.legal_unit_id AS resolved_lu_id,
-                xi.establishment_id AS resolved_est_id,
-                (conflicting_est_table.legal_unit_id IS NOT NULL) AS conflicting_est_is_formal
-            FROM distinct_idents di
+                -- For regular: lookup by ident. For hierarchical: lookup by idents
+                CASE 
+                    WHEN di.is_hierarchical THEN xi_hier.legal_unit_id
+                    ELSE xi_reg.legal_unit_id
+                END AS resolved_lu_id,
+                CASE 
+                    WHEN di.is_hierarchical THEN xi_hier.establishment_id
+                    ELSE xi_reg.establishment_id
+                END AS resolved_est_id,
+                CASE
+                    WHEN di.is_hierarchical THEN (conflicting_est_hier.legal_unit_id IS NOT NULL)
+                    ELSE (conflicting_est_reg.legal_unit_id IS NOT NULL)
+                END AS conflicting_est_is_formal
+            FROM distinct_idents_with_ltree di
             LEFT JOIN public.external_ident_type_active xit ON xit.code = di.ident_type_code
-            LEFT JOIN public.external_ident xi ON xi.type_id = xit.id AND xi.ident = di.ident_value
-            LEFT JOIN public.establishment conflicting_est_table ON conflicting_est_table.id = xi.establishment_id
+            -- Regular identifier lookup
+            LEFT JOIN public.external_ident xi_reg 
+                ON NOT di.is_hierarchical 
+                AND xi_reg.type_id = xit.id 
+                AND xi_reg.ident = di.ident_value
+            LEFT JOIN public.establishment conflicting_est_reg 
+                ON conflicting_est_reg.id = xi_reg.establishment_id
+            -- Hierarchical identifier lookup (using pre-validated ltree)
+            LEFT JOIN public.external_ident xi_hier 
+                ON di.is_hierarchical 
+                AND xi_hier.type_id = xit.id 
+                AND di.ident_value_ltree IS NOT NULL
+                AND xi_hier.idents = di.ident_value_ltree
+            LEFT JOIN public.establishment conflicting_est_hier 
+                ON conflicting_est_hier.id = xi_hier.establishment_id
         )
-        INSERT INTO temp_unpivoted_idents (data_row_id, ident_type_code, source_ident_code, ident_value, ident_type_id, resolved_lu_id, resolved_est_id, is_cross_type_conflict, conflicting_unit_jsonb, conflicting_est_is_formal)
+        INSERT INTO temp_unpivoted_idents (data_row_id, ident_type_code, source_ident_code, ident_value, ident_type_id, resolved_lu_id, resolved_est_id, is_cross_type_conflict, conflicting_unit_jsonb, conflicting_est_is_formal, is_hierarchical)
         SELECT
             up.data_row_id,
             up.ident_type_code,
@@ -267,9 +485,13 @@ BEGIN
                     END
                 ELSE NULL
             END AS conflicting_unit_jsonb,
-            COALESCE(rdi.conflicting_est_is_formal, FALSE)
+            COALESCE(rdi.conflicting_est_is_formal, FALSE),
+            up.is_hierarchical
         FROM temp_raw_unpivoted_idents up
-        LEFT JOIN resolved_distinct_idents rdi ON up.ident_type_code = rdi.ident_type_code AND up.ident_value = rdi.ident_value;
+        LEFT JOIN resolved_distinct_idents rdi 
+            ON up.ident_type_code = rdi.ident_type_code 
+            AND up.ident_value = rdi.ident_value
+            AND up.is_hierarchical = rdi.is_hierarchical;
     $$, v_job_mode);
     RAISE DEBUG '[Job %] analyse_external_idents: Populating temp_unpivoted_idents with resolved data: %', p_job_id, v_sql;
     EXECUTE v_sql;
@@ -279,8 +501,32 @@ BEGIN
 
     DROP TABLE temp_raw_unpivoted_idents;
 
-    -- Step 1b: Detect duplicate identifiers across multiple rows
-    -- Store mapping of (data_row_id, source_ident_code) -> duplicate info
+    -- Step 1c: Compute Entity Signatures (EARLY)
+    -- We need entity signatures early to distinguish between "duplicate rows" (error)
+    -- and "multiple rows for same entity" (temporal data/valid).
+    CREATE TEMP TABLE temp_entity_signatures (
+        data_row_id INTEGER PRIMARY KEY,
+        entity_signature JSONB
+    ) ON COMMIT DROP;
+
+    v_sql := $$
+        INSERT INTO temp_entity_signatures (data_row_id, entity_signature)
+        SELECT 
+            tr.data_row_id,
+            COALESCE(
+                jsonb_object_agg(tui.ident_type_code, tui.ident_value) 
+                FILTER (WHERE tui.ident_value IS NOT NULL),
+                '{}'::jsonb
+            ) as entity_signature
+        FROM temp_relevant_rows tr
+        LEFT JOIN temp_unpivoted_idents tui ON tui.data_row_id = tr.data_row_id
+        WHERE tui.ident_type_id IS NOT NULL
+        GROUP BY tr.data_row_id;
+    $$;
+    RAISE DEBUG '[Job %] analyse_external_idents: Computing entity signatures with SQL: %', p_job_id, v_sql;
+    EXECUTE v_sql;
+
+    -- Step 1d: Detect duplicate identifiers across multiple rows
     IF to_regclass('pg_temp.temp_duplicate_idents') IS NOT NULL THEN
         DROP TABLE temp_duplicate_idents;
     END IF;
@@ -294,6 +540,8 @@ BEGIN
         PRIMARY KEY (data_row_id, source_ident_code)
     ) ON COMMIT DROP;
 
+    -- Check for duplicate identifiers across multiple rows.
+    -- All identifier types (regular and hierarchical) are checked for duplicates.
     v_sql := $$
         WITH DuplicateGroups AS (
             SELECT
@@ -301,31 +549,26 @@ BEGIN
                 tui.ident_value,
                 array_agg(DISTINCT tui.data_row_id ORDER BY tui.data_row_id) AS affected_row_ids,
                 COUNT(DISTINCT tui.data_row_id) AS row_count,
-                -- Check if all rows resolve to the same entity
                 COUNT(DISTINCT COALESCE(tui.resolved_lu_id, 0)) AS distinct_lu_count,
-                COUNT(DISTINCT COALESCE(tui.resolved_est_id, 0)) AS distinct_est_count
+                COUNT(DISTINCT COALESCE(tui.resolved_est_id, 0)) AS distinct_est_count,
+                COUNT(DISTINCT tes.entity_signature) FILTER (WHERE tui.resolved_lu_id IS NULL AND tui.resolved_est_id IS NULL) AS distinct_new_entity_signatures
             FROM temp_unpivoted_idents tui
+            JOIN public.external_ident_type_active xit ON xit.id = tui.ident_type_id
+            LEFT JOIN temp_entity_signatures tes ON tes.data_row_id = tui.data_row_id
             WHERE tui.ident_type_id IS NOT NULL
               AND tui.ident_value IS NOT NULL
               AND tui.is_cross_type_conflict IS FALSE
             GROUP BY tui.ident_type_code, tui.ident_value
             HAVING COUNT(DISTINCT tui.data_row_id) > 1
-               -- Only flag as duplicate if rows represent DIFFERENT entities:
-               -- - Different existing entities (different resolved_lu_id or resolved_est_id)
-               -- - Mix of new and existing entities (potential conflict)
-               -- NOTE: Multiple NEW entities with same identifier are NOT flagged here.
-               --       They will be grouped by entity_signature, so if they're the same entity
-               --       (temporal data), they share the same founding_row_id and are fine.
                AND (
-                   -- Case 1: Different existing legal units
                    COUNT(DISTINCT tui.resolved_lu_id) FILTER (WHERE tui.resolved_lu_id IS NOT NULL) > 1
                    OR 
-                   -- Case 2: Different existing establishments
                    COUNT(DISTINCT tui.resolved_est_id) FILTER (WHERE tui.resolved_est_id IS NOT NULL) > 1
                    OR 
-                   -- Case 3: Mix of new and existing entities (one tries to create, another updates)
                    (COUNT(*) FILTER (WHERE tui.resolved_lu_id IS NULL AND tui.resolved_est_id IS NULL) > 0
                     AND COUNT(*) FILTER (WHERE tui.resolved_lu_id IS NOT NULL OR tui.resolved_est_id IS NOT NULL) > 0)
+                   OR
+                   (COUNT(DISTINCT tes.entity_signature) FILTER (WHERE tui.resolved_lu_id IS NULL AND tui.resolved_est_id IS NULL) > 1)
                )
         )
         INSERT INTO temp_duplicate_idents (data_row_id, source_ident_code, ident_type_code, ident_value, affected_row_ids, row_count)
@@ -381,8 +624,8 @@ BEGIN
             ORDER BY tui.data_row_id, tui.source_ident_code
             LIMIT 50
         LOOP
-            RAISE DEBUG '[Job %]   TUI: data_row_id=%, source_ident_code=%, ident_value=%, ident_type_id=%, resolved_lu_id=%, resolved_est_id=%',
-                        p_job_id, tui_rec.data_row_id, tui_rec.source_ident_code, tui_rec.ident_value, tui_rec.ident_type_id, tui_rec.resolved_lu_id, tui_rec.resolved_est_id;
+            RAISE DEBUG '[Job %]   TUI: data_row_id=%, source_ident_code=%, ident_value=%, ident_type_id=%, resolved_lu_id=%, resolved_est_id=%, is_hierarchical=%',
+                        p_job_id, tui_rec.data_row_id, tui_rec.source_ident_code, tui_rec.ident_value, tui_rec.ident_type_id, tui_rec.resolved_lu_id, tui_rec.resolved_est_id, tui_rec.is_hierarchical;
         END LOOP;
     END;
 
@@ -440,7 +683,19 @@ BEGIN
     IF to_regclass('pg_temp.temp_ordered_batch_entities') IS NOT NULL THEN DROP TABLE temp_ordered_batch_entities; END IF;
     v_sql := format($$
         CREATE TEMP TABLE temp_ordered_batch_entities ON COMMIT DROP AS
-        WITH RowChecks AS (
+        WITH HierarchicalErrors AS (
+            -- Aggregate hierarchical validation errors per row
+            SELECT 
+                data_row_id,
+                COALESCE(
+                    jsonb_object_agg(k, v) FILTER (WHERE error_jsonb IS NOT NULL AND error_jsonb != '{}'::jsonb),
+                    '{}'::jsonb
+                ) AS hier_errors
+            FROM temp_hierarchical_validation
+            CROSS JOIN LATERAL jsonb_each_text(COALESCE(error_jsonb, '{}'::jsonb)) AS e(k, v)
+            GROUP BY data_row_id
+        ),
+        RowChecks AS (
             SELECT
                 orig.data_row_id,
                 dt.valid_from,
@@ -456,10 +711,12 @@ BEGIN
                 COALESCE(ai.entity_signature, '{}'::jsonb) AS entity_signature,
                 ai.entity_signature_hash,
                 ai.cross_type_conflict_errors,
-                (SELECT array_agg(value->>'column_name') FROM jsonb_array_elements(%2$L) value) as all_source_input_ident_codes_for_step
+                COALESCE(he.hier_errors, '{}'::jsonb) AS hier_errors,
+                (SELECT array_agg(value->>'column_name') FROM jsonb_array_elements(%2$L) value WHERE value->>'purpose' = 'source_input') as all_source_input_ident_codes_for_step
             FROM temp_relevant_rows orig
             JOIN public.%1$I dt ON orig.data_row_id = dt.row_id
             LEFT JOIN temp_aggregated_idents ai ON orig.data_row_id = ai.data_row_id
+            LEFT JOIN HierarchicalErrors he ON orig.data_row_id = he.data_row_id
         )
         SELECT
             rc.*,
@@ -538,11 +795,14 @@ BEGIN
     IF to_regclass('pg_temp.temp_propagated_errors') IS NOT NULL THEN DROP TABLE temp_propagated_errors; END IF;
     v_sql := format($$
         CREATE TEMP TABLE temp_propagated_errors ON COMMIT DROP AS
+        -- PERFORMANCE: Most CTEs have been moved to temp tables (Steps 2a-2c) to prevent
+        -- PostgreSQL query planner from re-evaluating complex expressions.
+        -- Only ExistingIdents remains as a CTE since it references temp_ordered_batch_entities.
         WITH ExistingIdents AS (
             SELECT
                 de.final_lu_id,
                 de.final_est_id,
-                jsonb_object_agg(xit.code, ei.ident) as idents
+                jsonb_object_agg(xit.code, COALESCE(ei.ident, ei.idents::text)) as idents
             FROM (
                 SELECT DISTINCT final_lu_id, final_est_id
                 FROM temp_ordered_batch_entities
@@ -605,6 +865,7 @@ BEGIN
                         '{}'::jsonb
                     ) ||
                     COALESCE(obe.cross_type_conflict_errors, '{}'::jsonb) ||
+                    COALESCE(obe.hier_errors, '{}'::jsonb) ||
                     COALESCE(
                         (SELECT jsonb_object_agg(
                             tdi.source_ident_code,
@@ -639,18 +900,18 @@ BEGIN
             SELECT
                 awo.*,
                 CASE
-                    WHEN awo.final_lu_id IS NULL AND awo.final_est_id IS NULL THEN -- Entity is new to the DB
+                    WHEN awo.final_lu_id IS NULL AND awo.final_est_id IS NULL THEN
                         CASE
                             WHEN awo.rn_in_batch_for_entity = 1 THEN 'insert'::public.import_row_operation_type
-                            ELSE -- Subsequent row for a new entity within this batch
+                            ELSE
                                 CASE
-                                    WHEN %2$L::public.import_strategy IN ('insert_or_update', 'update_only') THEN 'update'::public.import_row_operation_type -- %2$L is v_strategy
+                                    WHEN %2$L::public.import_strategy IN ('insert_or_update', 'update_only') THEN 'update'::public.import_row_operation_type
                                     ELSE 'replace'::public.import_row_operation_type
                                 END
                         END
-                    ELSE -- Entity already exists in the DB
+                    ELSE
                         CASE
-                            WHEN %2$L::public.import_strategy IN ('insert_or_update', 'update_only') THEN 'update'::public.import_row_operation_type -- %2$L is v_strategy
+                            WHEN %2$L::public.import_strategy IN ('insert_or_update', 'update_only') THEN 'update'::public.import_row_operation_type
                             ELSE 'replace'::public.import_row_operation_type
                         END
                 END as operation,
@@ -675,31 +936,26 @@ BEGIN
         SELECT
             pe.data_row_id,
             CASE
-                -- Case 1: This is a new entity, and some row in the entity has an error. Propagate it to all rows for that entity.
                 WHEN pe.entity_has_error AND pe.final_lu_id IS NULL AND pe.final_est_id IS NULL THEN
                     CASE
-                        -- Subcase 1.1: This specific row has an error. Use its own error.
                         WHEN pe.final_error_jsonb != '{}'::jsonb THEN pe.final_error_jsonb
-                        -- Subcase 1.2: This specific row does NOT have an error, but another row in the same entity does. Propagate.
                         ELSE jsonb_build_object(
                                  COALESCE((SELECT value->>'column_name' FROM jsonb_array_elements(%4$L) value WHERE value->>'purpose' = 'source_input' LIMIT 1), 'propagated_error'),
                                  'An error on a related new entity row caused this row to be skipped. Source error row(s): ' || array_to_string(pe.entity_error_source_row_ids, ', ')
                              )
                     END
-                -- Case 2: This is an existing entity, or a new entity with no errors. Just use its own error jsonb.
                 ELSE pe.final_error_jsonb
             END as error_jsonb,
             pe.final_lu_id AS resolved_lu_id,
             pe.final_est_id AS resolved_est_id,
             pe.operation,
             CASE
-                -- Note: action from previous step is not available in this CTE, will be merged in UPDATE statement
-                WHEN pe.entity_has_error THEN 'skip'::public.import_row_action_type -- Priority 1: Entity-wide Error
-                WHEN %2$L::public.import_strategy = 'insert_only' AND pe.operation != 'insert'::public.import_row_operation_type THEN 'skip'::public.import_row_action_type -- %2$L is v_strategy
-                WHEN %2$L::public.import_strategy = 'replace_only' AND pe.operation != 'replace'::public.import_row_operation_type THEN 'skip'::public.import_row_action_type -- %2$L is v_strategy
-                WHEN %2$L::public.import_strategy = 'update_only' AND pe.operation != 'update'::public.import_row_operation_type THEN 'skip'::public.import_row_action_type -- %2$L is v_strategy
+                WHEN pe.entity_has_error THEN 'skip'::public.import_row_action_type
+                WHEN %2$L::public.import_strategy = 'insert_only' AND pe.operation != 'insert'::public.import_row_operation_type THEN 'skip'::public.import_row_action_type
+                WHEN %2$L::public.import_strategy = 'replace_only' AND pe.operation != 'replace'::public.import_row_operation_type THEN 'skip'::public.import_row_action_type
+                WHEN %2$L::public.import_strategy = 'update_only' AND pe.operation != 'update'::public.import_row_operation_type THEN 'skip'::public.import_row_action_type
                 ELSE 'use'::public.import_row_action_type
-            END as action,  -- Will be merged with existing action in UPDATE to preserve 'skip' from previous steps
+            END as action,
             pe.actual_founding_row_id AS derived_founding_row_id
         FROM PropagatedErrors pe;
     $$,
@@ -720,7 +976,7 @@ BEGIN
         state = CASE WHEN ru.error_jsonb IS NOT NULL AND ru.error_jsonb != '{}'::jsonb THEN 'error'::public.import_data_state ELSE 'analysing'::public.import_data_state END,
         errors = CASE WHEN ru.error_jsonb IS NOT NULL AND ru.error_jsonb != '{}'::jsonb THEN dt.errors || ru.error_jsonb ELSE dt.errors - %1$L::TEXT[] END,
         action = CASE 
-            WHEN dt.action = 'skip'::public.import_row_action_type THEN 'skip'::public.import_row_action_type -- Preserve skip from previous steps
+            WHEN dt.action = 'skip'::public.import_row_action_type THEN 'skip'::public.import_row_action_type
             ELSE ru.action 
         END,
         operation = ru.operation,
@@ -771,16 +1027,17 @@ EXCEPTION WHEN OTHERS THEN
     -- Mark the job itself as failed
     UPDATE public.import_job
     SET error = jsonb_build_object('analyse_external_idents_error', SQLERRM),
-        state = 'finished' -- Or a new 'failed' state
+        state = 'finished'
     WHERE id = p_job_id;
     RAISE DEBUG '[Job %] analyse_external_idents: Marked job as failed due to error: %', p_job_id, SQLERRM;
-    RAISE; -- Re-raise the exception
+    RAISE;
 END;
 $analyse_external_idents$;
 
 
 -- Set-based helper procedure to upsert external identifiers for a batch of units.
 -- This is called by other process_* procedures after the main unit ID has been assigned.
+-- Supports both regular (ident field) and hierarchical (idents field) identifier types.
 CREATE OR REPLACE PROCEDURE import.helper_process_external_idents(
     p_job_id INT,
     p_batch_row_id_ranges int4multirange,
@@ -819,94 +1076,172 @@ BEGIN
         RETURN;
     END IF;
 
-    -- Get relevant source_input columns for the external_idents step from snapshot
+    -- Get relevant columns for the external_idents step from snapshot
     SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = 'external_idents';
     SELECT jsonb_agg(value) INTO v_ident_data_cols
     FROM jsonb_array_elements(v_job.definition_snapshot->'import_data_column_list') value
-    WHERE (value->>'step_id')::int = v_step.id AND value->>'purpose' = 'source_input';
+    WHERE (value->>'step_id')::int = v_step.id 
+      AND value->>'purpose' IN ('source_input', 'internal');
 
     IF v_ident_data_cols IS NULL OR jsonb_array_length(v_ident_data_cols) = 0 THEN
-        RAISE DEBUG '[Job %] helper_process_external_idents: No external ident source_input columns found for step. Skipping.', p_job_id;
+        RAISE DEBUG '[Job %] helper_process_external_idents: No external ident columns found for step. Skipping.', p_job_id;
         RETURN;
     END IF;
 
-    -- Loop through each identifier type found in the data columns for this step
-    FOR v_col_rec IN
-        SELECT
-            value->>'column_name' as raw_column_name,
-            replace(value->>'column_name', '_raw', '') as ident_code
-        FROM jsonb_array_elements(v_ident_data_cols) value
+    -- ============================================================================
+    -- Process REGULAR identifiers (single column per type, uses ident field)
+    -- ============================================================================
+    FOR v_ident_type_rec IN
+        SELECT eit.id, eit.code, eit.shape
+        FROM public.external_ident_type_active eit
+        WHERE eit.shape = 'regular'
+        ORDER BY eit.priority
     LOOP
-        -- Find the corresponding external_ident_type record
-        SELECT * INTO v_ident_type_rec FROM public.external_ident_type_active WHERE code = v_col_rec.ident_code;
-        IF NOT FOUND THEN
-            RAISE DEBUG '[Job %] helper_process_external_idents: Skipping source column ''%'' as its base code ''%'' does not correspond to an active external_ident_type.', p_job_id, v_col_rec.raw_column_name, v_col_rec.ident_code;
+        -- Check if we have a column for this type
+        IF NOT EXISTS (
+            SELECT 1 FROM jsonb_array_elements(v_ident_data_cols) value
+            WHERE value->>'column_name' = v_ident_type_rec.code || '_raw'
+        ) THEN
             CONTINUE;
         END IF;
 
-        RAISE DEBUG '[Job %] helper_process_external_idents: Processing identifier type: % (column: %)', p_job_id, v_ident_type_rec.code, v_col_rec.raw_column_name;
+        RAISE DEBUG '[Job %] helper_process_external_idents: Processing regular identifier type: %', p_job_id, v_ident_type_rec.code;
         
-        -- Dynamically build and execute the MERGE statement for this identifier type.
-        -- Dynamically build and execute the MERGE statement for this identifier type.
         v_sql := format(
-            $SQL$
-            MERGE INTO public.external_ident AS t
-            USING (
-                -- This subquery selects the first occurrence of each unique identifier value
-                -- for each conceptual entity within the batch. This prevents a MERGE cardinality
-                -- violation where multiple source rows would try to update the same target identifier.
-                SELECT DISTINCT ON (dt.founding_row_id, dt.%3$I)
-                    dt.founding_row_id,
-                    dt.%1$I AS unit_id,
-                    dt.edit_by_user_id,
-                    dt.edit_at,
-                    dt.edit_comment,
-                    %2$L::integer AS type_id,
-                    dt.%3$I AS ident
-                FROM public.%4$I dt
-                WHERE dt.row_id <@ $1
-                  AND dt.action = 'use'
-                  AND dt.%1$I IS NOT NULL
-                  AND NULLIF(dt.%3$I, '') IS NOT NULL
-                -- ORDER BY is crucial for DISTINCT ON to pick the first row in chronological order.
-                ORDER BY dt.founding_row_id, dt.%3$I, dt.row_id
-            ) AS s
-            ON (t.type_id = s.type_id AND t.ident = s.ident)
-            WHEN MATCHED AND (
-                t.legal_unit_id IS DISTINCT FROM (CASE WHEN %5$L = 'legal_unit' THEN s.unit_id ELSE NULL END) OR
-                t.establishment_id IS DISTINCT FROM (CASE WHEN %5$L = 'establishment' THEN s.unit_id ELSE NULL END)
-            ) THEN
-                UPDATE SET
-                    legal_unit_id = CASE WHEN %5$L = 'legal_unit' THEN s.unit_id ELSE NULL END,
-                    establishment_id = CASE WHEN %5$L = 'establishment' THEN s.unit_id ELSE NULL END,
-                    enterprise_id = NULL,
-                    enterprise_group_id = NULL,
-                    edit_by_user_id = s.edit_by_user_id,
-                    edit_at = s.edit_at,
-                    edit_comment = s.edit_comment
-            WHEN NOT MATCHED THEN
-                INSERT (legal_unit_id, establishment_id, type_id, ident, edit_by_user_id, edit_at, edit_comment)
-                VALUES (
-                    CASE WHEN %5$L = 'legal_unit' THEN s.unit_id ELSE NULL END,
-                    CASE WHEN %5$L = 'establishment' THEN s.unit_id ELSE NULL END,
-                    s.type_id,
-                    s.ident,
-                    s.edit_by_user_id,
-                    s.edit_at,
-                    s.edit_comment
-                );
-            $SQL$,
-            v_unit_id_col_name,           -- %1$I
-            v_ident_type_rec.id,          -- %2$L
-            v_col_rec.raw_column_name,    -- %3$I
-            v_data_table_name,            -- %4$I
-            v_unit_type                   -- %5$L
-        );
+                $SQL$
+                MERGE INTO public.external_ident AS t
+                USING (
+                    SELECT DISTINCT ON (dt.founding_row_id, dt.%3$I)
+                        dt.founding_row_id,
+                        dt.%1$I AS unit_id,
+                        dt.edit_by_user_id,
+                        dt.edit_at,
+                        dt.edit_comment,
+                        %2$L::integer AS type_id,
+                        dt.%3$I AS ident_value
+                    FROM public.%4$I dt
+                    WHERE dt.row_id <@ $1
+                      AND dt.action = 'use'
+                      AND dt.%1$I IS NOT NULL
+                      AND NULLIF(dt.%3$I, '') IS NOT NULL
+                    ORDER BY dt.founding_row_id, dt.%3$I, dt.row_id
+                ) AS s
+                ON (t.type_id = s.type_id AND t.ident = s.ident_value)
+                WHEN MATCHED AND (
+                    t.legal_unit_id IS DISTINCT FROM (CASE WHEN %5$L = 'legal_unit' THEN s.unit_id ELSE NULL END) OR
+                    t.establishment_id IS DISTINCT FROM (CASE WHEN %5$L = 'establishment' THEN s.unit_id ELSE NULL END)
+                ) THEN
+                    UPDATE SET
+                        legal_unit_id = CASE WHEN %5$L = 'legal_unit' THEN s.unit_id ELSE NULL END,
+                        establishment_id = CASE WHEN %5$L = 'establishment' THEN s.unit_id ELSE NULL END,
+                        enterprise_id = NULL,
+                        enterprise_group_id = NULL,
+                        edit_by_user_id = s.edit_by_user_id,
+                        edit_at = s.edit_at,
+                        edit_comment = s.edit_comment
+                WHEN NOT MATCHED THEN
+                    INSERT (legal_unit_id, establishment_id, type_id, ident, edit_by_user_id, edit_at, edit_comment)
+                    VALUES (
+                        CASE WHEN %5$L = 'legal_unit' THEN s.unit_id ELSE NULL END,
+                        CASE WHEN %5$L = 'establishment' THEN s.unit_id ELSE NULL END,
+                        s.type_id,
+                        s.ident_value,
+                        s.edit_by_user_id,
+                        s.edit_at,
+                        s.edit_comment
+                    );
+                $SQL$,
+                v_unit_id_col_name,                      -- %1$I
+                v_ident_type_rec.id,                    -- %2$L
+                v_ident_type_rec.code || '_raw',        -- %3$I
+                v_data_table_name,                      -- %4$I
+                v_unit_type                             -- %5$L
+            );
         
-        RAISE DEBUG '[Job %] helper_process_external_idents: Merging with SQL: %', p_job_id, v_sql;
+        RAISE DEBUG '[Job %] helper_process_external_idents: Regular MERGE SQL: %', p_job_id, v_sql;
         EXECUTE v_sql USING p_batch_row_id_ranges;
         GET DIAGNOSTICS v_rows_affected = ROW_COUNT;
-        RAISE DEBUG '[Job %] helper_process_external_idents: Merged % rows for identifier type %.', p_job_id, v_rows_affected, v_ident_type_rec.code;
+        RAISE DEBUG '[Job %] helper_process_external_idents: Merged % rows for regular identifier type %.', p_job_id, v_rows_affected, v_ident_type_rec.code;
+    END LOOP;
+
+    -- ============================================================================
+    -- Process HIERARCHICAL identifiers (uses idents field with ltree)
+    -- ============================================================================
+    FOR v_ident_type_rec IN
+        SELECT eit.id, eit.code, eit.shape, eit.labels
+        FROM public.external_ident_type_active eit
+        WHERE eit.shape = 'hierarchical'
+          AND eit.labels IS NOT NULL
+        ORDER BY eit.priority
+    LOOP
+        -- Check if we have the path column for this type
+        IF NOT EXISTS (
+            SELECT 1 FROM jsonb_array_elements(v_ident_data_cols) value
+            WHERE value->>'column_name' = v_ident_type_rec.code || '_path'
+        ) THEN
+            CONTINUE;
+        END IF;
+
+        RAISE DEBUG '[Job %] helper_process_external_idents: Processing hierarchical identifier type: % (path column: %_path)', 
+            p_job_id, v_ident_type_rec.code, v_ident_type_rec.code;
+        
+        -- For hierarchical identifiers, we use the {code}_path column which contains the ltree value
+        -- The MERGE matches on t.idents = s.idents_value (both ltree)
+        v_sql := format(
+                $SQL$
+                MERGE INTO public.external_ident AS t
+                USING (
+                    SELECT DISTINCT ON (dt.founding_row_id, dt.%3$I)
+                        dt.founding_row_id,
+                        dt.%1$I AS unit_id,
+                        dt.edit_by_user_id,
+                        dt.edit_at,
+                        dt.edit_comment,
+                        %2$L::integer AS type_id,
+                        dt.%3$I AS idents_value
+                    FROM public.%4$I dt
+                    WHERE dt.row_id <@ $1
+                      AND dt.action = 'use'
+                      AND dt.%1$I IS NOT NULL
+                      AND dt.%3$I IS NOT NULL
+                    ORDER BY dt.founding_row_id, dt.%3$I, dt.row_id
+                ) AS s
+                ON (t.type_id = s.type_id AND t.idents = s.idents_value)
+                WHEN MATCHED AND (
+                    t.legal_unit_id IS DISTINCT FROM (CASE WHEN %5$L = 'legal_unit' THEN s.unit_id ELSE NULL END) OR
+                    t.establishment_id IS DISTINCT FROM (CASE WHEN %5$L = 'establishment' THEN s.unit_id ELSE NULL END)
+                ) THEN
+                    UPDATE SET
+                        legal_unit_id = CASE WHEN %5$L = 'legal_unit' THEN s.unit_id ELSE NULL END,
+                        establishment_id = CASE WHEN %5$L = 'establishment' THEN s.unit_id ELSE NULL END,
+                        enterprise_id = NULL,
+                        enterprise_group_id = NULL,
+                        edit_by_user_id = s.edit_by_user_id,
+                        edit_at = s.edit_at,
+                        edit_comment = s.edit_comment
+                WHEN NOT MATCHED THEN
+                    INSERT (legal_unit_id, establishment_id, type_id, idents, edit_by_user_id, edit_at, edit_comment)
+                    VALUES (
+                        CASE WHEN %5$L = 'legal_unit' THEN s.unit_id ELSE NULL END,
+                        CASE WHEN %5$L = 'establishment' THEN s.unit_id ELSE NULL END,
+                        s.type_id,
+                        s.idents_value,
+                        s.edit_by_user_id,
+                        s.edit_at,
+                        s.edit_comment
+                    );
+                $SQL$,
+                v_unit_id_col_name,                       -- %1$I
+                v_ident_type_rec.id,                     -- %2$L
+                v_ident_type_rec.code || '_path',        -- %3$I (the ltree path column)
+                v_data_table_name,                       -- %4$I
+                v_unit_type                              -- %5$L
+            );
+        
+        RAISE DEBUG '[Job %] helper_process_external_idents: Hierarchical MERGE SQL: %', p_job_id, v_sql;
+        EXECUTE v_sql USING p_batch_row_id_ranges;
+        GET DIAGNOSTICS v_rows_affected = ROW_COUNT;
+        RAISE DEBUG '[Job %] helper_process_external_idents: Merged % rows for hierarchical identifier type %.', p_job_id, v_rows_affected, v_ident_type_rec.code;
     END LOOP;
     
 EXCEPTION WHEN OTHERS THEN

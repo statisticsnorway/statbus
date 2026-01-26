@@ -1149,8 +1149,11 @@ export type Database = {
           enterprise_id: number | null
           establishment_id: number | null
           id: number
-          ident: string
+          ident: string | null
+          idents: unknown | null
+          labels: unknown | null
           legal_unit_id: number | null
+          shape: Database["public"]["Enums"]["external_ident_shape"]
           type_id: number
         },
         Insert: {
@@ -1161,8 +1164,11 @@ export type Database = {
           enterprise_id?: number | null
           establishment_id?: number | null
           id?: number
-          ident: string
+          ident?: string | null
+          idents?: unknown | null
+          labels?: unknown | null
           legal_unit_id?: number | null
+          shape: Database["public"]["Enums"]["external_ident_shape"]
           type_id: number
         },
         Update: {
@@ -1173,8 +1179,11 @@ export type Database = {
           enterprise_id?: number | null
           establishment_id?: number | null
           id?: number
-          ident?: string
+          ident?: string | null
+          idents?: unknown | null
+          labels?: unknown | null
           legal_unit_id?: number | null
+          shape?: Database["public"]["Enums"]["external_ident_shape"]
           type_id?: number
         },
         Relationships: [
@@ -1225,40 +1234,35 @@ export type Database = {
       external_ident_type: {
         Row: {
           archived: boolean
-          by_tag_id: number | null
           code: string
           description: string | null
           id: number
+          labels: unknown | null
           name: string | null
           priority: number | null
+          shape: Database["public"]["Enums"]["external_ident_shape"]
         },
         Insert: {
           archived?: boolean
-          by_tag_id?: number | null
           code: string
           description?: string | null
           id?: never
+          labels?: unknown | null
           name?: string | null
           priority?: number | null
+          shape?: Database["public"]["Enums"]["external_ident_shape"]
         },
         Update: {
           archived?: boolean
-          by_tag_id?: number | null
           code?: string
           description?: string | null
           id?: never
+          labels?: unknown | null
           name?: string | null
           priority?: number | null
+          shape?: Database["public"]["Enums"]["external_ident_shape"]
         },
-        Relationships: [
-          {
-            foreignKeyName: "external_ident_type_by_tag_id_fkey"
-            columns: ["by_tag_id"]
-            isOneToOne: true
-            referencedRelation: "tag"
-            referencedColumns: ["id"]
-          }
-        ]
+        Relationships: []
       },
       foreign_participation: {
         Row: {
@@ -3611,7 +3615,6 @@ export type Database = {
           created_at: string
           description: string | null
           id: number
-          is_scoped_tag: boolean
           label: string
           level: number | null
           name: string
@@ -3630,7 +3633,6 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: never
-          is_scoped_tag?: boolean
           label: string
           level?: number | null
           name: string
@@ -3649,7 +3651,6 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: never
-          is_scoped_tag?: boolean
           label?: string
           level?: number | null
           name?: string
@@ -5932,70 +5933,68 @@ export type Database = {
       external_ident_type_active: {
         Row: {
           archived: boolean | null
-          by_tag_id: number | null
           code: string | null
           description: string | null
           id: number | null
+          labels: unknown | null
           name: string | null
           priority: number | null
+          shape: Database["public"]["Enums"]["external_ident_shape"] | null
         },
         Insert: {
           archived?: boolean | null
-          by_tag_id?: number | null
           code?: string | null
           description?: string | null
           id?: number | null
+          labels?: unknown | null
           name?: string | null
           priority?: number | null
+          shape?: Database["public"]["Enums"]["external_ident_shape"] | null
         },
         Update: {
           archived?: boolean | null
-          by_tag_id?: number | null
           code?: string | null
           description?: string | null
           id?: number | null
+          labels?: unknown | null
           name?: string | null
           priority?: number | null
+          shape?: Database["public"]["Enums"]["external_ident_shape"] | null
         },
         Relationships: []
       },
       external_ident_type_ordered: {
         Row: {
           archived: boolean | null
-          by_tag_id: number | null
           code: string | null
           description: string | null
           id: number | null
+          labels: unknown | null
           name: string | null
           priority: number | null
+          shape: Database["public"]["Enums"]["external_ident_shape"] | null
         },
         Insert: {
           archived?: boolean | null
-          by_tag_id?: number | null
           code?: string | null
           description?: string | null
           id?: number | null
+          labels?: unknown | null
           name?: string | null
           priority?: number | null
+          shape?: Database["public"]["Enums"]["external_ident_shape"] | null
         },
         Update: {
           archived?: boolean | null
-          by_tag_id?: number | null
           code?: string | null
           description?: string | null
           id?: number | null
+          labels?: unknown | null
           name?: string | null
           priority?: number | null
+          shape?: Database["public"]["Enums"]["external_ident_shape"] | null
         },
-        Relationships: [
-          {
-            foreignKeyName: "external_ident_type_by_tag_id_fkey"
-            columns: ["by_tag_id"]
-            isOneToOne: true
-            referencedRelation: "tag"
-            referencedColumns: ["id"]
-          }
-        ]
+        Relationships: []
       },
       foreign_participation_available: {
         Row: {
@@ -9308,7 +9307,7 @@ export type Database = {
         }
         Returns: Json
       },
-      external_ident_type_derive_code_and_name_from_by_tag_id: {
+      external_ident_derive_shape_labels: {
         Args: never
         Returns: unknown
       },
@@ -12427,6 +12426,7 @@ export type Database = {
           | "finished_by"
           | "met_by"
           | "preceded_by",
+      external_ident_shape: "regular" | "hierarchical",
       hierarchy_scope: "all" | "tree" | "details",
       history_resolution: "year" | "year-month",
       import_data_column_purpose: 
@@ -12735,6 +12735,7 @@ export const Constants = {
         "met_by",
         "preceded_by"
       ],
+      external_ident_shape: ["regular", "hierarchical"],
       hierarchy_scope: ["all", "tree", "details"],
       history_resolution: ["year", "year-month"],
       import_data_column_purpose: [

@@ -2257,7 +2257,7 @@ BEGIN
 
                     IF v_rows_exist THEN
                         RAISE DEBUG '[Job %] Executing HOLISTIC step % (priority %)', job.id, v_step_rec.code, v_step_rec.priority;
-                        EXECUTE format('CALL %s($1, $2, $3)', v_proc_to_call) USING job.id, NULL::int4multirange, v_step_rec.code;
+                        EXECUTE format('CALL %s($1, $2, $3)', v_proc_to_call::text) USING job.id, NULL::int4multirange, v_step_rec.code;
                         v_rows_processed := 1; -- Mark as having done work.
                     END IF;
                 ELSE
@@ -2284,7 +2284,7 @@ BEGIN
 
                     IF v_batch_row_id_ranges IS NOT NULL AND NOT isempty(v_batch_row_id_ranges) THEN
                         RAISE DEBUG '[Job %] Executing BATCHED step % (priority %), found ranges: %s.', job.id, v_step_rec.code, v_step_rec.priority, v_batch_row_id_ranges::text;
-                        EXECUTE format('CALL %s($1, $2, $3)', v_proc_to_call) USING job.id, v_batch_row_id_ranges, v_step_rec.code;
+                        EXECUTE format('CALL %s($1, $2, $3)', v_proc_to_call::text) USING job.id, v_batch_row_id_ranges, v_step_rec.code;
                         v_rows_processed := (SELECT count(*) FROM unnest(v_batch_row_id_ranges));
                     END IF;
                 END IF;

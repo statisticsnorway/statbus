@@ -84,6 +84,7 @@ DECLARE
             '{"schema": "public", "name": "enterprise_group_type"}'::jsonb,
             '{"schema": "public", "name": "enterprise_group_role"}'::jsonb,
             '{"schema": "public", "name": "external_ident_type"}'::jsonb,
+
             '{"schema": "public", "name": "foreign_participation"}'::jsonb,
             '{"schema": "public", "name": "legal_form"}'::jsonb,
             '{"schema": "public", "name": "reorg_type"}'::jsonb,

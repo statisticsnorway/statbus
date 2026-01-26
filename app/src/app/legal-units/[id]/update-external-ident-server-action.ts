@@ -19,6 +19,34 @@ const externalIdentsSchema = zfd.formData(
   )
 );
 
+/**
+ * Constructs a hierarchical identifier path from form data.
+ * Form fields are named like: census_ident_census, census_ident_region, census_ident_surveyor, census_ident_unit_no
+ * The labels (like "census.region.surveyor.unit_no") tell us the level names.
+ */
+function constructHierarchicalPath(
+  identTypeCode: string,
+  labels: string,
+  formData: Record<string, string | undefined>
+): string | null {
+  const levelNames = labels.split(".");
+  const parts: string[] = [];
+
+  for (const levelName of levelNames) {
+    const fieldKey = `${identTypeCode}_${levelName}`;
+    const value = formData[fieldKey];
+    if (value) {
+      parts.push(value);
+    } else {
+      // If any level is empty, stop constructing the path
+      break;
+    }
+  }
+
+  // Return null if no parts, otherwise join with dots
+  return parts.length > 0 ? parts.join(".") : null;
+}
+
 export async function updateExternalIdent(
   id: string,
   unitType: "establishment" | "legal_unit",
@@ -54,18 +82,50 @@ export async function updateExternalIdent(
 
   const unitIdField = `${unitType}_id`;
 
-  const [[identTypeCode, newIdentValue]] = Object.entries(validatedFields.data);
-
+  // Get first key to determine which identifier type we're editing
+  const firstKey = Object.keys(validatedFields.data)[0];
+  
+  // Detect if this is a hierarchical identifier by checking for underscore pattern
+  // e.g., "census_ident_census" -> "census_ident"
+  const identTypeCode = firstKey.includes("_") && 
+    externalIdentTypes.some(t => t.shape === "hierarchical" && firstKey.startsWith(t.code + "_"))
+    ? firstKey.substring(0, firstKey.lastIndexOf("_"))
+    : firstKey;
+  
+  // For hierarchical types, find the actual type code by checking prefixes
   const identType = externalIdentTypes.find(
-    (type) => type.code === identTypeCode
+    (type) => {
+      if (type.shape === "hierarchical" && type.labels) {
+        // Check if any form key starts with this type's code followed by underscore
+        return Object.keys(validatedFields.data).some(key => 
+          key.startsWith(type.code + "_")
+        );
+      }
+      return type.code === firstKey;
+    }
   );
+  
   if (!identType) {
     return {
       status: "error",
-      message: `Invalid external identifier type: ${identTypeCode}`,
+      message: `Invalid external identifier type: ${firstKey}`,
     };
   }
   const identTypeId = identType.id;
+  const isHierarchical = identType.shape === "hierarchical";
+  
+  // Construct the value based on identifier type
+  let newIdentValue: string | null = null;
+  if (isHierarchical && identType.labels) {
+    newIdentValue = constructHierarchicalPath(
+      identType.code!,
+      identType.labels,
+      validatedFields.data
+    );
+  } else {
+    newIdentValue = validatedFields.data[firstKey] || null;
+  }
+  
   try {
     const { data: exisitingIdent, error } = await client
       .from("external_ident")
@@ -85,7 +145,7 @@ export async function updateExternalIdent(
       if (count === 1) {
         return {
           status: "error",
-          message: `Cannot delete ${identTypeCode}. Unit must have at least one external identifier.`,
+          message: `Cannot delete ${identType.code}. Unit must have at least one external identifier.`,
         };
       }
       response = await client
@@ -94,40 +154,59 @@ export async function updateExternalIdent(
         .eq("type_id", identTypeId!)
         .eq(unitIdField, parseInt(id));
     } else if (!exisitingIdent || exisitingIdent.length === 0) {
-      response = await client.from("external_ident").insert({
-        ident: newIdentValue,
+      // Note: 'shape' and 'labels' are derived by trigger from type_id
+      // but TypeScript requires them. The trigger will override our value.
+      const insertData: Record<string, unknown> = {
         [unitIdField]: parseInt(id),
         type_id: identTypeId!,
         edit_by_user_id: userId,
-      });
+        shape: identType.shape!, // Will be overwritten by trigger
+      };
+      
+      if (isHierarchical) {
+        insertData.idents = newIdentValue;
+      } else {
+        insertData.ident = newIdentValue;
+      }
+      
+      response = await client.from("external_ident").insert(insertData);
     } else {
+      const updateData: Record<string, unknown> = {
+        edit_by_user_id: userId,
+        edit_at: new Date().toISOString(),
+      };
+      
+      if (isHierarchical) {
+        updateData.idents = newIdentValue;
+        updateData.ident = null; // Clear the regular ident field
+      } else {
+        updateData.ident = newIdentValue;
+        updateData.idents = null; // Clear the hierarchical idents field
+      }
+      
       response = await client
         .from("external_ident")
-        .update({
-          ident: newIdentValue,
-          edit_by_user_id: userId,
-          edit_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq("type_id", identTypeId!)
         .eq(unitIdField, parseInt(id));
     }
     if (response?.error) {
-      logger.error(response.error, `failed to update ${identTypeCode}`);
+      logger.error(response.error, `failed to update ${identType.code}`);
       return {
         status: "error",
-        message: `failed to update ${identTypeCode}: ${response.error.message}`,
+        message: `failed to update ${identType.code}: ${response.error.message}`,
       };
     }
 
     revalidatePath(`/${unitType}s/${id}`);
     return {
       status: "success",
-      message: `${identTypeCode} successfully updated`,
+      message: `${identType.code} successfully updated`,
     };
   } catch (error) {
     return {
       status: "error",
-      message: `failed to update ${identTypeCode}`,
+      message: `failed to update ${identType.code}`,
     };
   }
 }

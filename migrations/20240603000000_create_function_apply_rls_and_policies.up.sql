@@ -116,6 +116,7 @@ BEGIN
     PERFORM admin.add_rls_regular_user_can_read('public.enterprise_group_role'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.status'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.external_ident_type'::regclass);
+
     PERFORM admin.add_rls_regular_user_can_read('public.person_role'::regclass);
     -- We don't need to apply the standard RLS function to region_access
     -- as it has custom policies that only allow admin_user to modify it

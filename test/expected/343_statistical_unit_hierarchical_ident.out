@@ -1,0 +1,206 @@
+BEGIN;
+\i test/setup.sql
+-- While the datestyle is set for the database, the pg_regress tool sets the MDY format
+-- to ensure consistent date formatting, so we must manually override this
+SET datestyle TO 'ISO, DMY';
+\if :{?DEBUG}
+SET client_min_messages TO debug1;
+\else
+SET client_min_messages TO NOTICE;
+\endif
+-- Create temporary function to execute queries as system user
+CREATE OR REPLACE FUNCTION test.sudo_exec(
+    sql text,
+    OUT results jsonb
+) RETURNS jsonb
+SECURITY DEFINER LANGUAGE plpgsql AS $sudo_exec$
+DECLARE
+    result_rows jsonb;
+BEGIN
+    -- Check if the SQL starts with common DDL keywords
+    IF sql ~* '^\s*(CREATE|DROP|ALTER|TRUNCATE|GRANT|REVOKE|ANALYZE)' THEN
+        -- For DDL statements, execute directly
+        EXECUTE sql;
+        results := '[]'::jsonb;
+    ELSE
+        -- For DML/queries, wrap in a SELECT to capture results
+        EXECUTE format('
+            SELECT COALESCE(
+                jsonb_agg(row_to_json(t)),
+                ''[]''::jsonb
+            )
+            FROM (%s) t',
+            sql
+        ) INTO result_rows;
+        results := result_rows;
+    END IF;
+END;
+$sudo_exec$;
+-- Grant execute to public since this is for testing
+GRANT EXECUTE ON FUNCTION test.sudo_exec(text) TO PUBLIC;
+\echo Add users for testing purposes
+Add users for testing purposes
+SELECT * FROM public.user_create(p_display_name => 'Test Admin', p_email => 'test.admin@statbus.org', p_statbus_role => 'admin_user'::statbus_role, p_password => 'Admin#123!');
+         email          |  password  
+------------------------+------------
+ test.admin@statbus.org | Admin#123!
+(1 row)
+
+SELECT * FROM public.user_create(p_display_name => 'Test Regular', p_email => 'test.regular@statbus.org', p_statbus_role => 'regular_user'::statbus_role, p_password => 'Regular#123!');
+          email           |   password   
+--------------------------+--------------
+ test.regular@statbus.org | Regular#123!
+(1 row)
+
+SELECT * FROM public.user_create(p_display_name => 'Test Restricted', p_email => 'test.restricted@statbus.org', p_statbus_role => 'restricted_user'::statbus_role, p_password => 'Restricted#123!');
+            email            |    password     
+-----------------------------+-----------------
+ test.restricted@statbus.org | Restricted#123!
+(1 row)
+
+CREATE OR REPLACE PROCEDURE test.remove_pg_temp_for_tx_user_switch(p_keep_tables text[] DEFAULT '{}')
+LANGUAGE plpgsql
+AS $remove_pg_temp_for_tx_user_switch$
+DECLARE
+    rec record;
+    v_found_count integer := 0;
+BEGIN
+    RAISE DEBUG 'Running test.remove_pg_temp_for_tx_user_switch(p_keep_tables => %)...', p_keep_tables;
+    -- Remove temporary cache tables used by import, as we switch user inside the *same* transaction,
+    -- and the new user can not modify tables owned by the previous import.
+    -- This generic loop cleans up all tables and views in the pg_temp schema, except those specified to keep.
+    FOR rec IN
+        SELECT
+            c.relname,
+            c.relkind
+        FROM pg_catalog.pg_class AS c
+        LEFT JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
+        WHERE c.relkind IN ('r', 'p', 'v', 'm') AND n.oid = pg_my_temp_schema() -- r=table, p=partitioned, v=view, m=materialized
+          AND c.relname <> ALL(p_keep_tables)
+    LOOP
+        v_found_count := v_found_count + 1;
+        IF rec.relkind IN ('r', 'p', 'm') THEN
+            RAISE DEBUG '  -> Dropping temp TABLE %', rec.relname;
+            EXECUTE format('DROP TABLE IF EXISTS pg_temp.%I CASCADE', rec.relname);
+        ELSIF rec.relkind = 'v' THEN
+            RAISE DEBUG '  -> Dropping temp VIEW %', rec.relname;
+            EXECUTE format('DROP VIEW IF EXISTS pg_temp.%I CASCADE', rec.relname);
+        END IF;
+    END LOOP;
+
+    RAISE DEBUG '...finished test.remove_pg_temp_for_tx_user_switch(). Found and dropped % objects.', v_found_count;
+
+    -- This procedure is part of the sql_saga extension and has its own cleanup logic.
+    -- While the loop above handles tables/views, this call ensures any other temporary
+    -- objects it creates are also cleaned up.
+    CALL sql_saga.temporal_merge_drop_temp_tables();
+END;
+$remove_pg_temp_for_tx_user_switch$;
+\echo "Test 343: Statistical Unit View with Hierarchical Identifiers"
+"Test 343: Statistical Unit View with Hierarchical Identifiers"
+-- Setup user
+CALL test.set_user_from_email('test.admin@statbus.org');
+\i samples/norway/getting-started.sql
+\i samples/norway/settings.sql
+INSERT INTO settings(activity_category_standard_id,country_id)
+SELECT (SELECT id FROM activity_category_standard WHERE code = 'nace_v2.1')
+     , (SELECT id FROM public.country WHERE iso_2 = 'NO')
+ON CONFLICT (only_one_setting)
+DO UPDATE SET
+   activity_category_standard_id = EXCLUDED.activity_category_standard_id,
+   country_id = EXCLUDED.country_id
+   WHERE settings.only_one_setting = EXCLUDED.only_one_setting;
+;
+\i samples/norway/activity_category/activity_category_norway.sql
+\copy public.activity_category_available_custom FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/regions/norway-regions-2024.sql
+\copy public.region_upload(path, name) FROM 'samples/norway/regions/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/sector/sector_norway.sql
+\copy public.sector_custom_only FROM 'samples/norway/sector/sector_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/legal_form/legal_form_norway.sql
+\copy public.legal_form_custom_only FROM 'samples/norway/legal_form/legal_form_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\i samples/norway/data_source/data_source_norway.sql
+\copy public.data_source_custom (code, name) FROM 'samples/norway/data_source/data_source_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+-- Create hierarchical identifier type
+INSERT INTO public.external_ident_type (code, name, shape, labels, description, priority, archived)
+VALUES ('surveyor_ident', 'Surveyor Identifier', 'hierarchical', 'region.district.seq',
+        'Region/District/Sequence hierarchical composite key', 50, false);
+NOTICE:  Dropped index su_ei_stat_ident_idx
+NOTICE:  Dropped index su_ei_tax_ident_idx
+NOTICE:  Dropped index su_s_employees_idx
+NOTICE:  Dropped index su_s_turnover_idx
+NOTICE:  Dropped index su_ss_employees_count_idx
+NOTICE:  Dropped index su_ss_employees_sum_idx
+NOTICE:  Dropped index su_ss_turnover_count_idx
+NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_surveyor_ident_idx for external_ident_type
+NOTICE:  Created GIST ltree index su_ei_surveyor_ident_ltree_gist_idx for hierarchical external_ident_type
+NOTICE:  Created indices for stat_definition employees
+NOTICE:  Created indices for stat_definition turnover
+-- Create Legal Unit with hierarchical identifier
+DO $$
+DECLARE
+    v_user_id INT;
+    v_ent_id INT;
+    v_lu_id INT;
+    v_type_id INT;
+BEGIN
+    SELECT id INTO v_user_id FROM public.user WHERE email = 'test.admin@statbus.org';
+    SELECT id INTO v_type_id FROM public.external_ident_type WHERE code = 'surveyor_ident';
+    
+    INSERT INTO public.enterprise (short_name, edit_by_user_id, edit_at)
+    VALUES ('ENT 343', v_user_id, now()) RETURNING id INTO v_ent_id;
+    
+    INSERT INTO public.legal_unit (enterprise_id, name, status_id, primary_for_enterprise, edit_by_user_id, edit_at, valid_from)
+    VALUES (v_ent_id, 'LU Hierarchical 343', (SELECT id FROM public.status WHERE code = 'active'), true, v_user_id, now(), '2023-01-01') RETURNING id INTO v_lu_id;
+    
+    INSERT INTO public.external_ident (legal_unit_id, type_id, idents, edit_by_user_id, edit_at)
+    VALUES (v_lu_id, v_type_id, 'NORTH.KAMPALA.001'::ltree, v_user_id, now());
+END $$;
+-- Also create a Legal Unit with REGULAR identifier to make sure it still works
+DO $$
+DECLARE
+    v_user_id INT;
+    v_ent_id INT;
+    v_lu_id INT;
+    v_type_id INT;
+BEGIN
+    SELECT id INTO v_user_id FROM public.user WHERE email = 'test.admin@statbus.org';
+    SELECT id INTO v_type_id FROM public.external_ident_type WHERE code = 'tax_ident';
+    
+    INSERT INTO public.enterprise (short_name, edit_by_user_id, edit_at)
+    VALUES ('ENT Regular 343', v_user_id, now()) RETURNING id INTO v_ent_id;
+    
+    INSERT INTO public.legal_unit (enterprise_id, name, status_id, primary_for_enterprise, edit_by_user_id, edit_at, valid_from)
+    VALUES (v_ent_id, 'LU Regular 343', (SELECT id FROM public.status WHERE code = 'active'), true, v_user_id, now(), '2023-01-01') RETURNING id INTO v_lu_id;
+    
+    INSERT INTO public.external_ident (legal_unit_id, type_id, ident, edit_by_user_id, edit_at)
+    VALUES (v_lu_id, v_type_id, '987654321', v_user_id, now());
+END $$;
+-- Refresh timeline tables and statistical_unit
+CALL public.timepoints_refresh();
+CALL public.timesegments_refresh();
+CALL public.timeline_enterprise_refresh();
+CALL public.timeline_legal_unit_refresh();
+CALL public.timeline_establishment_refresh();
+CALL public.statistical_unit_refresh();
+\echo "Verifying external_idents in statistical_unit:"
+"Verifying external_idents in statistical_unit:"
+SELECT
+    unit_type,
+    name,
+    external_idents
+FROM public.statistical_unit
+WHERE name LIKE '%343%'
+ORDER BY name;
+ unit_type  |        name         |             external_idents             
+------------+---------------------+-----------------------------------------
+ enterprise | ENT 343             | {}
+ enterprise | ENT Regular 343     | {}
+ legal_unit | LU Hierarchical 343 | {"surveyor_ident": "NORTH.KAMPALA.001"}
+ legal_unit | LU Regular 343      | {"tax_ident": "987654321"}
+(4 rows)
+
+ROLLBACK;

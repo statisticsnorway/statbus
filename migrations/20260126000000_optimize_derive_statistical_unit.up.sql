@@ -99,7 +99,7 @@ BEGIN
             COALESCE(tpa.tag_paths, ARRAY[]::public.ltree[]) AS tag_paths
         FROM public.timeline_establishment t
         LEFT JOIN LATERAL (
-            SELECT jsonb_object_agg(eit.code, ei.ident) AS external_idents
+            SELECT jsonb_object_agg(eit.code, COALESCE(ei.ident, ei.idents::text)) AS external_idents
             FROM public.external_ident ei
             JOIN public.external_ident_type eit ON ei.type_id = eit.id
             WHERE ei.establishment_id = t.unit_id
@@ -201,7 +201,7 @@ BEGIN
             COALESCE(tpa.tag_paths, ARRAY[]::public.ltree[]) AS tag_paths
         FROM public.timeline_legal_unit t
         LEFT JOIN LATERAL (
-            SELECT jsonb_object_agg(eit.code, ei.ident) AS external_idents
+            SELECT jsonb_object_agg(eit.code, COALESCE(ei.ident, ei.idents::text)) AS external_idents
             FROM public.external_ident ei
             JOIN public.external_ident_type eit ON ei.type_id = eit.id
             WHERE ei.legal_unit_id = t.unit_id
@@ -309,19 +309,19 @@ BEGIN
             COALESCE(tpa.tag_paths, ARRAY[]::public.ltree[]) AS tag_paths
         FROM public.timeline_enterprise t
         LEFT JOIN LATERAL (
-            SELECT jsonb_object_agg(eit.code, ei.ident) AS external_idents
+            SELECT jsonb_object_agg(eit.code, COALESCE(ei.ident, ei.idents::text)) AS external_idents
             FROM public.external_ident ei
             JOIN public.external_ident_type eit ON ei.type_id = eit.id
             WHERE ei.enterprise_id = t.unit_id
         ) eia1 ON true
         LEFT JOIN LATERAL (
-            SELECT jsonb_object_agg(eit.code, ei.ident) AS external_idents
+            SELECT jsonb_object_agg(eit.code, COALESCE(ei.ident, ei.idents::text)) AS external_idents
             FROM public.external_ident ei
             JOIN public.external_ident_type eit ON ei.type_id = eit.id
             WHERE ei.establishment_id = t.primary_establishment_id
         ) eia2 ON true
         LEFT JOIN LATERAL (
-            SELECT jsonb_object_agg(eit.code, ei.ident) AS external_idents
+            SELECT jsonb_object_agg(eit.code, COALESCE(ei.ident, ei.idents::text)) AS external_idents
             FROM public.external_ident ei
             JOIN public.external_ident_type eit ON ei.type_id = eit.id
             WHERE ei.legal_unit_id = t.primary_legal_unit_id
