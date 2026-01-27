@@ -1,3 +1,49 @@
+--
+-- Test: Import jobs for Norway history data
+--
+-- This test uses multiple transactions to allow worker.process_tasks() to
+-- commit between tasks, avoiding O(n^2) performance issues that occur when
+-- all batch processing happens in a single transaction.
+--
+-- CRITICAL: Upload order determines processing priority!
+-- - Older years must be uploaded before newer years (newer cuts older)
+-- - All LU uploads must happen before all ES uploads (ES depends on LU external_idents)
+--
+-- Structure:
+-- 0. Cleanup phase: Ensure clean state from any prior runs
+-- 1. Setup phase (transaction 1): Create definitions, jobs, load data in correct order
+-- 2. Processing phase (no transaction): Worker commits per-task
+-- 3. Verification phase (transaction 2): Check results
+-- 4. Cleanup phase: Remove test data unless PERSIST=true
+--
+-- ============================================================================
+-- PHASE 0: INITIAL CLEANUP AND PAUSE WORKER
+-- ============================================================================
+-- Reset any leftover data from prior test runs. This is necessary because
+-- the test commits data during execution, so a failed or interrupted run
+-- may leave data behind.
+\echo "Cleaning up any leftover data from prior runs"
+"Cleaning up any leftover data from prior runs"
+SELECT public.reset(true, 'getting-started');
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                            reset                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ {"person": {"deleted_count": 0}, "region": {"deleted_count": 417}, "sector": {"changed_count": 36, "deleted_count": 33}, "status": {"changed_count": 0, "deleted_count": 0}, "contact": {"deleted_count": 0}, "activity": {"deleted_count": 0}, "location": {"deleted_count": 0}, "settings": {"deleted_count": 1}, "unit_size": {"changed_count": 0, "deleted_count": 0}, "enterprise": {"deleted_count": 0}, "import_job": {"deleted_count": 0}, "legal_form": {"changed_count": 46, "deleted_count": 46}, "legal_unit": {"deleted_count": 0}, "data_source": {"changed_count": 6, "deleted_count": 6}, "tag_for_unit": {"deleted_count": 0}, "establishment": {"deleted_count": 0}, "stat_for_unit": {"deleted_count": 0}, "external_ident": {"deleted_count": 0}, "person_for_unit": {"deleted_count": 0}, "activity_category": {"changed_count": 643, "deleted_count": 1811, "changed_children_count": 64}, "import_definition": {"deleted_count": 2}}
+(1 row)
+
+-- Pause the background worker so we control task processing order.
+-- Manual CALL worker.process_tasks() is NOT affected by pause.
+-- The worker will auto-resume after 1 hour if we forget to call resume.
+\echo "Pausing background worker for test duration"
+"Pausing background worker for test duration"
+SELECT worker.pause('1 hour'::interval);
+ pause 
+-------
+ 
+(1 row)
+
+-- ============================================================================
+-- PHASE 1: SETUP (in transaction so setup.sql helpers work)
+-- ============================================================================
 BEGIN;
 \i test/setup.sql
 -- While the datestyle is set for the database, the pg_regress tool sets the MDY format
@@ -483,7 +529,8 @@ ORDER BY slug;
  brreg_underenhet_2024 | Import of BRREG Underenhet using 2024 columns | Easy upload of the CSV file found at brreg. | job_provided    | insert_or_update | t     | 
 (2 rows)
 
--- Per year jobs for hovedenhet
+-- Create ALL jobs at once (LU and ES)
+-- Per year jobs for hovedenhet (legal units)
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
 SELECT  def.id, 'import_lu_2015_h', '2015-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet 2015 History', 'This job handles the import of BRREG Hovedenhet history data for 2015.'
@@ -520,7 +567,7 @@ FROM def RETURNING slug, description, note, default_valid_from, default_valid_to
  import_lu_2018_h | Import Job for BRREG Hovedenhet 2018 History | This job handles the import of BRREG Hovedenhet history data for 2018. | 2018-01-01         | infinity         | import_lu_2018_h_upload | import_lu_2018_h_data | waiting_for_upload
 (1 row)
 
--- Per year jobs for underenhet
+-- Per year jobs for underenhet (establishments)
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
 SELECT  def.id, 'import_es_2015_h', '2015-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet 2015 History', 'This job handles the import of BRREG Underenhet history data for 2015.'
@@ -717,10 +764,10 @@ Triggers:
  fax_number                           | text                      |           |          | 
  contact_id                           | integer                   |           |          | 
  employees_raw                        | text                      |           |          | 
- turnover_raw                         | text                      |           |          | 
  employees                            | integer                   |           |          | 
- turnover                             | numeric                   |           |          | 
  stat_for_unit_employees_id           | integer                   |           |          | 
+ turnover_raw                         | text                      |           |          | 
+ turnover                             | numeric                   |           |          | 
  stat_for_unit_turnover_id            | integer                   |           |          | 
  tag_path_raw                         | text                      |           |          | 
  tag_path                             | ltree                     |           |          | 
@@ -741,6 +788,7 @@ Indexes:
     "import_lu_2015_h_data_daterange_idx" gist (daterange(valid_from, valid_until, '[)'::text))
     "import_lu_2015_h_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "import_lu_2015_h_data_stat_ident_raw_idx" btree (stat_ident_raw)
+    "import_lu_2015_h_data_state_action_row_id_idx" btree (state, action, row_id)
     "import_lu_2015_h_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
     "import_lu_2015_h_data_tax_ident_raw_idx" btree (tax_ident_raw)
 Policies:
@@ -895,10 +943,10 @@ Triggers:
  fax_number                           | text                      |           |          | 
  contact_id                           | integer                   |           |          | 
  employees_raw                        | text                      |           |          | 
- turnover_raw                         | text                      |           |          | 
  employees                            | integer                   |           |          | 
- turnover                             | numeric                   |           |          | 
  stat_for_unit_employees_id           | integer                   |           |          | 
+ turnover_raw                         | text                      |           |          | 
+ turnover                             | numeric                   |           |          | 
  stat_for_unit_turnover_id            | integer                   |           |          | 
  tag_path_raw                         | text                      |           |          | 
  tag_path                             | ltree                     |           |          | 
@@ -919,6 +967,7 @@ Indexes:
     "import_es_2015_h_data_daterange_idx" gist (daterange(valid_from, valid_until, '[)'::text))
     "import_es_2015_h_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "import_es_2015_h_data_stat_ident_raw_idx" btree (stat_ident_raw)
+    "import_es_2015_h_data_state_action_row_id_idx" btree (state, action, row_id)
     "import_es_2015_h_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
     "import_es_2015_h_data_tax_ident_raw_idx" btree (tax_ident_raw)
 Policies:
@@ -949,18 +998,26 @@ ORDER BY slug;
  import_lu_2015_h | test.admin@statbus.org
 (1 row)
 
-\echo "Loading historical units"
-"Loading historical units"
+-- ============================================================================
+-- UPLOAD DATA IN CORRECT ORDER:
+-- 1. All LU uploads (oldest to newest) - these get lower priority numbers
+-- 2. All ES uploads (oldest to newest) - these get higher priority numbers
+-- This ensures all LU tasks complete before any ES tasks start
+-- ============================================================================
+\echo "Loading historical legal units (hovedenheter) - oldest first"
+"Loading historical legal units (hovedenheter) - oldest first"
 \copy public.import_lu_2015_h_upload FROM 'samples/norway/history/2015-enheter.csv' WITH CSV HEADER;
 \copy public.import_lu_2016_h_upload FROM 'samples/norway/history/2016-enheter.csv' WITH CSV HEADER;
 \copy public.import_lu_2017_h_upload FROM 'samples/norway/history/2017-enheter.csv' WITH CSV HEADER;
 \copy public.import_lu_2018_h_upload FROM 'samples/norway/history/2018-enheter.csv' WITH CSV HEADER;
+\echo "Loading historical establishments (underenheter) - oldest first, AFTER all LU"
+"Loading historical establishments (underenheter) - oldest first, AFTER all LU"
 \copy public.import_es_2015_h_upload FROM 'samples/norway/history/2015-underenheter.csv' WITH CSV HEADER;
 \copy public.import_es_2016_h_upload FROM 'samples/norway/history/2016-underenheter.csv' WITH CSV HEADER;
 \copy public.import_es_2017_h_upload FROM 'samples/norway/history/2017-underenheter.csv' WITH CSV HEADER;
 \copy public.import_es_2018_h_upload FROM 'samples/norway/history/2018-underenheter.csv' WITH CSV HEADER;
-\echo Check import job state before import
-Check import job state before import
+\echo Check import job state before processing
+Check import job state before processing
 SELECT state, count(*) FROM import_job GROUP BY state;
       state       | count 
 ------------------+-------
@@ -975,22 +1032,32 @@ SELECT state, count(*) FROM public.import_lu_2015_h_data GROUP BY state;
 -------+-------
 (0 rows)
 
-\echo Check data row state before import (should be empty as worker hasn't run prepare)
-Check data row state before import (should be empty as workerunterminated quoted string
-
 SELECT state, count(*) FROM public.import_es_2015_h_data GROUP BY state;
  state | count 
 -------+-------
 (0 rows)
 
-\echo Run worker processing to run import jobs and generate computed data
-Run worker processing to run import jobs and generate computed data
+-- Commit setup so worker can see the data
+COMMIT;
+-- ============================================================================
+-- PHASE 2: PROCESSING (outside transaction - worker commits per task)
+-- ============================================================================
+-- Process LU tasks first (priorities 1-4), then ES tasks (priorities 5-8).
+-- This is CRITICAL because ES analysis needs to look up LU external_idents,
+-- which are only created AFTER the LU's process step completes.
+-- Using p_max_priority ensures all lower-priority tasks complete before
+-- higher-priority ones start.
+\echo "Processing legal unit imports first (priorities 1-4)"
+"Processing legal unit imports first (priorities 1-4)"
+CALL worker.process_tasks(p_queue => 'import', p_max_priority => 4);
+\echo "Processing establishment imports (priorities 5-8)"
+"Processing establishment imports (priorities 5-8)"
 -- Notice that 'WARNING:  Could not find primary_activity_category_code' is expected due to data quality issues, but should not hinder the import process.
--- Notice that only the import job tasks are executed, to avoid ongoing recalculation of computed data
--- Set higher logging level to debug import procedures
---SET client_min_messages = DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
---SET client_min_messages = NOTICE;
+-- ============================================================================
+-- PHASE 3: VERIFICATION (in transaction for consistent reads)
+-- ============================================================================
+BEGIN;
 \echo Check the states of the import job tasks.
 Check the states of the import job tasks.
 select queue,t.command,state,error from worker.tasks as t join worker.command_registry as c on t.command = c.command where t.command = 'import_job_process' order by priority;
@@ -1375,48 +1442,7 @@ select queue,t.command,state,error from worker.tasks as t join worker.command_re
  import | import_job_process | completed | 
  import | import_job_process | completed | 
  import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
-(420 rows)
+(379 rows)
 
 select slug, state, error is not null as failed, time_context_ident, default_valid_from, default_valid_to, total_rows, imported_rows, import_completed_pct, error as error_details from public.import_job WHERE slug LIKE 'import_%_h' ORDER BY slug;
        slug       |  state   | failed | time_context_ident | default_valid_from | default_valid_to | total_rows | imported_rows | import_completed_pct | error_details 
@@ -1534,34 +1560,40 @@ SELECT row_id, errors, merge_status FROM public.import_es_2018_h_data WHERE stat
 \echo Check the state of all tasks before running analytics.
 Check the state of all tasks before running analytics.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
-   queue   |   state   | count 
------------+-----------+-------
- analytics | pending   |     8
- import    | completed |   420
-(2 rows)
+   queue   |   state    | count 
+-----------+------------+-------
+ analytics | pending    |    16
+ analytics | processing |     1
+ import    | completed  |   379
+(3 rows)
 
--- Once the Imports are finished, then all the analytics can be processed, but only once.
+COMMIT;
+-- Run analytics outside transaction
 CALL worker.process_tasks(p_queue => 'analytics');
+BEGIN;
 \echo Check the state of all tasks after running analytics.
 Check the state of all tasks after running analytics.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
-   queue   |   state   | count 
------------+-----------+-------
- analytics | completed |    10
- import    | completed |   420
-(2 rows)
+   queue   |   state    | count 
+-----------+------------+-------
+ analytics | processing |     1
+ analytics | completed  |    18
+ import    | completed  |   379
+(3 rows)
 
-\echo Run any remaining tasks, there should be none.
-Run any remaining tasks, there should be none.
+COMMIT;
+-- Run any remaining tasks outside transaction
 CALL worker.process_tasks();
+BEGIN;
 \echo Check the state of all tasks after running analytics.
 Check the state of all tasks after running analytics.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
-   queue   |   state   | count 
------------+-----------+-------
- analytics | completed |    10
- import    | completed |   420
-(2 rows)
+   queue   |   state    | count 
+-----------+------------+-------
+ analytics | processing |     1
+ analytics | completed  |    18
+ import    | completed  |   379
+(3 rows)
 
 \echo Overview of statistical units, but not details, there are too many units.
 Overview of statistical units, but not details, there are too many units.
@@ -8288,10 +8320,28 @@ EXPLAIN ANALYZE SELECT * FROM public.timeline_enterprise_def;
 EXPLAIN ANALYZE SELECT * FROM public.statistical_unit_def;
 \o
 RESET client_min_messages;
-\i test/rollback_unless_persist_is_specified.sql
+COMMIT;
+-- ============================================================================
+-- PHASE 4: CLEANUP (unless PERSIST=true)
+-- ============================================================================
+-- Resume the background worker before cleanup
+\echo "Resuming background worker"
+"Resuming background worker"
+SELECT worker.resume();
+ resume 
+--------
+ 
+(1 row)
+
+\i test/cleanup_unless_persist_is_specified.sql
 ---------------------------------------------------------------------------
--- Support development loading of the data without rollback using
---   ./devops/manage-statbus.sh psql --variable=PERSIST=true < test/sql/01_load_web_examples.sql
+-- Support development loading of the data without cleanup using
+--   ./devops/manage-statbus.sh psql --variable=PERSIST=true < test/sql/400_import_jobs_for_norway_history.sql
+--
+-- This script is used for tests that commit during execution (e.g., to allow
+-- worker.process_tasks() to commit between tasks for better performance).
+-- Unlike rollback_unless_persist_is_specified.sql, this performs explicit
+-- cleanup since ROLLBACK cannot undo committed transactions.
 -- Ref. https://stackoverflow.com/a/32597876/1023558
 \set PERSIST :PERSIST
 -- now PERSIST is set to the string ':PERSIST' if was not already set.
@@ -8303,7 +8353,19 @@ SELECT CASE
 END::BOOL AS "PERSIST" \gset
 -- < \gset call at end of the query to set variable.
 \if :PERSIST
-COMMIT;
+\echo 'PERSIST=true: Keeping test data for inspection'
 \else
-ROLLBACK;
+\echo 'Cleaning up test data (use PERSIST=true to keep)'
+Cleaning up test data (use PERSIST=true to keep)
+-- Clean up worker tasks first (may reference import jobs)
+DELETE FROM worker.tasks WHERE state IN ('completed', 'failed');
+-- Use the reset function to clean up all test data
+-- 'data' scope removes: import_jobs, units, activities, locations, etc.
+-- but preserves configuration (regions, settings, activity categories)
+SELECT public.reset(true, 'data');
+                                                                                                                                                                                                                                    reset                                                                                                                                                                                                                                     
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ {"person": {"deleted_count": 0}, "contact": {"deleted_count": 350}, "activity": {"deleted_count": 3764}, "location": {"deleted_count": 4761}, "enterprise": {"deleted_count": 1869}, "import_job": {"deleted_count": 8}, "legal_unit": {"deleted_count": 2195}, "tag_for_unit": {"deleted_count": 0}, "establishment": {"deleted_count": 1784}, "stat_for_unit": {"deleted_count": 379}, "external_ident": {"deleted_count": 3557}, "person_for_unit": {"deleted_count": 0}}
+(1 row)
+
 \endif
