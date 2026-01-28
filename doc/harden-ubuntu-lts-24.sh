@@ -139,8 +139,8 @@ ADMIN_EMAIL="${ADMIN_EMAIL:-}"
 # Space-separated GitHub usernames for SSH key fetching
 GITHUB_USERS="${GITHUB_USERS:-}"
 
-# Space-separated extra locale codes (e.g., "nb_NO ru_RU fr_FR")
-# C.UTF-8 and en_US.UTF-8 are always included
+# Space-separated extra locale codes without .UTF-8 suffix (e.g., "sq_AL nb_NO")
+# The script adds .UTF-8 automatically. C.UTF-8 and en_US.UTF-8 are always included.
 EXTRA_LOCALES="${EXTRA_LOCALES:-}"
 
 # Space-separated Caddy plugins for xcaddy build (empty = standard Caddy)
@@ -234,7 +234,7 @@ setup_env() {
             log "Create one with the following variables:"
             echo "  ADMIN_EMAIL=\"your@email.com\""
             echo "  GITHUB_USERS=\"username1 username2\""
-            echo "  EXTRA_LOCALES=\"nb_NO fr_FR\""
+            echo "  EXTRA_LOCALES=\"sq_AL nb_NO\""
             echo "  CADDY_PLUGINS=\"\""
             exit 1
         fi
@@ -243,7 +243,7 @@ setup_env() {
     
     prompt_env_value "ADMIN_EMAIL" "Email address for system notifications (unattended-upgrades):"
     prompt_env_value "GITHUB_USERS" "GitHub usernames for SSH key fetching (space-separated):"
-    prompt_env_value "EXTRA_LOCALES" "Extra locales to enable (e.g., 'nb_NO ru_RU fr_FR'):"
+    prompt_env_value "EXTRA_LOCALES" "Extra locales to enable without .UTF-8 suffix (e.g., 'sq_AL nb_NO'):"
     prompt_caddy_plugins
     
     save_env

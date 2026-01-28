@@ -41,7 +41,7 @@ On first run, you'll be prompted for:
 |----------|-------------|
 | `ADMIN_EMAIL` | Email for unattended-upgrades notifications |
 | `GITHUB_USERS` | Space-separated GitHub usernames for SSH key fetching |
-| `EXTRA_LOCALES` | Extra locales to enable (e.g., `nb_NO fr_FR`) |
+| `EXTRA_LOCALES` | Extra locales to enable, without `.UTF-8` suffix (e.g., `sq_AL nb_NO`) |
 | `CADDY_PLUGINS` | Caddy plugins for custom build (empty = standard Caddy) |
 
 Configuration is saved to `~/.harden-ubuntu.env` and reused on subsequent runs.
@@ -65,7 +65,7 @@ For automation, create the `.env` file first:
 cat > ~/.harden-ubuntu.env << 'EOF'
 ADMIN_EMAIL="admin@example.com"
 GITHUB_USERS="githubuser1 githubuser2"
-EXTRA_LOCALES="nb_NO fr_FR"
+EXTRA_LOCALES="sq_AL nb_NO"
 CADDY_PLUGINS=""
 EOF
 
