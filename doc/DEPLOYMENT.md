@@ -482,14 +482,18 @@ The script will:
 - Extract the certificate chain and private key
 - Place files in `caddy/data/custom-certs/`
 - Set secure permissions
-- Show the `.env.config` settings to use
+- **Automatically update `.env.config`** with the certificate paths
+- **Automatically regenerate** the Caddy configuration
+- **Offer to restart Caddy** to apply the new certificate
 
 Example:
 ```bash
 ./devops/convert-pfx-cert.sh ~/Downloads/statbus-albania.pfx albania
 # Enter password when prompted
-# Files created: caddy/data/custom-certs/albania.crt and albania.key
+# Script handles everything - just confirm the Caddy restart
 ```
+
+That's it! The script handles the entire process end-to-end.
 
 **Option B: From separate PEM files**
 

@@ -217,18 +217,82 @@ echo "Files created:"
 echo "  Certificate: $CERT_FILE"
 echo "  Private key: $KEY_FILE"
 echo ""
-echo -e "${YELLOW}Next steps:${NC}"
+
+# Update .env.config with new certificate paths
+ENV_CONFIG="$PROJECT_ROOT/.env.config"
+TLS_CERT_VALUE="/data/custom-certs/${OUTPUT_NAME}.crt"
+TLS_KEY_VALUE="/data/custom-certs/${OUTPUT_NAME}.key"
+
+if [[ -f "$ENV_CONFIG" ]]; then
+    info "Updating .env.config with certificate paths..."
+    
+    # Update TLS_CERT_FILE (handle both empty and existing values)
+    if grep -q "^TLS_CERT_FILE=" "$ENV_CONFIG"; then
+        sed -i.bak "s|^TLS_CERT_FILE=.*|TLS_CERT_FILE=$TLS_CERT_VALUE|" "$ENV_CONFIG"
+    else
+        echo "TLS_CERT_FILE=$TLS_CERT_VALUE" >> "$ENV_CONFIG"
+    fi
+    
+    # Update TLS_KEY_FILE (handle both empty and existing values)
+    if grep -q "^TLS_KEY_FILE=" "$ENV_CONFIG"; then
+        sed -i.bak "s|^TLS_KEY_FILE=.*|TLS_KEY_FILE=$TLS_KEY_VALUE|" "$ENV_CONFIG"
+    else
+        echo "TLS_KEY_FILE=$TLS_KEY_VALUE" >> "$ENV_CONFIG"
+    fi
+    
+    rm -f "$ENV_CONFIG.bak"
+    success "Updated .env.config"
+    echo "  TLS_CERT_FILE=$TLS_CERT_VALUE"
+    echo "  TLS_KEY_FILE=$TLS_KEY_VALUE"
+    echo ""
+    
+    # Regenerate configuration
+    info "Regenerating Caddy configuration..."
+    if "$PROJECT_ROOT/devops/manage-statbus.sh" generate-config >/dev/null 2>&1; then
+        success "Configuration regenerated"
+    else
+        warn "Failed to regenerate configuration. Run manually:"
+        echo "  ./devops/manage-statbus.sh generate-config"
+    fi
+    echo ""
+    
+    # Offer to restart Caddy
+    echo -e "${YELLOW}Final step:${NC} Restart Caddy to use the new certificate"
+    echo ""
+    read -p "Restart Caddy now? [Y/n] " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+        info "Restarting Caddy..."
+        if docker compose -f "$PROJECT_ROOT/docker-compose.yml" restart proxy >/dev/null 2>&1; then
+            success "Caddy restarted with new certificate"
+        else
+            warn "Failed to restart Caddy. Run manually:"
+            echo "  docker compose restart proxy"
+        fi
+    else
+        echo ""
+        echo "To apply the certificate, run:"
+        echo "  docker compose restart proxy"
+    fi
+else
+    warn ".env.config not found at $ENV_CONFIG"
+    echo ""
+    echo -e "${YELLOW}Manual steps required:${NC}"
+    echo ""
+    echo "1. Add to .env.config:"
+    echo ""
+    echo "   TLS_CERT_FILE=$TLS_CERT_VALUE"
+    echo "   TLS_KEY_FILE=$TLS_KEY_VALUE"
+    echo ""
+    echo "2. Regenerate configuration:"
+    echo ""
+    echo "   ./devops/manage-statbus.sh generate-config"
+    echo ""
+    echo "3. Restart Caddy:"
+    echo ""
+    echo "   docker compose restart proxy"
+fi
+
 echo ""
-echo "1. Add to .env.config:"
-echo ""
-echo "   TLS_CERT_FILE=/data/custom-certs/${OUTPUT_NAME}.crt"
-echo "   TLS_KEY_FILE=/data/custom-certs/${OUTPUT_NAME}.key"
-echo ""
-echo "2. Regenerate configuration:"
-echo ""
-echo "   ./devops/manage-statbus.sh generate-config"
-echo ""
-echo "3. Restart Caddy:"
-echo ""
-echo "   docker compose restart proxy"
+success "Done!"
 echo ""
