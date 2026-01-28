@@ -134,6 +134,31 @@ crystal --version
 shards --version
 ```
 
+### Server Hardening (Recommended)
+
+Before installing StatBus on a production server, we recommend hardening the Ubuntu installation:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/main/doc/harden-ubuntu-lts-24.sh -o harden.sh
+chmod +x harden.sh
+sudo ./harden.sh
+```
+
+This interactive script configures:
+- HTTPS APT sources (optional, for networks that block HTTP)
+- SSH key-only authentication (no passwords)
+- Automatic security updates
+- CrowdSec intrusion detection and UFW firewall (optional for private networks)
+- Docker and essential tools
+- `devops` user with GitHub SSH keys
+
+**For STATBUS deployments:**
+- **Run Stage 0** if your network blocks HTTP (switches APT to HTTPS mirror)
+- **Skip Stage 4** if your server is on a private network with existing firewall infrastructure
+- **Skip Stage 7** (Caddy) — StatBus runs Caddy inside Docker
+
+See [Server Hardening Guide](harden-ubuntu-lts-24.md) for full details.
+
 ### Installation Steps
 
 #### 1. Clone Repository
