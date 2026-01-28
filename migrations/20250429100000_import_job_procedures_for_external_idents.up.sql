@@ -1142,7 +1142,7 @@ BEGIN
                         legal_unit_id = CASE WHEN %5$L = 'legal_unit' THEN s.unit_id ELSE NULL END,
                         establishment_id = CASE WHEN %5$L = 'establishment' THEN s.unit_id ELSE NULL END,
                         enterprise_id = NULL,
-                        enterprise_group_id = NULL,
+                        power_group_id = NULL,
                         edit_by_user_id = s.edit_by_user_id,
                         edit_at = s.edit_at,
                         edit_comment = s.edit_comment
@@ -1222,7 +1222,7 @@ BEGIN
                         legal_unit_id = CASE WHEN %5$L = 'legal_unit' THEN s.unit_id ELSE NULL END,
                         establishment_id = CASE WHEN %5$L = 'establishment' THEN s.unit_id ELSE NULL END,
                         enterprise_id = NULL,
-                        enterprise_group_id = NULL,
+                        power_group_id = NULL,
                         edit_by_user_id = s.edit_by_user_id,
                         edit_at = s.edit_at,
                         edit_comment = s.edit_comment
