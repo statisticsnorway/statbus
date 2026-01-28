@@ -469,6 +469,30 @@ The `caddy/data/` directory is gitignored to protect sensitive private keys.
 
 #### 1. Prepare Certificate Files
 
+**Option A: Converting from PFX/PKCS#12 format (most common)**
+
+Many certificate providers deliver certificates as `.pfx` or `.p12` files (password-protected). Use the included conversion script:
+
+```bash
+./devops/convert-pfx-cert.sh /path/to/certificate.pfx domain-name
+```
+
+The script will:
+- Prompt for the PFX password
+- Extract the certificate chain and private key
+- Place files in `caddy/data/custom-certs/`
+- Set secure permissions
+- Show the `.env.config` settings to use
+
+Example:
+```bash
+./devops/convert-pfx-cert.sh ~/Downloads/statbus-albania.pfx albania
+# Enter password when prompted
+# Files created: caddy/data/custom-certs/albania.crt and albania.key
+```
+
+**Option B: From separate PEM files**
+
 If you received separate certificate and CA chain files, concatenate them into fullchain format:
 
 ```bash
