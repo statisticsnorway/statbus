@@ -6,7 +6,7 @@ Ubuntu 24.04 LTS server hardening script with interactive stage-by-stage executi
 
 ```bash
 # Download
-curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/main/doc/harden-ubuntu-lts-24.sh -o harden.sh
+curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/main/devops/harden-ubuntu-lts-24.sh -o harden.sh
 chmod +x harden.sh
 
 # Run (will prompt for configuration, then each stage)
@@ -128,7 +128,7 @@ When using this script to prepare a server for STATBUS deployment:
 After hardening, log in as the `devops` user and run the STATBUS installer:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/main/doc/install-statbus.sh -o install-statbus.sh
+curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/main/devops/install-statbus.sh -o install-statbus.sh
 chmod +x install-statbus.sh
 ./install-statbus.sh
 ```

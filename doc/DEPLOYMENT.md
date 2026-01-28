@@ -141,7 +141,7 @@ shards --version
 Before installing StatBus on a production server, we recommend hardening the Ubuntu installation:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/main/doc/harden-ubuntu-lts-24.sh -o harden.sh
+curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/main/devops/harden-ubuntu-lts-24.sh -o harden.sh
 chmod +x harden.sh
 sudo ./harden.sh
 ```
@@ -166,7 +166,7 @@ See [Server Hardening Guide](harden-ubuntu-lts-24.md) for full details.
 After hardening, run the STATBUS installer as your deployment user (e.g., `devops`):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/main/doc/install-statbus.sh -o install-statbus.sh
+curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/main/devops/install-statbus.sh -o install-statbus.sh
 chmod +x install-statbus.sh
 ./install-statbus.sh
 ```

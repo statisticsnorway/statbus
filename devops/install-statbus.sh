@@ -8,7 +8,7 @@
 #   - Run as devops user (or any user with sudo and docker access)
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/main/doc/install-statbus.sh -o install-statbus.sh
+#   curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/main/devops/install-statbus.sh -o install-statbus.sh
 #   chmod +x install-statbus.sh
 #   ./install-statbus.sh
 #
@@ -99,12 +99,20 @@ check_prerequisites() {
         log_error "Git not found"
     fi
     
+    # Check OpenSSL (needed for PFX certificate conversion)
+    if command -v openssl &>/dev/null; then
+        log_success "OpenSSL installed: $(openssl version)"
+    else
+        missing+=("openssl")
+        log_error "OpenSSL not found"
+    fi
+    
     if [[ ${#missing[@]} -gt 0 ]]; then
         echo ""
         log_error "Missing prerequisites: ${missing[*]}"
         echo ""
         echo "Please run the hardening script first:"
-        echo "  curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/main/doc/harden-ubuntu-lts-24.sh -o harden.sh"
+        echo "  curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/main/devops/harden-ubuntu-lts-24.sh -o harden.sh"
         echo "  chmod +x harden.sh"
         echo "  sudo ./harden.sh"
         echo ""
