@@ -90,6 +90,21 @@ BEGIN
         ) INTO changed;
         result := result || changed;
     ELSE END CASE;
+
+    CASE WHEN scope IN ('getting-started', 'all') THEN
+        -- Apply pattern for 'import_definition'
+        -- Must delete BEFORE data_source due to RESTRICT foreign key constraint.
+        -- Deleting import_jobs first (above) removes the CASCADE dependency.
+        WITH deleted_import_definition AS (
+            DELETE FROM public.import_definition WHERE id > 0 RETURNING *
+        )
+        SELECT jsonb_build_object(
+            'import_definition', jsonb_build_object(
+                'deleted_count', (SELECT COUNT(*) FROM deleted_import_definition)
+            )
+        ) INTO changed;
+        result := result || changed;
+    ELSE END CASE;
     
     CASE WHEN scope IN ('units', 'data', 'getting-started', 'all') THEN
         -- Apply pattern for 'tag_for_unit'

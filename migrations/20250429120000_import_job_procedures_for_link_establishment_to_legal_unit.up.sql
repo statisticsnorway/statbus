@@ -142,10 +142,13 @@ BEGIN
                 substring(up.ident_code from 'legal_unit_(.*)_raw') = rdi.ident_type_code AND
                 up.ident_value = rdi.ident_value
         ),
+        -- Step 1: Resolve legal_unit_id from identifiers and collect metadata
         RowChecks AS (
             SELECT
                 tr.data_row_id,
                 dt.operation,
+                dt.valid_from AS est_valid_from,
+                dt.valid_until AS est_valid_until,
                 jsonb_build_object(
                     'num_idents_provided', COUNT(ri.data_row_id),
                     'distinct_lu_ids', COUNT(DISTINCT ri.legal_unit_id),
@@ -156,15 +159,30 @@ BEGIN
             FROM temp_relevant_rows tr
             LEFT JOIN ResolvedIdents ri ON tr.data_row_id = ri.data_row_id
             JOIN public.%4$I dt ON dt.row_id = tr.data_row_id
-            GROUP BY tr.data_row_id, dt.operation
+            GROUP BY tr.data_row_id, dt.operation, dt.valid_from, dt.valid_until
         ),
+        -- Step 2: Check errors - resolve LU first, then validate temporal coverage
+        -- Uses correlated subquery for coverage check (fastest for typical batch sizes)
         Errors AS (
             SELECT
                 rc.data_row_id,
+                rc.resolved_lu_id,
                 CASE
-                    WHEN rc.operation != 'update' AND (rc.checks->>'num_idents_provided')::int = 0 THEN (SELECT jsonb_object_agg(key, 'Missing legal unit identifier.') FROM unnest(%3$L::TEXT[] || ARRAY[%2$L]) AS key)
-                    WHEN (rc.checks->>'num_idents_provided')::int > 0 AND (rc.checks->>'found_lu')::int = 0 THEN (SELECT jsonb_object_agg(key, 'Legal unit not found with provided identifiers.') FROM jsonb_array_elements_text(COALESCE(rc.checks->'provided_input_ident_codes', '["%2$s"]'::jsonb)) AS key)
-                    WHEN (rc.checks->>'distinct_lu_ids')::int > 1 THEN (SELECT jsonb_object_agg(key, 'Provided identifiers resolve to different Legal Units.') FROM jsonb_array_elements_text(COALESCE(rc.checks->'provided_input_ident_codes', '["%2$s"]'::jsonb)) AS key)
+                    -- Error 1: No identifier provided (for non-update operations)
+                    WHEN rc.operation != 'update' AND (rc.checks->>'num_idents_provided')::int = 0 
+                        THEN (SELECT jsonb_object_agg(key, 'Missing legal unit identifier.') FROM unnest(%3$L::TEXT[] || ARRAY[%2$L]) AS key)
+                    -- Error 2: Identifier provided but LU not found
+                    WHEN (rc.checks->>'num_idents_provided')::int > 0 AND (rc.checks->>'found_lu')::int = 0 
+                        THEN (SELECT jsonb_object_agg(key, 'Legal unit not found with provided identifiers.') FROM jsonb_array_elements_text(COALESCE(rc.checks->'provided_input_ident_codes', '["%2$s"]'::jsonb)) AS key)
+                    -- Error 3: Multiple different LUs resolved from identifiers
+                    WHEN (rc.checks->>'distinct_lu_ids')::int > 1 
+                        THEN (SELECT jsonb_object_agg(key, 'Provided identifiers resolve to different Legal Units.') FROM jsonb_array_elements_text(COALESCE(rc.checks->'provided_input_ident_codes', '["%2$s"]'::jsonb)) AS key)
+                    -- Error 4: LU resolved but establishment validity not covered by LU validity
+                    WHEN rc.resolved_lu_id IS NOT NULL 
+                         AND NOT daterange(rc.est_valid_from, rc.est_valid_until, '[)') <@ (
+                             SELECT range_agg(lu.valid_range) FROM public.legal_unit lu WHERE lu.id = rc.resolved_lu_id
+                         )
+                        THEN (SELECT jsonb_object_agg(key, 'Establishment validity [' || rc.est_valid_from || ', ' || COALESCE(rc.est_valid_until::text, 'infinity') || ') not covered by legal unit validity.') FROM jsonb_array_elements_text(COALESCE(rc.checks->'provided_input_ident_codes', '["%2$s"]'::jsonb)) AS key)
                     ELSE NULL
                 END as errors_jsonb
             FROM RowChecks rc
@@ -229,13 +247,11 @@ BEGIN
         INSERT INTO temp_precalc (data_row_id, resolved_lu_id, primary_for_legal_unit, errors_jsonb)
         SELECT
             tr.data_row_id,
-            rl.resolved_lu_id,
-            -- A row is primary if it is a candidate AND it's the first one for its LU and time-island.
+            err.resolved_lu_id,  -- Keep LU ID even for errors (helps debugging)
             (rfp.is_primary_candidate AND rfp.row_num = 1) AS primary_for_legal_unit,
             err.errors_jsonb
         FROM temp_relevant_rows tr
         LEFT JOIN Errors err ON tr.data_row_id = err.data_row_id
-        LEFT JOIN ResolvedLinks rl ON tr.data_row_id = rl.data_row_id
         LEFT JOIN RankedForPrimary rfp ON tr.data_row_id = rfp.data_row_id;
     $$, v_unpivot_sql, v_fallback_error_key, v_error_keys_to_clear_arr, v_data_table_name);
     RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Populating pre-calculation table with SQL: %', p_job_id, v_sql;
@@ -247,10 +263,7 @@ BEGIN
     RAISE DEBUG '[Job %] Starting single holistic update phase.', p_job_id;
     v_sql := format($$
         UPDATE public.%1$I dt SET
-            legal_unit_id = CASE
-                WHEN pre.errors_jsonb IS NOT NULL THEN dt.legal_unit_id -- Preserve on error
-                ELSE COALESCE(pre.resolved_lu_id, dt.legal_unit_id) -- Use new ID if resolved, otherwise preserve existing
-            END,
+            legal_unit_id = COALESCE(pre.resolved_lu_id, dt.legal_unit_id),  -- Always set if resolved (helps debugging)
             primary_for_legal_unit = CASE
                 WHEN pre.errors_jsonb IS NOT NULL THEN dt.primary_for_legal_unit -- Preserve on error
                 WHEN pre.resolved_lu_id IS NOT NULL THEN pre.primary_for_legal_unit -- Use new primary status only if LU was resolved

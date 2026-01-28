@@ -3434,6 +3434,9 @@ reset_getting_started
         "changed_count": 643,
         "deleted_count": 1811,
         "changed_children_count": 73
+    },
+    "import_definition": {
+        "deleted_count": 8
     }
 }
 (1 row)
@@ -3559,6 +3562,9 @@ reset_all
         "changed_count": 643,
         "deleted_count": 1811,
         "changed_children_count": 73
+    },
+    "import_definition": {
+        "deleted_count": 8
     },
     "external_ident_type": {
         "deleted_count": 0

@@ -80,6 +80,11 @@ module Statbus
     @shutdown_complete = Channel(Bool).new(1)           # Channel to signal when shutdown is complete
     @shutdown_ack_channel = Channel(Nil).new(10)        # Channel for fibers to acknowledge shutdown
     @active_fibers = [] of Fiber                        # Track active fibers for graceful shutdown
+    # Pause/resume state - controlled via pg_notify('worker_control', 'pause:SECONDS') / 'resume'
+    @paused = false                                     # Flag to indicate processing is paused
+    @pause_until : Time? = nil                          # When the pause expires (auto-resume)
+    @pause_requested_at : Time? = nil                   # When pause was requested (for actionable WARN)
+    @resume_channel = Channel(Nil).new(1)               # Channel to wake paused fibers on resume
 
     def initialize(config)
       @config = config
@@ -392,7 +397,7 @@ module Statbus
 
             # Create a PG connection for listening with error handling
             begin
-              PG.connect_listen(@config.connection_string("worker"), channels: ["worker_tasks", "worker_queue_change"], blocking: false) do |notification|
+              PG.connect_listen(@config.connection_string("worker"), channels: ["worker_tasks", "worker_queue_change", "worker_control"], blocking: false) do |notification|
                 if notification.channel == "worker_tasks"
                   # Get the queue from the notification payload
                   queue_name = notification.payload.presence
@@ -413,6 +418,25 @@ module Statbus
                   # When queue change notification received, trigger queue discovery
                   @log.info { "Queue change detected, triggering queue discovery..." }
                   @queue_discovery_channel.send(nil)
+                elsif notification.channel == "worker_control"
+                  # Handle pause/resume commands
+                  payload = notification.payload
+                  if payload.starts_with?("pause:")
+                    seconds = payload.split(":")[1].to_i64
+                    @pause_until = Time.utc + seconds.seconds
+                    @pause_requested_at = Time.utc
+                    @paused = true
+                    @log.info { "Worker paused for #{seconds} seconds (until #{@pause_until})" }
+                  elsif payload == "resume"
+                    @paused = false
+                    @pause_until = nil
+                    @pause_requested_at = nil
+                    # Wake any fibers waiting in wait_while_paused
+                    @resume_channel.send(nil) rescue nil
+                    @log.info { "Worker resumed" }
+                  else
+                    @log.warn { "Unknown worker_control payload: #{payload}" }
+                  end
                 end
               end
             rescue ex : IO::EOFError | DB::ConnectionLost | DB::ConnectionRefused | Socket::ConnectError
@@ -637,6 +661,51 @@ module Statbus
       end
     end
 
+    # Wait while worker is paused, with support for:
+    # - Immediate wake on resume notification (via @resume_channel)
+    # - Auto-resume after timeout expires
+    # - Respects shutdown signal
+    private def wait_while_paused
+      return unless @paused
+
+      loop do
+        return if @shutdown
+        return unless @paused
+
+        remaining = if pause_until = @pause_until
+          pause_until - Time.utc
+        else
+          30.seconds  # Fallback check interval if no timeout set
+        end
+
+        if remaining.total_seconds <= 0
+          # Auto-resume after timeout - log WARN with actionable info
+          duration = if @pause_until && @pause_requested_at
+            (@pause_until.not_nil! - @pause_requested_at.not_nil!).total_seconds.to_i
+          else
+            0
+          end
+          @log.warn { "Worker auto-resumed after #{duration}s timeout. Pause was requested at #{@pause_requested_at}. Check if a test failed to call worker.resume()." }
+          @paused = false
+          @pause_until = nil
+          @pause_requested_at = nil
+          return
+        end
+
+        begin
+          select
+          when @resume_channel.receive
+            # Resumed via notification - state already updated by notification handler
+            return
+          when timeout(remaining)
+            # Timeout expired - will check and auto-resume on next iteration
+          end
+        rescue Channel::ClosedError
+          return  # Shutdown in progress
+        end
+      end
+    end
+
     # Wait for worker schema and tables to be ready
     private def wait_for_worker_schema
       @log.info { "Checking for worker schema and tables..." }
@@ -785,6 +854,10 @@ module Statbus
       # Main processor loop
       loop do
         break if @shutdown || shutdown_requested
+
+        # Check if worker is paused - wait until resumed or timeout
+        wait_while_paused
+        break if @shutdown || shutdown_requested  # Re-check after potential long wait
 
         begin
           # Set processing flag
