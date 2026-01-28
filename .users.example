@@ -1,7 +1,7 @@
-- display_name: Super User
+- display_name: Admin User
   email: admin@example.com
   password: adminSecret123
-  role: super_user
+  role: admin_user
 - display_name: Regular User
   email: user@example.com
   password: userSecret456
