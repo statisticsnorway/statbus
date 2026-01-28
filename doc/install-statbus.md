@@ -13,7 +13,7 @@ Run the [server hardening script](harden-ubuntu-lts-24.md) first, or ensure you 
 
 ```bash
 # Download and run as your deployment user (e.g., devops)
-curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/main/devops/install-statbus.sh -o install-statbus.sh
+curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/master/devops/install-statbus.sh -o install-statbus.sh
 chmod +x install-statbus.sh
 ./install-statbus.sh
 ```

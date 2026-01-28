@@ -4,7 +4,7 @@
 # Ubuntu 24.04 LTS Server Hardening Script
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/main/devops/harden-ubuntu-lts-24.sh -o harden.sh
+#   curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/master/devops/harden-ubuntu-lts-24.sh -o harden.sh
 #   chmod +x harden.sh
 #   sudo ./harden.sh
 #
