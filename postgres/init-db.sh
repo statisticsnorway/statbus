@@ -8,6 +8,36 @@ if [[ "${DEBUG:-}" == "true" || "${DEBUG:-}" == "1" ]]; then
   set -x  # Print all commands before running them
 fi
 
+# FAIL FAST: Validate required environment variables
+# These are set by docker-compose from .env file
+required_vars=(
+    "POSTGRES_APP_DB"
+    "POSTGRES_APP_USER"
+    "POSTGRES_APP_PASSWORD"
+    "POSTGRES_AUTHENTICATOR_PASSWORD"
+    "POSTGRES_NOTIFY_USER"
+    "POSTGRES_NOTIFY_PASSWORD"
+)
+
+echo "Validating required environment variables..."
+missing_vars=()
+for var in "${required_vars[@]}"; do
+    if [ -z "${!var:-}" ]; then
+        missing_vars+=("$var")
+    fi
+done
+
+if [ ${#missing_vars[@]} -gt 0 ]; then
+    echo "Error: Required environment variables are not set:"
+    for var in "${missing_vars[@]}"; do
+        echo "  - $var"
+    done
+    echo ""
+    echo "These should be set in the .env file and passed via docker-compose."
+    echo "Run './devops/manage-statbus.sh generate-config' to create the .env file."
+    exit 1
+fi
+
 # The postgres role already exists as the default superuser
 
 echo "Creating template database with extensions..."
@@ -90,6 +120,25 @@ psql -d "$POSTGRES_APP_DB" <<'EOF'
 -- Grant usage on auth schema
 GRANT USAGE ON SCHEMA auth TO authenticated;
 GRANT USAGE ON SCHEMA auth TO anon;
+EOF
+
+echo "Setting up STATBUS application roles..."
+# These roles are used by RLS policies and must exist before snapshot restore
+# They are also created by migrations (with IF NOT EXISTS), so this is idempotent
+# Using DO blocks with exception handling for idempotent role creation
+psql -d "$POSTGRES_APP_DB" <<'EOF'
+-- STATBUS user permission roles (used by RLS policies)
+-- Using exception handling for idempotent creation (CREATE ROLE IF NOT EXISTS isn't standard)
+DO $$ BEGIN CREATE ROLE admin_user NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE ROLE regular_user NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE ROLE restricted_user NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE ROLE external_user NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- Grant these roles to authenticator so PostgREST can switch to them
+GRANT admin_user TO authenticator;
+GRANT regular_user TO authenticator;
+GRANT restricted_user TO authenticator;
+GRANT external_user TO authenticator;
 EOF
 
 echo "Setting up notify reader role and user..."

@@ -494,3 +494,8 @@ key-*.xml
 !.aider.conf.yml
 !.aiderignore
 
+# Ignore migration snapshots (large binary dumps and list files, generated locally)
+migrations/snapshots/*.pg_dump
+migrations/snapshots/*.pg_list
+!migrations/snapshots/.gitkeep
+

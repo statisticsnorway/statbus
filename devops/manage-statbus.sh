@@ -307,11 +307,23 @@ case "$action" in
             done
         fi
 
+        # Separate tests into shared (non-4xx) and isolated (4xx) categories
+        # 4xx tests use COMMIT and need their own database to avoid polluting state
+        SHARED_TESTS=""
+        ISOLATED_TESTS=""
+        
         for test_basename in $TEST_BASENAMES; do
             expected_file="$PG_REGRESS_DIR/expected/$test_basename.out"
             if [ ! -f "$expected_file" ] && [ -f "$PG_REGRESS_DIR/sql/$test_basename.sql" ]; then
                 echo "Warning: Expected output file $expected_file not found. Creating an empty placeholder."
                 touch "$expected_file"
+            fi
+            
+            # Categorize: 4xx tests run isolated, others run shared
+            if [[ "$test_basename" == 4* ]]; then
+                ISOLATED_TESTS="$ISOLATED_TESTS $test_basename"
+            else
+                SHARED_TESTS="$SHARED_TESTS $test_basename"
             fi
         done
 
@@ -319,19 +331,40 @@ case "$action" in
         if [ "${DEBUG:-}" = "true" ]; then
           debug_arg="--debug"
         fi
-        docker compose exec --workdir "/statbus" db \
-            $PG_REGRESS $debug_arg \
-            --use-existing \
-            --bindir="/usr/lib/postgresql/$POSTGRESQL_MAJOR/bin" \
-            --inputdir=$CONTAINER_REGRESS_DIR \
-            --outputdir=$CONTAINER_REGRESS_DIR \
-            --dbname=$PGDATABASE \
-            --user=$PGUSER \
-            $TEST_BASENAMES
+        
+        OVERALL_EXIT_CODE=0
+        
+        # Run shared tests together on the main database (fast, uses BEGIN/ROLLBACK)
+        if [ -n "$SHARED_TESTS" ]; then
+            echo "=== Running shared tests (BEGIN/ROLLBACK isolation) ==="
+            docker compose exec --workdir "/statbus" db \
+                $PG_REGRESS $debug_arg \
+                --use-existing \
+                --bindir="/usr/lib/postgresql/$POSTGRESQL_MAJOR/bin" \
+                --inputdir=$CONTAINER_REGRESS_DIR \
+                --outputdir=$CONTAINER_REGRESS_DIR \
+                --dbname=$PGDATABASE \
+                --user=$PGUSER \
+                $SHARED_TESTS || OVERALL_EXIT_CODE=$?
+        fi
+        
+        # Run isolated tests each in their own database from template
+        if [ -n "$ISOLATED_TESTS" ]; then
+            echo ""
+            echo "=== Running isolated tests (database-per-test from template) ==="
+            for test_basename in $ISOLATED_TESTS; do
+                update_arg=""
+                if [ "$update_expected" = "true" ]; then
+                    update_arg="--update-expected"
+                fi
+                ./devops/manage-statbus.sh test-isolated "$test_basename" $update_arg || OVERALL_EXIT_CODE=$?
+            done
+        fi
 
-        if [ "$update_expected" = "true" ]; then
-            echo "Updating expected output for tests: $(echo $TEST_BASENAMES)"
-            for test_basename in $TEST_BASENAMES; do
+        # Handle --update-expected for shared tests (isolated tests handle it themselves)
+        if [ "$update_expected" = "true" ] && [ -n "$SHARED_TESTS" ]; then
+            echo "Updating expected output for shared tests: $(echo $SHARED_TESTS)"
+            for test_basename in $SHARED_TESTS; do
                 result_file="$PG_REGRESS_DIR/results/$test_basename.out"
                 expected_file="$PG_REGRESS_DIR/expected/$test_basename.out"
                 if [ -f "$result_file" ]; then
@@ -342,6 +375,8 @@ case "$action" in
                 fi
             done
         fi
+        
+        exit $OVERALL_EXIT_CODE
     ;;
     'diff-fail-first' )
       if [ ! -f "$WORKSPACE/test/regression.out" ]; then
@@ -505,9 +540,83 @@ case "$action" in
         popd
       ;;
     'create-db-structure' )
+        eval $(./devops/manage-statbus.sh postgres-variables)
+        SNAPSHOT_DIR="$WORKSPACE/migrations/snapshots"
+        
+        # Build the CLI tool first
         pushd cli
-          shards build statbus && ./bin/statbus migrate up all -v
+          shards build statbus
         popd
+        
+        # Find the latest snapshot file (if any)
+        # Use find instead of ls to avoid glob expansion issues with set -e pipefail
+        LATEST_SNAPSHOT=$(find "$SNAPSHOT_DIR" -maxdepth 1 -name 'schema_*.pg_dump' -type f 2>/dev/null | sort -V | tail -1 || true)
+        
+        if [ -n "$LATEST_SNAPSHOT" ]; then
+            # Extract version from filename (schema_20260126221107.pg_dump -> 20260126221107)
+            SNAPSHOT_VERSION=$(basename "$LATEST_SNAPSHOT" | sed 's/schema_\([0-9]*\)\.pg_dump/\1/')
+            SNAPSHOT_LIST="${LATEST_SNAPSHOT%.pg_dump}.pg_list"
+            
+            echo "Found snapshot for migration version $SNAPSHOT_VERSION"
+            echo "Restoring from snapshot: $LATEST_SNAPSHOT"
+            
+            # Restore snapshot using pg_restore
+            # --clean --if-exists: Drop objects before recreating (safe with if-exists)
+            # --no-owner: Don't try to set ownership (roles from init-db.sh)
+            # --disable-triggers: Disable triggers/constraints during data load (as superuser)
+            # --single-transaction: All-or-nothing restore
+            # -L: Use list file for selective restore (if available)
+            # Note: List file must be passed via volume mount since it's on host
+            # pg_restore exit codes:
+            #   0 = success
+            #   1 = warnings only (e.g., "relation already exists") - acceptable
+            #   >1 = critical errors (corrupt dump, connection failure, etc.) - FAIL FAST
+            RESTORE_EXIT_CODE=0
+            
+            if [ -f "$SNAPSHOT_LIST" ]; then
+                echo "Using list file: $SNAPSHOT_LIST"
+                # Copy list file to container, restore, then clean up
+                docker compose cp "$SNAPSHOT_LIST" db:/tmp/restore.pg_list
+                docker compose exec -T db pg_restore -U postgres \
+                    --clean \
+                    --if-exists \
+                    --no-owner \
+                    --disable-triggers \
+                    --single-transaction \
+                    -L /tmp/restore.pg_list \
+                    -d "$PGDATABASE" \
+                    < "$LATEST_SNAPSHOT" || RESTORE_EXIT_CODE=$?
+                docker compose exec -T db rm -f /tmp/restore.pg_list
+            else
+                docker compose exec -T db pg_restore -U postgres \
+                    --clean \
+                    --if-exists \
+                    --no-owner \
+                    --disable-triggers \
+                    --single-transaction \
+                    -d "$PGDATABASE" \
+                    < "$LATEST_SNAPSHOT" || RESTORE_EXIT_CODE=$?
+            fi
+            
+            # Check restore result
+            if [ $RESTORE_EXIT_CODE -gt 1 ]; then
+                echo "Error: pg_restore failed with exit code $RESTORE_EXIT_CODE"
+                echo "This indicates a critical restore failure (corrupt dump, connection error, disk space, etc.)"
+                echo "The database may be in an inconsistent state. Consider running:"
+                echo "  ./devops/manage-statbus.sh recreate-database"
+                exit 1
+            elif [ $RESTORE_EXIT_CODE -eq 1 ]; then
+                echo "Info: pg_restore completed with warnings (exit code 1) - this is normal for existing objects"
+            fi
+            
+            echo "Snapshot restored. Running any newer migrations..."
+        else
+            echo "No snapshot found in $SNAPSHOT_DIR, running all migrations..."
+        fi
+        
+        # Run migrations (will only apply migrations newer than what's in db.migration table)
+        ./cli/bin/statbus migrate up all -v
+        
         # Load secrets after migrations because:
         # 1. auth.secrets table must exist (created by migration 20240102100000)
         # 2. Functions that create users need JWT secret to generate API keys
@@ -520,7 +629,7 @@ case "$action" in
       ;;
     'delete-db-structure' )
         pushd cli
-          shards build statbus&& ./bin/statbus migrate down all -v
+          shards build statbus && ./bin/statbus migrate down all -v
         popd
       ;;
     'reset-db-structure' )
@@ -535,6 +644,7 @@ case "$action" in
         ./devops/manage-statbus.sh start all_except_app
         ./devops/manage-statbus.sh create-db-structure
         ./devops/manage-statbus.sh create-users
+        ./devops/manage-statbus.sh create-test-template
       ;;
     'recreate-database' )
         echo "Recreate the backend with the lastest database structures"
@@ -559,6 +669,337 @@ case "$action" in
       ;;
     'create-users' )
         ./cli/bin/statbus manage create-users -v
+      ;;
+    'dump-snapshot' )
+        eval $(./devops/manage-statbus.sh postgres-variables)
+        
+        # Verify database is running before attempting dump
+        if ! ./devops/manage-statbus.sh is-db-running; then
+            echo "Error: Database is not running. Start with: ./devops/manage-statbus.sh start all"
+            exit 1
+        fi
+        
+        # Get latest migration version from database
+        LATEST_VERSION=$(echo "SELECT version FROM db.migration ORDER BY version DESC LIMIT 1;" \
+            | ./devops/manage-statbus.sh psql -t -A)
+        
+        if [ -z "$LATEST_VERSION" ]; then
+            echo "Error: No migrations found in database"
+            exit 1
+        fi
+        
+        SNAPSHOT_DIR="$WORKSPACE/migrations/snapshots"
+        SNAPSHOT_DUMP="$SNAPSHOT_DIR/schema_${LATEST_VERSION}.pg_dump"
+        SNAPSHOT_LIST="$SNAPSHOT_DIR/schema_${LATEST_VERSION}.pg_list"
+        mkdir -p "$SNAPSHOT_DIR"
+        
+        echo "Creating snapshot for migration version $LATEST_VERSION..."
+        echo "This includes all schema and data from the current database."
+        
+        # Use custom format (-Fc) with default gzip compression
+        # --no-owner: Skip ownership commands (roles created by init-db.sh)
+        # Note: -Fc includes gzip compression by default
+        # Note: We include ACLs (GRANTs) since they're essential for RLS policies
+        docker compose exec -T db pg_dump -U postgres \
+            -Fc \
+            --no-owner \
+            "$PGDATABASE" > "$SNAPSHOT_DUMP"
+        
+        echo "Snapshot dump created: $SNAPSHOT_DUMP"
+        ls -lh "$SNAPSHOT_DUMP"
+        
+        # Generate list file for selective restore
+        # This can be edited to comment out problematic items
+        # Use container's pg_restore to ensure version compatibility with the dump
+        docker compose cp "$SNAPSHOT_DUMP" db:/tmp/snapshot.pg_dump
+        docker compose exec -T db pg_restore -l /tmp/snapshot.pg_dump > "$SNAPSHOT_LIST"
+        docker compose exec -T db rm -f /tmp/snapshot.pg_dump
+        
+        echo "Snapshot list created: $SNAPSHOT_LIST"
+        echo "Edit this file to comment out items that cause restore issues."
+      ;;
+    'list-snapshots' )
+        SNAPSHOT_DIR="$WORKSPACE/migrations/snapshots"
+        echo "Available snapshots in $SNAPSHOT_DIR:"
+        ls -lh "$SNAPSHOT_DIR"/*.pg_dump 2>/dev/null || echo "  (none - run 'dump-snapshot' to create one)"
+        
+        # Also show list files
+        LIST_FILES=$(ls "$SNAPSHOT_DIR"/*.pg_list 2>/dev/null)
+        if [ -n "$LIST_FILES" ]; then
+            echo ""
+            echo "List files (edit these to customize restore):"
+            ls -lh "$SNAPSHOT_DIR"/*.pg_list
+        fi
+        
+        if ./devops/manage-statbus.sh is-db-running 2>/dev/null; then
+            LATEST_DB_VERSION=$(echo "SELECT version FROM db.migration ORDER BY version DESC LIMIT 1;" \
+                | ./devops/manage-statbus.sh psql -t -A 2>/dev/null)
+            echo ""
+            echo "Current database migration version: ${LATEST_DB_VERSION:-not available}"
+        fi
+      ;;
+    'is-db-running' )
+        # Check if database container is running and accepting connections
+        docker compose exec -T db pg_isready -U postgres > /dev/null 2>&1
+      ;;
+    'clean-test-databases' )
+        # Remove all test databases (those starting with 'test_')
+        eval $(./devops/manage-statbus.sh postgres-variables)
+        
+        echo "Finding test databases to clean up..."
+        TEST_DBS=$(./devops/manage-statbus.sh psql -d postgres -t -A -c "
+            SELECT datname FROM pg_database 
+            WHERE datname LIKE 'test_%' 
+            ORDER BY datname;
+        ")
+        
+        if [ -z "$TEST_DBS" ]; then
+            echo "No test databases found."
+            exit 0
+        fi
+        
+        echo "Found test databases:"
+        echo "$TEST_DBS" | sed 's/^/  /'
+        
+        # Ask for confirmation unless --force is passed
+        if [ "${1:-}" != "--force" ]; then
+            echo ""
+            read -p "Drop all these databases? [y/N] " -r < "$TTY_INPUT"
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                echo "Cancelled."
+                exit 0
+            fi
+        fi
+        
+        # Drop each test database, tracking failures
+        FAILED_DBS=""
+        DROPPED_COUNT=0
+        while read -r db; do
+            if [ -n "$db" ]; then
+                echo "Dropping: $db"
+                if ./devops/manage-statbus.sh psql -d postgres -c "DROP DATABASE IF EXISTS \"$db\";" 2>&1; then
+                    DROPPED_COUNT=$((DROPPED_COUNT + 1))
+                else
+                    echo "  Warning: Failed to drop $db (may have active connections)"
+                    FAILED_DBS="$FAILED_DBS $db"
+                fi
+            fi
+        done <<< "$TEST_DBS"
+        
+        echo ""
+        echo "Cleanup complete: $DROPPED_COUNT databases dropped."
+        if [ -n "$FAILED_DBS" ]; then
+            echo "Warning: Could not drop:$FAILED_DBS"
+            echo "These may have active connections. Try stopping services first."
+            exit 1
+        fi
+      ;;
+    'create-test-template' )
+        eval $(./devops/manage-statbus.sh postgres-variables)
+        TEMPLATE_NAME="template_statbus_migrated"
+        
+        echo "Creating migrated template database: $TEMPLATE_NAME"
+        
+        # Check if template already exists
+        TEMPLATE_EXISTS=$(./devops/manage-statbus.sh psql -d postgres -t -A -c \
+            "SELECT 1 FROM pg_database WHERE datname = '$TEMPLATE_NAME';" 2>/dev/null || echo "0")
+        
+        if [ "$TEMPLATE_EXISTS" = "1" ]; then
+            echo "Existing template found, removing it..."
+            
+            # Terminate connections to template - OK if none exist
+            ./devops/manage-statbus.sh psql -d postgres -c "
+                SELECT pg_terminate_backend(pid) 
+                FROM pg_stat_activity 
+                WHERE datname = '$TEMPLATE_NAME';
+            " || true
+            
+            # Unmark as template - MUST succeed if template exists
+            if ! ./devops/manage-statbus.sh psql -d postgres -c "
+                UPDATE pg_database SET datistemplate = false WHERE datname = '$TEMPLATE_NAME';
+            "; then
+                echo "Error: Failed to unmark template database. Check permissions."
+                exit 1
+            fi
+            
+            # Drop template - MUST succeed
+            if ! ./devops/manage-statbus.sh psql -d postgres -c "DROP DATABASE $TEMPLATE_NAME;"; then
+                echo "Error: Failed to drop existing template database."
+                echo "There may be active connections. Check with:"
+                echo "  ./devops/manage-statbus.sh psql -c \"SELECT * FROM pg_stat_activity WHERE datname = '$TEMPLATE_NAME';\""
+                exit 1
+            fi
+        fi
+        
+        # Create new template from current database
+        # Note: This requires no other connections to the source database
+        echo "Creating template from $PGDATABASE (this requires exclusive access)..."
+        
+        # Stop services that hold connections (worker reconnects automatically)
+        echo "Stopping worker and rest services temporarily..."
+        if ! docker compose stop worker rest 2>&1; then
+            echo "Warning: Could not stop worker/rest services. They may not be running."
+        fi
+        
+        # Terminate any remaining connections to the source database (except our own)
+        ./devops/manage-statbus.sh psql -d postgres -c "
+            SELECT pg_terminate_backend(pid) 
+            FROM pg_stat_activity 
+            WHERE datname = '$PGDATABASE' 
+            AND pid <> pg_backend_pid();
+        " || true
+        
+        # Create the template - MUST succeed
+        if ! ./devops/manage-statbus.sh psql -d postgres -c "
+            CREATE DATABASE $TEMPLATE_NAME 
+            WITH TEMPLATE $PGDATABASE 
+            OWNER postgres;
+        "; then
+            echo "Error: Failed to create template database from $PGDATABASE"
+            echo "There may be active connections to the source database. Check with:"
+            echo "  ./devops/manage-statbus.sh psql -c \"SELECT * FROM pg_stat_activity WHERE datname = '$PGDATABASE';\""
+            # Try to restart services before exiting
+            docker compose start worker rest 2>/dev/null || true
+            exit 1
+        fi
+        
+        # Restart the services - MUST succeed for system to be functional
+        echo "Restarting worker and rest services..."
+        if ! docker compose start worker rest; then
+            echo "Error: Failed to restart worker/rest services!"
+            echo "The template was created, but services are down. Manually restart with:"
+            echo "  docker compose start worker rest"
+            exit 1
+        fi
+        
+        # Mark as template and prevent connections (so it stays clean)
+        if ! ./devops/manage-statbus.sh psql -d postgres -c "
+            ALTER DATABASE $TEMPLATE_NAME WITH IS_TEMPLATE = true;
+            ALTER DATABASE $TEMPLATE_NAME WITH ALLOW_CONNECTIONS = false;
+        "; then
+            echo "Error: Template created but failed to mark as template."
+            echo "This may cause issues with test isolation. Check database permissions."
+            exit 1
+        fi
+        
+        echo "Template created: $TEMPLATE_NAME"
+        echo "This template can be used to quickly create isolated test databases."
+      ;;
+    'test-isolated' )
+        # Run a single test in an isolated database created from template
+        # Usage: ./devops/manage-statbus.sh test-isolated <test_name> [--update-expected]
+        eval $(./devops/manage-statbus.sh postgres-variables)
+        TEMPLATE_NAME="template_statbus_migrated"
+        
+        # Parse arguments
+        TEST_NAME="${1:-}"
+        shift || true
+        UPDATE_EXPECTED=false
+        for arg in "$@"; do
+            if [ "$arg" = "--update-expected" ]; then
+                UPDATE_EXPECTED=true
+            fi
+        done
+        
+        if [ -z "$TEST_NAME" ]; then
+            echo "Error: Test name required"
+            echo "Usage: ./devops/manage-statbus.sh test-isolated <test_name> [--update-expected]"
+            exit 1
+        fi
+        
+        # Sanitize test name to alphanumeric and underscore only (prevent SQL injection)
+        SAFE_TEST_NAME=$(echo "$TEST_NAME" | tr -cd '[:alnum:]_')
+        
+        # Generate unique database name using sanitized test name and PID
+        TEST_DB="test_${SAFE_TEST_NAME}_$$"
+        
+        # Extract PostgreSQL major version from Dockerfile
+        POSTGRESQL_MAJOR=$(grep -E "^ARG postgresql_major=" "$WORKSPACE/postgres/Dockerfile" | cut -d= -f2)
+        PG_REGRESS="/usr/lib/postgresql/$POSTGRESQL_MAJOR/lib/pgxs/src/test/regress/pg_regress"
+        PG_REGRESS_DIR="$WORKSPACE/test"
+        CONTAINER_REGRESS_DIR="/statbus/test"
+        
+        # Check if template exists
+        if ! ./devops/manage-statbus.sh psql -d postgres -t -A -c "SELECT 1 FROM pg_database WHERE datname = '$TEMPLATE_NAME';" 2>/dev/null | grep -q 1; then
+            echo "Error: Template database '$TEMPLATE_NAME' not found."
+            echo "Run './devops/manage-statbus.sh create-db' or './devops/manage-statbus.sh create-test-template' first."
+            exit 1
+        fi
+        
+        echo "=== Running isolated test: $TEST_NAME ==="
+        echo "Creating isolated test database: $TEST_DB from template $TEMPLATE_NAME"
+        
+        # Setup cleanup trap (runs on exit, including Ctrl+C)
+        # Default: PERSIST=false (clean up test databases)
+        cleanup_test_db() {
+            local exit_code=$?
+            if [ "${PERSIST:-false}" = "true" ]; then
+                echo "PERSIST=true: Keeping test database: $TEST_DB"
+                return $exit_code
+            fi
+            if [ -n "$TEST_DB" ]; then
+                echo "Cleaning up test database: $TEST_DB"
+                if ! ./devops/manage-statbus.sh psql -d postgres -c "DROP DATABASE IF EXISTS \"$TEST_DB\";" 2>&1; then
+                    echo "Warning: Failed to drop test database '$TEST_DB'"
+                    echo "It may have active connections. Clean up manually with:"
+                    echo "  ./devops/manage-statbus.sh psql -d postgres -c \"DROP DATABASE IF EXISTS \\\"$TEST_DB\\\";\""
+                fi
+            fi
+            return $exit_code
+        }
+        trap cleanup_test_db EXIT
+        
+        # Use advisory lock to prevent race conditions when multiple tests access template
+        # Lock ID 59328 is arbitrary but consistent for this operation
+        # CRITICAL: All operations must be in ONE session - advisory locks are session-scoped
+        # The lock is held until explicitly released (or session ends)
+        if ! ./devops/manage-statbus.sh psql -d postgres -v ON_ERROR_STOP=1 <<EOF
+            SELECT pg_advisory_lock(59328);
+            ALTER DATABASE $TEMPLATE_NAME WITH ALLOW_CONNECTIONS = true;
+            CREATE DATABASE "$TEST_DB" WITH TEMPLATE $TEMPLATE_NAME;
+            ALTER DATABASE $TEMPLATE_NAME WITH ALLOW_CONNECTIONS = false;
+            SELECT pg_advisory_unlock(59328);
+EOF
+        then
+            echo "Error: Failed to create test database from template"
+            exit 1
+        fi
+        
+        # Run the test against the isolated database
+        debug_arg=""
+        if [ "${DEBUG:-}" = "true" ]; then
+            debug_arg="--debug"
+        fi
+        
+        # Ensure expected file exists
+        expected_file="$PG_REGRESS_DIR/expected/$TEST_NAME.out"
+        if [ ! -f "$expected_file" ] && [ -f "$PG_REGRESS_DIR/sql/$TEST_NAME.sql" ]; then
+            echo "Warning: Expected output file $expected_file not found. Creating an empty placeholder."
+            touch "$expected_file"
+        fi
+        
+        TEST_EXIT_CODE=0
+        docker compose exec --workdir "/statbus" db \
+            $PG_REGRESS $debug_arg \
+            --use-existing \
+            --bindir="/usr/lib/postgresql/$POSTGRESQL_MAJOR/bin" \
+            --inputdir=$CONTAINER_REGRESS_DIR \
+            --outputdir=$CONTAINER_REGRESS_DIR \
+            --dbname="$TEST_DB" \
+            --user=$PGUSER \
+            "$TEST_NAME" || TEST_EXIT_CODE=$?
+        
+        # Handle --update-expected
+        if [ "$UPDATE_EXPECTED" = "true" ]; then
+            result_file="$PG_REGRESS_DIR/results/$TEST_NAME.out"
+            if [ -f "$result_file" ]; then
+                echo "  -> Updating expected output for $TEST_NAME"
+                cp "$result_file" "$expected_file"
+            fi
+        fi
+        
+        # Cleanup happens via trap
+        exit $TEST_EXIT_CODE
       ;;
      'generate-config' )
         if [ ! -f .env ]; then
