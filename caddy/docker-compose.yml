@@ -16,7 +16,11 @@ services:
       # Mounts the entire config directory. Caddy will use /etc/caddy/Caddyfile
       # that references the appropriate generated files.
       - ./config:/etc/caddy:ro
-      - caddy_data:/data
+      # Caddy data directory - contains:
+      #   - caddy/certificates/  : ACME-managed certs (Let's Encrypt, etc.)
+      #   - custom-certs/        : Your own certificates (for standalone mode)
+      # Using local bind mount allows easy inspection and custom cert placement
+      - ./data:/data
       - caddy_logs:/var/log/caddy
     environment:
       APP_BIND_ADDRESS: http://app:3000
@@ -32,5 +36,4 @@ services:
       - "all_except_app"
 
 volumes:
-  caddy_data:
   caddy_logs:

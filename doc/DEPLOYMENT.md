@@ -10,6 +10,7 @@ This guide is for **system administrators** deploying StatBus for a single count
 - [Single Instance Deployment](#single-instance-deployment)
 - [Configuration](#configuration)
 - [PostgreSQL Access Architecture](#postgresql-access-architecture)
+- [Custom TLS Certificates](#custom-tls-certificates)
 - [Troubleshooting](#troubleshooting)
 - [Security Considerations](#security-considerations)
 
@@ -38,6 +39,7 @@ StatBus supports three deployment modes, controlled by the `CADDY_DEPLOYMENT_MOD
 
 **Characteristics**:
 - Handles HTTPS directly with automatic ACME/Let's Encrypt certificates
+- Supports custom certificates (for organizations with their own CA)
 - PostgreSQL accessible on standard port 5432 with TLS+SNI
 - All services run in Docker
 - Direct public access without additional proxy
@@ -435,5 +437,153 @@ psql
 ```
 
 See [Integration Guide](../integration/README.md#postgresql-direct-access) for detailed connection examples.
+
+---
+
+## Custom TLS Certificates
+
+By default, standalone mode uses automatic ACME certificates from Let's Encrypt. If your organization requires using its own certificates (e.g., from an internal CA or a specific certificate provider), you can configure StatBus to use custom certificates instead.
+
+### Certificate Requirements
+
+Your certificate files must be:
+- **PEM format** (base64 encoded)
+- **Fullchain format** for the certificate file (server certificate + intermediate CA certificates concatenated)
+- **Unencrypted** private key (no password protection)
+
+### Directory Structure
+
+Caddy's data directory is mounted at `caddy/data/`:
+
+```
+caddy/data/
+├── caddy/              # Caddy-managed (ACME certs, internal PKI)
+│   ├── certificates/   # Auto-obtained certificates
+│   └── pki/            # Internal CA for development mode
+└── custom-certs/       # Your custom certificates go here
+```
+
+The `caddy/data/` directory is gitignored to protect sensitive private keys.
+
+### Setup Instructions
+
+#### 1. Prepare Certificate Files
+
+If you received separate certificate and CA chain files, concatenate them into fullchain format:
+
+```bash
+# Concatenate server cert + intermediate CA(s) + root CA (if provided)
+cat server.crt intermediate.crt > caddy/data/custom-certs/domain.crt
+
+# Or if you have a separate CA bundle file:
+cat server.crt ca-bundle.crt > caddy/data/custom-certs/domain.crt
+
+# Copy the private key
+cp server.key caddy/data/custom-certs/domain.key
+
+# Set secure permissions
+chmod 600 caddy/data/custom-certs/domain.key
+```
+
+The fullchain order should be:
+1. Server certificate (your domain)
+2. Intermediate CA certificate(s)
+3. Root CA certificate (optional, usually not needed)
+
+#### 2. Configure Environment
+
+Edit `.env.config` and set the certificate paths:
+
+```bash
+# Custom TLS certificate paths (inside container)
+TLS_CERT_FILE=/data/custom-certs/domain.crt
+TLS_KEY_FILE=/data/custom-certs/domain.key
+```
+
+#### 3. Regenerate Configuration
+
+```bash
+./devops/manage-statbus.sh generate-config
+```
+
+This updates the Caddy configuration to use your custom certificates instead of ACME.
+
+#### 4. Restart Caddy
+
+```bash
+docker compose restart proxy
+```
+
+#### 5. Verify Certificate
+
+```bash
+# Check certificate details
+openssl s_client -connect your-domain.com:443 -servername your-domain.com < /dev/null 2>/dev/null | openssl x509 -noout -text | head -20
+
+# Or use curl
+curl -vI https://your-domain.com 2>&1 | grep -A5 "Server certificate"
+```
+
+### Switching Back to ACME
+
+To return to automatic Let's Encrypt certificates:
+
+1. Clear the certificate paths in `.env.config`:
+   ```bash
+   TLS_CERT_FILE=
+   TLS_KEY_FILE=
+   ```
+
+2. Regenerate and restart:
+   ```bash
+   ./devops/manage-statbus.sh generate-config
+   docker compose restart proxy
+   ```
+
+### Certificate Renewal
+
+**Custom certificates**: You are responsible for renewing and replacing certificate files before expiry. After updating files in `caddy/data/custom-certs/`, restart Caddy:
+```bash
+docker compose restart proxy
+```
+
+**ACME certificates**: Caddy handles renewal automatically (no action needed).
+
+### Inspecting Certificates
+
+You can inspect both ACME-managed and custom certificates directly on the host:
+
+```bash
+# View ACME certificates (if using Let's Encrypt)
+ls -la caddy/data/caddy/certificates/
+
+# View custom certificates
+ls -la caddy/data/custom-certs/
+
+# Check certificate expiry
+openssl x509 -in caddy/data/custom-certs/domain.crt -noout -enddate
+```
+
+### Troubleshooting Custom Certificates
+
+**Certificate not loading**:
+```bash
+# Check Caddy logs for TLS errors
+docker compose logs proxy | grep -i tls
+
+# Verify certificate chain is valid
+openssl verify -CAfile ca-bundle.crt caddy/data/custom-certs/domain.crt
+```
+
+**"certificate signed by unknown authority"**:
+- Ensure the fullchain includes all intermediate certificates
+- Verify the certificate order (server cert first, then intermediates)
+
+**Permission denied**:
+```bash
+# Ensure files are readable by the container
+chmod 644 caddy/data/custom-certs/domain.crt
+chmod 600 caddy/data/custom-certs/domain.key
+```
 
 ---

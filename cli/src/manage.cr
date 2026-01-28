@@ -189,7 +189,13 @@ module Statbus
       next_public_debug : String,
 
       # PostgreSQL memory configuration
-      db_mem_limit : String
+      db_mem_limit : String,
+
+      # Custom TLS certificate configuration (for standalone mode)
+      # If both are set, Caddy uses these instead of ACME/Let's Encrypt
+      # Place files in caddy/data/custom-certs/, use paths like /data/custom-certs/domain.crt
+      tls_cert_file : String,
+      tls_key_file : String
 
     # Type-safe derived memory configuration structure
     # All memory settings are derived from DB_MEM_LIMIT for consistent scaling.
@@ -395,7 +401,15 @@ module Statbus
             # PostgreSQL memory configuration
             # This is the total memory limit for the container. Other values are derived from this.
             # See cli/src/manage.cr for calculation logic.
-            db_mem_limit: config_env.generate("DB_MEM_LIMIT") { "4G" }
+            db_mem_limit: config_env.generate("DB_MEM_LIMIT") { "4G" },
+
+            # Custom TLS certificate configuration (for standalone mode)
+            # If both are provided, Caddy uses these files instead of ACME/Let's Encrypt.
+            # Place cert files in caddy/data/custom-certs/ (maps to /data/custom-certs/ in container)
+            # Example: TLS_CERT_FILE=/data/custom-certs/domain.crt
+            # The cert file should be in fullchain format (server cert + CA chain concatenated)
+            tls_cert_file: config_env.generate("TLS_CERT_FILE") { "" },
+            tls_key_file: config_env.generate("TLS_KEY_FILE") { "" }
           )
         end
 

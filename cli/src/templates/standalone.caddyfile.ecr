@@ -109,9 +109,17 @@ http://<%= @domain %> {
         output stdout
     }
     
+<% if !@config.tls_cert_file.empty? && !@config.tls_key_file.empty? %>
+    # Custom certificate provided via TLS_CERT_FILE and TLS_KEY_FILE
+    # Files should be placed in caddy/data/custom-certs/ on host
+    # The cert file should be in fullchain format (server cert + CA chain)
+    tls <%= @config.tls_cert_file %> <%= @config.tls_key_file %>
+<% else %>
+    # Automatic ACME certificate (Let's Encrypt / ZeroSSL)
     tls {
         issuer acme
     }
+<% end %>
 }
 
 # Internal Docker network server

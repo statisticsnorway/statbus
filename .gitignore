@@ -486,6 +486,9 @@ key-*.xml
 # Ignore postgres data files
 /postgres/volumes/db/data
 
+# Ignore Caddy data directory (ACME certs, custom certs, private keys)
+/caddy/data/
+
 # Ignore aider AI tool files, except those useful.
 .aider*
 !.aider.conf.yml
