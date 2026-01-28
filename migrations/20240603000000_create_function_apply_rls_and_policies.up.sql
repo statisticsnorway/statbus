@@ -110,10 +110,10 @@ BEGIN
     PERFORM admin.add_rls_regular_user_can_read('public.tag'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.relative_period'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.unit_size'::regclass);
-    PERFORM admin.add_rls_regular_user_can_read('public.enterprise_group_type'::regclass);
-    PERFORM admin.add_rls_regular_user_can_read('public.reorg_type'::regclass);
+    PERFORM admin.add_rls_regular_user_can_read('public.power_group_type'::regclass);
+    PERFORM admin.add_rls_regular_user_can_read('public.legal_reorg_type'::regclass);
+    PERFORM admin.add_rls_regular_user_can_read('public.legal_rel_type'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.foreign_participation'::regclass);
-    PERFORM admin.add_rls_regular_user_can_read('public.enterprise_group_role'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.status'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.external_ident_type'::regclass);
 
@@ -145,7 +145,7 @@ BEGIN
     PERFORM admin.add_rls_regular_user_can_edit('public.establishment'::regclass);
     PERFORM admin.add_rls_regular_user_can_edit('public.legal_unit'::regclass);
     PERFORM admin.add_rls_regular_user_can_edit('public.enterprise'::regclass);
-    PERFORM admin.add_rls_regular_user_can_edit('public.enterprise_group'::regclass);
+    PERFORM admin.add_rls_regular_user_can_edit('public.power_group'::regclass);
     PERFORM admin.add_rls_regular_user_can_edit('public.external_ident'::regclass);
     PERFORM admin.add_rls_regular_user_can_edit('public.activity'::regclass);
     PERFORM admin.add_rls_regular_user_can_edit('public.contact'::regclass);
@@ -155,6 +155,7 @@ BEGIN
     PERFORM admin.add_rls_regular_user_can_edit('public.person_for_unit'::regclass);
     PERFORM admin.add_rls_regular_user_can_edit('public.person'::regclass);
     PERFORM admin.add_rls_regular_user_can_edit('public.location'::regclass);
+    PERFORM admin.add_rls_regular_user_can_edit('public.legal_relationship'::regclass);
     --
 END;
 $apply_rls_to_all_tables$ LANGUAGE plpgsql;
@@ -211,12 +212,14 @@ DECLARE
     view_record record;
 BEGIN
     -- Loop through all views in all schemas (except system schemas)
+    -- Excludes sql_saga __for_portion_of_valid views which are INSTEAD OF trigger views
     FOR view_record IN 
         SELECT n.nspname AS schema_name, c.relname AS view_name
         FROM pg_catalog.pg_class c
         JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
         WHERE c.relkind = 'v'
         AND n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+        AND c.relname NOT LIKE '%__for_portion_of_valid'
     LOOP
         -- Grant SELECT to authenticated
         EXECUTE format('GRANT SELECT ON %I.%I TO authenticated', 

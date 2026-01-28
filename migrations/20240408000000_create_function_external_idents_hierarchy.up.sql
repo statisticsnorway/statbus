@@ -4,7 +4,7 @@ CREATE FUNCTION public.external_idents_hierarchy(
   parent_establishment_id INTEGER DEFAULT NULL,
   parent_legal_unit_id INTEGER DEFAULT NULL,
   parent_enterprise_id INTEGER DEFAULT NULL,
-  parent_enterprise_group_id INTEGER DEFAULT NULL
+  parent_power_group_id INTEGER DEFAULT NULL
 ) RETURNS JSONB LANGUAGE sql STABLE AS $$
   WITH agg_data AS (
     SELECT jsonb_object_agg(eit.code, ei.ident ORDER BY eit.priority NULLS LAST, eit.code) AS data
@@ -13,7 +13,7 @@ CREATE FUNCTION public.external_idents_hierarchy(
      WHERE (  parent_establishment_id    IS NOT NULL AND ei.establishment_id    = parent_establishment_id
            OR parent_legal_unit_id       IS NOT NULL AND ei.legal_unit_id       = parent_legal_unit_id
            OR parent_enterprise_id       IS NOT NULL AND ei.enterprise_id       = parent_enterprise_id
-           OR parent_enterprise_group_id IS NOT NULL AND ei.enterprise_group_id = parent_enterprise_group_id
+           OR parent_power_group_id IS NOT NULL AND ei.power_group_id = parent_power_group_id
            )
   )
   SELECT CASE
