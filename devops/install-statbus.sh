@@ -234,6 +234,96 @@ build_cli() {
 }
 
 # =============================================================================
+# Detect HTTP-blocked Networks
+# =============================================================================
+
+detect_http_blocked() {
+    log_header "Network Configuration Check"
+    
+    log "Checking network connectivity..."
+    
+    local http_works=false
+    local https_works=false
+    
+    # Test HTTP connectivity (5 second timeout)
+    if curl -sf --connect-timeout 5 http://archive.ubuntu.com/ubuntu/dists/jammy/Release.gpg -o /dev/null 2>/dev/null; then
+        http_works=true
+    fi
+    
+    # Test HTTPS connectivity
+    if curl -sf --connect-timeout 5 https://archive.ubuntu.com/ubuntu/dists/jammy/Release.gpg -o /dev/null 2>/dev/null; then
+        https_works=true
+    fi
+    
+    if [[ "$http_works" == "true" ]]; then
+        log_success "HTTP connectivity works"
+        return 1  # HTTP not blocked
+    elif [[ "$https_works" == "true" ]]; then
+        log_warn "HTTP traffic appears to be blocked on this network"
+        log_success "HTTPS connectivity works"
+        return 0  # HTTP is blocked
+    else
+        log_warn "Both HTTP and HTTPS connectivity tests failed"
+        log_warn "This may indicate a network issue or firewall configuration"
+        return 1  # Can't determine, assume HTTP is not specifically blocked
+    fi
+}
+
+configure_https_only() {
+    local env_config="$INSTALL_DIR/.env.config"
+    
+    if [[ ! -f "$env_config" ]]; then
+        log_warn ".env.config not found, skipping HTTPS-only configuration"
+        return 1
+    fi
+    
+    log "Updating .env.config with APT_USE_HTTPS_ONLY=true..."
+    
+    # Update or add APT_USE_HTTPS_ONLY
+    if grep -q "^APT_USE_HTTPS_ONLY=" "$env_config"; then
+        sed -i.bak "s|^APT_USE_HTTPS_ONLY=.*|APT_USE_HTTPS_ONLY=true|" "$env_config"
+    else
+        echo "APT_USE_HTTPS_ONLY=true" >> "$env_config"
+    fi
+    rm -f "$env_config.bak"
+    
+    log_success "Set APT_USE_HTTPS_ONLY=true in .env.config"
+    
+    # Regenerate configuration
+    log "Regenerating configuration..."
+    if "$INSTALL_DIR/devops/manage-statbus.sh" generate-config >/dev/null 2>&1; then
+        log_success "Configuration regenerated"
+    else
+        log_warn "Failed to regenerate configuration. Run manually:"
+        echo "  ./devops/manage-statbus.sh generate-config"
+    fi
+}
+
+check_and_configure_https_only() {
+    if detect_http_blocked; then
+        echo ""
+        echo "This network blocks HTTP traffic, which is used by Docker image builds"
+        echo "by default. STATBUS can be configured to use HTTPS-only mirrors instead."
+        echo ""
+        echo -e "${YELLOW}Note: This may also indicate a temporary network issue.${NC}"
+        echo ""
+        read -p "Enable HTTPS-only mode for Docker builds? [y/N] " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            configure_https_only
+        else
+            echo ""
+            log "Skipping HTTPS-only configuration"
+            echo "If Docker builds fail, you can enable it later by setting"
+            echo "APT_USE_HTTPS_ONLY=true in .env.config and running:"
+            echo "  ./devops/manage-statbus.sh generate-config"
+        fi
+    else
+        log_success "Network configuration OK (HTTP traffic allowed)"
+    fi
+}
+
+# =============================================================================
 # Setup Configuration Files
 # =============================================================================
 
@@ -357,6 +447,7 @@ main() {
     clone_repository
     build_cli
     setup_config
+    check_and_configure_https_only
     show_next_steps
 }
 
