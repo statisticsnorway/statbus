@@ -1,5 +1,5 @@
 --
--- Test: Import jobs for BRREG selection data
+-- Test: Import jobs for BRREG selection data (~29K rows)
 --
 -- This test uses multiple transactions to allow worker.process_tasks() to
 -- commit between tasks, avoiding O(n^2) performance issues.
@@ -8,14 +8,16 @@
 -- - LU (hovedenhet) must be uploaded before ES (underenhet)
 -- - ES depends on LU external_idents which are created during LU processing
 --
+-- Performance benchmark data is written to:
+--   test/expected/performance/402_import_benchmark.perf
+--
 
 -- ============================================================================
--- PHASE 0: INITIAL CLEANUP AND PAUSE WORKER
+-- PHASE 0: SETUP
 -- ============================================================================
-\echo "Cleaning up any leftover data from prior runs"
-SELECT public.reset(true, 'getting-started');
+-- Note: No reset needed - 4xx tests run in isolated databases from template
 
-\echo "Pausing background worker for test duration"
+\echo 'Pausing background worker for test duration'
 SELECT worker.pause('1 hour'::interval);
 
 -- ============================================================================
@@ -113,30 +115,170 @@ COMMIT;
 CALL worker.process_tasks(p_queue => 'import');
 
 -- ============================================================================
--- PHASE 3: VERIFICATION
+-- PHASE 3: VERIFICATION AND BENCHMARK
 -- ============================================================================
 BEGIN;
 
-\echo "Check the states of the import job tasks"
+\echo 'Check the states of the import job tasks'
 SELECT queue, t.command, state, error
   FROM worker.tasks AS t
   JOIN worker.command_registry AS c on t.command = c.command
  WHERE t.command = 'import_job_process'
  ORDER BY priority;
 
-\echo "Check import job state after processing"
-SELECT slug, state, error IS NOT NULL AS failed, total_rows, imported_rows, import_completed_pct, error as error_details
+\echo 'Check import job state after processing (deterministic)'
+SELECT slug, state, error IS NOT NULL AS failed, total_rows, imported_rows, import_completed_pct
   FROM public.import_job
  WHERE slug LIKE 'import_%_selection'
  ORDER BY slug;
 
-\echo "Check data row states after import"
+\echo 'Check data row states after import'
 SELECT state, count(*) FROM public.import_hovedenhet_2025_selection_data GROUP BY state ORDER BY state;
 SELECT state, count(*) FROM public.import_underenhet_2025_selection_data GROUP BY state ORDER BY state;
 
-\echo "Show any error rows from import data tables"
-SELECT row_id, errors, merge_status FROM public.import_hovedenhet_2025_selection_data WHERE state = 'error' ORDER BY row_id;
-SELECT row_id, errors, merge_status FROM public.import_underenhet_2025_selection_data WHERE state = 'error' ORDER BY row_id;
+\echo 'Show any error rows from import data tables (first 10)'
+SELECT row_id, errors, merge_status FROM public.import_hovedenhet_2025_selection_data WHERE state = 'error' ORDER BY row_id LIMIT 10;
+SELECT row_id, errors, merge_status FROM public.import_underenhet_2025_selection_data WHERE state = 'error' ORDER BY row_id LIMIT 10;
+
+-- ============================================================================
+-- SCALING ANALYSIS (Deterministic classification)
+-- ============================================================================
+\echo ''
+\echo '--- Scaling Analysis (Deterministic) ---'
+\echo 'Comparing LU (~5K rows) vs ES (~24K rows) performance.'
+\echo 'ES has ~5x more rows - if time ratio >> 5, scaling is non-linear.'
+\echo ''
+
+-- Calculate per-row metrics and classify scaling
+WITH job_metrics AS (
+    SELECT
+        slug,
+        CASE WHEN slug LIKE '%hovedenhet%' THEN 'LU' ELSE 'ES' END AS phase,
+        total_rows,
+        EXTRACT(EPOCH FROM (analysis_stop_at - analysis_start_at)) AS analysis_sec,
+        EXTRACT(EPOCH FROM (processing_stop_at - processing_start_at)) AS processing_sec,
+        analysis_rows_per_sec,
+        import_rows_per_sec AS processing_rows_per_sec
+    FROM public.import_job
+    WHERE slug LIKE 'import_%_selection'
+),
+phase_comparison AS (
+    SELECT
+        phase,
+        total_rows,
+        analysis_sec,
+        processing_sec,
+        analysis_rows_per_sec,
+        processing_rows_per_sec,
+        -- Calculate ms per row
+        CASE WHEN total_rows > 0 THEN ROUND((processing_sec * 1000 / total_rows)::numeric, 2) END AS processing_ms_per_row,
+        CASE WHEN total_rows > 0 THEN ROUND((analysis_sec * 1000 / total_rows)::numeric, 2) END AS analysis_ms_per_row
+    FROM job_metrics
+)
+SELECT
+    phase,
+    total_rows,
+    ROUND(processing_rows_per_sec::numeric, 1) AS proc_rows_per_sec,
+    ROUND(analysis_rows_per_sec::numeric, 1) AS analysis_rows_per_sec,
+    processing_ms_per_row,
+    analysis_ms_per_row,
+    -- Classify based on absolute performance
+    CASE
+        WHEN processing_rows_per_sec >= 1000 THEN 'GOOD'
+        WHEN processing_rows_per_sec >= 100 THEN 'OK'
+        WHEN processing_rows_per_sec >= 10 THEN 'SLOW'
+        ELSE 'VERY_SLOW'
+    END AS proc_status,
+    CASE
+        WHEN analysis_rows_per_sec >= 1000 THEN 'GOOD'
+        WHEN analysis_rows_per_sec >= 100 THEN 'OK'
+        WHEN analysis_rows_per_sec >= 10 THEN 'SLOW'
+        ELSE 'VERY_SLOW'
+    END AS analysis_status
+FROM phase_comparison
+ORDER BY phase;
+
+\echo ''
+\echo 'Target: sql_saga achieves ~5000 rows/sec. Anything below 100 rows/sec needs investigation.'
+\echo 'See test/expected/performance/402_import_benchmark.perf for detailed timing.'
+\echo ''
+
+COMMIT;
+
+-- ============================================================================
+-- WRITE PERFORMANCE DATA TO FILE (Variable timing)
+-- ============================================================================
+BEGIN;
+
+\set perf_file test/expected/performance/402_import_benchmark.perf
+\pset tuples_only on
+\pset footer off
+\o :perf_file
+SELECT '# Import Benchmark: BRREG Selection Data (~29K rows)';
+SELECT '# These numbers are reference baselines, not test assertions.';
+SELECT '# Target: sql_saga achieves ~5000 rows/sec at 1M+ scale.';
+SELECT '#';
+SELECT '';
+\pset tuples_only off
+SELECT '# Job timing summary:' as "header";
+SELECT
+    slug,
+    total_rows,
+    ROUND(EXTRACT(EPOCH FROM (analysis_stop_at - analysis_start_at))::numeric, 2) AS analysis_sec,
+    ROUND(EXTRACT(EPOCH FROM (processing_stop_at - processing_start_at))::numeric, 2) AS processing_sec,
+    ROUND(EXTRACT(EPOCH FROM (processing_stop_at - analysis_start_at))::numeric, 2) AS total_sec,
+    ROUND(analysis_rows_per_sec::numeric, 2) AS analysis_rows_per_sec,
+    ROUND(import_rows_per_sec::numeric, 2) AS processing_rows_per_sec
+FROM public.import_job
+WHERE slug LIKE 'import_%_selection'
+ORDER BY slug;
+
+\pset tuples_only on
+SELECT '';
+\pset tuples_only off
+SELECT '# Per-row timing (ms/row):' as "header";
+SELECT
+    slug,
+    total_rows,
+    ROUND((EXTRACT(EPOCH FROM (analysis_stop_at - analysis_start_at)) * 1000 / NULLIF(total_rows, 0))::numeric, 2) AS analysis_ms_per_row,
+    ROUND((EXTRACT(EPOCH FROM (processing_stop_at - processing_start_at)) * 1000 / NULLIF(total_rows, 0))::numeric, 2) AS processing_ms_per_row
+FROM public.import_job
+WHERE slug LIKE 'import_%_selection'
+ORDER BY slug;
+
+\pset tuples_only on
+SELECT '';
+\pset tuples_only off
+SELECT '# Scaling comparison (LU ~5K vs ES ~24K rows):' as "header";
+WITH metrics AS (
+    SELECT
+        CASE WHEN slug LIKE '%hovedenhet%' THEN 'LU' ELSE 'ES' END AS phase,
+        total_rows,
+        import_rows_per_sec AS processing_rows_per_sec,
+        analysis_rows_per_sec,
+        EXTRACT(EPOCH FROM (processing_stop_at - processing_start_at)) * 1000 / NULLIF(total_rows, 0) AS processing_ms_per_row
+    FROM public.import_job
+    WHERE slug LIKE 'import_%_selection'
+)
+SELECT
+    'LU' AS base_phase,
+    (SELECT total_rows FROM metrics WHERE phase = 'LU') AS lu_rows,
+    (SELECT total_rows FROM metrics WHERE phase = 'ES') AS es_rows,
+    ROUND((SELECT total_rows FROM metrics WHERE phase = 'ES')::numeric / 
+          NULLIF((SELECT total_rows FROM metrics WHERE phase = 'LU'), 0), 2) AS row_ratio,
+    ROUND((SELECT processing_ms_per_row FROM metrics WHERE phase = 'ES')::numeric / 
+          NULLIF((SELECT processing_ms_per_row FROM metrics WHERE phase = 'LU'), 0), 2) AS ms_per_row_ratio,
+    CASE
+        WHEN (SELECT processing_ms_per_row FROM metrics WHERE phase = 'ES') / 
+             NULLIF((SELECT processing_ms_per_row FROM metrics WHERE phase = 'LU'), 0) < 1.5 THEN 'LINEAR (O(n))'
+        WHEN (SELECT processing_ms_per_row FROM metrics WHERE phase = 'ES') / 
+             NULLIF((SELECT processing_ms_per_row FROM metrics WHERE phase = 'LU'), 0) < 3.0 THEN 'SUBLINEAR'
+        ELSE 'NON-LINEAR (investigate)'
+    END AS scaling_assessment;
+
+\o
+\pset footer on
+\pset tuples_only off
 
 COMMIT;
 
@@ -146,7 +288,7 @@ COMMIT;
 -- ============================================================================
 -- PHASE 4: CLEANUP
 -- ============================================================================
-\echo "Resuming background worker"
+\echo 'Resuming background worker'
 SELECT worker.resume();
 
 \i test/cleanup_unless_persist_is_specified.sql

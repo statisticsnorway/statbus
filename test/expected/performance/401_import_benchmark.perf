@@ -1,0 +1,53 @@
+ # Import Benchmark Performance Baseline (Small History ~40 rows)
+
+ # With AUTO EXPLAIN enabled for queries > 100ms
+
+ # Check PostgreSQL logs for detailed query plans
+
+ #
+
+ 
+
+      header       
+-------------------
+ # Per-job timing:
+
+       job_slug       | total_rows | analysis_ms | processing_ms | total_ms | analysis_rows_per_sec | processing_rows_per_sec 
+----------------------+------------+-------------+---------------+----------+-----------------------+-------------------------
+ import_es_2015_bench |          4 |         344 |          1649 |     1993 |                  11.6 |                     3.0
+ import_es_2016_bench |          6 |         374 |          1703 |     2077 |                  16.0 |                     4.4
+ import_es_2017_bench |          4 |         361 |          1854 |     2215 |                  11.1 |                     2.7
+ import_es_2018_bench |          5 |         383 |          1627 |     2010 |                  13.1 |                     3.8
+ import_lu_2015_bench |          4 |         268 |          1598 |     1866 |                  14.9 |                     3.1
+ import_lu_2016_bench |          6 |         366 |          1588 |     1954 |                  16.4 |                     4.8
+ import_lu_2017_bench |          5 |         317 |          1495 |     1811 |                  15.8 |                     4.2
+ import_lu_2018_bench |          6 |         322 |          1519 |     1841 |                  18.6 |                     5.0
+
+ 
+
+      header      
+------------------
+ # Phase summary:
+
+ phase | total_rows | analysis_ms | processing_ms | total_ms | analysis_rows_per_sec | processing_rows_per_sec 
+-------+------------+-------------+---------------+----------+-----------------------+-------------------------
+ ES    |         19 |        1462 |          6833 |     8295 |                  13.0 |                     2.8
+ LU    |         21 |        1273 |          6199 |     7472 |                  16.5 |                     3.4
+
+ 
+
+                   header                   
+--------------------------------------------
+ # Detailed job info from import_job table:
+
+         slug         |  state   | total_rows | imported_rows | analysis_rows_per_sec | import_rows_per_sec | analysis_sec | processing_sec 
+----------------------+----------+------------+---------------+-----------------------+---------------------+--------------+----------------
+ import_es_2015_bench | finished |          4 |             4 |                 11.63 |                3.02 |         0.34 |           1.65
+ import_es_2016_bench | finished |          6 |             6 |                 16.04 |                4.40 |         0.37 |           1.70
+ import_es_2017_bench | finished |          4 |             4 |                 11.08 |                2.67 |         0.36 |           1.85
+ import_es_2018_bench | finished |          5 |             5 |                 13.05 |                3.81 |         0.38 |           1.63
+ import_lu_2015_bench | finished |          4 |             4 |                 14.93 |                3.13 |         0.27 |           1.60
+ import_lu_2016_bench | finished |          6 |             6 |                 16.38 |                4.75 |         0.37 |           1.59
+ import_lu_2017_bench | finished |          5 |             5 |                 15.79 |                4.17 |         0.32 |           1.49
+ import_lu_2018_bench | finished |          6 |             6 |                 18.63 |                5.04 |         0.32 |           1.52
+

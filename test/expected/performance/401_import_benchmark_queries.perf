@@ -1,0 +1,23 @@
+ # Slow Query Analysis from pg_stat_monitor
+
+ # Queries sorted by total execution time
+
+ #
+
+ 
+
+                 header                 
+----------------------------------------
+ # Top queries by total execution time:
+
+       queryid        | calls | total_exec_time_ms | avg_exec_time_ms | rows | avg_blks_per_call |                                                                                              query_preview                                                                                               
+----------------------+-------+--------------------+------------------+------+-------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ -7988012781632659269 |     1 |           15828.74 |         15828.74 |    0 |           2770587 | CALL worker.process_tasks(p_queue => 'import')
+ -4765455770355021261 |     8 |             617.14 |            77.14 |    8 |             63636 | WITH def AS (SELECT id FROM public.import_definition WHERE slug = 'brreg_hovedenhet_2024') INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, 
+ 1531659447956301506  |     1 |             226.27 |           226.27 | 1811 |             99210 | COPY  public.activity_category_available_custom FROM STDIN WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true)
+ 1052271457547232584  |     1 |              99.31 |            99.31 |    0 |             28738 | DO $$ DECLARE     def_id INT;     -- Define the steps needed for a legal unit import with a time context     lu_steps TEXT[] := ARRAY[         'external_idents', 'data_source', 'enterprise_link_for_le
+ 5136479471288593010  |     1 |              58.47 |            58.47 |    0 |             20616 | DO $$ DECLARE     def_id INT;     -- Define the steps needed for an establishment linked to a legal unit import with a time context     es_steps TEXT[] := ARRAY[         'external_idents', 'data_sourc
+ -9021270608079698164 |     1 |              35.33 |            35.33 |  417 |              6111 | COPY  public.region_upload ( path, name ) FROM STDIN WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true)
+ -2962929541135827136 |     1 |              34.98 |            34.98 |    0 |             15706 | GRANT EXECUTE ON FUNCTION test.sudo_exec(text) TO PUBLIC
+ 5396835486680651880  |     3 |              30.04 |            10.01 |    3 |               308 | SELECT * FROM public.user_create(p_display_name => 'Test Admin', p_email => 'test.admin@statbus.org', p_statbus_role => 'admin_user'::statbus_role, p_password => 'Admin#123!')
+

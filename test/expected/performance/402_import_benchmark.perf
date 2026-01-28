@@ -1,0 +1,40 @@
+ # Import Benchmark: BRREG Selection Data (~29K rows)
+
+ # These numbers are reference baselines, not test assertions.
+
+ # Target: sql_saga achieves ~5000 rows/sec at 1M+ scale.
+
+ #
+
+ 
+
+        header         
+-----------------------
+ # Job timing summary:
+
+               slug               | total_rows | analysis_sec | processing_sec | total_sec | analysis_rows_per_sec | processing_rows_per_sec 
+----------------------------------+------------+--------------+----------------+-----------+-----------------------+-------------------------
+ import_hovedenhet_2025_selection |       4924 |         3.47 |          16.63 |     20.10 |               1419.35 |                  304.41
+ import_underenhet_2025_selection |      24027 |        16.58 |          86.63 |    103.21 |               1449.44 |                  278.80
+
+ 
+
+           header           
+----------------------------
+ # Per-row timing (ms/row):
+
+               slug               | total_rows | analysis_ms_per_row | processing_ms_per_row 
+----------------------------------+------------+---------------------+-----------------------
+ import_hovedenhet_2025_selection |       4924 |                0.70 |                  3.38
+ import_underenhet_2025_selection |      24027 |                0.69 |                  3.61
+
+ 
+
+                     header                     
+------------------------------------------------
+ # Scaling comparison (LU ~5K vs ES ~24K rows):
+
+ base_phase | lu_rows | es_rows | row_ratio | ms_per_row_ratio | scaling_assessment 
+------------+---------+---------+-----------+------------------+--------------------
+ LU         |    4924 |   24027 |      4.88 |             1.07 | LINEAR (O(n))
+
