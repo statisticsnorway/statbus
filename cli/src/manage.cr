@@ -195,7 +195,11 @@ module Statbus
       # If both are set, Caddy uses these instead of ACME/Let's Encrypt
       # Place files in caddy/data/custom-certs/, use paths like /data/custom-certs/domain.crt
       tls_cert_file : String,
-      tls_key_file : String
+      tls_key_file : String,
+
+      # Docker build configuration for HTTPS-only networks
+      # Set to "true" to use HTTPS mirrors for apt packages during Docker image builds
+      apt_use_https_only : String
 
     # Type-safe derived memory configuration structure
     # All memory settings are derived from DB_MEM_LIMIT for consistent scaling.
@@ -409,7 +413,11 @@ module Statbus
             # Example: TLS_CERT_FILE=/data/custom-certs/domain.crt
             # The cert file should be in fullchain format (server cert + CA chain concatenated)
             tls_cert_file: config_env.generate("TLS_CERT_FILE") { "" },
-            tls_key_file: config_env.generate("TLS_KEY_FILE") { "" }
+            tls_key_file: config_env.generate("TLS_KEY_FILE") { "" },
+
+            # Docker build configuration
+            # For networks that block HTTP traffic, set to "true" to use HTTPS mirrors
+            apt_use_https_only: config_env.generate("APT_USE_HTTPS_ONLY") { "false" }
           )
         end
 
@@ -668,6 +676,9 @@ module Statbus
         env.set("ENABLE_EMAIL_AUTOCONFIRM", derived.enable_email_autoconfirm.to_s)
         env.set("DISABLE_SIGNUP", derived.disable_signup.to_s)
         env.set("STUDIO_DEFAULT_PROJECT", derived.studio_default_project)
+
+        # Docker build configuration
+        env.set("APT_USE_HTTPS_ONLY", config.apt_use_https_only)
 
         # Return modified content without saving changes to example file
         env.dotenv_content.to_s

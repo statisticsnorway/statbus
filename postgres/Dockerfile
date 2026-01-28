@@ -30,14 +30,34 @@ ARG pg_graphql_release=9cf4882b3b73e5f15cdcad8f0535ccb7c41db86b
 FROM ubuntu:jammy as ppa
 # Redeclare args for use in subsequent stages
 ARG postgresql_major
+
+# APT_USE_HTTPS_ONLY: Set to "true" for networks that block HTTP traffic
+# When enabled, switches apt sources to HTTPS mirrors before any package installation
+ARG APT_USE_HTTPS_ONLY=false
+
+# Bootstrap apt sources - conditionally switch to HTTPS if APT_USE_HTTPS_ONLY=true
+# For HTTPS-only networks: temporarily disable cert verification to install ca-certificates,
+# then all subsequent operations use verified HTTPS
+# Handle both x86_64 (archive.ubuntu.com) and ARM (ports.ubuntu.com) architectures
+RUN if [ "$APT_USE_HTTPS_ONLY" = "true" ]; then \
+      echo 'Acquire::https::Verify-Peer "false";' > /etc/apt/apt.conf.d/99insecure && \
+      sed -i 's|http://archive.ubuntu.com/ubuntu|https://mirrors.edge.kernel.org/ubuntu|g' /etc/apt/sources.list && \
+      sed -i 's|http://security.ubuntu.com/ubuntu|https://mirrors.edge.kernel.org/ubuntu|g' /etc/apt/sources.list && \
+      sed -i 's|http://ports.ubuntu.com|https://ports.ubuntu.com|g' /etc/apt/sources.list && \
+      apt-get update && \
+      apt-get install -y --no-install-recommends ca-certificates && \
+      rm /etc/apt/apt.conf.d/99insecure && \
+      rm -rf /var/lib/apt/lists/*; \
+    fi
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
-  gnupg \
-  ca-certificates \
-  curl \
-  && rm -rf /var/lib/apt/lists/*
+    gnupg \
+    ca-certificates \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 # Add Postgres PPA
 RUN curl -sSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /usr/share/keyrings/postgresql-archive-keyring.gpg
-RUN echo "deb [signed-by=/usr/share/keyrings/postgresql-archive-keyring.gpg] http://apt.postgresql.org/pub/repos/apt/ jammy-pgdg main" > /etc/apt/sources.list.d/pgdg.list
+RUN echo "deb [signed-by=/usr/share/keyrings/postgresql-archive-keyring.gpg] https://apt.postgresql.org/pub/repos/apt/ jammy-pgdg main" > /etc/apt/sources.list.d/pgdg.list
 
 ####################
 # Base image with PostgreSQL installed

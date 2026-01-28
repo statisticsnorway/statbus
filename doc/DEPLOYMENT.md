@@ -382,6 +382,9 @@ StatBus uses a layered configuration approach:
 **Domain**:
 - `SITE_DOMAIN`: Your public domain (required for standalone and private modes)
 
+**Docker Build** (for HTTPS-only networks):
+- `APT_USE_HTTPS_ONLY`: Set to `true` if your network blocks HTTP traffic. This switches Docker image builds to use HTTPS mirrors for apt packages. Default: `false`
+
 ### Docker Compose Profiles
 
 Control which services start:
