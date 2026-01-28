@@ -43,7 +43,7 @@ RETURNS INTEGER LANGUAGE sql STABLE AS $$
             ) combined_connections
             WHERE enterprise_id IS NOT NULL
          )
-         WHEN 'enterprise_group' THEN NULL --TODO
+         WHEN 'power_group' THEN NULL --TODO
          END
   ;
 $$;
