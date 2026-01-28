@@ -1,3 +1,35 @@
+--
+-- Test: Import jobs for BRREG selection data
+--
+-- This test uses multiple transactions to allow worker.process_tasks() to
+-- commit between tasks, avoiding O(n^2) performance issues.
+--
+-- CRITICAL: Upload order determines processing priority!
+-- - LU (hovedenhet) must be uploaded before ES (underenhet)
+-- - ES depends on LU external_idents which are created during LU processing
+--
+-- ============================================================================
+-- PHASE 0: INITIAL CLEANUP AND PAUSE WORKER
+-- ============================================================================
+\echo "Cleaning up any leftover data from prior runs"
+"Cleaning up any leftover data from prior runs"
+SELECT public.reset(true, 'getting-started');
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                            reset                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ {"person": {"deleted_count": 0}, "region": {"deleted_count": 417}, "sector": {"changed_count": 36, "deleted_count": 33}, "status": {"changed_count": 0, "deleted_count": 0}, "contact": {"deleted_count": 0}, "activity": {"deleted_count": 0}, "location": {"deleted_count": 0}, "settings": {"deleted_count": 1}, "unit_size": {"changed_count": 0, "deleted_count": 0}, "enterprise": {"deleted_count": 0}, "import_job": {"deleted_count": 0}, "legal_form": {"changed_count": 46, "deleted_count": 46}, "legal_unit": {"deleted_count": 0}, "data_source": {"changed_count": 6, "deleted_count": 6}, "tag_for_unit": {"deleted_count": 0}, "establishment": {"deleted_count": 0}, "stat_for_unit": {"deleted_count": 0}, "external_ident": {"deleted_count": 0}, "person_for_unit": {"deleted_count": 0}, "activity_category": {"changed_count": 643, "deleted_count": 1811, "changed_children_count": 73}, "import_definition": {"deleted_count": 2}}
+(1 row)
+
+\echo "Pausing background worker for test duration"
+"Pausing background worker for test duration"
+SELECT worker.pause('1 hour'::interval);
+ pause 
+-------
+ 
+(1 row)
+
+-- ============================================================================
+-- PHASE 1: SETUP (in transaction so setup.sql helpers work)
+-- ============================================================================
 BEGIN;
 \i test/setup.sql
 -- While the datestyle is set for the database, the pg_regress tool sets the MDY format
@@ -474,8 +506,23 @@ WHERE slug = 'brreg_underenhet_2024';
 \echo "Switch to test admin user"
 "Switch to test admin user"
 CALL test.set_user_from_email('test.admin@statbus.org');
-\echo "Create import jobs for BRREG selection (2025)"
-"Create import jobs for BRREG selection (2025)"
+\echo "Verify import definitions exist"
+"Verify import definitions exist"
+SELECT slug, name, mode
+  FROM public.import_definition
+ WHERE slug IN ('brreg_hovedenhet_2024','brreg_underenhet_2024')
+ ORDER BY slug;
+         slug          |                     name                      |         mode         
+-----------------------+-----------------------------------------------+----------------------
+ brreg_hovedenhet_2024 | Import of BRREG Hovedenhet using 2024 columns | legal_unit
+ brreg_underenhet_2024 | Import of BRREG Underenhet using 2024 columns | establishment_formal
+(2 rows)
+
+-- ============================================================================
+-- Create import jobs - LU first, then ES (upload order = processing priority)
+-- ============================================================================
+\echo "Create import job for LU (hovedenhet) - uploaded FIRST for priority"
+"Create import job for LU (hovedenhet) - uploaded FIRST for priority"
 WITH def_he AS (
   SELECT id FROM public.import_definition WHERE slug = 'brreg_hovedenhet_2024'
 )
@@ -497,9 +544,20 @@ SELECT
   'This job handles the import of BRREG Hovedenhet selection data for 2025.',
   (SELECT id FROM public.user WHERE email = 'test.admin@statbus.org')
 FROM def_he
-ON CONFLICT (slug) DO NOTHING;
+ON CONFLICT (slug) DO NOTHING
+RETURNING slug, state;
 NOTICE:  identifier "import_hovedenhet_2025_selection_upload_check_state_before_insert" will be truncated to "import_hovedenhet_2025_selection_upload_check_state_before_inse"
 NOTICE:  identifier "import_hovedenhet_2025_selection_upload_update_state_after_insert" will be truncated to "import_hovedenhet_2025_selection_upload_update_state_after_inse"
+               slug               |       state        
+----------------------------------+--------------------
+ import_hovedenhet_2025_selection | waiting_for_upload
+(1 row)
+
+\echo "Load LU data FIRST"
+"Load LU data FIRST"
+\copy public.import_hovedenhet_2025_selection_upload FROM 'samples/norway/legal_unit/enheter-selection.csv' WITH CSV HEADER
+\echo "Create import job for ES (underenhet) - uploaded SECOND"
+"Create import job for ES (underenhet) - uploaded SECOND"
 WITH def_ue AS (
   SELECT id FROM public.import_definition WHERE slug = 'brreg_underenhet_2024'
 )
@@ -521,52 +579,41 @@ SELECT
   'This job handles the import of BRREG Underenhet selection data for 2025.',
   (SELECT id FROM public.user WHERE email = 'test.admin@statbus.org')
 FROM def_ue
-ON CONFLICT (slug) DO NOTHING;
+ON CONFLICT (slug) DO NOTHING
+RETURNING slug, state;
 NOTICE:  identifier "import_underenhet_2025_selection_upload_check_state_before_insert" will be truncated to "import_underenhet_2025_selection_upload_check_state_before_inse"
 NOTICE:  identifier "import_underenhet_2025_selection_upload_update_state_after_insert" will be truncated to "import_underenhet_2025_selection_upload_update_state_after_inse"
-\echo "Verify import definitions exist"
-"Verify import definitions exist"
-SELECT slug, name, mode
-  FROM public.import_definition
- WHERE slug IN ('brreg_hovedenhet_2024','brreg_underenhet_2024')
- ORDER BY slug;
-         slug          |                     name                      |         mode         
------------------------+-----------------------------------------------+----------------------
- brreg_hovedenhet_2024 | Import of BRREG Hovedenhet using 2024 columns | legal_unit
- brreg_underenhet_2024 | Import of BRREG Underenhet using 2024 columns | establishment_formal
-(2 rows)
+               slug               |       state        
+----------------------------------+--------------------
+ import_underenhet_2025_selection | waiting_for_upload
+(1 row)
 
-\echo "Verify created import jobs (BRREG selection)"
-"Verify created import jobs (BRREG selection)"
-SELECT slug, state, default_valid_from, default_valid_to
-  FROM public.import_job
- WHERE slug IN (
-   'import_hovedenhet_2025_selection',
-   'import_underenhet_2025_selection'
- )
- ORDER BY slug;
-               slug               |       state        | default_valid_from | default_valid_to 
-----------------------------------+--------------------+--------------------+------------------
- import_hovedenhet_2025_selection | waiting_for_upload | 2025-01-01         | infinity
- import_underenhet_2025_selection | waiting_for_upload | 2025-01-01         | infinity
-(2 rows)
-
-\echo "Loading data for BRREG selection from sample files"
-"Loading data for BRREG selection from sample files"
-\copy public.import_hovedenhet_2025_selection_upload FROM 'samples/norway/legal_unit/enheter-selection.csv' WITH CSV HEADER
+\echo "Load ES data SECOND (lower priority than LU)"
+"Load ES data SECOND (lower priority than LU)"
 \copy public.import_underenhet_2025_selection_upload FROM 'samples/norway/establishment/underenheter-selection.csv' WITH CSV HEADER
-\echo "Check import job state before calling worker"
-"Check import job state before calling worker"
-SELECT slug, state, total_rows, imported_rows FROM public.import_job WHERE slug LIKE 'import_%_selection' ORDER BY slug;
+\echo "Check import job state before processing"
+"Check import job state before processing"
+SELECT slug, state, total_rows, imported_rows
+  FROM public.import_job
+ WHERE slug LIKE 'import_%_selection'
+ ORDER BY slug;
                slug               |      state       | total_rows | imported_rows 
 ----------------------------------+------------------+------------+---------------
  import_hovedenhet_2025_selection | upload_completed |       4924 |             0
  import_underenhet_2025_selection | upload_completed |      24027 |             0
 (2 rows)
 
-\echo "Run worker to process import jobs"
-"Run worker to process import jobs"
+COMMIT;
+-- ============================================================================
+-- PHASE 2: PROCESSING (outside transaction - worker commits per task)
+-- ============================================================================
+\echo "Processing import jobs (LU processes first due to upload order)"
+"Processing import jobs (LU processes first due to upload order)"
 CALL worker.process_tasks(p_queue => 'import');
+-- ============================================================================
+-- PHASE 3: VERIFICATION
+-- ============================================================================
+BEGIN;
 \echo "Check the states of the import job tasks"
 "Check the states of the import job tasks"
 SELECT queue, t.command, state, error
@@ -691,49 +738,18 @@ SELECT queue, t.command, state, error
  import | import_job_process | completed | 
  import | import_job_process | completed | 
  import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
-(146 rows)
+(115 rows)
 
-\echo "Check import job state after calling worker"
-"Check import job state after calling worker"
-SELECT slug, state, error IS NOT NULL AS failed, total_rows, imported_rows, import_completed_pct
+\echo "Check import job state after processing"
+"Check import job state after processing"
+SELECT slug, state, error IS NOT NULL AS failed, total_rows, imported_rows, import_completed_pct, error as error_details
   FROM public.import_job
  WHERE slug LIKE 'import_%_selection'
  ORDER BY slug;
-               slug               |  state   | failed | total_rows | imported_rows | import_completed_pct 
-----------------------------------+----------+--------+------------+---------------+----------------------
- import_hovedenhet_2025_selection | finished | f      |       4924 |          4924 |               100.00
- import_underenhet_2025_selection | finished | f      |      24027 |         24026 |               100.00
+               slug               |  state   | failed | total_rows | imported_rows | import_completed_pct | error_details 
+----------------------------------+----------+--------+------------+---------------+----------------------+---------------
+ import_hovedenhet_2025_selection | finished | f      |       4924 |          4924 |               100.00 | 
+ import_underenhet_2025_selection | finished | f      |      24027 |         24026 |               100.00 | 
 (2 rows)
 
 \echo "Check data row states after import"
@@ -753,21 +769,40 @@ SELECT state, count(*) FROM public.import_underenhet_2025_selection_data GROUP B
 
 \echo "Show any error rows from import data tables"
 "Show any error rows from import data tables"
-SELECT row_id, error FROM public.import_hovedenhet_2025_selection_data WHERE state = 'error' ORDER BY row_id;
- row_id | error 
---------+-------
+SELECT row_id, errors, merge_status FROM public.import_hovedenhet_2025_selection_data WHERE state = 'error' ORDER BY row_id;
+ row_id | errors | merge_status 
+--------+--------+--------------
 (0 rows)
 
-SELECT row_id, error FROM public.import_underenhet_2025_selection_data WHERE state = 'error' ORDER BY row_id;
- row_id |                                                         error                                                         
---------+-----------------------------------------------------------------------------------------------------------------------
-  21817 | {"physical_country_iso_2": "Country is required and must be valid when other physical address details are provided."}
+SELECT row_id, errors, merge_status FROM public.import_underenhet_2025_selection_data WHERE state = 'error' ORDER BY row_id;
+ row_id |                                                          errors                                                           | merge_status 
+--------+---------------------------------------------------------------------------------------------------------------------------+--------------
+  21817 | {"physical_country_iso_2_raw": "Country is required and must be valid when other physical address details are provided."} | {}
 (1 row)
 
-\i test/rollback_unless_persist_is_specified.sql
+COMMIT;
+-- Skip analytics for now - derive_reports is too slow
+-- CALL worker.process_tasks(p_queue => 'analytics');
+-- ============================================================================
+-- PHASE 4: CLEANUP
+-- ============================================================================
+\echo "Resuming background worker"
+"Resuming background worker"
+SELECT worker.resume();
+ resume 
+--------
+ 
+(1 row)
+
+\i test/cleanup_unless_persist_is_specified.sql
 ---------------------------------------------------------------------------
--- Support development loading of the data without rollback using
---   ./devops/manage-statbus.sh psql --variable=PERSIST=true < test/sql/01_load_web_examples.sql
+-- Support development loading of the data without cleanup using
+--   ./devops/manage-statbus.sh psql --variable=PERSIST=true < test/sql/400_import_jobs_for_norway_history.sql
+--
+-- This script is used for tests that commit during execution (e.g., to allow
+-- worker.process_tasks() to commit between tasks for better performance).
+-- Unlike rollback_unless_persist_is_specified.sql, this performs explicit
+-- cleanup since ROLLBACK cannot undo committed transactions.
 -- Ref. https://stackoverflow.com/a/32597876/1023558
 \set PERSIST :PERSIST
 -- now PERSIST is set to the string ':PERSIST' if was not already set.
@@ -779,7 +814,29 @@ SELECT CASE
 END::BOOL AS "PERSIST" \gset
 -- < \gset call at end of the query to set variable.
 \if :PERSIST
-COMMIT;
+\echo 'PERSIST=true: Keeping test data for inspection'
 \else
-ROLLBACK;
+\echo 'Cleaning up test data (use PERSIST=true to keep)'
+Cleaning up test data (use PERSIST=true to keep)
+-- Clean up worker tasks first (may reference import jobs)
+DELETE FROM worker.tasks WHERE state IN ('completed', 'failed');
+-- Use the reset function to clean up all test data
+-- 'data' scope removes: import_jobs, units, activities, locations, etc.
+-- but preserves configuration (regions, settings, activity categories)
+SELECT public.reset(true, 'data');
+psql:test/cleanup_unless_persist_is_specified.sql:30: NOTICE:  drop cascades to 8 other objects
+DETAIL:  drop cascades to view temp_loc_source_view_physical_location
+drop cascades to view temp_loc_source_view_postal_location
+drop cascades to view temp_act_source_view_primary_activity
+drop cascades to view temp_act_source_view_secondary_activity
+drop cascades to view temp_contact_source_view
+drop cascades to view temp_stat_source_view_employees
+drop cascades to view temp_stat_source_view_turnover
+drop cascades to view temp_es_source_view
+psql:test/cleanup_unless_persist_is_specified.sql:30: NOTICE:  drop cascades to view temp_lu_source_view
+                                                                                                                                                                                                                                        reset                                                                                                                                                                                                                                        
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ {"person": {"deleted_count": 0}, "contact": {"deleted_count": 2616}, "activity": {"deleted_count": 28934}, "location": {"deleted_count": 42710}, "enterprise": {"deleted_count": 4924}, "import_job": {"deleted_count": 2}, "legal_unit": {"deleted_count": 4924}, "tag_for_unit": {"deleted_count": 0}, "establishment": {"deleted_count": 24026}, "stat_for_unit": {"deleted_count": 14567}, "external_ident": {"deleted_count": 28950}, "person_for_unit": {"deleted_count": 0}}
+(1 row)
+
 \endif
