@@ -159,7 +159,28 @@ This interactive script configures:
 
 See [Server Hardening Guide](harden-ubuntu-lts-24.md) for full details.
 
-### Installation Steps
+### Quick Install
+
+After hardening, run the STATBUS installer as your deployment user (e.g., `devops`):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/main/doc/install-statbus.sh -o install-statbus.sh
+chmod +x install-statbus.sh
+./install-statbus.sh
+```
+
+This script:
+- Verifies prerequisites (Docker, Git)
+- Installs Crystal language (for database migrations CLI)
+- Clones the STATBUS repository to `~/statbus`
+- Builds the CLI tool
+- Creates initial configuration files
+
+After installation, follow the on-screen instructions to configure and start STATBUS.
+
+### Manual Installation Steps
+
+If you prefer manual installation, follow these steps:
 
 #### 1. Clone Repository
 
@@ -175,7 +196,14 @@ cd statbus
 git config core.hooksPath devops/githooks
 ```
 
-#### 3. Create Users File
+#### 3. Install Crystal and Build CLI
+
+```bash
+curl -fsSL https://crystal-lang.org/install.sh | sudo bash
+cd cli && shards build --release && cd ..
+```
+
+#### 4. Create Users File
 
 ```bash
 cp .users.example .users.yml
@@ -193,7 +221,7 @@ users:
     role: regular_user
 ```
 
-#### 4. Generate Configuration
+#### 5. Generate Configuration
 
 ```bash
 ./devops/manage-statbus.sh generate-config
@@ -204,7 +232,7 @@ This creates:
 - `.env.credentials` - Secure credentials (generated once, keep secret)
 - `.env.config` - Deployment configuration (edit this for your setup)
 
-#### 5. Edit Deployment Configuration
+#### 6. Edit Deployment Configuration
 
 ```bash
 nano .env.config

@@ -125,7 +125,15 @@ When using this script to prepare a server for STATBUS deployment:
 3. **Stage 4 (Security Tools)** — Skip if on a private network with existing firewall
 4. **Stage 7 (Caddy)** — Skip, as STATBUS runs Caddy inside Docker
 
-After hardening, continue with the [STATBUS Deployment Guide](DEPLOYMENT.md).
+After hardening, log in as the `devops` user and run the STATBUS installer:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/statisticsnorway/statbus/main/doc/install-statbus.sh -o install-statbus.sh
+chmod +x install-statbus.sh
+./install-statbus.sh
+```
+
+See [install-statbus.md](install-statbus.md) and [DEPLOYMENT.md](DEPLOYMENT.md) for details.
 
 ## License
 
