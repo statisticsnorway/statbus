@@ -385,6 +385,8 @@ StatBus uses a layered configuration approach:
 **Docker Build** (for HTTPS-only networks):
 - `APT_USE_HTTPS_ONLY`: Set to `true` if your network blocks HTTP traffic. This switches Docker image builds to use HTTPS mirrors for apt packages. Default: `false`
 
+> **Note**: The install script (`devops/install-statbus.sh`) automatically detects HTTP-blocked networks and offers to enable this setting.
+
 ### Docker Compose Profiles
 
 Control which services start:
