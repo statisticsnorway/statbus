@@ -119,7 +119,7 @@ export function EditMetadataControls({ fieldId }: EditMetadataControlsProps) {
             htmlFor={`${fieldId}-validto`}
             className="text-xs uppercase text-gray-600"
           >
-            Valid To
+            Valid To (inclusive)
           </Label>
           <div className="relative">
             <Input
