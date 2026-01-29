@@ -1,0 +1,109 @@
+@startuml infrastructure-internal
+skinparam backgroundColor #FEFEFE
+skinparam rectangle {
+    BackgroundColor<<External>> #F5F5F5
+    BackgroundColor<<Config>> #FFF3E0
+    BackgroundColor<<Network>> #E3F2FD
+    BackgroundColor<<Container>> #BBDEFB
+    BackgroundColor<<Volume>> #C8E6C9
+}
+
+title StatBus Docker Compose Internals
+caption Containers, networks, ports, and configuration flow
+
+rectangle "Host Ports (External)" <<External>> {
+    component "HTTP\n3010 (dev) / 80 (prod)" as httpport
+    component "HTTPS\n3011 (dev) / 443 (prod)" as httpsport
+    component "PostgreSQL\n3014 (plaintext)" as dbport
+    component "PostgreSQL TLS\n3015" as dbtlsport
+}
+
+rectangle "Configuration Flow" <<Config>> {
+    file ".env.credentials\n(secrets)" as envcreds
+    file ".env.config\n(edit this)" as envconfig
+    file ".env\n(generated)" as env
+    file "docker-compose.yml" as compose
+    file "caddy/config/" as caddyconfig
+    
+    envcreds --> env : generate-config
+    envconfig --> env : generate-config
+    env --> compose : interpolates
+    envconfig --> caddyconfig : generates
+}
+
+rectangle "Docker Network: statbus-{slot}-network" <<Network>> {
+    rectangle "statbus-{slot}-caddy" <<Container>> as caddy {
+        component "Caddy\n:80 :443 :5432" as caddycomp
+    }
+    
+    rectangle "statbus-{slot}-app" <<Container>> as app {
+        component "Next.js\n:3000" as appcomp
+    }
+    
+    rectangle "statbus-{slot}-rest" <<Container>> as rest {
+        component "PostgREST\n:3000" as restcomp
+    }
+    
+    rectangle "statbus-{slot}-db" <<Container>> as db {
+        component "PostgreSQL\n:5432" as dbcomp
+    }
+    
+    rectangle "statbus-{slot}-worker" <<Container>> as worker {
+        component "Worker" as workercomp
+    }
+}
+
+rectangle "Volumes" <<Volume>> {
+    database "db-data" as dbdata
+    folder "caddy/data/\n(certs)" as caddydata
+    folder "caddy/config/" as caddyconfigvol
+}
+
+' External to Caddy
+httpport --> caddy
+httpsport --> caddy
+dbport --> caddy
+dbtlsport --> caddy
+
+' Caddy to services
+caddy --> app : /* routes
+caddy --> rest : /rest/* routes
+caddy --> db : PostgreSQL wire
+
+' Services to DB
+rest --> db : SQL
+worker --> db : SQL
+
+' Volumes
+db --> dbdata
+caddy --> caddydata
+caddy --> caddyconfigvol
+
+' Config to containers
+env ..> caddy : env vars
+env ..> app : env vars
+env ..> rest : env vars
+env ..> db : env vars
+env ..> worker : env vars
+
+note right of caddy
+  **Routing**
+  /* -> app:3000
+  /rest/* -> rest:3000
+  PostgreSQL -> db:5432
+  
+  **Features**
+  Cookie to Header JWT
+  TLS termination
+end note
+
+note bottom of db
+  **Port Offset**
+  Base = 3000 + (offset * 10)
+  
+  Offset 1 (local): 3010-3015
+  Offset 2 (no): 3020-3025
+  Offset 5 (ma): 3050-3055
+end note
+
+@enduml

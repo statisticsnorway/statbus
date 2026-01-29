@@ -4,6 +4,8 @@ This guide is for **SSB staff** managing the multi-tenant cloud infrastructure o
 
 **Note**: For single-country deployments, see [DEPLOYMENT.md](DEPLOYMENT.md).
 
+<img src="diagrams/infrastructure-cloud.svg" alt="Cloud Multi-Tenant Architecture" style="max-width:100%;">
+
 ## Overview
 
 The StatBus cloud infrastructure hosts multiple country instances on a single server (`niue.statbus.org`) with:
@@ -394,11 +396,14 @@ docker compose logs -f app
 
 ### Automated Deployment
 
+<img src="diagrams/git-workflow.svg" alt="Git Deployment Workflow" style="max-width:100%;">
+
 Deployments are automated via GitHub Actions:
 
 1. **Merge to master** → GitHub Action merges to `devops/deploy-to-<code>` branch
-2. **Push to deployment branch** → GitHub Action SSHs to server and runs `deploy.sh`
-3. **Deploy script** (`devops/deploy.sh`) automatically:
+2. **Push to production branch** → GitHub Action pushes to ALL country deployment branches
+3. **Push to deployment branch** → GitHub Action SSHs to server and runs `deploy.sh`
+4. **Deploy script** (`devops/deploy.sh`) automatically:
    - Fetches latest code
    - Checks for migrations/dbseed changes
    - Rebuilds database if needed

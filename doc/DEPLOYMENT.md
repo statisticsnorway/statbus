@@ -4,6 +4,8 @@ This guide is for **system administrators** deploying StatBus for a single count
 
 **Note**: For multi-tenant cloud deployments (hosting multiple countries), see [CLOUD.md](CLOUD.md).
 
+<img src="diagrams/infrastructure-standalone.svg" alt="Standalone Deployment Architecture" style="max-width:100%;">
+
 ## Table of Contents
 
 - [Deployment Modes](#deployment-modes)
@@ -441,7 +443,7 @@ export PGSSLSNI=1
 psql
 ```
 
-See [Integration Guide](../integration/README.md#postgresql-direct-access) for detailed connection examples.
+See [Integration Guide](INTEGRATE.md#postgresql-direct-access-level-3) for detailed connection examples.
 
 ---
 
@@ -549,12 +551,33 @@ docker compose restart proxy
 
 #### 5. Verify Certificate
 
+**HTTPS (web interface and API)**:
 ```bash
 # Check certificate details
 openssl s_client -connect your-domain.com:443 -servername your-domain.com < /dev/null 2>/dev/null | openssl x509 -noout -text | head -20
 
 # Or use curl
 curl -vI https://your-domain.com 2>&1 | grep -A5 "Server certificate"
+```
+
+**PostgreSQL TLS (port 5432)**:
+
+For low-level inspection of the PostgreSQL TLS connection (useful for debugging SNI/ALPN issues):
+```bash
+openssl s_client -connect your-domain.com:5432 \
+  -servername your-domain.com \
+  -alpn postgresql \
+  -showcerts
+```
+
+This verifies:
+- TLS certificate is valid and trusted
+- SNI (Server Name Indication) is working
+- ALPN negotiation for `postgresql` protocol succeeds
+
+For functional verification, use psql:
+```bash
+PGSSLMODE=verify-full PGSSLNEGOTIATION=direct psql -h your-domain.com -p 5432 -U username -d statbus -c "SELECT 1"
 ```
 
 ### Switching Back to ACME

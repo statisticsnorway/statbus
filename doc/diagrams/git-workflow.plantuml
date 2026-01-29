@@ -1,0 +1,76 @@
+@startuml git-workflow
+!define MANUAL_TRIGGER <color:blue>**Manual**</color>
+!define AUTOMATIC_TRIGGER <color:green>**Automatic**</color>
+
+skinparam backgroundColor #FEFEFE
+skinparam rectangle {
+    BackgroundColor<<Branch>> #E3F2FD
+    BackgroundColor<<DeployBranch>> #FFF3E0
+    BackgroundColor<<Server>> #E8F5E9
+}
+
+title StatBus Git Deployment Workflow
+
+rectangle "Development" {
+    rectangle "feature/xxx" as feature <<Branch>> {
+        [Developer work]
+    }
+
+    rectangle "master" as master <<Branch>> {
+        [Main branch\nAll features merged here]
+    }
+}
+
+rectangle "Deployment Branches" {
+    rectangle "devops/deploy-to-production" as prod <<DeployBranch>> {
+        [Production trigger\nPushes to ALL slots]
+    }
+
+    rectangle "devops/deploy-to-dev" as dev <<DeployBranch>>
+    rectangle "devops/deploy-to-demo" as demo <<DeployBranch>>
+    rectangle "devops/deploy-to-no" as no <<DeployBranch>>
+    rectangle "devops/deploy-to-ma" as ma <<DeployBranch>>
+    rectangle "devops/deploy-to-tcc" as tcc <<DeployBranch>>
+    rectangle "devops/deploy-to-ug" as ug <<DeployBranch>>
+    rectangle "devops/deploy-to-et" as et <<DeployBranch>>
+    rectangle "devops/deploy-to-jo" as jo <<DeployBranch>>
+}
+
+rectangle "niue.statbus.org" as niue <<Server>> {
+    [dev.statbus.org\nno.statbus.org\nma.statbus.org\n...]
+}
+
+feature --> master : MANUAL_TRIGGER\nPR merge
+master --> prod : MANUAL_TRIGGER\nProduction release
+prod --> dev : AUTOMATIC_TRIGGER
+prod --> demo : AUTOMATIC_TRIGGER
+prod --> no : AUTOMATIC_TRIGGER
+prod --> ma : AUTOMATIC_TRIGGER
+prod --> tcc : AUTOMATIC_TRIGGER
+prod --> ug : AUTOMATIC_TRIGGER
+prod --> et : AUTOMATIC_TRIGGER
+prod --> jo : AUTOMATIC_TRIGGER
+
+dev --> niue : AUTOMATIC_TRIGGER\nSSH + deploy.sh
+demo --> niue : AUTOMATIC_TRIGGER
+no --> niue : AUTOMATIC_TRIGGER
+ma --> niue : AUTOMATIC_TRIGGER
+tcc --> niue : AUTOMATIC_TRIGGER
+ug --> niue : AUTOMATIC_TRIGGER
+et --> niue : AUTOMATIC_TRIGGER
+jo --> niue : AUTOMATIC_TRIGGER
+
+note right of prod
+  Push to production branch
+  triggers GitHub Actions that
+  push to ALL country branches
+end note
+
+note bottom of niue
+  Each deployment branch triggers
+  SSH to niue.statbus.org as
+  statbus_{code} user and runs
+  ~/statbus/devops/deploy.sh
+end note
+
+@enduml

@@ -1,0 +1,72 @@
+@startuml infrastructure-cloud
+skinparam backgroundColor #FEFEFE
+skinparam rectangle {
+    BackgroundColor<<Internet>> #F5F5F5
+    BackgroundColor<<Host>> #E8F5E9
+    BackgroundColor<<Installation>> #E3F2FD
+    BackgroundColor<<Container>> #BBDEFB
+}
+
+title StatBus Multi-Tenant Cloud Deployment
+caption Multiple countries on niue.statbus.org with SNI-based routing
+
+rectangle "Internet" <<Internet>> {
+    actor "dev.statbus.org\nusers" as devusers
+    actor "no.statbus.org\nusers" as nousers
+    actor "ma.statbus.org\nusers" as mausers
+}
+
+rectangle "niue.statbus.org" <<Host>> {
+    rectangle "Host Caddy (systemd)" as hostcaddy {
+        [• ACME certs for all domains\n• SNI-based HTTP routing\n• SNI-based PostgreSQL routing\n• Imports configs from\n  /home/statbus_*/statbus/caddy/config/]
+    }
+    
+    rectangle "/home/statbus_dev/" <<Installation>> as devinstall {
+        rectangle "Docker Stack (private mode)" as devstack {
+            [caddy → app, rest, db, worker\nPorts: 3010-3015]
+        }
+    }
+    
+    rectangle "/home/statbus_no/" <<Installation>> as noinstall {
+        rectangle "Docker Stack (private mode)" as nostack {
+            [caddy → app, rest, db, worker\nPorts: 3020-3025]
+        }
+    }
+    
+    rectangle "/home/statbus_ma/" <<Installation>> as mainstall {
+        rectangle "Docker Stack (private mode)" as mastack {
+            [caddy → app, rest, db, worker\nPorts: 3050-3055]
+        }
+    }
+    
+    rectangle "... more installations ..." as more {
+        [et, jo, tcc, ug, demo]
+    }
+}
+
+devusers --> hostcaddy : HTTPS :443\nPostgreSQL :5432\nSNI=dev.statbus.org
+nousers --> hostcaddy : HTTPS :443\nPostgreSQL :5432\nSNI=no.statbus.org
+mausers --> hostcaddy : HTTPS :443\nPostgreSQL :5432\nSNI=ma.statbus.org
+
+hostcaddy --> devstack : 127.0.0.1:3010\n127.0.0.1:3014 (db)
+hostcaddy --> nostack : 127.0.0.1:3020\n127.0.0.1:3024 (db)
+hostcaddy --> mastack : 127.0.0.1:3050\n127.0.0.1:3054 (db)
+
+note right of hostcaddy
+  **Host Caddy Configuration**
+  /etc/caddy/Caddyfile imports:
+  • public.caddyfile (HTTP routes)
+  • public-layer4-tcp-5432-route.caddyfile
+  from each installation
+end note
+
+note bottom of devinstall
+  **Each installation has:**
+  • Linux user: statbus_{code}
+  • Git repo: ~/statbus/
+  • Docker stack: private mode
+  • Unique port offset
+  • Isolated database
+end note
+
+@enduml

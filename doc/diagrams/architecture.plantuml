@@ -1,0 +1,83 @@
+@startuml architecture
+skinparam backgroundColor #FEFEFE
+skinparam rectangle {
+    BackgroundColor<<Browser>> #E3F2FD
+    BackgroundColor<<External>> #F5F5F5
+    BackgroundColor<<Routing>> #FFF3E0
+    BackgroundColor<<Service>> #E8F5E9
+    BackgroundColor<<Database>> #C8E6C9
+}
+
+title StatBus 1-2-3 Architecture
+caption Database-Centric Progressive Disclosure
+
+rectangle "Level 1 & 2: Browser Access" <<Browser>> {
+    actor "User" as user
+    rectangle "Web UI (Level 1)" as webui {
+        [Import / Search / Report]
+    }
+    rectangle "REST API (Level 2)" as restapi {
+        [Copy /rest calls to scripts\nAdd API key for automation]
+    }
+}
+
+rectangle "Level 3: Direct Access" <<External>> {
+    actor "Power User" as poweruser
+    rectangle "SQL Clients" as sqlclients {
+        [psql / DBeaver / pgAdmin\nApplication drivers]
+    }
+}
+
+rectangle "Caddy Routing Layer" <<Routing>> {
+    rectangle "caddy" as caddy {
+        [HTTPS :443\nPostgreSQL TLS+SNI :5432\nCookie-to-header JWT conversion]
+    }
+}
+
+rectangle "Application Services" <<Service>> {
+    rectangle "PostgREST" as postgrest {
+        [Auto-generated REST API\nJWT validation\nNo custom backend code]
+    }
+    rectangle "Next.js App" as nextjs {
+        [Web interface\nServer-side rendering\nTypeScript + React]
+    }
+    rectangle "Worker" as worker {
+        [Background processing\nImport jobs\nMaterialization updates]
+    }
+}
+
+rectangle "PostgreSQL - THE Backend" <<Database>> {
+    database "Database" as db {
+        [Row Level Security (RLS)\nOne user = one role\nTemporal tables (sql_saga)\nAuto-materialized views]
+    }
+}
+
+user --> webui
+webui --> caddy : HTTPS\n/* routes
+restapi --> caddy : HTTPS\n/rest/* routes
+poweruser --> sqlclients
+sqlclients --> caddy : TLS+SNI\nPort 5432
+
+caddy --> nextjs : /* 
+caddy --> postgrest : /rest/*
+caddy --> db : PostgreSQL\nwire protocol
+
+postgrest --> db : SQL\n(respects RLS)
+nextjs ..> postgrest : Server-side\ndata fetching
+worker --> db : Direct SQL\n(Level 3)
+
+note right of db
+  **Security at database level**
+  - All access methods use same RLS
+  - JWT tokens → PostgreSQL roles
+  - No backend secrets needed
+end note
+
+note bottom of caddy
+  **Routing by path and protocol**
+  - /* → Next.js (Web UI)
+  - /rest/* → PostgREST (API)
+  - PostgreSQL wire → Database
+end note
+
+@enduml

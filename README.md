@@ -213,6 +213,12 @@ See **[Development Guide](doc/DEVELOPMENT.md)** for detailed instructions.
            └─────────────────────────────────────────┘
 ```
 
+<details>
+<summary>View Architecture Diagram</summary>
+
+<img src="doc/diagrams/architecture.svg" alt="StatBus Architecture" style="max-width:100%;">
+</details>
+
 For detailed architecture, see **[Service Architecture](doc/service-architecture.md)**.
 
 ---

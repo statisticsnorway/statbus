@@ -2,6 +2,8 @@
 
 ## Overview
 
+<img src="diagrams/architecture.svg" alt="StatBus Architecture" style="max-width:100%;">
+
 Statbus is a **database-centric progressive disclosure architecture** - fundamentally different from traditional microservices or REST-backend architectures. The key insight: **the database IS the backend**, with security enforced at the database level (Row Level Security), allowing safe access via web, REST API, or direct PostgreSQL connections.
 
 ### The 1-2-3 Architecture Philosophy
@@ -32,6 +34,8 @@ This is the opposite of microservices - it's a unified, database-centric archite
 
 Statbus is containerized with Docker Compose orchestrating multiple services.
 Caddy serves as a routing layer and TLS termination point.
+
+<img src="diagrams/infrastructure-internal.svg" alt="Docker Compose Internals" style="max-width:100%;">
 
 ## Core Services
 

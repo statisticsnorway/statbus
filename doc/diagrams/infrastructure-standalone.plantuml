@@ -1,0 +1,70 @@
+@startuml infrastructure-standalone
+skinparam backgroundColor #FEFEFE
+skinparam rectangle {
+    BackgroundColor<<Internet>> #F5F5F5
+    BackgroundColor<<Server>> #E8F5E9
+    BackgroundColor<<Docker>> #E3F2FD
+    BackgroundColor<<Container>> #BBDEFB
+}
+
+title StatBus Standalone Deployment
+caption Single server with direct public access (e.g., statbus.nso.gov.cc)
+
+rectangle "Internet" <<Internet>> {
+    actor "Web Users" as webusers
+    actor "API Clients" as apiclients
+    actor "SQL Clients\n(psql, DBeaver)" as sqlclients
+}
+
+rectangle "Server: statbus.nso.gov.cc" <<Server>> {
+    rectangle "Docker Compose" <<Docker>> {
+        rectangle "statbus-{code}-caddy" <<Container>> as caddy {
+            [Caddy (standalone mode)\n• ACME/Let's Encrypt certs\n• HTTPS termination\n• PostgreSQL TLS+SNI proxy]
+        }
+        
+        rectangle "statbus-{code}-app" <<Container>> as app {
+            [Next.js\nPort 3000 internal]
+        }
+        
+        rectangle "statbus-{code}-rest" <<Container>> as rest {
+            [PostgREST\nPort 3000 internal]
+        }
+        
+        rectangle "statbus-{code}-db" <<Container>> as db {
+            [PostgreSQL\nPort 5432 internal]
+        }
+        
+        rectangle "statbus-{code}-worker" <<Container>> as worker {
+            [Crystal Worker\nBackground jobs]
+        }
+    }
+}
+
+webusers --> caddy : HTTPS :443\n/* routes
+apiclients --> caddy : HTTPS :443\n/rest/* routes
+sqlclients --> caddy : TLS+SNI :5432\nALPN=postgresql
+
+caddy --> app : HTTP\n/*
+caddy --> rest : HTTP\n/rest/*
+caddy --> db : Plain TCP\nPostgreSQL wire
+
+rest --> db
+worker --> db
+
+note right of caddy
+  **Standalone Mode Features**
+  • Handles HTTPS directly
+  • Automatic Let's Encrypt
+  • Or custom certificates
+  • Standard ports: 443, 5432
+end note
+
+note bottom of db
+  **PostgreSQL Connection**
+  Clients use:
+  • PGSSLNEGOTIATION=direct
+  • PGSSLMODE=verify-full
+  • PGSSLSNI=1
+end note
+
+@enduml
