@@ -716,25 +716,7 @@ SELECT queue, t.command, state, error
  import | import_job_process | completed | 
  import | import_job_process | completed | 
  import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
-(115 rows)
+(97 rows)
 
 \echo 'Check import job state after processing (deterministic)'
 Check import job state after processing (deterministic)
@@ -839,8 +821,8 @@ FROM phase_comparison
 ORDER BY phase;
  phase | total_rows | proc_rows_per_sec | analysis_rows_per_sec | processing_ms_per_row | analysis_ms_per_row | proc_status | analysis_status 
 -------+------------+-------------------+-----------------------+-----------------------+---------------------+-------------+-----------------
- ES    |      24027 |             278.8 |                1449.4 |                  3.61 |                0.69 | OK          | GOOD
- LU    |       4924 |             304.4 |                1419.4 |                  3.38 |                0.70 | OK          | GOOD
+ ES    |      24027 |             475.8 |                1667.1 |                  2.12 |                0.60 | OK          | GOOD
+ LU    |       4924 |             578.8 |                1391.5 |                  1.82 |                0.72 | OK          | GOOD
 (2 rows)
 
 \echo ''
