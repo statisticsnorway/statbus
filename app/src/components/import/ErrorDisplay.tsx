@@ -372,6 +372,10 @@ export function ErrorBadges({ errors, variant = "errors", className }: ErrorDisp
     }
   }
 
+  if (!errors) {
+    return null;
+  }
+
   const entries = Object.entries(errors).filter(([key, value]) => {
     if (key === "context") return false;
     if (value === null || value === undefined || value === "") return false;
