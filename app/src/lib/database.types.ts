@@ -9177,6 +9177,159 @@ export type Database = {
         }
         Returns: boolean
       },
+      citext: {
+        Args: {
+          arg0?: unknown
+        }
+        Returns: string
+      }
+        | {
+        Args: {
+          arg0?: boolean
+        }
+        Returns: string
+      }
+        | {
+        Args: {
+          arg0?: string
+        }
+        Returns: string
+      },
+      citext_cmp: {
+        Args: {
+          arg0?: string
+          arg1?: string
+        }
+        Returns: number
+      },
+      citext_eq: {
+        Args: {
+          arg0?: string
+          arg1?: string
+        }
+        Returns: boolean
+      },
+      citext_ge: {
+        Args: {
+          arg0?: string
+          arg1?: string
+        }
+        Returns: boolean
+      },
+      citext_gt: {
+        Args: {
+          arg0?: string
+          arg1?: string
+        }
+        Returns: boolean
+      },
+      citext_hash: {
+        Args: {
+          arg0?: string
+        }
+        Returns: number
+      },
+      citext_hash_extended: {
+        Args: {
+          arg0?: string
+          arg1?: number
+        }
+        Returns: number
+      },
+      citext_larger: {
+        Args: {
+          arg0?: string
+          arg1?: string
+        }
+        Returns: string
+      },
+      citext_le: {
+        Args: {
+          arg0?: string
+          arg1?: string
+        }
+        Returns: boolean
+      },
+      citext_lt: {
+        Args: {
+          arg0?: string
+          arg1?: string
+        }
+        Returns: boolean
+      },
+      citext_ne: {
+        Args: {
+          arg0?: string
+          arg1?: string
+        }
+        Returns: boolean
+      },
+      citext_pattern_cmp: {
+        Args: {
+          arg0?: string
+          arg1?: string
+        }
+        Returns: number
+      },
+      citext_pattern_ge: {
+        Args: {
+          arg0?: string
+          arg1?: string
+        }
+        Returns: boolean
+      },
+      citext_pattern_gt: {
+        Args: {
+          arg0?: string
+          arg1?: string
+        }
+        Returns: boolean
+      },
+      citext_pattern_le: {
+        Args: {
+          arg0?: string
+          arg1?: string
+        }
+        Returns: boolean
+      },
+      citext_pattern_lt: {
+        Args: {
+          arg0?: string
+          arg1?: string
+        }
+        Returns: boolean
+      },
+      citext_smaller: {
+        Args: {
+          arg0?: string
+          arg1?: string
+        }
+        Returns: string
+      },
+      citextin: {
+        Args: {
+          arg0?: unknown
+        }
+        Returns: string
+      },
+      citextout: {
+        Args: {
+          arg0?: string
+        }
+        Returns: unknown
+      },
+      citextrecv: {
+        Args: {
+          arg0?: unknown
+        }
+        Returns: string
+      },
+      citextsend: {
+        Args: {
+          arg0?: string
+        }
+        Returns: string
+      },
       connect_legal_unit_to_enterprise: {
         Args: {
           legal_unit_id?: number
@@ -11940,6 +12093,83 @@ export type Database = {
         Args: never
         Returns: unknown
       },
+      regexp_match: {
+        Args: {
+          string?: string
+          pattern?: string
+        }
+        Returns: string[]
+      }
+        | {
+        Args: {
+          string?: string
+          pattern?: string
+          flags?: string
+        }
+        Returns: string[]
+      },
+      regexp_matches: {
+        Args: {
+          string?: string
+          pattern?: string
+        }
+        Returns: string[][]
+      }
+        | {
+        Args: {
+          string?: string
+          pattern?: string
+          flags?: string
+        }
+        Returns: string[][]
+      },
+      regexp_replace: {
+        Args: {
+          string?: string
+          pattern?: string
+          replacement?: string
+        }
+        Returns: string
+      }
+        | {
+        Args: {
+          string?: string
+          pattern?: string
+          replacement?: string
+          flags?: string
+        }
+        Returns: string
+      },
+      regexp_split_to_array: {
+        Args: {
+          string?: string
+          pattern?: string
+        }
+        Returns: string[]
+      }
+        | {
+        Args: {
+          string?: string
+          pattern?: string
+          flags?: string
+        }
+        Returns: string[]
+      },
+      regexp_split_to_table: {
+        Args: {
+          string?: string
+          pattern?: string
+        }
+        Returns: string[]
+      }
+        | {
+        Args: {
+          string?: string
+          pattern?: string
+          flags?: string
+        }
+        Returns: string[]
+      },
       region_hierarchy: {
         Args: {
           region_id?: number
@@ -11963,6 +12193,14 @@ export type Database = {
           data?: Json
         }
         Returns: Json
+      },
+      replace: {
+        Args: {
+          arg0?: string
+          arg1?: string
+          arg2?: string
+        }
+        Returns: string
       },
       reset: {
         Args: {
@@ -12069,6 +12307,14 @@ export type Database = {
           arg1?: string
         }
         Returns: boolean
+      },
+      split_part: {
+        Args: {
+          arg0?: string
+          arg1?: string
+          arg2?: number
+        }
+        Returns: string
       },
       stat_for_unit_hierarchy: {
         Args: {
@@ -12255,6 +12501,13 @@ export type Database = {
         }
         Returns: boolean
       },
+      strpos: {
+        Args: {
+          arg0?: string
+          arg1?: string
+        }
+        Returns: number
+      },
       subltree: {
         Args: {
           arg0?: string
@@ -12293,6 +12546,62 @@ export type Database = {
         }
         Returns: string
       },
+      texticlike: {
+        Args: {
+          arg0?: string
+          arg1?: string
+        }
+        Returns: boolean
+      }
+        | {
+        Args: {
+          arg0?: string
+          arg1?: string
+        }
+        Returns: boolean
+      },
+      texticnlike: {
+        Args: {
+          arg0?: string
+          arg1?: string
+        }
+        Returns: boolean
+      }
+        | {
+        Args: {
+          arg0?: string
+          arg1?: string
+        }
+        Returns: boolean
+      },
+      texticregexeq: {
+        Args: {
+          arg0?: string
+          arg1?: string
+        }
+        Returns: boolean
+      }
+        | {
+        Args: {
+          arg0?: string
+          arg1?: string
+        }
+        Returns: boolean
+      },
+      texticregexne: {
+        Args: {
+          arg0?: string
+          arg1?: string
+        }
+        Returns: boolean
+      }
+        | {
+        Args: {
+          arg0?: string
+          arg1?: string
+        }
+        Returns: boolean
+      },
       time_dist: {
         Args: {
           arg0?: unknown
@@ -12307,6 +12616,14 @@ export type Database = {
           p_enterprise_id_ranges?: unknown
         }
         Returns: Record<string, unknown>[]
+      },
+      translate: {
+        Args: {
+          arg0?: string
+          arg1?: string
+          arg2?: string
+        }
+        Returns: string
       },
       ts_dist: {
         Args: {
