@@ -1,12 +1,19 @@
 import { NextResponse, NextRequest } from "next/server";
-import { Level, LogEvent, Logger } from "pino";
+import { LogEvent, Logger } from "pino";
 
 import { createServerLogger } from "@/lib/server-logger";
 import { getServerRestClient } from "@/context/RestClientStore";
 
+// Valid Pino log levels - used to validate user input before dynamic method call
+const VALID_LOG_LEVELS = ['trace', 'debug', 'info', 'warn', 'error', 'fatal'] as const;
+type ValidLogLevel = (typeof VALID_LOG_LEVELS)[number];
+
+const isValidLogLevel = (level: unknown): level is ValidLogLevel =>
+  typeof level === 'string' && VALID_LOG_LEVELS.includes(level as ValidLogLevel);
+
 // Interface for log requests
 interface ClientLogRequest {
-  level: Level;
+  level: string;
   event: LogEvent;
   location: Location;
 }
@@ -36,8 +43,8 @@ const limitDataSize = (payload: any, maxSize: number) => {
   return limitedPayload;
 };
 
-// Function to log events
-const logEvent = async (logger: Logger<never>, level: Level, payload: any, event: LogEvent, useragent: string) => {
+// Function to log events - level is validated before this function is called
+const logEvent = async (logger: Logger<never>, level: ValidLogLevel, payload: any, event: LogEvent, useragent: string) => {
   logger[level](
     {
       ...payload,
@@ -52,6 +59,14 @@ export async function POST(request: NextRequest) {
   try {
     const logger = await createServerLogger();
     const { level = "info", event }: ClientLogRequest = await request.json();
+
+    // Validate log level to prevent unvalidated dynamic method call (CodeQL js/unvalidated-dynamic-method-call)
+    if (!isValidLogLevel(level)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid log level" },
+        { status: 400 }
+      );
+    }
 
     const client = await getServerRestClient();
     // Check for authentication using cookies instead of client.auth
