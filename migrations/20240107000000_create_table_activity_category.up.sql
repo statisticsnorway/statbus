@@ -67,4 +67,27 @@ BEFORE INSERT OR UPDATE ON public.activity_category
 FOR EACH ROW
 EXECUTE FUNCTION public.lookup_parent_and_derive_code();
 
+-- Trigger function to recalculate codes when activity_category_standard.code_pattern changes
+-- This "touches" all related activity_category rows, which triggers lookup_parent_and_derive_code()
+CREATE FUNCTION public.recalculate_activity_category_codes()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $recalculate_activity_category_codes$
+BEGIN
+    -- Touch all activity_category rows for this standard
+    -- This triggers lookup_parent_and_derive_code() to recalculate code
+    UPDATE public.activity_category
+    SET updated_at = statement_timestamp()
+    WHERE standard_id = NEW.id;
+    RETURN NEW;
+END;
+$recalculate_activity_category_codes$;
+
+-- Trigger on activity_category_standard to recalculate codes when code_pattern changes
+CREATE TRIGGER recalculate_activity_category_codes_after_update
+AFTER UPDATE OF code_pattern ON public.activity_category_standard
+FOR EACH ROW
+WHEN (OLD.code_pattern IS DISTINCT FROM NEW.code_pattern)
+EXECUTE FUNCTION public.recalculate_activity_category_codes();
+
 END;

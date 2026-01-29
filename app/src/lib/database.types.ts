@@ -12089,6 +12089,10 @@ export type Database = {
         Args: never
         Returns: string[]
       },
+      recalculate_activity_category_codes: {
+        Args: never
+        Returns: unknown
+      },
       refresh: {
         Args: never
         Returns: unknown
