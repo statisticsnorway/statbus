@@ -1,12 +1,17 @@
 #!/bin/sh
 #
-# This pre-commit hook prevents committing any files from the 'tmp/' and 'app/tmp/' directories.
+# This pre-commit hook:
+# 1. Prevents committing files from 'tmp/' and 'app/tmp/' directories
+# 2. Auto-regenerates PlantUML SVGs when .plantuml files are staged
+
+# =============================================================================
+# Check for staged files in tmp/ directories
+# =============================================================================
 # This allows these directories to be used as a scratch space for AI tools without
 # polluting the main commit history. Files in them can still be tracked
 # locally with `git add` to see diffs. An exception is made for `.gitkeep` and
 # `.gitignore` files.
 
-# Check for staged files in the tmp/ or app/tmp/ directory, ignoring .gitkeep and .gitignore files.
 STAGED_TMP_FILES=$(git diff --cached --name-only | grep -E '^(tmp|app/tmp)/' | grep -v -E '/\.(gitkeep|gitignore)$')
 
 if [ -n "$STAGED_TMP_FILES" ]; then
@@ -22,6 +27,36 @@ if [ -n "$STAGED_TMP_FILES" ]; then
     echo "$STAGED_TMP_FILES"
     echo
     exit 1
+fi
+
+# =============================================================================
+# Auto-regenerate PlantUML SVGs when .plantuml files change
+# =============================================================================
+# Requires: brew install plantuml (or Docker alternative)
+
+STAGED_PLANTUML=$(git diff --cached --name-only | grep '\.plantuml$')
+
+if [ -n "$STAGED_PLANTUML" ]; then
+    # Check if plantuml is available
+    if command -v plantuml >/dev/null 2>&1; then
+        echo "Regenerating PlantUML diagrams..."
+        
+        # Generate SVGs for each changed .plantuml file
+        for puml in $STAGED_PLANTUML; do
+            if [ -f "$puml" ]; then
+                plantuml -tsvg "$puml"
+                svg_file="${puml%.plantuml}.svg"
+                if [ -f "$svg_file" ]; then
+                    git add "$svg_file"
+                    echo "  Updated: $svg_file"
+                fi
+            fi
+        done
+    else
+        echo "WARNING: PlantUML not installed. SVG files may be out of date."
+        echo "Install with: brew install plantuml"
+        echo "Or generate manually: plantuml -tsvg doc/diagrams/*.plantuml"
+    fi
 fi
 
 exit 0
