@@ -58,6 +58,31 @@ cd cli && ./bin/statbus migrate up                             # Apply migration
 cd cli && ./bin/statbus migrate down                           # ⚠️ Rollback (destructive)
 ```
 
+**Migration Best Practice for Modifying Existing Functions/Procedures:**
+
+When modifying an existing database function or procedure, **always dump the current definition first** rather than rewriting from scratch:
+
+```bash
+# Dump function definition to use as base for both up and down migrations
+echo "\sf schema.function_name" | ./devops/manage-statbus.sh psql > tmp/function_def.sql
+
+# For procedures
+echo "\sf schema.procedure_name" | ./devops/manage-statbus.sh psql > tmp/procedure_def.sql
+```
+
+Then:
+1. Copy the dumped definition into the **down migration** (this restores the original)
+2. Copy it into the **up migration** and make only the necessary modifications
+3. Add `CREATE OR REPLACE` prefix and wrap in `BEGIN;`/`END;`
+
+This approach:
+- Preserves exact current behavior in the down migration
+- Ensures surgical changes rather than accidental rewrites
+- Reduces risk of introducing bugs from manual recreation
+- Maintains all edge cases, exception handling, and comments
+
+**CRITICAL**: Never rewrite large functions/procedures from scratch. The `\sf` dump ensures you're modifying the *actual current code*, not an outdated or incomplete version. For large procedures (100+ lines), focus only on the specific lines that need changing.
+
 ### Next.js Application (from app/ directory)
 ```bash
 cd app && pnpm run dev          # Development server with Turbopack
