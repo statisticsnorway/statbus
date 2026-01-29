@@ -33,16 +33,23 @@ BEGIN
 
 	DELETE FROM status
     WHERE id > 2 AND custom = TRUE;
-	
-	
---mangler evt jo ug custom to be deleted..	
-delete from  public.import_source_column 
-where 1 = 1
-and column_name in 
-( 'ice_ident', 'hcp_ident', 'cnss_ident', 'share_capital', 'legal_unit_ice_ident', 'legal_unit_cnss_ident', 'legal_unit_hcp_ident') ; -- 32 rader rester av morocco som jeg sletter
 
-	
-	
+
+
+--mangler evt jo ug custom to be deleted..
+delete from  public.import_source_column
+where 1 = 1
+and column_name in
+( 'ice_ident', 'hcp_ident', 'cnss_ident', 'share_capital','legal_unit_national_id', 'national_id','legal_unit_ice_ident', 'legal_unit_cnss_ident', 'legal_unit_hcp_ident') ; -- 32 rader rester av morocco som jeg sletter
+
+
+--alle disse henger igjen - de landspesfike stat variabler
+	delete from import source_column
+	where column_name in ('male','punpag','selfemp','female', 'jor', 'nonjor','reg_capital', 'cur_capital' , 'share_capital');
+
+
+
+
 
 
 --default
@@ -61,7 +68,7 @@ update unit_size
 set active = TRUE
 where custom = FALSE;
 
-	
+
 
 End;
 $BODY$;
@@ -88,14 +95,14 @@ BEGIN
     SET archived = FALSE
     WHERE id <= 2;
 
-		
+
 
     -- hide stat_ident
     UPDATE external_ident_type
     SET archived = TRUE
     WHERE code = 'stat_ident';
 
-  
+
     INSERT INTO data_source_custom (code, name)
     VALUES
         ('Base2014', 'Base2014'),
@@ -112,7 +119,7 @@ BEGIN
     UPDATE data_source
     SET active = TRUE;
 
-   
+
     INSERT INTO stat_definition (code, type, frequency, name, priority)
     VALUES
         ('share_capital', 'float', 'yearly', 'Share_capital', 3);
@@ -121,7 +128,7 @@ BEGIN
     SET code_pattern = 'digits'
     WHERE code = 'nace_v2.1';
 
-   
+
 
     INSERT INTO unit_size (code, name, active, custom)
     VALUES
@@ -135,7 +142,7 @@ BEGIN
 update unit_size
 set active = FALSE
 where custom = FALSE;
-		
+
 
     UPDATE status
     SET active = FALSE
@@ -178,7 +185,7 @@ BEGIN
     -- reset units and classifications in Statbus (Ctrl+Shift+K)
     -- This customization must be completed BEFORE loading legal/establishment units.
 
-  
+
     UPDATE status
     SET active = TRUE;
 
@@ -235,7 +242,7 @@ BEGIN
  UPDATE external_ident_type
     SET archived = FALSE
     WHERE id <= 2;
-		 
+
 
     INSERT INTO stat_definition (code, type, frequency, name, priority)
     VALUES
@@ -258,7 +265,7 @@ BEGIN
 	--CALL public.custom_setup_reset();
 
 --select * from external_ident_type
- 
+
 
 --al no need for stat ident
  UPDATE external_ident_type
@@ -282,11 +289,11 @@ where id =1 or id  = 2;
     INSERT INTO status
         (code, name, assigned_by_default, used_for_counting, priority, active, custom)
     VALUES
-        ('1', 'Active', TRUE, TRUE, 3, TRUE, TRUE),    
+        ('1', 'Active', TRUE, TRUE, 3, TRUE, TRUE),
 		('2', 'Closed', FALSE, FALSE, 6, TRUE, TRUE),
         ('3', 'Passive', FALSE, FALSE, 4, TRUE, TRUE),
 		('4', 'Never_Active', FALSE, FALSE, 5, TRUE, TRUE);
-		
+
 
 
 --select * from status
@@ -303,7 +310,3 @@ where id =1 or id  = 2;
 
 END;
 $BODY$;
-
-
-
-

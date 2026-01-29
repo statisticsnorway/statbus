@@ -1,7 +1,7 @@
 
 --reset when swaping country from one country to another country in ie demo.statbus.org
 --shouls not be needed going forward..
---
+--erik kenya
 
 CREATE OR REPLACE PROCEDURE public.custom_setup_reset()
 LANGUAGE plpgsql
@@ -11,6 +11,10 @@ BEGIN
 	--sletter custom
     DELETE FROM external_ident_type
     WHERE code NOT IN ('tax_ident', 'stat_ident');
+	
+	--alle disse henger igjen - de lanspesfike stat variabler
+	delete from import_source_column
+	where column_name in ('male','punpag','selfemp','female', 'jor', 'nonjor','reg_capital', 'cur_capital' , 'share_capital', 'sales', 'production');
 
 	--viser de begge de som er default de over
 	UPDATE external_ident_type
@@ -33,9 +37,8 @@ BEGIN
 delete from  public.import_source_column 
 where 1 = 1
 and column_name in 
-( 'ice_ident', 'hcp_ident', 'cnss_ident', 'share_capital', 'legal_unit_ice_ident', 'legal_unit_cnss_ident', 'legal_unit_hcp_ident') ; -- 32 rader rester av morocco som jeg sletter
+('legal_unit_krapin', 'legal_unit_brs', 'legal_unit_nssf', 'legal_unit_sbp', 'legal_unit_nhif', 'krapin', 'brs', 'nssf', 'sbp', 'nhif','ice_ident', 'hcp_ident', 'cnss_ident', 'share_capital','legal_unit_national_id', 'national_id','legal_unit_ice_ident', 'legal_unit_cnss_ident', 'legal_unit_hcp_ident') ; -- 32 rader rester av morocco som jeg sletter
 
-		
 --default
 update stat_definition
 set archived = FALSE

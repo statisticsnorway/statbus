@@ -1,5 +1,7 @@
 
---albania oct 2025
+--albania oct 2025 - jan 2026
+
+\ir ./reset.sql
 
 CREATE OR REPLACE PROCEDURE public.custom_setup_al()
 LANGUAGE plpgsql
@@ -8,7 +10,7 @@ BEGIN
 
     RAISE NOTICE 'Runs Tirana at %', now();
 	--CALL public.custom_setup_reset();
-
+--utkommenterer reset ettersom den ikkke finnes..
 --select * from external_ident_type
  
 
@@ -41,7 +43,18 @@ where id =1 or id  = 2;
 		
 
 
---select * from status
+
+
+
+
+update public.activity_category_standard
+set code_pattern = 'digits'
+where id = 2 ; -- nace
+
+
+
+
+
 
 
     INSERT INTO stat_definition (code, type, frequency, name, priority)

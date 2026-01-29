@@ -1,5 +1,6 @@
 
 
+\ir ./reset.sql
 
 CREATE OR REPLACE PROCEDURE public.custom_setup_ug()
 LANGUAGE plpgsql
