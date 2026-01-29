@@ -115,11 +115,11 @@ BEGIN
         RAISE WARNING '[Job %] analyse_tags: Error during single-pass batch update: %', p_job_id, SQLERRM;
         -- Mark the job itself as failed
         UPDATE public.import_job
-        SET error = jsonb_build_object('analyse_tags_batch_error', SQLERRM),
-            state = 'finished' -- Or a new 'failed' state if introduced
+        SET error = jsonb_build_object('analyse_tags_batch_error', SQLERRM)::TEXT,
+            state = 'failed'
         WHERE id = p_job_id;
         RAISE DEBUG '[Job %] analyse_tags: Marked job as failed due to error: %', p_job_id, SQLERRM;
-        RAISE; -- Re-raise the original exception to halt processing
+        -- Don't re-raise - job is marked as failed
     END;
 
     -- Unconditionally advance the priority for all rows in the batch that have not yet completed this step.
@@ -293,7 +293,12 @@ BEGIN
         );
         RAISE DEBUG '[Job %] process_tags: Marking rows as error in exception handler with SQL: %', p_job_id, v_sql;
         EXECUTE v_sql USING p_batch_row_id_ranges;
-        RAISE;
+        -- Mark the job as failed
+        UPDATE public.import_job
+        SET error = jsonb_build_object('process_tags_error', error_message)::TEXT,
+            state = 'failed'
+        WHERE id = p_job_id;
+        -- Don't re-raise - job is marked as failed
     END;
 
     RAISE DEBUG '[Job %] process_tags (Batch): Finished for step %. Total Processed: %',

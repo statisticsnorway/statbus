@@ -67,8 +67,8 @@ BEGIN
         RAISE DEBUG '[Job %] analyse_data_source (Batch): Updated % non-skipped rows.', p_job_id, v_update_count;
     EXCEPTION WHEN OTHERS THEN
         RAISE WARNING '[Job %] analyse_data_source: Error during batch update: %', p_job_id, SQLERRM;
-        UPDATE public.import_job SET error = jsonb_build_object('analyse_data_source_batch_error', SQLERRM), state = 'finished' WHERE id = p_job_id;
-        RAISE;
+        UPDATE public.import_job SET error = jsonb_build_object('analyse_data_source_batch_error', SQLERRM)::TEXT, state = 'failed' WHERE id = p_job_id;
+        -- Don't re-raise - job is marked as failed
     END;
 
     -- Unconditionally advance priority for all rows in batch to ensure progress

@@ -105,7 +105,7 @@ Enumerated types used across the schema, with their possible values.
 - **`public.history_resolution`**: `year`, `year-month`
 - **`public.import_data_column_purpose`**: `source_input`, `internal`, `pk_id`, `metadata`
 - **`public.import_data_state`**: `pending`, `analysing`, `analysed`, `processing`, `processed`, `error`
-- **`public.import_job_state`**: `waiting_for_upload`, `upload_completed`, `preparing_data`, `analysing_data`, `waiting_for_review`, `approved`, `rejected`, `processing_data`, `finished`
+- **`public.import_job_state`**: `waiting_for_upload`, `upload_completed`, `preparing_data`, `analysing_data`, `waiting_for_review`, `approved`, `rejected`, `processing_data`, `failed`, `finished`
 - **`public.import_mode`**: `legal_unit`, `establishment_formal`, `establishment_informal`, `generic_unit`
 - **`public.import_row_action_type`**: `use`, `skip`
 - **`public.import_row_operation_type`**: `insert`, `replace`, `update`

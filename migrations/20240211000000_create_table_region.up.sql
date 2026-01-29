@@ -29,4 +29,8 @@ CREATE TABLE public.region (
 
 CREATE INDEX ix_region_parent_id ON public.region USING btree (parent_id);
 
+-- Region codes must be unique to avoid ambiguous lookups during import
+-- Uses partial index since code can be NULL when path contains no digits
+CREATE UNIQUE INDEX region_code_key ON public.region(code) WHERE code IS NOT NULL;
+
 END;

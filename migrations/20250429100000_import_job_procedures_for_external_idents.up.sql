@@ -1026,11 +1026,11 @@ EXCEPTION WHEN OTHERS THEN
     RAISE WARNING '[Job %] analyse_external_idents: Error during analysis: %', p_job_id, SQLERRM;
     -- Mark the job itself as failed
     UPDATE public.import_job
-    SET error = jsonb_build_object('analyse_external_idents_error', SQLERRM),
-        state = 'finished'
+    SET error = jsonb_build_object('analyse_external_idents_error', SQLERRM)::TEXT,
+        state = 'failed'
     WHERE id = p_job_id;
     RAISE DEBUG '[Job %] analyse_external_idents: Marked job as failed due to error: %', p_job_id, SQLERRM;
-    RAISE;
+    -- Don't re-raise - job is marked as failed
 END;
 $analyse_external_idents$;
 

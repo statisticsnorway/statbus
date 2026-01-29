@@ -53,11 +53,11 @@ BEGIN
     EXCEPTION WHEN OTHERS THEN
         RAISE WARNING '[Job %] analyse_contact: Error during batch update: %', p_job_id, SQLERRM;
         UPDATE public.import_job
-        SET error = jsonb_build_object('analyse_contact_batch_error', SQLERRM),
-            state = 'finished'
+        SET error = jsonb_build_object('analyse_contact_batch_error', SQLERRM)::TEXT,
+            state = 'failed'
         WHERE id = p_job_id;
         RAISE DEBUG '[Job %] analyse_contact: Marked job as failed due to error: %', p_job_id, SQLERRM;
-        RAISE;
+        -- Don't re-raise - job is marked as failed
     END;
 
     RAISE DEBUG '[Job %] analyse_contact (Batch): Finished analysis for batch. Processed % rows.', p_job_id, v_update_count;
@@ -210,7 +210,12 @@ BEGIN
         );
         RAISE DEBUG '[Job %] process_contact: Marking rows as error in exception handler with SQL: %', p_job_id, v_sql;
         EXECUTE v_sql USING p_batch_row_id_ranges;
-        RAISE; -- Re-throw
+        -- Mark the job as failed
+        UPDATE public.import_job
+        SET error = jsonb_build_object('process_contact_error', error_message)::TEXT,
+            state = 'failed'
+        WHERE id = p_job_id;
+        -- Don't re-raise - job is marked as failed
     END;
 
     RAISE DEBUG '[Job %] process_contact (Batch): Finished for step %. Total Processed: %, Errors: %',
