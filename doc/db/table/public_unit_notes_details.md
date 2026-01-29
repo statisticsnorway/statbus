@@ -15,12 +15,9 @@
 Indexes:
     "unit_notes_pkey" PRIMARY KEY, btree (id)
     "ix_unit_notes_edit_by_user_id" btree (edit_by_user_id)
-    "ix_unit_notes_enterprise_group_id" UNIQUE, btree (enterprise_group_id)
-    "ix_unit_notes_enterprise_id" UNIQUE, btree (enterprise_id)
-    "ix_unit_notes_establishment_id" UNIQUE, btree (establishment_id)
-    "ix_unit_notes_legal_unit_id" UNIQUE, btree (legal_unit_id)
+    "unit_notes_unit_consolidated_key" UNIQUE, btree (establishment_id, legal_unit_id, enterprise_id, enterprise_group_id) NULLS NOT DISTINCT
 Check constraints:
-    "One and only one statistical unit id must be set" CHECK (establishment_id IS NOT NULL AND legal_unit_id IS NULL AND enterprise_id IS NULL AND enterprise_group_id IS NULL OR establishment_id IS NULL AND legal_unit_id IS NOT NULL AND enterprise_id IS NULL AND enterprise_group_id IS NULL OR establishment_id IS NULL AND legal_unit_id IS NULL AND enterprise_id IS NOT NULL AND enterprise_group_id IS NULL OR establishment_id IS NULL AND legal_unit_id IS NULL AND enterprise_id IS NULL AND enterprise_group_id IS NOT NULL)
+    "One and only one statistical unit id must be set" CHECK (num_nonnulls(establishment_id, legal_unit_id, enterprise_id, enterprise_group_id) = 1)
     "unit_notes_enterprise_group_id_check" CHECK (admin.enterprise_group_id_exists(enterprise_group_id))
     "unit_notes_establishment_id_check" CHECK (admin.establishment_id_exists(establishment_id))
     "unit_notes_legal_unit_id_check" CHECK (admin.legal_unit_id_exists(legal_unit_id))

@@ -94,7 +94,7 @@ View definition:
            FROM ( SELECT 'establishment'::statistical_unit_type AS unit_type,
                     ei.establishment_id AS unit_id,
                     eit.code AS type_code,
-                    ei.ident
+                    COALESCE(ei.ident, ei.idents::text::character varying) AS ident
                    FROM external_ident ei
                      JOIN external_ident_type eit ON ei.type_id = eit.id
                   WHERE ei.establishment_id IS NOT NULL
@@ -102,7 +102,7 @@ View definition:
                  SELECT 'legal_unit'::statistical_unit_type AS unit_type,
                     ei.legal_unit_id AS unit_id,
                     eit.code AS type_code,
-                    ei.ident
+                    COALESCE(ei.ident, ei.idents::text::character varying) AS ident
                    FROM external_ident ei
                      JOIN external_ident_type eit ON ei.type_id = eit.id
                   WHERE ei.legal_unit_id IS NOT NULL
@@ -110,7 +110,7 @@ View definition:
                  SELECT 'enterprise'::statistical_unit_type AS unit_type,
                     ei.enterprise_id AS unit_id,
                     eit.code AS type_code,
-                    ei.ident
+                    COALESCE(ei.ident, ei.idents::text::character varying) AS ident
                    FROM external_ident ei
                      JOIN external_ident_type eit ON ei.type_id = eit.id
                   WHERE ei.enterprise_id IS NOT NULL
@@ -118,7 +118,7 @@ View definition:
                  SELECT 'enterprise_group'::statistical_unit_type AS unit_type,
                     ei.enterprise_group_id AS unit_id,
                     eit.code AS type_code,
-                    ei.ident
+                    COALESCE(ei.ident, ei.idents::text::character varying) AS ident
                    FROM external_ident ei
                      JOIN external_ident_type eit ON ei.type_id = eit.id
                   WHERE ei.enterprise_group_id IS NOT NULL) all_idents
@@ -316,7 +316,7 @@ View definition:
             timeline_legal_unit.related_enterprise_ids,
             timeline_legal_unit.excluded_enterprise_ids,
             timeline_legal_unit.included_enterprise_ids,
-            timeline_legal_unit.stats,
+            NULL::jsonb AS stats,
             timeline_legal_unit.stats_summary,
             NULL::integer AS primary_establishment_id,
             NULL::integer AS primary_legal_unit_id

@@ -16,7 +16,6 @@
  context_valid_to    | date                     |           |          | 
  context_valid_until | date                     |           |          | generated always as ((context_valid_to + '1 day'::interval)) stored
  context_valid_on    | date                     |           |          | 
- is_scoped_tag       | boolean                  |           | not null | false
  created_at          | timestamp with time zone |           | not null | statement_timestamp()
  updated_at          | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
@@ -30,7 +29,6 @@ Check constraints:
 Foreign-key constraints:
     "tag_parent_id_fkey" FOREIGN KEY (parent_id) REFERENCES tag(id) ON DELETE RESTRICT
 Referenced by:
-    TABLE "external_ident_type" CONSTRAINT "external_ident_type_by_tag_id_fkey" FOREIGN KEY (by_tag_id) REFERENCES tag(id) ON DELETE RESTRICT
     TABLE "tag_for_unit" CONSTRAINT "tag_for_unit_tag_id_fkey" FOREIGN KEY (tag_id) REFERENCES tag(id) ON DELETE CASCADE
     TABLE "tag" CONSTRAINT "tag_parent_id_fkey" FOREIGN KEY (parent_id) REFERENCES tag(id) ON DELETE RESTRICT
 Policies:

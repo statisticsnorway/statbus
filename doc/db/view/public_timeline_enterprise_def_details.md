@@ -390,7 +390,7 @@ View definition:
                             enplu_1.stats,
                             enplu_1.stats_summary
                            FROM timeline_legal_unit enplu_1
-                          WHERE enplu_1.enterprise_id = ten.enterprise_id AND from_until_overlaps(ten.valid_from, ten.valid_until, enplu_1.valid_from, enplu_1.valid_until)
+                          WHERE enplu_1.enterprise_id = ten.enterprise_id AND enplu_1.primary_for_enterprise = true AND from_until_overlaps(ten.valid_from, ten.valid_until, enplu_1.valid_from, enplu_1.valid_until)
                           ORDER BY enplu_1.valid_from DESC, enplu_1.legal_unit_id DESC
                          LIMIT 1) enplu ON true
                      LEFT JOIN LATERAL ( SELECT enpes_1.unit_type,
@@ -478,7 +478,7 @@ View definition:
                             enpes_1.excluded_enterprise_ids,
                             enpes_1.included_enterprise_ids
                            FROM timeline_establishment enpes_1
-                          WHERE enpes_1.enterprise_id = ten.enterprise_id AND from_until_overlaps(ten.valid_from, ten.valid_until, enpes_1.valid_from, enpes_1.valid_until)
+                          WHERE enpes_1.enterprise_id = ten.enterprise_id AND enpes_1.primary_for_enterprise = true AND from_until_overlaps(ten.valid_from, ten.valid_until, enpes_1.valid_from, enpes_1.valid_until)
                           ORDER BY enpes_1.valid_from DESC, enpes_1.establishment_id DESC
                          LIMIT 1) enpes ON true
                      LEFT JOIN LATERAL ( SELECT all_edits.edit_comment,

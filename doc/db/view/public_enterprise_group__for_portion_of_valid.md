@@ -3,6 +3,7 @@
           Column          |           Type           | Collation | Nullable | Default 
 --------------------------+--------------------------+-----------+----------+---------
  id                       | integer                  |           |          | 
+ valid_range              | daterange                |           |          | 
  valid_from               | date                     |           |          | 
  valid_to                 | date                     |           |          | 
  valid_until              | date                     |           |          | 

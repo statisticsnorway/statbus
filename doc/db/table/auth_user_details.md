@@ -3,9 +3,9 @@
        Column       |           Type           | Collation | Nullable |           Default            | Storage  | Compression | Stats target | Description 
 --------------------+--------------------------+-----------+----------+------------------------------+----------+-------------+--------------+-------------
  id                 | integer                  |           | not null | generated always as identity | plain    |             |              | 
- sub                | uuid                     |           | not null | gen_random_uuid()            | plain    |             |              | 
+ sub                | uuid                     |           | not null | uuidv7()                     | plain    |             |              | 
  display_name       | text                     |           | not null |                              | extended |             |              | 
- email              | text                     |           | not null |                              | extended |             |              | 
+ email              | citext                   |           | not null |                              | extended |             |              | 
  password           | text                     |           |          |                              | extended |             |              | 
  encrypted_password | text                     |           | not null |                              | extended |             |              | 
  statbus_role       | statbus_role             |           | not null | 'regular_user'::statbus_role | plain    |             |              | 
@@ -30,10 +30,12 @@ Referenced by:
     TABLE "enterprise_group" CONSTRAINT "enterprise_group_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT
     TABLE "establishment" CONSTRAINT "establishment_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT
     TABLE "external_ident" CONSTRAINT "external_ident_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT
+    TABLE "image" CONSTRAINT "image_uploaded_by_user_id_fkey" FOREIGN KEY (uploaded_by_user_id) REFERENCES auth."user"(id)
     TABLE "import_definition" CONSTRAINT "import_definition_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth."user"(id) ON DELETE SET NULL
     TABLE "import_job" CONSTRAINT "import_job_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth."user"(id) ON DELETE SET NULL
     TABLE "legal_unit" CONSTRAINT "legal_unit_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT
     TABLE "location" CONSTRAINT "location_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT
+    TABLE "person_for_unit" CONSTRAINT "person_for_unit_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT
     TABLE "auth.refresh_session" CONSTRAINT "refresh_session_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth."user"(id) ON DELETE CASCADE
     TABLE "region_access" CONSTRAINT "region_access_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth."user"(id) ON DELETE CASCADE
     TABLE "stat_for_unit" CONSTRAINT "stat_for_unit_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT
@@ -44,10 +46,10 @@ Policies:
       USING (pg_has_role(CURRENT_USER, 'admin_user'::name, 'MEMBER'::text))
       WITH CHECK (pg_has_role(CURRENT_USER, 'admin_user'::name, 'MEMBER'::text))
     POLICY "select_own_user" FOR SELECT
-      USING ((email = CURRENT_USER))
+      USING (((email)::text = CURRENT_USER))
     POLICY "update_own_user" FOR UPDATE
-      USING ((email = CURRENT_USER))
-      WITH CHECK ((email = CURRENT_USER))
+      USING (((email)::text = CURRENT_USER))
+      WITH CHECK (((email)::text = CURRENT_USER))
 Not-null constraints:
     "user_id_not_null" NOT NULL "id"
     "user_sub_not_null" NOT NULL "sub"
@@ -58,6 +60,8 @@ Not-null constraints:
     "user_created_at_not_null" NOT NULL "created_at"
     "user_updated_at_not_null" NOT NULL "updated_at"
 Triggers:
+    "00_normalize_email_trigger" BEFORE INSERT OR UPDATE OF email ON auth."user" FOR EACH ROW EXECUTE FUNCTION auth.normalize_email()
+    auto_create_api_token_on_confirmation_trigger AFTER INSERT OR UPDATE OF email_confirmed_at ON auth."user" FOR EACH ROW EXECUTE FUNCTION auth.auto_create_api_token_on_confirmation()
     check_role_permission_trigger BEFORE INSERT OR UPDATE ON auth."user" FOR EACH ROW EXECUTE FUNCTION auth.check_role_permission()
     drop_user_role_trigger AFTER DELETE ON auth."user" FOR EACH ROW EXECUTE FUNCTION auth.drop_user_role()
     sync_user_credentials_and_roles_trigger BEFORE INSERT OR UPDATE ON auth."user" FOR EACH ROW EXECUTE FUNCTION auth.sync_user_credentials_and_roles()

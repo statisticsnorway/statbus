@@ -71,18 +71,21 @@ BEGIN
         INSERT INTO public.statistical_unit SELECT * FROM statistical_unit_new;
 
     ELSE
-        -- Partial refresh
+        -- Partial refresh using optimized filtered queries
         IF p_establishment_id_ranges IS NOT NULL THEN
             DELETE FROM public.statistical_unit WHERE unit_type = 'establishment' AND unit_id <@ p_establishment_id_ranges;
-            INSERT INTO public.statistical_unit SELECT * FROM public.statistical_unit_def WHERE unit_type = 'establishment' AND unit_id <@ p_establishment_id_ranges;
+            INSERT INTO public.statistical_unit 
+            SELECT * FROM import.get_statistical_unit_data_partial('establishment', p_establishment_id_ranges);
         END IF;
         IF p_legal_unit_id_ranges IS NOT NULL THEN
             DELETE FROM public.statistical_unit WHERE unit_type = 'legal_unit' AND unit_id <@ p_legal_unit_id_ranges;
-            INSERT INTO public.statistical_unit SELECT * FROM public.statistical_unit_def WHERE unit_type = 'legal_unit' AND unit_id <@ p_legal_unit_id_ranges;
+            INSERT INTO public.statistical_unit 
+            SELECT * FROM import.get_statistical_unit_data_partial('legal_unit', p_legal_unit_id_ranges);
         END IF;
         IF p_enterprise_id_ranges IS NOT NULL THEN
             DELETE FROM public.statistical_unit WHERE unit_type = 'enterprise' AND unit_id <@ p_enterprise_id_ranges;
-            INSERT INTO public.statistical_unit SELECT * FROM public.statistical_unit_def WHERE unit_type = 'enterprise' AND unit_id <@ p_enterprise_id_ranges;
+            INSERT INTO public.statistical_unit 
+            SELECT * FROM import.get_statistical_unit_data_partial('enterprise', p_enterprise_id_ranges);
         END IF;
     END IF;
 

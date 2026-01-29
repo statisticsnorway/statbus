@@ -35,6 +35,7 @@ Not-null constraints:
     "activity_category_standard_code_pattern_not_null" NOT NULL "code_pattern"
     "activity_category_standard_obsolete_not_null" NOT NULL "obsolete"
 Triggers:
+    recalculate_activity_category_codes_after_update AFTER UPDATE OF code_pattern ON activity_category_standard FOR EACH ROW WHEN (old.code_pattern IS DISTINCT FROM new.code_pattern) EXECUTE FUNCTION recalculate_activity_category_codes()
     trigger_prevent_activity_category_standard_id_update BEFORE UPDATE OF id ON activity_category_standard FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap
 

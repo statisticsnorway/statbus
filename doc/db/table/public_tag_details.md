@@ -16,7 +16,6 @@
  context_valid_to    | date                     |           |          |                                                                                                                | plain    |             |              | 
  context_valid_until | date                     |           |          | generated always as ((context_valid_to + '1 day'::interval)) stored                                            | plain    |             |              | 
  context_valid_on    | date                     |           |          |                                                                                                                | plain    |             |              | 
- is_scoped_tag       | boolean                  |           | not null | false                                                                                                          | plain    |             |              | 
  created_at          | timestamp with time zone |           | not null | statement_timestamp()                                                                                          | plain    |             |              | 
  updated_at          | timestamp with time zone |           | not null | statement_timestamp()                                                                                          | plain    |             |              | 
 Indexes:
@@ -30,7 +29,6 @@ Check constraints:
 Foreign-key constraints:
     "tag_parent_id_fkey" FOREIGN KEY (parent_id) REFERENCES tag(id) ON DELETE RESTRICT
 Referenced by:
-    TABLE "external_ident_type" CONSTRAINT "external_ident_type_by_tag_id_fkey" FOREIGN KEY (by_tag_id) REFERENCES tag(id) ON DELETE RESTRICT
     TABLE "tag_for_unit" CONSTRAINT "tag_for_unit_tag_id_fkey" FOREIGN KEY (tag_id) REFERENCES tag(id) ON DELETE CASCADE
     TABLE "tag" CONSTRAINT "tag_parent_id_fkey" FOREIGN KEY (parent_id) REFERENCES tag(id) ON DELETE RESTRICT
 Policies:
@@ -51,7 +49,6 @@ Not-null constraints:
     "tag_name_not_null" NOT NULL "name"
     "tag_active_not_null" NOT NULL "active"
     "tag_type_not_null" NOT NULL "type"
-    "tag_is_scoped_tag_not_null" NOT NULL "is_scoped_tag"
     "tag_created_at_not_null" NOT NULL "created_at"
     "tag_updated_at_not_null" NOT NULL "updated_at"
 Triggers:

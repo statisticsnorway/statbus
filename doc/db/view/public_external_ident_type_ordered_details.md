@@ -5,7 +5,8 @@
  id          | integer                |           |          |         | plain    | 
  code        | character varying(128) |           |          |         | extended | 
  name        | character varying(50)  |           |          |         | extended | 
- by_tag_id   | integer                |           |          |         | plain    | 
+ shape       | external_ident_shape   |           |          |         | plain    | 
+ labels      | ltree                  |           |          |         | extended | 
  description | text                   |           |          |         | extended | 
  priority    | integer                |           |          |         | plain    | 
  archived    | boolean                |           |          |         | plain    | 
@@ -13,7 +14,8 @@ View definition:
  SELECT id,
     code,
     name,
-    by_tag_id,
+    shape,
+    labels,
     description,
     priority,
     archived

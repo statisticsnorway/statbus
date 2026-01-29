@@ -16,7 +16,7 @@
  data_table_name                   | text                     |           | not null |                                        | extended |             |              | 
  priority                          | integer                  |           |          |                                        | plain    |             |              | 
  analysis_batch_size               | integer                  |           | not null | 32768                                  | plain    |             |              | The number of rows to process in a single batch during the analysis phase.
- processing_batch_size             | integer                  |           | not null | 200                                    | plain    |             |              | The number of rows to process in a single batch during the processing phase.
+ processing_batch_size             | integer                  |           | not null | 8000                                   | plain    |             |              | The number of rows to process in a single batch during the processing phase. Optimized to 8000 based on benchmark testing (45-50% faster than previous 1280 default).
  definition_snapshot               | jsonb                    |           |          |                                        | extended |             |              | Captures the complete state of an `import_definition` and its related entities at job creation. This ensures immutable processing. The structure is a JSONB object with keys corresponding to the source tables/views:+
                                    |                          |           |          |                                        |          |             |              | - `import_definition`: A JSON representation of the `public.import_definition` row.                                                                                                                                   +
                                    |                          |           |          |                                        |          |             |              | - `time_context` (optional): If `valid_time_from = 'time_context'`, a JSON representation of the `public.time_context` row.                                                                                           +
@@ -58,6 +58,7 @@ Indexes:
     "ix_import_job_user_id" btree (user_id)
 Check constraints:
     "import_job_default_valid_from_to_consistency_check" CHECK (default_valid_from IS NULL AND default_valid_to IS NULL OR default_valid_from IS NOT NULL AND default_valid_to IS NOT NULL AND default_valid_from <= default_valid_to)
+    "import_job_failed_requires_error" CHECK (state <> 'failed'::import_job_state OR error IS NOT NULL)
     "job_parameters_must_match_valid_time_from_mode" CHECK (
 CASE (definition_snapshot -> 'import_definition'::text) ->> 'valid_time_from'::text
     WHEN 'job_provided'::text THEN default_valid_from IS NOT NULL AND default_valid_to IS NOT NULL

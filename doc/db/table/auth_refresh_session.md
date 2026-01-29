@@ -3,7 +3,7 @@
      Column      |           Type           | Collation | Nullable |           Default            
 -----------------+--------------------------+-----------+----------+------------------------------
  id              | integer                  |           | not null | generated always as identity
- jti             | uuid                     |           | not null | public.gen_random_uuid()
+ jti             | uuid                     |           | not null | uuidv7()
  user_id         | integer                  |           | not null | 
  refresh_version | integer                  |           | not null | 0
  created_at      | timestamp with time zone |           | not null | now()

@@ -16,7 +16,7 @@ BEGIN
             SELECT row_id
             FROM public.%1$I
             WHERE state = 'processing' AND action = 'use'
-            ORDER BY row_id
+                             ORDER BY state, action, row_id
             LIMIT %2$L
             FOR UPDATE SKIP LOCKED
         )
@@ -46,7 +46,7 @@ BEGIN
                 RAISE WARNING '[Job %] Error processing batch: %. Context: %. Marking batch rows as error and failing job.', job.id, error_message, error_context;
                 EXECUTE format($$UPDATE public.%1$I SET state = 'error', errors = COALESCE(errors, '{}'::jsonb) || %2$L WHERE row_id <@ $1$$,
                                job.data_table_name /* %1$I */, jsonb_build_object('process_batch_error', error_message, 'context', error_context) /* %2$L */) USING v_batch_row_id_ranges;
-                UPDATE public.import_job SET error = jsonb_build_object('error_in_processing_batch', error_message, 'context', error_context), state = 'finished' WHERE id = job.id;
+                UPDATE public.import_job SET error = jsonb_build_object('error_in_processing_batch', error_message, 'context', error_context)::TEXT, state = 'failed' WHERE id = job.id;
                 -- On error, do not reschedule.
                 RETURN FALSE;
             END;

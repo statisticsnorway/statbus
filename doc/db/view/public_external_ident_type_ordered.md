@@ -5,7 +5,8 @@
  id          | integer                |           |          | 
  code        | character varying(128) |           |          | 
  name        | character varying(50)  |           |          | 
- by_tag_id   | integer                |           |          | 
+ shape       | external_ident_shape   |           |          | 
+ labels      | ltree                  |           |          | 
  description | text                   |           |          | 
  priority    | integer                |           |          | 
  archived    | boolean                |           |          | 

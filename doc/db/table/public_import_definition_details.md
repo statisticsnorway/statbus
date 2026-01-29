@@ -1,23 +1,24 @@
 ```sql
-                                                                                                                                         Table "public.import_definition"
-          Column          |           Type           | Collation | Nullable |               Default                | Storage  | Compression | Stats target |                                                                     Description                                                                      
---------------------------+--------------------------+-----------+----------+--------------------------------------+----------+-------------+--------------+------------------------------------------------------------------------------------------------------------------------------------------------------
- id                       | integer                  |           | not null | generated always as identity         | plain    |             |              | 
- slug                     | text                     |           | not null |                                      | extended |             |              | 
- name                     | text                     |           | not null |                                      | extended |             |              | 
- note                     | text                     |           |          |                                      | extended |             |              | 
- data_source_id           | integer                  |           |          |                                      | plain    |             |              | 
- strategy                 | import_strategy          |           | not null | 'insert_or_replace'::import_strategy | plain    |             |              | Defines the strategy (insert_or_replace, insert_only, replace_only, insert_or_update, update_only) for the final insertion step.
- mode                     | import_mode              |           | not null |                                      | plain    |             |              | Defines the structural mode of the import, e.g., if an establishment is linked to a legal unit (formal) or directly to an enterprise (informal).
- valid_time_from          | import_valid_time_from   |           | not null |                                      | plain    |             |              | Declaratively defines how the validity period for imported records is determined (from a job-level time context or from columns in the source file).
- user_id                  | integer                  |           |          |                                      | plain    |             |              | 
- active                   | boolean                  |           | not null | true                                 | plain    |             |              | 
- custom                   | boolean                  |           | not null | true                                 | plain    |             |              | 
- valid                    | boolean                  |           | not null | false                                | plain    |             |              | Indicates if the definition passes validation checks.
- validation_error         | text                     |           |          |                                      | extended |             |              | Stores validation error messages if not valid.
- default_retention_period | interval                 |           | not null | '1 year 6 mons'::interval            | plain    |             |              | Default period after which related job data (job record, _upload, _data tables) can be cleaned up. Calculated from job creation time.
- created_at               | timestamp with time zone |           | not null | now()                                | plain    |             |              | 
- updated_at               | timestamp with time zone |           | not null | now()                                | plain    |             |              | 
+                                                                                                                                                               Table "public.import_definition"
+          Column          |           Type           | Collation | Nullable |                                      Default                                      | Storage  | Compression | Stats target |                                                                     Description                                                                      
+--------------------------+--------------------------+-----------+----------+-----------------------------------------------------------------------------------+----------+-------------+--------------+------------------------------------------------------------------------------------------------------------------------------------------------------
+ id                       | integer                  |           | not null | generated always as identity                                                      | plain    |             |              | 
+ slug                     | text                     |           | not null |                                                                                   | extended |             |              | 
+ name                     | text                     |           | not null |                                                                                   | extended |             |              | 
+ note                     | text                     |           |          |                                                                                   | extended |             |              | 
+ data_source_id           | integer                  |           |          |                                                                                   | plain    |             |              | 
+ strategy                 | import_strategy          |           | not null | 'insert_or_replace'::import_strategy                                              | plain    |             |              | Defines the strategy (insert_or_replace, insert_only, replace_only, insert_or_update, update_only) for the final insertion step.
+ mode                     | import_mode              |           | not null |                                                                                   | plain    |             |              | Defines the structural mode of the import, e.g., if an establishment is linked to a legal unit (formal) or directly to an enterprise (informal).
+ valid_time_from          | import_valid_time_from   |           | not null |                                                                                   | plain    |             |              | Declaratively defines how the validity period for imported records is determined (from a job-level time context or from columns in the source file).
+ user_id                  | integer                  |           |          |                                                                                   | plain    |             |              | 
+ active                   | boolean                  |           | not null | true                                                                              | plain    |             |              | 
+ custom                   | boolean                  |           | not null | true                                                                              | plain    |             |              | 
+ valid                    | boolean                  |           | not null | false                                                                             | plain    |             |              | Indicates if the definition passes validation checks.
+ validation_error         | text                     |           |          |                                                                                   | extended |             |              | Stores validation error messages if not valid.
+ default_retention_period | interval                 |           | not null | '1 year 6 mons'::interval                                                         | plain    |             |              | Default period after which related job data (job record, _upload, _data tables) can be cleaned up. Calculated from job creation time.
+ import_as_null           | text[]                   |           | not null | ARRAY[''::text, 'NA'::text, 'N/A'::text, 'NULL'::text, 'NONE'::text, 'NaN'::text] | extended |             |              | Array of text values to treat as NULL during import. Matching is case-insensitive. Default includes empty string, NA, N/A, NULL, and NONE.
+ created_at               | timestamp with time zone |           | not null | now()                                                                             | plain    |             |              | 
+ updated_at               | timestamp with time zone |           | not null | now()                                                                             | plain    |             |              | 
 Indexes:
     "import_definition_pkey" PRIMARY KEY, btree (id)
     "import_definition_name_key" UNIQUE CONSTRAINT, btree (name)
@@ -55,6 +56,7 @@ Not-null constraints:
     "import_definition_custom_not_null" NOT NULL "custom"
     "import_definition_valid_not_null" NOT NULL "valid"
     "import_definition_default_retention_period_not_null" NOT NULL "default_retention_period"
+    "import_definition_import_as_null_not_null" NOT NULL "import_as_null"
     "import_definition_created_at_not_null" NOT NULL "created_at"
     "import_definition_updated_at_not_null" NOT NULL "updated_at"
 Triggers:

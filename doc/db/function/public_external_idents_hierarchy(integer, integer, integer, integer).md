@@ -5,7 +5,7 @@ CREATE OR REPLACE FUNCTION public.external_idents_hierarchy(parent_establishment
  STABLE
 AS $function$
   WITH agg_data AS (
-    SELECT jsonb_object_agg(eit.code, ei.ident ORDER BY eit.priority NULLS LAST, eit.code) AS data
+    SELECT jsonb_object_agg(eit.code, COALESCE(ei.ident, ei.idents::text) ORDER BY eit.priority NULLS LAST, eit.code) AS data
      FROM public.external_ident AS ei
      JOIN public.external_ident_type AS eit ON eit.id = ei.type_id
      WHERE (  parent_establishment_id    IS NOT NULL AND ei.establishment_id    = parent_establishment_id
@@ -19,6 +19,5 @@ AS $function$
     ELSE jsonb_build_object('external_idents',data)
     END
   FROM agg_data;
-  ;
 $function$
 ```

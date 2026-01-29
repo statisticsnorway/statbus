@@ -197,9 +197,18 @@ BEGIN
     END IF;
 
 EXCEPTION WHEN OTHERS THEN
+    -- Mark job as failed with error details
+    UPDATE public.import_job 
+    SET state = 'failed',
+        error = jsonb_build_object(
+            'message', 'Unexpected error in import_job_process',
+            'exception', SQLERRM,
+            'sqlstate', SQLSTATE
+        )::TEXT
+    WHERE id = job_id;
     -- Ensure context is reset even on error
     PERFORM admin.reset_import_job_user_context();
-    RAISE; -- Re-raise the original error
+    -- Don't re-raise - let worker task complete successfully but job is marked failed
 END;
 $procedure$
 ```

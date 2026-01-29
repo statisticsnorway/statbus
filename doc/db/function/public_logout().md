@@ -16,8 +16,15 @@ BEGIN
   
   -- If we have a refresh token, use its claims
   IF refresh_token IS NOT NULL THEN
-    SELECT payload::json INTO claims 
-    FROM verify(refresh_token, current_setting('app.settings.jwt_secret'));
+    -- Try to verify the token, but logout should work even if verification fails
+    -- This is a non-critical path for cleanup purposes
+    BEGIN
+      SELECT payload::json INTO claims 
+      FROM verify(refresh_token, auth.jwt_secret());
+    EXCEPTION WHEN OTHERS THEN
+      -- Ignore errors, proceed with logout anyway
+      NULL;
+    END;
     
     -- If this is a refresh token, get the session ID
     IF claims->>'type' = 'refresh' THEN

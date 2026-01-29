@@ -125,6 +125,14 @@ BEGIN
       -- They were specific to a previous, more complex batching strategy and are no longer
       -- used by the simplified batch selection queries, which now efficiently use the
       -- composite index on (state, last_completed_priority, row_id).
+
+      -- Add index for processing phase batch selection.
+      -- The processing phase uses: WHERE state = 'processing' AND action = 'use' ORDER BY state, action, row_id
+      EXECUTE format(
+          $$ CREATE INDEX ON public.%1$I (state, action, row_id) $$,
+          job.data_table_name
+      );
+      RAISE DEBUG '[Job %] Added (state, action, row_id) index for processing phase batch selection.', job.id;
   END;
 
   -- Grant direct permissions to the job owner on the upload table to allow COPY FROM

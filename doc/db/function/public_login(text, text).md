@@ -24,10 +24,10 @@ BEGIN
     RETURN auth.build_auth_response(p_error_code => 'USER_MISSING_PASSWORD'::auth.login_error_code);
   END IF;
 
-  -- Find user by email
+  -- Find user by email (cast to citext for case-insensitive comparison)
   SELECT u.* INTO _user
   FROM auth.user u
-  WHERE u.email = login.email;
+  WHERE u.email = login.email::citext;
 
   -- If user not found
   IF NOT FOUND THEN

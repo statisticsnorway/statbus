@@ -4,6 +4,7 @@
 --------------------+--------------------------+-----------+----------+---------+----------+-------------
  id                 | integer                  |           |          |         | plain    | 
  stat_definition_id | integer                  |           |          |         | plain    | 
+ valid_range        | daterange                |           |          |         | extended | 
  valid_from         | date                     |           |          |         | plain    | 
  valid_to           | date                     |           |          |         | plain    | 
  valid_until        | date                     |           |          |         | plain    | 
@@ -14,13 +15,13 @@
  value_float        | double precision         |           |          |         | plain    | 
  value_string       | character varying        |           |          |         | extended | 
  value_bool         | boolean                  |           |          |         | plain    | 
- created_at         | timestamp with time zone |           |          |         | plain    | 
  edit_comment       | character varying(512)   |           |          |         | extended | 
  edit_by_user_id    | integer                  |           |          |         | plain    | 
  edit_at            | timestamp with time zone |           |          |         | plain    | 
 View definition:
  SELECT id,
     stat_definition_id,
+    valid_range,
     valid_from,
     valid_to,
     valid_until,
@@ -31,7 +32,6 @@ View definition:
     value_float,
     value_string,
     value_bool,
-    created_at,
     edit_comment,
     edit_by_user_id,
     edit_at

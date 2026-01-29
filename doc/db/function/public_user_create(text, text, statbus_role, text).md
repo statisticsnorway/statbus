@@ -7,10 +7,8 @@ DECLARE
     v_password text;
     v_user_id integer;
     v_encrypted_password text;
-    v_email text;
 BEGIN
-    -- Ensure email is lowercase
-    v_email := lower(p_email);
+    -- Note: email column uses citext, so case-insensitivity is handled automatically
 
     -- Use provided password or generate a secure random one
     -- The RLS policy 'admin_all_access' on auth.user ensures only admins can INSERT/UPDATE.
@@ -31,7 +29,7 @@ BEGIN
         email_confirmed_at
     ) VALUES (
         p_display_name,
-        v_email,
+        p_email,  -- citext handles case-insensitivity
         v_password,
         p_statbus_role,
         clock_timestamp() -- email_confirmed_at (set immediately for new users via this function)
@@ -48,7 +46,7 @@ BEGIN
     RETURNING id INTO v_user_id;
 
     -- Return the email and password
-    RETURN QUERY SELECT v_email::text, v_password::text;
+    RETURN QUERY SELECT p_email::text, v_password::text;
 END;
 $function$
 ```

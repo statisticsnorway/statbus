@@ -5,7 +5,7 @@
  id                 | integer                  |           |          |         | plain    | 
  sub                | uuid                     |           |          |         | plain    | 
  display_name       | text                     |           |          |         | extended | 
- email              | text                     |           |          |         | extended | 
+ email              | citext                   |           |          |         | extended | 
  password           | text                     |           |          |         | extended | 
  statbus_role       | statbus_role             |           |          |         | plain    | 
  created_at         | timestamp with time zone |           |          |         | plain    | 

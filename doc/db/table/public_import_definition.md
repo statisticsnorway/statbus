@@ -1,7 +1,7 @@
 ```sql
-                                         Table "public.import_definition"
-          Column          |           Type           | Collation | Nullable |               Default                
---------------------------+--------------------------+-----------+----------+--------------------------------------
+                                                                Table "public.import_definition"
+          Column          |           Type           | Collation | Nullable |                                      Default                                      
+--------------------------+--------------------------+-----------+----------+-----------------------------------------------------------------------------------
  id                       | integer                  |           | not null | generated always as identity
  slug                     | text                     |           | not null | 
  name                     | text                     |           | not null | 
@@ -16,6 +16,7 @@
  valid                    | boolean                  |           | not null | false
  validation_error         | text                     |           |          | 
  default_retention_period | interval                 |           | not null | '1 year 6 mons'::interval
+ import_as_null           | text[]                   |           | not null | ARRAY[''::text, 'NA'::text, 'N/A'::text, 'NULL'::text, 'NONE'::text, 'NaN'::text]
  created_at               | timestamp with time zone |           | not null | now()
  updated_at               | timestamp with time zone |           | not null | now()
 Indexes:

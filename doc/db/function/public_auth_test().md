@@ -9,8 +9,8 @@ DECLARE
   transactional_claims jsonb; -- Claims from PostgREST's GUC
   access_token_value text;
   refresh_token_value text;
-  access_verification_result auth.jwt_verification_result;
-  refresh_verification_result auth.jwt_verification_result;
+  access_jwt_verify_result auth.jwt_verify_result;
+  refresh_jwt_verify_result auth.jwt_verify_result;
   result auth.auth_test_response;
   access_token_info auth.token_info;
   refresh_token_info auth.token_info;
@@ -37,14 +37,14 @@ BEGIN
 
   -- Report on access token found in 'statbus' cookie (if any)
   IF access_token_value IS NOT NULL THEN
-    access_verification_result := auth.verify_jwt_with_secret(access_token_value);
+    access_jwt_verify_result := auth.jwt_verify(access_token_value);
     access_token_info.present := TRUE;
     access_token_info.token_length := length(access_token_value);
-    access_token_info.claims := access_verification_result.claims;
-    access_token_info.valid := access_verification_result.is_valid;
-    access_token_info.expired := access_verification_result.expired;
-    IF NOT access_verification_result.is_valid THEN
-      access_token_info.claims := coalesce(access_token_info.claims, '{}'::jsonb) || jsonb_build_object('verification_error', access_verification_result.error_message);
+    access_token_info.claims := access_jwt_verify_result.claims;
+    access_token_info.valid := access_jwt_verify_result.is_valid;
+    access_token_info.expired := access_jwt_verify_result.expired;
+    IF NOT access_jwt_verify_result.is_valid THEN
+      access_token_info.claims := coalesce(access_token_info.claims, '{}'::jsonb) || jsonb_build_object('verification_error', access_jwt_verify_result.error_message);
     END IF;
   ELSE
     access_token_info.present := FALSE;
@@ -53,17 +53,17 @@ BEGIN
   
   -- Report on refresh token found in 'statbus-refresh' cookie (if any)
   IF refresh_token_value IS NOT NULL THEN
-    refresh_verification_result := auth.verify_jwt_with_secret(refresh_token_value);
+    refresh_jwt_verify_result := auth.jwt_verify(refresh_token_value);
     refresh_token_info.present := TRUE;
     refresh_token_info.token_length := length(refresh_token_value);
-    refresh_token_info.claims := refresh_verification_result.claims;
-    refresh_token_info.valid := refresh_verification_result.is_valid;
-    refresh_token_info.expired := refresh_verification_result.expired;
-    IF NOT refresh_verification_result.is_valid THEN
-      refresh_token_info.claims := coalesce(refresh_token_info.claims, '{}'::jsonb) || jsonb_build_object('verification_error', refresh_verification_result.error_message);
+    refresh_token_info.claims := refresh_jwt_verify_result.claims;
+    refresh_token_info.valid := refresh_jwt_verify_result.is_valid;
+    refresh_token_info.expired := refresh_jwt_verify_result.expired;
+    IF NOT refresh_jwt_verify_result.is_valid THEN
+      refresh_token_info.claims := coalesce(refresh_token_info.claims, '{}'::jsonb) || jsonb_build_object('verification_error', refresh_jwt_verify_result.error_message);
     ELSE
-      refresh_token_info.jti := refresh_verification_result.claims->>'jti';
-      refresh_token_info.version := refresh_verification_result.claims->>'version';
+      refresh_token_info.jti := refresh_jwt_verify_result.claims->>'jti';
+      refresh_token_info.version := refresh_jwt_verify_result.claims->>'version';
     END IF;
   END IF;
   

@@ -3,6 +3,7 @@
           Column          |           Type           | Collation | Nullable | Default | Storage  | Description 
 --------------------------+--------------------------+-----------+----------+---------+----------+-------------
  id                       | integer                  |           |          |         | plain    | 
+ valid_range              | daterange                |           |          |         | extended | 
  valid_from               | date                     |           |          |         | plain    | 
  valid_to                 | date                     |           |          |         | plain    | 
  valid_until              | date                     |           |          |         | plain    | 
@@ -23,8 +24,10 @@
  enterprise_id            | integer                  |           |          |         | plain    | 
  primary_for_enterprise   | boolean                  |           |          |         | plain    | 
  invalid_codes            | jsonb                    |           |          |         | extended | 
+ image_id                 | integer                  |           |          |         | plain    | 
 View definition:
  SELECT id,
+    valid_range,
     valid_from,
     valid_to,
     valid_until,
@@ -44,7 +47,8 @@ View definition:
     data_source_id,
     enterprise_id,
     primary_for_enterprise,
-    invalid_codes
+    invalid_codes,
+    image_id
    FROM legal_unit;
 Triggers:
     for_portion_of_valid INSTEAD OF INSERT OR DELETE OR UPDATE ON legal_unit__for_portion_of_valid FOR EACH ROW EXECUTE FUNCTION sql_saga.for_portion_of_trigger('id')

@@ -15,6 +15,7 @@
 Indexes:
     "region_pkey" PRIMARY KEY, btree (id)
     "ix_region_parent_id" btree (parent_id)
+    "region_code_key" UNIQUE, btree (code) WHERE code IS NOT NULL
     "region_path_key" UNIQUE CONSTRAINT, btree (path)
 Check constraints:
     "altitude requires coordinates" CHECK (
@@ -22,7 +23,7 @@ CASE
     WHEN center_altitude IS NOT NULL THEN center_latitude IS NOT NULL AND center_longitude IS NOT NULL
     ELSE true
 END)
-    "center coordinates all or nothing" CHECK (center_latitude IS NOT NULL AND center_longitude IS NOT NULL OR center_latitude IS NULL AND center_longitude IS NULL)
+    "center coordinates all or nothing" CHECK (num_nonnulls(center_latitude, center_longitude) = ANY (ARRAY[0, 2]))
     "center_altitude_must_be_positive" CHECK (center_altitude >= 0::numeric)
     "center_latitude_must_be_from_minus_90_to_90_degrees" CHECK (center_latitude >= '-90'::integer::numeric AND center_latitude <= 90::numeric)
     "center_longitude_must_be_from_minus_180_to_180_degrees" CHECK (center_longitude >= '-180'::integer::numeric AND center_longitude <= 180::numeric)

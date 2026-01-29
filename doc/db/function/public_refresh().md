@@ -20,7 +20,7 @@ DECLARE
   access_claims jsonb;
   refresh_claims jsonb;
   access_token_value text;
-  access_verification_result auth.jwt_verification_result;
+  access_jwt_verify_result auth.jwt_verify_result;
 BEGIN
   -- This function is idempotent. Calling it multiple times will result in a new token pair
   -- each time, and the previous refresh token version will be invalidated.
@@ -41,9 +41,16 @@ BEGIN
       RETURN auth.build_auth_response(p_error_code => 'REFRESH_NO_TOKEN_COOKIE'::auth.login_error_code);
     END IF;
     
-    -- Decode the JWT to get the claims
-    SELECT payload::json INTO claims
-    FROM verify(refresh_token, current_setting('app.settings.jwt_secret'));
+    -- Decode the JWT to get the claims using centralized jwt_secret() function
+    BEGIN
+      SELECT payload::json INTO claims
+      FROM verify(refresh_token, auth.jwt_secret());
+    EXCEPTION WHEN OTHERS THEN
+      PERFORM auth.clear_auth_cookies();
+      PERFORM auth.reset_session_context();
+      PERFORM set_config('response.status', '500', true);
+      RAISE;
+    END;
   END;
   
   -- Verify this is actually a refresh token

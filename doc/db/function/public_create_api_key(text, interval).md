@@ -6,7 +6,7 @@ AS $function$
 DECLARE
   _user_id integer;
   _expires_at timestamptz;
-  _jti uuid := public.gen_random_uuid();
+  _jti uuid := uuidv7();
   _result public.api_key;
 BEGIN
   -- Get current user ID

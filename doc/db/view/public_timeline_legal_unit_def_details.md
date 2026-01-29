@@ -177,6 +177,7 @@ View definition:
             jsonb_stats_to_summary('{}'::jsonb, COALESCE(lu_stats.stats, '{}'::jsonb)) AS stats_summary
            FROM timesegments t
              JOIN LATERAL ( SELECT lu_1.id,
+                    lu_1.valid_range,
                     lu_1.valid_from,
                     lu_1.valid_to,
                     lu_1.valid_until,
@@ -196,13 +197,15 @@ View definition:
                     lu_1.data_source_id,
                     lu_1.enterprise_id,
                     lu_1.primary_for_enterprise,
-                    lu_1.invalid_codes
+                    lu_1.invalid_codes,
+                    lu_1.image_id
                    FROM legal_unit lu_1
                   WHERE lu_1.id = t.unit_id AND from_until_overlaps(t.valid_from, t.valid_until, lu_1.valid_from, lu_1.valid_until)
                   ORDER BY lu_1.id DESC, lu_1.valid_from DESC
                  LIMIT 1) lu ON true
              LEFT JOIN legal_unit_stats lu_stats ON lu_stats.unit_id = t.unit_id AND lu_stats.valid_from = t.valid_from
              LEFT JOIN LATERAL ( SELECT a.id,
+                    a.valid_range,
                     a.valid_from,
                     a.valid_to,
                     a.valid_until,
@@ -220,6 +223,7 @@ View definition:
                  LIMIT 1) pa ON true
              LEFT JOIN activity_category pac ON pa.category_id = pac.id
              LEFT JOIN LATERAL ( SELECT a.id,
+                    a.valid_range,
                     a.valid_from,
                     a.valid_to,
                     a.valid_until,
@@ -239,6 +243,7 @@ View definition:
              LEFT JOIN sector s ON lu.sector_id = s.id
              LEFT JOIN legal_form lf ON lu.legal_form_id = lf.id
              LEFT JOIN LATERAL ( SELECT l.id,
+                    l.valid_range,
                     l.valid_from,
                     l.valid_to,
                     l.valid_until,
@@ -266,6 +271,7 @@ View definition:
              LEFT JOIN region phr ON phl.region_id = phr.id
              LEFT JOIN country phc ON phl.country_id = phc.id
              LEFT JOIN LATERAL ( SELECT l.id,
+                    l.valid_range,
                     l.valid_from,
                     l.valid_to,
                     l.valid_until,
@@ -293,6 +299,7 @@ View definition:
              LEFT JOIN region por ON pol.region_id = por.id
              LEFT JOIN country poc ON pol.country_id = poc.id
              LEFT JOIN LATERAL ( SELECT c_1.id,
+                    c_1.valid_range,
                     c_1.valid_from,
                     c_1.valid_to,
                     c_1.valid_until,

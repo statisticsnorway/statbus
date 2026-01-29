@@ -1,21 +1,21 @@
 ```sql
-                                                        Table "public.external_ident_type"
-   Column    |          Type          | Collation | Nullable |           Default            | Storage  | Compression | Stats target | Description 
--------------+------------------------+-----------+----------+------------------------------+----------+-------------+--------------+-------------
- id          | integer                |           | not null | generated always as identity | plain    |             |              | 
- code        | character varying(128) |           | not null |                              | extended |             |              | 
- name        | character varying(50)  |           |          |                              | extended |             |              | 
- by_tag_id   | integer                |           |          |                              | plain    |             |              | 
- description | text                   |           |          |                              | extended |             |              | 
- priority    | integer                |           |          |                              | plain    |             |              | 
- archived    | boolean                |           | not null | false                        | plain    |             |              | 
+                                                         Table "public.external_ident_type"
+   Column    |          Type          | Collation | Nullable |             Default             | Storage  | Compression | Stats target | Description 
+-------------+------------------------+-----------+----------+---------------------------------+----------+-------------+--------------+-------------
+ id          | integer                |           | not null | generated always as identity    | plain    |             |              | 
+ code        | character varying(128) |           | not null |                                 | extended |             |              | 
+ name        | character varying(50)  |           |          |                                 | extended |             |              | 
+ shape       | external_ident_shape   |           | not null | 'regular'::external_ident_shape | plain    |             |              | 
+ labels      | ltree                  |           |          |                                 | extended |             |              | 
+ description | text                   |           |          |                                 | extended |             |              | 
+ priority    | integer                |           |          |                                 | plain    |             |              | 
+ archived    | boolean                |           | not null | false                           | plain    |             |              | 
 Indexes:
     "external_ident_type_pkey" PRIMARY KEY, btree (id)
-    "external_ident_type_by_tag_id_key" UNIQUE CONSTRAINT, btree (by_tag_id)
     "external_ident_type_code_key" UNIQUE CONSTRAINT, btree (code)
     "external_ident_type_priority_key" UNIQUE CONSTRAINT, btree (priority)
-Foreign-key constraints:
-    "external_ident_type_by_tag_id_fkey" FOREIGN KEY (by_tag_id) REFERENCES tag(id) ON DELETE RESTRICT
+Check constraints:
+    "shape_labels_consistency" CHECK (shape = 'regular'::external_ident_shape AND labels IS NULL OR shape = 'hierarchical'::external_ident_shape AND labels IS NOT NULL)
 Referenced by:
     TABLE "external_ident" CONSTRAINT "external_ident_type_id_fkey" FOREIGN KEY (type_id) REFERENCES external_ident_type(id) ON DELETE RESTRICT
 Policies:
@@ -32,10 +32,9 @@ Policies:
 Not-null constraints:
     "external_ident_type_id_not_null" NOT NULL "id"
     "external_ident_type_code_not_null" NOT NULL "code"
+    "external_ident_type_shape_not_null" NOT NULL "shape"
     "external_ident_type_archived_not_null" NOT NULL "archived"
 Triggers:
-    external_ident_type_derive_code_and_name_from_by_tag_id_insert BEFORE INSERT ON external_ident_type FOR EACH ROW WHEN (new.by_tag_id IS NOT NULL) EXECUTE FUNCTION external_ident_type_derive_code_and_name_from_by_tag_id()
-    external_ident_type_derive_code_and_name_from_by_tag_id_update BEFORE UPDATE ON external_ident_type FOR EACH ROW WHEN (new.by_tag_id IS NOT NULL AND new.by_tag_id IS DISTINCT FROM old.by_tag_id) EXECUTE FUNCTION external_ident_type_derive_code_and_name_from_by_tag_id()
     external_ident_type_lifecycle_callbacks_after_delete AFTER DELETE ON external_ident_type FOR EACH STATEMENT EXECUTE FUNCTION lifecycle_callbacks.cleanup_and_generate()
     external_ident_type_lifecycle_callbacks_after_insert AFTER INSERT ON external_ident_type FOR EACH STATEMENT EXECUTE FUNCTION lifecycle_callbacks.cleanup_and_generate()
     external_ident_type_lifecycle_callbacks_after_update AFTER UPDATE ON external_ident_type FOR EACH STATEMENT EXECUTE FUNCTION lifecycle_callbacks.cleanup_and_generate()

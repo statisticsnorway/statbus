@@ -38,7 +38,7 @@ BEGIN
   
   -- Add JTI if not in additional claims
   IF NOT p_additional_claims ? 'jti' THEN
-    v_claims := v_claims || jsonb_build_object('jti', public.gen_random_uuid()::text);
+    v_claims := v_claims || jsonb_build_object('jti', uuidv7()::text);
   END IF;
   
   -- Merge additional claims

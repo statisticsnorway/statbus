@@ -3,7 +3,7 @@
      Column      |           Type           | Collation | Nullable |           Default            | Storage  | Compression | Stats target | Description 
 -----------------+--------------------------+-----------+----------+------------------------------+----------+-------------+--------------+-------------
  id              | integer                  |           | not null | generated always as identity | plain    |             |              | 
- jti             | uuid                     |           | not null | public.gen_random_uuid()     | plain    |             |              | 
+ jti             | uuid                     |           | not null | uuidv7()                     | plain    |             |              | 
  user_id         | integer                  |           | not null |                              | plain    |             |              | 
  refresh_version | integer                  |           | not null | 0                            | plain    |             |              | 
  created_at      | timestamp with time zone |           | not null | now()                        | plain    |             |              | 

@@ -3,6 +3,7 @@
           Column          |           Type           | Collation | Nullable | Default | Storage  | Description 
 --------------------------+--------------------------+-----------+----------+---------+----------+-------------
  id                       | integer                  |           |          |         | plain    | 
+ valid_range              | daterange                |           |          |         | extended | 
  valid_from               | date                     |           |          |         | plain    | 
  valid_to                 | date                     |           |          |         | plain    | 
  valid_until              | date                     |           |          |         | plain    | 
@@ -21,6 +22,7 @@
  foreign_participation_id | integer                  |           |          |         | plain    | 
 View definition:
  SELECT id,
+    valid_range,
     valid_from,
     valid_to,
     valid_until,

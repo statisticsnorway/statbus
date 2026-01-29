@@ -11,10 +11,11 @@ BEGIN
         FROM pg_indexes
         WHERE schemaname = 'public'
           AND tablename = 'statistical_unit'
-          AND indexname ILIKE 'su_ei_%_idx'
+          AND (indexname ILIKE 'su_ei_%_idx'
+            OR indexname ILIKE 'su_ei_%_ltree_gist_idx'
             OR indexname ILIKE 'su_s_%_idx'
             OR indexname ILIKE 'su_ss_%_sum_idx'
-            OR indexname ILIKE 'su_ss_%_count_idx'
+            OR indexname ILIKE 'su_ss_%_count_idx')
         ORDER BY indexname
     LOOP
         EXECUTE format('DROP INDEX IF EXISTS %I', r.indexname);

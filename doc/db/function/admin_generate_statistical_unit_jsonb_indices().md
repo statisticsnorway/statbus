@@ -8,10 +8,20 @@ DECLARE
 BEGIN
     -- Loop over each external_ident_type to create indices
     FOR ident_type IN SELECT * FROM public.external_ident_type_active LOOP
+        -- Create btree index for exact match and prefix searches (all types)
         EXECUTE format($$
 CREATE INDEX IF NOT EXISTS su_ei_%1$s_idx ON public.statistical_unit ((external_idents->>%1$L))
 $$, ident_type.code);
-        RAISE NOTICE 'Created index su_ei_% for external_ident_type', ident_type.code;
+        RAISE NOTICE 'Created btree index su_ei_%_idx for external_ident_type', ident_type.code;
+
+        -- For hierarchical types, also create a GIST index on the ltree cast
+        -- This enables efficient pattern matching with lquery (e.g., '*.CENTRAL.*')
+        IF ident_type.shape = 'hierarchical' THEN
+            EXECUTE format($$
+CREATE INDEX IF NOT EXISTS su_ei_%1$s_ltree_gist_idx ON public.statistical_unit USING GIST (((external_idents->>%1$L)::ltree))
+$$, ident_type.code);
+            RAISE NOTICE 'Created GIST ltree index su_ei_%_ltree_gist_idx for hierarchical external_ident_type', ident_type.code;
+        END IF;
     END LOOP;
 
     -- Loop over each stat_definition to create indices

@@ -3,6 +3,7 @@
       Column      |           Type           | Collation | Nullable | Default | Storage  | Description 
 ------------------+--------------------------+-----------+----------+---------+----------+-------------
  id               | integer                  |           |          |         | plain    | 
+ valid_range      | daterange                |           |          |         | extended | 
  valid_from       | date                     |           |          |         | plain    | 
  valid_to         | date                     |           |          |         | plain    | 
  valid_until      | date                     |           |          |         | plain    | 
@@ -25,6 +26,7 @@
  edit_at          | timestamp with time zone |           |          |         | plain    | 
 View definition:
  SELECT id,
+    valid_range,
     valid_from,
     valid_to,
     valid_until,

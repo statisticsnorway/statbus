@@ -199,6 +199,7 @@ View definition:
     ARRAY[]::integer[] AS included_enterprise_ids
    FROM timesegments t
      JOIN LATERAL ( SELECT es_1.id,
+            es_1.valid_range,
             es_1.valid_from,
             es_1.valid_to,
             es_1.valid_until,
@@ -218,13 +219,15 @@ View definition:
             es_1.legal_unit_id,
             es_1.primary_for_legal_unit,
             es_1.primary_for_enterprise,
-            es_1.invalid_codes
+            es_1.invalid_codes,
+            es_1.image_id
            FROM establishment es_1
           WHERE es_1.id = t.unit_id AND from_until_overlaps(t.valid_from, t.valid_until, es_1.valid_from, es_1.valid_until)
           ORDER BY es_1.id DESC, es_1.valid_from DESC
          LIMIT 1) es ON true
      LEFT JOIN establishment_stats es_stats ON es_stats.unit_id = t.unit_id AND es_stats.valid_from = t.valid_from
      LEFT JOIN LATERAL ( SELECT a.id,
+            a.valid_range,
             a.valid_from,
             a.valid_to,
             a.valid_until,
@@ -242,6 +245,7 @@ View definition:
          LIMIT 1) pa ON true
      LEFT JOIN activity_category pac ON pa.category_id = pac.id
      LEFT JOIN LATERAL ( SELECT a.id,
+            a.valid_range,
             a.valid_from,
             a.valid_to,
             a.valid_until,
@@ -260,6 +264,7 @@ View definition:
      LEFT JOIN activity_category sac ON sa.category_id = sac.id
      LEFT JOIN sector s ON es.sector_id = s.id
      LEFT JOIN LATERAL ( SELECT l.id,
+            l.valid_range,
             l.valid_from,
             l.valid_to,
             l.valid_until,
@@ -287,6 +292,7 @@ View definition:
      LEFT JOIN region phr ON phl.region_id = phr.id
      LEFT JOIN country phc ON phl.country_id = phc.id
      LEFT JOIN LATERAL ( SELECT l.id,
+            l.valid_range,
             l.valid_from,
             l.valid_to,
             l.valid_until,
@@ -314,6 +320,7 @@ View definition:
      LEFT JOIN region por ON pol.region_id = por.id
      LEFT JOIN country poc ON pol.country_id = poc.id
      LEFT JOIN LATERAL ( SELECT c_1.id,
+            c_1.valid_range,
             c_1.valid_from,
             c_1.valid_to,
             c_1.valid_until,

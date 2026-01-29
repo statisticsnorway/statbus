@@ -71,7 +71,7 @@ BEGIN
 
                     IF v_rows_exist THEN
                         RAISE DEBUG '[Job %] Executing HOLISTIC step % (priority %)', job.id, v_step_rec.code, v_step_rec.priority;
-                        EXECUTE format('CALL %s($1, $2, $3)', v_proc_to_call) USING job.id, NULL::int4multirange, v_step_rec.code;
+                        EXECUTE format('CALL %s($1, $2, $3)', v_proc_to_call::text) USING job.id, NULL::int4multirange, v_step_rec.code;
                         v_rows_processed := 1; -- Mark as having done work.
                     END IF;
                 ELSE
@@ -84,7 +84,7 @@ BEGIN
                             SELECT row_id
                             FROM public.%1$I
                             WHERE state IN (%2$L, 'error') AND last_completed_priority < %3$L
-                            ORDER BY row_id
+                             ORDER BY state, last_completed_priority, row_id
                             LIMIT %4$L
                             FOR UPDATE SKIP LOCKED
                         )
@@ -98,16 +98,18 @@ BEGIN
 
                     IF v_batch_row_id_ranges IS NOT NULL AND NOT isempty(v_batch_row_id_ranges) THEN
                         RAISE DEBUG '[Job %] Executing BATCHED step % (priority %), found ranges: %s.', job.id, v_step_rec.code, v_step_rec.priority, v_batch_row_id_ranges::text;
-                        EXECUTE format('CALL %s($1, $2, $3)', v_proc_to_call) USING job.id, v_batch_row_id_ranges, v_step_rec.code;
+                        EXECUTE format('CALL %s($1, $2, $3)', v_proc_to_call::text) USING job.id, v_batch_row_id_ranges, v_step_rec.code;
                         v_rows_processed := (SELECT count(*) FROM unnest(v_batch_row_id_ranges));
                     END IF;
                 END IF;
             EXCEPTION WHEN OTHERS THEN
                 GET STACKED DIAGNOSTICS v_error_message = MESSAGE_TEXT;
                 RAISE WARNING '[Job %] Error in procedure % for step %: %', job.id, v_proc_to_call, v_step_rec.name, v_error_message;
-                UPDATE public.import_job SET error = jsonb_build_object('error_in_analysis_step', format('Error during analysis step %s (proc: %s): %s', v_step_rec.name, v_proc_to_call::text, v_error_message))
+                UPDATE public.import_job SET 
+                    state = 'failed',
+                    error = jsonb_build_object('error_in_analysis_step', format('Error during analysis step %s (proc: %s): %s', v_step_rec.name, v_proc_to_call::text, v_error_message))::TEXT
                 WHERE id = job.id;
-                RAISE;
+                RETURN FALSE; -- Don't re-raise, just return failure
             END;
         END IF;
 

@@ -15,6 +15,8 @@ DECLARE
     current_target_data_column JSONB;
     error_message TEXT;
     snapshot JSONB := job.definition_snapshot;
+    null_values TEXT[]; -- For import_as_null processing
+    null_case_expr TEXT; -- For CASE expression generation
 BEGIN
     RAISE DEBUG '[Job %] Preparing data: Moving from % to %', job.id, job.upload_table_name, job.data_table_name;
 
@@ -67,7 +69,20 @@ BEGIN
             IF current_source_column IS NULL OR current_source_column = 'null'::jsonb THEN
                  RAISE EXCEPTION '[Job %] Could not find source column details for source_column_id % in mapping ID %.', job.id, current_mapping->>'source_column_id', current_mapping->>'id';
             END IF;
-            select_expressions_list := array_append(select_expressions_list, format($$NULLIF(%I, '')$$, current_source_column->>'column_name'));
+            -- Generate CASE expression for case-insensitive null value matching
+            -- Get import_as_null array from the definition snapshot
+            SELECT ARRAY(
+                SELECT jsonb_array_elements_text(job.definition_snapshot->'import_definition'->'import_as_null')
+            ) INTO null_values;
+            
+            -- Build CASE WHEN conditions for each null value (case-insensitive)
+            null_case_expr := format('CASE WHEN UPPER(%I) IN (%s) THEN NULL ELSE %I END',
+                current_source_column->>'column_name',
+                (SELECT string_agg(format('UPPER(%L)', trim(nv)), ', ') FROM unnest(null_values) AS nv),
+                current_source_column->>'column_name'
+            );
+            
+            select_expressions_list := array_append(select_expressions_list, null_case_expr);
         ELSE
             -- This case should be prevented by the CHECK constraint on import_mapping table
             RAISE EXCEPTION '[Job %] Mapping ID % for target data column % (ID: %) has no valid source (column/value/expression). This should not happen.', job.id, current_mapping->>'id', current_target_data_column->>'column_name', current_target_data_column->>'id';
@@ -100,8 +115,8 @@ BEGIN
         WHEN OTHERS THEN
             GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
             RAISE WARNING '[Job %] Error preparing data: %', job.id, error_message;
-            UPDATE public.import_job SET error = jsonb_build_object('prepare_error', error_message), state = 'finished' WHERE id = job.id;
-            RAISE; -- Re-raise the exception
+            UPDATE public.import_job SET error = jsonb_build_object('prepare_error', error_message)::TEXT, state = 'failed' WHERE id = job.id;
+            -- Don't re-raise - job is marked as failed
     END;
 
     -- Set initial state for all rows in data table (redundant if table is new, safe if resuming)

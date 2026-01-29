@@ -14,12 +14,14 @@ BEGIN
     RAISE DEBUG '[sync_user_credentials_and_roles] OLD.email: %, OLD.statbus_role: %', OLD.email, OLD.statbus_role;
   END IF;
 
-  -- Use the email as the role name for the PostgreSQL role
-  role_name := NEW.email;
+  -- Use the lowercase email as the role name for the PostgreSQL role
+  -- The 00_normalize_email_trigger ensures NEW.email is already lowercase,
+  -- but we use lower() defensively for clarity and safety
+  role_name := lower(NEW.email);
 
   -- For UPDATE operations where email has changed, rename the corresponding database role
   IF TG_OP = 'UPDATE' AND OLD.email IS DISTINCT FROM NEW.email THEN
-    old_role_name := OLD.email;
+    old_role_name := lower(OLD.email);
     
     -- Check if the old role exists
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = old_role_name) THEN

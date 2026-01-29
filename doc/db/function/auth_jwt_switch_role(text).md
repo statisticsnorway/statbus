@@ -1,28 +1,35 @@
 ```sql
-CREATE OR REPLACE FUNCTION auth.switch_role_from_jwt(access_jwt text)
+CREATE OR REPLACE FUNCTION auth.jwt_switch_role(access_jwt text)
  RETURNS void
  LANGUAGE plpgsql
+ SET search_path TO 'public', 'auth', 'pg_temp'
 AS $function$
 DECLARE
-  _claims json;
+  _jwt_verify_result auth.jwt_verify_result;
   _user_email text;
   _role_exists boolean;
 BEGIN
-  -- Verify and extract claims from JWT
-  BEGIN
-    SELECT payload::json INTO _claims 
-    FROM verify(access_jwt, current_setting('app.settings.jwt_secret'));
-  EXCEPTION WHEN OTHERS THEN
-    RAISE EXCEPTION 'Invalid token: %', SQLERRM;
-  END;
+  -- Verify JWT using SECURITY DEFINER function that accesses the secret
+  -- This function returns verification result without exposing the secret
+  _jwt_verify_result := auth.jwt_verify(access_jwt);
+  
+  -- Check if token is valid
+  IF NOT _jwt_verify_result.is_valid THEN
+    RAISE EXCEPTION 'Invalid token: %', _jwt_verify_result.error_message;
+  END IF;
+  
+  -- Check if token is expired
+  IF _jwt_verify_result.expired THEN
+    RAISE EXCEPTION 'Token has expired';
+  END IF;
   
   -- Verify this is an access token
-  IF _claims->>'type' != 'access' THEN
+  IF _jwt_verify_result.claims->>'type' != 'access' THEN
     RAISE EXCEPTION 'Invalid token type: expected access token';
   END IF;
   
   -- Extract user email from claims (which is also the role name)
-  _user_email := _claims->>'role';
+  _user_email := _jwt_verify_result.claims->>'role';
   
   IF _user_email IS NULL THEN
     RAISE EXCEPTION 'Token does not contain role claim';
