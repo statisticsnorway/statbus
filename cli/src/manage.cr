@@ -476,10 +476,10 @@ module Statbus
           caddy_https_port = 443
           caddy_http_bind_address = "0.0.0.0:#{caddy_http_port}"
           caddy_https_bind_address = "0.0.0.0:#{caddy_https_port}"
-          # PostgreSQL: TLS on public 5432, plaintext on localhost (unused but required for docker port binding)
-          caddy_db_port = 5431  # Unused port, bound to localhost only
-          caddy_db_tls_port = 5432  # Standard PostgreSQL port with TLS
-          caddy_db_bind_address = "127.0.0.1"  # Plaintext: localhost only (nothing listens)
+          # PostgreSQL: TLS on public 5432, plaintext on localhost 5431 for migrations
+          caddy_db_port = 5431  # Plaintext for local migrations, bound to localhost only
+          caddy_db_tls_port = 5432  # Standard PostgreSQL port with TLS for public access
+          caddy_db_bind_address = "127.0.0.1"  # Plaintext: localhost only (for migrations)
           caddy_db_tls_bind_address = "0.0.0.0"  # TLS: public
         else
           # For other modes, bind to localhost with non conflicting ports for running multiple statbus installations on the same host.

@@ -16,8 +16,20 @@
 <% end %>
     }
     
-    # Layer4 PostgreSQL with TLS+SNI
+    # Layer4 PostgreSQL access
+    # Two ports for different access patterns:
+    # - Port 5431: Plaintext proxy for local migrations and internal Docker network access
+    # - Port 5432: TLS+SNI proxy for public/external connections
     layer4 {
+        # Plaintext port - for local migrations (bound to localhost only via docker-compose)
+        # This allows `./devops/manage-statbus.sh psql` and migrations to work without TLS
+        :5431 {
+            route {
+                proxy db:5432
+            }
+        }
+        
+        # TLS port - public PostgreSQL access with SNI routing
         :5432 {
             @pg_sni_<%= @deployment_slot_code %> {
                 tls {
