@@ -3591,6 +3591,153 @@ BEGIN
 END;
 $$;
 
+-- Test 25: Case-Insensitive Email (citext)
+-- Note: When comparing citext columns with text variables, the text must be cast to citext
+-- for case-insensitive comparison. This is because PostgreSQL otherwise casts citext to text.
+\echo '=== Test 25: Case-Insensitive Email (citext) ==='
+DO $$
+DECLARE
+    login_result jsonb;
+    test_email_lower citext := 'test.citext@statbus.org';
+    test_email_upper citext := 'TEST.CITEXT@STATBUS.ORG';
+    test_email_mixed citext := 'Test.Citext@Statbus.Org';
+    test_password text := 'CaseTest#123!';
+    user_count integer;
+    created_email citext;
+BEGIN
+    PERFORM auth_test.reset_request_gucs();
+    BEGIN -- Inner BEGIN/EXCEPTION/END for savepoint-like behavior
+        -- Test 25.1: Create user with mixed-case email
+        RAISE NOTICE 'Test 25.1: Creating user with mixed-case email: %', test_email_mixed;
+        SELECT email INTO created_email FROM public.user_create(
+            p_display_name => 'Test Citext User',
+            p_email => test_email_mixed::text,
+            p_statbus_role => 'regular_user'::public.statbus_role,
+            p_password => test_password
+        );
+        RAISE DEBUG 'Test 25.1: Created user with email: %', created_email;
+        
+        -- Verify the user exists
+        SELECT COUNT(*) INTO user_count FROM auth.user WHERE email = test_email_mixed;
+        ASSERT user_count = 1, format('Test 25.1: User should exist after creation. Found %s users.', user_count);
+        RAISE NOTICE 'Test 25.1: User creation - PASSED';
+
+        -- Test 25.2: Verify case-insensitive lookup (lowercase query finds mixed-case user)
+        RAISE NOTICE 'Test 25.2: Testing case-insensitive lookup with lowercase email';
+        SELECT COUNT(*) INTO user_count FROM auth.user WHERE email = test_email_lower;
+        ASSERT user_count = 1, format('Test 25.2: Lowercase email should find user. Found %s users.', user_count);
+        RAISE NOTICE 'Test 25.2: Case-insensitive lookup (lowercase) - PASSED';
+
+        -- Test 25.3: Verify case-insensitive lookup (uppercase query finds mixed-case user)
+        RAISE NOTICE 'Test 25.3: Testing case-insensitive lookup with uppercase email';
+        SELECT COUNT(*) INTO user_count FROM auth.user WHERE email = test_email_upper;
+        ASSERT user_count = 1, format('Test 25.3: Uppercase email should find user. Found %s users.', user_count);
+        RAISE NOTICE 'Test 25.3: Case-insensitive lookup (uppercase) - PASSED';
+
+        -- Test 25.4: Login with lowercase email
+        RAISE NOTICE 'Test 25.4: Testing login with lowercase email: %', test_email_lower;
+        PERFORM set_config('request.headers', 
+            json_build_object(
+                'x-forwarded-for', '127.0.0.1',
+                'user-agent', 'Test User Agent',
+                'x-forwarded-proto', 'https'
+            )::text, 
+            true
+        );
+        SELECT to_json(source.*) INTO login_result FROM public.login(test_email_lower::text, test_password) AS source;
+        RAISE DEBUG 'Test 25.4: Login result with lowercase email: %', login_result;
+        ASSERT login_result IS NOT NULL AND (login_result->>'is_authenticated')::boolean IS TRUE,
+            format('Test 25.4: Login with lowercase email should succeed. Got: %L. Full response: %s', login_result->>'is_authenticated', login_result);
+        ASSERT (login_result->'error_code') = 'null'::jsonb,
+            format('Test 25.4: Login should have null error_code. Got: %L', login_result->'error_code');
+        RAISE NOTICE 'Test 25.4: Login with lowercase email - PASSED';
+
+        -- Test 25.5: Login with uppercase email
+        RAISE NOTICE 'Test 25.5: Testing login with uppercase email: %', test_email_upper;
+        PERFORM auth_test.reset_request_gucs();
+        PERFORM set_config('request.headers', 
+            json_build_object(
+                'x-forwarded-for', '127.0.0.1',
+                'user-agent', 'Test User Agent',
+                'x-forwarded-proto', 'https'
+            )::text, 
+            true
+        );
+        SELECT to_json(source.*) INTO login_result FROM public.login(test_email_upper::text, test_password) AS source;
+        RAISE DEBUG 'Test 25.5: Login result with uppercase email: %', login_result;
+        ASSERT login_result IS NOT NULL AND (login_result->>'is_authenticated')::boolean IS TRUE,
+            format('Test 25.5: Login with uppercase email should succeed. Got: %L. Full response: %s', login_result->>'is_authenticated', login_result);
+        ASSERT (login_result->'error_code') = 'null'::jsonb,
+            format('Test 25.5: Login should have null error_code. Got: %L', login_result->'error_code');
+        RAISE NOTICE 'Test 25.5: Login with uppercase email - PASSED';
+
+        -- Test 25.6: Login with original mixed-case email
+        RAISE NOTICE 'Test 25.6: Testing login with original mixed-case email: %', test_email_mixed;
+        PERFORM auth_test.reset_request_gucs();
+        PERFORM set_config('request.headers', 
+            json_build_object(
+                'x-forwarded-for', '127.0.0.1',
+                'user-agent', 'Test User Agent',
+                'x-forwarded-proto', 'https'
+            )::text, 
+            true
+        );
+        SELECT to_json(source.*) INTO login_result FROM public.login(test_email_mixed::text, test_password) AS source;
+        RAISE DEBUG 'Test 25.6: Login result with mixed-case email: %', login_result;
+        ASSERT login_result IS NOT NULL AND (login_result->>'is_authenticated')::boolean IS TRUE,
+            format('Test 25.6: Login with mixed-case email should succeed. Got: %L. Full response: %s', login_result->>'is_authenticated', login_result);
+        ASSERT (login_result->'error_code') = 'null'::jsonb,
+            format('Test 25.6: Login should have null error_code. Got: %L', login_result->'error_code');
+        RAISE NOTICE 'Test 25.6: Login with mixed-case email - PASSED';
+
+        -- Test 25.7: UNIQUE constraint prevents duplicate emails with different casing
+        RAISE NOTICE 'Test 25.7: Testing UNIQUE constraint with different case email';
+        BEGIN
+            -- Try to create another user with same email but different case - should fail
+            PERFORM public.user_create(
+                p_display_name => 'Test Citext User Duplicate',
+                p_email => test_email_upper::text,  -- Different case than original
+                p_statbus_role => 'regular_user'::public.statbus_role,
+                p_password => 'DifferentPass#456!'
+            );
+            -- user_create uses ON CONFLICT, so it won't fail but will update instead
+            -- Check that we still have only one user
+            SELECT COUNT(*) INTO user_count FROM auth.user WHERE email = test_email_mixed;
+            ASSERT user_count = 1, format('Test 25.7: Should still have exactly 1 user (upsert). Found %s users.', user_count);
+            RAISE NOTICE 'Test 25.7: UNIQUE constraint (upsert behavior) - PASSED';
+        END;
+
+        -- Test 25.8: Direct INSERT with duplicate case should fail
+        RAISE NOTICE 'Test 25.8: Testing direct INSERT with different case email fails';
+        BEGIN
+            INSERT INTO auth.user (display_name, email, encrypted_password, statbus_role, email_confirmed_at)
+            VALUES ('Direct Insert Test', test_email_lower::text, 'dummy', 'regular_user', now());
+            RAISE EXCEPTION 'Test 25.8 FAILED: Direct INSERT with different case email should have been rejected by UNIQUE constraint';
+        EXCEPTION WHEN unique_violation THEN
+            RAISE DEBUG 'Test 25.8: Caught expected unique_violation for case-insensitive duplicate email';
+            RAISE NOTICE 'Test 25.8: UNIQUE constraint blocks case-variant duplicates - PASSED';
+        END;
+
+        -- Clean up test user
+        DELETE FROM auth.refresh_session WHERE user_id IN (SELECT id FROM auth.user WHERE email = test_email_mixed);
+        DELETE FROM auth.user WHERE email = test_email_mixed;
+        
+        RAISE NOTICE 'Test 25 (Case-Insensitive Email (citext)) - PASSED';
+    EXCEPTION
+        WHEN ASSERT_FAILURE THEN
+            -- Clean up on failure
+            DELETE FROM auth.refresh_session WHERE user_id IN (SELECT id FROM auth.user WHERE email = test_email_mixed);
+            DELETE FROM auth.user WHERE email = test_email_mixed;
+            RAISE NOTICE 'Test 25 (Case-Insensitive Email (citext)) - FAILED (ASSERT): %', SQLERRM;
+        WHEN OTHERS THEN
+            -- Clean up on failure
+            DELETE FROM auth.refresh_session WHERE user_id IN (SELECT id FROM auth.user WHERE email = test_email_mixed);
+            DELETE FROM auth.user WHERE email = test_email_mixed;
+            RAISE NOTICE 'Test 25 (Case-Insensitive Email (citext)) - FAILED: %', SQLERRM;
+    END;
+END;
+$$;
+
 -- Clean up test environment
 -- Clean up test sessions
 DELETE FROM auth.refresh_session

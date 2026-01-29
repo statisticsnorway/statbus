@@ -9,6 +9,10 @@ BEGIN
   END IF;
 END$$;
 
+-- Enable citext extension for case-insensitive email handling
+-- citext is a standard PostgreSQL extension included in all distributions
+CREATE EXTENSION IF NOT EXISTS citext;
+
 -- Create auth schema
 CREATE SCHEMA IF NOT EXISTS auth;
 
@@ -58,11 +62,13 @@ $$;
 
 
 -- Create auth tables
+-- Note: email uses citext for case-insensitive matching (e.g., 'John@Example.com' = 'john@example.com')
+-- This ensures login lookups, UNIQUE constraints, and RLS policies all work case-insensitively
 CREATE TABLE IF NOT EXISTS auth.user (
   id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   sub uuid UNIQUE NOT NULL DEFAULT uuidv7(),
   display_name text UNIQUE NOT NULL CHECK (display_name <> ''),
-  email text UNIQUE NOT NULL,
+  email citext UNIQUE NOT NULL,
   password text,
   encrypted_password text NOT NULL,
   statbus_role public.statbus_role NOT NULL DEFAULT 'regular_user',
@@ -621,10 +627,10 @@ BEGIN
     RETURN auth.build_auth_response(p_error_code => 'USER_MISSING_PASSWORD'::auth.login_error_code);
   END IF;
 
-  -- Find user by email
+  -- Find user by email (cast to citext for case-insensitive comparison)
   SELECT u.* INTO _user
   FROM auth.user u
-  WHERE u.email = login.email;
+  WHERE u.email = login.email::citext;
 
   -- If user not found
   IF NOT FOUND THEN
