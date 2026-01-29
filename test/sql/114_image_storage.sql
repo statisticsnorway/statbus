@@ -6,12 +6,18 @@
 -- Start transaction for clean test
 BEGIN;
 
+-- Reset sequence and clear table for deterministic ids
+DELETE FROM public.image;
+ALTER SEQUENCE public.image_id_seq RESTART WITH 1;
+
 -- Test 1: Insert a small PNG image (1x1 pixel transparent PNG)
 -- This is a valid minimal PNG file (89 50 4E 47... = PNG signature)
-INSERT INTO public.image (data, type) 
+-- Use fixed timestamp for reproducible output
+INSERT INTO public.image (data, type, uploaded_at) 
 VALUES (
   decode('89504e470d0a1a0a0000000d494844520000000100000001080600000001f15c48940000000a49444154789c6300010000050001', 'hex'),
-  'image/png'
+  'image/png',
+  '2024-01-01 00:00:00+00'::timestamptz
 );
 
 -- Verify the insert worked
@@ -30,25 +36,24 @@ FROM pg_attribute
 WHERE attrelid = 'public.image'::regclass
 AND attname = 'data';
 
--- Test 3: Test image_data() function
-SELECT length(public.image_data(currval('public.image_id_seq')::integer)) as retrieved_length;
+-- Test 3: Test image_data() function (id=1 from sequence reset)
+SELECT length(public.image_data(1)) as retrieved_length;
 
 -- Test 4: Verify size constraint (4MB limit)
-DO $$
-BEGIN
-  -- Try to insert data larger than 4MB (should fail)
-  BEGIN
-    INSERT INTO public.image (data, type) 
-    VALUES (
-      repeat('x', 4194305)::bytea,  -- 4MB + 1 byte
-      'image/png'
-    );
-    RAISE EXCEPTION 'Size constraint should have prevented insert';
-  EXCEPTION
-    WHEN check_violation THEN
-      RAISE NOTICE 'Size constraint working correctly';
-  END;
-END $$;
+-- This INSERT should fail with check_violation (data > 4MB)
+-- Use fixed timestamp so DETAIL line is deterministic
+SAVEPOINT before_size_test;
+\set ON_ERROR_STOP off
+INSERT INTO public.image (data, type, uploaded_at) 
+VALUES (
+  repeat('x', 4194305)::bytea,  -- 4MB + 1 byte
+  'image/png',
+  '2024-01-01 00:00:00+00'::timestamptz
+);
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT before_size_test;
+-- Verify the oversized image was NOT inserted (should be 0)
+SELECT COUNT(*) AS oversized_images_inserted FROM public.image WHERE length(data) > 4194304;
 
 -- Test 5: Verify FK relationships
 SELECT 
@@ -66,19 +71,18 @@ WHERE table_schema = 'public'
   AND column_name = 'image_id';
 
 -- Test 6: Verify FK constraint works
--- Try to insert invalid image_id (should fail with FK violation)
-DO $$
-BEGIN
-  BEGIN
-    UPDATE public.image 
-    SET uploaded_by_user_id = 99999  -- Non-existent user
-    WHERE id = currval('public.image_id_seq')::integer;
-    RAISE EXCEPTION 'FK constraint should have prevented update';
-  EXCEPTION
-    WHEN foreign_key_violation THEN
-      RAISE NOTICE 'FK constraint working correctly';
-  END;
-END $$;
+-- Show the row we're targeting (with deterministic id=1 from sequence reset)
+SELECT id, uploaded_by_user_id FROM public.image;
+-- This UPDATE should fail with FK violation (user_id 99999 doesn't exist)
+SAVEPOINT before_fk_test;
+\set ON_ERROR_STOP off
+UPDATE public.image 
+SET uploaded_by_user_id = 99999
+WHERE id = 1;
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT before_fk_test;
+-- Verify the invalid user_id was NOT persisted (should be 0)
+SELECT COUNT(*) AS rows_with_invalid_user FROM public.image WHERE uploaded_by_user_id = 99999;
 
 -- Test 7: Verify RLS is enabled
 SELECT 
