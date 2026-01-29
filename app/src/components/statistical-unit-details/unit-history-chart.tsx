@@ -33,12 +33,12 @@ export const HistoryChart = ({
     _chart.current?.destroy();
 
     // Detect if any series represents data that is current (no end date).
-    const isCurrent = chartSeries.some((s) => s.is_current);
+    // const isCurrent = chartSeries.some((s) => s.is_current);
 
     // Optional subtitle text
-    const subtitleText = isCurrent
-      ? "* Indicates value with no defined end date"
-      : "";
+    // const subtitleText = isCurrent
+    //   ? "* Indicates value with no defined end date"
+    //   : "";
 
     const yAxes = chartSeries.map((s, i) => ({
       title: {
@@ -81,14 +81,14 @@ export const HistoryChart = ({
         shared: true,
       },
       colors: colors,
-      subtitle: {
-        text: subtitleText,
-        verticalAlign: "bottom",
-        style: {
-          fontSize: "10px",
-          color: "#666",
-        },
-      },
+      // subtitle: {
+      //   text: subtitleText,
+      //   verticalAlign: "bottom",
+      //   style: {
+      //     fontSize: "10px",
+      //     color: "#666",
+      //   },
+      // },
       plotOptions: {
         series: {
           connectNulls: false,
