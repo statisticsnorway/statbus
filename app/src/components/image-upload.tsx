@@ -5,6 +5,19 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+// Validate file MIME type before creating blob URL for preview
+// Defense-in-depth: server also validates magic bytes, but this prevents
+// creating blob URLs for obviously non-image files (CodeQL js/xss-through-dom)
+const ALLOWED_IMAGE_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+  "image/webp",
+];
+
+const isValidImageFile = (file: File): boolean =>
+  ALLOWED_IMAGE_TYPES.includes(file.type);
+
 interface ImageUploadProps {
   onFileSelect: (file: File) => void;
   maxSizeMB?: number;
@@ -123,6 +136,18 @@ export function ImageUpload({
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // Validate file type before creating blob URL (defense-in-depth)
+    if (!isValidImageFile(file)) {
+      alert(
+        "Invalid file type. Please select a PNG, JPEG, GIF, or WebP image.\n\n" +
+          "SVG files are not supported due to security restrictions."
+      );
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      return;
+    }
+
     try {
       const img = await loadImage(file);
       const sizeMB = file.size / (1024 * 1024);
@@ -201,7 +226,7 @@ export function ImageUpload({
         <Input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept=".png,.jpg,.jpeg,.gif,.webp,image/png,image/jpeg,image/gif,image/webp"
           onChange={handleFileChange}
           className="flex-1"
         />

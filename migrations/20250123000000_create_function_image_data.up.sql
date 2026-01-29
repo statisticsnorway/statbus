@@ -4,6 +4,7 @@ BEGIN;
 CREATE DOMAIN public."*/*" AS bytea;
 
 -- Function to serve image with proper HTTP headers for browsers
+-- Security headers prevent content-type sniffing and script execution
 CREATE FUNCTION public.image_data(id integer) 
 RETURNS public."*/*" 
 LANGUAGE plpgsql
@@ -27,10 +28,14 @@ BEGIN
       hint = format('%s is not a valid image id', image_data.id);
   END IF;
 
-  -- Set HTTP headers for proper browser rendering and caching
+  -- Set HTTP headers for proper browser rendering, caching, and security
+  -- X-Content-Type-Options: nosniff - Prevents browser from guessing content type
+  -- Content-Security-Policy: Blocks script execution if somehow rendered as HTML
   _headers := format(
     '[{"Content-Type": "%s"},'
-     '{"Cache-Control": "max-age=604800"}]',  -- 7 days cache
+     '{"Cache-Control": "max-age=604800"},'
+     '{"X-Content-Type-Options": "nosniff"},'
+     '{"Content-Security-Policy": "default-src ''none''; img-src ''self''"}]',
     COALESCE(_type, 'application/octet-stream')
   );
   
@@ -42,6 +47,8 @@ END;
 $image_data$;
 
 COMMENT ON FUNCTION public.image_data(integer) IS 
-  'Serves image data via PostgREST with proper Content-Type and Cache-Control headers. Usage: /rest/rpc/image_data?id=42';
+  'Serves image data via PostgREST with proper Content-Type, Cache-Control, '
+  'and security headers (X-Content-Type-Options, Content-Security-Policy). '
+  'Usage: /rest/rpc/image_data?id=42';
 
 COMMIT;

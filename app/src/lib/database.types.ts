@@ -9411,6 +9411,12 @@ export type Database = {
         }
         Returns: string
       },
+      detect_image_type: {
+        Args: {
+          data?: string
+        }
+        Returns: string
+      },
       digest: {
         Args: {
           arg0?: string
@@ -12687,6 +12693,10 @@ export type Database = {
           p_password?: string
         }
         Returns: Record<string, unknown>[]
+      },
+      validate_image_on_insert: {
+        Args: never
+        Returns: unknown
       },
       websearch_to_wildcard_tsquery: {
         Args: {
