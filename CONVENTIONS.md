@@ -108,6 +108,37 @@ For a super compact data model for you reference, ask for doc/data-model.md.
 - Use pg_regress with `test/` as the base directory.
 - Run tests via `./devops/manage-statbus.sh test [all|xx_the_test_name]`.
 
+**Transparent Error Testing (Avoid DO Blocks)**:
+DO blocks that catch exceptions hide what actually happens, violating fail-fast. If an operation silently affects 0 rows, the exception handler never fires and the test "passes" without testing anything.
+
+```sql
+-- BAD: Opaque - hides actual behavior
+DO $$
+BEGIN
+  UPDATE t SET x = 1 WHERE id = currval('t_id_seq');  -- May update 0 rows!
+  RAISE EXCEPTION 'Should have failed';
+EXCEPTION WHEN foreign_key_violation THEN
+  RAISE NOTICE 'FK working';  -- Never printed if 0 rows matched
+END $$;
+
+-- GOOD: Transparent - shows what happens
+DELETE FROM t; ALTER SEQUENCE t_id_seq RESTART WITH 1;  -- Deterministic ids
+INSERT INTO t (val) VALUES ('test');  -- id=1
+SELECT id, val FROM t;  -- Verify target row exists
+SAVEPOINT before_test;
+\set ON_ERROR_STOP off
+UPDATE t SET fk_col = 99999 WHERE id = 1;  -- See actual ERROR
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT before_test;
+SELECT COUNT(*) AS invalid_rows FROM t WHERE fk_col = 99999;  -- Verify: 0
+```
+
+Key techniques:
+- Reset sequences + fixed timestamps → deterministic, reproducible ids
+- SAVEPOINT + `\set ON_ERROR_STOP off` → see actual ERROR messages
+- Verification queries after rollback → prove constraints work
+- If something breaks, you immediately see *what* and *why*
+
 ### SQL Naming conventions
 Column name
 * `x_id` is a foreign key to table `x`

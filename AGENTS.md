@@ -282,6 +282,27 @@ IF _jwt_verify_result.is_valid = FALSE THEN
 END IF;
 ```
 
+**Testing: Avoid DO Blocks for Error Verification**
+
+DO blocks that catch exceptions are **opaque** - they hide actual behavior. If an UPDATE affects 0 rows, no exception fires and the test silently "passes".
+
+```sql
+-- BAD: Hides that UPDATE matched 0 rows
+DO $$ BEGIN
+  UPDATE t SET x = 1 WHERE id = currval('seq');  -- Wrong id!
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'Working'; END $$;
+
+-- GOOD: Transparent - see actual errors, verify results
+SAVEPOINT sp;
+\set ON_ERROR_STOP off
+UPDATE t SET x = 1 WHERE id = 1;  -- See actual ERROR
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT sp;
+SELECT COUNT(*) FROM t WHERE x = 1;  -- Verify: 0
+```
+
+For deterministic tests: `DELETE FROM t; ALTER SEQUENCE t_id_seq RESTART WITH 1;`
+
 ## Common Patterns
 
 **Temporal Table Cleanup:**
