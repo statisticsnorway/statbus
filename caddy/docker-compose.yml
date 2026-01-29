@@ -11,7 +11,7 @@ services:
       - "${CADDY_HTTPS_BIND_ADDRESS:?CADDY_HTTPS_BIND_ADDRESS must be set in the generated .env}:443/tcp"
       - "${CADDY_HTTPS_BIND_ADDRESS:?CADDY_HTTPS_BIND_ADDRESS must be set in the generated .env}:443/udp"
       - "${CADDY_DB_BIND_ADDRESS:?CADDY_DB_BIND_ADDRESS must be set in the generated .env}:${CADDY_DB_PORT:?CADDY_DB_PORT must be set in the generated .env}:${CADDY_DB_PORT:?CADDY_DB_PORT must be set in the generated .env}/tcp"
-      - "${CADDY_DB_BIND_ADDRESS:?CADDY_DB_BIND_ADDRESS must be set in the generated .env}:${CADDY_DB_TLS_PORT:?CADDY_DB_TLS_PORT must be set in the generated .env}:${CADDY_DB_TLS_PORT:?CADDY_DB_TLS_PORT must be set in the generated .env}/tcp"
+      - "${CADDY_DB_TLS_BIND_ADDRESS:?CADDY_DB_TLS_BIND_ADDRESS must be set in the generated .env}:${CADDY_DB_TLS_PORT:?CADDY_DB_TLS_PORT must be set in the generated .env}:${CADDY_DB_TLS_PORT:?CADDY_DB_TLS_PORT must be set in the generated .env}/tcp"
     volumes:
       # Mounts the entire config directory. Caddy will use /etc/caddy/Caddyfile
       # that references the appropriate generated files.

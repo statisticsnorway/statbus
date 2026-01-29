@@ -224,6 +224,7 @@ module Statbus
       caddy_db_port : Int32,
       caddy_db_tls_port : Int32,
       caddy_db_bind_address : String,
+      caddy_db_tls_bind_address : String,
       app_port : Int32,
       app_bind_address : String,
       postgrest_port : Int32,
@@ -475,12 +476,17 @@ module Statbus
           caddy_https_port = 443
           caddy_http_bind_address = "0.0.0.0:#{caddy_http_port}"
           caddy_https_bind_address = "0.0.0.0:#{caddy_https_port}"
-          caddy_db_bind_address = "0.0.0.0"
+          # PostgreSQL: TLS on public 5432, plaintext on localhost (unused but required for docker port binding)
+          caddy_db_port = 5431  # Unused port, bound to localhost only
+          caddy_db_tls_port = 5432  # Standard PostgreSQL port with TLS
+          caddy_db_bind_address = "127.0.0.1"  # Plaintext: localhost only (nothing listens)
+          caddy_db_tls_bind_address = "0.0.0.0"  # TLS: public
         else
           # For other modes, bind to localhost with non conflicting ports for running multiple statbus installations on the same host.
           caddy_http_bind_address = "127.0.0.1:#{caddy_http_port}"
           caddy_https_bind_address = "127.0.0.1:#{caddy_https_port}"
           caddy_db_bind_address = "127.0.0.1"
+          caddy_db_tls_bind_address = "127.0.0.1"
         end
 
         derived = DerivedEnv.new(
@@ -499,6 +505,7 @@ module Statbus
           caddy_db_port: caddy_db_port,
           caddy_db_tls_port: caddy_db_tls_port,
           caddy_db_bind_address: caddy_db_bind_address,
+          caddy_db_tls_bind_address: caddy_db_tls_bind_address,
           # Git version of the deployed commit
           version: `git describe --always`.strip,
           # URL where the site is hosted
@@ -605,6 +612,7 @@ module Statbus
     CADDY_DB_PORT=#{derived.caddy_db_port}
     CADDY_DB_TLS_PORT=#{derived.caddy_db_tls_port}
     CADDY_DB_BIND_ADDRESS=#{derived.caddy_db_bind_address}
+    CADDY_DB_TLS_BIND_ADDRESS=#{derived.caddy_db_tls_bind_address}
     # Updated by manage-statbus.sh start required
     VERSION=#{derived.version}
 
@@ -732,6 +740,7 @@ module Statbus
       getter caddy_db_port : Int32
       getter caddy_db_tls_port : Int32
       getter caddy_db_bind_address : String
+      getter caddy_db_tls_bind_address : String
       getter config : ConfigEnv # Add getter for config
 
       def initialize(derived : DerivedEnv, config : ConfigEnv)
@@ -751,6 +760,7 @@ module Statbus
         @caddy_db_port = derived.caddy_db_port
         @caddy_db_tls_port = derived.caddy_db_tls_port
         @caddy_db_bind_address = derived.caddy_db_bind_address
+        @caddy_db_tls_bind_address = derived.caddy_db_tls_bind_address
       end
     end
     
