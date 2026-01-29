@@ -15,6 +15,10 @@ import { UnitImage } from "@/components/unit-image";
 import { ImageUpload } from "@/components/image-upload";
 import { Pencil } from "lucide-react";
 
+// Validate file MIME type before creating blob URL for preview (CodeQL js/xss-through-dom)
+const isValidImageFile = (file: File): boolean =>
+  file.type.startsWith('image/');
+
 interface EditableImageFieldWithMetadataProps {
   fieldId: string;
   label: string;
@@ -111,7 +115,7 @@ export const EditableImageFieldWithMetadata = ({
 
         <div className="flex items-center gap-4">
           {/* Show current or preview image */}
-          {!deleteImage && (selectedFile ? (
+          {!deleteImage && (selectedFile && isValidImageFile(selectedFile) ? (
             <div className="h-24 w-24 rounded-lg overflow-hidden border-2 border-gray-300">
               <img
                 src={URL.createObjectURL(selectedFile)}
