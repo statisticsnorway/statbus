@@ -748,8 +748,9 @@ CREATE TYPE public.import_job_state AS ENUM (
     'waiting_for_review',  -- Analysis complete, waiting for user to approve or reject
     'approved',            -- User approved changes, triggers worker to continue processing
     'rejected',            -- User rejected changes, no further processing
-    'processing_data',      -- Worker is importing data into target table
-    'finished'             -- Import process completed.
+    'processing_data',     -- Worker is importing data into target table
+    'failed',              -- Import failed with error (error column must be set)
+    'finished'             -- Import process completed successfully.
 );
 
 -- Create enum type for row-level import state tracking
@@ -842,7 +843,9 @@ CREATE TABLE public.import_job(
                 -- Returning true allows rows where snapshot is not yet populated to pass.
                 true
         END
-    )
+    ),
+    -- Failed state requires an error message to be set
+    CONSTRAINT import_job_failed_requires_error CHECK (state != 'failed' OR error IS NOT NULL)
 );
 COMMENT ON COLUMN public.import_job.analysis_batch_size IS 'The number of rows to process in a single batch during the analysis phase.';
 COMMENT ON COLUMN public.import_job.processing_batch_size IS 'The number of rows to process in a single batch during the processing phase. Optimized to 8000 based on benchmark testing (45-50% faster than previous 1280 default).';
@@ -2096,9 +2099,18 @@ BEGIN
     END IF;
 
 EXCEPTION WHEN OTHERS THEN
+    -- Mark job as failed with error details
+    UPDATE public.import_job 
+    SET state = 'failed',
+        error = jsonb_build_object(
+            'message', 'Unexpected error in import_job_process',
+            'exception', SQLERRM,
+            'sqlstate', SQLSTATE
+        )::TEXT
+    WHERE id = job_id;
     -- Ensure context is reset even on error
     PERFORM admin.reset_import_job_user_context();
-    RAISE; -- Re-raise the original error
+    -- Don't re-raise - let worker task complete successfully but job is marked failed
 END;
 $import_job_process$;
 
@@ -2291,9 +2303,11 @@ BEGIN
             EXCEPTION WHEN OTHERS THEN
                 GET STACKED DIAGNOSTICS v_error_message = MESSAGE_TEXT;
                 RAISE WARNING '[Job %] Error in procedure % for step %: %', job.id, v_proc_to_call, v_step_rec.name, v_error_message;
-                UPDATE public.import_job SET error = jsonb_build_object('error_in_analysis_step', format('Error during analysis step %s (proc: %s): %s', v_step_rec.name, v_proc_to_call::text, v_error_message))
+                UPDATE public.import_job SET 
+                    state = 'failed',
+                    error = jsonb_build_object('error_in_analysis_step', format('Error during analysis step %s (proc: %s): %s', v_step_rec.name, v_proc_to_call::text, v_error_message))::TEXT
                 WHERE id = job.id;
-                RAISE;
+                RETURN FALSE; -- Don't re-raise, just return failure
             END;
         END IF;
 
@@ -2383,7 +2397,7 @@ BEGIN
                 RAISE WARNING '[Job %] Error processing batch: %. Context: %. Marking batch rows as error and failing job.', job.id, error_message, error_context;
                 EXECUTE format($$UPDATE public.%1$I SET state = 'error', errors = COALESCE(errors, '{}'::jsonb) || %2$L WHERE row_id <@ $1$$,
                                job.data_table_name /* %1$I */, jsonb_build_object('process_batch_error', error_message, 'context', error_context) /* %2$L */) USING v_batch_row_id_ranges;
-                UPDATE public.import_job SET error = jsonb_build_object('error_in_processing_batch', error_message, 'context', error_context), state = 'finished' WHERE id = job.id;
+                UPDATE public.import_job SET error = jsonb_build_object('error_in_processing_batch', error_message, 'context', error_context)::TEXT, state = 'failed' WHERE id = job.id;
                 -- On error, do not reschedule.
                 RETURN FALSE;
             END;
@@ -2512,8 +2526,8 @@ BEGIN
         WHEN OTHERS THEN
             GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
             RAISE WARNING '[Job %] Error preparing data: %', job.id, error_message;
-            UPDATE public.import_job SET error = jsonb_build_object('prepare_error', error_message), state = 'finished' WHERE id = job.id;
-            RAISE; -- Re-raise the exception
+            UPDATE public.import_job SET error = jsonb_build_object('prepare_error', error_message)::TEXT, state = 'failed' WHERE id = job.id;
+            -- Don't re-raise - job is marked as failed
     END;
 
     -- Set initial state for all rows in data table (redundant if table is new, safe if resuming)

@@ -419,10 +419,10 @@ BEGIN
             RAISE WARNING '[Job %] analyse_location: Program limit exceeded during single-pass batch update for step %: %. SQLSTATE: %', p_job_id, p_step_code, error_message, SQLSTATE;
             -- Fallback or simplified error marking might be needed here if the main query is too complex
             UPDATE public.import_job
-            SET error = jsonb_build_object('analyse_location_error', format($$Program limit error for step %1$s: %2$s$$, p_step_code /* %1$s */, error_message /* %2$s */)),
-                state = 'finished'
+            SET error = jsonb_build_object('analyse_location_error', format($$Program limit error for step %1$s: %2$s$$, p_step_code /* %1$s */, error_message /* %2$s */))::TEXT,
+                state = 'failed'
             WHERE id = p_job_id;
-            RAISE; -- Re-throw
+            -- Don't re-throw - job is marked as failed
         WHEN OTHERS THEN
             error_message := SQLERRM; 
             RAISE WARNING '[Job %] analyse_location: Unexpected error during single-pass batch update for step %: %. SQLSTATE: %', p_job_id, p_step_code, error_message, SQLSTATE;
@@ -442,11 +442,11 @@ BEGIN
             END;
             -- Mark the job as failed
             UPDATE public.import_job
-            SET error = jsonb_build_object('analyse_location_error', format($SQL$Unexpected error for step %1$s: %2$s$SQL$, p_step_code /* %1$s */, error_message /* %2$s */)),
-                state = 'finished'
+            SET error = jsonb_build_object('analyse_location_error', format($SQL$Unexpected error for step %1$s: %2$s$SQL$, p_step_code /* %1$s */, error_message /* %2$s */))::TEXT,
+                state = 'failed'
             WHERE id = p_job_id;
             RAISE DEBUG '[Job %] analyse_location: Marked job as failed due to unexpected error for step %: %', p_job_id, p_step_code, error_message;
-            RAISE; -- Re-throw the exception
+            -- Don't re-throw - job is marked as failed
     END;
 
     -- Propagate errors to all rows of a new entity if one fails (best-effort)

@@ -1,0 +1,21 @@
+code,name
+1,Sole Proprietor
+2,General Partnership
+3,Limited Partnership
+4,LLC
+5,Simple Partnership
+6,Joint Stock Company (JSC)
+7,Savings and Credit Association
+8,Representative Office
+9,Mutual Cooperation Company
+10,Public Enterprise
+11,N.G.O
+12,International Organization
+13,Tax Representative
+14,Agricultural Cooperative
+19,Producing Farmers
+20,Others
+21,Public Joint Stock Company
+22,Religious Organization
+23,Limited Partnership
+99,Unknown 

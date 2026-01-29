@@ -1,0 +1,34 @@
+path,name,description
+DOMESTIC,Domestic sectorstop,Domestic sectorstop
+DOMESTIC.A,Non-financial corporations,Non-financial corporations
+DOMESTIC.B,Financial corporations,Financial corporations
+DOMESTIC.C,General government,General government
+DOMESTIC.D,Non-profit institutions serving households,Non-profit institutions serving households
+DOMESTIC.E,Households,Households
+DOMESTIC.A.1110,Public unincorporated enterprises owned by central government,Public unincorporated enterprises owned by central government
+DOMESTIC.A.1120,Public incorporated enterprises owned by central government,Public incorporated enterprises owned by central government
+DOMESTIC.A.1510,Public unincorporated enterprises owned by local government,Public unincorporated enterprises owned by local government
+DOMESTIC.A.1520,Public incorporated enterprises owned by local government,Public incorporated enterprises owned by local government
+DOMESTIC.A.2100,Private non-financial incorporated enterprises,Private non-financial incorporated enterprises
+DOMESTIC.A.2300,Private non-financial unincorporated enterprises,Private non-financial unincorporated enterprises
+DOMESTIC.A.2500,Private non-profit institutions serving enterprises,Private non-profit institutions serving enterprises
+DOMESTIC.B.3100,National bank,National bank
+DOMESTIC.B.3200,Banks,Banks
+DOMESTIC.B.3500,Mortgage companies,Mortgage companies
+DOMESTIC.B.3600,Finance companies,Finance companies
+DOMESTIC.B.3900,State lending institutions etc.,State lending institutions etc.
+DOMESTIC.B.4100,Financial holding companies,Financial holding companies
+DOMESTIC.B.4300,Mutual funds,Mutual funds
+DOMESTIC.B.4500,Investment trusts and private equity funds,Investment trusts and private equity funds
+DOMESTIC.B.4900,Other financial enterprises except insurance companies and pension funds,Other financial enterprises except insurance companies and pension funds
+DOMESTIC.B.5500,Life insurance companies and pension funds,Life insurance companies and pension funds
+DOMESTIC.B.5700,Non-life insurance companies,Non-life insurance companies
+DOMESTIC.C.6100,Central government,Central government
+DOMESTIC.C.6500,Local government,Local government
+DOMESTIC.D.7000,Non-profit institutions serving households,Non-profit institutions serving households
+DOMESTIC.E.8200,Unincorporated enterprises within households,Unincorporated enterprises within households
+DOMESTIC.E.8300,Housing cooperatives etc.,Housing cooperatives etc.
+DOMESTIC.E.8500,Employees recipients of property income pensions and social contributions students etc.,Employees recipients of property income pensions and social contributions students etc.
+REST,Rest of the world,Rest of the world
+REST.F,Rest of the world,Rest of the world
+REST.F.9000,Rest of the world,Rest of the world tbc

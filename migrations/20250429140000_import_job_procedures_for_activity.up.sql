@@ -130,11 +130,11 @@ BEGIN
     EXCEPTION WHEN others THEN
         RAISE WARNING '[Job %] analyse_activity: Error during single-pass batch update for step %: %', p_job_id, p_step_code, SQLERRM;
         UPDATE public.import_job
-        SET error = jsonb_build_object('analyse_activity_batch_error', SQLERRM, 'step_code', p_step_code),
-            state = 'finished'
+        SET error = jsonb_build_object('analyse_activity_batch_error', SQLERRM, 'step_code', p_step_code)::TEXT,
+            state = 'failed'
         WHERE id = p_job_id;
         RAISE DEBUG '[Job %] analyse_activity: Marked job as failed due to error in step %: %', p_job_id, p_step_code, SQLERRM;
-        RAISE;
+        -- Don't re-raise - job is marked as failed
     END;
 
     -- Unconditionally advance priority for all rows in batch to ensure progress
@@ -338,7 +338,12 @@ BEGIN
         );
         RAISE DEBUG '[Job %] process_activity: Marking rows as error in exception handler with SQL: %', p_job_id, v_sql;
         EXECUTE v_sql USING p_batch_row_id_ranges;
-        RAISE; -- Re-throw
+        -- Mark the job as failed
+        UPDATE public.import_job
+        SET error = jsonb_build_object('process_activity_error', error_message, 'step_code', p_step_code)::TEXT,
+            state = 'failed'
+        WHERE id = p_job_id;
+        -- Don't re-raise - job is marked as failed
     END;
 
     RAISE DEBUG '[Job %] process_activity (Batch): Finished for step %. Total Processed: %, Errors: %',

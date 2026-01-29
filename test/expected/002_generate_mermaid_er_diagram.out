@@ -1148,6 +1148,14 @@ erDiagram
 		text func_between_symmetric
 		text func_from_to
 	}
+	sql_saga_temporal_merge_cache["sql_saga.temporal_merge_cache"] {
+		text cache_key
+		text source_columns_hash
+		jsonb plan_sqls
+		timestamp_with_time_zone created_at
+		timestamp_with_time_zone last_used_at
+		integer use_count
+	}
 	sql_saga_unique_keys["sql_saga.unique_keys"] {
 		name unique_key_name
 		name table_schema

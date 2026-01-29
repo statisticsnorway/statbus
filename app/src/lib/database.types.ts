@@ -12771,6 +12771,7 @@ export type Database = {
           | "approved"
           | "rejected"
           | "processing_data"
+          | "failed"
           | "finished",
       import_mode: 
           | "legal_unit"
@@ -13082,6 +13083,7 @@ export const Constants = {
         "approved",
         "rejected",
         "processing_data",
+        "failed",
         "finished"
       ],
       import_mode: [

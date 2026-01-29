@@ -199,8 +199,8 @@ BEGIN
         RAISE DEBUG '[Job %] analyse_statistical_variables: Updated % non-skipped rows via decomposed method.', p_job_id, v_update_count;
     EXCEPTION WHEN OTHERS THEN
         RAISE WARNING '[Job %] analyse_statistical_variables: Error during decomposed batch update: %', p_job_id, SQLERRM;
-        UPDATE public.import_job SET error = jsonb_build_object('analyse_statistical_variables_batch_error', SQLERRM), state = 'finished' WHERE id = p_job_id;
-        RAISE;
+        UPDATE public.import_job SET error = jsonb_build_object('analyse_statistical_variables_batch_error', SQLERRM)::TEXT, state = 'failed' WHERE id = p_job_id;
+        -- Don't re-raise - job is marked as failed
     END;
 
     v_sql := format($$UPDATE public.%1$I dt SET last_completed_priority = %2$L

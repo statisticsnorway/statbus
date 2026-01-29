@@ -122,11 +122,11 @@ BEGIN
     EXCEPTION WHEN others THEN
         RAISE WARNING '[Job %] analyse_status: Error during single-pass batch update: %', p_job_id, SQLERRM;
         UPDATE public.import_job
-        SET error = jsonb_build_object('analyse_status_batch_error', SQLERRM),
-            state = 'finished'
+        SET error = jsonb_build_object('analyse_status_batch_error', SQLERRM)::TEXT,
+            state = 'failed'
         WHERE id = p_job_id;
         RAISE DEBUG '[Job %] analyse_status: Marked job as failed due to error: %', p_job_id, SQLERRM;
-        RAISE;
+        -- Don't re-raise - job is marked as failed
     END;
 
     -- Unconditionally advance priority for all rows in batch to ensure progress

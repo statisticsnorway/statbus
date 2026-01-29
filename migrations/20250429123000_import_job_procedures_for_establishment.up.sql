@@ -131,8 +131,8 @@ BEGIN
         RAISE DEBUG '[Job %] analyse_establishment: Updated % rows in batch.', p_job_id, v_update_count;
     EXCEPTION WHEN others THEN
         RAISE WARNING '[Job %] analyse_establishment: Error during batch update: %', p_job_id, SQLERRM;
-        UPDATE public.import_job SET error = jsonb_build_object('analyse_establishment_batch_error', SQLERRM), state = 'finished' WHERE id = p_job_id;
-        RAISE;
+        UPDATE public.import_job SET error = jsonb_build_object('analyse_establishment_batch_error', SQLERRM)::TEXT, state = 'failed' WHERE id = p_job_id;
+        -- Don't re-raise - job is marked as failed
     END;
 
     -- Unconditionally advance priority for all rows in batch to ensure progress
@@ -430,11 +430,11 @@ BEGIN
         END;
         -- Mark the job as failed
         UPDATE public.import_job
-        SET error = jsonb_build_object('process_establishment_unhandled_error', error_message),
-            state = 'finished'
+        SET error = jsonb_build_object('process_establishment_unhandled_error', error_message)::TEXT,
+            state = 'failed'
         WHERE id = p_job_id;
         RAISE DEBUG '[Job %] process_establishment: Marked job as failed due to unhandled error: %', p_job_id, error_message;
-        RAISE;
+        -- Don't re-raise - job is marked as failed
     END;
 
     -- The framework now handles advancing priority for all rows.
