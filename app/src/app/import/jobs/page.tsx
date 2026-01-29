@@ -565,7 +565,9 @@ export default function ImportJobsPage() {
             {showProgress && (
               <div className="flex items-center space-x-2">
                 <Progress value={import_completed_pct ?? 0} className="h-1.5 flex-grow" />
-                <span className="text-xs text-gray-500 font-mono">{Math.round(import_completed_pct ?? 0)}%</span>
+                <span className="text-xs text-gray-500 font-mono">
+                  {(import_completed_pct ?? 0).toFixed(2).replace(/\.?0+$/, "")}%
+                </span>
               </div>
             )}
             <div className="text-xs font-mono whitespace-nowrap underline">
