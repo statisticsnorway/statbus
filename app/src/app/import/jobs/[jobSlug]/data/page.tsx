@@ -16,11 +16,12 @@ import {
 } from "@tanstack/react-table";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, AlertTriangle } from "lucide-react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useAtomValue } from "jotai";
 import { externalIdentTypesAtom } from "@/atoms/base-data";
 import { type ImportJobWithDetails as ImportJob } from "@/atoms/import";
+import { ErrorDisplay } from "@/components/import/ErrorDisplay";
 // Per instruction, improve typing for ImportJobDataRow to make 'state' work
 // in useDataTable. This is a first step, with 'any' types to be refined.
 type ImportJobDataRow = {
@@ -346,6 +347,23 @@ export default function ImportJobDataPage() {
                   return <div className={`text-xs truncate ${className}`} title={displayValue}>{displayValue}</div>;
               };
 
+              // Special handling for errors and invalid_codes columns
+              if (baseKey === 'errors') {
+                const errorsValue = row.original.errors;
+                if (!errorsValue || (typeof errorsValue === 'object' && Object.keys(errorsValue).length === 0)) {
+                  return <span className="text-gray-400 text-xs">-</span>;
+                }
+                return <ErrorDisplay errors={errorsValue} variant="errors" />;
+              }
+
+              if (baseKey === 'invalid_codes') {
+                const invalidCodesValue = row.original.invalid_codes;
+                if (!invalidCodesValue || (typeof invalidCodesValue === 'object' && Object.keys(invalidCodesValue).length === 0)) {
+                  return <span className="text-gray-400 text-xs">-</span>;
+                }
+                return <ErrorDisplay errors={invalidCodesValue} variant="invalid_codes" />;
+              }
+
               if (hasActivityCategoryCodeRaw) {
                 return (
                     <div className="flex items-center space-x-2">
@@ -484,6 +502,29 @@ export default function ImportJobDataPage() {
 
   const isLoading = isJobLoading || (isTableDataLoading && !tableData);
 
+  // Check if error filter is active
+  const isErrorFilterActive = React.useMemo(() => {
+    const stateFilter = columnFilters.find(f => f.id === 'state');
+    if (!stateFilter || !Array.isArray(stateFilter.value)) return false;
+    return stateFilter.value.includes('error') && stateFilter.value.length === 1;
+  }, [columnFilters]);
+
+  // Toggle error-only filter
+  const toggleErrorFilter = React.useCallback(() => {
+    setColumnFilters(prev => {
+      const stateFilterIndex = prev.findIndex(f => f.id === 'state');
+      
+      if (isErrorFilterActive) {
+        // Remove the error filter
+        return prev.filter(f => f.id !== 'state');
+      } else {
+        // Add error filter (replace any existing state filter)
+        const newFilters = prev.filter(f => f.id !== 'state');
+        return [...newFilters, { id: 'state', value: ['error'] }];
+      }
+    });
+  }, [isErrorFilterActive]);
+
   if (jobError) {
     return (
       <div className="p-4 bg-red-50 border border-red-200 rounded-md text-red-700">
@@ -552,8 +593,41 @@ export default function ImportJobDataPage() {
       )}
 
       {columns.length > 0 &&
-        <DataTable table={table} isValidating={isTableDataValidating}>
-          <DataTableToolbar table={table} />
+        <DataTable 
+          table={table} 
+          isValidating={isTableDataValidating}
+          getRowClassName={(row: ImportJobDataRow) => {
+            // Highlight rows with errors or invalid codes
+            const hasErrors = row.errors && typeof row.errors === 'object' && Object.keys(row.errors).length > 0;
+            const hasInvalidCodes = row.invalid_codes && typeof row.invalid_codes === 'object' && Object.keys(row.invalid_codes).length > 0;
+            const state = row.state;
+            
+            if (state === 'error') {
+              return 'bg-red-50/50 hover:bg-red-100/50';
+            }
+            if (hasErrors) {
+              return 'bg-red-50/30 hover:bg-red-100/30';
+            }
+            if (hasInvalidCodes) {
+              return 'bg-amber-50/30 hover:bg-amber-100/30';
+            }
+            return undefined;
+          }}
+        >
+          <DataTableToolbar table={table}>
+            <Button
+              variant={isErrorFilterActive ? "default" : "outline"}
+              size="sm"
+              className={isErrorFilterActive 
+                ? "h-8 bg-red-600 hover:bg-red-700 text-white" 
+                : "h-8 border-dashed text-red-600 hover:bg-red-50 hover:text-red-700"
+              }
+              onClick={toggleErrorFilter}
+            >
+              <AlertTriangle className="mr-1 h-4 w-4" />
+              {isErrorFilterActive ? "Showing Errors" : "Show Errors Only"}
+            </Button>
+          </DataTableToolbar>
         </DataTable>
       }
     </div>

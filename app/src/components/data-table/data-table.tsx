@@ -17,6 +17,8 @@ interface DataTableProps<TData> extends React.ComponentProps<"div"> {
   table: TanstackTable<TData>;
   actionBar?: React.ReactNode;
   isValidating?: boolean;
+  /** Optional function to get custom class names for a row based on its data */
+  getRowClassName?: (row: TData) => string | undefined;
 }
 
 export function DataTable<TData>({
@@ -25,6 +27,7 @@ export function DataTable<TData>({
   children,
   className,
   isValidating,
+  getRowClassName,
   ...props
 }: DataTableProps<TData>) {
   return (
@@ -63,6 +66,7 @@ export function DataTable<TData>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
+                  className={getRowClassName?.(row.original)}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell

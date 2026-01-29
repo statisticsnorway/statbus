@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { formatDistanceToNow } from "date-fns";
 import { AlertCircle, CheckCircle, Clock, FileUp, FolderSearch, Hourglass, Loader, MoreHorizontal, ThumbsDown, ThumbsUp, Trash2, ChevronRight } from "lucide-react";
+import { JobErrorDisplay } from "@/components/import/ErrorDisplay";
 import { Tables } from '@/lib/database.types';
 import { useDataTable } from "@/hooks/use-data-table";
 import { DataTable } from "@/components/data-table/data-table";
@@ -733,16 +734,14 @@ export default function ImportJobsPage() {
       </DataTable>
       
       <Dialog open={!!errorToShow} onOpenChange={(open) => !open && setErrorToShow(null)}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[700px] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Import Job Error</DialogTitle>
             <DialogDescription>
               The following error occurred during the import process.
             </DialogDescription>
           </DialogHeader>
-          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-md text-sm text-red-800 overflow-auto max-h-[60vh]">
-            <pre className="whitespace-pre-wrap break-words">{errorToShow}</pre>
-          </div>
+          <JobErrorDisplay error={errorToShow} />
         </DialogContent>
       </Dialog>
     </div>
