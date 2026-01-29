@@ -168,12 +168,12 @@ module Statbus
 
           # Wait for acknowledgments or timeout
           shutdown_timeout = 5.seconds
-          shutdown_start = Time.monotonic
+          shutdown_start = Time.instant
           received_count = 1 # Start with 1 for the main fiber
 
           loop do
             # Check if we've exceeded the timeout
-            if (Time.monotonic - shutdown_start) > shutdown_timeout
+            if (Time.instant - shutdown_start) > shutdown_timeout
               @log.warn { "Shutdown timeout reached after #{shutdown_timeout.total_seconds} seconds, forcing exit" }
               break
             end
@@ -496,8 +496,8 @@ module Statbus
             end
 
             # Wait for acknowledgments with a short timeout
-            shutdown_start = Time.monotonic
-            while (Time.monotonic - shutdown_start) < 3.seconds
+            shutdown_start = Time.instant
+            while (Time.instant - shutdown_start) < 3.seconds
               # Try to receive with a very short timeout to check if channel is empty
               begin
                 select
@@ -654,8 +654,8 @@ module Statbus
 
     # Helper method to wait while checking for shutdown
     private def wait_with_shutdown_check(duration : Time::Span)
-      start_time = Time.monotonic
-      while (Time.monotonic - start_time) < duration
+      start_time = Time.instant
+      while (Time.instant - start_time) < duration
         return if @shutdown
         sleep(0.1.seconds) # Check for shutdown frequently
       end
@@ -939,7 +939,7 @@ module Statbus
 
     # Process pending tasks for a specific queue
     private def process_tasks(queue : String)
-      start_time = Time.monotonic
+      start_time = Time.instant
       consecutive_errors = 0
       max_consecutive_errors = 3
 
@@ -1023,7 +1023,7 @@ module Statbus
           sleep(5.seconds) # Wait before retrying
         end
       ensure
-        duration_ms = (Time.monotonic - start_time).total_milliseconds.to_i
+        duration_ms = (Time.instant - start_time).total_milliseconds.to_i
         @log.debug { "Task processing for queue #{queue} completed in #{duration_ms}ms" }
       end
     end

@@ -327,7 +327,7 @@ module Statbus
         STDOUT.flush
       end
 
-      start_time = Time.monotonic
+      start_time = Time.instant
       success = false
 
       case migration.extension
@@ -357,7 +357,7 @@ module Statbus
       end
 
       if success
-        duration_ms = (Time.monotonic - start_time).total_milliseconds.to_i
+        duration_ms = (Time.instant - start_time).total_milliseconds.to_i
 
         # Record successful migration
         db.exec(
@@ -414,7 +414,7 @@ module Statbus
           end
 
           # Start timing
-          start_time = Time.monotonic
+          start_time = Time.instant
 
           success = false
           output = ""
@@ -444,7 +444,7 @@ module Statbus
 
           if success
             # Calculate duration in milliseconds
-            duration_ms = (Time.monotonic - start_time).total_milliseconds.to_i
+            duration_ms = (Time.instant - start_time).total_milliseconds.to_i
 
             # Remove the migration record(s)
             db.query_all(delete_sql, version, as: {version: String})

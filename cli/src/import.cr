@@ -287,7 +287,7 @@ module Statbus
           when Strategy::Copy
             db.exec "CALL test.set_user_from_email($1)", @user_email
             copy_stream = db.exec_copy "COPY public.#{upload_view_name}(#{sql_fields_str}) FROM STDIN"
-            start_time = Time.monotonic
+            start_time = Time.instant
             row_count = 0
 
             iterate_csv_stream(csv_stream) do |sql_row, csv_row|
@@ -305,7 +305,7 @@ module Statbus
             puts "Waiting for processing" if @config.verbose
             copy_stream.close
 
-            total_duration = Time.monotonic - start_time
+            total_duration = Time.instant - start_time
             total_rows_per_second = row_count / total_duration.total_seconds
             puts "Total rows processed: #{row_count}"
             puts "Total time: #{total_duration.total_seconds.round(2)} seconds (#{total_rows_per_second.round(2)} rows/second)"
@@ -323,7 +323,7 @@ module Statbus
               db.exec "SET LOCAL statbus.constraints_already_deferred TO 'true';"
               db.exec "SET CONSTRAINTS ALL DEFERRED;"
             end
-            start_time = Time.monotonic
+            start_time = Time.instant
             batch_start_time = start_time
             row_count = 0
             insert = db.build sql_statement
@@ -342,10 +342,10 @@ module Statbus
                   end
                   db.exec "END;"
 
-                  batch_duration = Time.monotonic - batch_start_time
+                  batch_duration = Time.instant - batch_start_time
                   batch_rows_per_second = batch_size / batch_duration.total_seconds
                   puts "Processed #{batch_size} rows in #{batch_duration.total_seconds.round(2)} seconds (#{batch_rows_per_second.round(2)} rows/second)"
-                  batch_start_time = Time.monotonic
+                  batch_start_time = Time.instant
 
                   db.exec "BEGIN;"
                   db.exec "CALL test.set_user_from_email($1)", @user_email
@@ -363,7 +363,7 @@ module Statbus
             end
             db.exec "END;"
 
-            total_duration = Time.monotonic - start_time
+            total_duration = Time.instant - start_time
             total_rows_per_second = row_count / total_duration.total_seconds
             puts "Total rows processed: #{row_count}"
             puts "Total time: #{total_duration.total_seconds.round(2)} seconds (#{total_rows_per_second.round(2)} rows/second)"
