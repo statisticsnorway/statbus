@@ -40,7 +40,7 @@ erDiagram
 		integer id
 		uuid sub
 		text display_name
-		text email
+		citext email
 		text password
 		text encrypted_password
 		statbus_role statbus_role
