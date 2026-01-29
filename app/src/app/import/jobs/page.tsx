@@ -533,8 +533,13 @@ export default function ImportJobsPage() {
             </Link>
             {showProgress && (
               <div className="mt-1 flex items-center space-x-2">
-                <Progress value={import_completed_pct ?? 0} className="h-1.5 flex-grow" />
-                <span className="text-xs text-gray-500 font-mono">{Math.round(import_completed_pct ?? 0)}%</span>
+                <Progress
+                  value={import_completed_pct ?? 0}
+                  className="h-1.5 flex-grow"
+                />
+                <span className="text-xs text-gray-500 font-mono">
+                  {import_completed_pct.toFixed(2).replace(/\.?0+$/, "") ?? 0}%
+                </span>
               </div>
             )}
           </div>
