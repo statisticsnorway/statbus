@@ -17,6 +17,15 @@ require "./manage"
 require "./worker"
 
 module Statbus
+  # Compatibility helper for Time.instant (Crystal 1.19+) vs Time.monotonic (older)
+  # Time.monotonic was deprecated in favor of Time.instant in Crystal 1.19.0
+  macro monotonic_time
+    {% if compare_versions(Crystal::VERSION, "1.19.0") >= 0 %}
+      Time.instant
+    {% else %}
+      Time.monotonic
+    {% end %}
+  end
   class Cli
     enum Mode
       Manage
