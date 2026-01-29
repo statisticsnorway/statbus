@@ -324,6 +324,87 @@ check_and_configure_https_only() {
 }
 
 # =============================================================================
+# Deployment Mode Selection
+# =============================================================================
+
+select_deployment_mode() {
+    log_header "Deployment Mode Selection"
+    
+    echo "Select deployment mode:"
+    echo ""
+    echo -e "  ${BOLD}1) standalone${NC} (Recommended for production)"
+    echo "     Single-server deployment with automatic HTTPS (Let's Encrypt)"
+    echo "     Public domain required, ports 80/443/5432 exposed"
+    echo ""
+    echo -e "  ${BOLD}2) private${NC}"
+    echo "     Behind a host-level reverse proxy (multi-tenant cloud)"
+    echo "     Multiple instances on same host with unique ports"
+    echo ""
+    echo -e "  ${BOLD}3) development${NC}"
+    echo "     Local development only, HTTP with self-signed certs"
+    echo ""
+    
+    read -p "Enter choice [1-3] (default: 1): " mode_choice
+    mode_choice=${mode_choice:-1}
+    
+    case $mode_choice in
+        1) DEPLOYMENT_MODE="standalone" ;;
+        2) DEPLOYMENT_MODE="private" ;;
+        3) DEPLOYMENT_MODE="development" ;;
+        *) DEPLOYMENT_MODE="standalone" ;;
+    esac
+    
+    log_success "Selected: $DEPLOYMENT_MODE"
+}
+
+# =============================================================================
+# Standalone Mode Configuration
+# =============================================================================
+
+configure_standalone() {
+    log_header "Standalone Configuration"
+    
+    echo "Enter your public domain for this STATBUS installation."
+    echo "This domain must point to this server's IP address."
+    echo ""
+    read -p "Domain (e.g., statbus.example.com): " SITE_DOMAIN
+    
+    if [[ -z "$SITE_DOMAIN" ]]; then
+        log_error "Domain is required for standalone mode"
+        exit 1
+    fi
+    
+    echo ""
+    echo "TLS Certificate options:"
+    echo ""
+    echo -e "  ${BOLD}1) Automatic (Let's Encrypt)${NC} - Recommended"
+    echo "     Caddy will automatically obtain and renew certificates"
+    echo ""
+    echo -e "  ${BOLD}2) Custom certificate${NC}"
+    echo "     You provide your own .crt and .key files"
+    echo ""
+    read -p "Enter choice [1-2] (default: 1): " tls_choice
+    tls_choice=${tls_choice:-1}
+    
+    TLS_CUSTOM=false
+    if [[ "$tls_choice" == "2" ]]; then
+        TLS_CUSTOM=true
+        echo ""
+        log_warn "After installation, place your certificate files in:"
+        echo "  $INSTALL_DIR/caddy/data/custom-certs/"
+        echo ""
+        log_warn "Then edit .env.config and set:"
+        echo "  TLS_CERT_FILE=/data/custom-certs/your-domain.crt"
+        echo "  TLS_KEY_FILE=/data/custom-certs/your-domain.key"
+        echo ""
+        read -p "Press Enter to continue..."
+    fi
+    
+    log_success "Domain: $SITE_DOMAIN"
+    log_success "TLS: $(if [[ "$TLS_CUSTOM" == "true" ]]; then echo "Custom certificate"; else echo "Automatic (Let's Encrypt)"; fi)"
+}
+
+# =============================================================================
 # Setup Configuration Files
 # =============================================================================
 
@@ -345,13 +426,44 @@ setup_config() {
         log_success ".users.yml already exists"
     fi
     
-    # Check for .env.config
-    if [[ ! -f ".env.config" ]]; then
+    # Check for .env.config - generate if missing
+    local env_config=".env.config"
+    if [[ ! -f "$env_config" ]]; then
         log "Generating initial configuration..."
         ./devops/manage-statbus.sh generate-config
-        log_warn "Edit .env.config to configure your deployment"
     else
         log_success ".env.config already exists"
+    fi
+    
+    # Apply deployment mode settings
+    if [[ -n "${DEPLOYMENT_MODE:-}" ]]; then
+        log "Applying deployment mode: $DEPLOYMENT_MODE"
+        
+        # Update deployment mode
+        sed -i.bak "s|^CADDY_DEPLOYMENT_MODE=.*|CADDY_DEPLOYMENT_MODE=$DEPLOYMENT_MODE|" "$env_config"
+        
+        if [[ "$DEPLOYMENT_MODE" == "standalone" ]]; then
+            # Standalone mode: offset 0, prod code, domain-based URLs
+            sed -i.bak "s|^DEPLOYMENT_SLOT_CODE=.*|DEPLOYMENT_SLOT_CODE=prod|" "$env_config"
+            sed -i.bak "s|^DEPLOYMENT_SLOT_PORT_OFFSET=.*|DEPLOYMENT_SLOT_PORT_OFFSET=0|" "$env_config"
+            sed -i.bak "s|^DEPLOYMENT_SLOT_NAME=.*|DEPLOYMENT_SLOT_NAME=Production|" "$env_config"
+            sed -i.bak "s|^SITE_DOMAIN=.*|SITE_DOMAIN=$SITE_DOMAIN|" "$env_config"
+            sed -i.bak "s|^STATBUS_URL=.*|STATBUS_URL=https://$SITE_DOMAIN|" "$env_config"
+            sed -i.bak "s|^BROWSER_REST_URL=.*|BROWSER_REST_URL=https://$SITE_DOMAIN|" "$env_config"
+            sed -i.bak "s|^SERVER_REST_URL=.*|SERVER_REST_URL=http://proxy|" "$env_config"
+            sed -i.bak "s|^POSTGRES_APP_DB=.*|POSTGRES_APP_DB=statbus_prod|" "$env_config"
+            # Disable debug for production
+            sed -i.bak "s|^DEBUG=.*|DEBUG=false|" "$env_config"
+            sed -i.bak "s|^NEXT_PUBLIC_DEBUG=.*|NEXT_PUBLIC_DEBUG=false|" "$env_config"
+            
+            log_success "Configured for standalone mode with domain: $SITE_DOMAIN"
+        fi
+        
+        rm -f "$env_config.bak"
+        
+        # Regenerate .env with updated config
+        log "Regenerating configuration..."
+        ./devops/manage-statbus.sh generate-config
     fi
     
     popd > /dev/null
@@ -383,6 +495,13 @@ show_next_steps() {
     
     echo "STATBUS has been installed to: $INSTALL_DIR"
     echo ""
+    echo -e "${BOLD}Configuration summary:${NC}"
+    echo "  Deployment mode: ${DEPLOYMENT_MODE:-not set}"
+    if [[ "${DEPLOYMENT_MODE:-}" == "standalone" ]]; then
+        echo "  Domain: ${SITE_DOMAIN:-not set}"
+        echo "  Ports: 80 (HTTP), 443 (HTTPS), 5432 (PostgreSQL TLS)"
+    fi
+    echo ""
     echo -e "${BOLD}Next steps:${NC}"
     echo ""
     echo "1. Change to the STATBUS directory:"
@@ -391,27 +510,43 @@ show_next_steps() {
     echo "2. Edit the users file to add your admin users:"
     echo -e "   ${CYAN}nano .users.yml${NC}"
     echo ""
-    echo "3. Edit the deployment configuration:"
-    echo -e "   ${CYAN}nano .env.config${NC}"
-    echo ""
-    echo "   Key settings to configure:"
-    echo "   - DEPLOYMENT_SLOT_NAME: Human-readable name"
-    echo "   - DEPLOYMENT_SLOT_CODE: Short code (lowercase, no spaces)"
-    echo "   - CADDY_DEPLOYMENT_MODE: standalone (or private/development)"
-    echo "   - SITE_DOMAIN: Your public domain"
-    echo ""
-    echo "4. Regenerate configuration after editing:"
-    echo -e "   ${CYAN}./devops/manage-statbus.sh generate-config${NC}"
-    echo ""
-    echo "5. Start all services:"
+    if [[ "${DEPLOYMENT_MODE:-}" != "standalone" ]]; then
+        echo "3. Edit the deployment configuration (if needed):"
+        echo -e "   ${CYAN}nano .env.config${NC}"
+        echo ""
+        echo "   Key settings to configure:"
+        echo "   - DEPLOYMENT_SLOT_NAME: Human-readable name"
+        echo "   - DEPLOYMENT_SLOT_CODE: Short code (lowercase, no spaces)"
+        echo "   - SITE_DOMAIN: Your domain"
+        echo ""
+        echo "4. Regenerate configuration after editing:"
+        echo -e "   ${CYAN}./devops/manage-statbus.sh generate-config${NC}"
+        echo ""
+        echo "5. Start all services:"
+    else
+        echo "3. Start all services:"
+    fi
     echo -e "   ${CYAN}./devops/manage-statbus.sh start all${NC}"
     echo ""
-    echo "6. Initialize the database (first time only):"
+    if [[ "${DEPLOYMENT_MODE:-}" != "standalone" ]]; then
+        echo "6. Initialize the database (first time only):"
+    else
+        echo "4. Initialize the database (first time only):"
+    fi
     echo -e "   ${CYAN}./devops/manage-statbus.sh create-db${NC}"
     echo ""
-    echo "7. Verify deployment:"
+    if [[ "${DEPLOYMENT_MODE:-}" != "standalone" ]]; then
+        echo "7. Verify deployment:"
+    else
+        echo "5. Verify deployment:"
+    fi
     echo -e "   ${CYAN}docker compose ps${NC}"
     echo ""
+    if [[ "${DEPLOYMENT_MODE:-}" == "standalone" ]]; then
+        echo "Your STATBUS instance will be available at:"
+        echo -e "   ${CYAN}https://${SITE_DOMAIN}${NC}"
+        echo ""
+    fi
     echo "For detailed instructions, see:"
     echo "  $INSTALL_DIR/doc/DEPLOYMENT.md"
     echo ""
@@ -446,6 +581,10 @@ main() {
     install_crystal
     clone_repository
     build_cli
+    select_deployment_mode
+    if [[ "$DEPLOYMENT_MODE" == "standalone" ]]; then
+        configure_standalone
+    fi
     setup_config
     check_and_configure_https_only
     show_next_steps
