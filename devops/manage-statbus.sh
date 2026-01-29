@@ -1182,65 +1182,14 @@ EOS
           FROM pg_proc p
           JOIN pg_namespace n ON p.pronamespace = n.oid
           WHERE n.nspname IN ('admin', 'db', 'lifecycle_callbacks', 'public', 'auth')
-          AND p.prokind != 'a'  -- Exclude aggregate functions
-          AND NOT (
-              (n.nspname = 'public' AND p.proname = 'algorithm_sign') OR
-              (n.nspname = 'public' AND p.proname = 'armor') OR
-              (n.nspname = 'public' AND p.proname LIKE '\_%') OR
-              (n.nspname = 'public' AND p.proname LIKE 'index') OR
-              (n.nspname = 'public' AND p.proname LIKE 'lca') OR
-              (n.nspname = 'public' AND p.proname LIKE 'lquery\_%') OR
-              (n.nspname = 'public' AND p.proname LIKE 'lt\_%') OR
-              (n.nspname = 'public' AND p.proname LIKE 'ltq\_%') OR
-              (n.nspname = 'public' AND p.proname LIKE 'ltxtq\_%') OR
-              (n.nspname = 'public' AND p.proname LIKE 'nlevel') OR
-              (n.nspname = 'public' AND p.proname LIKE 'subltree') OR
-              (n.nspname = 'public' AND p.proname LIKE 'subpath') OR
-              (n.nspname = 'public' AND p.proname LIKE 'text2ltree') OR
-              (n.nspname = 'public' AND p.proname LIKE 'gbtree%') OR
-              (n.nspname = 'public' AND p.proname LIKE 'ltree%') OR
-              (n.nspname = 'public' AND p.proname LIKE '%\_dist') OR
-              (n.nspname = 'public' AND p.proname LIKE 'gbt\_%') OR
-              (n.nspname = 'public' AND p.proname = 'decode_error_level') OR
-              (n.nspname = 'public' AND p.proname LIKE 'decrypt%') OR
-              (n.nspname = 'public' AND p.proname LIKE 'digest%') OR
-              (n.nspname = 'public' AND p.proname LIKE 'encrypt%') OR
-              (n.nspname = 'public' AND p.proname LIKE 'gen\_random\_%') OR
-              (n.nspname = 'public' AND p.proname LIKE 'gen\_salt%') OR
-              (n.nspname = 'public' AND p.proname LIKE 'get\_%') OR
-              (n.nspname = 'public' AND p.proname LIKE 'gin\_%\_trgm%') OR
-              (n.nspname = 'public' AND p.proname LIKE 'gtrgm\_%') OR
-              (n.nspname = 'public' AND p.proname LIKE 'hash\_%') OR
-              (n.nspname = 'public' AND p.proname = 'histogram') OR
-              (n.nspname = 'public' AND p.proname LIKE 'hmac%') OR
-              (n.nspname = 'public' AND p.proname LIKE 'http%') OR
-              (n.nspname = 'public' AND p.proname = 'dearmor') OR
-              (n.nspname = 'public' AND p.proname LIKE 'hypopg%') OR
-              (n.nspname = 'public' AND p.proname LIKE 'id\_decode%') OR
-              (n.nspname = 'public' AND p.proname LIKE 'id\_encode%') OR
-              (n.nspname = 'public' AND p.proname = 'index_advisor') OR
-              (n.nspname = 'public' AND p.proname LIKE 'pg\_stat\_monitor%') OR
-              (n.nspname = 'public' AND p.proname LIKE 'pg\_stat\_statements%') OR
-              (n.nspname = 'public' AND p.proname LIKE 'pgp\_%') OR
-              (n.nspname = 'public' AND p.proname LIKE 'pgsm\_%') OR
-              (n.nspname = 'public' AND p.proname LIKE 'plpgsql\_check%') OR
-              (n.nspname = 'public' AND p.proname LIKE 'plpgsql\_coverage%') OR
-              (n.nspname = 'public' AND p.proname LIKE 'plpgsql\_profiler%') OR
-              (n.nspname = 'public' AND p.proname LIKE 'plpgsql\_show%') OR
-              (n.nspname = 'public' AND p.proname = 'range') OR
-              (n.nspname = 'public' AND p.proname LIKE 'set\_limit%') OR
-              (n.nspname = 'public' AND p.proname LIKE 'show\_%') OR
-              (n.nspname = 'public' AND p.proname = 'sign') OR
-              (n.nspname = 'public' AND p.proname LIKE 'similarity%') OR
-              (n.nspname = 'public' AND p.proname LIKE 'strict\_word\_similarity%') OR
-              (n.nspname = 'public' AND p.proname = 'text_to_bytea') OR
-              (n.nspname = 'public' AND p.proname LIKE 'tri\_fkey%') OR
-              (n.nspname = 'public' AND p.proname = 'try_cast_double') OR
-              (n.nspname = 'public' AND p.proname LIKE 'url\_%') OR
-              (n.nspname = 'public' AND p.proname LIKE 'urlencode%') OR
-              (n.nspname = 'public' AND p.proname = 'verify') OR
-              (n.nspname = 'public' AND p.proname LIKE 'word\_similarity%')
-          )
+            AND p.prokind != 'a'  -- Exclude aggregate functions
+            -- Exclude functions belonging to extensions (they are system/library functions)
+            AND NOT EXISTS (
+                SELECT 1 FROM pg_depend d
+                JOIN pg_extension e ON d.refobjid = e.oid
+                WHERE d.objid = p.oid
+                  AND d.deptype = 'e'
+            )
           ORDER BY 1;
 EOS
 )
