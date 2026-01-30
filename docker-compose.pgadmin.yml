@@ -1,5 +1,4 @@
 # pgAdmin 4 - PostgreSQL administration tool
-# This service is optional and controlled by the "pgadmin" profile
 #
 # In standalone mode, pgAdmin is enabled by default and accessible at /pgadmin
 # Authentication is gated by STATBUS JWT - users must be logged into STATBUS first
@@ -8,9 +7,14 @@
 # To enable/disable, edit .env.config: ENABLE_PGADMIN=true/false
 # Then run: ./devops/manage-statbus.sh generate-config
 #
+# Uses custom image with SSLSNI patch (PR #9537) until upstream releases it
+#
 services:
   pgadmin:
-    image: dpage/pgadmin4:latest
+    build:
+      context: ./pgadmin
+      dockerfile: Dockerfile
+    image: statbus_pgadmin:latest
     container_name: ${COMPOSE_INSTANCE_NAME:?COMPOSE_INSTANCE_NAME must be set in the generated .env}-pgadmin
     environment:
       # pgAdmin master credentials - used only for pgAdmin's internal authentication
