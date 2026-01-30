@@ -1,0 +1,4 @@
+# Ignore actual configuration files (contain credentials/tenant-specific data)
+# Only .example files should be committed
+.env
+servers.json

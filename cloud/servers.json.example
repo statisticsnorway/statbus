@@ -1,0 +1,43 @@
+{
+  "_comment": "Example servers.json for multi-tenant cloud deployment",
+  "_usage": "Copy to servers.json and customize for your tenants",
+  "_note": "Host uses external hostname for SNI-based routing through Caddy Layer4",
+  "Servers": {
+    "1": {
+      "Name": "Morocco STATBUS",
+      "Group": "STATBUS Tenants",
+      "Host": "ma.statbus.org",
+      "Port": 5432,
+      "MaintenanceDB": "postgres",
+      "Username": "",
+      "SSLMode": "require",
+      "SSLNegotiation": "direct",
+      "SSLSNI": true,
+      "Comment": "Morocco STATBUS database. Connect using your ma.statbus.org credentials."
+    },
+    "2": {
+      "Name": "Norway STATBUS",
+      "Group": "STATBUS Tenants",
+      "Host": "no.statbus.org",
+      "Port": 5432,
+      "MaintenanceDB": "postgres",
+      "Username": "",
+      "SSLMode": "require",
+      "SSLNegotiation": "direct",
+      "SSLSNI": true,
+      "Comment": "Norway STATBUS database. Connect using your no.statbus.org credentials."
+    },
+    "3": {
+      "Name": "Albania STATBUS",
+      "Group": "STATBUS Tenants",
+      "Host": "al.statbus.org",
+      "Port": 5432,
+      "MaintenanceDB": "postgres",
+      "Username": "",
+      "SSLMode": "require",
+      "SSLNegotiation": "direct",
+      "SSLSNI": true,
+      "Comment": "Albania STATBUS database. Connect using your al.statbus.org credentials."
+    }
+  }
+}

@@ -1,0 +1,65 @@
+# Cloud deployment: System-level pgAdmin 4
+#
+# This is a SHARED pgAdmin instance that runs at the host level,
+# serving multiple STATBUS tenant instances. Unlike the per-instance
+# pgAdmin in docker-compose.pgadmin.yml, this one:
+#
+# - Runs independently of any tenant Docker Compose
+# - Is accessed via host-level Caddy routing
+# - Connects to tenant databases via external hostnames (SNI routing)
+# - Uses forward_auth to the appropriate tenant's PostgREST for auth
+#
+# Usage:
+#   cd cloud
+#   docker compose -f docker-compose.pgadmin.yml up -d
+#
+# Prerequisites:
+# 1. Copy servers.json.example to servers.json and customize for your tenants
+# 2. Configure host Caddy with pgadmin.snippet (see README.md)
+# 3. Ensure each tenant's database is accessible via Layer4 SNI routing
+#
+services:
+  pgadmin:
+    build:
+      context: ../pgadmin
+      dockerfile: Dockerfile
+    image: statbus_pgadmin:latest
+    container_name: statbus-cloud-pgadmin
+    environment:
+      # pgAdmin master credentials - used only for pgAdmin's internal authentication
+      # Access is gated by tenant JWT via host Caddy's forward_auth
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@statbus.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:?Set PGADMIN_DEFAULT_PASSWORD in .env}
+      # Configure for running behind reverse proxy at /pgadmin path
+      SCRIPT_NAME: /pgadmin
+      # Listen on internal port (host Caddy proxies to this)
+      PGADMIN_LISTEN_PORT: ${PGADMIN_PORT:-5050}
+      # Disable pgAdmin's own TLS - host Caddy handles HTTPS
+      PGADMIN_ENABLE_TLS: "False"
+      # Proxy configuration - trust headers from host Caddy
+      PGADMIN_CONFIG_PROXY_X_FOR_COUNT: "1"
+      PGADMIN_CONFIG_PROXY_X_PROTO_COUNT: "1"
+      PGADMIN_CONFIG_PROXY_X_HOST_COUNT: "1"
+      PGADMIN_CONFIG_PROXY_X_PORT_COUNT: "1"
+      PGADMIN_CONFIG_PROXY_X_PREFIX_COUNT: "1"
+      # Security settings
+      PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: "True"
+      PGADMIN_CONFIG_SESSION_COOKIE_SAMESITE: "'Lax'"
+      # Disable mail server (not needed)
+      PGADMIN_DISABLE_POSTFIX: "True"
+      # Pre-configured servers for all tenants
+      PGADMIN_SERVER_JSON_FILE: /pgadmin4/servers.json
+    volumes:
+      # Persistent storage for pgAdmin configuration and user data
+      - pgadmin_data:/var/lib/pgadmin
+      # Multi-tenant server definitions (customize from servers.json.example)
+      - ./servers.json:/pgadmin4/servers.json:ro
+    ports:
+      # Expose on localhost only - host Caddy proxies to this
+      - "127.0.0.1:${PGADMIN_PORT:-5050}:${PGADMIN_PORT:-5050}"
+    restart: unless-stopped
+    # No depends_on - this runs independently of tenant containers
+    # Connects to databases via external hostnames through host Caddy
+
+volumes:
+  pgadmin_data:
