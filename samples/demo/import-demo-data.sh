@@ -33,17 +33,19 @@ echo "Creating import jobs for demo data"
 $WORKSPACE/devops/manage-statbus.sh psql -v USER_EMAIL="${USER_EMAIL}" -f samples/demo/import-demo-data.sql
 
 echo "Loading data into import tables"
+# Note: Use relative paths for \copy to work both locally and in Docker
+# (Docker psql runs with -w /statbus, so relative paths resolve correctly)
 # Load legal units data
 echo "Loading legal units demo data"
-$WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_demo_lu_current_upload(tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM '$WORKSPACE/app/public/demo/legal_units_demo.csv' WITH CSV HEADER;"
+$WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_demo_lu_current_upload(tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'app/public/demo/legal_units_demo.csv' WITH CSV HEADER;"
 
 # Load formal establishments data
 echo "Loading formal establishments demo data"
-$WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_demo_es_for_lu_current_upload(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code) FROM '$WORKSPACE/app/public/demo/formal_establishments_units_demo.csv' WITH CSV HEADER;"
+$WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_demo_es_for_lu_current_upload(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code) FROM 'app/public/demo/formal_establishments_units_demo.csv' WITH CSV HEADER;"
 
 # Load informal establishments data
 echo "Loading informal establishments demo data"
-$WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_demo_es_without_lu_current_upload(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code) FROM '$WORKSPACE/app/public/demo/informal_establishments_units_demo.csv' WITH CSV HEADER;"
+$WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_demo_es_without_lu_current_upload(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code) FROM 'app/public/demo/informal_establishments_units_demo.csv' WITH CSV HEADER;"
 
 echo "Checking import job states"
 $WORKSPACE/devops/manage-statbus.sh psql -c "SELECT slug, state FROM public.import_job WHERE slug LIKE 'import_demo_%_current' ORDER BY slug;"

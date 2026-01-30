@@ -35,7 +35,9 @@ echo "Adding import definitions for BRREG units"
 $WORKSPACE/devops/manage-statbus.sh psql < samples/norway/brreg/create-import-definition-hovedenhet-2024.sql
 $WORKSPACE/devops/manage-statbus.sh psql < samples/norway/brreg/create-import-definition-underenhet-2024.sql
 
-YEARS=$(ls $WORKSPACE/samples/norway/small-history/*-enheter.csv | sed -E 's/.*\/([0-9]{4})-enheter\.csv/\1/' | sort -u)
+# Note: Use relative paths for \copy to work both locally and in Docker
+# (Docker psql runs with -w /statbus, so relative paths resolve correctly)
+YEARS=$(ls samples/norway/small-history/*-enheter.csv | sed -E 's/.*\/([0-9]{4})-enheter\.csv/\1/' | sort -u)
 
 echo "Creating import jobs for each year"
 for YEAR in $YEARS; do
@@ -76,11 +78,11 @@ for YEAR in $YEARS; do
 
     # Load hovedenhet (legal units) data
     echo "Loading hovedenhet data for $YEAR"
-    $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_hovedenhet_${YEAR}_small_history_upload FROM '$WORKSPACE/samples/norway/small-history/${YEAR}-enheter.csv' WITH CSV HEADER;"
+    $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_hovedenhet_${YEAR}_small_history_upload FROM 'samples/norway/small-history/${YEAR}-enheter.csv' WITH CSV HEADER;"
 
     # Load underenhet (establishments) data
     echo "Loading underenhet data for $YEAR"
-    $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_underenhet_${YEAR}_small_history_upload FROM '$WORKSPACE/samples/norway/small-history/${YEAR}-underenheter.csv' WITH CSV HEADER;"
+    $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_underenhet_${YEAR}_small_history_upload FROM 'samples/norway/small-history/${YEAR}-underenheter.csv' WITH CSV HEADER;"
 done
 
 #echo "Running worker processing to process import jobs"

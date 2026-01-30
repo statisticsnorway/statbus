@@ -71,13 +71,15 @@ FROM def
 ON CONFLICT (slug) DO NOTHING;"
 
 echo "Loading data into import tables"
+# Note: Use relative paths for \copy to work both locally and in Docker
+# (Docker psql runs with -w /statbus, so relative paths resolve correctly)
 # Load hovedenhet (legal units) data
 echo "Loading hovedenhet selection data"
-$WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_hovedenhet_${YEAR}_selection_upload FROM '$WORKSPACE/samples/norway/legal_unit/enheter-selection.csv' WITH CSV HEADER;"
+$WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_hovedenhet_${YEAR}_selection_upload FROM 'samples/norway/legal_unit/enheter-selection.csv' WITH CSV HEADER;"
 
 # Load underenhet (establishments) data
 echo "Loading underenhet selection data"
-$WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_underenhet_${YEAR}_selection_upload FROM '$WORKSPACE/samples/norway/establishment/underenheter-selection.csv' WITH CSV HEADER;"
+$WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_underenhet_${YEAR}_selection_upload FROM 'samples/norway/establishment/underenheter-selection.csv' WITH CSV HEADER;"
 
 echo "Checking import job states"
 $WORKSPACE/devops/manage-statbus.sh psql -c "SELECT slug, state FROM public.import_job WHERE slug LIKE '%selection' ORDER BY slug;"

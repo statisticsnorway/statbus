@@ -2,9 +2,9 @@
 # devops/manage-statbus.sh
 set -euo pipefail # Exit on error, unbound variable, or any failure in a pipeline
 
-# Check for DEBUG environment variable
-if [ "${DEBUG:-}" = "true" ]; then
-  set -x # Print all commands before running them if DEBUG is true
+# Check for DEBUG environment variable (accepts "true" or "1")
+if [ "${DEBUG:-}" = "true" ] || [ "${DEBUG:-}" = "1" ]; then
+  set -x # Print all commands before running them if DEBUG is enabled
 fi
 
 # Ensure Homebrew environment is set up for tools like 'shards'
@@ -328,7 +328,7 @@ case "$action" in
         done
 
         debug_arg=""
-        if [ "${DEBUG:-}" = "true" ]; then
+        if [ "${DEBUG:-}" = "true" ] || [ "${DEBUG:-}" = "1" ]; then
           debug_arg="--debug"
         fi
         
@@ -1069,7 +1069,8 @@ EOS
         eval $(./devops/manage-statbus.sh postgres-variables)
         # The local psql is always tried first, as it has access to files
         # used for copying in data.
-        if $(which psql > /dev/null); then
+        # Set DOCKER_PSQL=1 to force using Docker psql (useful for testing).
+        if [ -z "${DOCKER_PSQL:-}" ] && $(which psql > /dev/null); then
           psql "$@"
         else
           if test -t 0 && test -t 1 && test ! -p /dev/stdin && test ! -f /dev/stdin; then
