@@ -14,9 +14,6 @@ services:
         DEBUG: ${DEBUG:?DEBUG must be set in the generated .env}
     ports:
       - "${APP_BIND_ADDRESS:?APP_BIND_ADDRESS must be set in the generated .env}:3000"
-    profiles:
-      - "all"
-      - "app"
     environment:
       RUNNING_IN_DOCKER: 'true' # To differentiate from true local dev (pnpm run dev on host)
       NEXT_PUBLIC_BROWSER_REST_URL: ${NEXT_PUBLIC_BROWSER_REST_URL}
