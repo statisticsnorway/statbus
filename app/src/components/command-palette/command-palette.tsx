@@ -25,6 +25,7 @@ import {
   ChartColumn,
   Users,
   KeyRound,
+  DatabaseZap,
 } from "lucide-react";
 
 import {
@@ -301,6 +302,16 @@ export function CommandPalette() {
                 >
                   <Binary className="mr-2 h-4 w-4" />
                   <span>Toggle Debug Inspector</span>
+                </CommandItem>
+                <CommandItem
+                  onSelect={() => {
+                    setOpen(false);
+                    window.open("/pgadmin", "_blank");
+                  }}
+                  value="pgadmin postgresql database admin"
+                >
+                  <DatabaseZap className="mr-2 h-4 w-4" />
+                  <span>pgAdmin (Database Admin)</span>
                 </CommandItem>
               </CommandGroup>
             </>
