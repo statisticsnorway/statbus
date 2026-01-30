@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useParams } from 'next/navigation';
-import useSWR, { useSWRConfig } from 'swr';
+import { useSWRConfig } from 'swr';
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { DataTableSkeleton } from "@/components/data-table/data-table-skeleton";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,6 +22,11 @@ import { useAtomValue } from "jotai";
 import { externalIdentTypesAtom } from "@/atoms/base-data";
 import { type ImportJobWithDetails as ImportJob } from "@/atoms/import";
 import { ErrorDisplay } from "@/components/import/ErrorDisplay";
+import { 
+  useSWRWithAuthRefresh, 
+  isJwtExpiredError, 
+  JwtExpiredError 
+} from "@/hooks/use-swr-with-auth-refresh";
 // Per instruction, improve typing for ImportJobDataRow to make 'state' work
 // in useDataTable. This is a first step, with 'any' types to be refined.
 type ImportJobDataRow = {
@@ -57,7 +62,10 @@ const fetcher = async (key: string): Promise<any> => {
       .select("*, import_definition(name)")
       .eq("slug", args[0])
       .single();
-    if (error) throw error;
+    if (error) {
+      if (isJwtExpiredError(error)) throw new JwtExpiredError();
+      throw error;
+    }
     return data;
   }
 
@@ -111,7 +119,10 @@ const fetcher = async (key: string): Promise<any> => {
 
     const { data, error, count } = await queryBuilder;
 
-    if (error) throw error;
+    if (error) {
+      if (isJwtExpiredError(error)) throw new JwtExpiredError();
+      throw error;
+    }
     return { data, count };
   }
 
@@ -138,9 +149,11 @@ export default function ImportJobDataPage() {
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
 
-  const { data: job, error: jobError, isLoading: isJobLoading } = useSWR<ImportJob>(
+  const { data: job, error: jobError, isLoading: isJobLoading, mutate: mutateJob } = useSWRWithAuthRefresh<ImportJob, Error>(
     `import-job/${jobSlug}`,
-    fetcher
+    fetcher,
+    undefined,
+    "ImportJobDataPage:job"
   );
 
   const tableName = job?.data_table_name;
@@ -166,15 +179,22 @@ export default function ImportJobDataPage() {
   }, [tableName, pagination, sorting, columnFilters]);
 
 
-  const { data: tableData, error: tableError, isLoading: isTableDataLoading, isValidating: isTableDataValidating } = useSWR<{
+  const { 
+    data: tableData, 
+    error: tableError, 
+    isLoading: isTableDataLoading, 
+    isValidating: isTableDataValidating, 
+    mutate: mutateTableData,
+    isAwaitingAuthRefresh: awaitingAuthRefresh 
+  } = useSWRWithAuthRefresh<{
     data: ImportJobDataRow[];
     count: number | null;
-  }>(
+  }, Error>(
     tableDataSWRKey,
     fetcher,
-    { revalidateOnFocus: false, keepPreviousData: true }
+    { revalidateOnFocus: false, keepPreviousData: true },
+    "ImportJobDataPage:tableData"
   );
-
 
   useGuardedEffect(() => {
     if (!job?.id) return;
@@ -500,7 +520,7 @@ export default function ImportJobDataPage() {
     getFacetedMinMaxValues: getFacetedMinMaxValues(),
   });
 
-  const isLoading = isJobLoading || (isTableDataLoading && !tableData);
+  const isLoading = isJobLoading || (isTableDataLoading && !tableData) || awaitingAuthRefresh;
 
   // Check if error filter is active
   const isErrorFilterActive = React.useMemo(() => {
@@ -525,6 +545,7 @@ export default function ImportJobDataPage() {
     });
   }, [isErrorFilterActive]);
 
+  // Show error (JWT errors are automatically suppressed while refreshing by the hook)
   if (jobError) {
     return (
       <div className="p-4 bg-red-50 border border-red-200 rounded-md text-red-700">
