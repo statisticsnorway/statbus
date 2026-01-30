@@ -4,7 +4,8 @@ export const dynamic = 'force-dynamic';
 
 import React, { useMemo, useRef, useState } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
-import useSWR, { useSWRConfig } from 'swr';
+import { useSWRConfig } from 'swr';
+import { useSWRWithAuthRefresh, isJwtExpiredError, JwtExpiredError } from "@/hooks/use-swr-with-auth-refresh";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { Spinner } from "@/components/ui/spinner";
 import { formatDuration } from "@/lib/utils";
@@ -136,6 +137,7 @@ const fetcher = async (key: string): Promise<{ data: ImportJob[], count: number 
   const { data, error, count } = await queryBuilder;
   if (error) {
     console.error("SWR Fetcher error (list jobs):", error);
+    if (isJwtExpiredError(error)) throw new JwtExpiredError();
     throw error;
   }
   return { data: data as ImportJob[], count };
@@ -167,10 +169,11 @@ export default function ImportJobsPage() {
     return `${SWR_KEY_IMPORT_JOBS}?${params.toString()}`;
   }, [page, perPage, sort, description, states]);
 
-  const { data, error: swrError, isLoading } = useSWR<{ data: ImportJob[], count: number | null }, Error>(
+  const { data, error: swrError, isLoading } = useSWRWithAuthRefresh<{ data: ImportJob[], count: number | null }, Error>(
     swrKey,
     fetcher,
-    { revalidateOnFocus: false, keepPreviousData: true }
+    { revalidateOnFocus: false, keepPreviousData: true },
+    "ImportJobsPage:jobs"
   );
 
   const jobsData = data?.data ?? [];
