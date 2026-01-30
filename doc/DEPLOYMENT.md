@@ -389,16 +389,75 @@ StatBus uses a layered configuration approach:
 
 > **Note**: The install script (`devops/install-statbus.sh`) automatically detects HTTP-blocked networks and offers to enable this setting.
 
-### Docker Compose Profiles
+### Service Management
 
 Control which services start:
 
 ```bash
-# All services (default)
+# All services (includes pgAdmin if enabled)
 ./devops/manage-statbus.sh start all
 
-# Backend only (no Next.js app)
+# Backend only (for development with local Next.js via pnpm run dev)
 ./devops/manage-statbus.sh start all_except_app
+
+# Just the Next.js app
+./devops/manage-statbus.sh start app
+
+# Specific service
+./devops/manage-statbus.sh start db
+```
+
+### Optional Services
+
+#### pgAdmin 4 (Database Administration)
+
+pgAdmin 4 provides a web-based interface for PostgreSQL administration and is available in standalone mode.
+
+**Access**: `https://your-domain.com/pgadmin`
+
+**Authentication**: pgAdmin access is protected by STATBUS authentication. Users must be logged into STATBUS first, then they can access pgAdmin. Once in pgAdmin, users connect to PostgreSQL using their STATBUS email and password, which enforces their Row Level Security (RLS) permissions.
+
+**Configuration**:
+
+| Setting | Location | Default | Description |
+|---------|----------|---------|-------------|
+| `ENABLE_PGADMIN` | `.env.config` | `true` (standalone) / `false` (other) | Enable/disable pgAdmin |
+
+**Enable/Disable pgAdmin**:
+
+```bash
+# Edit configuration
+nano .env.config
+# Set ENABLE_PGADMIN=true or ENABLE_PGADMIN=false
+
+# Regenerate and restart
+./devops/manage-statbus.sh generate-config
+./devops/manage-statbus.sh stop all
+./devops/manage-statbus.sh start all
+```
+
+**First-Time Setup**:
+
+1. Log into STATBUS at `https://your-domain.com`
+2. Navigate to `https://your-domain.com/pgadmin`
+3. Log into pgAdmin using the credentials from `.env.credentials`:
+   - Email: `admin@statbus.local`
+   - Password: Value of `PGADMIN_DEFAULT_PASSWORD`
+4. The STATBUS database server is pre-configured. Click on "STATBUS Database" and enter your STATBUS credentials to connect.
+
+**Security Note**: The pgAdmin master password (in `.env.credentials`) is only used for pgAdmin's internal authentication layer. The actual database access is controlled by your STATBUS credentials and PostgreSQL's Row Level Security (RLS). Each user sees only the data they have permission to access.
+
+**Troubleshooting**:
+
+```bash
+# Check pgAdmin container status
+docker compose ps pgadmin
+
+# View pgAdmin logs
+docker compose logs pgadmin
+
+# Restart pgAdmin
+docker compose restart pgadmin
 ```
 
 ---
