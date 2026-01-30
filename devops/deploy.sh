@@ -3,8 +3,9 @@
 #
 set -euo pipefail # Exit on error, unbound variable, or any failure in a pipeline
 
-if test -n "${DEBUG:-}"; then
-  set -x # Print all commands before running them - for easy debugging.
+# Check for DEBUG environment variable (accepts "true" or "1")
+if [ "${DEBUG:-}" = "true" ] || [ "${DEBUG:-}" = "1" ]; then
+  set -x # Print all commands before running them if DEBUG is enabled
 fi
 
 sub_domain=$(echo "$USER" | awk -F'_' '{print ($2 == "" ? $1 : $2)}')
@@ -58,6 +59,10 @@ echo "Ensuring config required for all management commands"
 # Ensure the caddy/config dir exists.
 mkdir -p caddy/config
 ./devops/manage-statbus.sh generate-config
+
+echo "Pre-building Docker images to minimize downtime"
+# Build images before stopping services so the downtime is minimal
+docker compose build app db
 
 echo "Stopping the application"
 ./devops/manage-statbus.sh stop app || { echo "Failed to stop the application"; exit 1; }
