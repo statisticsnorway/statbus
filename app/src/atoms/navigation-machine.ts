@@ -171,8 +171,18 @@ export const navigationMachine = setup({
             !isPublicPath(context.pathname),
         },
         {
-          target: 'clearingLastKnownPathBeforeRedirect',
-          guard: ({ context }) => context.isAuthenticated && !context.isAuthLoading && !context.isSetupLoading && context.pathname === '/login',
+          // DECLARATIVE STALE AUTH DETECTION:
+          // If isAuthenticated && pathname === '/login' && auth is stable (not loading),
+          // this is SUSPICIOUS - an authenticated user shouldn't be on /login unless
+          // the server redirected them there (meaning token expired server-side).
+          // Instead of trying to redirect and detecting failure via timeout, we
+          // PROACTIVELY verify auth status before attempting any redirect.
+          target: 'verifyingAuthBeforeLoginRedirect',
+          guard: ({ context }) => 
+            context.isAuthenticated && 
+            context.pathname === '/login' && 
+            context.isAuthStable && 
+            !context.isAuthLoading,
         },
         {
           target: 'redirectingToSetup',
@@ -341,9 +351,89 @@ export const navigationMachine = setup({
       }
     },
     /**
+     * DECLARATIVE STALE AUTH DETECTION:
+     * This state triggers auth verification BEFORE attempting to redirect away from /login.
+     * 
+     * The condition (isAuthenticated && pathname === '/login' && isAuthStable) is SUSPICIOUS:
+     * - An authenticated user shouldn't be on /login unless the server put them there
+     * - This happens when JWT expires server-side but client still thinks isAuthenticated=true
+     * - Instead of trying to redirect and detecting failure via timeout, we PROACTIVELY verify
+     * 
+     * LIFECYCLE:
+     * 1. Enter with sideEffect: { action: 'revalidateAuth' }
+     * 2. NavigationManager sees revalidateAuth, calls sendAuth({ type: 'CHECK' })
+     * 3. Auth machine goes to checking state, isAuthStable becomes false
+     * 4. When auth completes, isAuthStable becomes true again
+     * 5. Transition back to evaluating with fresh auth state
+     * 6. evaluating now makes the correct decision based on actual auth status
+     */
+    verifyingAuthBeforeLoginRedirect: {
+      entry: [
+        assign(({ context }) => ({
+          sideEffect: { action: 'revalidateAuth' },
+          sideEffectStartTime: Date.now(),
+          sideEffectStartPathname: context.pathname,
+        })),
+        () => logger.debug('nav-machine:verifyingAuthBeforeLoginRedirect', 'Suspicious state detected: authenticated but on /login. Verifying auth status before redirect.'),
+      ],
+      on: {
+        CONTEXT_UPDATED: {
+          actions: assign(({ context, event }) => {
+            const newContext = { ...context, ...event.value };
+            
+            // When auth becomes unstable (checking started), clear sideEffect
+            // The auth machine has taken over - we just wait for it to finish
+            if (context.sideEffect?.action === 'revalidateAuth' && newContext.isAuthStable === false) {
+              logger.debug('nav-machine:verifyingAuthBeforeLoginRedirect', 'Auth revalidation in progress, clearing sideEffect');
+              return {
+                ...newContext,
+                sideEffect: undefined,
+                sideEffectStartTime: undefined,
+                sideEffectStartPathname: undefined,
+              };
+            }
+            return newContext;
+          }),
+        },
+        CLEAR_SIDE_EFFECT: {
+          // Ignore polling timeouts - we're waiting for auth machine, not navigation
+          actions: assign(({ context, event }) => {
+            logger.debug('nav-machine:verifyingAuthBeforeLoginRedirect:CLEAR_SIDE_EFFECT', 'Ignoring while waiting for auth', {
+              reason: event.reason,
+            });
+            return context;
+          }),
+        },
+      },
+      always: [
+        {
+          // Auth verification complete AND still authenticated - proceed to redirect
+          // We go directly to clearingLastKnownPathBeforeRedirect to avoid re-triggering
+          // the verifyingAuthBeforeLoginRedirect guard in evaluating
+          target: 'clearingLastKnownPathBeforeRedirect',
+          guard: ({ context }) => 
+            !context.sideEffect && // sideEffect cleared when auth started
+            context.isAuthStable === true && // auth has finished
+            context.isAuthenticated === true, // still authenticated - token was valid or refresh succeeded
+        },
+        {
+          // Auth verification complete AND NOT authenticated - go to evaluating
+          // evaluating will see !isAuthenticated on /login and go to idle
+          target: 'evaluating',
+          guard: ({ context }) => 
+            !context.sideEffect && // sideEffect cleared when auth started
+            context.isAuthStable === true && // auth has finished
+            context.isAuthenticated === false, // no longer authenticated - token expired and refresh failed
+        },
+      ],
+    },
+    /**
      * A state that triggers a 'navigate' side-effect to redirect the user away
      * from the login page after they have successfully authenticated. The destination
      * is prioritized: setup page, last known path, or dashboard.
+     * 
+     * NOTE: By the time we reach this state, auth has already been verified by
+     * verifyingAuthBeforeLoginRedirect, so we can trust isAuthenticated is accurate.
      */
     redirectingFromLogin: {
       entry: [
@@ -364,32 +454,21 @@ export const navigationMachine = setup({
         },
       ],
       on: {
-        // When a context update happens, just apply it. The `always` transition
-        // will then re-evaluate the state based on the new context.
-         CONTEXT_UPDATED: {
-           actions: assign(({ context, event }) => {
-             // INTENT: Handle ONLY TOO SLOW detection - let polling handle TOO FAST
-             
-             // TOO SLOW DETECTION: Check if sideEffect timeout occurred
-             const contextAfterTimeout = handleSideEffectTimeout(context, event, 'redirectingFromLogin');
-             if (!contextAfterTimeout.sideEffect && context.sideEffect) {
-               // Timeout recovery triggered, return safe state
-               return contextAfterTimeout;
-             }
-             
-             // No sideEffect clearing - rely purely on polling for navigation completion
-             return { ...context, ...event.value };
-           }),
-         },
-         CLEAR_SIDE_EFFECT: {
-           // Logging is handled by NavigationManager (gated by debug inspector)
-           actions: assign(({ context }) => ({
-             ...context,
-             sideEffect: undefined,
-             sideEffectStartTime: undefined,
-             sideEffectStartPathname: undefined,
-           })),
-         }
+        CONTEXT_UPDATED: {
+          actions: assign(({ context, event }) => 
+            // Standard timeout handling - auth has already been verified
+            handleSideEffectTimeout(context, event, 'redirectingFromLogin')
+          ),
+        },
+        CLEAR_SIDE_EFFECT: {
+          // Clear sideEffect (called by polling for TOO FAST/TOO SLOW detection)
+          actions: assign(({ context }) => ({
+            ...context,
+            sideEffect: undefined,
+            sideEffectStartTime: undefined,
+            sideEffectStartPathname: undefined,
+          })),
+        },
       },
       always: [
         {
@@ -403,7 +482,7 @@ export const navigationMachine = setup({
           // Guard: Only transition once we are no longer on the login page.
           guard: ({ context }) => context.pathname !== '/login',
         },
-      ]
+      ],
     }
   },
 });
