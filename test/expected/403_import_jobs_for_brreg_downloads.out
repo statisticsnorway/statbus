@@ -1,3 +1,32 @@
+--
+-- Test: Import jobs for BRREG full download data
+--
+-- This test uses multiple transactions to allow worker.process_tasks() to
+-- commit between tasks, avoiding O(n^2) performance issues.
+--
+-- CRITICAL: Upload order determines processing priority!
+-- - LU (hovedenhet) must be uploaded before ES (underenhet)
+-- - ES depends on LU external_idents which are created during LU processing
+--
+-- NOTE: This test requires manually downloaded files in tmp/:
+-- - tmp/enheter.csv (from BRREG hovedenhet download)
+-- - tmp/underenheter_filtered.csv (from BRREG underenhet download, filtered)
+--
+-- ============================================================================
+-- PHASE 0: SETUP
+-- ============================================================================
+-- Note: No reset needed - 4xx tests run in isolated databases from template
+\echo 'Pausing background worker for test duration'
+Pausing background worker for test duration
+SELECT worker.pause('1 hour'::interval);
+ pause 
+-------
+ 
+(1 row)
+
+-- ============================================================================
+-- PHASE 1: SETUP (in transaction so setup.sql helpers work)
+-- ============================================================================
 BEGIN;
 \i test/setup.sql
 -- While the datestyle is set for the database, the pg_regress tool sets the MDY format

@@ -14,12 +14,11 @@
 --
 
 -- ============================================================================
--- PHASE 0: INITIAL CLEANUP AND PAUSE WORKER
+-- PHASE 0: SETUP
 -- ============================================================================
-\echo "Cleaning up any leftover data from prior runs"
-SELECT public.reset(true, 'getting-started');
+-- Note: No reset needed - 4xx tests run in isolated databases from template
 
-\echo "Pausing background worker for test duration"
+\echo 'Pausing background worker for test duration'
 SELECT worker.pause('1 hour'::interval);
 
 -- ============================================================================
