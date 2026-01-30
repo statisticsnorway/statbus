@@ -31,9 +31,6 @@ services:
     depends_on:
       rest:
         condition: service_started
-    profiles:
-      - "all"
-      - "all_except_app"
 
 volumes:
   caddy_logs:
