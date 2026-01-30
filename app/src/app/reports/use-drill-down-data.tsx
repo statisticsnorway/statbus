@@ -2,9 +2,9 @@
 import { DrillDown, DrillDownPoint } from "@/app/reports/types/drill-down";
 import { useState, useMemo } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
-import useSWR from "swr";
 import { useTimeContext } from '@/atoms/app-derived';
 import { fetchWithAuthRefresh } from "@/context/RestClientStore";
+import { useSWRWithAuthRefresh, isJwtExpiredError, JwtExpiredError } from "@/hooks/use-swr-with-auth-refresh";
 
 export const useDrillDownData = () => {
   const { selectedTimeContext } = useTimeContext();
@@ -37,17 +37,32 @@ export const useDrillDownData = () => {
       return cache.get(url);
     }
     const response = await fetchWithAuthRefresh(url);
+    
+    // Check for JWT expiration in the response
+    if (response.status === 401) {
+      const text = await response.text();
+      if (text.includes("JWT expired") || text.includes("PGRST301")) {
+        throw new JwtExpiredError();
+      }
+      throw new Error(`Unauthorized: ${text}`);
+    }
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
     const data = await response.json();
     cache.set(url, data);
     return data;
   };
 
-  const swrResponse = useSWR<DrillDown>(
+  const swrResponse = useSWRWithAuthRefresh<DrillDown>(
     `/api/reports?${urlSearchParams.toString()}`,
     fetcher,
     {
       keepPreviousData: true,
-    }
+    },
+    "useDrillDownData"
   );
 
   // Use initial data when no parameters are present

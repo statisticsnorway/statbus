@@ -1,7 +1,7 @@
 "use client";
-import useSWR from "swr";
 import { Enums } from "@/lib/database.types";
 import { fetchWithAuthRefresh } from "@/context/RestClientStore";
+import { useSWRWithAuthRefresh, JwtExpiredError } from "@/hooks/use-swr-with-auth-refresh";
 
 export const useStatisticalHistoryChanges = (
   unitType: UnitType,
@@ -18,15 +18,32 @@ export const useStatisticalHistoryChanges = (
     urlSearchParams.set("year", year.toString());
   }
 
-  const fetcher = (url: string) =>
-    fetchWithAuthRefresh(url).then((res) => res.json());
+  const fetcher = async (url: string) => {
+    const response = await fetchWithAuthRefresh(url);
+    
+    // Check for JWT expiration in the response
+    if (response.status === 401) {
+      const text = await response.text();
+      if (text.includes("JWT expired") || text.includes("PGRST301")) {
+        throw new JwtExpiredError();
+      }
+      throw new Error(`Unauthorized: ${text}`);
+    }
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    return response.json();
+  };
 
-  const { data: history, isLoading } = useSWR<StatisticalHistoryHighcharts>(
+  const { data: history, isLoading } = useSWRWithAuthRefresh<StatisticalHistoryHighcharts>(
     `/api/reports/history-changes?${urlSearchParams.toString()}`,
     fetcher,
     {
       keepPreviousData: true,
-    }
+    },
+    "useStatisticalHistoryChanges"
   );
 
   return {
