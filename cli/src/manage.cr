@@ -163,7 +163,8 @@ module Statbus
       jwt_secret : String,
       dashboard_username : String,
       dashboard_password : String,
-      service_role_key : String
+      service_role_key : String,
+      pgadmin_default_password : String
 
     # Type-safe configuration structure
     record ConfigEnv,
@@ -197,9 +198,13 @@ module Statbus
       tls_cert_file : String,
       tls_key_file : String,
 
-      # Docker build configuration for HTTPS-only networks
-      # Set to "true" to use HTTPS mirrors for apt packages during Docker image builds
-      apt_use_https_only : String
+            # Docker build configuration for HTTPS-only networks
+            # Set to "true" to use HTTPS mirrors for apt packages during Docker image builds
+            apt_use_https_only : String,
+
+            # pgAdmin configuration
+            # Enable pgAdmin 4 web interface at /pgadmin (default: true for standalone, false otherwise)
+            enable_pgadmin : String
 
     # Type-safe derived memory configuration structure
     # All memory settings are derived from DB_MEM_LIMIT for consistent scaling.
@@ -329,6 +334,8 @@ module Statbus
             dashboard_username: credentials_env.generate("DASHBOARD_USERNAME") { "admin" },
             dashboard_password: credentials_env.generate("DASHBOARD_PASSWORD") { random_string(20) },
             service_role_key: credentials_env.generate("SERVICE_ROLE_KEY") { service_role_key },
+            # pgAdmin master password (for pgAdmin's internal auth, not PostgreSQL)
+            pgadmin_default_password: credentials_env.generate("PGADMIN_DEFAULT_PASSWORD") { random_string(20) },
           )
         end
 
@@ -418,7 +425,11 @@ module Statbus
 
             # Docker build configuration
             # For networks that block HTTP traffic, set to "true" to use HTTPS mirrors
-            apt_use_https_only: config_env.generate("APT_USE_HTTPS_ONLY") { "false" }
+            apt_use_https_only: config_env.generate("APT_USE_HTTPS_ONLY") { "false" },
+
+            # pgAdmin configuration
+            # Default: enabled in standalone mode, disabled otherwise
+            enable_pgadmin: config_env.generate("ENABLE_PGADMIN") { _caddy_deployment_mode == "standalone" ? "true" : "false" }
           )
         end
 
@@ -627,6 +638,16 @@ module Statbus
         "#DEBUG=true\nDEBUG=false"
       end
     }
+
+    ################################################################
+    # pgAdmin Configuration (optional)
+    # pgAdmin 4 provides a web interface for PostgreSQL administration
+    # Access: /pgadmin (requires STATBUS login)
+    # Enable/disable via ENABLE_PGADMIN in .env.config
+    ################################################################
+    ENABLE_PGADMIN=#{config.enable_pgadmin}
+    PGADMIN_DEFAULT_EMAIL=admin@statbus.local
+    PGADMIN_DEFAULT_PASSWORD=#{credentials.pgadmin_default_password}
     EOS
       content += "\n\n"
 
