@@ -1,0 +1,14 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "STATBUS Database",
+      "Group": "STATBUS",
+      "Host": "db",
+      "Port": 5432,
+      "MaintenanceDB": "postgres",
+      "Username": "",
+      "SSLMode": "prefer",
+      "Comment": "STATBUS PostgreSQL database. Connect using your STATBUS email and password to access data with your permissions (Row Level Security)."
+    }
+  }
+}
