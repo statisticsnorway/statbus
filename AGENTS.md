@@ -106,8 +106,8 @@ Controlled by `CADDY_DEPLOYMENT_MODE` - defines **how Caddy operates**:
 
 - **`development`**: Local development
   - HTTP only, self-signed internal CA certs
-  - Next.js runs separately on host (`pnpm run dev`)
-  - Custom ports based on slot offset
+  - Next.js runs separately on host (`pnpm run dev`) at port 3000 (http://local.statbus.org:3000)
+  - Slot-based ports (e.g., 3010) are for testing containerized production builds to catch advanced timing issues
   - PostgreSQL available on two separate ports (slot-based):
     - Port 3014 (offset 1): Plaintext (default, convenient for local psql and SSH tunnels)
     - Port 3015 (offset 1): TLS+SNI (for testing production-like connections with `TLS=1`)
