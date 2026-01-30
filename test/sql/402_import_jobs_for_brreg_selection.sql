@@ -149,40 +149,22 @@ SELECT row_id, errors, merge_status FROM public.import_underenhet_2025_selection
 \echo 'ES has ~5x more rows - if time ratio >> 5, scaling is non-linear.'
 \echo ''
 
--- Calculate per-row metrics and classify scaling
+-- Calculate scaling classification (deterministic output only)
+-- Variable timing data is written to the .perf file below
 WITH job_metrics AS (
     SELECT
         slug,
         CASE WHEN slug LIKE '%hovedenhet%' THEN 'LU' ELSE 'ES' END AS phase,
         total_rows,
-        EXTRACT(EPOCH FROM (analysis_stop_at - analysis_start_at)) AS analysis_sec,
-        EXTRACT(EPOCH FROM (processing_stop_at - processing_start_at)) AS processing_sec,
         analysis_rows_per_sec,
         import_rows_per_sec AS processing_rows_per_sec
     FROM public.import_job
     WHERE slug LIKE 'import_%_selection'
-),
-phase_comparison AS (
-    SELECT
-        phase,
-        total_rows,
-        analysis_sec,
-        processing_sec,
-        analysis_rows_per_sec,
-        processing_rows_per_sec,
-        -- Calculate ms per row
-        CASE WHEN total_rows > 0 THEN ROUND((processing_sec * 1000 / total_rows)::numeric, 2) END AS processing_ms_per_row,
-        CASE WHEN total_rows > 0 THEN ROUND((analysis_sec * 1000 / total_rows)::numeric, 2) END AS analysis_ms_per_row
-    FROM job_metrics
 )
 SELECT
     phase,
     total_rows,
-    ROUND(processing_rows_per_sec::numeric, 1) AS proc_rows_per_sec,
-    ROUND(analysis_rows_per_sec::numeric, 1) AS analysis_rows_per_sec,
-    processing_ms_per_row,
-    analysis_ms_per_row,
-    -- Classify based on absolute performance
+    -- Classify based on absolute performance (deterministic categories)
     CASE
         WHEN processing_rows_per_sec >= 1000 THEN 'GOOD'
         WHEN processing_rows_per_sec >= 100 THEN 'OK'
@@ -195,7 +177,7 @@ SELECT
         WHEN analysis_rows_per_sec >= 10 THEN 'SLOW'
         ELSE 'VERY_SLOW'
     END AS analysis_status
-FROM phase_comparison
+FROM job_metrics
 ORDER BY phase;
 
 \echo ''
