@@ -17,7 +17,8 @@ export default function PrimaryUnitInfo() {
   );
   const { canEdit } = usePermission();
   if (error) {
-    throw new Error(error.message, { cause: error });
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    throw new Error(errorMessage, { cause: error });
   }
   if (error || (!isLoading && !hierarchy)) {
     return (

@@ -2,13 +2,12 @@ import {
   DetailsPageHeader,
   DetailsPageHeaderSkeleton,
 } from "@/components/statistical-unit-details/details-page-header";
-import { PostgrestError } from "@supabase/postgrest-js";
 import { cn } from "@/lib/utils";
 
 interface HeaderSlotProps {
   readonly id: string;
   readonly unit?: { name: string | null };
-  readonly error: PostgrestError | null;
+  readonly error: unknown;
   readonly loading?: boolean;
   readonly className?: string;
   readonly unitType?: "establishment" | "legal_unit" | "enterprise" | "enterprise_group";
