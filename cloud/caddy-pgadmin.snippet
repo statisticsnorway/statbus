@@ -39,8 +39,12 @@
 		# The {args[0]} placeholder receives the tenant's REST port
 		forward_auth localhost:{args[0]} {
 			uri /rpc/auth_gate
-			# Copy cookies for JWT authentication
-			copy_headers Cookie
+
+			# Handle unauthorized - redirect to login
+			@unauthorized status 401
+			handle_response @unauthorized {
+				redir /?login=required&redirect={uri} 302
+			}
 		}
 
 		# If authenticated, proxy to shared pgAdmin
@@ -50,14 +54,6 @@
 			# Pass through authentication headers
 			header_up X-Forwarded-Proto {scheme}
 			header_up X-Forwarded-Host {host}
-		}
-	}
-
-	# Redirect unauthenticated users to login page
-	handle_errors {
-		@unauthorized expression {http.error.status_code} == 401
-		handle @unauthorized {
-			redir /?login=required&redirect=/pgadmin 302
 		}
 	}
 }
