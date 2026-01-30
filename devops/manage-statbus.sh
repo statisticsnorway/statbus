@@ -22,32 +22,77 @@ else
   export TTY_INPUT=/dev/null
 fi
 
-# Add support for an optional profile as an extra argument for start and stop,
-# and when present add the proper `--profile ...` argument.
+# Map logical group names to explicit service lists for start/stop/restart commands
+# Available targets:
+#   all            - All services (db, rest, proxy, worker, app) + pgadmin if enabled
+#   all_except_app - Backend services only (for development with local Next.js)
+#   app            - Just the Next.js app
+#   pgadmin        - Just pgAdmin (if enabled)
+#   <service>      - Any specific service name (db, rest, proxy, worker)
 action=${1:-}
 shift || true
 
-set_profile_arg() {
-    profile=${1:-}
-
-    # Get the available profiles from Docker Compose
-    available_profiles=$(docker compose config --profiles)
-
-    # If no profile is provided (fallback to "all"), display available profiles
-    if test -z "$profile"; then
-        echo "No profile provided. Available profiles are:"
-        echo "$available_profiles"
-        exit 1
-    else
-        # Validate if the provided profile exists
-        if ! echo "$available_profiles" | grep -wq "$profile"; then
-            echo "Error: Profile '$profile' does not exist in docker compose."
-            exit 1
+# Get services to operate on based on logical group name
+# Returns space-separated list of services
+get_services() {
+    group=${1:-}
+    
+    # Core services (always needed)
+    core_services="db rest proxy worker"
+    
+    # Check if pgAdmin is enabled (from .env)
+    pgadmin_enabled="false"
+    if test -f .env; then
+        enable_pgadmin=$(grep '^ENABLE_PGADMIN=' .env | cut -d'=' -f2)
+        if [ "$enable_pgadmin" = "true" ]; then
+            pgadmin_enabled="true"
         fi
     fi
-
-    compose_profile_arg="--profile \"$profile\""
-    shift || true
+    
+    case "$group" in
+        'all')
+            # All services including app, plus pgadmin if enabled
+            if [ "$pgadmin_enabled" = "true" ]; then
+                echo "$core_services app pgadmin"
+                echo "Including pgAdmin (ENABLE_PGADMIN=true in .env.config)" >&2
+            else
+                echo "$core_services app"
+            fi
+            ;;
+        'all_except_app')
+            # Backend services only, plus pgadmin if enabled
+            if [ "$pgadmin_enabled" = "true" ]; then
+                echo "$core_services pgadmin"
+                echo "Including pgAdmin (ENABLE_PGADMIN=true in .env.config)" >&2
+            else
+                echo "$core_services"
+            fi
+            ;;
+        'app')
+            echo "app"
+            ;;
+        'pgadmin')
+            if [ "$pgadmin_enabled" = "true" ]; then
+                echo "pgadmin"
+            else
+                echo "Error: pgAdmin is not enabled. Set ENABLE_PGADMIN=true in .env.config and run generate-config" >&2
+                return 1
+            fi
+            ;;
+        '')
+            echo "No target specified. Available targets:" >&2
+            echo "  all            - All services (db, rest, proxy, worker, app, pgadmin if enabled)" >&2
+            echo "  all_except_app - Backend services only (for development with local Next.js)" >&2
+            echo "  app            - Just the Next.js app" >&2
+            echo "  pgadmin        - Just pgAdmin (if enabled)" >&2
+            echo "  <service>      - Any specific service name (db, rest, proxy, worker)" >&2
+            return 1
+            ;;
+        *)
+            # Pass through as a specific service name
+            echo "$group"
+            ;;
+    esac
 }
 
 case "$action" in
@@ -56,50 +101,24 @@ case "$action" in
         ./devops/dotenv --file .env set VERSION=$VERSION
         ./devops/manage-statbus.sh build-statbus-cli
         ./devops/manage-statbus.sh generate-config
-        target_service_or_profile="${1:-}"
-        if [ "$target_service_or_profile" = "app" ]; then
-            # If the target is 'app', pass it directly as a service to docker compose
-            docker compose up --build --detach app
-        else
-            # Otherwise, use the profile logic
-            set_profile_arg "$@"
-            eval docker compose $compose_profile_arg up --build --detach
-        fi
+        services=$(get_services "$1") || exit 1
+        docker compose up --build --detach $services
       ;;
     'stop' )
-        target_service_or_profile="${1:-}"
-        if [ "$target_service_or_profile" = "app" ]; then
-            # If the target is 'app', pass it directly as a service to docker compose
-            docker compose down --remove-orphans app
-        else
-            # Otherwise, use the profile logic
-            set_profile_arg "$@"
-            eval docker compose $compose_profile_arg down --remove-orphans
-        fi
+        services=$(get_services "$1") || exit 1
+        docker compose stop $services
       ;;
     'restart' )
-        target_service_or_profile="${1:-}"
-        if [ "$target_service_or_profile" = "app" ]; then
-            echo "Restarting app service..."
-            docker compose down --remove-orphans app
-            VERSION=$(git describe --always)
-            ./devops/dotenv --file .env set VERSION=$VERSION
-            ./devops/manage-statbus.sh build-statbus-cli
-            ./devops/manage-statbus.sh generate-config
-            docker compose up --build --detach app
-            echo "App service restarted."
-        else
-            # Handles profile logic, including erroring out if no/invalid profile is given
-            set_profile_arg "$@" 
-            echo "Restarting services in profile: $profile..."
-            eval docker compose $compose_profile_arg down --remove-orphans
-            VERSION=$(git describe --always)
-            ./devops/dotenv --file .env set VERSION=$VERSION
-            ./devops/manage-statbus.sh build-statbus-cli
-            ./devops/manage-statbus.sh generate-config
-            eval docker compose $compose_profile_arg up --build --detach
-            echo "Services in profile $profile restarted."
-        fi
+        target="${1:-}"
+        echo "Restarting: $target..."
+        services=$(get_services "$target") || exit 1
+        docker compose stop $services
+        VERSION=$(git describe --always)
+        ./devops/dotenv --file .env set VERSION=$VERSION
+        ./devops/manage-statbus.sh build-statbus-cli
+        ./devops/manage-statbus.sh generate-config
+        docker compose up --build --detach $services
+        echo "Restarted: $services"
       ;;
     'logs' )
         eval docker compose logs --follow

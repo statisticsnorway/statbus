@@ -33,7 +33,4 @@ services:
       PGRST_DB_PRE_REQUEST: auth.check_api_key_revocation
     ports:
       - "${REST_BIND_ADDRESS:?REST_BIND_ADDRESS must be set in the generated .env}:3000"
-    profiles:
-      - "all"
-      - "all_except_app"
     command: "postgrest"
