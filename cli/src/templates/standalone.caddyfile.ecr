@@ -76,13 +76,14 @@ http://<%= @domain %> {
         }
     }
     
-    # PostgREST auth endpoints (login/logout/refresh/auth_status)
+    # PostgREST auth endpoints (login/logout/refresh/auth_status/auth_gate)
     @auth_paths {
         path /rest/rpc/login
         path /rest/rpc/logout
         path /rest/rpc/refresh
         path /rest/rpc/auth_status
         path /rest/rpc/auth_test
+        path /rest/rpc/auth_gate
     }
     handle @auth_paths {
         uri strip_prefix /rest
@@ -109,6 +110,40 @@ http://<%= @domain %> {
         reverse_proxy rest:3000 {
         }
     }
+    
+<% if @config.enable_pgadmin == "true" %>
+    # pgAdmin 4 - PostgreSQL administration interface
+    # Protected by STATBUS JWT authentication via forward_auth
+    # Users must be logged into STATBUS to access pgAdmin
+    @pgadmin {
+        path /pgadmin
+        path /pgadmin/*
+    }
+    handle @pgadmin {
+        # Verify user is authenticated via STATBUS JWT
+        # forward_auth calls /rest/rpc/auth_gate which returns:
+        # - 200 OK if authenticated (allows access)
+        # - 401 Unauthorized if not (handled below to redirect to login)
+        forward_auth rest:3000 {
+            uri /rpc/auth_gate
+            # Copy the user email header if provided by auth_gate
+            copy_headers X-Auth-User X-Auth-Email
+            
+            # Handle 401 responses - redirect to login page instead of showing error
+            @unauthorized status 401
+            handle_response @unauthorized {
+                redir * /?login=required&redirect={uri} temporary
+            }
+        }
+        
+        # Proxy to pgAdmin with proper headers for subdirectory hosting
+        reverse_proxy pgadmin:5050 {
+            header_up X-Script-Name /pgadmin
+            header_up X-Scheme {scheme}
+            header_up X-Forwarded-Host {host}
+        }
+    }
+<% end %>
     
     # All other requests to Next.js app
     handle {
@@ -144,6 +179,7 @@ http://proxy {
         path /rest/rpc/refresh
         path /rest/rpc/auth_status
         path /rest/rpc/auth_test
+        path /rest/rpc/auth_gate
     }
     handle @auth_paths {
         uri strip_prefix /rest
