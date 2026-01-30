@@ -38,9 +38,6 @@ services:
       # Make all files available for running tests and writing test results or output files from psql.
       - ..:/statbus
 
-    profiles:
-      - "all"
-      - "all_except_app"
     # Prevent the database from using too much memory
     shm_size: ${DB_SHM_SIZE:-4g}
     mem_limit: ${DB_MEM_LIMIT:-4G}
