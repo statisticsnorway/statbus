@@ -128,7 +128,7 @@ http://127.0.0.1:19999 {
 
 # Shared routing configuration for both HTTP and HTTPS
 (statbus_routes) {
-    # PostgREST auth endpoints (login/logout/refresh/auth_status)
+    # PostgREST auth endpoints (login/logout/refresh/auth_status/auth_gate)
     # These should not have Authorization header as they handle cookies directly
     @auth_paths {
         path /rest/rpc/login
@@ -136,6 +136,7 @@ http://127.0.0.1:19999 {
         path /rest/rpc/refresh
         path /rest/rpc/auth_status
         path /rest/rpc/auth_test
+        path /rest/rpc/auth_gate
     }
     handle @auth_paths {
         uri strip_prefix /rest

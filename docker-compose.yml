@@ -19,3 +19,6 @@ include:
   - path:
       # Caddy web server
       - "caddy/docker-compose.yml"
+  - path:
+      # pgAdmin 4 - PostgreSQL administration (optional, profile: pgadmin)
+      - "docker-compose.pgadmin.yml"

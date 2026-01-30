@@ -58,6 +58,7 @@ http://proxy {
         path /rest/rpc/refresh
         path /rest/rpc/auth_status
         path /rest/rpc/auth_test
+        path /rest/rpc/auth_gate
     }
     handle @auth_paths {
         uri strip_prefix /rest
@@ -108,13 +109,14 @@ http://<%= @domain %> {
         }
     }
     
-    # PostgREST auth endpoints (login/logout/refresh/auth_status)
+    # PostgREST auth endpoints (login/logout/refresh/auth_status/auth_gate)
     @auth_paths {
         path /rest/rpc/login
         path /rest/rpc/logout
         path /rest/rpc/refresh
         path /rest/rpc/auth_status
         path /rest/rpc/auth_test
+        path /rest/rpc/auth_gate
     }
     handle @auth_paths {
         uri strip_prefix /rest
