@@ -1,0 +1,132 @@
+# Example Host-level Caddyfile for STATBUS Cloud Deployment
+#
+# This Caddyfile runs at the HOST level (not inside Docker) and handles:
+# 1. TLS termination for all tenant subdomains
+# 2. Routing to each tenant's Docker Compose services
+# 3. Shared pgAdmin with per-tenant authentication
+# 4. Layer4 SNI routing for PostgreSQL connections
+#
+# Customize this for your deployment by:
+# 1. Adding/removing tenant blocks
+# 2. Updating port numbers to match your DEPLOYMENT_SLOT_PORT_OFFSET values
+# 3. Configuring your domain and TLS settings
+#
+# Port calculation: base_port = 3000 + (slot_offset × 10)
+#   HTTP: base_port + 0, HTTPS: base_port + 1, App: base_port + 2
+#   REST: base_port + 3, DB: base_port + 4, DB-TLS: base_port + 5
+#
+# Environment variables (set these or replace with values):
+#   PGADMIN_PORT - pgAdmin listen port (default: 5050)
+
+# Global options
+{
+	# Use Let's Encrypt for production
+	# For staging/testing, uncomment:
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+
+	# Layer4 for PostgreSQL SNI routing
+	layer4 {
+		# PostgreSQL with SNI-based routing (port 5432)
+		:5432 {
+			@ma tls sni ma.statbus.org
+			route @ma {
+				proxy localhost:3025  # ma DB-TLS port
+			}
+
+			@no tls sni no.statbus.org
+			route @no {
+				proxy localhost:3035  # no DB-TLS port
+			}
+
+			@al tls sni al.statbus.org
+			route @al {
+				proxy localhost:3045  # al DB-TLS port
+			}
+		}
+	}
+}
+
+# Reusable snippets
+(pgadmin_route) {
+	# pgAdmin route with tenant-specific authentication
+	# {args[0]} = tenant's REST port for auth_gate
+	handle /pgadmin* {
+		forward_auth localhost:{args[0]} {
+			uri /rpc/auth_gate
+			copy_headers Cookie
+		}
+		reverse_proxy localhost:{$PGADMIN_PORT:5050} {
+			header_up Host {host}
+			header_up X-Forwarded-Proto {scheme}
+			header_up X-Forwarded-Host {host}
+		}
+	}
+}
+
+(tenant_routes) {
+	# Standard tenant routes
+	# {args[0]} = app port, {args[1]} = rest port
+
+	# PostgREST API
+	handle /rest/* {
+		uri strip_prefix /rest
+		reverse_proxy localhost:{args[1]}
+	}
+
+	# Auth gate endpoint (for pgAdmin forward_auth)
+	handle /rest/rpc/auth_gate {
+		reverse_proxy localhost:{args[1]}
+	}
+
+	# Next.js application (catch-all)
+	handle {
+		reverse_proxy localhost:{args[0]}
+	}
+}
+
+(error_handlers) {
+	handle_errors {
+		@unauthorized expression {http.error.status_code} == 401
+		handle @unauthorized {
+			redir /?login=required&redirect={uri} 302
+		}
+	}
+}
+
+# =============================================================================
+# TENANT SITE BLOCKS
+# =============================================================================
+
+# Morocco tenant (slot offset 2: ports 3020-3025)
+ma.statbus.org {
+	import pgadmin_route 3023
+	import tenant_routes 3022 3023
+	import error_handlers
+}
+
+# Norway tenant (slot offset 3: ports 3030-3035)
+no.statbus.org {
+	import pgadmin_route 3033
+	import tenant_routes 3032 3033
+	import error_handlers
+}
+
+# Albania tenant (slot offset 4: ports 3040-3045)
+al.statbus.org {
+	import pgadmin_route 3043
+	import tenant_routes 3042 3043
+	import error_handlers
+}
+
+# =============================================================================
+# OPTIONAL: Root domain redirect
+# =============================================================================
+
+# statbus.org {
+# 	redir https://www.statbus.org{uri} permanent
+# }
+
+# www.statbus.org {
+# 	# Marketing site or redirect to documentation
+# 	reverse_proxy localhost:8080
+# }

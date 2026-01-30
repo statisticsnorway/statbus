@@ -1,0 +1,81 @@
+# Host-level Caddy snippet for shared pgAdmin routing
+#
+# Include this in your host Caddyfile to enable pgAdmin access across all tenants.
+# Each tenant subdomain (e.g., ma.statbus.org/pgadmin) will authenticate against
+# that tenant's PostgREST before proxying to the shared pgAdmin instance.
+#
+# Usage in host Caddyfile:
+#   import /path/to/statbus/cloud/caddy-pgadmin.snippet
+#
+# Prerequisites:
+# 1. Shared pgAdmin running: cd cloud && docker compose -f docker-compose.pgadmin.yml up -d
+# 2. Each tenant's PostgREST accessible at their configured port
+# 3. Tenant port mapping defined below (customize TENANT_PORTS)
+#
+# Architecture:
+#   Browser → host Caddy → forward_auth to tenant's /rest/rpc/auth_gate
+#                       → proxy to shared pgAdmin (localhost:$PGADMIN_PORT)
+#                       → pgAdmin connects to DB via external hostname (SNI routing)
+#
+# Environment variables (set these or Caddy will use defaults):
+#   PGADMIN_PORT - pgAdmin listen port (default: 5050)
+
+# Tenant configuration: subdomain → PostgREST port
+# Customize this for your deployment
+# Format: subdomain=rest_port (from each tenant's DEPLOYMENT_SLOT_PORT_OFFSET)
+#
+# Example tenant ports (offset × 10 + 3013):
+#   local (offset 1): 3013 - typically not used in cloud
+#   ma (offset 2): 3023
+#   no (offset 3): 3033
+#   al (offset 4): 3043
+
+# pgAdmin route handler - to be used within each tenant's site block
+# This is a named snippet that can be imported into tenant site blocks
+(pgadmin_handler) {
+	# Route for /pgadmin paths
+	handle /pgadmin* {
+		# Authenticate against the tenant's PostgREST
+		# The {args[0]} placeholder receives the tenant's REST port
+		forward_auth localhost:{args[0]} {
+			uri /rpc/auth_gate
+			# Copy cookies for JWT authentication
+			copy_headers Cookie
+		}
+
+		# If authenticated, proxy to shared pgAdmin
+		reverse_proxy localhost:{$PGADMIN_PORT:5050} {
+			# Preserve host header for pgAdmin
+			header_up Host {host}
+			# Pass through authentication headers
+			header_up X-Forwarded-Proto {scheme}
+			header_up X-Forwarded-Host {host}
+		}
+	}
+
+	# Redirect unauthenticated users to login page
+	handle_errors {
+		@unauthorized expression {http.error.status_code} == 401
+		handle @unauthorized {
+			redir /?login=required&redirect=/pgadmin 302
+		}
+	}
+}
+
+# Example tenant site blocks (customize for your deployment)
+# Uncomment and modify these, or integrate into your existing host Caddyfile
+
+# ma.statbus.org {
+# 	# ... other tenant routes ...
+# 	import pgadmin_handler 3023
+# }
+
+# no.statbus.org {
+# 	# ... other tenant routes ...
+# 	import pgadmin_handler 3033
+# }
+
+# al.statbus.org {
+# 	# ... other tenant routes ...
+# 	import pgadmin_handler 3043
+# }
