@@ -2,11 +2,11 @@
 import { useEstablishment, useStatisticalUnitDetails } from "@/components/statistical-unit-details/use-unit-details";
 import DataDump from "@/components/data-dump";
 import UnitNotFound from "@/components/statistical-unit-details/unit-not-found";
-import useSWR from "swr";
 import { getBrowserRestClient } from "@/context/RestClientStore";
+import { useSWRWithAuthRefresh, isJwtExpiredError, JwtExpiredError } from "@/hooks/use-swr-with-auth-refresh";
 
 function useExternalIdents(establishmentId: string) {
-  const { data, isLoading, error } = useSWR(
+  const { data, isLoading, error } = useSWRWithAuthRefresh(
     ["external_idents_establishment", establishmentId],
     async () => {
       const client = await getBrowserRestClient();
@@ -14,10 +14,14 @@ function useExternalIdents(establishmentId: string) {
         .from("external_ident")
         .select("*, external_ident_type:type_id(code, name, shape, labels)")
         .eq("establishment_id", parseInt(establishmentId, 10));
-      if (error) throw error;
+      if (error) {
+        if (isJwtExpiredError(error)) throw new JwtExpiredError();
+        throw error;
+      }
       return data;
     },
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false },
+    "useExternalIdents:establishment"
   );
   return { externalIdents: data, isLoading, error };
 }
