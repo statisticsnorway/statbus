@@ -539,6 +539,17 @@ Indexes:
     "import_71_a1_lu_data_state_action_row_id_idx" btree (state, action, row_id)
     "import_71_a1_lu_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
     "import_71_a1_lu_data_tax_ident_raw_idx" btree (tax_ident_raw)
+Check constraints:
+    "chk_batch_seq_state_action" CHECK (
+CASE state
+    WHEN 'pending'::import_data_state THEN batch_seq IS NULL AND action IS NULL
+    WHEN 'analysing'::import_data_state THEN batch_seq IS NOT NULL
+    WHEN 'analysed'::import_data_state THEN batch_seq IS NOT NULL AND action IS NOT NULL
+    WHEN 'error'::import_data_state THEN true
+    WHEN 'processing'::import_data_state THEN action = 'use'::import_row_action_type AND batch_seq IS NOT NULL
+    WHEN 'processed'::import_data_state THEN action = 'use'::import_row_action_type AND batch_seq IS NOT NULL
+    ELSE false
+END)
 Policies:
     POLICY "import_71_a1_lu_data_admin_user_manage"
       TO admin_user

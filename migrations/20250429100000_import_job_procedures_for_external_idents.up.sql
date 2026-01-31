@@ -972,8 +972,15 @@ BEGIN
 
 
     -- Step 3: Single-pass Batch Update for All Rows with dynamically constructed SET clause
+    -- FIX: Set state='error' when action='skip' to maintain consistency with CHECK constraint.
+    -- Previously, state was only set to 'error' when there were actual errors, but action='skip'
+    -- can also occur due to strategy mismatch (e.g., update_only but row is insert).
     v_set_clause := format($$
-        state = CASE WHEN ru.error_jsonb IS NOT NULL AND ru.error_jsonb != '{}'::jsonb THEN 'error'::public.import_data_state ELSE 'analysing'::public.import_data_state END,
+        state = CASE 
+            WHEN ru.error_jsonb IS NOT NULL AND ru.error_jsonb != '{}'::jsonb THEN 'error'::public.import_data_state 
+            WHEN ru.action = 'skip'::public.import_row_action_type THEN 'error'::public.import_data_state
+            ELSE 'analysing'::public.import_data_state 
+        END,
         errors = CASE WHEN ru.error_jsonb IS NOT NULL AND ru.error_jsonb != '{}'::jsonb THEN dt.errors || ru.error_jsonb ELSE dt.errors - %1$L::TEXT[] END,
         action = CASE 
             WHEN dt.action = 'skip'::public.import_row_action_type THEN 'skip'::public.import_row_action_type

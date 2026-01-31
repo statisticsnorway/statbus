@@ -406,13 +406,15 @@ BEGIN
         WHERE idc.value->>'purpose' = 'source_input'
     );
 
+    -- Only update rows with action = 'use' to satisfy CHECK constraint:
+    -- state = 'processing' requires action = 'use' AND batch_seq IS NOT NULL
     v_sql := format($$
         UPDATE public.%1$I dt
         SET state = (CASE
                         WHEN dt.errors ?| %2$L THEN 'error'
                         ELSE 'processing'
                     END)::public.import_data_state
-        WHERE dt.batch_seq = $1;
+        WHERE dt.batch_seq = $1 AND dt.action = 'use';
     $$,
         v_data_table_name,       /* %1$I */
         v_all_stat_error_keys    /* %2$L */
