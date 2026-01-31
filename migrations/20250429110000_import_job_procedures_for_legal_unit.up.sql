@@ -2,7 +2,7 @@
 BEGIN;
 
 -- Procedure to analyse base legal unit data
-CREATE OR REPLACE PROCEDURE import.analyse_legal_unit(p_job_id INT, p_batch_row_id_ranges int4multirange, p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_legal_unit(p_job_id INT, p_batch_seq INTEGER, p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_legal_unit$
 DECLARE
     v_job public.import_job;
@@ -14,7 +14,7 @@ DECLARE
     v_error_keys_to_clear_arr TEXT[] := ARRAY['name_raw', 'legal_form_code_raw', 'sector_code_raw', 'unit_size_code_raw', 'birth_date_raw', 'death_date_raw', 'status_code_raw', 'legal_unit'];
     v_invalid_code_keys_arr TEXT[] := ARRAY['legal_form_code_raw', 'sector_code_raw', 'unit_size_code_raw', 'birth_date_raw', 'death_date_raw']; -- Keys that go into invalid_codes
 BEGIN
-    RAISE DEBUG '[Job %] analyse_legal_unit (Batch): Starting analysis for range %s', p_job_id, p_batch_row_id_ranges::text;
+    RAISE DEBUG '[Job %] analyse_legal_unit (Batch): Starting analysis for batch_seq %', p_job_id, p_batch_seq;
 
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
     v_data_table_name := v_job.data_table_name;
@@ -26,7 +26,7 @@ BEGIN
         UPDATE %1$I dt SET
             action = 'skip'::public.import_row_action_type,
             last_completed_priority = %2$L
-        WHERE dt.row_id <@ $1
+        WHERE dt.batch_seq = $1
           AND dt.action IS DISTINCT FROM 'skip'
           AND NULLIF(dt.name_raw, '') IS NULL
           AND NULLIF(dt.legal_form_code_raw, '') IS NULL
@@ -36,7 +36,7 @@ BEGIN
           AND NULLIF(dt.death_date_raw, '') IS NULL
           AND dt.status_id IS NULL; -- status_id is resolved from status_code_raw in a prior step
     $$, v_data_table_name, v_step.priority);
-    EXECUTE v_sql USING p_batch_row_id_ranges;
+    EXECUTE v_sql USING p_batch_seq;
 
     -- Step 1: Materialize the batch data into a temp table for performance.
     IF to_regclass('pg_temp.t_batch_data') IS NOT NULL THEN DROP TABLE t_batch_data; END IF;
@@ -46,11 +46,10 @@ BEGIN
                dt.legal_form_code_raw, dt.sector_code_raw, dt.unit_size_code_raw,
                dt.birth_date_raw, dt.death_date_raw
         FROM %I dt
-        JOIN unnest($1) AS r(range)
-          ON dt.row_id >= lower(r.range) AND dt.row_id < upper(r.range)
-        WHERE dt.action IS DISTINCT FROM 'skip';
+        WHERE dt.batch_seq = $1
+          AND dt.action IS DISTINCT FROM 'skip';
     $$, v_data_table_name);
-    EXECUTE v_sql USING p_batch_row_id_ranges;
+    EXECUTE v_sql USING p_batch_seq;
 
     ANALYZE t_batch_data;
 
@@ -164,16 +163,16 @@ BEGIN
     END;
 
     -- Unconditionally advance priority for all rows in batch to ensure progress
-    v_sql := format('UPDATE public.%1$I dt SET last_completed_priority = %2$L WHERE dt.row_id <@ $1 AND dt.last_completed_priority < %2$L',
+    v_sql := format('UPDATE public.%1$I dt SET last_completed_priority = %2$L WHERE dt.batch_seq = $1 AND dt.last_completed_priority < %2$L',
                     v_data_table_name, v_step.priority);
     RAISE DEBUG '[Job %] analyse_legal_unit: Unconditionally advancing priority for all batch rows with SQL: %', p_job_id, v_sql;
-    EXECUTE v_sql USING p_batch_row_id_ranges;
+    EXECUTE v_sql USING p_batch_seq;
 
     BEGIN
-        v_sql := format($$SELECT COUNT(*) FROM public.%1$I WHERE row_id <@ $1 AND state = 'error' AND (errors ?| %2$L::text[])$$,
+        v_sql := format($$SELECT COUNT(*) FROM public.%1$I dt WHERE dt.batch_seq = $1 AND dt.state = 'error' AND (dt.errors ?| %2$L::text[])$$,
                        v_data_table_name, v_error_keys_to_clear_arr);
         RAISE DEBUG '[Job %] analyse_legal_unit: Counting errors with SQL: %', p_job_id, v_sql;
-        EXECUTE v_sql INTO v_error_count USING p_batch_row_id_ranges;
+        EXECUTE v_sql INTO v_error_count USING p_batch_seq;
         RAISE DEBUG '[Job %] analyse_legal_unit: Estimated errors in this step for batch: %', p_job_id, v_error_count;
     EXCEPTION WHEN others THEN
         RAISE WARNING '[Job %] analyse_legal_unit: Error during error count: %', p_job_id, SQLERRM;
@@ -181,7 +180,7 @@ BEGIN
 
     -- Propagate errors to all rows of a new entity if one fails (best-effort)
     BEGIN
-        CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_row_id_ranges, v_error_keys_to_clear_arr, 'analyse_legal_unit');
+        CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_seq, v_error_keys_to_clear_arr, 'analyse_legal_unit');
     EXCEPTION WHEN OTHERS THEN
         RAISE WARNING '[Job %] analyse_legal_unit: Non-fatal error during error propagation: %', p_job_id, SQLERRM;
     END;
@@ -192,13 +191,14 @@ BEGIN
         v_sql := format($$
             WITH BatchPrimaries AS (
                 SELECT
-                    row_id,
-                    FIRST_VALUE(row_id) OVER (
-                        PARTITION BY enterprise_id, daterange(valid_from, valid_until, '[)')
-                        ORDER BY legal_unit_id ASC NULLS LAST, row_id ASC
+                    src.row_id,
+                    FIRST_VALUE(src.row_id) OVER (
+                        PARTITION BY src.enterprise_id, daterange(src.valid_from, src.valid_until, '[)')
+                        ORDER BY src.legal_unit_id ASC NULLS LAST, src.row_id ASC
                     ) as winner_row_id
-                FROM public.%1$I
-                WHERE row_id <@ $1 AND primary_for_enterprise = true AND enterprise_id IS NOT NULL
+                FROM public.%1$I src
+                WHERE src.batch_seq = $1
+                  AND src.primary_for_enterprise = true AND src.enterprise_id IS NOT NULL
             )
             UPDATE public.%1$I dt
             SET primary_for_enterprise = false
@@ -208,7 +208,7 @@ BEGIN
               AND dt.primary_for_enterprise = true;
         $$, v_data_table_name);
         RAISE DEBUG '[Job %] analyse_legal_unit: Resolving primary conflicts with SQL: %', p_job_id, v_sql;
-        EXECUTE v_sql USING p_batch_row_id_ranges;
+        EXECUTE v_sql USING p_batch_seq;
     EXCEPTION WHEN OTHERS THEN
         RAISE WARNING '[Job %] analyse_legal_unit: Non-fatal error during primary conflict resolution: %', p_job_id, SQLERRM;
     END;
@@ -218,7 +218,7 @@ END;
 $analyse_legal_unit$;
 
 
-CREATE OR REPLACE PROCEDURE import.process_legal_unit(IN p_job_id integer, IN p_batch_row_id_ranges int4multirange, IN p_step_code text)
+CREATE OR REPLACE PROCEDURE import.process_legal_unit(IN p_job_id integer, IN p_batch_seq INTEGER, IN p_step_code text)
  LANGUAGE plpgsql
 AS $procedure$
 DECLARE
@@ -239,7 +239,7 @@ DECLARE
     v_merge_mode sql_saga.temporal_merge_mode;
 BEGIN
     v_start_time := clock_timestamp();
-    RAISE DEBUG '[Job %] process_legal_unit (Batch): Starting operation for range %s', p_job_id, p_batch_row_id_ranges::text;
+    RAISE DEBUG '[Job %] process_legal_unit (Batch): Starting operation for batch_seq %', p_job_id, p_batch_seq;
 
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
     v_data_table_name := v_job.data_table_name;
@@ -289,8 +289,8 @@ BEGIN
             errors,
             merge_status
         FROM public.%1$I
-        WHERE row_id <@ %2$L::int4multirange AND action = 'use';
-    $$, v_data_table_name /* %1$I */, p_batch_row_id_ranges /* %2$L */);
+        WHERE batch_seq = %2$L AND action = 'use';
+    $$, v_data_table_name /* %1$I */, p_batch_seq /* %2$L */);
     RAISE DEBUG '[Job %] process_legal_unit: Creating temp view with SQL: %', p_job_id, v_sql;
     EXECUTE v_sql;
 
@@ -335,7 +335,8 @@ BEGIN
                        dt.valid_from AS new_primary_valid_from, dt.valid_until AS new_primary_valid_until,
                        dt.edit_by_user_id AS demotion_edit_by_user_id, dt.edit_at AS demotion_edit_at
                 FROM public.%2$I dt
-                WHERE dt.row_id <@ $1 AND dt.primary_for_enterprise = true AND dt.enterprise_id IS NOT NULL
+                WHERE dt.batch_seq = $1
+                  AND dt.primary_for_enterprise = true AND dt.enterprise_id IS NOT NULL
             ) AS incoming_primary
             ON ex_lu.enterprise_id = incoming_primary.target_enterprise_id
             WHERE ex_lu.id IS DISTINCT FROM incoming_primary.incoming_lu_id
@@ -343,8 +344,7 @@ BEGIN
               AND public.from_until_overlaps(ex_lu.valid_from, ex_lu.valid_until, incoming_primary.new_primary_valid_from, incoming_primary.new_primary_valid_until);
         $$, p_job_id /* %1$L */, v_data_table_name /* %2$I */);
         RAISE DEBUG '[Job %] process_legal_unit: Populating demotion source with SQL: %', p_job_id, v_sql;
-        -- Ensure the correct multirange variable is passed to EXECUTE
-        EXECUTE v_sql USING p_batch_row_id_ranges;
+        EXECUTE v_sql USING p_batch_seq;
 
         IF FOUND THEN
             RAISE DEBUG '[Job %] process_legal_unit: Identified % LUs for demotion.', p_job_id, (SELECT count(*) FROM temp_lu_demotion_source);
@@ -390,17 +390,17 @@ BEGIN
         );
 
         -- With feedback written directly to the data table, we just need to count successes and errors.
-        v_sql := format($$ SELECT count(*) FROM public.%1$I WHERE row_id <@ $1 AND errors->'legal_unit' IS NOT NULL $$, v_data_table_name);
+        v_sql := format($$ SELECT count(*) FROM public.%1$I dt WHERE dt.batch_seq = $1 AND dt.errors->'legal_unit' IS NOT NULL $$, v_data_table_name);
         RAISE DEBUG '[Job %] process_legal_unit: Counting merge errors with SQL: %', p_job_id, v_sql;
-        EXECUTE v_sql INTO v_error_count USING p_batch_row_id_ranges;
+        EXECUTE v_sql INTO v_error_count USING p_batch_seq;
 
         v_sql := format($$
             UPDATE public.%1$I dt SET
                 state = CASE WHEN dt.errors ? 'legal_unit' THEN 'error'::public.import_data_state ELSE 'processing'::public.import_data_state END
-            WHERE dt.row_id <@ $1 AND dt.action = 'use';
+            WHERE dt.batch_seq = $1 AND dt.action = 'use';
         $$, v_data_table_name);
         RAISE DEBUG '[Job %] process_legal_unit: Updating state post-merge with SQL: %', p_job_id, v_sql;
-        EXECUTE v_sql USING p_batch_row_id_ranges;
+        EXECUTE v_sql USING p_batch_seq;
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
         v_update_count := v_update_count - v_error_count;
 
@@ -410,32 +410,33 @@ BEGIN
         RAISE DEBUG '[Job %] process_legal_unit: Propagating legal_unit_id for new entities within the batch.', p_job_id;
         v_sql := format($$
             WITH id_source AS (
-                SELECT DISTINCT founding_row_id, legal_unit_id
-                FROM public.%1$I
-                WHERE row_id <@ $1 AND legal_unit_id IS NOT NULL
+                SELECT DISTINCT src.founding_row_id, src.legal_unit_id
+                FROM public.%1$I src
+                WHERE src.batch_seq = $1
+                  AND src.legal_unit_id IS NOT NULL
             )
             UPDATE public.%1$I dt
             SET legal_unit_id = id_source.legal_unit_id
             FROM id_source
-            WHERE dt.row_id <@ $1
+            WHERE dt.batch_seq = $1
               AND dt.founding_row_id = id_source.founding_row_id
               AND dt.legal_unit_id IS NULL;
         $$, v_data_table_name);
         RAISE DEBUG '[Job %] process_legal_unit: Propagating legal_unit_id with SQL: %', p_job_id, v_sql;
-        EXECUTE v_sql USING p_batch_row_id_ranges;
+        EXECUTE v_sql USING p_batch_seq;
 
         -- Process external identifiers now that legal_unit_id is available for new units
-        CALL import.helper_process_external_idents(p_job_id, p_batch_row_id_ranges, 'external_idents');
+        CALL import.helper_process_external_idents(p_job_id, p_batch_seq, 'external_idents');
 
     EXCEPTION WHEN OTHERS THEN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
         RAISE WARNING '[Job %] process_legal_unit: Unhandled error during batch operation: %', p_job_id, replace(error_message, '%', '%%');
         -- Attempt to mark individual data rows as error (best effort)
         BEGIN
-            v_sql := format($$UPDATE public.%1$I SET state = %2$L, errors = errors || jsonb_build_object('unhandled_error_process_lu', %3$L) WHERE row_id <@ $1 AND state != 'error'$$, -- LCP not changed here
+            v_sql := format($$UPDATE public.%1$I dt SET state = %2$L, errors = errors || jsonb_build_object('unhandled_error_process_lu', %3$L) WHERE dt.batch_seq = $1 AND dt.state != 'error'$$, -- LCP not changed here
                            v_data_table_name /* %1$I */, 'error'::public.import_data_state /* %2$L */, error_message /* %3$L */);
             RAISE DEBUG '[Job %] process_legal_unit: Marking rows as error in exception handler with SQL: %', p_job_id, v_sql;
-            EXECUTE v_sql USING p_batch_row_id_ranges;
+            EXECUTE v_sql USING p_batch_seq;
         EXCEPTION WHEN OTHERS THEN
             RAISE WARNING '[Job %] process_legal_unit: Failed to mark individual data rows as error after unhandled exception: %', p_job_id, SQLERRM;
         END;

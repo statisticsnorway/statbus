@@ -1475,7 +1475,7 @@ BEGIN
     -- 2. Create Data Table using job.definition_snapshot as the single source of truth
     RAISE DEBUG '[Job %] Generating data table % from snapshot', job.id, job.data_table_name;
     -- Add row_id as the first column and primary key
-    create_data_table_stmt := format('CREATE TABLE public.%I (row_id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY, ', job.data_table_name);
+    create_data_table_stmt := format('CREATE TABLE public.%I (row_id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY, batch_seq INTEGER, ', job.data_table_name);
     add_separator := FALSE; -- Reset for data table columns
 
     -- Add columns based on import_data_column records from the job's definition snapshot.
@@ -1526,6 +1526,9 @@ BEGIN
   -- Add GIST index on daterange(valid_from, valid_until) for efficient temporal_merge lookups.
   EXECUTE format('CREATE INDEX ON public.%I USING GIST (daterange(valid_from, valid_until, ''[)''))', job.data_table_name);
   RAISE DEBUG '[Job %] Added GIST index on validity daterange to data table %', job.id, job.data_table_name;
+
+  EXECUTE format('CREATE INDEX ON public.%I (batch_seq) WHERE batch_seq IS NOT NULL', job.data_table_name);
+  RAISE DEBUG '[Job %] Added btree index on batch_seq for efficient processing phase lookups %', job.id, job.data_table_name;
 
   -- Create indexes on uniquely identifying source_input columns to speed up lookups within analysis steps.
   FOR col_rec IN
@@ -1798,11 +1801,55 @@ BEGIN
 END;
 $$;
 
+-- Assigns batch_seq values to rows for efficient batch processing.
+-- Called twice during import lifecycle:
+--   1. Before analysis: p_for_processing = FALSE -> assigns to ALL rows
+--   2. Before processing: p_for_processing = TRUE -> re-assigns only to action='use' rows, NULLs others
+-- Returns the number of rows assigned.
+CREATE OR REPLACE FUNCTION admin.import_job_assign_batch_seq(
+    p_data_table_name TEXT,
+    p_batch_size INTEGER,
+    p_for_processing BOOLEAN DEFAULT FALSE
+) RETURNS INTEGER
+LANGUAGE plpgsql AS $import_job_assign_batch_seq$
+DECLARE
+    v_total_rows INTEGER;
+BEGIN
+    IF p_for_processing THEN
+        -- For processing phase: assign batch_seq only to rows with action = 'use'.
+        -- First NULL out all batch_seq, then re-assign to relevant rows.
+        EXECUTE format($$UPDATE public.%1$I SET batch_seq = NULL$$, p_data_table_name);
+        
+        EXECUTE format($$
+            WITH numbered AS (
+                SELECT row_id, 
+                       ((row_number() OVER (ORDER BY row_id) - 1) / %2$L + 1)::INTEGER as batch_num
+                FROM public.%1$I
+                WHERE action = 'use'
+            )
+            UPDATE public.%1$I dt
+            SET batch_seq = numbered.batch_num
+            FROM numbered
+            WHERE dt.row_id = numbered.row_id
+        $$, p_data_table_name, p_batch_size);
+    ELSE
+        -- For analysis phase: assign batch_seq to ALL rows.
+        EXECUTE format($$
+            UPDATE public.%1$I
+            SET batch_seq = ((row_id - 1) / %2$L + 1)::INTEGER
+        $$, p_data_table_name, p_batch_size);
+    END IF;
+    
+    GET DIAGNOSTICS v_total_rows = ROW_COUNT;
+    RETURN v_total_rows;
+END;
+$import_job_assign_batch_seq$;
+
 -- Procedure to propagate a fatal error to all related rows of a new entity within a batch.
 CREATE OR REPLACE PROCEDURE import.propagate_fatal_error_to_entity_batch(
     p_job_id INT,
     p_data_table_name TEXT,
-    p_batch_row_id_ranges int4multirange,
+    p_batch_seq INTEGER,
     p_error_keys TEXT[],
     p_step_code TEXT
 )
@@ -1817,13 +1864,13 @@ BEGIN
     EXECUTE format($$
         SELECT array_agg(DISTINCT dt.founding_row_id)
         FROM public.%1$I dt
-        WHERE dt.row_id <@ $1 -- from the current batch
+        WHERE dt.batch_seq = $1 -- from the current batch
           AND dt.state = 'error'
           AND dt.founding_row_id IS NOT NULL
           AND (dt.errors ?| %2$L::text[]); -- and the error is from this step
     $$, p_data_table_name, p_error_keys)
     INTO v_failed_entity_founding_rows
-    USING p_batch_row_id_ranges;
+    USING p_batch_seq;
 
     IF array_length(v_failed_entity_founding_rows, 1) > 0 THEN
         RAISE DEBUG '[Job %] %s: Propagating errors for % failed entities.', p_job_id, p_step_code, array_length(v_failed_entity_founding_rows, 1);
@@ -1971,6 +2018,11 @@ BEGIN
                 -- Transition rows in _data table from 'pending' to 'analysing'
                 RAISE DEBUG '[Job %] Updating data rows from pending to analysing in table %', job_id, job.data_table_name;
                 EXECUTE format($$UPDATE public.%I SET state = %L WHERE state = %L$$, job.data_table_name, 'analysing'::public.import_data_state, 'pending'::public.import_data_state);
+                
+                -- PERFORMANCE: Assign initial batch_seq for analysis phase (all rows)
+                RAISE DEBUG '[Job %] Assigning initial batch_seq values with batch_size % for analysis', job_id, job.analysis_batch_size;
+                PERFORM admin.import_job_assign_batch_seq(job.data_table_name, job.analysis_batch_size, FALSE);
+                
                 job := admin.import_job_set_state(job, 'analysing_data');
                 should_reschedule := TRUE; -- Reschedule immediately to start analysis
             END;
@@ -1978,13 +2030,24 @@ BEGIN
         WHEN 'analysing_data' THEN
             DECLARE
                 v_completed_steps_weighted BIGINT;
+                v_old_step_code TEXT;
             BEGIN
                 RAISE DEBUG '[Job %] Starting analysis phase.', job_id;
 
+                v_old_step_code := job.current_step_code;
+
                 should_reschedule := admin.import_job_analysis_phase(job);
 
-                -- After each batch run, recount progress. State transitions happen only when the phase is complete.
-                IF job.max_analysis_priority IS NOT NULL THEN
+                -- Refresh job record to see current step
+                SELECT * INTO job FROM public.import_job WHERE id = job.id;
+
+                -- PERFORMANCE FIX: Only recount weighted progress when step changes (not every batch).
+                -- This avoids O(n) full table scans after every batch. Instead, we only recount
+                -- when moving to a new step or when the phase completes, reducing scans from ~350 to ~10.
+                IF job.max_analysis_priority IS NOT NULL AND (
+                    job.current_step_code IS DISTINCT FROM v_old_step_code  -- Step changed
+                    OR NOT should_reschedule  -- Phase is complete
+                ) THEN
                     -- Recount weighted steps for granular progress
                     EXECUTE format($$ SELECT COALESCE(SUM(last_completed_priority), 0) FROM public.%I WHERE state IN ('analysing', 'analysed', 'error') $$,
                         job.data_table_name)
@@ -1994,11 +2057,8 @@ BEGIN
                     SET completed_analysis_steps_weighted = v_completed_steps_weighted
                     WHERE id = job.id;
 
-                    RAISE DEBUG '[Job %] Recounted progress: completed_analysis_steps_weighted=%', job.id, v_completed_steps_weighted;
+                    RAISE DEBUG '[Job %] Recounted progress (step changed or phase complete): completed_analysis_steps_weighted=%', job.id, v_completed_steps_weighted;
                 END IF;
-
-                -- Refresh job record to see if an error was set by the phase
-                SELECT * INTO job FROM public.import_job WHERE id = job.id;
 
                 IF job.error IS NOT NULL THEN
                     RAISE WARNING '[Job %] Error detected during analysis phase: %. Transitioning to finished.', job_id, job.error;
@@ -2015,6 +2075,10 @@ BEGIN
                         -- Transition rows from 'analysing' to 'processing' if no review
                         RAISE DEBUG '[Job %] Updating data rows from analysing to processing and resetting LCP in table %', job_id, job.data_table_name;
                         EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L AND action = 'use'$$, job.data_table_name, 'processing'::public.import_data_state, 'analysing'::public.import_data_state);
+
+                        -- PERFORMANCE: Re-assign batch_seq for processing phase (only action='use' rows)
+                        RAISE DEBUG '[Job %] Re-assigning batch_seq values with batch_size % for processing', job_id, job.processing_batch_size;
+                        PERFORM admin.import_job_assign_batch_seq(job.data_table_name, job.processing_batch_size, TRUE);
 
                         -- The performance index is now created when the job is generated.
                         -- We still need to ANALYZE to update statistics after the analysis phase.
@@ -2040,6 +2104,10 @@ BEGIN
                 RAISE DEBUG '[Job %] Updating data rows from analysed to processing and resetting LCP in table % after approval', job_id, job.data_table_name;
                 EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L AND action = 'use'$$, job.data_table_name, 'processing'::public.import_data_state, 'analysed'::public.import_data_state);
 
+                -- PERFORMANCE: Re-assign batch_seq for processing phase (only action='use' rows)
+                RAISE DEBUG '[Job %] Re-assigning batch_seq values with batch_size % for processing', job_id, job.processing_batch_size;
+                PERFORM admin.import_job_assign_batch_seq(job.data_table_name, job.processing_batch_size, TRUE);
+
                 -- The performance index is now created when the job is generated.
                 -- We still need to ANALYZE to update statistics after the analysis phase.
                 RAISE DEBUG '[Job %] Running ANALYZE on data table %', job_id, job.data_table_name;
@@ -2055,21 +2123,18 @@ BEGIN
             should_reschedule := FALSE;
 
         WHEN 'processing_data' THEN
-            DECLARE
-                v_processed_count INTEGER;
             BEGIN
                 RAISE DEBUG '[Job %] Starting processing phase.', job_id;
 
                 should_reschedule := admin.import_job_processing_phase(job);
 
-                -- Recount progress after each batch.
-                EXECUTE format($$SELECT count(*) FROM public.%I WHERE state = 'processed'$$, job.data_table_name)
-                INTO v_processed_count;
-                UPDATE public.import_job SET imported_rows = v_processed_count WHERE id = job.id;
-                RAISE DEBUG '[Job %] Recounted imported_rows: %', job.id, v_processed_count;
+                -- PERFORMANCE FIX: Progress tracking is now done incrementally inside import_job_processing_phase.
+                -- This avoids a full table scan (COUNT(*) WHERE state = 'processed') after every batch.
 
                 -- Refresh job record to see if an error was set by the phase
                 SELECT * INTO job FROM public.import_job WHERE id = job.id;
+
+                RAISE DEBUG '[Job %] Processing phase batch complete. imported_rows: %', job.id, job.imported_rows;
 
                 IF job.error IS NOT NULL THEN
                     RAISE WARNING '[Job %] Error detected during processing phase: %. Job already transitioned to finished.', job.id, job.error;
@@ -2138,7 +2203,7 @@ $procedure$;
 -- Helper procedure to process a single batch through all processing steps
 CREATE PROCEDURE admin.import_job_process_batch(
     job public.import_job,
-    batch_row_id_ranges int4multirange
+    p_batch_seq INTEGER
 )
 LANGUAGE plpgsql AS $import_job_process_batch$
 DECLARE
@@ -2148,18 +2213,18 @@ DECLARE
     error_message TEXT;
     v_should_disable_triggers BOOLEAN;
 BEGIN
-    RAISE DEBUG '[Job %] Processing batch with ranges %s through all process steps.', job.id, batch_row_id_ranges::text;
+    RAISE DEBUG '[Job %] Processing batch_seq % through all process steps.', job.id, p_batch_seq;
     targets := job.definition_snapshot->'import_step_list';
 
     -- Check if the batch contains any operations that are not simple inserts.
     -- If so, we need to disable FK triggers to allow for temporary inconsistencies.
     EXECUTE format(
-        'SELECT EXISTS(SELECT 1 FROM public.%I WHERE row_id <@ $1 AND operation IS DISTINCT FROM %L)',
+        'SELECT EXISTS(SELECT 1 FROM public.%I dt WHERE dt.batch_seq = $1 AND dt.operation IS DISTINCT FROM %L)',
         job.data_table_name,
         'insert'
     )
     INTO v_should_disable_triggers
-    USING batch_row_id_ranges;
+    USING p_batch_seq;
 
     IF v_should_disable_triggers THEN
         RAISE DEBUG '[Job %] Batch contains updates/replaces. Disabling FK triggers.', job.id;
@@ -2178,7 +2243,7 @@ BEGIN
         RAISE DEBUG '[Job %] Batch processing: Calling % for step %', job.id, proc_to_call, target_rec.code;
 
         -- Since this is one transaction, any error will roll back the entire batch.
-        EXECUTE format('CALL %s($1, $2, $3)', proc_to_call) USING job.id, batch_row_id_ranges, target_rec.code;
+        EXECUTE format('CALL %s($1, $2, $3)', proc_to_call) USING job.id, p_batch_seq, target_rec.code;
     END LOOP;
 
     -- Re-enable triggers if they were disabled.
@@ -2232,7 +2297,7 @@ DECLARE
     v_steps JSONB;
     v_step_rec RECORD;
     v_proc_to_call REGPROC;
-    v_batch_row_id_ranges int4multirange;
+    v_current_batch INTEGER;
     v_error_message TEXT;
     v_rows_exist BOOLEAN;
     v_rows_processed INT;
@@ -2269,35 +2334,22 @@ BEGIN
 
                     IF v_rows_exist THEN
                         RAISE DEBUG '[Job %] Executing HOLISTIC step % (priority %)', job.id, v_step_rec.code, v_step_rec.priority;
-                        EXECUTE format('CALL %s($1, $2, $3)', v_proc_to_call::text) USING job.id, NULL::int4multirange, v_step_rec.code;
+                        EXECUTE format('CALL %s($1, $2, $3)', v_proc_to_call::text) USING job.id, NULL::INTEGER, v_step_rec.code;
                         v_rows_processed := 1; -- Mark as having done work.
                     END IF;
                 ELSE
                     -- BATCHED: find and process one batch.
-                    -- This is a simplified and more direct query that proved to be more reliable
-                    -- than the previous complex version with a self-join, which confused the query planner.
                     EXECUTE format(
-                        $$
-                        WITH batch_rows AS (
-                            SELECT row_id
-                            FROM public.%1$I
-                            WHERE state IN (%2$L, 'error') AND last_completed_priority < %3$L
-                             ORDER BY state, last_completed_priority, row_id
-                            LIMIT %4$L
-                            FOR UPDATE SKIP LOCKED
-                        )
-                        SELECT public.array_to_int4multirange(array_agg(row_id)) FROM batch_rows
-                        $$,
+                        $$SELECT MIN(batch_seq) FROM public.%1$I WHERE state IN (%2$L, 'error') AND last_completed_priority < %3$L$$,
                         job.data_table_name,        /* %1$I */
                         v_current_phase_data_state, /* %2$L */
-                        v_step_rec.priority,        /* %3$L */
-                        job.analysis_batch_size     /* %4$L */
-                    ) INTO v_batch_row_id_ranges;
+                        v_step_rec.priority         /* %3$L */
+                    ) INTO v_current_batch;
 
-                    IF v_batch_row_id_ranges IS NOT NULL AND NOT isempty(v_batch_row_id_ranges) THEN
-                        RAISE DEBUG '[Job %] Executing BATCHED step % (priority %), found ranges: %s.', job.id, v_step_rec.code, v_step_rec.priority, v_batch_row_id_ranges::text;
-                        EXECUTE format('CALL %s($1, $2, $3)', v_proc_to_call::text) USING job.id, v_batch_row_id_ranges, v_step_rec.code;
-                        v_rows_processed := (SELECT count(*) FROM unnest(v_batch_row_id_ranges));
+                    IF v_current_batch IS NOT NULL THEN
+                        RAISE DEBUG '[Job %] Executing BATCHED step % (priority %), found batch_seq: %.', job.id, v_step_rec.code, v_step_rec.priority, v_current_batch;
+                        EXECUTE format('CALL %s($1, $2, $3)', v_proc_to_call::text) USING job.id, v_current_batch, v_step_rec.code;
+                        EXECUTE format($$SELECT COUNT(*) FROM public.%I WHERE batch_seq = %L$$, job.data_table_name, v_current_batch) INTO v_rows_processed;
                     END IF;
                 END IF;
             EXCEPTION WHEN OTHERS THEN
@@ -2352,61 +2404,69 @@ $import_job_analysis_phase$;
 -- Helper function to process the processing phase in batches
 CREATE FUNCTION admin.import_job_processing_phase(
     job public.import_job
-) RETURNS BOOLEAN -- Returns TRUE if work was done and rescheduling is needed
+) RETURNS BOOLEAN
 LANGUAGE plpgsql AS $import_job_processing_phase$
 DECLARE
-    v_batch_row_id_ranges int4multirange;
+    v_current_batch INTEGER;
+    v_max_batch INTEGER;
+    v_rows_processed INTEGER;
+    error_message TEXT;
+    error_context TEXT;
 BEGIN
-    RAISE DEBUG '[Job %] Processing phase: checking for a batch.', job.id;
+    -- Get the current batch to process (smallest batch_seq that still has unprocessed rows)
+    EXECUTE format($$
+        SELECT MIN(batch_seq), MAX(batch_seq)
+        FROM public.%1$I
+        WHERE batch_seq IS NOT NULL AND state = 'processing'
+    $$, job.data_table_name) INTO v_current_batch, v_max_batch;
 
-    -- This is a simplified and more direct query that is more reliable.
-    -- The previous complex version with a self-join confused the query planner.
-    EXECUTE format(
-        $$
-        WITH batch_rows AS (
-            SELECT row_id
-            FROM public.%1$I
-            WHERE state = 'processing' AND action = 'use'
-                             ORDER BY state, action, row_id
-            LIMIT %2$L
-            FOR UPDATE SKIP LOCKED
-        )
-        SELECT public.array_to_int4multirange(array_agg(row_id)) FROM batch_rows
-        $$,
-        job.data_table_name,        /* %1$I */
-        job.processing_batch_size   /* %2$L */
-    ) INTO v_batch_row_id_ranges;
-
-    IF v_batch_row_id_ranges IS NOT NULL AND NOT isempty(v_batch_row_id_ranges) THEN
-        RAISE DEBUG '[Job %] Found batch of ranges to process: %s.', job.id, v_batch_row_id_ranges::text;
-        BEGIN
-            CALL admin.import_job_process_batch(job, v_batch_row_id_ranges);
-
-            -- Mark all rows in the batch that are not in an error state as 'processed'.
-            -- This is safe because any errors within the batch call would have already set the row state to 'error'.
-            EXECUTE format($$UPDATE public.%1$I SET state = 'processed' WHERE row_id <@ $1 AND state != 'error'$$,
-                           job.data_table_name /* %1$I */) USING v_batch_row_id_ranges;
-            RAISE DEBUG '[Job %] Batch successfully processed. Marked non-error rows in ranges %s as processed.', job.id, v_batch_row_id_ranges::text;
-        EXCEPTION WHEN OTHERS THEN
-            DECLARE
-                error_message TEXT;
-                error_context TEXT;
-            BEGIN
-                GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT,
-                                      error_context = PG_EXCEPTION_CONTEXT;
-                RAISE WARNING '[Job %] Error processing batch: %. Context: %. Marking batch rows as error and failing job.', job.id, error_message, error_context;
-                EXECUTE format($$UPDATE public.%1$I SET state = 'error', errors = COALESCE(errors, '{}'::jsonb) || %2$L WHERE row_id <@ $1$$,
-                               job.data_table_name /* %1$I */, jsonb_build_object('process_batch_error', error_message, 'context', error_context) /* %2$L */) USING v_batch_row_id_ranges;
-                UPDATE public.import_job SET error = jsonb_build_object('error_in_processing_batch', error_message, 'context', error_context)::TEXT, state = 'failed' WHERE id = job.id;
-                -- On error, do not reschedule.
-                RETURN FALSE;
-            END;
-        END;
-        RETURN TRUE; -- Work was done.
-    ELSE
-        RAISE DEBUG '[Job %] No more rows found in ''processing'' state. Phase complete.', job.id;
+    IF v_current_batch IS NULL THEN
+        RAISE DEBUG '[Job %] No more batches to process. Phase complete.', job.id;
         RETURN FALSE; -- No work found.
     END IF;
+
+    RAISE DEBUG '[Job %] Processing batch % of % (max).', job.id, v_current_batch, v_max_batch;
+
+    BEGIN
+        CALL admin.import_job_process_batch(job, v_current_batch);
+
+        -- Mark all rows in the batch that are not in an error state as 'processed'.
+        EXECUTE format($$
+            UPDATE public.%1$I 
+            SET state = 'processed' 
+            WHERE batch_seq = %2$L AND state != 'error'
+        $$, job.data_table_name, v_current_batch);
+        GET DIAGNOSTICS v_rows_processed = ROW_COUNT;
+        
+        RAISE DEBUG '[Job %] Batch % successfully processed. Marked % non-error rows as processed.', 
+            job.id, v_current_batch, v_rows_processed;
+
+        -- Increment imported_rows counter directly instead of doing a full table scan.
+        UPDATE public.import_job SET imported_rows = imported_rows + v_rows_processed WHERE id = job.id;
+
+    EXCEPTION WHEN OTHERS THEN
+        GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT,
+                              error_context = PG_EXCEPTION_CONTEXT;
+        RAISE WARNING '[Job %] Error processing batch %: %. Context: %. Marking batch rows as error and failing job.', 
+            job.id, v_current_batch, error_message, error_context;
+        
+        EXECUTE format($$
+            UPDATE public.%1$I 
+            SET state = 'error', errors = COALESCE(errors, '{}'::jsonb) || %2$L 
+            WHERE batch_seq = %3$L
+        $$, job.data_table_name, 
+            jsonb_build_object('process_batch_error', error_message, 'context', error_context),
+            v_current_batch);
+        
+        UPDATE public.import_job 
+        SET error = jsonb_build_object('error_in_processing_batch', error_message, 'context', error_context)::TEXT, 
+            state = 'failed' 
+        WHERE id = job.id;
+        
+        RETURN FALSE; -- On error, do not reschedule.
+    END;
+    
+    RETURN TRUE; -- Work was done.
 END;
 $import_job_processing_phase$;
 

@@ -3,7 +3,7 @@
 BEGIN;
 
 -- Procedure to analyse edit info (populate user and timestamp) (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.analyse_edit_info(p_job_id INT, p_batch_row_id_ranges int4multirange, p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_edit_info(p_job_id INT, p_batch_seq INTEGER, p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_edit_info$
 DECLARE
     v_job public.import_job;
@@ -12,7 +12,7 @@ DECLARE
     v_sql TEXT;
     v_update_count INT := 0;
 BEGIN
-    RAISE DEBUG '[Job %] analyse_edit_info (Batch): Starting analysis for range %s', p_job_id, p_batch_row_id_ranges::text;
+    RAISE DEBUG '[Job %] analyse_edit_info (Batch): Starting analysis for batch_seq %', p_job_id, p_batch_seq;
 
     -- Get job details (specifically user_id)
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
@@ -50,11 +50,11 @@ BEGIN
                 edit_comment = %3$s,
                 last_completed_priority = %4$L,
                 state = CASE WHEN dt.state = 'error' THEN 'error'::public.import_data_state ELSE 'analysing'::public.import_data_state END
-            WHERE dt.row_id <@ $1;
+            WHERE dt.batch_seq = $1;
         $$, v_data_table_name, v_job.user_id, v_comment_expression, v_step.priority);
 
         RAISE DEBUG '[Job %] analyse_edit_info: Updating all rows in batch: %', p_job_id, v_sql;
-        EXECUTE v_sql USING p_batch_row_id_ranges;
+        EXECUTE v_sql USING p_batch_seq;
     END;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
     RAISE DEBUG '[Job %] analyse_edit_info: Processed % rows in single pass.', p_job_id, v_update_count;

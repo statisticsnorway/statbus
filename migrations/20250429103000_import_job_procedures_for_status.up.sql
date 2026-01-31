@@ -3,7 +3,7 @@
 BEGIN;
 
 -- Procedure to analyse status_code and populate status_id (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.analyse_status(p_job_id INT, p_batch_row_id_ranges int4multirange, p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_status(p_job_id INT, p_batch_seq INTEGER, p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_status$
 DECLARE
     v_job public.import_job;
@@ -16,7 +16,7 @@ DECLARE
     v_default_status_id INT;
     v_error_keys_to_clear_arr TEXT[] := ARRAY['status_code_raw'];
 BEGIN
-    RAISE DEBUG '[Job %] analyse_status (Batch): Starting analysis for range %s', p_job_id, p_batch_row_id_ranges::text;
+    RAISE DEBUG '[Job %] analyse_status (Batch): Starting analysis for batch_seq %', p_job_id, p_batch_seq;
 
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
     v_data_table_name := v_job.data_table_name;
@@ -34,9 +34,10 @@ BEGIN
     v_sql := format($$
         WITH
         batch_data AS (
-            SELECT row_id, status_code_raw AS status_code
-            FROM public.%1$I
-            WHERE row_id <@ $1 AND action IS DISTINCT FROM 'skip'
+            SELECT dt.row_id, dt.status_code_raw AS status_code
+            FROM public.%1$I dt
+            WHERE dt.batch_seq = $1
+              AND dt.action IS DISTINCT FROM 'skip'
         ),
         distinct_codes AS (
             SELECT status_code AS code
@@ -107,16 +108,16 @@ BEGIN
     RAISE DEBUG '[Job %] analyse_status: Single-pass batch update for non-skipped rows: %', p_job_id, v_sql;
 
     BEGIN
-        EXECUTE v_sql USING p_batch_row_id_ranges;
+        EXECUTE v_sql USING p_batch_seq;
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_status: Updated % non-skipped rows in single pass.', p_job_id, v_update_count;
 
-        v_sql := format($$SELECT COUNT(*) FROM public.%1$I WHERE row_id <@ $1 AND state = 'error' AND (errors ?| %2$L::text[])$$,
+        v_sql := format($$SELECT COUNT(*) FROM public.%1$I dt WHERE dt.batch_seq = $1 AND dt.state = 'error' AND (dt.errors ?| %2$L::text[])$$,
                        v_data_table_name /* %1$I */, v_error_keys_to_clear_arr /* %2$L */);
         RAISE DEBUG '[Job %] analyse_status: Counting errors in batch with SQL: %', p_job_id, v_sql;
         EXECUTE v_sql
         INTO v_error_count
-        USING p_batch_row_id_ranges;
+        USING p_batch_seq;
         RAISE DEBUG '[Job %] analyse_status: Estimated errors in this step for batch: %', p_job_id, v_error_count;
 
     EXCEPTION WHEN others THEN
@@ -133,16 +134,16 @@ BEGIN
     v_sql := format($$
         UPDATE public.%1$I dt SET
             last_completed_priority = %2$L
-        WHERE dt.row_id <@ $1 AND dt.last_completed_priority < %2$L;
+        WHERE dt.batch_seq = $1 AND dt.last_completed_priority < %2$L;
     $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */);
     RAISE DEBUG '[Job %] analyse_status: Unconditionally advancing priority for all batch rows with SQL: %', p_job_id, v_sql;
-    EXECUTE v_sql USING p_batch_row_id_ranges;
+    EXECUTE v_sql USING p_batch_seq;
     GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
     RAISE DEBUG '[Job %] analyse_status: Advanced last_completed_priority for % total rows in batch.', p_job_id, v_skipped_update_count;
 
     -- Propagate errors to all rows of a new entity if one fails (best-effort)
     BEGIN
-        CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_row_id_ranges, v_error_keys_to_clear_arr, 'analyse_status');
+        CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_seq, v_error_keys_to_clear_arr, 'analyse_status');
     EXCEPTION WHEN OTHERS THEN
         RAISE WARNING '[Job %] analyse_status: Non-fatal error during error propagation: %', p_job_id, SQLERRM;
     END;
