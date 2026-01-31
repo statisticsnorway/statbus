@@ -536,8 +536,7 @@ Indexes:
     "import_71_a1_lu_data_daterange_idx" gist (daterange(valid_from, valid_until, '[)'::text))
     "import_71_a1_lu_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "import_71_a1_lu_data_nin_ident_raw_idx" btree (nin_ident_raw)
-    "import_71_a1_lu_data_state_action_row_id_idx" btree (state, action, row_id)
-    "import_71_a1_lu_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
+    "import_71_a1_lu_data_state_last_completed_priority_batch_se_idx" btree (state, last_completed_priority, batch_seq)
     "import_71_a1_lu_data_tax_ident_raw_idx" btree (tax_ident_raw)
 Check constraints:
     "chk_batch_seq_state_action" CHECK (

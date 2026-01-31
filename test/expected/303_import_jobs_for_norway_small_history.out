@@ -743,8 +743,7 @@ Indexes:
     "import_lu_2015_sht_data_daterange_idx" gist (daterange(valid_from, valid_until, '[)'::text))
     "import_lu_2015_sht_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "import_lu_2015_sht_data_stat_ident_raw_idx" btree (stat_ident_raw)
-    "import_lu_2015_sht_data_state_action_row_id_idx" btree (state, action, row_id)
-    "import_lu_2015_sht_data_state_last_completed_priority_row_i_idx" btree (state, last_completed_priority, row_id)
+    "import_lu_2015_sht_data_state_last_completed_priority_batch_idx" btree (state, last_completed_priority, batch_seq)
     "import_lu_2015_sht_data_tax_ident_raw_idx" btree (tax_ident_raw)
 Check constraints:
     "chk_batch_seq_state_action" CHECK (
@@ -2733,8 +2732,7 @@ Indexes:
     "import_es_2015_sht_data_daterange_idx" gist (daterange(valid_from, valid_until, '[)'::text))
     "import_es_2015_sht_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "import_es_2015_sht_data_stat_ident_raw_idx" btree (stat_ident_raw)
-    "import_es_2015_sht_data_state_action_row_id_idx" btree (state, action, row_id)
-    "import_es_2015_sht_data_state_last_completed_priority_row_i_idx" btree (state, last_completed_priority, row_id)
+    "import_es_2015_sht_data_state_last_completed_priority_batch_idx" btree (state, last_completed_priority, batch_seq)
     "import_es_2015_sht_data_tax_ident_raw_idx" btree (tax_ident_raw)
 Check constraints:
     "chk_batch_seq_state_action" CHECK (

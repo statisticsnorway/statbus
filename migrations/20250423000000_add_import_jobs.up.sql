@@ -1515,9 +1515,11 @@ BEGIN
     EXECUTE create_data_table_stmt;
 
 
-  -- Create composite index (state, last_completed_priority, row_id) for efficient batch selection and in-index ordering
-  EXECUTE format($$CREATE INDEX ON public.%1$I (state, last_completed_priority, row_id)$$, job.data_table_name /* %1$I */);
-  RAISE DEBUG '[Job %] Added composite index to data table %', job.id, job.data_table_name;
+  -- Create composite index (state, last_completed_priority, batch_seq) for efficient batch selection.
+  -- The batch selection query uses: WHERE state IN ('analysing', 'error') AND last_completed_priority < priority
+  -- and then SELECT MIN(batch_seq), so having batch_seq in the index allows index-only scans.
+  EXECUTE format($$CREATE INDEX ON public.%1$I (state, last_completed_priority, batch_seq)$$, job.data_table_name /* %1$I */);
+  RAISE DEBUG '[Job %] Added composite index (state, last_completed_priority, batch_seq) to data table %', job.id, job.data_table_name;
 
   -- The GIST index on row_id has been removed. The `analyse_valid_time` procedure,
   -- which was the sole user of this index via the `<@` operator, has been refactored
@@ -1552,15 +1554,11 @@ BEGIN
       -- The partial indexes on (COALESCE(founding_row_id, row_id)) have been removed.
       -- They were specific to a previous, more complex batching strategy and are no longer
       -- used by the simplified batch selection queries, which now efficiently use the
-      -- composite index on (state, last_completed_priority, row_id).
+      -- composite index on (state, last_completed_priority, batch_seq).
 
-      -- Add index for processing phase batch selection.
-      -- The processing phase uses: WHERE state = 'processing' AND action = 'use' ORDER BY state, action, row_id
-      EXECUTE format(
-          $$ CREATE INDEX ON public.%1$I (state, action, row_id) $$,
-          job.data_table_name
-      );
-      RAISE DEBUG '[Job %] Added (state, action, row_id) index for processing phase batch selection.', job.id;
+      -- NOTE: The (state, action, row_id) index has been removed. It was designed for the old
+      -- row_id-based batching approach. The new batch_seq approach uses the composite index
+      -- (state, last_completed_priority, batch_seq) for batch selection instead.
   END;
 
   -- Grant direct permissions to the job owner on the upload table to allow COPY FROM
