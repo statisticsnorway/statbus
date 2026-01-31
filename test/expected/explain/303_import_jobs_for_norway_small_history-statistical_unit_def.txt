@@ -1,85 +1,84 @@
-                                                                                 QUERY PLAN                                                                                 
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                                                                QUERY PLAN                                                                
+------------------------------------------------------------------------------------------------------------------------------------------
  Hash Left Join
-   Hash Cond: ((NULL::integer) = eia3.unit_id)
+   Hash Cond: ((timeline_establishment.unit_type = tpa.unit_type) AND (timeline_establishment.unit_id = tpa.unit_id))
    CTE external_idents_agg
-     ->  GroupAggregate
+     ->  HashAggregate
            Group Key: ('establishment'::statistical_unit_type), ei.establishment_id
-           ->  Sort
-                 Sort Key: ('establishment'::statistical_unit_type), ei.establishment_id
-                 ->  Append
-                       ->  Hash Join
-                             Hash Cond: (eit.id = ei.type_id)
-                             ->  Seq Scan on external_ident_type eit
-                             ->  Hash
-                                   ->  Index Scan using external_ident_establishment_id_idx on external_ident ei
-                                         Index Cond: (establishment_id IS NOT NULL)
-                       ->  Hash Join
-                             Hash Cond: (eit_1.id = ei_1.type_id)
-                             ->  Seq Scan on external_ident_type eit_1
-                             ->  Hash
-                                   ->  Index Scan using external_ident_legal_unit_id_idx on external_ident ei_1
-                                         Index Cond: (legal_unit_id IS NOT NULL)
-                       ->  Hash Join
-                             Hash Cond: (eit_2.id = ei_2.type_id)
-                             ->  Seq Scan on external_ident_type eit_2
-                             ->  Hash
-                                   ->  Index Scan using external_ident_enterprise_id_idx on external_ident ei_2
-                                         Index Cond: (enterprise_id IS NOT NULL)
-                       ->  Hash Join
-                             Hash Cond: (eit_3.id = ei_3.type_id)
-                             ->  Seq Scan on external_ident_type eit_3
-                             ->  Hash
-                                   ->  Index Scan using external_ident_enterprise_group_id_idx on external_ident ei_3
-                                         Index Cond: (enterprise_group_id IS NOT NULL)
+           ->  Append
+                 ->  Hash Join
+                       Hash Cond: (eit.id = ei.type_id)
+                       ->  Seq Scan on external_ident_type eit
+                       ->  Hash
+                             ->  Seq Scan on external_ident ei
+                                   Filter: (establishment_id IS NOT NULL)
+                 ->  Hash Join
+                       Hash Cond: (eit_1.id = ei_1.type_id)
+                       ->  Seq Scan on external_ident_type eit_1
+                       ->  Hash
+                             ->  Seq Scan on external_ident ei_1
+                                   Filter: (legal_unit_id IS NOT NULL)
+                 ->  Hash Join
+                       Hash Cond: (eit_2.id = ei_2.type_id)
+                       ->  Seq Scan on external_ident_type eit_2
+                       ->  Hash
+                             ->  Seq Scan on external_ident ei_2
+                                   Filter: (enterprise_id IS NOT NULL)
+                 ->  Hash Join
+                       Hash Cond: (eit_3.id = ei_3.type_id)
+                       ->  Seq Scan on external_ident_type eit_3
+                       ->  Hash
+                             ->  Seq Scan on external_ident ei_3
+                                   Filter: (enterprise_group_id IS NOT NULL)
    ->  Hash Left Join
-         Hash Cond: ((NULL::integer) = eia2.unit_id)
+         Hash Cond: ((NULL::integer) = eia3.unit_id)
          ->  Hash Left Join
-               Hash Cond: ((timeline_establishment.unit_type = eia1.unit_type) AND (timeline_establishment.unit_id = eia1.unit_id))
-               ->  Hash Right Join
-                     Hash Cond: ((('establishment'::statistical_unit_type) = timeline_establishment.unit_type) AND (tfu.establishment_id = timeline_establishment.unit_id))
-                     ->  GroupAggregate
-                           Group Key: ('establishment'::statistical_unit_type), tfu.establishment_id
-                           ->  Sort
-                                 Sort Key: ('establishment'::statistical_unit_type), tfu.establishment_id, t.path
-                                 ->  Append
-                                       ->  Hash Join
-                                             Hash Cond: (tfu.tag_id = t.id)
-                                             ->  Seq Scan on tag_for_unit tfu
-                                                   Filter: (establishment_id IS NOT NULL)
-                                             ->  Hash
-                                                   ->  Seq Scan on tag t
-                                       ->  Hash Join
-                                             Hash Cond: (tfu_1.tag_id = t_1.id)
-                                             ->  Seq Scan on tag_for_unit tfu_1
-                                                   Filter: (legal_unit_id IS NOT NULL)
-                                             ->  Hash
-                                                   ->  Seq Scan on tag t_1
-                                       ->  Hash Join
-                                             Hash Cond: (tfu_2.tag_id = t_2.id)
-                                             ->  Seq Scan on tag_for_unit tfu_2
-                                                   Filter: (enterprise_id IS NOT NULL)
-                                             ->  Hash
-                                                   ->  Seq Scan on tag t_2
-                                       ->  Hash Join
-                                             Hash Cond: (tfu_3.tag_id = t_3.id)
-                                             ->  Seq Scan on tag_for_unit tfu_3
-                                                   Filter: (enterprise_group_id IS NOT NULL)
-                                             ->  Hash
-                                                   ->  Seq Scan on tag t_3
+               Hash Cond: ((NULL::integer) = eia2.unit_id)
+               ->  Hash Left Join
+                     Hash Cond: ((timeline_establishment.unit_type = eia1.unit_type) AND (timeline_establishment.unit_id = eia1.unit_id))
+                     ->  Append
+                           ->  Seq Scan on timeline_establishment
+                           ->  Seq Scan on timeline_legal_unit
+                           ->  Subquery Scan on "*SELECT* 3"
+                                 ->  Seq Scan on timeline_enterprise
                      ->  Hash
-                           ->  Append
-                                 ->  Seq Scan on timeline_establishment
-                                 ->  Seq Scan on timeline_legal_unit
-                                 ->  Subquery Scan on "*SELECT* 3"
-                                       ->  Seq Scan on timeline_enterprise
+                           ->  CTE Scan on external_idents_agg eia1
                ->  Hash
-                     ->  CTE Scan on external_idents_agg eia1
+                     ->  CTE Scan on external_idents_agg eia2
+                           Filter: (unit_type = 'establishment'::statistical_unit_type)
          ->  Hash
-               ->  CTE Scan on external_idents_agg eia2
-                     Filter: (unit_type = 'establishment'::statistical_unit_type)
+               ->  CTE Scan on external_idents_agg eia3
+                     Filter: (unit_type = 'legal_unit'::statistical_unit_type)
    ->  Hash
-         ->  CTE Scan on external_idents_agg eia3
-               Filter: (unit_type = 'legal_unit'::statistical_unit_type)
-(81 rows)
+         ->  Subquery Scan on tpa
+               ->  GroupAggregate
+                     Group Key: ('establishment'::statistical_unit_type), tfu.establishment_id
+                     ->  Sort
+                           Sort Key: ('establishment'::statistical_unit_type), tfu.establishment_id, t.path
+                           ->  Append
+                                 ->  Hash Join
+                                       Hash Cond: (tfu.tag_id = t.id)
+                                       ->  Seq Scan on tag_for_unit tfu
+                                             Filter: (establishment_id IS NOT NULL)
+                                       ->  Hash
+                                             ->  Seq Scan on tag t
+                                 ->  Hash Join
+                                       Hash Cond: (tfu_1.tag_id = t_1.id)
+                                       ->  Seq Scan on tag_for_unit tfu_1
+                                             Filter: (legal_unit_id IS NOT NULL)
+                                       ->  Hash
+                                             ->  Seq Scan on tag t_1
+                                 ->  Hash Join
+                                       Hash Cond: (tfu_2.tag_id = t_2.id)
+                                       ->  Seq Scan on tag_for_unit tfu_2
+                                             Filter: (enterprise_id IS NOT NULL)
+                                       ->  Hash
+                                             ->  Seq Scan on tag t_2
+                                 ->  Hash Join
+                                       Hash Cond: (tfu_3.tag_id = t_3.id)
+                                       ->  Seq Scan on tag_for_unit tfu_3
+                                             Filter: (enterprise_group_id IS NOT NULL)
+                                       ->  Hash
+                                             ->  Seq Scan on tag t_3
+(80 rows)
 

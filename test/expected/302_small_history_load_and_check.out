@@ -497,6 +497,7 @@ FROM def;
                 Column                |           Type            | Collation | Nullable |           Default            | Storage  | Stats target | Description 
 --------------------------------------+---------------------------+-----------+----------+------------------------------+----------+--------------+-------------
  row_id                               | integer                   |           | not null | generated always as identity | plain    |              | 
+ batch_seq                            | integer                   |           |          |                              | plain    |              | 
  valid_from_raw                       | text                      |           |          |                              | extended |              | 
  valid_to_raw                         | text                      |           |          |                              | extended |              | 
  valid_from                           | date                      |           |          |                              | plain    |              | 
@@ -609,6 +610,7 @@ FROM def;
  invalid_codes                        | jsonb                     |           | not null | '{}'::jsonb                  | extended |              | 
 Indexes:
     "import_10_lu_2015_sht_data_pkey" PRIMARY KEY, btree (row_id)
+    "import_10_lu_2015_sht_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
     "import_10_lu_2015_sht_data_daterange_idx" gist (daterange(valid_from, valid_until, '[)'::text))
     "import_10_lu_2015_sht_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "import_10_lu_2015_sht_data_stat_ident_raw_idx" btree (stat_ident_raw)
