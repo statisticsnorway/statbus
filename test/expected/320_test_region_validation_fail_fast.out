@@ -140,7 +140,7 @@ BEGIN
 
     -- Try to directly call the analyse_location procedure that SHOULD fail fast
     BEGIN
-        CALL import.analyse_location(v_job_id, '{[1,2)}'::int4multirange, 'physical_location');
+        CALL import.analyse_location(v_job_id, 1, 'physical_location');
         -- If we get here, the fail-fast did NOT work
         RAISE EXCEPTION 'FAIL-FAST VALIDATION NOT WORKING: analyse_location should fail when settings.country_id is not configured';
     EXCEPTION
@@ -201,7 +201,7 @@ BEGIN
 
     -- This should succeed with proper configuration (even with no data to process)
     BEGIN
-        CALL import.analyse_location(v_job_id, '{[1,2)}'::int4multirange, 'physical_location');
+        CALL import.analyse_location(v_job_id, 1, 'physical_location');
     EXCEPTION
         WHEN OTHERS THEN
             success := FALSE;
