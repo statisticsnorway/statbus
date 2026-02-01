@@ -73,6 +73,7 @@ module Statbus
     @last_scheduled_time : Time? = nil                  # Track the last scheduled time to avoid duplicate notifications
     @last_scheduled_check = Time.utc                    # Track when we last checked for scheduled tasks
     @queue_processors = {} of String => Channel(Symbol) # Map of queue names to processor channels with large buffer
+    @queue_concurrency = {} of String => Int32          # Map of queue names to concurrency (number of workers)
     @available_queues = [] of String                    # List of available queues
     @channel_buffer_size = 8192                         # There can be a lot of task notifications for large imports, so have a sizeable queue.
     @queue_discovery_channel = Channel(Nil).new(8)      # Channel to trigger queue discovery. We have only 3 queues as of 2025-Q1
@@ -265,34 +266,44 @@ module Statbus
           @queue_discovery_channel.receive
 
           DB.connect(@config.connection_string("worker")) do |db|
-            # Get all available queues from the database
-            current_queues = db.query_all "SELECT DISTINCT queue FROM worker.command_registry", as: String
+            # Get all available queues with their default concurrency from the database
+            # Join with queue_registry to get concurrency settings
+            queue_info = db.query_all "
+              SELECT DISTINCT cr.queue, COALESCE(qr.default_concurrency, 1) as default_concurrency
+              FROM worker.command_registry cr
+              LEFT JOIN worker.queue_registry qr ON cr.queue = qr.queue
+            ", as: {String, Int32}
 
             # Log discovered queues
-            @log.info { "Found #{current_queues.size} queue(s): #{current_queues.join(", ")}" }
+            @log.info { "Found #{queue_info.size} queue(s): #{queue_info.map { |q, _| q }.join(", ")}" }
 
             # Find queues that don't have processors yet
-            current_queues.each do |queue|
+            queue_info.each do |queue, db_concurrency|
               unless @queue_processors.has_key?(queue)
-                @log.info { "New queue detected: #{queue}" }
+                # Environment variable overrides database default
+                concurrency = @config.concurrency_for_queue(queue, db_concurrency)
+                @log.info { "New queue detected: #{queue} (concurrency: #{concurrency})" }
                 # Use the standardized buffer size for consistency
                 new_channel = Channel(Symbol).new(@channel_buffer_size)
 
                 # Atomic update of data structures to prevent race conditions
                 @queue_processors[queue] = new_channel
+                @queue_concurrency[queue] = concurrency
                 @available_queues << queue
 
-                # Start the processor after data structures are updated with exception handling
-                # The processor will automatically start processing tasks when created
-                fiber = spawn do
-                  begin
-                    process_queue_loop(queue, new_channel)
-                  rescue ex
-                    @log.error { "Unhandled exception in #{queue} processor fiber: #{ex.class.name} - #{ex.message}" }
-                    @log.error { ex.backtrace.join("\n") }
+                # Start multiple processor fibers based on concurrency setting
+                # Each fiber processes tasks independently using FOR UPDATE SKIP LOCKED
+                concurrency.times do |worker_num|
+                  fiber = spawn do
+                    begin
+                      process_queue_loop(queue, new_channel, worker_num)
+                    rescue ex
+                      @log.error { "Unhandled exception in #{queue}:#{worker_num} processor fiber: #{ex.class.name} - #{ex.message}" }
+                      @log.error { ex.backtrace.join("\n") }
+                    end
                   end
+                  @active_fibers << fiber
                 end
-                @active_fibers << fiber
               end
             end
 
@@ -405,12 +416,14 @@ module Statbus
                   # If a specific queue was mentioned in the notification
                   if queue_name && @queue_processors.has_key?(queue_name)
                     @log.debug { "Received notification for specific queue: #{queue_name}" }
-                    # Only notify the specific queue mentioned in the notification
+                    # Send only ONE :process signal - the worker processes in a loop until empty
+                    # Other workers stay asleep, avoiding thundering herd problem
                     @queue_processors[queue_name].send(:process)
                   else
                     # Only if payload is empty or queue doesn't exist, notify all processors
                     @log.debug { "Received notification without specific queue, notifying all queues" }
                     @queue_processors.each do |queue, channel|
+                      # Send only ONE :process signal per queue - avoids thundering herd
                       channel.send(:process)
                     end
                   end
@@ -778,8 +791,9 @@ module Statbus
     end
 
     # Queue-specific processing loop
-    private def process_queue_loop(queue : String, channel : Channel(Symbol))
-      @log.info { "Starting processing fiber for queue: #{queue}" }
+    private def process_queue_loop(queue : String, channel : Channel(Symbol), worker_num : Int32 = 0)
+      worker_id = "#{queue}:#{worker_num}"
+      @log.info { "Starting processing fiber for #{worker_id}" }
 
       # Create a channel for communication between receiver and processor fibers
       process_signal = Channel(Bool).new(1)
@@ -810,7 +824,7 @@ module Statbus
                   process_signal.send(true) rescue nil
                 end
               when :shutdown
-                @log.info { "Received shutdown command for #{queue} process loop" }
+                @log.info { "Received shutdown command for #{worker_id} process loop" }
                 shutdown_requested = true
                 # Signal the processor fiber to exit
                 process_signal.send(true) rescue nil
@@ -818,16 +832,16 @@ module Statbus
               end
             rescue Channel::ClosedError
               if @shutdown
-                @log.info { "Queue channel closed during shutdown, exiting #{queue} receiver loop" }
+                @log.info { "Queue channel closed during shutdown, exiting #{worker_id} receiver loop" }
               else
-                @log.warn { "Queue channel closed unexpectedly, shutting down #{queue} receiver loop" }
+                @log.warn { "Queue channel closed unexpectedly, shutting down #{worker_id} receiver loop" }
               end
               shutdown_requested = true
               # Signal the processor fiber to exit
               process_signal.send(true) rescue nil
               break
             rescue ex
-              @log.error { "Error in #{queue} receiver loop: #{ex.message}" }
+              @log.error { "Error in #{worker_id} receiver loop: #{ex.message}" }
               @log.error { ex.backtrace.join("\n") }
               wait_with_shutdown_check(1.seconds)
             end
@@ -835,18 +849,20 @@ module Statbus
 
           # Acknowledge shutdown before exiting
           if @shutdown
-            @log.debug { "#{queue} receiver acknowledging shutdown" }
+            @log.debug { "#{worker_id} receiver acknowledging shutdown" }
             @shutdown_ack_channel.send(nil) rescue nil
           end
         rescue ex
-          @log.error { "Unhandled exception in #{queue} receiver fiber: #{ex.class.name} - #{ex.message}" }
+          @log.error { "Unhandled exception in #{worker_id} receiver fiber: #{ex.class.name} - #{ex.message}" }
           @log.error { ex.backtrace.join("\n") }
         end
       end
 
-      # Process tasks immediately upon starting
-      @log.debug { "Initial processing for queue: #{queue}" }
-      process_tasks(queue)
+      # Process tasks immediately upon starting - drain the queue
+      @log.debug { "Initial processing for #{worker_id}" }
+      while process_tasks(queue) > 0
+        break if @shutdown || shutdown_requested
+      end
 
       # Check for new scheduled tasks after initial processing, but only once at startup
       check_for_new_scheduled_tasks
@@ -864,9 +880,15 @@ module Statbus
           currently_processing = true
           processing_needed = false
 
-          # Process tasks
-          @log.debug { "Processing tasks for queue: #{queue}" }
-          process_tasks(queue)
+          # Process tasks in a loop until queue is empty
+          # This prevents thundering herd: one worker drains the queue,
+          # others stay asleep instead of all waking up for one task
+          @log.debug { "Processing tasks for #{worker_id}" }
+          loop do
+            break if @shutdown || shutdown_requested
+            tasks_done = process_tasks(queue)
+            break if tasks_done == 0  # Queue is empty
+          end
 
           # Only check for scheduled tasks when processing due to a notification
           # This prevents the feedback loop where every process triggers more processes
@@ -887,13 +909,13 @@ module Statbus
           process_signal.receive
         rescue Channel::ClosedError
           if @shutdown || shutdown_requested
-            @log.info { "Process signal channel closed during shutdown, exiting #{queue} process loop" }
+            @log.info { "Process signal channel closed during shutdown, exiting #{worker_id} process loop" }
           else
-            @log.warn { "Process signal channel closed unexpectedly, shutting down #{queue} process loop" }
+            @log.warn { "Process signal channel closed unexpectedly, shutting down #{worker_id} process loop" }
           end
           break
         rescue ex
-          @log.error { "Error in #{queue} processor loop: #{ex.message}" }
+          @log.error { "Error in #{worker_id} processor loop: #{ex.message}" }
           @log.error { ex.backtrace.join("\n") }
           wait_with_shutdown_check(1.seconds) # Prevent tight loop on error while checking for shutdown
         end
@@ -904,7 +926,7 @@ module Statbus
 
       # Acknowledge shutdown before exiting
       if @shutdown
-        @log.debug { "#{queue} processor acknowledging shutdown" }
+        @log.debug { "#{worker_id} processor acknowledging shutdown" }
         @shutdown_ack_channel.send(nil) rescue nil
       end
     end
@@ -938,10 +960,12 @@ module Statbus
     end
 
     # Process pending tasks for a specific queue
-    private def process_tasks(queue : String)
+    # Returns the number of tasks processed (0 means queue is empty)
+    private def process_tasks(queue : String) : Int32
       start_time = Statbus.monotonic_time
       consecutive_errors = 0
       max_consecutive_errors = 3
+      tasks_processed = 0
 
       begin
         # Use a connection pool or reuse connection if possible
@@ -974,6 +998,8 @@ module Statbus
                                   ORDER BY processed_at ASC",
             queue, current_timestamp,
             as: {Int64, String, String, PG::Numeric, Bool, String?}
+
+          tasks_processed = results.size
 
           if results.empty?
             @log.debug { "No tasks to process for queue: #{queue}" }
@@ -1026,6 +1052,8 @@ module Statbus
         duration_ms = (Statbus.monotonic_time - start_time).total_milliseconds.to_i
         @log.debug { "Task processing for queue #{queue} completed in #{duration_ms}ms" }
       end
+
+      tasks_processed
     end
   end
 end

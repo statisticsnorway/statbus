@@ -1198,6 +1198,7 @@ erDiagram
 	worker_queue_registry["worker.queue_registry"] {
 		text queue
 		text description
+		integer default_concurrency
 	}
 	worker_tasks["worker.tasks"] {
 		bigint id

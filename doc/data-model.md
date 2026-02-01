@@ -192,7 +192,7 @@ Handles background processing. A long-running worker process calls `worker.proce
   - Enums: `state` (`worker.task_state`).
 - `command_registry(command, created_at, handler_procedure, before_procedure, after_procedure, description, queue)`
   - Key FKs: queue.
-- `queue_registry(queue, description)`
+- `queue_registry(queue, description, default_concurrency)`
 - `last_processed(table_name, transaction_id)`
 
 ## Auth & System Tables/Views
