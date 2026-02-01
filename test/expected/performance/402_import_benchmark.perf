@@ -14,8 +14,8 @@
 
                slug               | total_rows | analysis_sec | processing_sec | total_sec | analysis_rows_per_sec | processing_rows_per_sec 
 ----------------------------------+------------+--------------+----------------+-----------+-----------------------+-------------------------
- import_hovedenhet_2025_selection |       4924 |        12.94 |           9.81 |     22.75 |                380.41 |                  528.30
- import_underenhet_2025_selection |      24027 |        59.93 |          56.52 |    116.45 |                400.94 |                  428.27
+ import_hovedenhet_2025_selection |       4924 |        12.39 |           9.56 |     21.94 |                397.50 |                  544.17
+ import_underenhet_2025_selection |      24027 |        60.64 |          55.79 |    116.43 |                396.21 |                  433.36
 
  
 
@@ -25,8 +25,8 @@
 
                slug               | total_rows | analysis_ms_per_row | processing_ms_per_row 
 ----------------------------------+------------+---------------------+-----------------------
- import_hovedenhet_2025_selection |       4924 |                2.63 |                  1.99
- import_underenhet_2025_selection |      24027 |                2.49 |                  2.35
+ import_hovedenhet_2025_selection |       4924 |                2.52 |                  1.94
+ import_underenhet_2025_selection |      24027 |                2.52 |                  2.32
 
  
 
@@ -36,5 +36,5 @@
 
  base_phase | lu_rows | es_rows | row_ratio | ms_per_row_ratio | scaling_assessment 
 ------------+---------+---------+-----------+------------------+--------------------
- LU         |    4924 |   24027 |      4.88 |             1.18 | LINEAR (O(n))
+ LU         |    4924 |   24027 |      4.88 |             1.20 | LINEAR (O(n))
 

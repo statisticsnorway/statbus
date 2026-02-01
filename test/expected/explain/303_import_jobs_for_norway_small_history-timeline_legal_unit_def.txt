@@ -1,5 +1,5 @@
-                                                                                                                                                                                                        QUERY PLAN                                                                                                                                                                                                         
----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+                                                                                                                                                                                                     QUERY PLAN                                                                                                                                                                                                      
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
  Sort
    Sort Key: t.unit_type, t.unit_id, t.valid_from
    ->  Nested Loop Left Join
@@ -7,7 +7,8 @@
          ->  Nested Loop
                Disabled: true
                ->  Seq Scan on settings current_settings
-               ->  Materialize
+               ->  Nested Loop Left Join
+                     Disabled: true
                      ->  Nested Loop Left Join
                            Disabled: true
                            ->  Nested Loop Left Join
@@ -19,162 +20,155 @@
                                              ->  Nested Loop Left Join
                                                    Disabled: true
                                                    ->  Hash Left Join
-                                                         Hash Cond: (pol.region_id = por.id)
+                                                         Hash Cond: (phl.region_id = phr.id)
                                                          ->  Hash Left Join
-                                                               Hash Cond: (pol.country_id = poc.id)
+                                                               Hash Cond: (phl.country_id = phc.id)
                                                                ->  Nested Loop Left Join
                                                                      Disabled: true
                                                                      ->  Hash Left Join
-                                                                           Hash Cond: (phl.region_id = phr.id)
-                                                                           ->  Hash Left Join
-                                                                                 Hash Cond: (phl.country_id = phc.id)
-                                                                                 ->  Nested Loop Left Join
-                                                                                       Disabled: true
+                                                                           Hash Cond: (sa.category_id = sac.id)
+                                                                           ->  Nested Loop Left Join
+                                                                                 Disabled: true
+                                                                                 ->  Hash Left Join
+                                                                                       Hash Cond: (lu.unit_size_id = us.id)
                                                                                        ->  Hash Left Join
-                                                                                             Hash Cond: (sa.category_id = sac.id)
-                                                                                             ->  Nested Loop Left Join
-                                                                                                   Disabled: true
-                                                                                                   ->  Hash Left Join
-                                                                                                         Hash Cond: (lu.unit_size_id = us.id)
+                                                                                             Hash Cond: (lu.status_id = st.id)
+                                                                                             ->  Hash Left Join
+                                                                                                   Hash Cond: (pa.category_id = pac.id)
+                                                                                                   ->  Nested Loop Left Join
+                                                                                                         Disabled: true
                                                                                                          ->  Hash Left Join
-                                                                                                               Hash Cond: (pa.category_id = pac.id)
+                                                                                                               Hash Cond: ((t.unit_id = lu_stats.unit_id) AND (t.valid_from = lu_stats.valid_from))
                                                                                                                ->  Hash Left Join
-                                                                                                                     Hash Cond: (lu.status_id = st.id)
+                                                                                                                     Hash Cond: (lu.legal_form_id = lf.id)
                                                                                                                      ->  Hash Left Join
-                                                                                                                           Hash Cond: (lu.legal_form_id = lf.id)
-                                                                                                                           ->  Nested Loop Left Join
+                                                                                                                           Hash Cond: (lu.sector_id = s.id)
+                                                                                                                           ->  Nested Loop
                                                                                                                                  Disabled: true
-                                                                                                                                 ->  Hash Left Join
-                                                                                                                                       Hash Cond: (lu.sector_id = s.id)
-                                                                                                                                       ->  Nested Loop
-                                                                                                                                             Disabled: true
-                                                                                                                                             ->  Hash Left Join
-                                                                                                                                                   Hash Cond: ((t.unit_id = lu_stats.unit_id) AND (t.valid_from = lu_stats.valid_from))
-                                                                                                                                                   ->  Seq Scan on timesegments t
-                                                                                                                                                   ->  Hash
-                                                                                                                                                         ->  Subquery Scan on lu_stats
-                                                                                                                                                               ->  GroupAggregate
-                                                                                                                                                                     Group Key: t_1.unit_id, t_1.valid_from
-                                                                                                                                                                     ->  Sort
-                                                                                                                                                                           Sort Key: t_1.unit_id, t_1.valid_from
-                                                                                                                                                                           ->  Hash Join
-                                                                                                                                                                                 Hash Cond: (sd.id = sfu.stat_definition_id)
-                                                                                                                                                                                 ->  Seq Scan on stat_definition sd
-                                                                                                                                                                                 ->  Hash
-                                                                                                                                                                                       ->  Hash Join
-                                                                                                                                                                                             Hash Cond: (t_1.unit_id = sfu.legal_unit_id)
-                                                                                                                                                                                             Join Filter: ((t_1.valid_from < sfu.valid_until) AND (sfu.valid_from < t_1.valid_until))
-                                                                                                                                                                                             ->  Seq Scan on timesegments t_1
-                                                                                                                                                                                                   Filter: (unit_type = 'legal_unit'::statistical_unit_type)
-                                                                                                                                                                                             ->  Hash
-                                                                                                                                                                                                   ->  Seq Scan on stat_for_unit sfu
-                                                                                                                                             ->  Memoize
-                                                                                                                                                   Cache Key: t.unit_id, t.valid_from, t.valid_until
-                                                                                                                                                   Cache Mode: binary
-                                                                                                                                                   ->  Subquery Scan on lu
-                                                                                                                                                         ->  Limit
-                                                                                                                                                               ->  Sort
-                                                                                                                                                                     Sort Key: lu_1.valid_from DESC
-                                                                                                                                                                     ->  Seq Scan on legal_unit lu_1
-                                                                                                                                                                           Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (id = t.unit_id))
-                                                                                                                                       ->  Hash
-                                                                                                                                             ->  Seq Scan on sector s
+                                                                                                                                 ->  Seq Scan on timesegments t
                                                                                                                                  ->  Memoize
-                                                                                                                                       Cache Key: lu.id, t.valid_from, t.valid_until
+                                                                                                                                       Cache Key: t.unit_id, t.valid_from, t.valid_until
                                                                                                                                        Cache Mode: binary
-                                                                                                                                       ->  Subquery Scan on pa
+                                                                                                                                       ->  Subquery Scan on lu
                                                                                                                                              ->  Limit
                                                                                                                                                    ->  Sort
-                                                                                                                                                         Sort Key: a.id DESC
-                                                                                                                                                         ->  Seq Scan on activity a
-                                                                                                                                                               Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (legal_unit_id = lu.id) AND (type = 'primary'::activity_type))
+                                                                                                                                                         Sort Key: lu_1.valid_from DESC
+                                                                                                                                                         ->  Seq Scan on legal_unit lu_1
+                                                                                                                                                               Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (id = t.unit_id))
                                                                                                                            ->  Hash
-                                                                                                                                 ->  Seq Scan on legal_form lf
+                                                                                                                                 ->  Seq Scan on sector s
                                                                                                                      ->  Hash
-                                                                                                                           ->  Seq Scan on status st
+                                                                                                                           ->  Seq Scan on legal_form lf
                                                                                                                ->  Hash
-                                                                                                                     ->  Seq Scan on activity_category pac
-                                                                                                         ->  Hash
-                                                                                                               ->  Seq Scan on unit_size us
-                                                                                                   ->  Memoize
-                                                                                                         Cache Key: lu.id, t.valid_from, t.valid_until
-                                                                                                         Cache Mode: binary
-                                                                                                         ->  Subquery Scan on sa
-                                                                                                               ->  Limit
-                                                                                                                     ->  Sort
-                                                                                                                           Sort Key: a_1.id DESC
-                                                                                                                           ->  Index Scan using ix_activity_type on activity a_1
-                                                                                                                                 Index Cond: (type = 'secondary'::activity_type)
-                                                                                                                                 Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (legal_unit_id = lu.id))
+                                                                                                                     ->  Subquery Scan on lu_stats
+                                                                                                                           ->  GroupAggregate
+                                                                                                                                 Group Key: t_1.unit_id, t_1.valid_from
+                                                                                                                                 ->  Sort
+                                                                                                                                       Sort Key: t_1.unit_id, t_1.valid_from
+                                                                                                                                       ->  Hash Join
+                                                                                                                                             Hash Cond: (sd.id = sfu.stat_definition_id)
+                                                                                                                                             ->  Seq Scan on stat_definition sd
+                                                                                                                                             ->  Hash
+                                                                                                                                                   ->  Hash Join
+                                                                                                                                                         Hash Cond: (t_1.unit_id = sfu.legal_unit_id)
+                                                                                                                                                         Join Filter: ((t_1.valid_from < sfu.valid_until) AND (sfu.valid_from < t_1.valid_until))
+                                                                                                                                                         ->  Seq Scan on timesegments t_1
+                                                                                                                                                               Filter: (unit_type = 'legal_unit'::statistical_unit_type)
+                                                                                                                                                         ->  Hash
+                                                                                                                                                               ->  Seq Scan on stat_for_unit sfu
+                                                                                                         ->  Memoize
+                                                                                                               Cache Key: lu.id, t.valid_from, t.valid_until
+                                                                                                               Cache Mode: binary
+                                                                                                               ->  Subquery Scan on pa
+                                                                                                                     ->  Limit
+                                                                                                                           ->  Sort
+                                                                                                                                 Sort Key: a.id DESC
+                                                                                                                                 ->  Seq Scan on activity a
+                                                                                                                                       Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (legal_unit_id = lu.id) AND (type = 'primary'::activity_type))
+                                                                                                   ->  Hash
+                                                                                                         ->  Seq Scan on activity_category pac
                                                                                              ->  Hash
-                                                                                                   ->  Seq Scan on activity_category sac
-                                                                                       ->  Memoize
-                                                                                             Cache Key: lu.id, t.valid_from, t.valid_until
-                                                                                             Cache Mode: binary
-                                                                                             ->  Subquery Scan on phl
-                                                                                                   ->  Limit
-                                                                                                         ->  Sort
-                                                                                                               Sort Key: l.id DESC
-                                                                                                               ->  Index Scan using location_type_establishment_id_valid on location l
-                                                                                                                     Index Cond: ((type = 'physical'::location_type) AND (legal_unit_id = lu.id))
-                                                                                                                     Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until))
-                                                                                 ->  Hash
-                                                                                       ->  Seq Scan on country phc
+                                                                                                   ->  Seq Scan on status st
+                                                                                       ->  Hash
+                                                                                             ->  Seq Scan on unit_size us
+                                                                                 ->  Memoize
+                                                                                       Cache Key: lu.id, t.valid_from, t.valid_until
+                                                                                       Cache Mode: binary
+                                                                                       ->  Subquery Scan on sa
+                                                                                             ->  Limit
+                                                                                                   ->  Sort
+                                                                                                         Sort Key: a_1.id DESC
+                                                                                                         ->  Index Scan using ix_activity_type on activity a_1
+                                                                                                               Index Cond: (type = 'secondary'::activity_type)
+                                                                                                               Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (legal_unit_id = lu.id))
                                                                            ->  Hash
-                                                                                 ->  Index Scan using region_pkey on region phr
+                                                                                 ->  Seq Scan on activity_category sac
                                                                      ->  Memoize
                                                                            Cache Key: lu.id, t.valid_from, t.valid_until
                                                                            Cache Mode: binary
+                                                                           ->  Subquery Scan on phl
+                                                                                 ->  Limit
+                                                                                       ->  Sort
+                                                                                             Sort Key: l.id DESC
+                                                                                             ->  Seq Scan on location l
+                                                                                                   Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (legal_unit_id = lu.id) AND (type = 'physical'::location_type))
+                                                               ->  Hash
+                                                                     ->  Seq Scan on country phc
+                                                         ->  Hash
+                                                               ->  Index Scan using region_pkey on region phr
+                                                   ->  Hash Right Join
+                                                         Hash Cond: (poc.id = pol.country_id)
+                                                         ->  Seq Scan on country poc
+                                                         ->  Hash
+                                                               ->  Hash Right Join
+                                                                     Hash Cond: (por.id = pol.region_id)
+                                                                     ->  Index Scan using region_pkey on region por
+                                                                     ->  Hash
                                                                            ->  Subquery Scan on pol
                                                                                  ->  Limit
                                                                                        ->  Sort
                                                                                              Sort Key: l_1.id DESC
-                                                                                             ->  Index Scan using location_type_establishment_id_valid on location l_1
-                                                                                                   Index Cond: ((type = 'postal'::location_type) AND (legal_unit_id = lu.id))
-                                                                                                   Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until))
-                                                               ->  Hash
-                                                                     ->  Seq Scan on country poc
-                                                         ->  Hash
-                                                               ->  Index Scan using region_pkey on region por
-                                                   ->  Memoize
-                                                         Cache Key: lu.id, t.valid_from, t.valid_until
-                                                         Cache Mode: binary
-                                                         ->  Subquery Scan on c
-                                                               ->  Limit
-                                                                     ->  Sort
-                                                                           Sort Key: c_1.id DESC
-                                                                           ->  Seq Scan on contact c_1
-                                                                                 Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (legal_unit_id = lu.id))
+                                                                                             ->  Seq Scan on location l_1
+                                                                                                   Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (legal_unit_id = lu.id) AND (type = 'postal'::location_type))
                                              ->  Memoize
                                                    Cache Key: lu.id, t.valid_from, t.valid_until
                                                    Cache Mode: binary
-                                                   ->  Aggregate
-                                                         ->  Sort
-                                                               Sort Key: sfu_1.data_source_id
-                                                               ->  Seq Scan on stat_for_unit sfu_1
-                                                                     Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (legal_unit_id = lu.id))
+                                                   ->  Subquery Scan on c
+                                                         ->  Limit
+                                                               ->  Sort
+                                                                     Sort Key: c_1.id DESC
+                                                                     ->  Seq Scan on contact c_1
+                                                                           Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (legal_unit_id = lu.id))
                                        ->  Memoize
                                              Cache Key: lu.id, t.valid_from, t.valid_until
                                              Cache Mode: binary
-                                             ->  Limit
+                                             ->  Aggregate
                                                    ->  Sort
-                                                         Sort Key: sfu_2.edit_at DESC
-                                                         ->  Seq Scan on stat_for_unit sfu_2
+                                                         Sort Key: sfu_1.data_source_id
+                                                         ->  Seq Scan on stat_for_unit sfu_1
                                                                Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (legal_unit_id = lu.id))
                                  ->  Memoize
-                                       Cache Key: lu.data_source_id, pa.data_source_id, sa.data_source_id, phl.data_source_id, pol.data_source_id, (array_agg(DISTINCT sfu_1.data_source_id) FILTER (WHERE (sfu_1.data_source_id IS NOT NULL)))
+                                       Cache Key: lu.id, t.valid_from, t.valid_until
                                        Cache Mode: binary
-                                       ->  Aggregate
-                                             ->  Seq Scan on data_source ds
-                                                   Filter: (COALESCE((id = lu.data_source_id), false) OR COALESCE((id = pa.data_source_id), false) OR COALESCE((id = sa.data_source_id), false) OR COALESCE((id = phl.data_source_id), false) OR COALESCE((id = pol.data_source_id), false) OR COALESCE((id = ANY ((array_agg(DISTINCT sfu_1.data_source_id) FILTER (WHERE (sfu_1.data_source_id IS NOT NULL))))), false))
+                                       ->  Limit
+                                             ->  Sort
+                                                   Sort Key: sfu_2.edit_at DESC
+                                                   ->  Seq Scan on stat_for_unit sfu_2
+                                                         Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (legal_unit_id = lu.id))
                            ->  Memoize
-                                 Cache Key: lu.edit_comment, lu.edit_by_user_id, lu.edit_at, pa.edit_comment, pa.edit_by_user_id, pa.edit_at, sa.edit_comment, sa.edit_by_user_id, sa.edit_at, phl.edit_comment, phl.edit_by_user_id, phl.edit_at, pol.edit_comment, pol.edit_by_user_id, pol.edit_at, c.edit_comment, c.edit_by_user_id, c.edit_at, sfu_2.edit_comment, sfu_2.edit_by_user_id, sfu_2.edit_at
+                                 Cache Key: lu.data_source_id, pa.data_source_id, sa.data_source_id, phl.data_source_id, pol.data_source_id, (array_agg(DISTINCT sfu_1.data_source_id) FILTER (WHERE (sfu_1.data_source_id IS NOT NULL)))
                                  Cache Mode: binary
-                                 ->  Limit
-                                       ->  Sort
-                                             Sort Key: "*VALUES*".column3 DESC
-                                             ->  Values Scan on "*VALUES*"
-                                                   Filter: (column3 IS NOT NULL)
+                                 ->  Aggregate
+                                       ->  Seq Scan on data_source ds
+                                             Filter: (COALESCE((id = lu.data_source_id), false) OR COALESCE((id = pa.data_source_id), false) OR COALESCE((id = sa.data_source_id), false) OR COALESCE((id = phl.data_source_id), false) OR COALESCE((id = pol.data_source_id), false) OR COALESCE((id = ANY ((array_agg(DISTINCT sfu_1.data_source_id) FILTER (WHERE (sfu_1.data_source_id IS NOT NULL))))), false))
+                     ->  Memoize
+                           Cache Key: lu.edit_comment, lu.edit_by_user_id, lu.edit_at, pa.edit_comment, pa.edit_by_user_id, pa.edit_at, sa.edit_comment, sa.edit_by_user_id, sa.edit_at, phl.edit_comment, phl.edit_by_user_id, phl.edit_at, pol.edit_comment, pol.edit_by_user_id, pol.edit_at, c.edit_comment, c.edit_by_user_id, c.edit_at, sfu_2.edit_comment, sfu_2.edit_by_user_id, sfu_2.edit_at
+                           Cache Mode: binary
+                           ->  Limit
+                                 ->  Sort
+                                       Sort Key: "*VALUES*".column3 DESC
+                                       ->  Values Scan on "*VALUES*"
+                                             Filter: (column3 IS NOT NULL)
          ->  Memoize
                Cache Key: lu.id, t.valid_from, t.valid_until
                Cache Mode: binary
@@ -203,5 +197,5 @@
                                    ->  Result
                              ->  ProjectSet
                                    ->  Result
-(203 rows)
+(197 rows)
 
