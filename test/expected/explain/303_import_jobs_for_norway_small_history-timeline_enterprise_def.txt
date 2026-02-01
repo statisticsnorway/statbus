@@ -23,7 +23,7 @@
                                                          ->  Seq Scan on timesegments t_1
                                                                Filter: (unit_type = 'enterprise'::statistical_unit_type)
                                                          ->  Hash
-                                                               ->  Index Only Scan using enterprise_pkey on enterprise en_1
+                                                               ->  Seq Scan on enterprise en_1
                                                    ->  GroupAggregate
                                                          ->  Sort
                                                                Sort Key: timeline_legal_unit.legal_unit_id
