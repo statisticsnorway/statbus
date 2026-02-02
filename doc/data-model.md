@@ -190,7 +190,7 @@ Handles background processing. A long-running worker process calls `worker.proce
 - `tasks(id, command, parent_id, created_at, processed_at, completed_at, scheduled_at, priority, state, duration_ms, error, worker_pid, payload)`
   - Key FKs: command, command, parent_id.
   - Enums: `state` (`worker.task_state`).
-- `command_registry(command, created_at, handler_procedure, before_procedure, after_procedure, description, queue)`
+- `command_registry(command, created_at, handler_procedure, before_procedure, after_procedure, description, queue, batches_per_wave)`
   - Key FKs: queue.
 - `queue_registry(queue, description, default_concurrency)`
 - `last_processed(table_name, transaction_id)`

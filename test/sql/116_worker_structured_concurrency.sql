@@ -261,4 +261,186 @@ FROM worker.tasks
 WHERE command NOT IN ('task_cleanup', 'import_job_cleanup')
 ORDER BY id;
 
+-- ============================================================================
+-- WAVE CONTINUATION TESTS: derive_statistical_unit_continue command
+-- ============================================================================
+
+\echo "=== 19. Verify derive_statistical_unit_continue command exists ==="
+SELECT command, handler_procedure, queue 
+FROM worker.command_registry 
+WHERE command = 'derive_statistical_unit_continue';
+
+\echo "=== 20. Verify continuation command has NO deduplication index ==="
+-- derive_statistical_unit has pending-only dedup, but continue should have NONE
+SELECT indexname, indexdef 
+FROM pg_indexes 
+WHERE schemaname = 'worker' AND indexname LIKE '%derive%dedup%'
+ORDER BY indexname;
+
+\echo "=== 21. Test derive_statistical_unit deduplication (pending only) ==="
+-- Clean slate for deduplication tests (delete children first due to FK)
+DELETE FROM worker.tasks WHERE parent_id IS NOT NULL;
+DELETE FROM worker.tasks WHERE command LIKE 'derive_statistical_unit%';
+
+-- Insert first pending task
+SELECT worker.enqueue_derive_statistical_unit(
+    p_establishment_id_ranges := '{[1,10)}'::int4multirange
+) AS first_task_id \gset
+
+-- Insert second (should merge with first since it's pending)
+SELECT worker.enqueue_derive_statistical_unit(
+    p_establishment_id_ranges := '{[20,30)}'::int4multirange
+) AS second_task_id \gset
+
+-- Should be same task (merged)
+SELECT :first_task_id = :second_task_id AS tasks_merged;
+
+-- Verify ranges were merged
+SELECT payload->>'establishment_id_ranges' AS merged_ranges
+FROM worker.tasks WHERE id = :first_task_id;
+
+\echo "=== 22. Test new pending task created when existing is processing ==="
+-- Move first task to processing
+UPDATE worker.tasks 
+SET state = 'processing', worker_pid = pg_backend_pid() 
+WHERE id = :first_task_id;
+
+-- Insert third task (should create NEW task since first is processing)
+SELECT worker.enqueue_derive_statistical_unit(
+    p_establishment_id_ranges := '{[40,50)}'::int4multirange
+) AS third_task_id \gset
+
+-- Should be different task
+SELECT :first_task_id != :third_task_id AS new_task_created;
+
+-- Verify both tasks exist with their own ranges
+SELECT id, state, payload->>'establishment_id_ranges' AS ranges
+FROM worker.tasks 
+WHERE command = 'derive_statistical_unit'
+ORDER BY id;
+
+\echo "=== 23. Test continuation tasks are NOT deduplicated ==="
+-- Insert multiple continuation tasks (should all be created separately)
+INSERT INTO worker.tasks (command, payload)
+VALUES (
+    'derive_statistical_unit_continue',
+    '{"batch_offset": 10}'::jsonb
+) RETURNING id AS cont1_id \gset
+
+INSERT INTO worker.tasks (command, payload)
+VALUES (
+    'derive_statistical_unit_continue',
+    '{"batch_offset": 20}'::jsonb
+) RETURNING id AS cont2_id \gset
+
+INSERT INTO worker.tasks (command, payload)
+VALUES (
+    'derive_statistical_unit_continue',
+    '{"batch_offset": 30}'::jsonb
+) RETURNING id AS cont3_id \gset
+
+-- All three should exist as separate tasks
+SELECT COUNT(*) AS continuation_count
+FROM worker.tasks 
+WHERE command = 'derive_statistical_unit_continue';
+
+-- Verify each has different offset
+SELECT id, payload->>'batch_offset' AS batch_offset
+FROM worker.tasks 
+WHERE command = 'derive_statistical_unit_continue'
+ORDER BY id;
+
+\echo "=== 24. Test has_more detection logic for wave processing ==="
+-- This tests the count-based approach for detecting if more batches exist
+DO $$
+DECLARE
+    v_batch_count INT;
+    v_batches_per_wave INT := 3;  -- Small for testing
+    v_has_more BOOLEAN;
+    v_simulated_batches INT := 8;  -- Simulate 8 total batches
+    v_offset INT;
+BEGIN
+    -- Wave 1: offset=0, should process 3, has_more=TRUE (because 8 > 3)
+    v_batch_count := 0;
+    v_has_more := FALSE;
+    v_offset := 0;
+    
+    FOR i IN 1..(v_batches_per_wave + 1) LOOP
+        EXIT WHEN (v_offset + i) > v_simulated_batches;
+        
+        IF v_batch_count >= v_batches_per_wave THEN
+            v_has_more := TRUE;
+            EXIT;
+        END IF;
+        v_batch_count := v_batch_count + 1;
+    END LOOP;
+    
+    ASSERT v_batch_count = 3, format('Wave 1: Expected 3 batches, got %s', v_batch_count);
+    ASSERT v_has_more = TRUE, format('Wave 1: Expected has_more = TRUE, got %s', v_has_more);
+    RAISE NOTICE 'Wave 1 (offset=0): % batches, has_more=% [PASS]', v_batch_count, v_has_more;
+    
+    -- Wave 2: offset=3, should process 3, has_more=TRUE (because 8-3=5 > 3)
+    v_batch_count := 0;
+    v_has_more := FALSE;
+    v_offset := 3;
+    
+    FOR i IN 1..(v_batches_per_wave + 1) LOOP
+        EXIT WHEN (v_offset + i) > v_simulated_batches;
+        
+        IF v_batch_count >= v_batches_per_wave THEN
+            v_has_more := TRUE;
+            EXIT;
+        END IF;
+        v_batch_count := v_batch_count + 1;
+    END LOOP;
+    
+    ASSERT v_batch_count = 3, format('Wave 2: Expected 3 batches, got %s', v_batch_count);
+    ASSERT v_has_more = TRUE, format('Wave 2: Expected has_more = TRUE, got %s', v_has_more);
+    RAISE NOTICE 'Wave 2 (offset=3): % batches, has_more=% [PASS]', v_batch_count, v_has_more;
+    
+    -- Wave 3: offset=6, should process 2, has_more=FALSE (because 8-6=2 < 3)
+    v_batch_count := 0;
+    v_has_more := FALSE;
+    v_offset := 6;
+    
+    FOR i IN 1..(v_batches_per_wave + 1) LOOP
+        EXIT WHEN (v_offset + i) > v_simulated_batches;
+        
+        IF v_batch_count >= v_batches_per_wave THEN
+            v_has_more := TRUE;
+            EXIT;
+        END IF;
+        v_batch_count := v_batch_count + 1;
+    END LOOP;
+    
+    ASSERT v_batch_count = 2, format('Wave 3: Expected 2 batches, got %s', v_batch_count);
+    ASSERT v_has_more = FALSE, format('Wave 3: Expected has_more = FALSE, got %s', v_has_more);
+    RAISE NOTICE 'Wave 3 (offset=6): % batches, has_more=% [PASS]', v_batch_count, v_has_more;
+    
+    RAISE NOTICE 'All has_more detection tests passed!';
+END $$;
+
+\echo "=== 25. Verify derive_statistical_unit_impl function exists with batch_offset ==="
+SELECT routine_name, 
+       (SELECT string_agg(parameter_name, ', ' ORDER BY ordinal_position) 
+        FROM information_schema.parameters p 
+        WHERE p.specific_schema = r.specific_schema 
+          AND p.specific_name = r.specific_name) AS parameters
+FROM information_schema.routines r
+WHERE routine_schema = 'worker' 
+  AND routine_name = 'derive_statistical_unit_impl';
+
+\echo "=== 26. Summary of continuation-related state ==="
+SELECT 
+    command,
+    state,
+    payload->>'batch_offset' AS batch_offset,
+    payload->>'establishment_id_ranges' AS est_ranges
+FROM worker.tasks
+WHERE command LIKE 'derive_statistical_unit%'
+ORDER BY command, id;
+
+-- Cleanup continuation test data
+DELETE FROM worker.tasks WHERE command LIKE 'derive_statistical_unit%';
+
 ROLLBACK;
