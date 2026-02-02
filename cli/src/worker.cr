@@ -291,14 +291,42 @@ module Statbus
                 @queue_concurrency[queue] = concurrency
                 @available_queues << queue
 
-                # Start multiple processor fibers based on concurrency setting
-                # Each fiber processes tasks independently using FOR UPDATE SKIP LOCKED
+                # STRUCTURED CONCURRENCY: Fan-out/Fan-in Architecture
+                # - 1 "top" fiber processes top-level tasks (picks tasks with parent_id IS NULL)
+                # - N "child" fibers process children of waiting parents (in parallel)
+                # - Internal signaling coordinates between top and child fibers
+                #
+                # Flow:
+                # 1. Top fiber picks a top-level task
+                # 2. If task spawns children, it enters 'waiting' state
+                # 3. Top fiber detects waiting parent, signals children, then waits
+                # 4. Child fibers process all children in parallel
+                # 5. When last child completes, parent is auto-completed by DB
+                # 6. Child fibers signal top fiber, which continues with next task
+                
+                # Channel for child fibers to signal top fiber when done
+                children_done_channel = Channel(Nil).new(concurrency)
+                # Channel for top fiber to wake child fibers when children are spawned
+                wake_children_channel = Channel(Nil).new(concurrency)
+                
+                # Start the single top fiber
+                top_fiber = spawn do
+                  begin
+                    process_queue_loop_top(queue, new_channel, wake_children_channel, children_done_channel, concurrency)
+                  rescue ex
+                    @log.error { "Unhandled exception in #{queue}:top processor fiber: #{ex.class.name} - #{ex.message}" }
+                    @log.error { ex.backtrace.join("\n") }
+                  end
+                end
+                @active_fibers << top_fiber
+                
+                # Start N child fibers
                 concurrency.times do |worker_num|
                   fiber = spawn do
                     begin
-                      process_queue_loop(queue, new_channel, worker_num)
+                      process_queue_loop_child(queue, new_channel, wake_children_channel, children_done_channel, worker_num)
                     rescue ex
-                      @log.error { "Unhandled exception in #{queue}:#{worker_num} processor fiber: #{ex.class.name} - #{ex.message}" }
+                      @log.error { "Unhandled exception in #{queue}:child:#{worker_num} processor fiber: #{ex.class.name} - #{ex.message}" }
                       @log.error { ex.backtrace.join("\n") }
                     end
                   end
@@ -931,6 +959,267 @@ module Statbus
       end
     end
 
+    # TOP FIBER: Processes top-level tasks only
+    # When a task spawns children (enters 'waiting'), signals child fibers and waits
+    private def process_queue_loop_top(
+      queue : String,
+      channel : Channel(Symbol),
+      wake_children_channel : Channel(Nil),
+      children_done_channel : Channel(Nil),
+      num_children : Int32
+    )
+      worker_id = "#{queue}:top"
+      @log.info { "Starting TOP processing fiber for #{worker_id}" }
+
+      # Create a channel for communication between receiver and processor fibers
+      process_signal = Channel(Bool).new(1)
+
+      # Flag to track if processing is needed
+      processing_needed = false
+      # Flag to track if currently processing
+      currently_processing = false
+      # Flag to track if shutdown was requested
+      shutdown_requested = false
+
+      # Start a fiber to handle receiving messages with exception handling
+      receiver_fiber = spawn do
+        begin
+          loop do
+            break if @shutdown || shutdown_requested
+
+            begin
+              command = channel.receive
+
+              case command
+              when :process
+                if currently_processing
+                  # If already processing, just set the flag for another round
+                  processing_needed = true
+                else
+                  # Signal the processor fiber to start processing
+                  process_signal.send(true) rescue nil
+                end
+              when :shutdown
+                @log.info { "Received shutdown command for #{worker_id} process loop" }
+                shutdown_requested = true
+                # Signal the processor fiber to exit
+                process_signal.send(true) rescue nil
+                break
+              end
+            rescue Channel::ClosedError
+              if @shutdown
+                @log.info { "Queue channel closed during shutdown, exiting #{worker_id} receiver loop" }
+              else
+                @log.warn { "Queue channel closed unexpectedly, shutting down #{worker_id} receiver loop" }
+              end
+              shutdown_requested = true
+              # Signal the processor fiber to exit
+              process_signal.send(true) rescue nil
+              break
+            rescue ex
+              @log.error { "Error in #{worker_id} receiver loop: #{ex.message}" }
+              @log.error { ex.backtrace.join("\n") }
+              wait_with_shutdown_check(1.seconds)
+            end
+          end
+
+          # Acknowledge shutdown before exiting
+          if @shutdown
+            @log.debug { "#{worker_id} receiver acknowledging shutdown" }
+            @shutdown_ack_channel.send(nil) rescue nil
+          end
+        rescue ex
+          @log.error { "Unhandled exception in #{worker_id} receiver fiber: #{ex.class.name} - #{ex.message}" }
+          @log.error { ex.backtrace.join("\n") }
+        end
+      end
+
+      # Process tasks immediately upon starting - drain the queue
+      @log.debug { "Initial processing for #{worker_id}" }
+      loop do
+        break if @shutdown || shutdown_requested
+        tasks_done = process_tasks(queue, mode: "top")
+        if tasks_done == 0
+          # No top-level tasks found - either queue empty or waiting for children
+          # Check if there's a waiting parent (children need processing)
+          if has_waiting_parent?(queue)
+            @log.debug { "#{worker_id}: Waiting parent detected, waking children" }
+            # Wake all child fibers
+            num_children.times { wake_children_channel.send(nil) rescue nil }
+            # Wait for children to signal they're done
+            @log.debug { "#{worker_id}: Waiting for children to complete" }
+            num_children.times { children_done_channel.receive rescue nil }
+            @log.debug { "#{worker_id}: All children signaled done, continuing" }
+            # Loop again to pick up the next task (possibly a continuation)
+          else
+            break  # No tasks, no waiting parent - queue is empty
+          end
+        end
+      end
+
+      # Check for new scheduled tasks after initial processing, but only once at startup
+      check_for_new_scheduled_tasks
+
+      # Main processor loop
+      loop do
+        break if @shutdown || shutdown_requested
+
+        # Check if worker is paused - wait until resumed or timeout
+        wait_while_paused
+        break if @shutdown || shutdown_requested  # Re-check after potential long wait
+
+        begin
+          # Set processing flag
+          currently_processing = true
+          processing_needed = false
+
+          # Process tasks in a loop until queue is empty or waiting for children
+          @log.debug { "Processing tasks for #{worker_id}" }
+          loop do
+            break if @shutdown || shutdown_requested
+            tasks_done = process_tasks(queue, mode: "top")
+            if tasks_done == 0
+              # No top-level tasks found - either queue empty or waiting for children
+              if has_waiting_parent?(queue)
+                @log.debug { "#{worker_id}: Waiting parent detected, waking children" }
+                # Wake all child fibers
+                num_children.times { wake_children_channel.send(nil) rescue nil }
+                # Wait for children to signal they're done
+                @log.debug { "#{worker_id}: Waiting for children to complete" }
+                num_children.times { children_done_channel.receive rescue nil }
+                @log.debug { "#{worker_id}: All children signaled done, continuing" }
+                # Continue the loop to pick up next task
+              else
+                break  # Queue is empty
+              end
+            end
+          end
+
+          # Only check for scheduled tasks when processing due to a notification
+          # This prevents the feedback loop where every process triggers more processes
+          if queue == "maintenance" # Only maintenance queue handles scheduled tasks
+            check_for_new_scheduled_tasks
+          end
+
+          # Clear processing flag
+          currently_processing = false
+
+          # If more notifications arrived during processing, process again
+          if processing_needed
+            processing_needed = false
+            next
+          end
+
+          # Wait for next signal
+          process_signal.receive
+        rescue Channel::ClosedError
+          if @shutdown || shutdown_requested
+            @log.info { "Process signal channel closed during shutdown, exiting #{worker_id} process loop" }
+          else
+            @log.warn { "Process signal channel closed unexpectedly, shutting down #{worker_id} process loop" }
+          end
+          break
+        rescue ex
+          @log.error { "Error in #{worker_id} processor loop: #{ex.message}" }
+          @log.error { ex.backtrace.join("\n") }
+          wait_with_shutdown_check(1.seconds) # Prevent tight loop on error while checking for shutdown
+        end
+      end
+
+      # Close the process signal channel
+      process_signal.close rescue nil
+
+      # Acknowledge shutdown before exiting
+      if @shutdown
+        @log.debug { "#{worker_id} processor acknowledging shutdown" }
+        @shutdown_ack_channel.send(nil) rescue nil
+      end
+    end
+
+    # CHILD FIBER: Processes children of waiting parents only
+    # Waits for signal from top fiber, processes all children, then signals done
+    private def process_queue_loop_child(
+      queue : String,
+      channel : Channel(Symbol),
+      wake_children_channel : Channel(Nil),
+      children_done_channel : Channel(Nil),
+      worker_num : Int32
+    )
+      worker_id = "#{queue}:child:#{worker_num}"
+      @log.info { "Starting CHILD processing fiber for #{worker_id}" }
+
+      shutdown_requested = false
+
+      # Main processor loop - wait for wake signal from top fiber
+      loop do
+        break if @shutdown || shutdown_requested
+
+        begin
+          # Wait for top fiber to wake us (or check for shutdown periodically)
+          select
+          when wake_children_channel.receive
+            @log.debug { "#{worker_id}: Woken by top fiber, processing children" }
+          when timeout(1.seconds)
+            # Periodic check for shutdown
+            next
+          end
+
+          break if @shutdown || shutdown_requested
+
+          # Check if worker is paused - wait until resumed or timeout
+          wait_while_paused
+          break if @shutdown || shutdown_requested
+
+          # Process child tasks until none left
+          loop do
+            break if @shutdown || shutdown_requested
+            tasks_done = process_tasks(queue, mode: "child")
+            break if tasks_done == 0  # No more children to process
+          end
+
+          # Signal top fiber that we're done
+          @log.debug { "#{worker_id}: Done processing, signaling top fiber" }
+          children_done_channel.send(nil) rescue nil
+
+        rescue Channel::ClosedError
+          if @shutdown
+            @log.info { "Wake channel closed during shutdown, exiting #{worker_id}" }
+          else
+            @log.warn { "Wake channel closed unexpectedly, shutting down #{worker_id}" }
+          end
+          break
+        rescue ex
+          @log.error { "Error in #{worker_id} processor loop: #{ex.message}" }
+          @log.error { ex.backtrace.join("\n") }
+          # Still signal done to prevent top fiber from hanging
+          children_done_channel.send(nil) rescue nil
+          wait_with_shutdown_check(1.seconds)
+        end
+      end
+
+      # Acknowledge shutdown before exiting
+      if @shutdown
+        @log.debug { "#{worker_id} acknowledging shutdown" }
+        @shutdown_ack_channel.send(nil) rescue nil
+      end
+    end
+
+    # Check if there's a waiting parent task for the given queue
+    private def has_waiting_parent?(queue : String) : Bool
+      DB.connect(@config.connection_string("worker")) do |db|
+        result = db.query_one? "SELECT EXISTS (
+          SELECT 1 FROM worker.tasks t
+          JOIN worker.command_registry cr ON t.command = cr.command
+          WHERE t.state = 'waiting'::worker.task_state
+            AND cr.queue = $1
+        )", queue, as: Bool
+        result || false
+      end
+    rescue ex
+      @log.error { "Error checking for waiting parent: #{ex.message}" }
+      false
+    end
+
     # Track when we last checked for scheduled tasks to avoid redundant checks
     @last_scheduled_check = Time.utc
 
@@ -961,7 +1250,8 @@ module Statbus
 
     # Process pending tasks for a specific queue
     # Returns the number of tasks processed (0 means queue is empty)
-    private def process_tasks(queue : String) : Int32
+    # mode: nil (backward compatible), "top" (top-level tasks only), or "child" (children only)
+    private def process_tasks(queue : String, mode : String? = nil) : Int32
       start_time = Statbus.monotonic_time
       consecutive_errors = 0
       max_consecutive_errors = 3
@@ -972,14 +1262,23 @@ module Statbus
         DB.connect(@config.connection_string("worker")) do |db|
           # Call worker.process_tasks() procedure
           # The p_queue parameter ensures we only process tasks for this specific queue
+          # The p_mode parameter controls structured concurrency behavior:
+          #   - NULL: backward compatible, picks children if waiting parent exists, else top-level
+          #   - 'top': only pick top-level tasks, return if waiting parent exists
+          #   - 'child': only pick children of waiting parents, return if no waiting parent
           # Note: worker.process_tasks() handles its own transactions internally
-          @log.debug { "Executing worker.process_tasks for queue: #{queue}" }
+          mode_desc = mode ? " (mode: #{mode})" : ""
+          @log.debug { "Executing worker.process_tasks for queue: #{queue}#{mode_desc}" }
 
           # Get the current timestamp before processing tasks
           current_timestamp = db.query_one "SELECT clock_timestamp()", as: Time
 
-          # Execute the CALL statement
-          db.exec "CALL worker.process_tasks(p_queue => $1, p_batch_size => $2)", queue, 10
+          # Execute the CALL statement with optional mode parameter
+          if mode
+            db.exec "CALL worker.process_tasks(p_queue => $1, p_batch_size => $2, p_mode => $3::worker.process_mode)", queue, 10, mode
+          else
+            db.exec "CALL worker.process_tasks(p_queue => $1, p_batch_size => $2)", queue, 10
+          end
 
           # Then execute the SELECT statement to get results
           # Using the timestamp from before processing to find recently processed tasks
