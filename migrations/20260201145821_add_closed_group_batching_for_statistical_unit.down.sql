@@ -1,33 +1,32 @@
--- Down Migration: Remove closed group batching, restore original derive_statistical_unit
+-- Down Migration: Remove parent-child batching, restore original derive_statistical_unit
 BEGIN;
 
 -- ============================================================================
--- Remove command and queue registration
+-- Remove command registration
 -- ============================================================================
 DELETE FROM worker.command_registry 
 WHERE command = 'statistical_unit_refresh_batch';
 
-DELETE FROM worker.queue_registry 
-WHERE queue = 'analytics_batch';
-
--- Remove concurrency column from queue_registry
-ALTER TABLE worker.queue_registry 
-DROP COLUMN IF EXISTS default_concurrency;
-
-
 -- ============================================================================
--- Drop new objects
+-- Drop batch-related objects
 -- ============================================================================
 DROP PROCEDURE IF EXISTS worker.statistical_unit_refresh_batch(JSONB);
-DROP FUNCTION IF EXISTS worker.enqueue_statistical_unit_refresh_batch(INT, INT[], INT[], INT[], DATE, DATE, BOOLEAN);
 DROP FUNCTION IF EXISTS public.get_closed_group_batches(INT, INT[], INT[], INT[]);
 DROP FUNCTION IF EXISTS public.get_enterprise_closed_groups();
 DROP PROCEDURE IF EXISTS public.timesegments_years_refresh_concurrent();
 
+-- Reset concurrency column (keep it, just reset to 1)
+UPDATE worker.queue_registry SET default_concurrency = 1 WHERE queue = 'analytics';
+
 
 -- ============================================================================
--- Restore original derive_statistical_unit function
+-- Restore original derive_statistical_unit function (no p_task_id parameter)
 -- ============================================================================
+
+-- Drop the 6-parameter version before restoring the 5-parameter version
+-- (PostgreSQL treats different parameter counts as different functions)
+DROP FUNCTION IF EXISTS worker.derive_statistical_unit(int4multirange, int4multirange, int4multirange, date, date, bigint);
+
 CREATE OR REPLACE FUNCTION worker.derive_statistical_unit(
   p_establishment_id_ranges int4multirange DEFAULT NULL,
   p_legal_unit_id_ranges int4multirange DEFAULT NULL,
@@ -139,6 +138,28 @@ BEGIN
         p_valid_from => derive_statistical_unit.p_valid_from,
         p_valid_until => derive_statistical_unit.p_valid_until
     );
+END;
+$derive_statistical_unit$;
+
+-- Restore original handler (no task_id lookup)
+CREATE OR REPLACE PROCEDURE worker.derive_statistical_unit(payload JSONB)
+SECURITY DEFINER
+LANGUAGE plpgsql
+AS $derive_statistical_unit$
+DECLARE
+    v_establishment_id_ranges int4multirange = (payload->>'establishment_id_ranges')::int4multirange;
+    v_legal_unit_id_ranges int4multirange = (payload->>'legal_unit_id_ranges')::int4multirange;
+    v_enterprise_id_ranges int4multirange = (payload->>'enterprise_id_ranges')::int4multirange;
+    v_valid_from date = (payload->>'valid_from')::date;
+    v_valid_until date = (payload->>'valid_until')::date;
+BEGIN
+  PERFORM worker.derive_statistical_unit(
+    p_establishment_id_ranges := v_establishment_id_ranges,
+    p_legal_unit_id_ranges := v_legal_unit_id_ranges,
+    p_enterprise_id_ranges := v_enterprise_id_ranges,
+    p_valid_from := v_valid_from,
+    p_valid_until := v_valid_until
+  );
 END;
 $derive_statistical_unit$;
 

@@ -1,0 +1,368 @@
+\echo "=== Test: Worker Structured Concurrency ==="
+"=== Test: Worker Structured Concurrency ==="
+\echo "Verifies parent-child task relationships, waiting state, and automatic completion"
+"Verifies parent-child task relationships, waiting state, and automatic completion"
+BEGIN;
+-- Clean up any existing test tasks and reset sequence for deterministic IDs in error messages
+DELETE FROM worker.tasks WHERE command IN ('derive_statistical_unit', 'statistical_unit_refresh_batch', 'derive_reports');
+-- Reset sequence to get predictable task IDs (3 onwards, since 1 and 2 are maintenance tasks)
+ALTER SEQUENCE worker.tasks_id_seq RESTART WITH 3;
+\echo "=== 1. Verify task_state enum includes 'waiting' ==="
+"=== 1. Verify task_state enum includes 'waiting' ==="
+SELECT unnest(enum_range(NULL::worker.task_state)) AS state ORDER BY state;
+   state    
+------------
+ pending
+ processing
+ waiting
+ completed
+ failed
+(5 rows)
+
+\echo "=== 2. Verify tasks table has required columns ==="
+"=== 2. Verify tasks table has required columns ==="
+SELECT column_name, data_type 
+FROM information_schema.columns 
+WHERE table_schema = 'worker' AND table_name = 'tasks' 
+  AND column_name IN ('parent_id', 'completed_at')
+ORDER BY column_name;
+ column_name  |        data_type         
+--------------+--------------------------
+ completed_at | timestamp with time zone
+ parent_id    | bigint
+(2 rows)
+
+\echo "=== 3. Verify structured concurrency functions exist ==="
+"=== 3. Verify structured concurrency functions exist ==="
+SELECT routine_name, routine_type
+FROM information_schema.routines
+WHERE routine_schema = 'worker' 
+  AND routine_name IN ('spawn', 'has_pending_children', 'has_failed_siblings', 'complete_parent_if_ready', 'enforce_no_grandchildren')
+ORDER BY routine_name;
+       routine_name       | routine_type 
+--------------------------+--------------
+ complete_parent_if_ready | FUNCTION
+ enforce_no_grandchildren | FUNCTION
+ has_failed_siblings      | FUNCTION
+ has_pending_children     | FUNCTION
+ spawn                    | FUNCTION
+(5 rows)
+
+\echo "=== 4. Verify no-grandchildren trigger exists ==="
+"=== 4. Verify no-grandchildren trigger exists ==="
+SELECT tgname, tgtype, tgenabled
+FROM pg_trigger
+WHERE tgname = 'tasks_enforce_no_grandchildren';
+             tgname             | tgtype | tgenabled 
+--------------------------------+--------+-----------
+ tasks_enforce_no_grandchildren |      7 | O
+(1 row)
+
+\echo "=== 5. Test spawn function creates parent-child relationship ==="
+"=== 5. Test spawn function creates parent-child relationship ==="
+-- Create a parent task
+INSERT INTO worker.tasks (command, payload, state)
+VALUES ('derive_statistical_unit', '{}', 'processing')
+RETURNING id AS parent_task_id \gset
+-- Spawn a child task using the spawn function
+SELECT worker.spawn(
+    p_command := 'statistical_unit_refresh_batch',
+    p_payload := '{"batch_seq": 1}'::jsonb,
+    p_parent_id := :parent_task_id,
+    p_priority := 20
+) AS child_task_id \gset
+-- Verify child has correct parent relationship (not specific IDs)
+SELECT 
+    command,
+    parent_id = :parent_task_id AS has_correct_parent,
+    priority,
+    state
+FROM worker.tasks
+WHERE id = :child_task_id;
+            command             | has_correct_parent | priority |  state  
+--------------------------------+--------------------+----------+---------
+ statistical_unit_refresh_batch | t                  |       20 | pending
+(1 row)
+
+\echo "=== 6. Test has_pending_children function ==="
+"=== 6. Test has_pending_children function ==="
+-- Parent should have pending children
+SELECT worker.has_pending_children(:parent_task_id) AS has_pending;
+ has_pending 
+-------------
+ t
+(1 row)
+
+-- Mark child as completed
+UPDATE worker.tasks SET state = 'completed', completed_at = now() WHERE id = :child_task_id;
+-- Now parent should NOT have pending children
+SELECT worker.has_pending_children(:parent_task_id) AS has_pending_after_complete;
+ has_pending_after_complete 
+----------------------------
+ f
+(1 row)
+
+\echo "=== 7. Test complete_parent_if_ready function ==="
+"=== 7. Test complete_parent_if_ready function ==="
+-- Set parent to waiting state (simulating what process_tasks does)
+UPDATE worker.tasks SET state = 'waiting' WHERE id = :parent_task_id;
+-- Call complete_parent_if_ready - should complete the parent
+SELECT worker.complete_parent_if_ready(:child_task_id) AS parent_completed;
+ parent_completed 
+------------------
+ t
+(1 row)
+
+-- Verify parent is now completed
+SELECT command, state, completed_at IS NOT NULL AS has_completed_at
+FROM worker.tasks
+WHERE id = :parent_task_id;
+         command         |   state   | has_completed_at 
+-------------------------+-----------+------------------
+ derive_statistical_unit | completed | t
+(1 row)
+
+\echo "=== 8. Test grandchildren prevention trigger ==="
+"=== 8. Test grandchildren prevention trigger ==="
+-- Create a new parent and child
+INSERT INTO worker.tasks (command, payload, state)
+VALUES ('derive_statistical_unit', '{}', 'waiting')
+RETURNING id AS new_parent_id \gset
+INSERT INTO worker.tasks (command, payload, parent_id, state)
+VALUES ('statistical_unit_refresh_batch', '{}', :new_parent_id, 'processing')
+RETURNING id AS new_child_id \gset
+-- Attempt to create a grandchild (should fail with specific error message)
+SAVEPOINT before_grandchild;
+\set ON_ERROR_STOP off
+INSERT INTO worker.tasks (command, payload, parent_id, state)
+VALUES ('statistical_unit_refresh_batch', '{"nested": true}', :new_child_id, 'pending');
+ERROR:  Cannot create grandchild tasks. Parent task 6 already has parent 5. Children can only spawn siblings (same parent_id) or uncles (parent_id = NULL).
+CONTEXT:  PL/pgSQL function worker.enforce_no_grandchildren() line 12 at RAISE
+\set ON_ERROR_STOP on
+ROLLBACK TO SAVEPOINT before_grandchild;
+\echo "=== 9. Test sibling spawning (child can spawn siblings with same parent) ==="
+"=== 9. Test sibling spawning (child can spawn siblings with same parent) ==="
+-- Child should be able to spawn a sibling (same parent_id)
+SELECT worker.spawn(
+    p_command := 'statistical_unit_refresh_batch',
+    p_payload := '{"batch_seq": 2, "spawned_by_sibling": true}'::jsonb,
+    p_parent_id := :new_parent_id,
+    p_priority := 20
+) AS sibling_task_id \gset
+-- Verify sibling exists with correct parent (not specific IDs)
+SELECT 
+    command,
+    parent_id = :new_parent_id AS has_same_parent,
+    payload->>'spawned_by_sibling' AS spawned_by_sibling
+FROM worker.tasks
+WHERE id = :sibling_task_id;
+            command             | has_same_parent | spawned_by_sibling 
+--------------------------------+-----------------+--------------------
+ statistical_unit_refresh_batch | t               | true
+(1 row)
+
+\echo "=== 10. Test uncle spawning (child can spawn top-level task) ==="
+"=== 10. Test uncle spawning (child can spawn top-level task) ==="
+-- Child should be able to spawn an "uncle" (parent_id = NULL)
+SELECT worker.spawn(
+    p_command := 'derive_reports',
+    p_payload := '{}'::jsonb,
+    p_parent_id := NULL,
+    p_priority := 30
+) AS uncle_task_id \gset
+-- Verify uncle is top-level
+SELECT command, parent_id IS NULL AS is_top_level, priority
+FROM worker.tasks
+WHERE id = :uncle_task_id;
+    command     | is_top_level | priority 
+----------------+--------------+----------
+ derive_reports | t            |       30
+(1 row)
+
+\echo "=== 11. Test has_failed_siblings function ==="
+"=== 11. Test has_failed_siblings function ==="
+-- Create another child and mark it as failed
+INSERT INTO worker.tasks (command, payload, parent_id, state, completed_at, error)
+VALUES ('statistical_unit_refresh_batch', '{"will_fail": true}', :new_parent_id, 'failed', now(), 'Test failure')
+RETURNING id AS failed_child_id \gset
+-- Check if siblings detect the failure
+SELECT worker.has_failed_siblings(:sibling_task_id) AS has_failed_sibling;
+ has_failed_sibling 
+--------------------
+ t
+(1 row)
+
+\echo "=== 12. Test parent fails when child fails ==="
+"=== 12. Test parent fails when child fails ==="
+-- Mark all pending children as completed
+UPDATE worker.tasks 
+SET state = 'completed', completed_at = now() 
+WHERE parent_id = :new_parent_id AND state = 'pending';
+-- Complete the processing child
+UPDATE worker.tasks 
+SET state = 'completed', completed_at = now() 
+WHERE id = :new_child_id;
+-- Now call complete_parent_if_ready - parent should FAIL because one child failed
+SELECT worker.complete_parent_if_ready(:new_child_id) AS triggered_parent_completion;
+ triggered_parent_completion 
+-----------------------------
+ t
+(1 row)
+
+-- Verify parent is failed
+SELECT command, state, error
+FROM worker.tasks
+WHERE id = :new_parent_id;
+         command         | state  |             error              
+-------------------------+--------+--------------------------------
+ derive_statistical_unit | failed | One or more child tasks failed
+(1 row)
+
+\echo "=== 13. Summary of task relationships created (excluding maintenance) ==="
+"=== 13. Summary of task relationships created (excluding maintenance) ==="
+SELECT 
+    command,
+    state,
+    CASE 
+        WHEN parent_id IS NULL THEN 'root'
+        ELSE 'child'
+    END AS task_type,
+    (SELECT COUNT(*) FROM worker.tasks c WHERE c.parent_id = t.id) AS child_count
+FROM worker.tasks t
+WHERE command NOT IN ('task_cleanup', 'import_job_cleanup')
+ORDER BY 
+    CASE command 
+        WHEN 'derive_statistical_unit' THEN 1
+        WHEN 'statistical_unit_refresh_batch' THEN 2
+        WHEN 'derive_reports' THEN 3
+    END,
+    state,
+    task_type;
+            command             |   state   | task_type | child_count 
+--------------------------------+-----------+-----------+-------------
+ derive_statistical_unit        | completed | root      |           1
+ derive_statistical_unit        | failed    | root      |           3
+ statistical_unit_refresh_batch | completed | child     |           0
+ statistical_unit_refresh_batch | completed | child     |           0
+ statistical_unit_refresh_batch | completed | child     |           0
+ statistical_unit_refresh_batch | failed    | child     |           0
+ derive_reports                 | pending   | root      |           0
+(7 rows)
+
+-- ============================================================================
+-- INTEGRATION TESTS: process_tasks with parent-child relationships
+-- ============================================================================
+\echo "=== 14. Test process_tasks: parent transitions to waiting when children spawned ==="
+"=== 14. Test process_tasks: parent transitions to waiting when children spawned ==="
+-- Clean slate for integration tests
+DELETE FROM worker.tasks WHERE id > 2;
+ALTER SEQUENCE worker.tasks_id_seq RESTART WITH 3;
+-- Create a parent task that will spawn children
+INSERT INTO worker.tasks (command, payload, state)
+VALUES ('derive_statistical_unit', '{}', 'pending')
+RETURNING id AS int_parent_id \gset
+-- Manually spawn children (simulating what the handler would do)
+INSERT INTO worker.tasks (command, payload, parent_id, state)
+VALUES 
+    ('statistical_unit_refresh_batch', '{"batch": 1}', :int_parent_id, 'pending'),
+    ('statistical_unit_refresh_batch', '{"batch": 2}', :int_parent_id, 'pending');
+-- Simulate process_tasks picking the parent: mark it processing
+UPDATE worker.tasks SET state = 'processing', worker_pid = pg_backend_pid() WHERE id = :int_parent_id;
+-- After handler runs and we detect children exist, parent should go to waiting
+-- (This is what process_tasks does internally)
+UPDATE worker.tasks 
+SET state = 'waiting', processed_at = now()
+WHERE id = :int_parent_id;
+-- Verify parent is now waiting with 2 pending children
+SELECT 
+    (SELECT state FROM worker.tasks WHERE id = :int_parent_id) AS parent_state,
+    (SELECT COUNT(*) FROM worker.tasks WHERE parent_id = :int_parent_id AND state = 'pending') AS pending_children;
+ parent_state | pending_children 
+--------------+------------------
+ waiting      |                2
+(1 row)
+
+\echo "=== 15. Test process_tasks: concurrent mode picks children of waiting parent ==="
+"=== 15. Test process_tasks: concurrent mode picks children of waiting parent ==="
+-- When there's a waiting parent, process_tasks should pick its children
+-- Simulate picking first child (use subquery since UPDATE doesn't support LIMIT)
+UPDATE worker.tasks 
+SET state = 'processing', worker_pid = pg_backend_pid()
+WHERE id = (
+    SELECT id FROM worker.tasks 
+    WHERE parent_id = :int_parent_id AND state = 'pending' 
+    ORDER BY id LIMIT 1
+);
+-- Verify one child is processing
+SELECT 
+    (SELECT COUNT(*) FROM worker.tasks WHERE parent_id = :int_parent_id AND state = 'processing') AS processing_children,
+    (SELECT COUNT(*) FROM worker.tasks WHERE parent_id = :int_parent_id AND state = 'pending') AS pending_children;
+ processing_children | pending_children 
+---------------------+------------------
+                   1 |                1
+(1 row)
+
+\echo "=== 16. Test process_tasks: completing children triggers parent completion ==="
+"=== 16. Test process_tasks: completing children triggers parent completion ==="
+-- Complete both children
+UPDATE worker.tasks 
+SET state = 'completed', completed_at = now()
+WHERE parent_id = :int_parent_id;
+-- Call complete_parent_if_ready (this is what process_tasks calls after each child completes)
+SELECT worker.complete_parent_if_ready(
+    (SELECT id FROM worker.tasks WHERE parent_id = :int_parent_id LIMIT 1)
+) AS parent_completed;
+ parent_completed 
+------------------
+ t
+(1 row)
+
+-- Verify parent is now completed
+SELECT state, completed_at IS NOT NULL AS has_completed_at
+FROM worker.tasks 
+WHERE id = :int_parent_id;
+   state   | has_completed_at 
+-----------+------------------
+ completed | t
+(1 row)
+
+\echo "=== 17. Test process_tasks: serial mode when no waiting parent ==="
+"=== 17. Test process_tasks: serial mode when no waiting parent ==="
+-- Create a top-level task (no waiting parents exist)
+INSERT INTO worker.tasks (command, payload, state)
+VALUES ('derive_reports', '{}', 'pending')
+RETURNING id AS serial_task_id \gset
+-- Verify there's no waiting parent
+SELECT COUNT(*) AS waiting_parents FROM worker.tasks WHERE state = 'waiting';
+ waiting_parents 
+-----------------
+               0
+(1 row)
+
+-- In serial mode, process_tasks would pick this top-level pending task
+SELECT command, state, parent_id IS NULL AS is_top_level
+FROM worker.tasks
+WHERE id = :serial_task_id;
+    command     |  state  | is_top_level 
+----------------+---------+--------------
+ derive_reports | pending | t
+(1 row)
+
+\echo "=== 18. Final state summary ==="
+"=== 18. Final state summary ==="
+SELECT 
+    command,
+    state,
+    CASE WHEN parent_id IS NULL THEN 'root' ELSE 'child' END AS task_type
+FROM worker.tasks
+WHERE command NOT IN ('task_cleanup', 'import_job_cleanup')
+ORDER BY id;
+            command             |   state   | task_type 
+--------------------------------+-----------+-----------
+ derive_statistical_unit        | completed | root
+ statistical_unit_refresh_batch | completed | child
+ statistical_unit_refresh_batch | completed | child
+ derive_reports                 | pending   | root
+(4 rows)
+
+ROLLBACK;

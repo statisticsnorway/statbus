@@ -65,7 +65,7 @@ WHERE daterange(sfu.valid_from, sfu.valid_until) && daterange('2023-01-01', '202
 ORDER BY est_map.stat_ident::int, sd.code, sfu.valid_from;
 \x auto
 
-CALL test.remove_pg_temp_for_tx_user_switch(p_keep_tables => ARRAY['stats_before_update', 'temp_source_for_update']);
+CALL test.remove_pg_temp_for_tx_user_switch(p_keep_tables => ARRAY['stats_before_update', 'temp_source_for_update', '_batch_accumulator']);
 GRANT SELECT ON TABLE stats_before_update TO regular_user;
 \echo "Switching to regular user for partial update"
 CALL test.set_user_from_email('test.regular@statbus.org');

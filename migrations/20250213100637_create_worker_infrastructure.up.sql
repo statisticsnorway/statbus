@@ -17,12 +17,14 @@ CREATE TABLE worker.last_processed (
 -- where a task can produce multiple new tasks, but they must all be processed in order.
 CREATE TABLE worker.queue_registry (
   queue TEXT PRIMARY KEY,
-  description TEXT
+  description TEXT,
+  default_concurrency INT NOT NULL DEFAULT 1
 );
 COMMENT ON TABLE worker.queue_registry IS 'Defines available task queues. The system runs as a single worker process, which processes each queue serially to ensure task order. However, it uses concurrent fibers to process different queues (e.g., ''analytics'' and ''import'') at the same time.';
+COMMENT ON COLUMN worker.queue_registry.default_concurrency IS 'Number of parallel workers for this queue. 1=serial (default). Higher values used for child task processing in structured concurrency mode.';
 
 INSERT INTO worker.queue_registry (queue, description)
-VALUES ('analytics', 'Serial qeueue for analysing and deriving data')
+VALUES ('analytics', 'Serial queue for analysing and deriving data')
 ,('maintenance', 'Serial queue for maintenance tasks');
 
 -- Create command registry table for dynamic command handling
@@ -42,6 +44,7 @@ CREATE INDEX idx_command_registry_queue ON worker.command_registry(queue);
 CREATE TYPE worker.task_state AS ENUM (
   'pending',
   'processing',
+  'waiting',   -- Parent task waiting for children to complete
   'completed',
   'failed'
 );
@@ -57,11 +60,13 @@ CREATE TABLE worker.tasks (
   created_at TIMESTAMPTZ DEFAULT now(),
   state worker.task_state DEFAULT 'pending',
   processed_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,  -- When task finished (completed, failed, or waiting)
   duration_ms NUMERIC,
   error TEXT,
   scheduled_at TIMESTAMPTZ, -- When this task should be processed, if delayed.
   worker_pid INTEGER,
   payload JSONB,
+  parent_id BIGINT REFERENCES worker.tasks(id),  -- For structured concurrency: children point to parent
   CONSTRAINT "consistent_command_in_payload" CHECK (command = payload->>'command'),
   CONSTRAINT check_payload_type
   CHECK (payload IS NULL OR jsonb_typeof(payload) = 'object' OR jsonb_typeof(payload) = 'null'),
@@ -72,6 +77,12 @@ CREATE TABLE worker.tasks (
     END
   )
 );
+
+-- Index for efficient child task lookup
+CREATE INDEX idx_tasks_parent_id ON worker.tasks(parent_id) WHERE parent_id IS NOT NULL;
+
+-- Index for finding waiting parents efficiently
+CREATE INDEX idx_tasks_waiting ON worker.tasks(state) WHERE state = 'waiting'::worker.task_state;
 
 -- Create partial unique indexes for each command type using payload fields
 -- For check_table: deduplicate by table_name
@@ -823,12 +834,202 @@ END;
 $function$;
 
 
--- Create unified task processing procedure
+-- ============================================================================
+-- STRUCTURED CONCURRENCY SUPPORT
+-- ============================================================================
+-- Based on Trio's nursery pattern: https://vorpus.org/blog/notes-on-structured-concurrency-or-go-statement-considered-harmful/
+-- 
+-- Key concepts:
+-- - Parent tasks can spawn children (tasks with parent_id pointing to them)
+-- - Parent goes to 'waiting' state when it has pending children
+-- - Children can spawn siblings (same parent_id) or uncles (parent_id = NULL)
+-- - When all children complete: parent completes (or fails if any child failed)
+-- - Scheduler switches mode based on waiting task presence:
+--   - No waiting task: serial mode (one task at a time)
+--   - Waiting task exists: concurrent mode (process children)
+-- ============================================================================
+
+-- Spawn a new task (child if parent_id provided, uncle/top-level if NULL)
+CREATE FUNCTION worker.spawn(
+    p_command TEXT,
+    p_payload JSONB DEFAULT '{}'::jsonb,
+    p_parent_id BIGINT DEFAULT NULL,
+    p_priority BIGINT DEFAULT NULL
+) RETURNS BIGINT
+LANGUAGE plpgsql
+AS $spawn$
+DECLARE
+    v_task_id BIGINT;
+    v_priority BIGINT;
+BEGIN
+    -- Use provided priority or get default from command registry
+    IF p_priority IS NOT NULL THEN
+        v_priority := p_priority;
+    ELSE
+        v_priority := nextval('public.worker_task_priority_seq');
+    END IF;
+    
+    -- Add command to payload if not present
+    IF p_payload IS NULL OR p_payload = '{}'::jsonb THEN
+        p_payload := jsonb_build_object('command', p_command);
+    ELSIF p_payload->>'command' IS NULL THEN
+        p_payload := p_payload || jsonb_build_object('command', p_command);
+    END IF;
+    
+    INSERT INTO worker.tasks (command, payload, parent_id, priority)
+    VALUES (p_command, p_payload, p_parent_id, v_priority)
+    RETURNING id INTO v_task_id;
+    
+    -- Get the queue for notification
+    PERFORM pg_notify('worker_tasks', (
+        SELECT queue FROM worker.command_registry WHERE command = p_command
+    ));
+    
+    RETURN v_task_id;
+END;
+$spawn$;
+
+COMMENT ON FUNCTION worker.spawn(TEXT, JSONB, BIGINT, BIGINT) IS
+'Spawn a new task. If p_parent_id is provided, creates a child task (runs concurrently with siblings).
+If p_parent_id is NULL, creates a top-level/uncle task (runs after any waiting parent completes).';
+
+
+-- Check if a task has any pending children
+CREATE FUNCTION worker.has_pending_children(p_task_id BIGINT)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+AS $has_pending_children$
+    SELECT EXISTS (
+        SELECT 1 FROM worker.tasks 
+        WHERE parent_id = p_task_id 
+          AND state IN ('pending', 'processing', 'waiting')
+    );
+$has_pending_children$;
+
+
+-- Check if a task has any failed siblings (same parent)
+CREATE FUNCTION worker.has_failed_siblings(p_task_id BIGINT)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+AS $has_failed_siblings$
+    SELECT EXISTS (
+        SELECT 1 FROM worker.tasks t
+        JOIN worker.tasks self ON self.id = p_task_id
+        WHERE t.parent_id = self.parent_id 
+          AND t.id != p_task_id
+          AND t.state = 'failed'
+    );
+$has_failed_siblings$;
+
+
+-- Complete a parent task if all its children are done
+-- Called after a child task completes
+CREATE FUNCTION worker.complete_parent_if_ready(p_child_task_id BIGINT)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+AS $complete_parent_if_ready$
+DECLARE
+    v_parent_id BIGINT;
+    v_parent_completed BOOLEAN := FALSE;
+    v_any_failed BOOLEAN;
+BEGIN
+    -- Get the parent_id from the child task
+    SELECT parent_id INTO v_parent_id
+    FROM worker.tasks
+    WHERE id = p_child_task_id;
+    
+    -- If no parent, nothing to do
+    IF v_parent_id IS NULL THEN
+        RETURN FALSE;
+    END IF;
+    
+    -- Check if parent still has pending children
+    IF worker.has_pending_children(v_parent_id) THEN
+        RETURN FALSE;
+    END IF;
+    
+    -- All children done - check for failures
+    SELECT EXISTS (
+        SELECT 1 FROM worker.tasks 
+        WHERE parent_id = v_parent_id AND state = 'failed'
+    ) INTO v_any_failed;
+    
+    IF v_any_failed THEN
+        -- Parent fails because a child failed
+        UPDATE worker.tasks 
+        SET state = 'failed',
+            completed_at = clock_timestamp(),
+            error = 'One or more child tasks failed'
+        WHERE id = v_parent_id AND state = 'waiting';
+    ELSE
+        -- All children succeeded - parent completes
+        UPDATE worker.tasks 
+        SET state = 'completed',
+            completed_at = clock_timestamp()
+        WHERE id = v_parent_id AND state = 'waiting';
+    END IF;
+    
+    IF FOUND THEN
+        v_parent_completed := TRUE;
+        RAISE DEBUG 'complete_parent_if_ready: Parent task % completed (failed=%)', v_parent_id, v_any_failed;
+    END IF;
+    
+    RETURN v_parent_completed;
+END;
+$complete_parent_if_ready$;
+
+COMMENT ON FUNCTION worker.complete_parent_if_ready(BIGINT) IS
+'Called after a child task completes. Checks if all siblings are done and, if so, 
+completes the parent (or fails it if any child failed).';
+
+
+-- Trigger to prevent grandchildren (enforce single-level parent-child)
+CREATE FUNCTION worker.enforce_no_grandchildren()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $enforce_no_grandchildren$
+DECLARE
+    v_grandparent_id BIGINT;
+BEGIN
+    IF NEW.parent_id IS NOT NULL THEN
+        -- Check if the parent itself has a parent
+        SELECT parent_id INTO v_grandparent_id
+        FROM worker.tasks
+        WHERE id = NEW.parent_id;
+        
+        IF v_grandparent_id IS NOT NULL THEN
+            RAISE EXCEPTION 'Cannot create grandchild tasks. Parent task % already has parent %. Children can only spawn siblings (same parent_id) or uncles (parent_id = NULL).', 
+                NEW.parent_id, v_grandparent_id;
+        END IF;
+    END IF;
+    
+    RETURN NEW;
+END;
+$enforce_no_grandchildren$;
+
+CREATE TRIGGER tasks_enforce_no_grandchildren
+BEFORE INSERT ON worker.tasks
+FOR EACH ROW
+WHEN (NEW.parent_id IS NOT NULL)
+EXECUTE FUNCTION worker.enforce_no_grandchildren();
+
+
+-- Create unified task processing procedure with structured concurrency support
 -- Processes pending tasks in batches with time limits
+-- 
+-- STRUCTURED CONCURRENCY BEHAVIOR:
+-- - If a 'waiting' task exists: pick children of that waiting parent (concurrent mode)
+-- - If no 'waiting' task: pick top-level tasks one at a time (serial mode)
+-- - After handler runs: if task spawned children → state = 'waiting'
+-- - After child completes: check if parent is ready to complete
+--
 -- Parameters:
---   batch_size: Maximum number of tasks to process in one call
---   max_runtime_ms: Maximum runtime in milliseconds before stopping
---   queue: Process only tasks in this queue (NULL for all queues)
+--   p_batch_size: Maximum number of tasks to process (NULL = until queue is stable)
+--   p_max_runtime_ms: Maximum runtime in milliseconds before stopping
+--   p_queue: Process only tasks in this queue (NULL for all queues)
+--   p_max_priority: Only process tasks with priority <= this value
 CREATE PROCEDURE worker.process_tasks(
   p_batch_size INT DEFAULT NULL,
   p_max_runtime_ms INT DEFAULT NULL,
@@ -836,7 +1037,7 @@ CREATE PROCEDURE worker.process_tasks(
   p_max_priority BIGINT DEFAULT NULL
 )
 LANGUAGE plpgsql
-AS $procedure$
+AS $process_tasks$
 DECLARE
   task_record RECORD;
   start_time TIMESTAMPTZ;
@@ -844,43 +1045,73 @@ DECLARE
   elapsed_ms NUMERIC;
   processed_count INT := 0;
   v_inside_transaction BOOLEAN;
-  v_result_row RECORD;
+  v_waiting_parent_id BIGINT;
 BEGIN
   -- Check if we're inside a transaction
   SELECT pg_current_xact_id_if_assigned() IS NOT NULL INTO v_inside_transaction;
-  RAISE DEBUG 'Running worker.process_tasks inside transaction: %', v_inside_transaction;
+  RAISE DEBUG 'Running worker.process_tasks inside transaction: %, queue: %', v_inside_transaction, p_queue;
 
   batch_start_time := clock_timestamp();
 
-  -- Process tasks in a loop until we hit time limit or run out of tasks
+  -- Process tasks in a loop until we hit limits or run out of tasks
   LOOP
-    -- Claim a task with FOR UPDATE SKIP LOCKED to prevent concurrent processing
-    -- Also fetch before/after procedures
-    SELECT t.*, cr.handler_procedure, cr.before_procedure, cr.after_procedure, cr.queue
-    INTO task_record
+    -- Check for time limit
+    IF p_max_runtime_ms IS NOT NULL AND
+       EXTRACT(EPOCH FROM (clock_timestamp() - batch_start_time)) * 1000 > p_max_runtime_ms THEN
+      RAISE DEBUG 'Exiting worker loop: Time limit of % ms reached', p_max_runtime_ms;
+      EXIT;
+    END IF;
+
+    -- STRUCTURED CONCURRENCY: Check if there's a waiting parent task
+    -- If so, we're in concurrent mode and should pick its children
+    SELECT t.id INTO v_waiting_parent_id
     FROM worker.tasks t
     JOIN worker.command_registry cr ON t.command = cr.command
-    WHERE t.state = 'pending'::worker.task_state
-      AND (t.scheduled_at IS NULL OR t.scheduled_at <= clock_timestamp())
+    WHERE t.state = 'waiting'::worker.task_state
       AND (p_queue IS NULL OR cr.queue = p_queue)
-      AND (p_max_priority IS NULL OR t.priority <= p_max_priority)
-    ORDER BY
-      CASE WHEN t.scheduled_at IS NULL THEN 0 ELSE 1 END, -- Non-scheduled tasks next
-      t.scheduled_at, -- Then by scheduled time (earliest first)
-      t.priority ASC NULLS LAST, -- Then by priority (smaller numbers first so primary key id or epoch time can be used naturally)
-      t.id            -- Then by creation sequence
-    LIMIT 1
-    FOR UPDATE OF t SKIP LOCKED;
+    ORDER BY t.priority, t.id
+    LIMIT 1;
 
-    -- Exit if no more tasks or time limit reached (if p_max_runtime_ms is set)
+    IF v_waiting_parent_id IS NOT NULL THEN
+      -- CONCURRENT MODE: Pick a pending child of the waiting parent
+      RAISE DEBUG 'Concurrent mode: picking child of waiting parent %', v_waiting_parent_id;
+      
+      SELECT t.*, cr.handler_procedure, cr.before_procedure, cr.after_procedure, cr.queue
+      INTO task_record
+      FROM worker.tasks t
+      JOIN worker.command_registry cr ON t.command = cr.command
+      WHERE t.state = 'pending'::worker.task_state
+        AND t.parent_id = v_waiting_parent_id
+        AND (t.scheduled_at IS NULL OR t.scheduled_at <= clock_timestamp())
+        AND (p_max_priority IS NULL OR t.priority <= p_max_priority)
+      ORDER BY t.priority ASC NULLS LAST, t.id
+      LIMIT 1
+      FOR UPDATE OF t SKIP LOCKED;
+    ELSE
+      -- SERIAL MODE: Pick a top-level pending task (parent_id IS NULL)
+      RAISE DEBUG 'Serial mode: picking top-level task';
+      
+      SELECT t.*, cr.handler_procedure, cr.before_procedure, cr.after_procedure, cr.queue
+      INTO task_record
+      FROM worker.tasks t
+      JOIN worker.command_registry cr ON t.command = cr.command
+      WHERE t.state = 'pending'::worker.task_state
+        AND t.parent_id IS NULL
+        AND (t.scheduled_at IS NULL OR t.scheduled_at <= clock_timestamp())
+        AND (p_queue IS NULL OR cr.queue = p_queue)
+        AND (p_max_priority IS NULL OR t.priority <= p_max_priority)
+      ORDER BY
+        CASE WHEN t.scheduled_at IS NULL THEN 0 ELSE 1 END,
+        t.scheduled_at,
+        t.priority ASC NULLS LAST,
+        t.id
+      LIMIT 1
+      FOR UPDATE OF t SKIP LOCKED;
+    END IF;
+
+    -- Exit if no more tasks
     IF NOT FOUND THEN
       RAISE DEBUG 'Exiting worker loop: No more pending tasks found';
-      EXIT;
-    ELSIF p_max_runtime_ms IS NOT NULL AND
-          EXTRACT(EPOCH FROM (clock_timestamp() - batch_start_time)) * 1000 > p_max_runtime_ms THEN
-      RAISE DEBUG 'Exiting worker loop: Time limit of % ms reached (elapsed: % ms)',
-        p_max_runtime_ms,
-        EXTRACT(EPOCH FROM (clock_timestamp() - batch_start_time)) * 1000;
       EXIT;
     END IF;
 
@@ -893,22 +1124,17 @@ BEGIN
         worker_pid = pg_backend_pid()
     WHERE t.id = task_record.id;
 
-    -- Call before_procedure if defined, after the task status has changed,
-    -- since some functions look at task status.
+    -- Call before_procedure if defined
     IF task_record.before_procedure IS NOT NULL THEN
       BEGIN
         RAISE DEBUG 'Calling before_procedure: % for task % (%)', task_record.before_procedure, task_record.id, task_record.command;
-        -- Call the procedure without arguments
         EXECUTE format('CALL %s()', task_record.before_procedure);
       EXCEPTION WHEN OTHERS THEN
         RAISE WARNING 'Error in before_procedure % for task %: %', task_record.before_procedure, task_record.id, SQLERRM;
-        -- Decide if this error should prevent task processing or just be logged.
-        -- For now, we log and continue.
       END;
     END IF;
 
-    -- Commit to see state change of task. The COMMIT automatically ends the transaction,
-    -- and starts a new one, there is no PL/PGSQL BEGIN to start a new transaction.
+    -- Commit to see state change (only if not in a test transaction)
     IF NOT v_inside_transaction THEN
       COMMIT;
     END IF;
@@ -916,38 +1142,52 @@ BEGIN
     DECLARE
       v_state worker.task_state;
       v_processed_at TIMESTAMPTZ;
+      v_completed_at TIMESTAMPTZ;
       v_duration_ms NUMERIC;
       v_error TEXT DEFAULT NULL;
-    BEGIN -- Block for variables, there is not CATCH that creates sub-transactions
-      DECLARE -- Block for catching exceptions, introduces sub-transactions.
+      v_has_children BOOLEAN;
+    BEGIN
+      DECLARE
         v_message_text TEXT;
         v_pg_exception_detail TEXT;
         v_pg_exception_hint TEXT;
         v_pg_exception_context TEXT;
       BEGIN
-        -- Process using dynamic dispatch with payload for all commands
+        -- Execute the handler procedure
         IF task_record.handler_procedure IS NOT NULL THEN
-          -- Execute the handler procedure with the payload
           EXECUTE format('CALL %s($1)', task_record.handler_procedure)
           USING task_record.payload;
         ELSE
           RAISE EXCEPTION 'No handler procedure found for command: %', task_record.command;
         END IF;
 
-        -- Mark as completed
+        -- Handler completed successfully
         elapsed_ms := EXTRACT(EPOCH FROM (clock_timestamp() - start_time)) * 1000;
-        v_state := 'completed'::worker.task_state;
         v_processed_at := clock_timestamp();
         v_duration_ms := elapsed_ms;
 
-        -- Log success
-        RAISE DEBUG 'Task % (%) completed in % ms',
-          task_record.id, task_record.command, elapsed_ms;
+        -- STRUCTURED CONCURRENCY: Check if handler spawned children
+        SELECT EXISTS (
+          SELECT 1 FROM worker.tasks WHERE parent_id = task_record.id
+        ) INTO v_has_children;
+
+        IF v_has_children THEN
+          -- Task spawned children: go to 'waiting' state
+          v_state := 'waiting'::worker.task_state;
+          v_completed_at := NULL;  -- Not completed yet, waiting for children
+          RAISE DEBUG 'Task % (%) spawned children, entering waiting state', task_record.id, task_record.command;
+        ELSE
+          -- No children: task is completed
+          v_state := 'completed'::worker.task_state;
+          v_completed_at := clock_timestamp();
+          RAISE DEBUG 'Task % (%) completed in % ms', task_record.id, task_record.command, elapsed_ms;
+        END IF;
 
       EXCEPTION WHEN OTHERS THEN
         elapsed_ms := EXTRACT(EPOCH FROM (clock_timestamp() - start_time)) * 1000;
         v_state := 'failed'::worker.task_state;
         v_processed_at := clock_timestamp();
+        v_completed_at := clock_timestamp();
         v_duration_ms := elapsed_ms;
 
         GET STACKED DIAGNOSTICS
@@ -958,58 +1198,54 @@ BEGIN
 
         v_error := format(
           'Error: %s%sContext: %s%sDetail: %s%sHint: %s',
-          v_message_text,
-          E'\n',
-          v_pg_exception_context,
-          E'\n',
-          COALESCE(v_pg_exception_detail, ''),
-          E'\n',
+          v_message_text, E'\n',
+          v_pg_exception_context, E'\n',
+          COALESCE(v_pg_exception_detail, ''), E'\n',
           COALESCE(v_pg_exception_hint, '')
         );
 
-        -- Log failure
-        RAISE WARNING 'Task % (%) failed in % ms: %',
-          task_record.id, task_record.command, elapsed_ms, v_error;
+        RAISE WARNING 'Task % (%) failed in % ms: %', task_record.id, task_record.command, elapsed_ms, v_error;
       END;
 
-      -- Update the task with the results
+      -- Update the task with results
       UPDATE worker.tasks AS t
       SET state = v_state,
           processed_at = v_processed_at,
+          completed_at = v_completed_at,
           duration_ms = v_duration_ms,
           error = v_error
       WHERE t.id = task_record.id;
+
+      -- STRUCTURED CONCURRENCY: If this was a child and it completed/failed, check parent
+      IF task_record.parent_id IS NOT NULL AND v_state IN ('completed', 'failed') THEN
+        PERFORM worker.complete_parent_if_ready(task_record.id);
+      END IF;
 
       -- Call after_procedure if defined
       IF task_record.after_procedure IS NOT NULL THEN
         BEGIN
           RAISE DEBUG 'Calling after_procedure: % for task % (%)', task_record.after_procedure, task_record.id, task_record.command;
-          -- Call the procedure without arguments
           EXECUTE format('CALL %s()', task_record.after_procedure);
         EXCEPTION WHEN OTHERS THEN
           RAISE WARNING 'Error in after_procedure % for task %: %', task_record.after_procedure, task_record.id, SQLERRM;
-          -- Log error but don't fail the overall process
         END;
       END IF;
 
-      -- Commit to see state change of task and any after_procedure. The COMMIT automatically ends the transaction,
-      -- and starts a new one, there is no PL/PGSQL BEGIN to start a new transaction.
+      -- Commit if not in transaction
       IF NOT v_inside_transaction THEN
         COMMIT;
       END IF;
-
     END;
 
-    -- Increment processed count
+    -- Increment processed count and check batch limit
     processed_count := processed_count + 1;
-    -- Check if we've hit the batch size limit (if p_batch_size is set)
     IF p_batch_size IS NOT NULL AND processed_count >= p_batch_size THEN
       RAISE DEBUG 'Exiting worker loop: Batch size limit of % reached', p_batch_size;
       EXIT;
     END IF;
   END LOOP;
 END;
-$procedure$;
+$process_tasks$;
 
 
 -- Register built-in commands, linking notification procedures

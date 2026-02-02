@@ -34,7 +34,15 @@ DROP PROCEDURE IF EXISTS worker.notify_check_is_deriving_reports();
 
 -- Drop utility functions/procedures
 DROP FUNCTION IF EXISTS worker.reset_abandoned_processing_tasks();
-DROP PROCEDURE IF EXISTS worker.process_tasks(INT, INT, TEXT);
+DROP PROCEDURE IF EXISTS worker.process_tasks(INT, INT, TEXT, BIGINT);
+
+-- Drop structured concurrency functions
+DROP TRIGGER IF EXISTS tasks_enforce_no_grandchildren ON worker.tasks;
+DROP FUNCTION IF EXISTS worker.enforce_no_grandchildren();
+DROP FUNCTION IF EXISTS worker.complete_parent_if_ready(BIGINT);
+DROP FUNCTION IF EXISTS worker.has_failed_siblings(BIGINT);
+DROP FUNCTION IF EXISTS worker.has_pending_children(BIGINT);
+DROP FUNCTION IF EXISTS worker.spawn(TEXT, JSONB, BIGINT, BIGINT);
 
 -- Revoke permissions before dropping tables/sequences
 REVOKE SELECT, INSERT, UPDATE, DELETE ON worker.tasks FROM authenticated;

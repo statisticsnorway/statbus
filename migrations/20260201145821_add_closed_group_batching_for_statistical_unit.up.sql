@@ -1,17 +1,23 @@
 -- Migration: Add closed group batching for statistical_unit derivation
 --
--- This implements batched processing of statistical_unit based on transitively
--- closed groups of EN/LU/ES. Units in different groups are completely independent
--- and can be processed separately.
+-- This implements STRUCTURED CONCURRENCY batching for statistical_unit processing,
+-- based on transitively closed groups of EN/LU/ES.
 --
 -- Key insight: Two enterprises are in the same "closed group" if they ever shared
 -- a legal unit at any point in time. This means changes to one cannot affect the other.
 --
+-- Parent-Child Model (based on Trio's nurseries):
+-- - derive_statistical_unit spawns batch children with parent_id pointing to itself
+-- - derive_statistical_unit also spawns derive_reports as an "uncle" (parent_id = NULL, lower priority)
+-- - Framework sets parent to 'waiting' state when it has pending children
+-- - When all children complete, parent completes (or fails if any child failed)
+-- - Then uncle (derive_reports) runs as a normal top-level task
+--
 -- Benefits:
--- 1. Incremental updates: Only reprocess groups containing changed units
--- 2. Progress visibility: See batches completing
--- 3. Parallelization: Independent groups can run in parallel
--- 4. Smaller transactions: Each batch commits separately
+-- 1. Single queue simplicity: No separate batch queue needed
+-- 2. Automatic completion: Framework handles "all children done" logic
+-- 3. Error propagation: If any batch fails, parent fails
+-- 4. Concurrent-safe: Children can be processed in parallel by the worker
 
 BEGIN;
 
@@ -27,13 +33,11 @@ LANGUAGE plpgsql
 AS $timesegments_years_refresh_concurrent$
 BEGIN
     -- Insert missing years (idempotent - safe for concurrent calls)
-    -- Uses ON CONFLICT DO NOTHING so parallel batches don't fail on duplicates
     INSERT INTO public.timesegments_years (year)
     SELECT DISTINCT year FROM public.timesegments_years_def
     ON CONFLICT (year) DO NOTHING;
 
     -- Delete obsolete years (safe - multiple deletes have same effect)
-    -- Only delete years that no longer exist in any timesegment
     DELETE FROM public.timesegments_years t
     WHERE NOT EXISTS (
         SELECT 1 FROM public.timesegments_years_def d WHERE d.year = t.year
@@ -156,7 +160,7 @@ RETURNS TABLE (
     total_unit_count INT
 )
 LANGUAGE plpgsql
-STABLE
+VOLATILE  -- Uses temp table for O(n) array accumulation
 AS $get_closed_group_batches$
 DECLARE
     v_current_batch_seq INT := 1;
@@ -169,13 +173,13 @@ BEGIN
                        OR p_enterprise_ids IS NOT NULL);
     
     -- Use temp table to accumulate IDs (O(n) instead of O(n²) array concatenation)
-    CREATE TEMP TABLE IF NOT EXISTS _batch_accumulator (
+    IF to_regclass('pg_temp._batch_accumulator') IS NOT NULL THEN DROP TABLE _batch_accumulator; END IF;
+    CREATE TEMP TABLE _batch_accumulator (
         group_id INT,
         enterprise_id INT,
         legal_unit_id INT,
         establishment_id INT
     ) ON COMMIT DROP;
-    TRUNCATE _batch_accumulator;
     
     FOR v_group IN 
         WITH 
@@ -214,7 +218,7 @@ BEGIN
         IF v_current_batch_size > 0 
            AND v_current_batch_size + v_group.total_unit_count > p_target_batch_size 
         THEN
-            -- Output current batch by aggregating from temp table
+            -- Output current batch
             SELECT 
                 v_current_batch_seq,
                 array_agg(DISTINCT ba.group_id ORDER BY ba.group_id),
@@ -232,18 +236,11 @@ BEGIN
             TRUNCATE _batch_accumulator;
         END IF;
         
-        -- Insert unnested arrays into temp table (O(1) per insert, O(n) total)
-        INSERT INTO _batch_accumulator (group_id)
-        VALUES (v_group.group_id);
-        
-        INSERT INTO _batch_accumulator (enterprise_id)
-        SELECT UNNEST(v_group.enterprise_ids);
-        
-        INSERT INTO _batch_accumulator (legal_unit_id)
-        SELECT UNNEST(v_group.legal_unit_ids);
-        
-        INSERT INTO _batch_accumulator (establishment_id)
-        SELECT UNNEST(v_group.establishment_ids);
+        -- Insert unnested arrays into temp table
+        INSERT INTO _batch_accumulator (group_id) VALUES (v_group.group_id);
+        INSERT INTO _batch_accumulator (enterprise_id) SELECT UNNEST(v_group.enterprise_ids);
+        INSERT INTO _batch_accumulator (legal_unit_id) SELECT UNNEST(v_group.legal_unit_ids);
+        INSERT INTO _batch_accumulator (establishment_id) SELECT UNNEST(v_group.establishment_ids);
         
         v_current_batch_size := v_current_batch_size + v_group.total_unit_count;
     END LOOP;
@@ -270,46 +267,7 @@ Groups are processed largest-first to minimize the number of batches.';
 
 
 -- ============================================================================
--- FUNCTION 3: Enqueue batch task
--- ============================================================================
-
-CREATE OR REPLACE FUNCTION worker.enqueue_statistical_unit_refresh_batch(
-    p_batch_seq INT,
-    p_enterprise_ids INT[],
-    p_legal_unit_ids INT[],
-    p_establishment_ids INT[],
-    p_valid_from DATE DEFAULT NULL,
-    p_valid_until DATE DEFAULT NULL,
-    p_is_last_batch BOOLEAN DEFAULT FALSE
-) RETURNS BIGINT
-LANGUAGE plpgsql
-AS $enqueue_statistical_unit_refresh_batch$
-DECLARE
-    v_task_id BIGINT;
-    v_payload JSONB;
-BEGIN
-    v_payload := jsonb_build_object(
-        'command', 'statistical_unit_refresh_batch',
-        'batch_seq', p_batch_seq,
-        'enterprise_ids', p_enterprise_ids,
-        'legal_unit_ids', p_legal_unit_ids,
-        'establishment_ids', p_establishment_ids,
-        'valid_from', p_valid_from,
-        'valid_until', p_valid_until,
-        'is_last_batch', p_is_last_batch
-    );
-
-    INSERT INTO worker.tasks (command, payload)
-    VALUES ('statistical_unit_refresh_batch', v_payload)
-    RETURNING id INTO v_task_id;
-    
-    RETURN v_task_id;
-END;
-$enqueue_statistical_unit_refresh_batch$;
-
-
--- ============================================================================
--- PROCEDURE 4: Handle a batch - the actual work
+-- PROCEDURE 3: Handle a batch - the actual work for each child task
 -- ============================================================================
 
 CREATE OR REPLACE PROCEDURE worker.statistical_unit_refresh_batch(payload JSONB)
@@ -318,37 +276,75 @@ LANGUAGE plpgsql
 AS $statistical_unit_refresh_batch$
 DECLARE
     v_batch_seq INT := (payload->>'batch_seq')::INT;
-    v_valid_from DATE := (payload->>'valid_from')::DATE;
-    v_valid_until DATE := (payload->>'valid_until')::DATE;
-    v_is_last_batch BOOLEAN := COALESCE((payload->>'is_last_batch')::BOOLEAN, FALSE);
     v_enterprise_ids INT[];
     v_legal_unit_ids INT[];
     v_establishment_ids INT[];
     v_enterprise_id_ranges int4multirange;
     v_legal_unit_id_ranges int4multirange;
     v_establishment_id_ranges int4multirange;
+    -- Explicitly requested IDs (may include deleted entities that need cleanup)
+    v_explicit_enterprise_ids INT[];
+    v_explicit_legal_unit_ids INT[];
+    v_explicit_establishment_ids INT[];
 BEGIN
-    SELECT array_agg(value::INT) INTO v_enterprise_ids
-    FROM jsonb_array_elements_text(payload->'enterprise_ids') AS value;
+    -- Handle NULL or empty arrays in payload
+    IF jsonb_typeof(payload->'enterprise_ids') = 'array' THEN
+        SELECT array_agg(value::INT) INTO v_enterprise_ids
+        FROM jsonb_array_elements_text(payload->'enterprise_ids') AS value;
+    END IF;
     
-    SELECT array_agg(value::INT) INTO v_legal_unit_ids
-    FROM jsonb_array_elements_text(payload->'legal_unit_ids') AS value;
+    IF jsonb_typeof(payload->'legal_unit_ids') = 'array' THEN
+        SELECT array_agg(value::INT) INTO v_legal_unit_ids
+        FROM jsonb_array_elements_text(payload->'legal_unit_ids') AS value;
+    END IF;
     
-    SELECT array_agg(value::INT) INTO v_establishment_ids
-    FROM jsonb_array_elements_text(payload->'establishment_ids') AS value;
+    IF jsonb_typeof(payload->'establishment_ids') = 'array' THEN
+        SELECT array_agg(value::INT) INTO v_establishment_ids
+        FROM jsonb_array_elements_text(payload->'establishment_ids') AS value;
+    END IF;
+    
+    -- Extract explicitly requested IDs (may include deleted entities that need cleanup)
+    IF jsonb_typeof(payload->'explicit_enterprise_ids') = 'array' THEN
+        SELECT array_agg(value::INT) INTO v_explicit_enterprise_ids
+        FROM jsonb_array_elements_text(payload->'explicit_enterprise_ids') AS value;
+    END IF;
+    
+    IF jsonb_typeof(payload->'explicit_legal_unit_ids') = 'array' THEN
+        SELECT array_agg(value::INT) INTO v_explicit_legal_unit_ids
+        FROM jsonb_array_elements_text(payload->'explicit_legal_unit_ids') AS value;
+    END IF;
+    
+    IF jsonb_typeof(payload->'explicit_establishment_ids') = 'array' THEN
+        SELECT array_agg(value::INT) INTO v_explicit_establishment_ids
+        FROM jsonb_array_elements_text(payload->'explicit_establishment_ids') AS value;
+    END IF;
+    
+    -- Merge explicit IDs into the main ID arrays (ensures deleted entities get cleaned up)
+    -- The refresh procedures use DELETE + INSERT, so deleted entities will be removed
+    v_enterprise_ids := ARRAY(
+        SELECT DISTINCT unnest 
+        FROM unnest(array_cat(COALESCE(v_enterprise_ids, '{}'), COALESCE(v_explicit_enterprise_ids, '{}')))
+    );
+    v_legal_unit_ids := ARRAY(
+        SELECT DISTINCT unnest 
+        FROM unnest(array_cat(COALESCE(v_legal_unit_ids, '{}'), COALESCE(v_explicit_legal_unit_ids, '{}')))
+    );
+    v_establishment_ids := ARRAY(
+        SELECT DISTINCT unnest 
+        FROM unnest(array_cat(COALESCE(v_establishment_ids, '{}'), COALESCE(v_explicit_establishment_ids, '{}')))
+    );
     
     v_enterprise_id_ranges := public.array_to_int4multirange(v_enterprise_ids);
     v_legal_unit_id_ranges := public.array_to_int4multirange(v_legal_unit_ids);
     v_establishment_id_ranges := public.array_to_int4multirange(v_establishment_ids);
     
-    RAISE DEBUG 'Processing batch % with % enterprises, % legal_units, % establishments (is_last=%)',
+    RAISE DEBUG 'Processing batch % with % enterprises, % legal_units, % establishments (including explicit IDs)',
         v_batch_seq,
         COALESCE(array_length(v_enterprise_ids, 1), 0),
         COALESCE(array_length(v_legal_unit_ids, 1), 0),
-        COALESCE(array_length(v_establishment_ids, 1), 0),
-        v_is_last_batch;
+        COALESCE(array_length(v_establishment_ids, 1), 0);
 
-    -- Call the timeline refresh procedures for this batch
+    -- Call the refresh procedures for this batch
     CALL public.timepoints_refresh(
         p_establishment_id_ranges => v_establishment_id_ranges,
         p_legal_unit_id_ranges => v_legal_unit_id_ranges,
@@ -361,8 +357,7 @@ BEGIN
         p_enterprise_id_ranges => v_enterprise_id_ranges
     );
 
-    -- Refresh timesegments_years using concurrent-safe approach
-    -- Multiple batches can safely call this in parallel
+    -- Use concurrent-safe version for years
     CALL public.timesegments_years_refresh_concurrent();
 
     CALL public.timeline_establishment_refresh(p_unit_id_ranges => v_establishment_id_ranges);
@@ -375,30 +370,43 @@ BEGIN
         p_enterprise_id_ranges => v_enterprise_id_ranges
     );
     
+    -- NOTE: Deleted entities are handled automatically by the refresh procedures above.
+    -- Each uses DELETE + INSERT pattern: DELETE removes rows for the ID range,
+    -- INSERT only adds rows that exist in source tables. Deleted entities get
+    -- removed because they're in the DELETE but have no matching INSERT.
+    
     RAISE DEBUG 'Completed batch %', v_batch_seq;
-
-    -- Only the last batch enqueues derive_reports to ensure all batches complete first
-    IF v_is_last_batch THEN
-        RAISE DEBUG 'Last batch completed, enqueuing derive_reports';
-        PERFORM worker.enqueue_derive_reports(
-            p_valid_from => v_valid_from,
-            p_valid_until => v_valid_until
-        );
-    END IF;
+    
+    -- NOTE: Parent completion is handled automatically by process_tasks
+    -- via complete_parent_if_ready() when this child task completes
 END;
 $statistical_unit_refresh_batch$;
 
 
 -- ============================================================================
--- FUNCTION 5: Modified derive_statistical_unit - uses batched groups
+-- FUNCTION 4: Modified derive_statistical_unit - uses parent-child batching
 -- ============================================================================
+-- 
+-- This function spawns:
+-- 1. Children: batch tasks with parent_id = current task (process concurrently)
+-- 2. Uncle: derive_reports with parent_id = NULL (runs after parent completes)
+--
+-- The framework:
+-- - Sets this task to 'waiting' state after it spawns children
+-- - Completes this task when all children complete (or fails if any child fails)
+-- - Then derive_reports runs as a normal top-level task
+
+-- Drop the old 5-parameter version before creating the new 6-parameter version
+-- (PostgreSQL treats different parameter counts as different functions)
+DROP FUNCTION IF EXISTS worker.derive_statistical_unit(int4multirange, int4multirange, int4multirange, date, date);
 
 CREATE OR REPLACE FUNCTION worker.derive_statistical_unit(
   p_establishment_id_ranges int4multirange DEFAULT NULL,
   p_legal_unit_id_ranges int4multirange DEFAULT NULL,
   p_enterprise_id_ranges int4multirange DEFAULT NULL,
   p_valid_from date DEFAULT NULL,
-  p_valid_until date DEFAULT NULL
+  p_valid_until date DEFAULT NULL,
+  p_task_id BIGINT DEFAULT NULL  -- Current task ID for spawning children
 )
 RETURNS void
 LANGUAGE plpgsql
@@ -409,34 +417,39 @@ DECLARE
     v_legal_unit_ids INT[];
     v_enterprise_ids INT[];
     v_batch_count INT := 0;
-    v_total_batches INT;
     v_is_full_refresh BOOLEAN;
+    v_child_priority BIGINT;
+    v_uncle_priority BIGINT;
 BEGIN
     v_is_full_refresh := (p_establishment_id_ranges IS NULL 
                          AND p_legal_unit_id_ranges IS NULL 
                          AND p_enterprise_id_ranges IS NULL);
     
+    -- Priority for children: same as current task (will run next due to structured concurrency)
+    v_child_priority := nextval('public.worker_task_priority_seq');
+    -- Priority for uncle (derive_reports): lower priority (higher number), runs after parent completes
+    v_uncle_priority := nextval('public.worker_task_priority_seq');
+    
     IF v_is_full_refresh THEN
-        -- Full refresh: get all groups batched
-        -- First count total batches to know which is last
-        SELECT COUNT(*) INTO v_total_batches
-        FROM public.get_closed_group_batches(p_target_batch_size := 1000);
-        
+        -- Full refresh: spawn batch children
         FOR v_batch IN 
-            SELECT * FROM public.get_closed_group_batches(
-                p_target_batch_size := 1000
-            )
+            SELECT * FROM public.get_closed_group_batches(p_target_batch_size := 1000)
         LOOP
-            v_batch_count := v_batch_count + 1;
-            PERFORM worker.enqueue_statistical_unit_refresh_batch(
-                v_batch.batch_seq,
-                v_batch.enterprise_ids,
-                v_batch.legal_unit_ids,
-                v_batch.establishment_ids,
-                p_valid_from,
-                p_valid_until,
-                p_is_last_batch := (v_batch_count = v_total_batches)
+            PERFORM worker.spawn(
+                p_command := 'statistical_unit_refresh_batch',
+                p_payload := jsonb_build_object(
+                    'command', 'statistical_unit_refresh_batch',
+                    'batch_seq', v_batch.batch_seq,
+                    'enterprise_ids', v_batch.enterprise_ids,
+                    'legal_unit_ids', v_batch.legal_unit_ids,
+                    'establishment_ids', v_batch.establishment_ids,
+                    'valid_from', p_valid_from,
+                    'valid_until', p_valid_until
+                ),
+                p_parent_id := p_task_id,  -- Child of current task
+                p_priority := v_child_priority
             );
+            v_batch_count := v_batch_count + 1;
         END LOOP;
     ELSE
         -- Partial refresh: convert multiranges to arrays
@@ -453,16 +466,7 @@ BEGIN
             FROM unnest(COALESCE(p_enterprise_id_ranges, '{}'::int4multirange)) AS t(r)
         );
         
-        -- First count total batches to know which is last
-        SELECT COUNT(*) INTO v_total_batches
-        FROM public.get_closed_group_batches(
-            p_target_batch_size := 1000,
-            p_establishment_ids := NULLIF(v_establishment_ids, '{}'),
-            p_legal_unit_ids := NULLIF(v_legal_unit_ids, '{}'),
-            p_enterprise_ids := NULLIF(v_enterprise_ids, '{}')
-        );
-        
-        -- Get affected groups batched
+        -- Spawn batch children for affected groups
         FOR v_batch IN 
             SELECT * FROM public.get_closed_group_batches(
                 p_target_batch_size := 1000,
@@ -471,22 +475,60 @@ BEGIN
                 p_enterprise_ids := NULLIF(v_enterprise_ids, '{}')
             )
         LOOP
-            v_batch_count := v_batch_count + 1;
-            PERFORM worker.enqueue_statistical_unit_refresh_batch(
-                v_batch.batch_seq,
-                v_batch.enterprise_ids,
-                v_batch.legal_unit_ids,
-                v_batch.establishment_ids,
-                p_valid_from,
-                p_valid_until,
-                p_is_last_batch := (v_batch_count = v_total_batches)
+            PERFORM worker.spawn(
+                p_command := 'statistical_unit_refresh_batch',
+                p_payload := jsonb_build_object(
+                    'command', 'statistical_unit_refresh_batch',
+                    'batch_seq', v_batch.batch_seq,
+                    'enterprise_ids', v_batch.enterprise_ids,
+                    'legal_unit_ids', v_batch.legal_unit_ids,
+                    'establishment_ids', v_batch.establishment_ids,
+                    -- Pass explicitly requested IDs for cleanup of deleted entities
+                    'explicit_enterprise_ids', v_enterprise_ids,
+                    'explicit_legal_unit_ids', v_legal_unit_ids,
+                    'explicit_establishment_ids', v_establishment_ids,
+                    'valid_from', p_valid_from,
+                    'valid_until', p_valid_until
+                ),
+                p_parent_id := p_task_id,  -- Child of current task
+                p_priority := v_child_priority
             );
+            v_batch_count := v_batch_count + 1;
         END LOOP;
+        
+        -- If no batches were created but we have explicit IDs, spawn a cleanup-only batch
+        -- This handles the case where all requested IDs are for deleted entities
+        IF v_batch_count = 0 AND (
+            COALESCE(array_length(v_enterprise_ids, 1), 0) > 0 OR
+            COALESCE(array_length(v_legal_unit_ids, 1), 0) > 0 OR
+            COALESCE(array_length(v_establishment_ids, 1), 0) > 0
+        ) THEN
+            PERFORM worker.spawn(
+                p_command := 'statistical_unit_refresh_batch',
+                p_payload := jsonb_build_object(
+                    'command', 'statistical_unit_refresh_batch',
+                    'batch_seq', 1,
+                    'enterprise_ids', ARRAY[]::INT[],
+                    'legal_unit_ids', ARRAY[]::INT[],
+                    'establishment_ids', ARRAY[]::INT[],
+                    -- Pass explicitly requested IDs for cleanup of deleted entities
+                    'explicit_enterprise_ids', v_enterprise_ids,
+                    'explicit_legal_unit_ids', v_legal_unit_ids,
+                    'explicit_establishment_ids', v_establishment_ids,
+                    'valid_from', p_valid_from,
+                    'valid_until', p_valid_until
+                ),
+                p_parent_id := p_task_id,
+                p_priority := v_child_priority
+            );
+            v_batch_count := 1;
+            RAISE DEBUG 'derive_statistical_unit: No groups matched, spawned cleanup-only batch';
+        END IF;
     END IF;
     
-    RAISE DEBUG 'Enqueued % statistical_unit_refresh_batch tasks', v_batch_count;
+    RAISE DEBUG 'derive_statistical_unit: Spawned % batch children with parent_id %', v_batch_count, p_task_id;
 
-    -- Refresh derived data (used flags) - always full refreshes
+    -- Refresh derived data (used flags) - always full refreshes, run synchronously
     PERFORM public.activity_category_used_derive();
     PERFORM public.region_used_derive();
     PERFORM public.sector_used_derive();
@@ -494,46 +536,75 @@ BEGIN
     PERFORM public.legal_form_used_derive();
     PERFORM public.country_used_derive();
 
-    -- NOTE: derive_reports is enqueued by the LAST batch task (via is_last_batch flag)
-    -- This ensures reports only run after ALL batches complete successfully
+    -- Enqueue derive_reports as an "uncle" task (runs after parent completes)
+    -- Use enqueue_derive_reports for proper deduplication (ON CONFLICT handling)
+    PERFORM worker.enqueue_derive_reports(
+        p_valid_from := p_valid_from,
+        p_valid_until := p_valid_until
+    );
+    
+    RAISE DEBUG 'derive_statistical_unit: Enqueued derive_reports';
+    
+    -- NOTE: If p_task_id was provided and we spawned children, the framework will
+    -- automatically set this task to 'waiting' state after the handler returns.
+    -- When all children complete, the framework completes this parent task.
+    -- Then derive_reports runs as a normal top-level task.
 END;
 $derive_statistical_unit$;
 
 
 -- ============================================================================
--- Add concurrency column to queue_registry
+-- PROCEDURE 5: Command handler wrapper - passes task_id to the function
 -- ============================================================================
 
--- Add default_concurrency column - how many parallel workers should process this queue
--- 1 = serial (default), >1 = parallel processing
--- Can be overridden by WORKER_QUEUE_CONCURRENCY environment variable
-ALTER TABLE worker.queue_registry 
-ADD COLUMN IF NOT EXISTS default_concurrency INT NOT NULL DEFAULT 1;
+CREATE OR REPLACE PROCEDURE worker.derive_statistical_unit(payload JSONB)
+SECURITY DEFINER
+LANGUAGE plpgsql
+AS $derive_statistical_unit_handler$
+DECLARE
+    v_establishment_id_ranges int4multirange = (payload->>'establishment_id_ranges')::int4multirange;
+    v_legal_unit_id_ranges int4multirange = (payload->>'legal_unit_id_ranges')::int4multirange;
+    v_enterprise_id_ranges int4multirange = (payload->>'enterprise_id_ranges')::int4multirange;
+    v_valid_from date = (payload->>'valid_from')::date;
+    v_valid_until date = (payload->>'valid_until')::date;
+    v_task_id BIGINT;
+BEGIN
+    -- Get current task ID from the tasks table (the one being processed)
+    SELECT id INTO v_task_id
+    FROM worker.tasks
+    WHERE state = 'processing' AND worker_pid = pg_backend_pid()
+    ORDER BY processed_at DESC NULLS LAST, id DESC  -- id as tiebreaker for determinism
+    LIMIT 1;
+    
+    -- Call the function with task_id for spawning children
+    PERFORM worker.derive_statistical_unit(
+        p_establishment_id_ranges := v_establishment_id_ranges,
+        p_legal_unit_id_ranges := v_legal_unit_id_ranges,
+        p_enterprise_id_ranges := v_enterprise_id_ranges,
+        p_valid_from := v_valid_from,
+        p_valid_until := v_valid_until,
+        p_task_id := v_task_id
+    );
+END;
+$derive_statistical_unit_handler$;
 
-COMMENT ON COLUMN worker.queue_registry.default_concurrency IS 
-'Number of parallel workers for this queue. 1=serial (default), >1=parallel. Can be overridden by WORKER_QUEUE_CONCURRENCY env var.';
 
 -- ============================================================================
--- Register the new queue and command
+-- Register the batch command
 -- ============================================================================
 
--- Add new queue for parallel batch processing
--- This queue is designed to be processed with multiple concurrent workers
--- Default concurrency of 4 for parallel batch processing
-INSERT INTO worker.queue_registry (queue, description, default_concurrency)
-VALUES ('analytics_batch', 'Parallel batch processing for analytics derivation', 4)
-ON CONFLICT (queue) DO UPDATE SET
-    description = EXCLUDED.description,
-    default_concurrency = EXCLUDED.default_concurrency;
-
--- Register the batch command on the parallel queue
 INSERT INTO worker.command_registry (queue, command, handler_procedure, description)
-VALUES ('analytics_batch', 'statistical_unit_refresh_batch', 
+VALUES ('analytics', 'statistical_unit_refresh_batch', 
         'worker.statistical_unit_refresh_batch',
-        'Refresh statistical_unit for a batch of closed groups (parallel-safe)')
+        'Refresh statistical_unit for a batch of closed groups (parallel-safe, child task)')
 ON CONFLICT (command) DO UPDATE SET
     queue = EXCLUDED.queue,
     handler_procedure = EXCLUDED.handler_procedure,
     description = EXCLUDED.description;
+
+-- Update analytics queue for concurrent child processing
+UPDATE worker.queue_registry 
+SET default_concurrency = 4
+WHERE queue = 'analytics';
 
 END;

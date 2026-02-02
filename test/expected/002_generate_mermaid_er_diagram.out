@@ -1207,11 +1207,13 @@ erDiagram
 		timestamp_with_time_zone created_at
 		worker_task_state state
 		timestamp_with_time_zone processed_at
+		timestamp_with_time_zone completed_at
 		numeric duration_ms
 		text error
 		timestamp_with_time_zone scheduled_at
 		integer worker_pid
 		jsonb payload
+		bigint parent_id
 	}
 	%% Relationships (derived from foreign keys)
 	auth_api_key }|--|| auth_user : api_key_user_id_fkey
@@ -1326,4 +1328,5 @@ erDiagram
 	worker_command_registry }o--|| worker_queue_registry : command_registry_queue_fkey
 	worker_tasks }o--|| worker_command_registry : fk_tasks_command
 	worker_tasks }o--|| worker_command_registry : tasks_command_fkey
+	worker_tasks }o--o| worker_tasks : tasks_parent_id_fkey
 ########################################
