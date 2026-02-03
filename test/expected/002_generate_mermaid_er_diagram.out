@@ -1190,6 +1190,7 @@ erDiagram
 		text description
 		text queue
 		timestamp_with_time_zone created_at
+		integer batches_per_wave
 	}
 	worker_last_processed["worker.last_processed"] {
 		text table_name

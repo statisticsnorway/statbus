@@ -124,6 +124,7 @@ Enumerated types used across the schema, with their possible values.
 - **`public.statistical_unit_type`**: `establishment`, `legal_unit`, `enterprise`, `enterprise_group`
 - **`public.tag_type`**: `custom`, `system`
 - **`public.time_context_type`**: `relative_period`, `tag`, `year`
+- **`worker.process_mode`**: `top`, `child`
 - **`worker.task_state`**: `pending`, `processing`, `waiting`, `completed`, `failed`
 
 
