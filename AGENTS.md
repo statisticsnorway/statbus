@@ -259,6 +259,35 @@ import { Pool } from 'pg';
 - Located in `app/src/lib/database.types.ts`
 - Use: `Tables<'my_table'>`, `Enums<'my_enum'>`
 
+## Performance Optimization Workflow
+
+When optimizing slow database queries:
+
+1. **Enable DEBUG mode** in `.env.config` to get auto_explain logs for queries >100ms
+2. **Preserve test databases** with `PERSIST=true` for investigation while tests run
+3. **Don't start long-running tests** without first preparing hot-patches for iteration
+4. **Analyze auto_explain logs** for:
+   - "Rows Removed by Filter/Join Filter" - high numbers indicate inefficient joins
+   - Nested loops with large row counts - may need indexes or query restructuring
+   - Sequential scans on large tables - may need indexes
+5. **Hot-patch for quick iteration**: Use `CREATE OR REPLACE FUNCTION` directly in psql to test changes without full migration/test cycles
+6. **Common patterns**:
+   - LATERAL JOIN → CTE + regular JOIN for batch operations (O(n²) → O(n))
+   - `IS NOT DISTINCT FROM` with NULLs → COALESCE with sentinels for hash joins
+   - Missing indexes → check if query patterns match existing indexes
+
+**Key commands for performance analysis:**
+```bash
+# View auto_explain logs (queries >100ms)
+docker compose logs db 2>&1 | grep -E "duration: [0-9]{5,}" | head -30
+
+# Find queries with high row removal (inefficient joins)
+docker compose logs db 2>&1 | grep -E "Rows Removed by (Join )?Filter:" | sort | uniq -c | sort -rn | head -20
+
+# Check task timings in worker
+echo "SELECT command, COUNT(*), SUM(duration_ms)::numeric(10,0) as total_ms FROM worker.tasks WHERE state = 'completed' GROUP BY command ORDER BY total_ms DESC;" | ./devops/manage-statbus.sh psql
+```
+
 ## Development Workflow (CRITICAL)
 
 Follow this iterative cycle for ALL changes, especially bug fixes:

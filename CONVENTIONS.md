@@ -89,6 +89,11 @@ For file system operations and large-scale edits, prefer suggesting shell comman
 - **Table Aliases**: Prefer explicit `AS` for table aliases, e.g., `FROM my_table AS mt`. For common data table aliases in import procedures, `AS dt` is preferred.
 - **Temporal Logic**: When writing conditions involving time, always order the components chronologically for readability (e.g., `start <= point AND point < end`). Avoid non-chronological forms like `point >= start`.
 - **Batch Operations**: Utilize PostgreSQL 18+ `MERGE` syntax for efficient batch handling where appropriate.
+- **Query Optimization Patterns**:
+    - **LATERAL vs CTE for Batch Processing**: LATERAL joins execute once per row from the outer query—good for single-row lookups but O(n²) for batch operations. For batch processing, pre-aggregate in a CTE then use a regular JOIN, which is O(n).
+    - **`IS NOT DISTINCT FROM` Performance**: This operator treats NULL=NULL as true, which prevents PostgreSQL from using hash joins effectively. For multi-column joins with nullable columns, consider using COALESCE with sentinel values to enable hash joins, or restructure to avoid the pattern.
+    - **Index Usage with Functions**: Indexes on columns are not used when the column is wrapped in a function (e.g., `COALESCE(col, default)`). Create expression indexes or restructure queries to match indexed columns directly.
+    - **Use `EXPLAIN (ANALYZE, BUFFERS)` liberally**: Look for "Rows Removed by Filter/Join Filter" in plans—high numbers indicate inefficient joins or missing indexes.
 - **Temporary Table Management**:
     - To ensure procedures are idempotent and to avoid noisy `NOTICE` messages in logs, use the following pattern to clean up temporary tables at the beginning of a procedure:
       ```sql
