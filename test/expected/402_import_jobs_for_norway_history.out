@@ -25,9 +25,9 @@
 \echo "Cleaning up any leftover data from prior runs"
 "Cleaning up any leftover data from prior runs"
 SELECT public.reset(true, 'getting-started');
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                            reset                                                                                                                                                                                                                                                                                                                                                                                                                                                                            
--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- {"person": {"deleted_count": 0}, "region": {"deleted_count": 417}, "sector": {"changed_count": 36, "deleted_count": 33}, "status": {"changed_count": 0, "deleted_count": 0}, "contact": {"deleted_count": 0}, "activity": {"deleted_count": 0}, "location": {"deleted_count": 0}, "settings": {"deleted_count": 1}, "unit_size": {"changed_count": 0, "deleted_count": 0}, "enterprise": {"deleted_count": 0}, "import_job": {"deleted_count": 0}, "legal_form": {"changed_count": 46, "deleted_count": 46}, "legal_unit": {"deleted_count": 0}, "data_source": {"changed_count": 6, "deleted_count": 6}, "tag_for_unit": {"deleted_count": 0}, "establishment": {"deleted_count": 0}, "stat_for_unit": {"deleted_count": 0}, "external_ident": {"deleted_count": 0}, "person_for_unit": {"deleted_count": 0}, "activity_category": {"changed_count": 643, "deleted_count": 1811, "changed_children_count": 64}, "import_definition": {"deleted_count": 2}}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                      reset                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ {"person": {"deleted_count": 0}, "region": {"deleted_count": 0}, "sector": {"changed_count": 0, "deleted_count": 0}, "status": {"changed_count": 0, "deleted_count": 0}, "contact": {"deleted_count": 0}, "activity": {"deleted_count": 0}, "location": {"deleted_count": 0}, "settings": {"deleted_count": 0}, "unit_size": {"changed_count": 0, "deleted_count": 0}, "enterprise": {"deleted_count": 0}, "import_job": {"deleted_count": 0}, "legal_form": {"changed_count": 0, "deleted_count": 0}, "legal_unit": {"deleted_count": 0}, "data_source": {"changed_count": 0, "deleted_count": 0}, "tag_for_unit": {"deleted_count": 0}, "establishment": {"deleted_count": 0}, "stat_for_unit": {"deleted_count": 0}, "external_ident": {"deleted_count": 0}, "person_for_unit": {"deleted_count": 0}, "activity_category": {"changed_count": 0, "deleted_count": 0, "changed_children_count": 0}, "import_definition": {"deleted_count": 8}}
 (1 row)
 
 -- Pause the background worker so we control task processing order.
@@ -673,6 +673,7 @@ Triggers:
                 Column                |           Type            | Collation | Nullable |           Default            
 --------------------------------------+---------------------------+-----------+----------+------------------------------
  row_id                               | integer                   |           | not null | generated always as identity
+ batch_seq                            | integer                   |           |          | 
  valid_from_raw                       | text                      |           |          | 
  valid_to_raw                         | text                      |           |          | 
  valid_from                           | date                      |           |          | 
@@ -785,12 +786,23 @@ Triggers:
  invalid_codes                        | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "import_lu_2015_h_data_pkey" PRIMARY KEY, btree (row_id)
+    "import_lu_2015_h_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
     "import_lu_2015_h_data_daterange_idx" gist (daterange(valid_from, valid_until, '[)'::text))
     "import_lu_2015_h_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "import_lu_2015_h_data_stat_ident_raw_idx" btree (stat_ident_raw)
-    "import_lu_2015_h_data_state_action_row_id_idx" btree (state, action, row_id)
-    "import_lu_2015_h_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
+    "import_lu_2015_h_data_state_last_completed_priority_batch_s_idx" btree (state, last_completed_priority, batch_seq)
     "import_lu_2015_h_data_tax_ident_raw_idx" btree (tax_ident_raw)
+Check constraints:
+    "chk_batch_seq_state_action" CHECK (
+CASE state
+    WHEN 'pending'::import_data_state THEN batch_seq IS NULL AND action IS NULL
+    WHEN 'analysing'::import_data_state THEN batch_seq IS NOT NULL
+    WHEN 'analysed'::import_data_state THEN batch_seq IS NOT NULL AND action IS NOT NULL
+    WHEN 'error'::import_data_state THEN true
+    WHEN 'processing'::import_data_state THEN action = 'use'::import_row_action_type AND batch_seq IS NOT NULL
+    WHEN 'processed'::import_data_state THEN action = 'use'::import_row_action_type AND batch_seq IS NOT NULL
+    ELSE false
+END)
 Policies:
     POLICY "import_lu_2015_h_data_admin_user_manage"
       TO admin_user
@@ -853,6 +865,7 @@ Triggers:
                 Column                |           Type            | Collation | Nullable |           Default            
 --------------------------------------+---------------------------+-----------+----------+------------------------------
  row_id                               | integer                   |           | not null | generated always as identity
+ batch_seq                            | integer                   |           |          | 
  valid_from_raw                       | text                      |           |          | 
  valid_to_raw                         | text                      |           |          | 
  valid_from                           | date                      |           |          | 
@@ -964,12 +977,23 @@ Triggers:
  invalid_codes                        | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "import_es_2015_h_data_pkey" PRIMARY KEY, btree (row_id)
+    "import_es_2015_h_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
     "import_es_2015_h_data_daterange_idx" gist (daterange(valid_from, valid_until, '[)'::text))
     "import_es_2015_h_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "import_es_2015_h_data_stat_ident_raw_idx" btree (stat_ident_raw)
-    "import_es_2015_h_data_state_action_row_id_idx" btree (state, action, row_id)
-    "import_es_2015_h_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
+    "import_es_2015_h_data_state_last_completed_priority_batch_s_idx" btree (state, last_completed_priority, batch_seq)
     "import_es_2015_h_data_tax_ident_raw_idx" btree (tax_ident_raw)
+Check constraints:
+    "chk_batch_seq_state_action" CHECK (
+CASE state
+    WHEN 'pending'::import_data_state THEN batch_seq IS NULL AND action IS NULL
+    WHEN 'analysing'::import_data_state THEN batch_seq IS NOT NULL
+    WHEN 'analysed'::import_data_state THEN batch_seq IS NOT NULL AND action IS NOT NULL
+    WHEN 'error'::import_data_state THEN true
+    WHEN 'processing'::import_data_state THEN action = 'use'::import_row_action_type AND batch_seq IS NOT NULL
+    WHEN 'processed'::import_data_state THEN action = 'use'::import_row_action_type AND batch_seq IS NOT NULL
+    ELSE false
+END)
 Policies:
     POLICY "import_es_2015_h_data_admin_user_manage"
       TO admin_user
@@ -1439,10 +1463,7 @@ select queue,t.command,state,error from worker.tasks as t join worker.command_re
  import | import_job_process | completed | 
  import | import_job_process | completed | 
  import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
- import | import_job_process | completed | 
-(379 rows)
+(376 rows)
 
 select slug, state, error is not null as failed, time_context_ident, default_valid_from, default_valid_to, total_rows, imported_rows, import_completed_pct, error as error_details from public.import_job WHERE slug LIKE 'import_%_h' ORDER BY slug;
        slug       |  state   | failed | time_context_ident | default_valid_from | default_valid_to | total_rows | imported_rows | import_completed_pct | error_details 
@@ -1560,12 +1581,11 @@ SELECT row_id, errors, merge_status FROM public.import_es_2018_h_data WHERE stat
 \echo Check the state of all tasks before running analytics.
 Check the state of all tasks before running analytics.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
-   queue   |   state    | count 
------------+------------+-------
- analytics | pending    |    16
- analytics | processing |     1
- import    | completed  |   379
-(3 rows)
+   queue   |   state   | count 
+-----------+-----------+-------
+ analytics | pending   |     8
+ import    | completed |   376
+(2 rows)
 
 COMMIT;
 -- Run analytics outside transaction
@@ -1574,12 +1594,11 @@ BEGIN;
 \echo Check the state of all tasks after running analytics.
 Check the state of all tasks after running analytics.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
-   queue   |   state    | count 
------------+------------+-------
- analytics | processing |     1
- analytics | completed  |    18
- import    | completed  |   379
-(3 rows)
+   queue   |   state   | count 
+-----------+-----------+-------
+ analytics | completed |   165
+ import    | completed |   376
+(2 rows)
 
 COMMIT;
 -- Run any remaining tasks outside transaction
@@ -1588,12 +1607,11 @@ BEGIN;
 \echo Check the state of all tasks after running analytics.
 Check the state of all tasks after running analytics.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
-   queue   |   state    | count 
------------+------------+-------
- analytics | processing |     1
- analytics | completed  |    18
- import    | completed  |   379
-(3 rows)
+   queue   |   state   | count 
+-----------+-----------+-------
+ analytics | completed |   165
+ import    | completed |   376
+(2 rows)
 
 \echo Overview of statistical units, but not details, there are too many units.
 Overview of statistical units, but not details, there are too many units.
@@ -8342,6 +8360,10 @@ SELECT worker.resume();
 -- worker.process_tasks() to commit between tasks for better performance).
 -- Unlike rollback_unless_persist_is_specified.sql, this performs explicit
 -- cleanup since ROLLBACK cannot undo committed transactions.
+--
+-- NOTE: For 4xx tests running in isolated databases (via test-isolated command),
+-- cleanup is unnecessary since the entire database is dropped after the test.
+-- We skip the slow reset() call when running in an isolated test database.
 -- Ref. https://stackoverflow.com/a/32597876/1023558
 \set PERSIST :PERSIST
 -- now PERSIST is set to the string ':PERSIST' if was not already set.
@@ -8352,20 +8374,19 @@ SELECT CASE
   ELSE :'PERSIST'
 END::BOOL AS "PERSIST" \gset
 -- < \gset call at end of the query to set variable.
+-- Check if we're in an isolated test database (name starts with 'test_')
+SELECT current_database() LIKE 'test_%' AS "IS_ISOLATED_TEST" \gset
 \if :PERSIST
 \echo 'PERSIST=true: Keeping test data for inspection'
+\elif :IS_ISOLATED_TEST
+\echo 'Isolated test database - skipping cleanup (database will be dropped)'
+Isolated test database - skipping cleanup (database will be dropped)
 \else
 \echo 'Cleaning up test data (use PERSIST=true to keep)'
-Cleaning up test data (use PERSIST=true to keep)
 -- Clean up worker tasks first (may reference import jobs)
 DELETE FROM worker.tasks WHERE state IN ('completed', 'failed');
 -- Use the reset function to clean up all test data
 -- 'data' scope removes: import_jobs, units, activities, locations, etc.
 -- but preserves configuration (regions, settings, activity categories)
 SELECT public.reset(true, 'data');
-                                                                                                                                                                                                                                    reset                                                                                                                                                                                                                                     
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- {"person": {"deleted_count": 0}, "contact": {"deleted_count": 350}, "activity": {"deleted_count": 3764}, "location": {"deleted_count": 4761}, "enterprise": {"deleted_count": 1869}, "import_job": {"deleted_count": 8}, "legal_unit": {"deleted_count": 2195}, "tag_for_unit": {"deleted_count": 0}, "establishment": {"deleted_count": 1784}, "stat_for_unit": {"deleted_count": 379}, "external_ident": {"deleted_count": 3557}, "person_for_unit": {"deleted_count": 0}}
-(1 row)
-
 \endif
