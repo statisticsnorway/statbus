@@ -9,7 +9,7 @@
  */
 
 import { atom } from 'jotai'
-import { loadable, selectAtom } from 'jotai/utils'
+import { loadable, selectAtom, atomWithStorage } from 'jotai/utils'
 import { isEqual } from 'moderndash'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { atomWithRefresh } from 'jotai/utils'
@@ -18,6 +18,53 @@ import { useCallback } from 'react'
 import type { Database, Tables } from '@/lib/database.types'
 import { restClientAtom } from './rest-client'
 import { authStatusUnstableDetailsAtom } from './auth'
+
+// ============================================================================
+// LOCALSTORAGE CACHING FOR MENU STATE
+// ============================================================================
+
+const STORAGE_KEY_HAS_STATISTICAL_UNITS = 'statbus:hasStatisticalUnits';
+
+/**
+ * Read the cached hasStatisticalUnits value from localStorage.
+ * Returns null if not found or on SSR.
+ */
+function getCachedHasStatisticalUnits(): boolean | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const cached = localStorage.getItem(STORAGE_KEY_HAS_STATISTICAL_UNITS);
+    if (cached === 'true') return true;
+    if (cached === 'false') return false;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Write the hasStatisticalUnits value to localStorage.
+ */
+function setCachedHasStatisticalUnits(value: boolean): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_KEY_HAS_STATISTICAL_UNITS, value ? 'true' : 'false');
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+/**
+ * Clear the cached hasStatisticalUnits value from localStorage.
+ * Called when is_importing completes to force a fresh fetch.
+ */
+export function invalidateHasStatisticalUnitsCache(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(STORAGE_KEY_HAS_STATISTICAL_UNITS);
+  } catch {
+    // Ignore storage errors
+  }
+}
 
 // ============================================================================
 // BASE DATA ATOMS - Replace BaseDataStore + BaseDataContext
@@ -31,6 +78,17 @@ export interface BaseData {
   defaultTimeContext: Tables<"time_context"> | null
   hasStatisticalUnits: boolean
 }
+
+// Initial base data uses the cached value from localStorage for hasStatisticalUnits
+// This allows the menu to render immediately on page load
+const getInitialBaseData = (): BaseData => ({
+  statDefinitions: [],
+  externalIdentTypes: [],
+  statbusUsers: [],
+  timeContexts: [],
+  defaultTimeContext: null,
+  hasStatisticalUnits: getCachedHasStatisticalUnits() ?? false,
+});
 
 const initialBaseData: BaseData = {
   statDefinitions: [],
@@ -66,7 +124,8 @@ export const baseDataPromiseAtom = atomWithRefresh<Promise<BaseData>>(async (get
   if (!client) {
     // If the client is not ready, return the initial empty data.
     // The atom will be re-evaluated automatically by Jotai when restClientAtom changes.
-    return initialBaseData;
+    // Use cached value for hasStatisticalUnits to show menu optimistically
+    return getInitialBaseData();
   }
 
   try {
@@ -80,7 +139,7 @@ export const baseDataPromiseAtom = atomWithRefresh<Promise<BaseData>>(async (get
       client.from("stat_definition_active").select(),
       client.from("external_ident_type_active").select(),
       client.from("user").select(), // Consider if all users are needed or just current user's info
-      client.from("statistical_unit").select("*", { count: "exact", head: true }), // Check existence efficiently
+      client.from("statistical_unit").select("unit_id").limit(1), // Check existence with minimal data fetch
       client.from("time_context").select("*") // Fetches all, view is ordered by default
     ]);
 
@@ -97,13 +156,18 @@ export const baseDataPromiseAtom = atomWithRefresh<Promise<BaseData>>(async (get
       defaultTimeContext = timeContextsResult.data[0] as Tables<"time_context">;
     }
 
+    const hasStatisticalUnits = !!(statisticalUnitResult.data && statisticalUnitResult.data.length > 0);
+    
+    // Cache the result in localStorage for faster subsequent page loads
+    setCachedHasStatisticalUnits(hasStatisticalUnits);
+
     return {
       statDefinitions: statDefinitionsResult.data || [],
       externalIdentTypes: externalIdentTypesResult.data || [],
       statbusUsers: statbusUsersResult.data || [],
       timeContexts: timeContextsResult.data || [],
       defaultTimeContext: defaultTimeContext,
-      hasStatisticalUnits: !!statisticalUnitResult.count && statisticalUnitResult.count > 0,
+      hasStatisticalUnits,
     };
   } catch (error) {
     console.error("baseDataPromiseAtom: Failed to fetch base data:", error);

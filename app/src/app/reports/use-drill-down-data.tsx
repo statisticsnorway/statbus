@@ -1,10 +1,9 @@
 "use client";
 import { DrillDown, DrillDownPoint } from "@/app/reports/types/drill-down";
-import { useState, useMemo } from "react";
-import { useGuardedEffect } from "@/hooks/use-guarded-effect";
+import { useState } from "react";
 import { useTimeContext } from '@/atoms/app-derived';
 import { fetchWithAuthRefresh } from "@/context/RestClientStore";
-import { useSWRWithAuthRefresh, isJwtExpiredError, JwtExpiredError } from "@/hooks/use-swr-with-auth-refresh";
+import { useSWRWithAuthRefresh, JwtExpiredError } from "@/hooks/use-swr-with-auth-refresh";
 
 export const useDrillDownData = () => {
   const { selectedTimeContext } = useTimeContext();
@@ -26,16 +25,8 @@ export const useDrillDownData = () => {
     urlSearchParams.set("valid_on", selectedTimeContext.valid_on);
   }
 
-  const cache = useMemo(() => new Map<string, DrillDown>(), []);
-
-  useGuardedEffect(() => {
-    cache.clear();
-  }, [cache], 'use-drill-down-data.tsx:clearCache');
-
+  // SWR handles caching internally - no need for a separate Map cache
   const fetcher = async (url: string) => {
-    if (cache.has(url)) {
-      return cache.get(url);
-    }
     const response = await fetchWithAuthRefresh(url);
     
     // Check for JWT expiration in the response
@@ -51,9 +42,7 @@ export const useDrillDownData = () => {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     
-    const data = await response.json();
-    cache.set(url, data);
-    return data;
+    return response.json();
   };
 
   const swrResponse = useSWRWithAuthRefresh<DrillDown>(
@@ -61,6 +50,7 @@ export const useDrillDownData = () => {
     fetcher,
     {
       keepPreviousData: true,
+      revalidateOnFocus: false, // Don't refetch when user returns to the tab
     },
     "useDrillDownData"
   );

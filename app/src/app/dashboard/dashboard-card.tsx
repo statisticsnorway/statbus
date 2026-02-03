@@ -6,12 +6,14 @@ export const DashboardCard = ({
   title,
   icon,
   text,
+  children,
   failed,
   className,
 }: {
   readonly title: string;
   readonly icon: ReactNode;
-  readonly text: string;
+  readonly text?: string;
+  readonly children?: ReactNode;
   readonly failed?: boolean;
   readonly className?: string;
 }) => {
@@ -27,7 +29,9 @@ export const DashboardCard = ({
         {icon}
       </CardHeader>
       <CardContent className="space-y-3 px-3 py-3">
-        <div className="text-right text-xl font-semibold">{text}</div>
+        <div className="text-right text-xl font-semibold">
+          {children ?? text}
+        </div>
       </CardContent>
     </Card>
   );

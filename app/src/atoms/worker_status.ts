@@ -9,7 +9,7 @@
 
 import { atom } from 'jotai';
 import { useAtomValue } from 'jotai';
-import { refreshBaseDataAtom } from './base-data';
+import { refreshBaseDataAtom, invalidateHasStatisticalUnitsCache } from './base-data';
 import { restClientAtom } from './rest-client';
 import { isAuthenticatedStrictAtom } from './auth';
 
@@ -70,6 +70,21 @@ export const setWorkerStatusAtom = atom(
       if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
         console.log("setWorkerStatusAtom: Detected completion of 'isDerivingUnits'. Refreshing base data.");
       }
+      set(refreshBaseDataAtom);
+    }
+    
+    // When import completes, invalidate the hasStatisticalUnits cache.
+    // This ensures fresh data is fetched after new data has been imported,
+    // and dashboard counts will be refreshed.
+    if (
+      type === 'is_importing' &&
+      prevStatus.isImporting === true &&
+      status === false
+    ) {
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.log("setWorkerStatusAtom: Detected completion of 'isImporting'. Invalidating hasStatisticalUnits cache.");
+      }
+      invalidateHasStatisticalUnitsCache();
       set(refreshBaseDataAtom);
     }
   }
