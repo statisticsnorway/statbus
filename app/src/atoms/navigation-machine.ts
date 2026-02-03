@@ -171,18 +171,33 @@ export const navigationMachine = setup({
             !isPublicPath(context.pathname),
         },
         {
+          // FAIL FAST: If authenticated, on /login, auth is stable, and setup data is loaded,
+          // skip verification and redirect immediately. This avoids the 4+ second delay
+          // waiting for setup data to load after a token refresh.
+          target: 'clearingLastKnownPathBeforeRedirect',
+          guard: ({ context }) =>
+            context.isAuthenticated &&
+            context.pathname === '/login' &&
+            context.isAuthStable &&
+            !context.isAuthLoading &&
+            !context.isSetupLoading, // Only redirect once setup check is complete
+        },
+        {
           // DECLARATIVE STALE AUTH DETECTION:
           // If isAuthenticated && pathname === '/login' && auth is stable (not loading),
-          // this is SUSPICIOUS - an authenticated user shouldn't be on /login unless
-          // the server redirected them there (meaning token expired server-side).
-          // Instead of trying to redirect and detecting failure via timeout, we
-          // PROACTIVELY verify auth status before attempting any redirect.
+          // BUT setup is still loading, wait in idle. Once setup loading completes,
+          // the above guard will trigger and redirect immediately.
+          // 
+          // This is a fallback for edge cases where the client thinks it's authenticated
+          // but setup data suggests otherwise. In practice, after initial_refreshing,
+          // we know auth is valid, so this is mostly defensive.
           target: 'verifyingAuthBeforeLoginRedirect',
           guard: ({ context }) => 
             context.isAuthenticated && 
             context.pathname === '/login' && 
             context.isAuthStable && 
-            !context.isAuthLoading,
+            !context.isAuthLoading &&
+            context.isSetupLoading, // Only verify if setup is still loading (rare case)
         },
         {
           target: 'redirectingToSetup',
