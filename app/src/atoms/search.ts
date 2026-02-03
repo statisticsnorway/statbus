@@ -17,7 +17,7 @@ import { isEqual } from 'moderndash'
 
 import type { Database, Tables } from '@/lib/database.types'
 import type { TableColumn, AdaptableTableColumn, ColumnProfile, SearchResult as ApiSearchResultType, SearchAction, SetQuery } from '../app/search/search.d'
-import { getStatisticalUnits } from '../app/search/search-requests'
+import { getStatisticalUnitsData, getStatisticalUnitsCount } from '../app/search/search-requests'
 import {
   fullTextSearchDeriveStateUpdateFromValue,
   unitTypeDeriveStateUpdateFromValues,
@@ -90,15 +90,17 @@ export const filtersAtom = atom<Record<string, any>>({});
 
 export interface SearchResult {
   data: any[]
-  total: number
-  loading: boolean
+  total: number | null  // null means count not yet fetched
+  loading: boolean      // true while fetching data
+  countLoading: boolean // true while fetching count in background
   error: string | null
 }
 
 export const searchResultAtom = atom<SearchResult>({
   data: [],
-  total: 0,
+  total: null,
   loading: false,
+  countLoading: false,
   error: null,
 })
 
@@ -272,36 +274,63 @@ export const performSearchAtom = atom(null, async (get, set) => {
     console.error("performSearchAtom: REST client not available.");
     set(searchResultAtom, {
       data: [],
-      total: 0,
+      total: null,
       loading: false,
+      countLoading: false,
       error: "Search client not initialized.",
     });
     return;
   }
 
+  // Set loading state - data loading, count will load after
   set(searchResultAtom, (prev) => ({
     ...prev,
     loading: true,
+    countLoading: true,
     error: null,
   }));
 
   try {
-    const response: ApiSearchResultType = await getStatisticalUnits(
+    // Step 1: Fetch data without count (fastest - ~950ms vs ~1400ms with count)
+    const dataResponse = await getStatisticalUnitsData(
       postgrestClient,
       derivedApiParams
     );
 
-    set(searchResultAtom, {
-      data: response.statisticalUnits,
-      total: response.count,
+    // Update with data immediately - table renders now, count shows "counting..."
+    set(searchResultAtom, (prev) => ({
+      ...prev,
+      data: dataResponse.statisticalUnits,
       loading: false,
-      error: null,
-    });
+      // Keep countLoading: true, total stays null or previous value
+    }));
+
+    // Step 2: Fetch exact count in background
+    try {
+      const exactCount = await getStatisticalUnitsCount(
+        postgrestClient,
+        derivedApiParams
+      );
+
+      set(searchResultAtom, (prev) => ({
+        ...prev,
+        total: exactCount,
+        countLoading: false,
+      }));
+    } catch (countError) {
+      console.warn("Failed to fetch search count:", countError);
+      set(searchResultAtom, (prev) => ({
+        ...prev,
+        total: null,
+        countLoading: false,
+      }));
+    }
   } catch (error) {
     console.error("Search failed in performSearchAtom:", error);
     set(searchResultAtom, (prev) => ({
       ...prev,
       loading: false,
+      countLoading: false,
       error: error instanceof Error ? error.message : "Search operation failed",
     }));
     throw error; // Let the caller handle it
