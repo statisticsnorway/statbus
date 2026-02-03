@@ -10,8 +10,8 @@
 
 BEGIN;
 
-CREATE OR REPLACE FUNCTION import.get_statistical_unit_data_partial(p_unit_type statistical_unit_type, p_id_ranges int4multirange)
-RETURNS SETOF statistical_unit
+CREATE OR REPLACE FUNCTION import.get_statistical_unit_data_partial(p_unit_type public.statistical_unit_type, p_id_ranges int4multirange)
+RETURNS SETOF public.statistical_unit
 LANGUAGE plpgsql
 STABLE
 AS $get_statistical_unit_data_partial$
