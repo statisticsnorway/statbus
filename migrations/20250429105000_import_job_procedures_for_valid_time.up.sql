@@ -40,7 +40,7 @@ $$;
 -- This single procedure handles all `valid_time_from` modes by operating on the
 -- `valid_from` and `valid_to` source_input columns in the `_data` table, which are
 -- populated either from the source file or from job defaults during the prepare step.
-CREATE OR REPLACE PROCEDURE import.analyse_valid_time(p_job_id INT, p_batch_row_id_ranges int4multirange, p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_valid_time(p_job_id INT, p_batch_seq INTEGER, p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_valid_time$
 DECLARE
     v_job public.import_job;
@@ -51,7 +51,7 @@ DECLARE
     v_sql TEXT;
     v_error_keys_to_clear_arr TEXT[] := ARRAY['valid_from_raw', 'valid_to_raw'];
 BEGIN
-    RAISE DEBUG '[Job %] analyse_valid_time (Batch): Starting analysis for range %s', p_job_id, p_batch_row_id_ranges::text;
+    RAISE DEBUG '[Job %] analyse_valid_time (Batch): Starting analysis for batch_seq %', p_job_id, p_batch_seq;
 
     -- Get job details
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
@@ -71,11 +71,11 @@ BEGIN
         valid_to TEXT
     ) ON COMMIT DROP;
 
-    -- Populate the temp table using the performant unnest/JOIN strategy, which forces use of the PK B-tree index.
+    -- Populate the temp table filtering by batch_seq.
     EXECUTE format(
-        'INSERT INTO t_batch_data (row_id, valid_from, valid_to) SELECT dt.row_id, dt.valid_from_raw, dt.valid_to_raw FROM public.%I dt JOIN unnest($1) AS r(range) ON dt.row_id >= lower(r.range) AND dt.row_id < upper(r.range)',
+        'INSERT INTO t_batch_data (row_id, valid_from, valid_to) SELECT dt.row_id, dt.valid_from_raw, dt.valid_to_raw FROM public.%I dt WHERE dt.batch_seq = $1',
         v_data_table_name
-    ) USING p_batch_row_id_ranges;
+    ) USING p_batch_seq;
 
     ANALYZE t_batch_data; -- Provide stats for the planner.
 
@@ -171,12 +171,12 @@ BEGIN
         RAISE DEBUG '[Job %] analyse_valid_time: Updated % non-skipped rows in single pass.', p_job_id, v_update_count;
 
         -- Estimate error count
-        v_sql := format($$SELECT COUNT(*) FROM public.%1$I dt JOIN unnest($1) AS r(range) ON dt.row_id >= lower(r.range) AND dt.row_id < upper(r.range) WHERE dt.state = 'error' AND (dt.errors ?| %2$L::text[])$$,
+        v_sql := format($$SELECT COUNT(*) FROM public.%1$I dt WHERE dt.batch_seq = $1 AND dt.state = 'error' AND (dt.errors ?| %2$L::text[])$$,
                        v_data_table_name, v_error_keys_to_clear_arr);
         RAISE DEBUG '[Job %] analyse_valid_time: Counting errors with SQL: %', p_job_id, v_sql;
         EXECUTE v_sql
         INTO v_error_count
-        USING p_batch_row_id_ranges;
+        USING p_batch_seq;
         RAISE DEBUG '[Job %] analyse_valid_time: Estimated errors in this step for batch: %', p_job_id, v_error_count;
 
     EXCEPTION WHEN others THEN
@@ -191,7 +191,7 @@ BEGIN
 
     -- Propagate errors to all rows of a new entity if one fails (best-effort)
     BEGIN
-        CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_row_id_ranges, v_error_keys_to_clear_arr, 'analyse_valid_time');
+        CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_seq, v_error_keys_to_clear_arr, 'analyse_valid_time');
     EXCEPTION WHEN OTHERS THEN
         RAISE WARNING '[Job %] analyse_valid_time: Non-fatal error during error propagation: %', p_job_id, SQLERRM;
     END;

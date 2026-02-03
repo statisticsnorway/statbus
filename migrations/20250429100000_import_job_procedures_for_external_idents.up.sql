@@ -4,7 +4,7 @@ BEGIN;
 
 -- Procedure to analyse external identifier data (Batch Oriented)
 -- Supports both regular (single column) and hierarchical (multiple component columns) identifier types
-CREATE OR REPLACE PROCEDURE import.analyse_external_idents(p_job_id INT, p_batch_row_id_ranges int4multirange, p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_external_idents(p_job_id INT, p_batch_seq INTEGER, p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_external_idents$
 DECLARE
     v_job public.import_job;
@@ -50,8 +50,8 @@ BEGIN
     IF to_regclass('pg_temp.temp_hierarchical_validation') IS NOT NULL THEN DROP TABLE temp_hierarchical_validation; END IF;
 
     -- This is a HOLISTIC procedure. It is called once and processes all relevant rows for this step.
-    -- The p_batch_row_id_ranges parameter is ignored (it will be NULL).
-    RAISE DEBUG '[Job %] analyse_external_idents (Holistic): Starting analysis.', p_job_id;
+    -- The p_batch_seq parameter is ignored (it will be NULL).
+    RAISE DEBUG '[Job %] analyse_external_idents (Holistic): Starting analysis for batch_seq %.', p_job_id, p_batch_seq;
 
     -- FUNDAMENTAL ALGORITHM IMPROVEMENT: Set optimal settings for external_idents processing
     PERFORM admin.set_optimal_external_idents_settings();
@@ -972,8 +972,15 @@ BEGIN
 
 
     -- Step 3: Single-pass Batch Update for All Rows with dynamically constructed SET clause
+    -- FIX: Set state='error' when action='skip' to maintain consistency with CHECK constraint.
+    -- Previously, state was only set to 'error' when there were actual errors, but action='skip'
+    -- can also occur due to strategy mismatch (e.g., update_only but row is insert).
     v_set_clause := format($$
-        state = CASE WHEN ru.error_jsonb IS NOT NULL AND ru.error_jsonb != '{}'::jsonb THEN 'error'::public.import_data_state ELSE 'analysing'::public.import_data_state END,
+        state = CASE 
+            WHEN ru.error_jsonb IS NOT NULL AND ru.error_jsonb != '{}'::jsonb THEN 'error'::public.import_data_state 
+            WHEN ru.action = 'skip'::public.import_row_action_type THEN 'error'::public.import_data_state
+            ELSE 'analysing'::public.import_data_state 
+        END,
         errors = CASE WHEN ru.error_jsonb IS NOT NULL AND ru.error_jsonb != '{}'::jsonb THEN dt.errors || ru.error_jsonb ELSE dt.errors - %1$L::TEXT[] END,
         action = CASE 
             WHEN dt.action = 'skip'::public.import_row_action_type THEN 'skip'::public.import_row_action_type
@@ -1040,7 +1047,7 @@ $analyse_external_idents$;
 -- Supports both regular (ident field) and hierarchical (idents field) identifier types.
 CREATE OR REPLACE PROCEDURE import.helper_process_external_idents(
     p_job_id INT,
-    p_batch_row_id_ranges int4multirange,
+    p_batch_seq INTEGER,
     p_step_code TEXT
 )
 LANGUAGE plpgsql AS $helper_process_external_idents$
@@ -1057,7 +1064,7 @@ DECLARE
     v_rows_affected INT;
     v_ident_type_rec RECORD;
 BEGIN
-    RAISE DEBUG '[Job %] helper_process_external_idents (Batch): Starting for range %s for step %', p_job_id, p_batch_row_id_ranges::text, p_step_code;
+    RAISE DEBUG '[Job %] helper_process_external_idents (Batch): Starting for batch_seq % for step %', p_job_id, p_batch_seq, p_step_code;
 
     -- Get job details
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
@@ -1120,7 +1127,7 @@ BEGIN
                         %2$L::integer AS type_id,
                         dt.%3$I AS ident_value
                     FROM public.%4$I dt
-                    WHERE dt.row_id <@ $1
+                    WHERE dt.batch_seq = $1
                       AND dt.action = 'use'
                       AND dt.%1$I IS NOT NULL
                       AND NULLIF(dt.%3$I, '') IS NOT NULL
@@ -1159,7 +1166,7 @@ BEGIN
             );
         
         RAISE DEBUG '[Job %] helper_process_external_idents: Regular MERGE SQL: %', p_job_id, v_sql;
-        EXECUTE v_sql USING p_batch_row_id_ranges;
+        EXECUTE v_sql USING p_batch_seq;
         GET DIAGNOSTICS v_rows_affected = ROW_COUNT;
         RAISE DEBUG '[Job %] helper_process_external_idents: Merged % rows for regular identifier type %.', p_job_id, v_rows_affected, v_ident_type_rec.code;
     END LOOP;
@@ -1200,7 +1207,7 @@ BEGIN
                         %2$L::integer AS type_id,
                         dt.%3$I AS idents_value
                     FROM public.%4$I dt
-                    WHERE dt.row_id <@ $1
+                    WHERE dt.batch_seq = $1
                       AND dt.action = 'use'
                       AND dt.%1$I IS NOT NULL
                       AND dt.%3$I IS NOT NULL
@@ -1239,7 +1246,7 @@ BEGIN
             );
         
         RAISE DEBUG '[Job %] helper_process_external_idents: Hierarchical MERGE SQL: %', p_job_id, v_sql;
-        EXECUTE v_sql USING p_batch_row_id_ranges;
+        EXECUTE v_sql USING p_batch_seq;
         GET DIAGNOSTICS v_rows_affected = ROW_COUNT;
         RAISE DEBUG '[Job %] helper_process_external_idents: Merged % rows for hierarchical identifier type %.', p_job_id, v_rows_affected, v_ident_type_rec.code;
     END LOOP;

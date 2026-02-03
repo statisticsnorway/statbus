@@ -1,5 +1,5 @@
 -- Down Migration 20260128225812: optimize_link_establishment_range_agg
--- Restore original procedure from 20250429120000
+-- Restore original procedure from 20250429120000 (with correlated subquery instead of LegalUnitCoverage CTE)
 
 BEGIN;
 
@@ -8,7 +8,7 @@ BEGIN;
 -- of all links and primary statuses, stores the results in a temp table, and then applies
 -- these results to the main _data table using an internal batching loop to avoid a single
 -- large, long-running UPDATE transaction.
-CREATE OR REPLACE PROCEDURE import.analyse_link_establishment_to_legal_unit(p_job_id INT, p_batch_row_id_ranges int4multirange, p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_link_establishment_to_legal_unit(p_job_id INT, p_batch_seq INTEGER, p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_link_establishment_to_legal_unit$
 DECLARE
     v_job public.import_job;
@@ -31,7 +31,7 @@ BEGIN
     IF to_regclass('pg_temp.temp_batch_errors') IS NOT NULL THEN DROP TABLE temp_batch_errors; END IF;
 
     v_start_time := clock_timestamp();
-    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit (Hybrid): Starting analysis.', p_job_id;
+    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit (Hybrid): Starting analysis for batch_seq %.', p_job_id, p_batch_seq;
 
     -- Get job details
     SELECT * INTO v_job FROM public.import_job ij WHERE id = p_job_id;
@@ -115,6 +115,7 @@ BEGIN
     ) ON COMMIT DROP;
 
     -- This large CTE performs all lookups and logic holistically.
+    -- NOTE: This version uses correlated subquery for coverage check (restored from 20250429120000)
     v_sql := format($$
         WITH Unpivoted AS ( %1$s ),
         DistinctIdents AS (

@@ -11010,11 +11010,35 @@ export type Database = {
         Args: never
         Returns: string
       },
+      get_closed_group_batches: {
+        Args: {
+          p_target_batch_size?: number
+          p_establishment_ids?: number[]
+          p_legal_unit_ids?: number[]
+          p_enterprise_ids?: number[]
+        }
+        Returns: Record<string, unknown>[]
+      }
+        | {
+        Args: {
+          p_target_batch_size?: number
+          p_establishment_ids?: number[]
+          p_legal_unit_ids?: number[]
+          p_enterprise_ids?: number[]
+          p_offset?: number
+          p_limit?: number
+        }
+        Returns: Record<string, unknown>[]
+      },
       get_cmd_type: {
         Args: {
           cmd_type?: number
         }
         Returns: string
+      },
+      get_enterprise_closed_groups: {
+        Args: never
+        Returns: Record<string, unknown>[]
       },
       get_external_idents: {
         Args: {

@@ -4,7 +4,7 @@
 BEGIN;
 
 -- Procedure to analyse contact data (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.analyse_contact(p_job_id INT, p_batch_row_id_ranges int4multirange, p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_contact(p_job_id INT, p_batch_seq INTEGER, p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_contact$
 DECLARE
     v_job public.import_job;
@@ -13,7 +13,7 @@ DECLARE
     v_sql TEXT;
     v_update_count INT := 0;
 BEGIN
-    RAISE DEBUG '[Job %] analyse_contact (Batch): Starting analysis for range %s', p_job_id, p_batch_row_id_ranges::text;
+    RAISE DEBUG '[Job %] analyse_contact (Batch): Starting analysis for batch_seq %', p_job_id, p_batch_seq;
 
     -- Get job details
     SELECT * INTO v_job FROM public.import_job ij WHERE id = p_job_id;
@@ -38,7 +38,7 @@ BEGIN
             mobile_number = NULLIF(dt.mobile_number_raw, ''),
             fax_number = NULLIF(dt.fax_number_raw, ''),
             last_completed_priority = %2$L
-        WHERE dt.row_id <@ $1 AND dt.last_completed_priority < %2$L;
+        WHERE dt.batch_seq = $1 AND dt.last_completed_priority < %2$L;
     $$,
         v_data_table_name,    /* %1$I */
         v_step.priority       /* %2$L */
@@ -47,7 +47,7 @@ BEGIN
     RAISE DEBUG '[Job %] analyse_contact: Updating rows: %', p_job_id, v_sql;
 
     BEGIN
-        EXECUTE v_sql USING p_batch_row_id_ranges;
+        EXECUTE v_sql USING p_batch_seq;
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_contact: Processed % rows in single pass.', p_job_id, v_update_count;
     EXCEPTION WHEN OTHERS THEN
@@ -66,7 +66,7 @@ $analyse_contact$;
 
 
 -- Procedure to operate (insert/update/upsert) contact data (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.process_contact(p_job_id INT, p_batch_row_id_ranges int4multirange, p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.process_contact(p_job_id INT, p_batch_seq INTEGER, p_step_code TEXT)
 LANGUAGE plpgsql AS $process_contact$
 DECLARE
     v_job public.import_job;
@@ -84,7 +84,7 @@ DECLARE
     v_relevant_rows_count INT;
     v_merge_mode sql_saga.temporal_merge_mode;
 BEGIN
-    RAISE DEBUG '[Job %] process_contact (Batch): Starting operation for range %s', p_job_id, p_batch_row_id_ranges::text;
+    RAISE DEBUG '[Job %] process_contact (Batch): Starting operation for batch_seq %', p_job_id, p_batch_seq;
 
     -- Get job details
     SELECT * INTO v_job FROM public.import_job ij WHERE id = p_job_id;
@@ -130,7 +130,7 @@ BEGIN
             dt.edit_by_user_id, dt.edit_at, dt.edit_comment,
             dt.errors, dt.merge_status
         FROM public.%4$I dt
-        WHERE dt.row_id <@ %5$L::int4multirange
+        WHERE dt.batch_seq = %5$L
           AND dt.action = 'use'
           -- Only process rows that have some actual contact data
           AND (dt.web_address IS NOT NULL OR dt.email_address IS NOT NULL OR dt.phone_number IS NOT NULL OR dt.landline IS NOT NULL OR dt.mobile_number IS NOT NULL OR dt.fax_number IS NOT NULL);
@@ -139,7 +139,7 @@ BEGIN
         v_select_lu_id_expr,   /* %2$s */
         v_select_est_id_expr,  /* %3$s */
         v_data_table_name,     /* %4$I */
-        p_batch_row_id_ranges  /* %5$L */
+        p_batch_seq            /* %5$L */
     );
     RAISE DEBUG '[Job %] process_contact: Creating temp source view %s with SQL: %', p_job_id, v_source_view_name, v_sql;
     EXECUTE v_sql;
@@ -181,9 +181,9 @@ BEGIN
             feedback_error_key => 'contact'
         );
 
-        v_sql := format($$ SELECT count(*) FROM public.%1$I WHERE row_id <@ $1 AND errors->'contact' IS NOT NULL $$, v_data_table_name);
+        v_sql := format($$ SELECT count(*) FROM public.%1$I dt WHERE dt.batch_seq = $1 AND dt.errors->'contact' IS NOT NULL $$, v_data_table_name);
         RAISE DEBUG '[Job %] process_contact: Counting merge errors with SQL: %', p_job_id, v_sql;
-        EXECUTE v_sql INTO v_error_count USING p_batch_row_id_ranges;
+        EXECUTE v_sql INTO v_error_count USING p_batch_seq;
 
         v_sql := format($$
             UPDATE public.%1$I dt SET
@@ -204,12 +204,12 @@ BEGIN
     EXCEPTION WHEN OTHERS THEN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
         RAISE WARNING '[Job %] process_contact: Error during temporal_merge: %. SQLSTATE: %', p_job_id, error_message, SQLSTATE;
-        v_sql := format($$UPDATE public.%1$I SET state = 'error'::public.import_data_state, errors = errors || jsonb_build_object('batch_error_process_contact', %2$L) WHERE row_id <@ $1$$,
+        v_sql := format($$UPDATE public.%1$I dt SET state = 'error'::public.import_data_state, errors = errors || jsonb_build_object('batch_error_process_contact', %2$L) WHERE dt.batch_seq = $1$$,
                         v_data_table_name, /* %1$I */
                         error_message      /* %2$L */
         );
         RAISE DEBUG '[Job %] process_contact: Marking rows as error in exception handler with SQL: %', p_job_id, v_sql;
-        EXECUTE v_sql USING p_batch_row_id_ranges;
+        EXECUTE v_sql USING p_batch_seq;
         -- Mark the job as failed
         UPDATE public.import_job
         SET error = jsonb_build_object('process_contact_error', error_message)::TEXT,

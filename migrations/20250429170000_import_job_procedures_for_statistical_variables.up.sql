@@ -58,7 +58,7 @@ END;
 $$;
 
 -- Procedure to analyse statistical variable data (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.analyse_statistical_variables(p_job_id INT, p_batch_row_ids_range int4multirange, p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_statistical_variables(p_job_id INT, p_batch_seq INTEGER, p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_statistical_variables$
 DECLARE
     v_job public.import_job;
@@ -77,7 +77,7 @@ DECLARE
     v_col_rec RECORD;
     v_all_stat_raw_codes_list TEXT;
 BEGIN
-    RAISE DEBUG '[Job %] analyse_statistical_variables (Batch): Starting analysis for range %s', p_job_id, p_batch_row_ids_range::text;
+    RAISE DEBUG '[Job %] analyse_statistical_variables (Batch): Starting analysis for batch_seq %', p_job_id, p_batch_seq;
 
     SELECT * INTO v_job FROM public.import_job ij WHERE id = p_job_id;
     v_data_table_name := v_job.data_table_name;
@@ -91,12 +91,11 @@ BEGIN
     IF v_stat_source_cols IS NULL OR jsonb_array_length(v_stat_source_cols) = 0 THEN
         RAISE DEBUG '[Job %] analyse_statistical_variables: No source_input data columns found for this definition. Skipping step.', p_job_id;
         v_sql := format($$UPDATE public.%1$I dt SET last_completed_priority = %2$L
-                           FROM unnest($1) AS r(range)
-                           WHERE dt.row_id >= lower(r.range) AND dt.row_id < upper(r.range)
+                           WHERE dt.batch_seq = $1
                              AND dt.last_completed_priority < %2$L
                           $$, v_data_table_name, v_step.priority);
         RAISE DEBUG '[Job %] analyse_statistical_variables: Advancing priority for skipped batch with SQL: %', p_job_id, v_sql;
-        EXECUTE v_sql USING p_batch_row_ids_range;
+        EXECUTE v_sql USING p_batch_seq;
         RETURN;
     END IF;
 
@@ -133,10 +132,10 @@ BEGIN
     v_sql := format($$CREATE TEMP TABLE t_batch_data ON COMMIT DROP AS
                        SELECT dt.row_id, %1$s
                        FROM public.%2$I dt
-                       JOIN unnest($1) AS r(range) ON dt.row_id >= lower(r.range) AND dt.row_id < upper(r.range)
-                       WHERE dt.action IS DISTINCT FROM 'skip'
+                       WHERE dt.batch_seq = $1
+                         AND dt.action IS DISTINCT FROM 'skip'
                     $$, v_all_stat_raw_codes_list, v_data_table_name);
-    EXECUTE v_sql USING p_batch_row_ids_range;
+    EXECUTE v_sql USING p_batch_seq;
 
     -- Step 2: Unpivot the raw data from the batch.
     IF to_regclass('pg_temp.t_unpivoted') IS NOT NULL THEN DROP TABLE t_unpivoted; END IF;
@@ -204,26 +203,25 @@ BEGIN
     END;
 
     v_sql := format($$UPDATE public.%1$I dt SET last_completed_priority = %2$L
-                       FROM unnest($1) AS r(range)
-                       WHERE dt.row_id >= lower(r.range) AND dt.row_id < upper(r.range)
+                       WHERE dt.batch_seq = $1
                          AND dt.last_completed_priority < %2$L
                       $$, v_data_table_name, v_step.priority);
     RAISE DEBUG '[Job %] analyse_statistical_variables: Advancing priority for all batch rows with SQL: %', p_job_id, v_sql;
-    EXECUTE v_sql USING p_batch_row_ids_range;
+    EXECUTE v_sql USING p_batch_seq;
     GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
     RAISE DEBUG '[Job %] analyse_statistical_variables: Updated priority for % rows (including skipped/already updated).', p_job_id, v_skipped_update_count;
 
     BEGIN
-        CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_row_ids_range, v_error_keys_to_clear_arr, 'analyse_statistical_variables');
+        CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_seq, v_error_keys_to_clear_arr, 'analyse_statistical_variables');
     EXCEPTION WHEN OTHERS THEN
         RAISE WARNING '[Job %] analyse_statistical_variables: Non-fatal error during error propagation: %', p_job_id, SQLERRM;
     END;
 
-    v_sql := format('SELECT COUNT(*) FROM public.%I WHERE row_id <@ $1 AND state = ''error'' AND (errors ?| %L::text[])',
+    v_sql := format('SELECT COUNT(*) FROM public.%I dt WHERE dt.batch_seq = $1 AND dt.state = ''error'' AND (dt.errors ?| %L::text[])',
                    v_data_table_name, v_error_keys_to_clear_arr);
     RAISE DEBUG '[Job %] analyse_statistical_variables: Counting errors with SQL: %', p_job_id, v_sql;
     EXECUTE v_sql
-    INTO v_error_count USING p_batch_row_ids_range;
+    INTO v_error_count USING p_batch_seq;
     RAISE DEBUG '[Job %] analyse_statistical_variables (Batch): Finished. Errors in this step for batch: %', p_job_id, v_error_count;
 END;
 $analyse_statistical_variables$;
@@ -231,7 +229,7 @@ $analyse_statistical_variables$;
 
 
 -- Procedure to operate (insert/update/upsert) statistical variable data (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.process_statistical_variables(p_job_id INT, p_batch_row_ids_range int4multirange, p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.process_statistical_variables(p_job_id INT, p_batch_seq INTEGER, p_step_code TEXT)
 LANGUAGE plpgsql AS $process_statistical_variables$
 DECLARE
     v_job public.import_job;
@@ -254,7 +252,7 @@ DECLARE
     v_merge_mode sql_saga.temporal_merge_mode;
     v_value_column_name TEXT;
 BEGIN
-    RAISE DEBUG '[Job %] process_statistical_variables (Batch): Starting for range %s', p_job_id, p_batch_row_ids_range::text;
+    RAISE DEBUG '[Job %] process_statistical_variables (Batch): Starting for batch_seq %', p_job_id, p_batch_seq;
 
     -- Get job details
     SELECT * INTO v_job FROM public.import_job ij WHERE id = p_job_id;
@@ -318,22 +316,22 @@ BEGIN
             SELECT
                 dt.row_id,
                 dt.founding_row_id,
-                dt.%8$I AS id,
+                dt.%7$I AS id,
                 %2$s AS legal_unit_id,
                 %3$s AS establishment_id,
                 %4$L::INTEGER AS stat_definition_id,
-                CASE WHEN %5$L = 'int'    THEN dt.%9$I ELSE NULL END AS value_int,
-                CASE WHEN %5$L = 'float'  THEN dt.%9$I ELSE NULL END AS value_float,
-                CASE WHEN %5$L = 'bool'   THEN dt.%9$I ELSE NULL END AS value_bool,
-                CASE WHEN %5$L = 'string' THEN dt.%9$I ELSE NULL END AS value_string,
+                CASE WHEN %5$L = 'int'    THEN dt.%8$I ELSE NULL END AS value_int,
+                CASE WHEN %5$L = 'float'  THEN dt.%8$I ELSE NULL END AS value_float,
+                CASE WHEN %5$L = 'bool'   THEN dt.%8$I ELSE NULL END AS value_bool,
+                CASE WHEN %5$L = 'string' THEN dt.%8$I ELSE NULL END AS value_string,
                 dt.valid_from, dt.valid_to, dt.valid_until,
                 dt.data_source_id,
                 dt.edit_by_user_id, dt.edit_at, dt.edit_comment,
                 dt.errors, dt.merge_status
             FROM public.%6$I dt
-            WHERE dt.row_id <@ %7$L::int4multirange
+            WHERE dt.batch_seq = %9$L
               AND dt.action = 'use'
-              AND dt.%9$I IS NOT NULL;
+              AND dt.%8$I IS NOT NULL;
         $$,
             v_source_view_name,           /* %1$I */
             v_select_lu_id_expr,          /* %2$s */
@@ -341,9 +339,9 @@ BEGIN
             v_stat_def.stat_definition_id, /* %4$L */
             v_stat_def.stat_type,           /* %5$L */
             v_data_table_name,              /* %6$I */
-            p_batch_row_ids_range,          /* %7$L */
-            v_pk_id_col_name,             /* %8$I */
-            v_stat_def.stat_code           /* %9$I */
+            v_pk_id_col_name,             /* %7$I */
+            v_stat_def.stat_code,          /* %8$I */
+            p_batch_seq                    /* %9$L */
         );
         RAISE DEBUG '[Job %] process_statistical_variables: Creating source view for stat "%": %', p_job_id, v_stat_def.stat_code, v_sql;
         EXECUTE v_sql;
@@ -408,30 +406,32 @@ BEGIN
         WHERE idc.value->>'purpose' = 'source_input'
     );
 
+    -- Only update rows with action = 'use' to satisfy CHECK constraint:
+    -- state = 'processing' requires action = 'use' AND batch_seq IS NOT NULL
     v_sql := format($$
         UPDATE public.%1$I dt
         SET state = (CASE
                         WHEN dt.errors ?| %2$L THEN 'error'
                         ELSE 'processing'
                     END)::public.import_data_state
-        WHERE dt.row_id <@ $1;
+        WHERE dt.batch_seq = $1 AND dt.action = 'use';
     $$,
         v_data_table_name,       /* %1$I */
         v_all_stat_error_keys    /* %2$L */
     );
     RAISE DEBUG '[Job %] process_statistical_variables: Final state update with SQL: %', p_job_id, v_sql;
-    EXECUTE v_sql USING p_batch_row_ids_range;
+    EXECUTE v_sql USING p_batch_seq;
 
-    v_sql := format($$SELECT count(*) FROM public.%1$I WHERE row_id <@ $1 AND state = 'error' AND errors ?| %2$L $$,
+    v_sql := format($$SELECT count(*) FROM public.%1$I dt WHERE dt.batch_seq = $1 AND dt.state = 'error' AND dt.errors ?| %2$L $$,
         v_data_table_name,       /* %1$I */
         v_all_stat_error_keys    /* %2$L */
     );
     RAISE DEBUG '[Job %] process_statistical_variables: Final error count with SQL: %', p_job_id, v_sql;
-    EXECUTE v_sql INTO v_error_count USING p_batch_row_ids_range;
+    EXECUTE v_sql INTO v_error_count USING p_batch_seq;
 
-    v_sql := format('SELECT count(*) FROM public.%1$I WHERE row_id <@ $1', v_data_table_name);
+    v_sql := format('SELECT count(*) FROM public.%1$I dt WHERE dt.batch_seq = $1', v_data_table_name);
     RAISE DEBUG '[Job %] process_statistical_variables: Final total count with SQL: %', p_job_id, v_sql;
-    EXECUTE v_sql INTO v_update_count USING p_batch_row_ids_range;
+    EXECUTE v_sql INTO v_update_count USING p_batch_seq;
     v_update_count := v_update_count - v_error_count;
 
     RAISE DEBUG '[Job %] process_statistical_variables (Batch): Finished for step %. Total rows affected: %, Errors: %',

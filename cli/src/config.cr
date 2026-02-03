@@ -15,10 +15,42 @@ class Config
   # Initialize with environment variables, but allow command line flags to override
   property verbose : Bool = false
   property debug : Bool = false
+  
+  # Worker concurrency configuration
+  # Format: "queue1:N,queue2:M" e.g., "analytics_batch:4,import:2"
+  # Default concurrency is 1 for queues not specified
+  property worker_queue_concurrency : Hash(String, Int32) = {} of String => Int32
+  property worker_default_concurrency : Int32 = 1
 
   def initialize_from_env
     @verbose = ENV["VERBOSE"]? == "1" || ENV["VERBOSE"]?.try(&.downcase) == "true" || false
     @debug = ENV["DEBUG"]? == "1" || ENV["DEBUG"]?.try(&.downcase) == "true" || false
+    
+    # Parse worker concurrency from environment
+    # Format: "queue1:N,queue2:M" e.g., "analytics_batch:4,import:2"
+    if concurrency_str = ENV["WORKER_QUEUE_CONCURRENCY"]?
+      concurrency_str.split(",").each do |pair|
+        parts = pair.strip.split(":")
+        if parts.size == 2
+          queue = parts[0].strip
+          count = parts[1].strip.to_i?
+          if count && count > 0
+            @worker_queue_concurrency[queue] = count
+          end
+        end
+      end
+    end
+    
+    # Default concurrency for queues not explicitly configured
+    if default = ENV["WORKER_DEFAULT_CONCURRENCY"]?.try(&.to_i?)
+      @worker_default_concurrency = default if default > 0
+    end
+  end
+  
+  # Get concurrency for a specific queue
+  # Priority: 1) Environment variable for this queue, 2) Database default, 3) Global default
+  def concurrency_for_queue(queue : String, db_default : Int32 = 1) : Int32
+    @worker_queue_concurrency[queue]? || db_default || @worker_default_concurrency
   end
 
   def initialize

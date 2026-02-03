@@ -40,7 +40,7 @@ END;
 $try_cast_to_numeric_specific$;
 
 -- Procedure to analyse location data (handles both physical and postal) (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.analyse_location(p_job_id INT, p_batch_row_id_ranges int4multirange, p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_location(p_job_id INT, p_batch_seq INTEGER, p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_location$
 DECLARE
     v_job public.import_job;
@@ -68,7 +68,7 @@ DECLARE
     v_coord_invalid_value_json_expr_sql TEXT;
     v_any_coord_error_condition_sql TEXT;
 BEGIN
-    RAISE DEBUG '[Job %] analyse_location (Batch) for step_code %: Starting analysis for range %s', p_job_id, p_step_code, p_batch_row_id_ranges::text;
+    RAISE DEBUG '[Job %] analyse_location (Batch) for step_code %: Starting analysis for batch_seq %', p_job_id, p_step_code, p_batch_seq;
 
     -- Load default country from settings for region validation - FAIL FAST if not configured
     SELECT country_id INTO v_default_country_id FROM public.settings LIMIT 1;
@@ -252,11 +252,10 @@ BEGIN
             dt.physical_latitude_raw, dt.physical_longitude_raw, dt.physical_altitude_raw,
             dt.postal_latitude_raw, dt.postal_longitude_raw, dt.postal_altitude_raw
         FROM %I dt
-        JOIN unnest($1) AS r(range)
-          ON dt.row_id >= lower(r.range) AND dt.row_id < upper(r.range)
-        WHERE dt.action IS DISTINCT FROM 'skip';
+        WHERE dt.batch_seq = $1
+          AND dt.action IS DISTINCT FROM 'skip';
     $$, v_data_table_name);
-    EXECUTE v_sql USING p_batch_row_id_ranges;
+    EXECUTE v_sql USING p_batch_seq;
 
     ANALYZE t_batch_data;
 
@@ -398,19 +397,19 @@ BEGIN
         v_sql := format($$
             UPDATE public.%1$I dt SET
                 last_completed_priority = %2$L
-            WHERE dt.row_id <@ $1 AND dt.last_completed_priority < %2$L;
+            WHERE dt.batch_seq = $1 AND dt.last_completed_priority < %2$L;
         $$, v_data_table_name /* %1$I */, v_step.priority /* %2$L */);
         RAISE DEBUG '[Job %] analyse_location: Unconditionally advancing priority for all batch rows with SQL: %', p_job_id, v_sql;
-        EXECUTE v_sql USING p_batch_row_id_ranges;
+        EXECUTE v_sql USING p_batch_seq;
         GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_location: Advanced last_completed_priority for % total rows in batch for step %.', p_job_id, v_skipped_update_count, p_step_code;
 
-        v_sql := format($$SELECT COUNT(*) FROM public.%1$I WHERE row_id <@ $1 AND state = 'error' AND (errors ?| %2$L::text[])$$,
+        v_sql := format($$SELECT COUNT(*) FROM public.%1$I dt WHERE dt.batch_seq = $1 AND dt.state = 'error' AND (dt.errors ?| %2$L::text[])$$,
                        v_data_table_name /* %1$I */, v_error_keys_to_clear_arr /* %2$L */);
         RAISE DEBUG '[Job %] analyse_location: Counting errors with SQL: %', p_job_id, v_sql;
         EXECUTE v_sql
         INTO v_error_count
-        USING p_batch_row_id_ranges;
+        USING p_batch_seq;
         RAISE DEBUG '[Job %] analyse_location: Estimated errors in this step for batch: %', p_job_id, v_error_count;
 
     EXCEPTION 
@@ -433,10 +432,10 @@ BEGIN
                         state = %2$L,
                         errors = dt.errors || jsonb_build_object('location_batch_error', 'Unexpected error during update for step %3$s: ' || %4$L),
                         last_completed_priority = dt.last_completed_priority -- Do not advance priority on unexpected error, use existing LCP
-                    WHERE dt.row_id <@ $1;
+                    WHERE dt.batch_seq = $1;
                 $$, v_data_table_name /* %1$I */, 'error'::public.import_data_state /* %2$L */, p_step_code /* %3$s */, error_message /* %4$L */);
                 RAISE DEBUG '[Job %] analyse_location: Marking rows as error in exception handler with SQL: %', p_job_id, v_sql;
-                EXECUTE v_sql USING p_batch_row_id_ranges;
+                EXECUTE v_sql USING p_batch_seq;
             EXCEPTION WHEN OTHERS THEN
                 RAISE WARNING '[Job %] analyse_location: Could not mark individual data rows as error after unexpected error: %', p_job_id, SQLERRM;
             END;
@@ -451,7 +450,7 @@ BEGIN
 
     -- Propagate errors to all rows of a new entity if one fails (best-effort)
     BEGIN
-        CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_row_id_ranges, v_error_keys_to_clear_arr, p_step_code);
+        CALL import.propagate_fatal_error_to_entity_batch(p_job_id, v_data_table_name, p_batch_seq, v_error_keys_to_clear_arr, p_step_code);
     EXCEPTION WHEN OTHERS THEN
         RAISE WARNING '[Job %] analyse_location: Non-fatal error during error propagation: %', p_job_id, SQLERRM;
     END;
@@ -462,7 +461,7 @@ $analyse_location$;
 
 
 -- Procedure to operate (insert/update/upsert) location data (handles both physical and postal) (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.process_location(p_job_id INT, p_batch_row_id_ranges int4multirange, p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.process_location(p_job_id INT, p_batch_seq INTEGER, p_step_code TEXT)
 LANGUAGE plpgsql AS $process_location$
 DECLARE
     v_job public.import_job;
@@ -480,7 +479,7 @@ DECLARE
     v_relevant_rows_count INT;
     v_merge_mode sql_saga.temporal_merge_mode;
 BEGIN
-    RAISE DEBUG '[Job %] process_location (Batch) for step_code %: Starting operation for range %s', p_job_id, p_step_code, p_batch_row_id_ranges::text;
+    RAISE DEBUG '[Job %] process_location (Batch) for step_code %: Starting operation for batch_seq %', p_job_id, p_step_code, p_batch_seq;
 
     -- Get job details
     SELECT * INTO v_job FROM public.import_job ij WHERE id = p_job_id;
@@ -531,7 +530,7 @@ BEGIN
                 dt.edit_by_user_id, dt.edit_at, dt.edit_comment,
                 dt.errors, dt.merge_status
             FROM public.%4$I dt
-            WHERE dt.row_id <@ %5$L::int4multirange
+            WHERE dt.batch_seq = %5$L
               AND dt.action = 'use'
               AND dt.physical_country_id IS NOT NULL
               AND (NULLIF(dt.physical_region_code_raw, '') IS NOT NULL OR NULLIF(dt.physical_country_iso_2_raw, '') IS NOT NULL OR NULLIF(dt.physical_address_part1_raw, '') IS NOT NULL OR NULLIF(dt.physical_postcode_raw, '') IS NOT NULL);
@@ -540,7 +539,7 @@ BEGIN
             v_select_lu_id_expr,   /* %2$s */
             v_select_est_id_expr,  /* %3$s */
             v_data_table_name,     /* %4$I */
-            p_batch_row_id_ranges  /* %5$L */
+            p_batch_seq            /* %5$L */
         );
 
     ELSIF p_step_code = 'postal_location' THEN
@@ -564,7 +563,7 @@ BEGIN
                 dt.edit_by_user_id, dt.edit_at, dt.edit_comment,
                 dt.errors, dt.merge_status
             FROM public.%4$I dt
-            WHERE dt.row_id <@ %5$L::int4multirange
+            WHERE dt.batch_seq = %5$L
               AND dt.action = 'use'
               AND dt.postal_country_id IS NOT NULL
               AND (NULLIF(dt.postal_region_code_raw, '') IS NOT NULL OR NULLIF(dt.postal_country_iso_2_raw, '') IS NOT NULL OR NULLIF(dt.postal_address_part1_raw, '') IS NOT NULL OR NULLIF(dt.postal_postcode_raw, '') IS NOT NULL);
@@ -573,7 +572,7 @@ BEGIN
             v_select_lu_id_expr,   /* %2$s */
             v_select_est_id_expr,  /* %3$s */
             v_data_table_name,     /* %4$I */
-            p_batch_row_id_ranges  /* %5$L */
+            p_batch_seq            /* %5$L */
         );
     ELSE
         RAISE EXCEPTION '[Job %] process_location: Invalid step_code %.', p_job_id, p_step_code;
@@ -619,12 +618,12 @@ BEGIN
             feedback_error_key => p_step_code
         );
 
-        v_sql := format($$ SELECT count(*) FROM public.%1$I WHERE row_id <@ $1 AND errors->%2$L IS NOT NULL $$,
+        v_sql := format($$ SELECT count(*) FROM public.%1$I dt WHERE dt.batch_seq = $1 AND dt.errors->%2$L IS NOT NULL $$,
             v_data_table_name, /* %1$I */
             p_step_code        /* %2$L */
         );
         RAISE DEBUG '[Job %] process_location: Counting merge errors with SQL: %', p_job_id, v_sql;
-        EXECUTE v_sql INTO v_error_count USING p_batch_row_id_ranges;
+        EXECUTE v_sql INTO v_error_count USING p_batch_seq;
 
         v_sql := format($$
             UPDATE public.%1$I dt SET
@@ -646,12 +645,12 @@ BEGIN
     EXCEPTION WHEN OTHERS THEN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
         RAISE WARNING '[Job %] process_location: Error during temporal_merge for step %: %. SQLSTATE: %', p_job_id, p_step_code, error_message, SQLSTATE;
-        v_sql := format($$UPDATE public.%1$I SET state = 'error'::public.import_data_state, errors = errors || jsonb_build_object('batch_error_process_location', %2$L) WHERE row_id <@ $1$$,
+        v_sql := format($$UPDATE public.%1$I dt SET state = 'error'::public.import_data_state, errors = errors || jsonb_build_object('batch_error_process_location', %2$L) WHERE dt.batch_seq = $1$$,
                         v_data_table_name, /* %1$I */
                         error_message      /* %2$L */
         );
         RAISE DEBUG '[Job %] process_location: Marking rows as error in exception handler with SQL: %', p_job_id, v_sql;
-        EXECUTE v_sql USING p_batch_row_id_ranges;
+        EXECUTE v_sql USING p_batch_seq;
         RAISE; -- Re-throw
     END;
 

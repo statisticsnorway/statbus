@@ -71,9 +71,11 @@ echo "\sf schema.procedure_name" | ./devops/manage-statbus.sh psql > tmp/procedu
 ```
 
 Then:
-1. Copy the dumped definition into the **down migration** (this restores the original)
-2. Copy it into the **up migration** and make only the necessary modifications
+1. cat the dumped definition into the **down migration** (this restores the original)
+2. cat it into the **up migration**
 3. Add `CREATE OR REPLACE` prefix and wrap in `BEGIN;`/`END;`
+4. Stage the up/down migration.
+5. Make only the necessary modifications in the up migration - noe easy to review as unstaged changes.
 
 This approach:
 - Preserves exact current behavior in the down migration

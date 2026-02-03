@@ -249,6 +249,7 @@ Describing table for definition: legal_unit_job_provided (Job: t54_lu_tc, Data T
                 Column                |           Type            | Collation | Nullable |           Default            
 --------------------------------------+---------------------------+-----------+----------+------------------------------
  row_id                               | integer                   |           | not null | generated always as identity
+ batch_seq                            | integer                   |           |          | 
  valid_from_raw                       | text                      |           |          | 
  valid_to_raw                         | text                      |           |          | 
  valid_from                           | date                      |           |          | 
@@ -361,12 +362,23 @@ Describing table for definition: legal_unit_job_provided (Job: t54_lu_tc, Data T
  invalid_codes                        | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "t54_lu_tc_data_pkey" PRIMARY KEY, btree (row_id)
+    "t54_lu_tc_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
     "t54_lu_tc_data_daterange_idx" gist (daterange(valid_from, valid_until, '[)'::text))
     "t54_lu_tc_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "t54_lu_tc_data_stat_ident_raw_idx" btree (stat_ident_raw)
-    "t54_lu_tc_data_state_action_row_id_idx" btree (state, action, row_id)
-    "t54_lu_tc_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
+    "t54_lu_tc_data_state_last_completed_priority_batch_seq_idx" btree (state, last_completed_priority, batch_seq)
     "t54_lu_tc_data_tax_ident_raw_idx" btree (tax_ident_raw)
+Check constraints:
+    "chk_batch_seq_state_action" CHECK (
+CASE state
+    WHEN 'pending'::import_data_state THEN batch_seq IS NULL AND action IS NULL
+    WHEN 'analysing'::import_data_state THEN batch_seq IS NOT NULL
+    WHEN 'analysed'::import_data_state THEN batch_seq IS NOT NULL AND action IS NOT NULL
+    WHEN 'error'::import_data_state THEN true
+    WHEN 'processing'::import_data_state THEN action = 'use'::import_row_action_type AND batch_seq IS NOT NULL
+    WHEN 'processed'::import_data_state THEN action = 'use'::import_row_action_type AND batch_seq IS NOT NULL
+    ELSE false
+END)
 Policies:
     POLICY "t54_lu_tc_data_admin_user_manage"
       TO admin_user
@@ -390,6 +402,7 @@ Describing table for definition: legal_unit_source_dates (Job: t54_lu_sd, Data T
                 Column                |           Type            | Collation | Nullable |           Default            
 --------------------------------------+---------------------------+-----------+----------+------------------------------
  row_id                               | integer                   |           | not null | generated always as identity
+ batch_seq                            | integer                   |           |          | 
  valid_from_raw                       | text                      |           |          | 
  valid_to_raw                         | text                      |           |          | 
  valid_from                           | date                      |           |          | 
@@ -502,12 +515,23 @@ Describing table for definition: legal_unit_source_dates (Job: t54_lu_sd, Data T
  invalid_codes                        | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "t54_lu_sd_data_pkey" PRIMARY KEY, btree (row_id)
+    "t54_lu_sd_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
     "t54_lu_sd_data_daterange_idx" gist (daterange(valid_from, valid_until, '[)'::text))
     "t54_lu_sd_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "t54_lu_sd_data_stat_ident_raw_idx" btree (stat_ident_raw)
-    "t54_lu_sd_data_state_action_row_id_idx" btree (state, action, row_id)
-    "t54_lu_sd_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
+    "t54_lu_sd_data_state_last_completed_priority_batch_seq_idx" btree (state, last_completed_priority, batch_seq)
     "t54_lu_sd_data_tax_ident_raw_idx" btree (tax_ident_raw)
+Check constraints:
+    "chk_batch_seq_state_action" CHECK (
+CASE state
+    WHEN 'pending'::import_data_state THEN batch_seq IS NULL AND action IS NULL
+    WHEN 'analysing'::import_data_state THEN batch_seq IS NOT NULL
+    WHEN 'analysed'::import_data_state THEN batch_seq IS NOT NULL AND action IS NOT NULL
+    WHEN 'error'::import_data_state THEN true
+    WHEN 'processing'::import_data_state THEN action = 'use'::import_row_action_type AND batch_seq IS NOT NULL
+    WHEN 'processed'::import_data_state THEN action = 'use'::import_row_action_type AND batch_seq IS NOT NULL
+    ELSE false
+END)
 Policies:
     POLICY "t54_lu_sd_data_admin_user_manage"
       TO admin_user
@@ -531,6 +555,7 @@ Describing table for definition: establishment_for_lu_job_provided (Job: t54_est
                 Column                |           Type            | Collation | Nullable |           Default            
 --------------------------------------+---------------------------+-----------+----------+------------------------------
  row_id                               | integer                   |           | not null | generated always as identity
+ batch_seq                            | integer                   |           |          | 
  valid_from_raw                       | text                      |           |          | 
  valid_to_raw                         | text                      |           |          | 
  valid_from                           | date                      |           |          | 
@@ -642,12 +667,23 @@ Describing table for definition: establishment_for_lu_job_provided (Job: t54_est
  invalid_codes                        | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "t54_est_lu_tc_data_pkey" PRIMARY KEY, btree (row_id)
+    "t54_est_lu_tc_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
     "t54_est_lu_tc_data_daterange_idx" gist (daterange(valid_from, valid_until, '[)'::text))
     "t54_est_lu_tc_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "t54_est_lu_tc_data_stat_ident_raw_idx" btree (stat_ident_raw)
-    "t54_est_lu_tc_data_state_action_row_id_idx" btree (state, action, row_id)
-    "t54_est_lu_tc_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
+    "t54_est_lu_tc_data_state_last_completed_priority_batch_seq_idx" btree (state, last_completed_priority, batch_seq)
     "t54_est_lu_tc_data_tax_ident_raw_idx" btree (tax_ident_raw)
+Check constraints:
+    "chk_batch_seq_state_action" CHECK (
+CASE state
+    WHEN 'pending'::import_data_state THEN batch_seq IS NULL AND action IS NULL
+    WHEN 'analysing'::import_data_state THEN batch_seq IS NOT NULL
+    WHEN 'analysed'::import_data_state THEN batch_seq IS NOT NULL AND action IS NOT NULL
+    WHEN 'error'::import_data_state THEN true
+    WHEN 'processing'::import_data_state THEN action = 'use'::import_row_action_type AND batch_seq IS NOT NULL
+    WHEN 'processed'::import_data_state THEN action = 'use'::import_row_action_type AND batch_seq IS NOT NULL
+    ELSE false
+END)
 Policies:
     POLICY "t54_est_lu_tc_data_admin_user_manage"
       TO admin_user
@@ -671,6 +707,7 @@ Describing table for definition: establishment_for_lu_source_dates (Job: t54_est
                 Column                |           Type            | Collation | Nullable |           Default            
 --------------------------------------+---------------------------+-----------+----------+------------------------------
  row_id                               | integer                   |           | not null | generated always as identity
+ batch_seq                            | integer                   |           |          | 
  valid_from_raw                       | text                      |           |          | 
  valid_to_raw                         | text                      |           |          | 
  valid_from                           | date                      |           |          | 
@@ -782,12 +819,23 @@ Describing table for definition: establishment_for_lu_source_dates (Job: t54_est
  invalid_codes                        | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "t54_est_lu_sd_data_pkey" PRIMARY KEY, btree (row_id)
+    "t54_est_lu_sd_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
     "t54_est_lu_sd_data_daterange_idx" gist (daterange(valid_from, valid_until, '[)'::text))
     "t54_est_lu_sd_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "t54_est_lu_sd_data_stat_ident_raw_idx" btree (stat_ident_raw)
-    "t54_est_lu_sd_data_state_action_row_id_idx" btree (state, action, row_id)
-    "t54_est_lu_sd_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
+    "t54_est_lu_sd_data_state_last_completed_priority_batch_seq_idx" btree (state, last_completed_priority, batch_seq)
     "t54_est_lu_sd_data_tax_ident_raw_idx" btree (tax_ident_raw)
+Check constraints:
+    "chk_batch_seq_state_action" CHECK (
+CASE state
+    WHEN 'pending'::import_data_state THEN batch_seq IS NULL AND action IS NULL
+    WHEN 'analysing'::import_data_state THEN batch_seq IS NOT NULL
+    WHEN 'analysed'::import_data_state THEN batch_seq IS NOT NULL AND action IS NOT NULL
+    WHEN 'error'::import_data_state THEN true
+    WHEN 'processing'::import_data_state THEN action = 'use'::import_row_action_type AND batch_seq IS NOT NULL
+    WHEN 'processed'::import_data_state THEN action = 'use'::import_row_action_type AND batch_seq IS NOT NULL
+    ELSE false
+END)
 Policies:
     POLICY "t54_est_lu_sd_data_admin_user_manage"
       TO admin_user
@@ -811,6 +859,7 @@ Describing table for definition: establishment_without_lu_job_provided (Job: t54
                 Column                |           Type            | Collation | Nullable |           Default            
 --------------------------------------+---------------------------+-----------+----------+------------------------------
  row_id                               | integer                   |           | not null | generated always as identity
+ batch_seq                            | integer                   |           |          | 
  valid_from_raw                       | text                      |           |          | 
  valid_to_raw                         | text                      |           |          | 
  valid_from                           | date                      |           |          | 
@@ -921,12 +970,23 @@ Describing table for definition: establishment_without_lu_job_provided (Job: t54
  invalid_codes                        | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "t54_est_wolu_tc_data_pkey" PRIMARY KEY, btree (row_id)
+    "t54_est_wolu_tc_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
     "t54_est_wolu_tc_data_daterange_idx" gist (daterange(valid_from, valid_until, '[)'::text))
     "t54_est_wolu_tc_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "t54_est_wolu_tc_data_stat_ident_raw_idx" btree (stat_ident_raw)
-    "t54_est_wolu_tc_data_state_action_row_id_idx" btree (state, action, row_id)
-    "t54_est_wolu_tc_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
+    "t54_est_wolu_tc_data_state_last_completed_priority_batch_se_idx" btree (state, last_completed_priority, batch_seq)
     "t54_est_wolu_tc_data_tax_ident_raw_idx" btree (tax_ident_raw)
+Check constraints:
+    "chk_batch_seq_state_action" CHECK (
+CASE state
+    WHEN 'pending'::import_data_state THEN batch_seq IS NULL AND action IS NULL
+    WHEN 'analysing'::import_data_state THEN batch_seq IS NOT NULL
+    WHEN 'analysed'::import_data_state THEN batch_seq IS NOT NULL AND action IS NOT NULL
+    WHEN 'error'::import_data_state THEN true
+    WHEN 'processing'::import_data_state THEN action = 'use'::import_row_action_type AND batch_seq IS NOT NULL
+    WHEN 'processed'::import_data_state THEN action = 'use'::import_row_action_type AND batch_seq IS NOT NULL
+    ELSE false
+END)
 Policies:
     POLICY "t54_est_wolu_tc_data_admin_user_manage"
       TO admin_user
@@ -950,6 +1010,7 @@ Describing table for definition: establishment_without_lu_source_dates (Job: t54
                 Column                |           Type            | Collation | Nullable |           Default            
 --------------------------------------+---------------------------+-----------+----------+------------------------------
  row_id                               | integer                   |           | not null | generated always as identity
+ batch_seq                            | integer                   |           |          | 
  valid_from_raw                       | text                      |           |          | 
  valid_to_raw                         | text                      |           |          | 
  valid_from                           | date                      |           |          | 
@@ -1060,12 +1121,23 @@ Describing table for definition: establishment_without_lu_source_dates (Job: t54
  invalid_codes                        | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "t54_est_wolu_sd_data_pkey" PRIMARY KEY, btree (row_id)
+    "t54_est_wolu_sd_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
     "t54_est_wolu_sd_data_daterange_idx" gist (daterange(valid_from, valid_until, '[)'::text))
     "t54_est_wolu_sd_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "t54_est_wolu_sd_data_stat_ident_raw_idx" btree (stat_ident_raw)
-    "t54_est_wolu_sd_data_state_action_row_id_idx" btree (state, action, row_id)
-    "t54_est_wolu_sd_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
+    "t54_est_wolu_sd_data_state_last_completed_priority_batch_se_idx" btree (state, last_completed_priority, batch_seq)
     "t54_est_wolu_sd_data_tax_ident_raw_idx" btree (tax_ident_raw)
+Check constraints:
+    "chk_batch_seq_state_action" CHECK (
+CASE state
+    WHEN 'pending'::import_data_state THEN batch_seq IS NULL AND action IS NULL
+    WHEN 'analysing'::import_data_state THEN batch_seq IS NOT NULL
+    WHEN 'analysed'::import_data_state THEN batch_seq IS NOT NULL AND action IS NOT NULL
+    WHEN 'error'::import_data_state THEN true
+    WHEN 'processing'::import_data_state THEN action = 'use'::import_row_action_type AND batch_seq IS NOT NULL
+    WHEN 'processed'::import_data_state THEN action = 'use'::import_row_action_type AND batch_seq IS NOT NULL
+    ELSE false
+END)
 Policies:
     POLICY "t54_est_wolu_sd_data_admin_user_manage"
       TO admin_user
@@ -1089,6 +1161,7 @@ Describing table for definition: generic_unit_stats_update_job_provided (Job: t5
            Column           |           Type            | Collation | Nullable |           Default            
 ----------------------------+---------------------------+-----------+----------+------------------------------
  row_id                     | integer                   |           | not null | generated always as identity
+ batch_seq                  | integer                   |           |          | 
  valid_from_raw             | text                      |           |          | 
  valid_to_raw               | text                      |           |          | 
  valid_from                 | date                      |           |          | 
@@ -1120,12 +1193,23 @@ Describing table for definition: generic_unit_stats_update_job_provided (Job: t5
  invalid_codes              | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "t54_gus_jp_data_pkey" PRIMARY KEY, btree (row_id)
+    "t54_gus_jp_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
     "t54_gus_jp_data_daterange_idx" gist (daterange(valid_from, valid_until, '[)'::text))
     "t54_gus_jp_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "t54_gus_jp_data_stat_ident_raw_idx" btree (stat_ident_raw)
-    "t54_gus_jp_data_state_action_row_id_idx" btree (state, action, row_id)
-    "t54_gus_jp_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
+    "t54_gus_jp_data_state_last_completed_priority_batch_seq_idx" btree (state, last_completed_priority, batch_seq)
     "t54_gus_jp_data_tax_ident_raw_idx" btree (tax_ident_raw)
+Check constraints:
+    "chk_batch_seq_state_action" CHECK (
+CASE state
+    WHEN 'pending'::import_data_state THEN batch_seq IS NULL AND action IS NULL
+    WHEN 'analysing'::import_data_state THEN batch_seq IS NOT NULL
+    WHEN 'analysed'::import_data_state THEN batch_seq IS NOT NULL AND action IS NOT NULL
+    WHEN 'error'::import_data_state THEN true
+    WHEN 'processing'::import_data_state THEN action = 'use'::import_row_action_type AND batch_seq IS NOT NULL
+    WHEN 'processed'::import_data_state THEN action = 'use'::import_row_action_type AND batch_seq IS NOT NULL
+    ELSE false
+END)
 Policies:
     POLICY "t54_gus_jp_data_admin_user_manage"
       TO admin_user
@@ -1149,6 +1233,7 @@ Describing table for definition: generic_unit_stats_update_source_dates (Job: t5
            Column           |           Type            | Collation | Nullable |           Default            
 ----------------------------+---------------------------+-----------+----------+------------------------------
  row_id                     | integer                   |           | not null | generated always as identity
+ batch_seq                  | integer                   |           |          | 
  valid_from_raw             | text                      |           |          | 
  valid_to_raw               | text                      |           |          | 
  valid_from                 | date                      |           |          | 
@@ -1180,12 +1265,23 @@ Describing table for definition: generic_unit_stats_update_source_dates (Job: t5
  invalid_codes              | jsonb                     |           | not null | '{}'::jsonb
 Indexes:
     "t54_gus_sd_data_pkey" PRIMARY KEY, btree (row_id)
+    "t54_gus_sd_data_batch_seq_idx" btree (batch_seq) WHERE batch_seq IS NOT NULL
     "t54_gus_sd_data_daterange_idx" gist (daterange(valid_from, valid_until, '[)'::text))
     "t54_gus_sd_data_founding_row_id_idx" btree (founding_row_id) WHERE founding_row_id IS NOT NULL
     "t54_gus_sd_data_stat_ident_raw_idx" btree (stat_ident_raw)
-    "t54_gus_sd_data_state_action_row_id_idx" btree (state, action, row_id)
-    "t54_gus_sd_data_state_last_completed_priority_row_id_idx" btree (state, last_completed_priority, row_id)
+    "t54_gus_sd_data_state_last_completed_priority_batch_seq_idx" btree (state, last_completed_priority, batch_seq)
     "t54_gus_sd_data_tax_ident_raw_idx" btree (tax_ident_raw)
+Check constraints:
+    "chk_batch_seq_state_action" CHECK (
+CASE state
+    WHEN 'pending'::import_data_state THEN batch_seq IS NULL AND action IS NULL
+    WHEN 'analysing'::import_data_state THEN batch_seq IS NOT NULL
+    WHEN 'analysed'::import_data_state THEN batch_seq IS NOT NULL AND action IS NOT NULL
+    WHEN 'error'::import_data_state THEN true
+    WHEN 'processing'::import_data_state THEN action = 'use'::import_row_action_type AND batch_seq IS NOT NULL
+    WHEN 'processed'::import_data_state THEN action = 'use'::import_row_action_type AND batch_seq IS NOT NULL
+    ELSE false
+END)
 Policies:
     POLICY "t54_gus_sd_data_admin_user_manage"
       TO admin_user

@@ -2,7 +2,7 @@
 BEGIN;
 
 -- Procedure to analyse data source from code
-CREATE OR REPLACE PROCEDURE import.analyse_data_source(p_job_id INT, p_batch_row_id_ranges int4multirange, p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_data_source(p_job_id INT, p_batch_seq INTEGER, p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_data_source$
 DECLARE
     v_job public.import_job;
@@ -11,7 +11,7 @@ DECLARE
     v_update_count INT;
     v_skipped_update_count INT;
 BEGIN
-    RAISE DEBUG '[Job %] analyse_data_source (Batch): Starting analysis for range %s.', p_job_id, p_batch_row_id_ranges::text;
+    RAISE DEBUG '[Job %] analyse_data_source (Batch): Starting analysis for batch_seq %.', p_job_id, p_batch_seq;
 
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
     SELECT * INTO v_step FROM jsonb_populate_recordset(NULL::public.import_step, v_job.definition_snapshot->'import_step_list') WHERE code = p_step_code;
@@ -20,9 +20,9 @@ BEGIN
     v_sql := format($SQL$
         WITH
         batch_data AS (
-            SELECT row_id, data_source_code_raw AS data_source_code
-            FROM public.%1$I
-            WHERE row_id <@ $1 AND action IS DISTINCT FROM 'skip'
+            SELECT dt.row_id, dt.data_source_code_raw AS data_source_code
+            FROM public.%1$I dt
+            WHERE dt.batch_seq = $1 AND dt.action IS DISTINCT FROM 'skip'
         ),
         distinct_codes AS (
             SELECT data_source_code AS code
@@ -62,7 +62,7 @@ BEGIN
 
     RAISE DEBUG '[Job %] analyse_data_source (Batch): Updating non-skipped rows with SQL: %', p_job_id, v_sql;
     BEGIN
-        EXECUTE v_sql USING p_batch_row_id_ranges;
+        EXECUTE v_sql USING p_batch_seq;
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_data_source (Batch): Updated % non-skipped rows.', p_job_id, v_update_count;
     EXCEPTION WHEN OTHERS THEN
@@ -72,9 +72,9 @@ BEGIN
     END;
 
     -- Unconditionally advance priority for all rows in batch to ensure progress
-    v_sql := format('UPDATE public.%I SET last_completed_priority = %s WHERE row_id <@ $1 AND last_completed_priority < %s', v_job.data_table_name, v_step.priority, v_step.priority);
+    v_sql := format('UPDATE public.%I dt SET last_completed_priority = %s WHERE dt.batch_seq = $1 AND dt.last_completed_priority < %s', v_job.data_table_name, v_step.priority, v_step.priority);
     RAISE DEBUG '[Job %] analyse_data_source (Batch): Unconditionally advancing priority for all batch rows with SQL: %', p_job_id, v_sql;
-    EXECUTE v_sql USING p_batch_row_id_ranges;
+    EXECUTE v_sql USING p_batch_seq;
     GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
     RAISE DEBUG '[Job %] analyse_data_source (Batch): Advanced last_completed_priority for % total rows in batch.', p_job_id, v_skipped_update_count;
 END;

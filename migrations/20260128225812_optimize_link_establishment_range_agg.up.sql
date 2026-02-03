@@ -7,7 +7,7 @@ BEGIN;
 -- Procedure to analyse the link between establishment and legal unit (Hybrid Holistic/Batch)
 -- OPTIMIZATION: Pre-calculate range_agg for all involved legal units once,
 -- instead of running correlated subquery for each row.
-CREATE OR REPLACE PROCEDURE import.analyse_link_establishment_to_legal_unit(p_job_id INT, p_batch_row_id_ranges int4multirange, p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE import.analyse_link_establishment_to_legal_unit(p_job_id INT, p_batch_seq INTEGER, p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_link_establishment_to_legal_unit$
 DECLARE
     v_job public.import_job;
@@ -31,7 +31,7 @@ BEGIN
     IF to_regclass('pg_temp.temp_lu_coverage') IS NOT NULL THEN DROP TABLE temp_lu_coverage; END IF;
 
     v_start_time := clock_timestamp();
-    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit (Hybrid): Starting analysis.', p_job_id;
+    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit (Hybrid): Starting analysis for batch_seq %.', p_job_id, p_batch_seq;
 
     -- Get job details
     SELECT * INTO v_job FROM public.import_job ij WHERE id = p_job_id;
