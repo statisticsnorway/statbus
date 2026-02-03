@@ -32,16 +32,16 @@
                                                                                        Disabled: true
                                                                                        ->  Seq Scan on timesegments t
                                                                                        ->  Hash Right Join
-                                                                                             Hash Cond: (s.id = es.sector_id)
-                                                                                             ->  Seq Scan on sector s
+                                                                                             Hash Cond: (us.id = es.unit_size_id)
+                                                                                             ->  Seq Scan on unit_size us
                                                                                              ->  Hash
                                                                                                    ->  Hash Right Join
                                                                                                          Hash Cond: (st.id = es.status_id)
                                                                                                          ->  Seq Scan on status st
                                                                                                          ->  Hash
                                                                                                                ->  Hash Right Join
-                                                                                                                     Hash Cond: (us.id = es.unit_size_id)
-                                                                                                                     ->  Seq Scan on unit_size us
+                                                                                                                     Hash Cond: (s.id = es.sector_id)
+                                                                                                                     ->  Seq Scan on sector s
                                                                                                                      ->  Hash
                                                                                                                            ->  Subquery Scan on es
                                                                                                                                  ->  Limit
