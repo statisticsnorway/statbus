@@ -37,8 +37,9 @@ import {
 } from '@/atoms/auth';
 
 // Feature state atoms
-import { baseDataAtom } from '@/atoms/base-data';
+import { baseDataAtom, invalidateHasStatisticalUnitsCache } from '@/atoms/base-data';
 import { workerStatusAtom } from '@/atoms/worker_status';
+import { invalidateExactCountsCache } from '@/components/estimated-count';
 import { queryAtom, filtersAtom, searchResultAtom, selectedUnitsAtom, paginationAtom, sortingAtom } from '@/atoms/search';
 import { redirectRelevantStateAtom } from '@/atoms/app-derived';
 import { navigationMachineAtom } from '@/atoms/navigation-machine';
@@ -450,6 +451,14 @@ export const DebugInspector = () => {
     setStateHistory([]);
   };
 
+  const [cacheClearStatus, setCacheClearStatus] = React.useState('');
+  const handleClearCaches = () => {
+    invalidateHasStatisticalUnitsCache();
+    invalidateExactCountsCache();
+    setCacheClearStatus('Cleared!');
+    setTimeout(() => setCacheClearStatus(''), 2000);
+  };
+
   const getSimpleStatus = (s: any) => s.state === 'loading' ? 'Loading' : s.state === 'hasError' ? 'Error' : 'OK';
   const getWorkerSummary = (d: any) => !d ? 'N/A' : d.isImporting ? 'Importing' : d.isDerivingUnits ? 'Deriving Units' : d.isDerivingReports ? 'Deriving Reports' : 'Idle';
 
@@ -481,6 +490,13 @@ export const DebugInspector = () => {
             title="Clear the event journal"
           >
             Clear Journal
+          </button>
+          <button
+            onClick={handleClearCaches}
+            className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs"
+            title="Clear localStorage caches (hasStatisticalUnits, exact counts)"
+          >
+            {cacheClearStatus || 'Clear Caches'}
           </button>
         </div>
       </div>
