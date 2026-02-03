@@ -265,21 +265,40 @@ SELECT
 COMMIT;
 
 -- ============================================================================
--- PHASE 3B: ANALYTICS (skipped - too slow for test)
+-- PHASE 3B: ANALYTICS (enabled for performance testing)
 -- ============================================================================
--- The analytics derivation (statistical_history_facet) takes 10+ minutes
--- for this dataset. The optimization infrastructure works correctly
--- (separate phases with individual commits), but the underlying
--- statistical_history_facet_def function is computationally expensive.
---
--- To test analytics manually:
--- CALL worker.process_tasks(p_queue => 'analytics');
---
--- Expected task sequence:
+-- The analytics derivation includes multiple phases:
 -- 1. derive_reports (~1ms) - just enqueues derive_statistical_history
 -- 2. derive_statistical_history (~26s) - then enqueues derive_statistical_unit_facet
 -- 3. derive_statistical_unit_facet (~1.2s) - then enqueues derive_statistical_history_facet
 -- 4. derive_statistical_history_facet (~10+ min) - the bottleneck
+
+BEGIN;
+
+\echo Check the state of all tasks before running analytics.
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
+
+COMMIT;
+
+-- Run analytics outside transaction
+CALL worker.process_tasks(p_queue => 'analytics');
+
+BEGIN;
+
+\echo Check the state of all tasks after running analytics.
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
+
+COMMIT;
+
+-- Run any remaining tasks outside transaction
+CALL worker.process_tasks();
+
+BEGIN;
+
+\echo Check the state of all tasks after final processing.
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
+
+COMMIT;
 
 -- ============================================================================
 -- PHASE 4: CLEANUP
