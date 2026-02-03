@@ -5,8 +5,8 @@
 -- Enables AUTO EXPLAIN and pg_stat_monitor to identify slow queries.
 --
 -- Output files:
---   test/expected/performance/401_import_benchmark.perf - timing summary
---   test/expected/performance/401_import_benchmark_queries.perf - slow query analysis
+--   test/expected/performance/400_import_benchmark.perf - timing summary
+--   test/expected/performance/400_import_benchmark_queries.perf - slow query analysis
 --
 
 -- ============================================================================
@@ -239,7 +239,7 @@ FROM phase_summary
 ORDER BY phase;
 
 \echo ''
-\echo 'See test/expected/performance/401_import_benchmark.perf for detailed timing.'
+\echo 'See test/expected/performance/400_import_benchmark.perf for detailed timing.'
 \echo 'Check PostgreSQL logs for AUTO EXPLAIN output of slow queries.'
 \echo ''
 
@@ -250,7 +250,7 @@ COMMIT;
 -- ============================================================================
 BEGIN;
 
-\set perf_file test/expected/performance/401_import_benchmark.perf
+\set perf_file test/expected/performance/400_import_benchmark.perf
 \pset tuples_only on
 \pset footer off
 \o :perf_file
@@ -315,7 +315,7 @@ COMMIT;
 -- ============================================================================
 BEGIN;
 
-\set queries_file test/expected/performance/401_import_benchmark_queries.perf
+\set queries_file test/expected/performance/400_import_benchmark_queries.perf
 \pset tuples_only on
 \pset footer off
 \o :queries_file

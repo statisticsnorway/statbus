@@ -9,7 +9,7 @@
 -- - ES depends on LU external_idents which are created during LU processing
 --
 -- Performance benchmark data is written to:
---   test/expected/performance/402_import_benchmark.perf
+--   test/expected/performance/401_import_benchmark.perf
 --
 
 -- ============================================================================
@@ -182,7 +182,7 @@ ORDER BY phase;
 
 \echo ''
 \echo 'Target: sql_saga achieves ~5000 rows/sec. Anything below 100 rows/sec needs investigation.'
-\echo 'See test/expected/performance/402_import_benchmark.perf for detailed timing.'
+\echo 'See test/expected/performance/401_import_benchmark.perf for detailed timing.'
 \echo ''
 
 COMMIT;
@@ -192,7 +192,7 @@ COMMIT;
 -- ============================================================================
 BEGIN;
 
-\set perf_file test/expected/performance/402_import_benchmark.perf
+\set perf_file test/expected/performance/401_import_benchmark.perf
 \pset tuples_only on
 \pset footer off
 \o :perf_file
