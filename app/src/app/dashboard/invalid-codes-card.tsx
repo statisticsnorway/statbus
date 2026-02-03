@@ -65,6 +65,7 @@ export const InvalidCodesCard = () => {
       <EstimatedCount
         estimatedCount={count}
         onGetExact={handleGetExact}
+        cacheKey={`invalid-codes-${selectedTimeContext?.valid_on ?? 'default'}`}
       />
     </DashboardCard>
   );

@@ -65,6 +65,7 @@ export const MissingActivityCategoryCard = () => {
       <EstimatedCount
         estimatedCount={count}
         onGetExact={handleGetExact}
+        cacheKey={`missing-activity-${selectedTimeContext?.valid_on ?? 'default'}`}
       />
     </DashboardCard>
   );

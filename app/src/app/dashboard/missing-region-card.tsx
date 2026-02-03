@@ -65,6 +65,7 @@ export const MissingRegionCard = () => {
       <EstimatedCount
         estimatedCount={count}
         onGetExact={handleGetExact}
+        cacheKey={`missing-region-${selectedTimeContext?.valid_on ?? 'default'}`}
       />
     </DashboardCard>
   );

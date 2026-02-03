@@ -10,6 +10,7 @@
 import { atom } from 'jotai';
 import { useAtomValue } from 'jotai';
 import { refreshBaseDataAtom, invalidateHasStatisticalUnitsCache } from './base-data';
+import { invalidateExactCountsCache } from '@/components/estimated-count';
 import { restClientAtom } from './rest-client';
 import { isAuthenticatedStrictAtom } from './auth';
 
@@ -73,7 +74,7 @@ export const setWorkerStatusAtom = atom(
       set(refreshBaseDataAtom);
     }
     
-    // When import completes, invalidate the hasStatisticalUnits cache.
+    // When import completes, invalidate all caches.
     // This ensures fresh data is fetched after new data has been imported,
     // and dashboard counts will be refreshed.
     if (
@@ -82,9 +83,10 @@ export const setWorkerStatusAtom = atom(
       status === false
     ) {
       if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log("setWorkerStatusAtom: Detected completion of 'isImporting'. Invalidating hasStatisticalUnits cache.");
+        console.log("setWorkerStatusAtom: Detected completion of 'isImporting'. Invalidating caches.");
       }
       invalidateHasStatisticalUnitsCache();
+      invalidateExactCountsCache();
       set(refreshBaseDataAtom);
     }
   }

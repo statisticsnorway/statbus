@@ -69,6 +69,7 @@ export const StatisticalUnitCountCard = ({
       <EstimatedCount
         estimatedCount={count}
         onGetExact={handleGetExact}
+        cacheKey={`${unitType}-${selectedTimeContext?.valid_on ?? 'default'}`}
       />
     </DashboardCard>
   );
