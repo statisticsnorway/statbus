@@ -13,6 +13,7 @@ import {
   useSelection,
   useTableColumnsManager,
   useSearchPageData,
+  useSearchPageDataReady,
   StatisticalUnit,
 } from "@/atoms/search";
 import { statbusUsersAtom, externalIdentTypesAtom } from "@/atoms/base-data";
@@ -37,6 +38,7 @@ export const StatisticalUnitTableRow = ({
     allUnitSizes,
     allDataSources,
   } = useSearchPageData();
+  const searchPageDataReady = useSearchPageDataReady();
   const externalIdentTypes = useAtomValue(externalIdentTypesAtom);
   const statbusUsers = useAtomValue(statbusUsersAtom);
   const { selected } = useSelection();
@@ -191,6 +193,20 @@ export const StatisticalUnitTableRow = ({
             );
 
           case "activity_section":
+            // Show loading placeholder while lookup data is being fetched
+            if (!searchPageDataReady) {
+              return (
+                <TableCell
+                  key={`cell-${bodyCellSuffix(unit, column)}`}
+                  className={getCellClassName(column)}
+                >
+                  <div className="flex flex-col space-y-0.5 leading-tight animate-pulse">
+                    <span className="h-4 w-6 bg-gray-200 rounded"></span>
+                    <small className="h-3 w-24 bg-gray-100 rounded"></small>
+                  </div>
+                </TableCell>
+              );
+            }
             const activitySection = unit.primary_activity_category_path
               ? allActivityCategories.find(
                   ({ path }: Tables<'activity_category_used'>) =>
@@ -218,6 +234,20 @@ export const StatisticalUnitTableRow = ({
             );
 
           case "activity":
+            // Show loading placeholder while lookup data is being fetched
+            if (!searchPageDataReady) {
+              return (
+                <TableCell
+                  key={`cell-${bodyCellSuffix(unit, column)}`}
+                  className={getCellClassName(column)}
+                >
+                  <div className="flex flex-col space-y-0.5 leading-tight animate-pulse">
+                    <span className="h-4 w-12 bg-gray-200 rounded"></span>
+                    <small className="h-3 w-28 bg-gray-100 rounded"></small>
+                  </div>
+                </TableCell>
+              );
+            }
             return (
               <TableCell
                 key={`cell-${bodyCellSuffix(unit, column)}`}
@@ -236,6 +266,20 @@ export const StatisticalUnitTableRow = ({
             );
 
           case "secondary_activity":
+            // Show loading placeholder while lookup data is being fetched
+            if (!searchPageDataReady) {
+              return (
+                <TableCell
+                  key={`cell-${bodyCellSuffix(unit, column)}`}
+                  className={getCellClassName(column)}
+                >
+                  <div className="flex flex-col space-y-0.5 leading-tight animate-pulse">
+                    <span className="h-4 w-12 bg-gray-200 rounded"></span>
+                    <small className="h-3 w-28 bg-gray-100 rounded"></small>
+                  </div>
+                </TableCell>
+              );
+            }
             return (
               <TableCell
                 key={`cell-${bodyCellSuffix(unit, column)}`}
@@ -254,6 +298,20 @@ export const StatisticalUnitTableRow = ({
             );
 
           case "top_region":
+            // Show loading placeholder while lookup data is being fetched
+            if (!searchPageDataReady) {
+              return (
+                <TableCell
+                  key={`cell-${bodyCellSuffix(unit, column)}`}
+                  className={getCellClassName(column)}
+                >
+                  <div className="flex flex-col space-y-0.5 leading-tight animate-pulse">
+                    <span className="h-4 w-6 bg-gray-200 rounded"></span>
+                    <small className="h-3 w-16 bg-gray-100 rounded"></small>
+                  </div>
+                </TableCell>
+              );
+            }
             const topRegion = unit.physical_region_path
               ? allRegions.find(
                   ({ path }: Tables<'region_used'>) =>
@@ -279,6 +337,20 @@ export const StatisticalUnitTableRow = ({
             );
 
           case "region":
+            // Show loading placeholder while lookup data is being fetched
+            if (!searchPageDataReady) {
+              return (
+                <TableCell
+                  key={`cell-${bodyCellSuffix(unit, column)}`}
+                  className={getCellClassName(column)}
+                >
+                  <div className="flex flex-col space-y-0.5 leading-tight animate-pulse">
+                    <span className="h-4 w-10 bg-gray-200 rounded"></span>
+                    <small className="h-3 w-16 bg-gray-100 rounded"></small>
+                  </div>
+                </TableCell>
+              );
+            }
             return (
               <TableCell
                 key={`cell-${bodyCellSuffix(unit, column)}`}
@@ -461,6 +533,19 @@ export const StatisticalUnitTableRow = ({
               </TableCell>
             );
           case "status":
+            // Show loading placeholder while lookup data is being fetched
+            if (!searchPageDataReady) {
+              return (
+                <TableCell
+                  key={`cell-${bodyCellSuffix(unit, column)}`}
+                  className={getCellClassName(column)}
+                >
+                  <div className="flex flex-col space-y-0.5 leading-tight animate-pulse">
+                    <span className="h-4 w-16 bg-gray-200 rounded"></span>
+                  </div>
+                </TableCell>
+              );
+            }
             return (
               <TableCell
                 key={`cell-${bodyCellSuffix(unit, column)}`}
@@ -475,6 +560,19 @@ export const StatisticalUnitTableRow = ({
               </TableCell>
             );
           case "unit_size":
+            // Show loading placeholder while lookup data is being fetched
+            if (!searchPageDataReady) {
+              return (
+                <TableCell
+                  key={`cell-${bodyCellSuffix(unit, column)}`}
+                  className={getCellClassName(column)}
+                >
+                  <div className="flex flex-col space-y-0.5 leading-tight animate-pulse">
+                    <span className="h-4 w-20 bg-gray-200 rounded"></span>
+                  </div>
+                </TableCell>
+              );
+            }
             return (
               <TableCell
                 key={`cell-${bodyCellSuffix(unit, column)}`}
@@ -489,6 +587,19 @@ export const StatisticalUnitTableRow = ({
               </TableCell>
             );
           case "data_sources":
+            // Show loading placeholder while lookup data is being fetched
+            if (!searchPageDataReady) {
+              return (
+                <TableCell
+                  key={`cell-${bodyCellSuffix(unit, column)}`}
+                  className={getCellClassName(column)}
+                >
+                  <div className="flex flex-col space-y-0.5 leading-tight animate-pulse">
+                    <span className="h-4 w-12 bg-gray-200 rounded"></span>
+                  </div>
+                </TableCell>
+              );
+            }
             return (
               <TableCell
                 key={`cell-${bodyCellSuffix(unit, column)}`}

@@ -48,7 +48,7 @@ import {
   DOMESTIC,
 } from "../app/search/filters/url-search-params";
 
-import { selectedTimeContextAtom } from './app'
+import { selectedTimeContextAtom, searchStateInitializedAtom } from './app'
 import { restClientAtom } from './rest-client'
 import { externalIdentTypesAtom, statDefinitionsAtom, useBaseData } from './base-data'
 
@@ -127,11 +127,28 @@ export const searchPageDataAtom = atom<SearchPageData>({
   allSectors: [],
 });
 
+// Tracks whether searchPageDataAtom has been populated with lookup data.
+// This prevents race conditions where table rows render before lookup data is available.
+export const searchPageDataReadyAtom = atom<boolean>(false);
+
 // Action atom to set the search page data
 export const setSearchPageDataAtom = atom(
   null,
   (get, set, data: SearchPageData) => {
     set(searchPageDataAtom, data);
+    // Mark lookup data as ready after setting it
+    set(searchPageDataReadyAtom, true);
+  }
+);
+
+// Action atom to reset search initialization state.
+// Resets both searchStateInitializedAtom and searchPageDataReadyAtom together.
+// Use this for testing or when a full re-initialization is needed.
+export const resetSearchInitializationAtom = atom(
+  null,
+  (get, set) => {
+    set(searchStateInitializedAtom, false);
+    set(searchPageDataReadyAtom, false);
   }
 );
 
@@ -1088,6 +1105,7 @@ export const useSearchFilters = () => {
 
 export const useSearchResult = () => useAtomValue(searchResultAtom);
 export const useSearchPageData = () => useAtomValue(searchPageDataAtom);
+export const useSearchPageDataReady = () => useAtomValue(searchPageDataReadyAtom);
 
 export const useSelection = () => {
   const selectedUnits = useAtomValue(selectedUnitsAtom);

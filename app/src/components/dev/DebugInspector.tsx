@@ -40,7 +40,7 @@ import {
 import { baseDataAtom, invalidateHasStatisticalUnitsCache } from '@/atoms/base-data';
 import { workerStatusAtom } from '@/atoms/worker_status';
 import { invalidateExactCountsCache } from '@/components/estimated-count';
-import { queryAtom, filtersAtom, searchResultAtom, selectedUnitsAtom, paginationAtom, sortingAtom } from '@/atoms/search';
+import { queryAtom, filtersAtom, searchResultAtom, selectedUnitsAtom, paginationAtom, sortingAtom, resetSearchInitializationAtom } from '@/atoms/search';
 import { redirectRelevantStateAtom } from '@/atoms/app-derived';
 import { navigationMachineAtom } from '@/atoms/navigation-machine';
 import {
@@ -165,6 +165,7 @@ export const DebugInspector = () => {
   const journal = useAtomValue(combinedJournalViewAtom);
   const addJournalEntry = useSetAtom(addEventJournalEntryAtom);
   const clearAndMarkJournal = useSetAtom(clearAndMarkJournalAtom);
+  const resetSearchInitialization = useSetAtom(resetSearchInitializationAtom);
   const refreshToken = useSetAtom(clientSideRefreshAtom);
   const expireToken = useSetAtom(expireAccessTokenAtom);
   const checkAuth = useSetAtom(fetchAuthStatusAtom);
@@ -455,6 +456,7 @@ export const DebugInspector = () => {
   const handleClearCaches = () => {
     invalidateHasStatisticalUnitsCache();
     invalidateExactCountsCache();
+    resetSearchInitialization(); // Reset search page data ready state for testing race conditions
     setCacheClearStatus('Cleared!');
     setTimeout(() => setCacheClearStatus(''), 2000);
   };
