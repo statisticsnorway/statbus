@@ -803,8 +803,8 @@ FROM job_metrics
 ORDER BY phase;
  phase | total_rows | proc_status | analysis_status 
 -------+------------+-------------+-----------------
- ES    |      24027 | OK          | OK
- LU    |       4924 | OK          | OK
+ ES    |      24027 | OK          | GOOD
+ LU    |       4924 | OK          | GOOD
 (2 rows)
 
 \echo ''
