@@ -16,6 +16,9 @@ export default async function SearchPage(props: { searchParams: Promise<URLSearc
   const initialUrlSearchParamsString = initialUrlSearchParams.toString();
 
   const client = await getServerRestClient();
+  // Note: Lookup data (regions, activity categories, etc.) is now fetched client-side
+  // via fetchSearchPageDataAtom to avoid RSC hydration timing issues.
+  // The props are still passed for backwards compatibility but may be empty during hydration.
   const [
     { data: activityCategories },
     { data: regions },

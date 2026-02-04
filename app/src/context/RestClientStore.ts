@@ -309,6 +309,7 @@ class RestClientStore {
     // both this fetch wrapper and the auth machine would try to refresh the token.
 
     const headers = new Headers(options.headers);
+
     const fetchOptions = {
       ...options,
       credentials: 'include' as RequestCredentials,

@@ -11,6 +11,7 @@ import { atom } from 'jotai';
 import { useAtomValue } from 'jotai';
 import { refreshBaseDataAtom, invalidateHasStatisticalUnitsCache } from './base-data';
 import { invalidateExactCountsCache } from '@/components/estimated-count';
+import { searchPageDataReadyAtom } from './search';
 import { restClientAtom } from './rest-client';
 import { isAuthenticatedStrictAtom } from './auth';
 
@@ -69,9 +70,11 @@ export const setWorkerStatusAtom = atom(
       status === false
     ) {
       if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log("setWorkerStatusAtom: Detected completion of 'isDerivingUnits'. Refreshing base data.");
+        console.log("setWorkerStatusAtom: Detected completion of 'isDerivingUnits'. Refreshing base data and invalidating search page data.");
       }
       set(refreshBaseDataAtom);
+      // Invalidate search page lookup data so it refreshes on next navigation
+      set(searchPageDataReadyAtom, false);
     }
     
     // When import completes, invalidate all caches.

@@ -131,13 +131,90 @@ export const searchPageDataAtom = atom<SearchPageData>({
 // This prevents race conditions where table rows render before lookup data is available.
 export const searchPageDataReadyAtom = atom<boolean>(false);
 
-// Action atom to set the search page data
+// Action atom to set the search page data (used by server-side props fallback)
 export const setSearchPageDataAtom = atom(
   null,
   (get, set, data: SearchPageData) => {
     set(searchPageDataAtom, data);
     // Mark lookup data as ready after setting it
     set(searchPageDataReadyAtom, true);
+  }
+);
+
+// Action atom to fetch search page data client-side
+// This is more reliable than RSC props which can have hydration issues
+export const fetchSearchPageDataAtom = atom(
+  null,
+  async (get, set) => {
+    const client = get(restClientAtom);
+
+    if (!client) {
+      console.warn('[fetchSearchPageDataAtom] REST client not ready');
+      return;
+    }
+
+    // Check if data is already loaded to avoid redundant fetches
+    const currentData = get(searchPageDataAtom);
+    if (currentData.allRegions.length > 0) {
+      // Data already loaded, just mark as ready
+      set(searchPageDataReadyAtom, true);
+      return;
+    }
+
+    try {
+      const [
+        { data: regions, error: regionsError },
+        { data: activityCategories, error: activityCategoriesError },
+        { data: statuses, error: statusesError },
+        { data: unitSizes, error: unitSizesError },
+        { data: dataSources, error: dataSourcesError },
+        { data: externalIdentTypes, error: externalIdentTypesError },
+        { data: legalForms, error: legalFormsError },
+        { data: sectors, error: sectorsError },
+      ] = await Promise.all([
+        client.from("region_used").select(),
+        client.from("activity_category_used").select(),
+        client.from("status").select().filter("active", "eq", true),
+        client.from("unit_size").select().filter("active", "eq", true),
+        client.from("data_source_used").select(),
+        client.from("external_ident_type_active").select(),
+        client.from("legal_form_used").select().not("code", "is", null),
+        client.from("sector_used").select(),
+      ]);
+
+      // Log any errors
+      if (regionsError) console.error('[fetchSearchPageDataAtom] Error fetching regions:', regionsError);
+      if (activityCategoriesError) console.error('[fetchSearchPageDataAtom] Error fetching activity categories:', activityCategoriesError);
+      if (statusesError) console.error('[fetchSearchPageDataAtom] Error fetching statuses:', statusesError);
+      if (unitSizesError) console.error('[fetchSearchPageDataAtom] Error fetching unit sizes:', unitSizesError);
+      if (dataSourcesError) console.error('[fetchSearchPageDataAtom] Error fetching data sources:', dataSourcesError);
+      if (externalIdentTypesError) console.error('[fetchSearchPageDataAtom] Error fetching external ident types:', externalIdentTypesError);
+      if (legalFormsError) console.error('[fetchSearchPageDataAtom] Error fetching legal forms:', legalFormsError);
+      if (sectorsError) console.error('[fetchSearchPageDataAtom] Error fetching sectors:', sectorsError);
+
+      const newData = {
+        allRegions: regions || [],
+        allActivityCategories: activityCategories || [],
+        allStatuses: statuses || [],
+        allUnitSizes: unitSizes || [],
+        allDataSources: dataSources || [],
+        allExternalIdentTypes: externalIdentTypes || [],
+        allLegalForms: legalForms || [],
+        allSectors: sectors || [],
+      };
+      set(searchPageDataAtom, newData);
+
+      // Only mark as ready if we actually got data. This prevents caching
+      // empty results due to auth issues, allowing a retry on next navigation.
+      const hasData = newData.allRegions.length > 0 || newData.allActivityCategories.length > 0;
+      if (hasData) {
+        set(searchPageDataReadyAtom, true);
+      } else {
+        console.warn('[fetchSearchPageDataAtom] Fetch returned empty data - not marking as ready');
+      }
+    } catch (error) {
+      console.error('[fetchSearchPageDataAtom] Failed to fetch search page data:', error);
+    }
   }
 );
 

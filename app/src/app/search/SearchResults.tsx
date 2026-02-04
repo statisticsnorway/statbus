@@ -1,12 +1,11 @@
 "use client";
 
-import { ReactNode, useMemo } from "react";
-import { isEqual } from "moderndash";
+import { ReactNode } from "react";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useSetAtom, useAtomValue, useAtom } from 'jotai';
-import { derivedApiSearchParamsAtom, performSearchAtom, setSearchPageDataAtom, paginationAtom, type SearchPagination, sortingAtom, SearchSorting, queryAtom, filtersAtom } from '@/atoms/search';
+import { derivedApiSearchParamsAtom, performSearchAtom, fetchSearchPageDataAtom, searchPageDataReadyAtom, paginationAtom, type SearchPagination, sortingAtom, SearchSorting, queryAtom, filtersAtom } from '@/atoms/search';
 import { searchStateInitializedAtom } from "@/atoms/app";
-import { externalIdentTypesAtom, statDefinitionsAtom, baseDataAtom } from "@/atoms/base-data";
+import { externalIdentTypesAtom, statDefinitionsAtom } from "@/atoms/base-data";
 import type { Tables } from "@/lib/database.types";
 import { useSearchUrlSync } from "./hooks/useSearchUrlSync";
 import {
@@ -166,38 +165,36 @@ export function SearchResults({
   const [pagination, setPagination] = useAtom(paginationAtom); // Get setter for new atom
   const [sorting, setSorting] = useAtom(sortingAtom);
   const [isInitialized, setInitialized] = useAtom(searchStateInitializedAtom);
-  const setSearchPageData = useSetAtom(setSearchPageDataAtom);
+  const fetchSearchPageData = useSetAtom(fetchSearchPageDataAtom);
+  const searchPageDataReady = useAtomValue(searchPageDataReadyAtom);
   const externalIdentTypes = useAtomValue(externalIdentTypesAtom);
   const statDefinitions = useAtomValue(statDefinitionsAtom);
 
-  // This effect handles the one-time initialization from URL -> State.
+  // Effect 1: Fetch lookup data client-side
+  // This avoids RSC hydration timing issues by fetching directly from the API.
+  // The fetch is triggered once when the component mounts or when data needs refresh.
+  useGuardedEffect(() => {
+    if (searchPageDataReady) {
+      return; // Data already loaded
+    }
+    fetchSearchPageData();
+  }, [searchPageDataReady, fetchSearchPageData], 'SearchResults:fetchLookupData');
+
+  // Effect 2: One-time URL initialization (guarded by isInitialized)
+  // This only runs once to parse URL params into state, avoiding overwrites on navigation.
   useGuardedEffect(() => {
     if (isInitialized) {
       return;
     }
-    
-    // 1. Set static page data (for filters, etc.)
-    setSearchPageData({
-      allRegions,
-      allActivityCategories,
-      allStatuses,
-      allUnitSizes,
-      allDataSources,
-      allExternalIdentTypes,
-      allLegalForms,
-      allSectors,
-    });
-    
-    // 2. Derive the initial state from the URL string prop.
+
     const initialUrlSearchParams = new URLSearchParams(initialUrlSearchParamsString);
-    const { _initialPagination, _initialSorting, _initialQuery, _initialFilters } = deriveStateFromUrl(initialUrlSearchParams, externalIdentTypes, statDefinitions);
-    
-    // 3. Atomically set the hydrated state and mark initialization as complete.
+    const { _initialPagination, _initialSorting, _initialQuery, _initialFilters } =
+      deriveStateFromUrl(initialUrlSearchParams, externalIdentTypes, statDefinitions);
+
     setQuery(_initialQuery);
     setFilters(_initialFilters);
     setSorting(_initialSorting);
     setPagination(_initialPagination);
-
     setInitialized(true);
   }, [
     isInitialized,
@@ -209,10 +206,7 @@ export function SearchResults({
     setFilters,
     setPagination,
     setSorting,
-    setSearchPageData,
-    // The `all...` props are intentionally omitted, as are `pagination` and `sorting`.
-    // This effect should only run when its true inputs (URL, base data) change.
-  ], 'SearchResults:initializeState');
+  ], 'SearchResults:initializeFromUrl');
 
   useSearchUrlSync();
 
