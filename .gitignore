@@ -489,13 +489,13 @@ key-*.xml
 # Ignore Caddy data directory (ACME certs, custom certs, private keys)
 /caddy/data/
 
-# Ignore aider AI tool files, except those useful.
+# Ignore AI tool files, except those useful.
 .aider*
 !.aider.conf.yml
 !.aiderignore
+.claude/
 
 # Ignore migration snapshots (large binary dumps and list files, generated locally)
 migrations/snapshots/*.pg_dump
 migrations/snapshots/*.pg_list
 !migrations/snapshots/.gitkeep
-
