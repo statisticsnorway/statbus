@@ -36,6 +36,9 @@ BEGIN;
 
 \i test/setup.sql
 
+-- Reset import_job sequence to ensure deterministic job IDs
+ALTER TABLE public.import_job ALTER COLUMN id RESTART WITH 1;
+
 CALL test.set_user_from_email('test.admin@statbus.org');
 
 -- ============================================================================
