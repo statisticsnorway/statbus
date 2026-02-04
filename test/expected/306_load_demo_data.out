@@ -994,6 +994,7 @@ SELECT path
  3.998.01   |     3 | 399801   | 399801   | Tasjkent
  4          |     1 | 4        | 4        | NorthAmerica
  4.001      |     2 | 4001     | 4001     | UnitedStates
+ 4.002      |     2 | 4002     | 4002     | Canada
  4.052      |     2 | 4052     | 4052     | Mexico
  4.502      |     2 | 4502     | 4502     | Guatemala
  4.504      |     2 | 4504     | 4504     | Honduras
@@ -1012,7 +1013,7 @@ SELECT path
  6.064      |     2 | 6064     | 6064     | NewZealand
  7          |     1 | 7        | 7        | Antarctica
  7.672      |     2 | 7672     | 7672     | Antarctica
-(87 rows)
+(88 rows)
 
  SELECT code
      , name

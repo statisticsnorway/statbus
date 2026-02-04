@@ -5,7 +5,7 @@
 -- inspection of how errors and invalid_codes are displayed in the UI.
 --
 -- Run with PERSIST=true to keep data for UI review:
---   ./devops/manage-statbus.sh psql --variable=PERSIST=true < test/sql/404_import_error_scenarios_for_ui_review.sql
+--   PERSIST=true ./devops/manage-statbus.sh psql < test/sql/321_import_error_scenarios_for_ui_review.sql
 --
 -- Then view in the UI:
 --   - Job list: http://localhost:3012/import/jobs
@@ -25,36 +25,27 @@
 --      - Domestic unit missing region (warning only)
 --
 -- Structure:
---   0. Cleanup phase: Ensure clean state from prior runs
 --   1. Setup phase: Create Norway environment and import definitions
 --   2. Create jobs and upload data with errors
 --   3. Process imports
 --   4. Display results
---   5. Cleanup unless PERSIST=true
+--   5. Rollback unless PERSIST=true
 --
 
--- ============================================================================
--- PHASE 0: INITIAL CLEANUP AND PAUSE WORKER
--- ============================================================================
-\echo '=== Phase 0: Cleanup and pause worker ==='
--- Use 'data' scope to preserve import_definitions (created by migrations)
--- 'getting-started' would delete them, requiring us to recreate them
-SELECT public.reset(true, 'data');
-SELECT worker.pause('1 hour'::interval);
-
--- ============================================================================
--- PHASE 1: SETUP (in transaction for setup.sql helpers)
--- ============================================================================
 BEGIN;
 
 \i test/setup.sql
 
+-- Reset import_job sequence to ensure deterministic job IDs
+ALTER TABLE public.import_job ALTER COLUMN id RESTART WITH 1;
+
 CALL test.set_user_from_email('test.admin@statbus.org');
 
+-- ============================================================================
+-- PHASE 1: SETUP
+-- ============================================================================
 \echo '=== Phase 1: Setting up Norway environment ==='
 \i samples/norway/getting-started.sql
-
-COMMIT;
 
 -- ============================================================================
 -- PHASE 2: CREATE JOBS AND UPLOAD DATA
@@ -200,9 +191,6 @@ VALUES
 -- Process all pending import tasks
 CALL worker.process_tasks(p_queue => 'import');
 
--- Resume worker for normal operation
-SELECT worker.resume();
-
 -- ============================================================================
 -- PHASE 4: DISPLAY RESULTS
 -- ============================================================================
@@ -292,6 +280,6 @@ ORDER BY slug;
 \echo 'Missing ID:   http://localhost:3012/import/jobs/errors_lu_missing_ident/data'
 
 -- ============================================================================
--- PHASE 5: CLEANUP UNLESS PERSIST
+-- PHASE 5: ROLLBACK UNLESS PERSIST
 -- ============================================================================
-\i test/cleanup_unless_persist_is_specified.sql
+\i test/rollback_unless_persist_is_specified.sql

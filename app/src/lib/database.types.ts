@@ -11570,6 +11570,12 @@ export type Database = {
         }
         Returns: number
       },
+      int4multirange_to_array: {
+        Args: {
+          p_ranges?: unknown
+        }
+        Returns: number[]
+      },
       int8_dist: {
         Args: {
           arg0?: number

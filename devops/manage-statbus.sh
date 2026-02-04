@@ -307,6 +307,27 @@ case "$action" in
             done
         fi
 
+        # Validate that all requested tests exist
+        INVALID_TESTS=""
+        for test_basename in $TEST_BASENAMES; do
+            if [ ! -f "$PG_REGRESS_DIR/sql/$test_basename.sql" ]; then
+                INVALID_TESTS="$INVALID_TESTS $test_basename"
+            fi
+        done
+        
+        if [ -n "$INVALID_TESTS" ]; then
+            echo "Error: Test(s) not found:$INVALID_TESTS"
+            echo ""
+            echo "Available tests:"
+            echo "  all    - Run all tests"
+            echo "  fast   - Run all tests except 4xx (large imports)"
+            echo "  failed - Re-run previously failed tests"
+            echo ""
+            echo "Individual tests:"
+            basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql | sed 's/^/  /'
+            exit 1
+        fi
+
         # Separate tests into shared (non-4xx) and isolated (4xx) categories
         # 4xx tests use COMMIT and need their own database to avoid polluting state
         SHARED_TESTS=""
@@ -904,6 +925,25 @@ case "$action" in
         if [ -z "$TEST_NAME" ]; then
             echo "Error: Test name required"
             echo "Usage: ./devops/manage-statbus.sh test-isolated <test_name> [--update-expected]"
+            exit 1
+        fi
+        
+        # Check if this is a group name (all, fast, failed) - these don't work with test-isolated
+        if [ "$TEST_NAME" = "all" ] || [ "$TEST_NAME" = "fast" ] || [ "$TEST_NAME" = "failed" ]; then
+            echo "Error: '$TEST_NAME' is a test group, not an individual test."
+            echo "Use './devops/manage-statbus.sh test $TEST_NAME' to run test groups."
+            echo ""
+            echo "Usage: ./devops/manage-statbus.sh test-isolated <test_name> [--update-expected]"
+            exit 1
+        fi
+        
+        # Check if test file exists
+        PG_REGRESS_DIR="$WORKSPACE/test"
+        if [ ! -f "$PG_REGRESS_DIR/sql/$TEST_NAME.sql" ]; then
+            echo "Error: Test '$TEST_NAME' not found."
+            echo ""
+            echo "Available tests:"
+            basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql | sed 's/^/  /'
             exit 1
         fi
         
