@@ -88,14 +88,14 @@ ON CONFLICT (slug) DO UPDATE SET
 # Load data into import tables
 if [ -f "$legal_unit_file" ]; then
     echo "Loading hovedenhet data"
-    $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_hovedenhet_2025_upload FROM '$legal_unit_file' WITH CSV HEADER DELIMITER ',' QUOTE '\"' ESCAPE '\"';"
+    $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_hovedenhet_2025_upload FROM 'tmp/enheter.csv' WITH CSV HEADER DELIMITER ',' QUOTE '\"' ESCAPE '\"';"
 else
     echo "Warning: Legal unit file $legal_unit_file not found, skipping import"
 fi
 
 if [ -f "$establishment_file" ]; then
     echo "Loading underenhet data"
-    $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_underenhet_2025_upload FROM '$establishment_file' WITH CSV HEADER DELIMITER ',' QUOTE '\"' ESCAPE '\"';"
+    $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_underenhet_2025_upload FROM 'tmp/underenheter_filtered.csv' WITH CSV HEADER DELIMITER ',' QUOTE '\"' ESCAPE '\"';"
 else
     echo "Warning: Establishment file $establishment_file not found, skipping import"
 fi
