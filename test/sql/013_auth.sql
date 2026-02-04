@@ -3753,3 +3753,5 @@ WHERE user_id IN (
 );
 DELETE FROM auth.user
 WHERE email LIKE 'test.%@statbus.org'; -- Updated domain
+
+ROLLBACK;
