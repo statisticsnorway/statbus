@@ -125,6 +125,15 @@ The cloud infrastructure on **niue.statbus.org** uses **branches as pointers** f
 | master-to-production | devops/deploy-to-production | — | Pointer only |
 | production-to-all | — | all servers | Cascades to all |
 
+### Triggering Deployment
+
+```bash
+git push origin master:devops/deploy-to-no         # Deploy master to Norway
+git push origin master:devops/deploy-to-dev        # Deploy master to dev
+```
+
+This directly updates the branch pointer, which triggers `deploy-to-X.yaml`. The `master-to-X` workflows in GitHub UI do the same thing but add an extra hop.
+
 ### Manual Server Access
 
 ```bash
