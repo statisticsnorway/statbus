@@ -971,8 +971,19 @@ case "$action" in
         
         # Setup cleanup trap (runs on exit, including Ctrl+C)
         # Default: PERSIST=false (clean up test databases)
+        LOG_CAPTURE_PID=""
+        DB_LOG_FILE=""
         cleanup_test_db() {
             local exit_code=$?
+            # Stop log capture if still running
+            if [ -n "$LOG_CAPTURE_PID" ]; then
+                kill "$LOG_CAPTURE_PID" 2>/dev/null || true
+                wait "$LOG_CAPTURE_PID" 2>/dev/null || true
+                if [ -f "$DB_LOG_FILE" ]; then
+                    LOG_LINE_COUNT=$(wc -l < "$DB_LOG_FILE" | tr -d ' ')
+                    echo "DEBUG=true: Database logs saved to: $DB_LOG_FILE ($LOG_LINE_COUNT lines)"
+                fi
+            fi
             if [ "${PERSIST:-false}" = "true" ]; then
                 echo "PERSIST=true: Keeping test database: $TEST_DB"
                 return $exit_code
@@ -1009,8 +1020,13 @@ EOF
         debug_arg=""
         if [ "${DEBUG:-}" = "true" ]; then
             debug_arg="--debug"
+            # Capture database logs to tmp/ for auto_explain query analysis
+            DB_LOG_FILE="$WORKSPACE/tmp/db-logs-${TEST_NAME}-$$.log"
+            echo "DEBUG=true: Capturing database logs to: $DB_LOG_FILE"
+            docker compose logs db --follow --since 0s > "$DB_LOG_FILE" 2>&1 &
+            LOG_CAPTURE_PID=$!
         fi
-        
+
         # Ensure expected file exists
         expected_file="$PG_REGRESS_DIR/expected/$TEST_NAME.out"
         if [ ! -f "$expected_file" ] && [ -f "$PG_REGRESS_DIR/sql/$TEST_NAME.sql" ]; then
@@ -1028,7 +1044,19 @@ EOF
             --dbname="$TEST_DB" \
             --user=$PGUSER \
             "$TEST_NAME" || TEST_EXIT_CODE=$?
-        
+
+        # Stop log capture if running
+        if [ -n "$LOG_CAPTURE_PID" ]; then
+            kill "$LOG_CAPTURE_PID" 2>/dev/null || true
+            wait "$LOG_CAPTURE_PID" 2>/dev/null || true
+            LOG_CAPTURE_PID=""  # Clear so cleanup trap doesn't try again
+            if [ -f "$DB_LOG_FILE" ]; then
+                LOG_LINE_COUNT=$(wc -l < "$DB_LOG_FILE" | tr -d ' ')
+                echo "DEBUG=true: Database logs saved to: $DB_LOG_FILE ($LOG_LINE_COUNT lines)"
+                echo "  Tip: Search for slow queries with: grep 'duration: [0-9]\\{4,\\}' $DB_LOG_FILE"
+            fi
+        fi
+
         # Handle --update-expected
         if [ "$UPDATE_EXPECTED" = "true" ]; then
             result_file="$PG_REGRESS_DIR/results/$TEST_NAME.out"
