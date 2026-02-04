@@ -97,9 +97,50 @@ Follow this cycle for all changes, especially bug fixes:
 - `doc/` - Architecture and design documentation
 - `tmp/` - Diagnostic SQL, journals, debug scripts (gitignored, don't delete)
 
+## Deployment (Cloud Multi-Tenant)
+
+The cloud infrastructure on **niue.statbus.org** uses **branches as pointers** for CI/CD. See `doc/CLOUD.md` for full details.
+
+### Quick Reference
+
+1. **Trigger deployment** (GitHub Actions → "Run workflow"):
+   - `master-to-X` workflow force-pushes `master` → `devops/deploy-to-X` branch
+   - Example: "Push master -> devops/deploy-to-no" deploys to Norway
+
+2. **Automatic execution**: Push to `devops/deploy-to-X` triggers `deploy-to-X` workflow, which SSHs to the server and runs `devops/deploy.sh`
+
+3. **On the server** (`deploy.sh`):
+   - Fetches and hard-resets to match the deploy branch
+   - If `dbseed/` or existing `migrations/` changed: full recreate (delete-db + create-db)
+   - Otherwise: applies pending migrations and restarts app
+   - Sends Slack notification to `#statbus-utvikling`
+
+### Deployment Targets
+
+| Workflow | Branch | Server | Notes |
+|----------|--------|--------|-------|
+| master-to-no | devops/deploy-to-no | statbus_no@niue | Norway |
+| master-to-demo | devops/deploy-to-demo | statbus_demo@niue | Demo |
+| master-to-dev | devops/deploy-to-dev | statbus_dev@niue | Development |
+| master-to-production | devops/deploy-to-production | — | Pointer only |
+| production-to-all | — | all servers | Cascades to all |
+
+### Manual Server Access
+
+```bash
+ssh statbus_no "cd statbus && <command>"           # Run command on server
+scp local/file statbus_no:statbus/path/to/file     # Copy file to server
+```
+
+**Before deploying**: Ensure remote working directory is clean (no uncommitted changes), or deploy will fail.
+
 ## Full Documentation
 
 - **Backend/SQL**: See `CONVENTIONS.md` in project root
 - **Frontend/TypeScript**: See `app/CONVENTIONS.md`
 - **AI Agent Quick Reference**: See `AGENTS.md`
 - **Data Model**: See `doc/data-model.md`
+- **Cloud Deployment**: See `doc/CLOUD.md` for multi-tenant on niue.statbus.org
+- **Single-Instance Deployment**: See `doc/DEPLOYMENT.md` for standalone server setup
+- **Import System**: See `doc/import-system.md`
+- **Integration (API/PostgreSQL)**: See `doc/INTEGRATE.md`
