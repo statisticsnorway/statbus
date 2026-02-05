@@ -263,10 +263,10 @@ BEGIN
                     t.valid_from,
                     (t.valid_until - '1 day'::interval)::date AS valid_to,
                     t.valid_until,
-                    COALESCE(plu.name, pes.name, en.short_name) AS name,
+                    COALESCE(NULLIF(en.short_name::text, ''::text), plu.name::text, pes.name::text) AS name,
                     COALESCE(plu.birth_date, pes.birth_date) AS birth_date,
                     COALESCE(plu.death_date, pes.death_date) AS death_date,
-                    to_tsvector('simple'::regconfig, COALESCE(plu.name, pes.name, en.short_name)::text) AS search,
+                    to_tsvector('simple'::regconfig, COALESCE(NULLIF(en.short_name::text, ''::text), plu.name::text, pes.name::text)) AS search,
                     COALESCE(plu.primary_activity_category_id, pes.primary_activity_category_id) AS primary_activity_category_id,
                     COALESCE(plu.primary_activity_category_path, pes.primary_activity_category_path) AS primary_activity_category_path,
                     COALESCE(plu.primary_activity_category_code, pes.primary_activity_category_code) AS primary_activity_category_code,
@@ -321,9 +321,9 @@ BEGIN
                     COALESCE(plu.status_id, pes.status_id) AS status_id,
                     COALESCE(plu.status_code, pes.status_code) AS status_code,
                     COALESCE(plu.used_for_counting, pes.used_for_counting, false) AS used_for_counting,
-                    COALESCE(plu.last_edit_comment, pes.last_edit_comment, en.edit_comment) AS last_edit_comment,
-                    COALESCE(plu.last_edit_by_user_id, pes.last_edit_by_user_id, en.edit_by_user_id) AS last_edit_by_user_id,
-                    COALESCE(plu.last_edit_at, pes.last_edit_at, en.edit_at) AS last_edit_at,
+                    last_edit.edit_comment AS last_edit_comment,
+                    last_edit.edit_by_user_id AS last_edit_by_user_id,
+                    last_edit.edit_at AS last_edit_at,
                     COALESCE(plu.invalid_codes, pes.invalid_codes) AS invalid_codes,
                     plu.legal_unit_id IS NOT NULL AS has_legal_unit,
                     en.id AS enterprise_id,
@@ -338,7 +338,7 @@ BEGIN
                     WHERE tlu_f.enterprise_id = en.id
                       AND tlu_f.primary_for_enterprise = true
                       AND public.from_until_overlaps(t.valid_from, t.valid_until, tlu_f.valid_from, tlu_f.valid_until)
-                    ORDER BY tlu_f.legal_unit_id DESC
+                    ORDER BY tlu_f.valid_from DESC, tlu_f.legal_unit_id DESC
                     LIMIT 1
                 ) plu ON true
                 -- Use temp table for primary establishment lookup
@@ -348,9 +348,23 @@ BEGIN
                     WHERE tes_f.enterprise_id = en.id
                       AND tes_f.primary_for_enterprise = true
                       AND public.from_until_overlaps(t.valid_from, t.valid_until, tes_f.valid_from, tes_f.valid_until)
-                    ORDER BY tes_f.establishment_id DESC
+                    ORDER BY tes_f.valid_from DESC, tes_f.establishment_id DESC
                     LIMIT 1
                 ) pes ON true
+                -- Pick the most recent edit from enterprise, primary legal unit, or primary establishment
+                LEFT JOIN LATERAL (
+                    SELECT all_edits.edit_comment,
+                           all_edits.edit_by_user_id,
+                           all_edits.edit_at
+                    FROM ( VALUES
+                        (en.edit_comment, en.edit_by_user_id, en.edit_at),
+                        (plu.last_edit_comment, plu.last_edit_by_user_id, plu.last_edit_at),
+                        (pes.last_edit_comment, pes.last_edit_by_user_id, pes.last_edit_at)
+                    ) all_edits(edit_comment, edit_by_user_id, edit_at)
+                    WHERE all_edits.edit_at IS NOT NULL
+                    ORDER BY all_edits.edit_at DESC
+                    LIMIT 1
+                ) last_edit ON true
                 WHERE t.unit_id = ANY(v_unit_ids)
             ) basis
             JOIN aggregation ON basis.enterprise_id = aggregation.enterprise_id
