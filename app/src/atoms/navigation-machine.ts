@@ -262,15 +262,28 @@ export const navigationMachine = setup({
               handleSideEffectTimeout(context, event, 'redirectingToLogin')
             ),
           },
-          CLEAR_SIDE_EFFECT: {
-            // Clear sideEffect (called by polling for TOO FAST/TOO SLOW detection)
-            actions: assign(({ context }) => ({
-              ...context,
-              sideEffect: undefined,
-              sideEffectStartTime: undefined,
-              sideEffectStartPathname: undefined,
-            })),
-          }
+          CLEAR_SIDE_EFFECT: [
+            {
+              // TIMEOUT RECOVERY: Transition to evaluating to retry navigation.
+              target: 'evaluating',
+              guard: ({ event }) => event.reason === 'timeout',
+              actions: assign(({ context }) => ({
+                ...context,
+                sideEffect: undefined,
+                sideEffectStartTime: undefined,
+                sideEffectStartPathname: undefined,
+              })),
+            },
+            {
+              // FAST DETECTION: Just clear sideEffect, let always guards handle transition.
+              actions: assign(({ context }) => ({
+                ...context,
+                sideEffect: undefined,
+                sideEffectStartTime: undefined,
+                sideEffectStartPathname: undefined,
+              })),
+            },
+          ],
         },
       always: [
         {
@@ -309,15 +322,28 @@ export const navigationMachine = setup({
               handleSideEffectTimeout(context, event, 'redirectingToSetup')
             ),
           },
-          CLEAR_SIDE_EFFECT: {
-            // Clear sideEffect (called by polling for TOO FAST/TOO SLOW detection)
-            actions: assign(({ context }) => ({
-              ...context,
-              sideEffect: undefined,
-              sideEffectStartTime: undefined,
-              sideEffectStartPathname: undefined,
-            })),
-          }
+          CLEAR_SIDE_EFFECT: [
+            {
+              // TIMEOUT RECOVERY: Transition to evaluating to retry navigation.
+              target: 'evaluating',
+              guard: ({ event }) => event.reason === 'timeout',
+              actions: assign(({ context }) => ({
+                ...context,
+                sideEffect: undefined,
+                sideEffectStartTime: undefined,
+                sideEffectStartPathname: undefined,
+              })),
+            },
+            {
+              // FAST DETECTION: Just clear sideEffect, let always guards handle transition.
+              actions: assign(({ context }) => ({
+                ...context,
+                sideEffect: undefined,
+                sideEffectStartTime: undefined,
+                sideEffectStartPathname: undefined,
+              })),
+            },
+          ],
         },
       always: [
         {
@@ -475,15 +501,31 @@ export const navigationMachine = setup({
             handleSideEffectTimeout(context, event, 'redirectingFromLogin')
           ),
         },
-        CLEAR_SIDE_EFFECT: {
-          // Clear sideEffect (called by polling for TOO FAST/TOO SLOW detection)
-          actions: assign(({ context }) => ({
-            ...context,
-            sideEffect: undefined,
-            sideEffectStartTime: undefined,
-            sideEffectStartPathname: undefined,
-          })),
-        },
+        CLEAR_SIDE_EFFECT: [
+          {
+            // TIMEOUT RECOVERY: If navigation timed out, transition to evaluating to retry.
+            // This prevents the machine from getting stuck when router.push() succeeds
+            // but the pathname doesn't update (e.g., due to Next.js App Router issues).
+            target: 'evaluating',
+            guard: ({ event }) => event.reason === 'timeout',
+            actions: assign(({ context }) => ({
+              ...context,
+              sideEffect: undefined,
+              sideEffectStartTime: undefined,
+              sideEffectStartPathname: undefined,
+            })),
+          },
+          {
+            // FAST DETECTION: Navigation completed quickly, just clear sideEffect.
+            // The always guards will handle the transition to idle.
+            actions: assign(({ context }) => ({
+              ...context,
+              sideEffect: undefined,
+              sideEffectStartTime: undefined,
+              sideEffectStartPathname: undefined,
+            })),
+          },
+        ],
       },
       always: [
         {
