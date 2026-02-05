@@ -417,8 +417,8 @@ $statistical_unit_refresh$;
 -- Step 6: Update get_statistical_unit_data_partial to include valid_range in output
 -- The function returns SETOF statistical_unit, which now includes valid_range column.
 -- We compute it from valid_from/valid_until to match the table's GENERATED column.
-CREATE OR REPLACE FUNCTION import.get_statistical_unit_data_partial(p_unit_type statistical_unit_type, p_id_ranges int4multirange)
- RETURNS SETOF statistical_unit
+CREATE OR REPLACE FUNCTION import.get_statistical_unit_data_partial(p_unit_type public.statistical_unit_type, p_id_ranges int4multirange)
+ RETURNS SETOF public.statistical_unit
  LANGUAGE plpgsql
  STABLE
 AS $get_statistical_unit_data_partial$
