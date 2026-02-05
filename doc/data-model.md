@@ -231,6 +231,7 @@ The schema includes numerous helper views, often for UI dropdowns or specific da
 - `*_active*`: Views that filter for only the `active` records in a classification table.
 - `*__for_portion_of_valid*`: Helper view created by sql_saga for temporal REST updates (FOR PORTION OF).
 - `*_custom_only*`: Helper view for listing and loading custom classification data, separating it from system-provided data.
+- `*_staging*`: Internal staging table for bulk inserts, merged into main table at end of batch processing.
 
 
 ## Naming Conventions (from `CONVENTIONS.md`)

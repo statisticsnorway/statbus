@@ -33,7 +33,8 @@ DECLARE
         {"pattern": "%_ordered", "description": "Views providing a specific sort order for classifications, often for UI display."},
         {"pattern": "%_active", "description": "Views that filter for only the `active` records in a classification table."},
         {"pattern": "%__for_portion_of_valid", "description": "Helper view created by sql_saga for temporal REST updates (FOR PORTION OF)."},
-        {"pattern": "%_custom_only", "description": "Helper view for listing and loading custom classification data, separating it from system-provided data."}
+        {"pattern": "%_custom_only", "description": "Helper view for listing and loading custom classification data, separating it from system-provided data."},
+        {"pattern": "%_staging", "description": "Internal staging table for bulk inserts, merged into main table at end of batch processing."}
     ]'::jsonb;
     v_enum_record RECORD;
     v_enum_markdown TEXT;
@@ -357,11 +358,8 @@ SELECT 'Data model documentation generated in doc/data-model.md' AS result;
 
 -- Output the undocumented list as the test result
 SELECT :'undocumented';
-                                                                                    ?column?                                                                                     
----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
- ## Undocumented Entities                                                                                                                                                       +
- The following tables/views were found in the schema but are not yet documented. Please add them to a section or a helper pattern in `test/sql/015_generate_data_model_doc.sql`.+
-                                                                                                                                                                                +
- - `public.statistical_unit_staging` (TABLE)
+                          ?column?                           
+-------------------------------------------------------------
+ OK: All entities documented or covered by a helper pattern.
 (1 row)
 
