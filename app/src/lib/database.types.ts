@@ -3336,12 +3336,13 @@ export type Database = {
           status_code: string | null
           status_id: number | null
           tag_paths: string[] | null
-          unit_id: number | null
+          unit_id: number
           unit_size_code: string | null
           unit_size_id: number | null
-          unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
           used_for_counting: boolean | null
           valid_from: string | null
+          valid_range: string
           valid_to: string | null
           valid_until: string | null
           web_address: string | null
@@ -3422,12 +3423,13 @@ export type Database = {
           status_code?: string | null
           status_id?: number | null
           tag_paths?: string[] | null
-          unit_id?: number | null
+          unit_id: number
           unit_size_code?: string | null
           unit_size_id?: number | null
-          unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
           used_for_counting?: boolean | null
           valid_from?: string | null
+          valid_range: string
           valid_to?: string | null
           valid_until?: string | null
           web_address?: string | null
@@ -3508,12 +3510,13 @@ export type Database = {
           status_code?: string | null
           status_id?: number | null
           tag_paths?: string[] | null
-          unit_id?: number | null
+          unit_id?: number
           unit_size_code?: string | null
           unit_size_id?: number | null
-          unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
           used_for_counting?: boolean | null
           valid_from?: string | null
+          valid_range?: string
           valid_to?: string | null
           valid_until?: string | null
           web_address?: string | null

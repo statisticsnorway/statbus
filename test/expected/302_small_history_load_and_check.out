@@ -1016,6 +1016,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2016-01-01,2017-01-01)",                          +
                       |     "valid_until": "2017-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -1087,6 +1088,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2017-01-01,2018-01-01)",                          +
                       |     "valid_until": "2018-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -1158,6 +1160,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2018-01-01,infinity)",                            +
                       |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -1229,6 +1232,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2015-01-01,2016-01-01)",                          +
                       |     "valid_until": "2016-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -1300,6 +1304,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2016-01-01,infinity)",                            +
                       |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -1371,6 +1376,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2015-01-01,2017-01-01)",                          +
                       |     "valid_until": "2017-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -1442,6 +1448,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2017-01-01,2018-01-01)",                          +
                       |     "valid_until": "2018-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -1513,6 +1520,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2018-01-01,infinity)",                            +
                       |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -1584,6 +1592,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2016-01-01,2017-01-01)",                          +
                       |     "valid_until": "2017-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -1668,6 +1677,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2017-01-01,infinity)",                            +
                       |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -1752,6 +1762,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2015-01-01,2016-01-01)",                          +
                       |     "valid_until": "2016-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -1836,6 +1847,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2016-01-01,2018-01-01)",                          +
                       |     "valid_until": "2018-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -1920,6 +1932,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2018-01-01,infinity)",                            +
                       |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -2004,6 +2017,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2015-01-01,2016-01-01)",                          +
                       |     "valid_until": "2016-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -2088,6 +2102,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2016-01-01,infinity)",                            +
                       |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -2172,6 +2187,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2015-01-01,2017-01-01)",                          +
                       |     "valid_until": "2017-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -2242,6 +2258,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2017-01-01,2018-01-01)",                          +
                       |     "valid_until": "2018-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -2312,6 +2329,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2018-01-01,infinity)",                            +
                       |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -2382,6 +2400,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2015-01-01,2016-01-01)",                          +
                       |     "valid_until": "2016-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -2464,6 +2483,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Personlig næringsdrivende",                        +
                       |     "sector_path": "innl.e_hush.8200",                                 +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2016-01-01,2018-01-01)",                          +
                       |     "valid_until": "2018-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -2546,6 +2566,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Personlig næringsdrivende",                        +
                       |     "sector_path": "innl.e_hush.8200",                                 +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2018-01-01,infinity)",                            +
                       |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -2628,6 +2649,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Personlig næringsdrivende",                        +
                       |     "sector_path": "innl.e_hush.8200",                                 +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2016-01-01,2017-01-01)",                          +
                       |     "valid_until": "2017-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -2698,6 +2720,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Personlig næringsdrivende",                        +
                       |     "sector_path": "innl.e_hush.8200",                                 +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2017-01-01,2018-01-01)",                          +
                       |     "valid_until": "2018-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -2768,6 +2791,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Personlig næringsdrivende",                        +
                       |     "sector_path": "innl.e_hush.8200",                                 +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2018-01-01,infinity)",                            +
                       |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -2838,6 +2862,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Personlig næringsdrivende",                        +
                       |     "sector_path": "innl.e_hush.8200",                                 +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2015-01-01,2016-01-01)",                          +
                       |     "valid_until": "2016-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -2908,6 +2933,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Personlig næringsdrivende",                        +
                       |     "sector_path": "innl.e_hush.8200",                                 +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2016-01-01,infinity)",                            +
                       |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -2978,6 +3004,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2016-01-01,2017-01-01)",                          +
                       |     "valid_until": "2017-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -3061,6 +3088,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2017-01-01,2018-01-01)",                          +
                       |     "valid_until": "2018-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -3144,6 +3172,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2018-01-01,infinity)",                            +
                       |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -3227,6 +3256,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2015-01-01,2016-01-01)",                          +
                       |     "valid_until": "2016-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -3310,6 +3340,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2016-01-01,2018-01-01)",                          +
                       |     "valid_until": "2018-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -3393,6 +3424,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Ideelle organisasjoner",                           +
                       |     "sector_path": "innl.d_ideell.7000",                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2018-01-01,infinity)",                            +
                       |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -3476,6 +3508,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2015-01-01,2017-01-01)",                          +
                       |     "valid_until": "2017-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -3545,6 +3578,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2017-01-01,2018-01-01)",                          +
                       |     "valid_until": "2018-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -3614,6 +3648,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2018-01-01,infinity)",                            +
                       |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -3683,6 +3718,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2015-01-01,2016-01-01)",                          +
                       |     "valid_until": "2016-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -3764,6 +3800,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Personlig næringsdrivende",                        +
                       |     "sector_path": "innl.e_hush.8200",                                 +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2016-01-01,2018-01-01)",                          +
                       |     "valid_until": "2018-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -3845,6 +3882,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Personlig næringsdrivende",                        +
                       |     "sector_path": "innl.e_hush.8200",                                 +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2018-01-01,infinity)",                            +
                       |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -3926,6 +3964,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Personlig næringsdrivende",                        +
                       |     "sector_path": "innl.e_hush.8200",                                 +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2016-01-01,2017-01-01)",                          +
                       |     "valid_until": "2017-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -3995,6 +4034,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Personlig næringsdrivende",                        +
                       |     "sector_path": "innl.e_hush.8200",                                 +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2017-01-01,2018-01-01)",                          +
                       |     "valid_until": "2018-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -4064,6 +4104,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Personlig næringsdrivende",                        +
                       |     "sector_path": "innl.e_hush.8200",                                 +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2018-01-01,infinity)",                            +
                       |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -4133,6 +4174,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Personlig næringsdrivende",                        +
                       |     "sector_path": "innl.e_hush.8200",                                 +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2015-01-01,2016-01-01)",                          +
                       |     "valid_until": "2016-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -4202,6 +4244,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Personlig næringsdrivende",                        +
                       |     "sector_path": "innl.e_hush.8200",                                 +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2016-01-01,infinity)",                            +
                       |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -4271,6 +4314,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2016-01-01,2017-01-01)",                          +
                       |     "valid_until": "2017-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -4352,6 +4396,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2017-01-01,2018-01-01)",                          +
                       |     "valid_until": "2018-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -4433,6 +4478,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2018-01-01,infinity)",                            +
                       |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -4514,6 +4560,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2015-01-01,2016-01-01)",                          +
                       |     "valid_until": "2016-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -4595,6 +4642,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Private aksjeselskaper mv.",                       +
                       |     "sector_path": "innl.a_ikke_fin.2100",                             +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2016-01-01,2018-01-01)",                          +
                       |     "valid_until": "2018-01-01",                                       +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -4676,6 +4724,7 @@ statistical_unit_data | {                                                       
                       |     "sector_name": "Ideelle organisasjoner",                           +
                       |     "sector_path": "innl.d_ideell.7000",                               +
                       |     "status_code": "active",                                           +
+                      |     "valid_range": "[2018-01-01,infinity)",                            +
                       |     "valid_until": "infinity",                                         +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +

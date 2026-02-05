@@ -741,6 +741,7 @@ erDiagram
 		integer included_legal_unit_count
 		integer included_enterprise_count
 		ltree[] tag_paths
+		daterange valid_range
 	}
 	statistical_unit_facet["statistical_unit_facet"] {
 		date valid_from
