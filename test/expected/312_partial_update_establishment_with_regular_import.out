@@ -146,6 +146,10 @@ SELECT
 "Run worker processing for import jobs - Initial Load"
 CALL worker.process_tasks(p_queue => 'import');
 CALL worker.process_tasks(p_queue => 'analytics');
+NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created indices for stat_definition employees
+NOTICE:  Created indices for stat_definition turnover
 \echo "Taking snapshot of statistics before partial update (for the historical period being changed)"
 "Taking snapshot of statistics before partial update (for the historical period being changed)"
 CREATE TEMP TABLE stats_before_update AS
@@ -226,6 +230,10 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo "Run worker processing for analytics tasks - Partial Update"
 "Run worker processing for analytics tasks - Partial Update"
 CALL worker.process_tasks(p_queue => 'analytics');
+NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created indices for stat_definition employees
+NOTICE:  Created indices for stat_definition turnover
 \echo "Checking import data for partial update. Expecting all rows to be processed successfully."
 "Checking import data for partial update. Expecting all rows to be processed successfully."
 \x on

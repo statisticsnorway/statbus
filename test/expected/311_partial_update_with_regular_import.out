@@ -151,6 +151,10 @@ SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT 
 \echo "Run worker processing for analytics tasks - Initial Load"
 "Run worker processing for analytics tasks - Initial Load"
 CALL worker.process_tasks(p_queue => 'analytics');
+NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created indices for stat_definition employees
+NOTICE:  Created indices for stat_definition turnover
 \echo "Taking snapshot of statistics before partial update (for the historical period being changed)"
 "Taking snapshot of statistics before partial update (for the historical period being changed)"
 CREATE TEMP TABLE stats_before_update AS
@@ -229,6 +233,10 @@ SELECT slug, state, time_context_ident, total_rows, imported_rows, error IS NOT 
 \echo "Run worker processing for analytics tasks - Partial Update"
 "Run worker processing for analytics tasks - Partial Update"
 CALL worker.process_tasks(p_queue => 'analytics');
+NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created indices for stat_definition employees
+NOTICE:  Created indices for stat_definition turnover
 \echo "Checking import data for partial update. Expecting one error, and 8 successful updates with merge_status showing what was applied."
 "Checking import data for partial update. Expecting one error, and 8 successful updates with merge_status showing what was applied."
 \x on

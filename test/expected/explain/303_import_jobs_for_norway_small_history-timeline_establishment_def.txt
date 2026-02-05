@@ -27,16 +27,16 @@
                                                                      ->  Nested Loop Left Join
                                                                            Disabled: true
                                                                            ->  Hash Right Join
-                                                                                 Hash Cond: (s.id = es_1.sector_id)
-                                                                                 ->  Seq Scan on sector s
+                                                                                 Hash Cond: (st.id = es_1.status_id)
+                                                                                 ->  Seq Scan on status st
                                                                                  ->  Hash
                                                                                        ->  Hash Right Join
                                                                                              Hash Cond: (us.id = es_1.unit_size_id)
                                                                                              ->  Seq Scan on unit_size us
                                                                                              ->  Hash
                                                                                                    ->  Hash Right Join
-                                                                                                         Hash Cond: (st.id = es_1.status_id)
-                                                                                                         ->  Seq Scan on status st
+                                                                                                         Hash Cond: (s.id = es_1.sector_id)
+                                                                                                         ->  Seq Scan on sector s
                                                                                                          ->  Hash
                                                                                                                ->  Nested Loop
                                                                                                                      Disabled: true
@@ -50,16 +50,16 @@
                                                                                                                                              ->  Sort
                                                                                                                                                    Sort Key: t_1.unit_id, t_1.valid_from
                                                                                                                                                    ->  Hash Join
-                                                                                                                                                         Hash Cond: (sfu.stat_definition_id = sd.id)
-                                                                                                                                                         ->  Hash Join
-                                                                                                                                                               Hash Cond: (sfu.establishment_id = t_1.unit_id)
-                                                                                                                                                               Join Filter: ((t_1.valid_from < sfu.valid_until) AND (sfu.valid_from < t_1.valid_until))
-                                                                                                                                                               ->  Seq Scan on stat_for_unit sfu
-                                                                                                                                                               ->  Hash
-                                                                                                                                                                     ->  Seq Scan on timesegments t_1
-                                                                                                                                                                           Filter: (unit_type = 'establishment'::statistical_unit_type)
+                                                                                                                                                         Hash Cond: (sd.id = sfu.stat_definition_id)
+                                                                                                                                                         ->  Seq Scan on stat_definition sd
                                                                                                                                                          ->  Hash
-                                                                                                                                                               ->  Seq Scan on stat_definition sd
+                                                                                                                                                               ->  Hash Join
+                                                                                                                                                                     Hash Cond: (sfu.establishment_id = t_1.unit_id)
+                                                                                                                                                                     Join Filter: ((t_1.valid_from < sfu.valid_until) AND (sfu.valid_from < t_1.valid_until))
+                                                                                                                                                                     ->  Seq Scan on stat_for_unit sfu
+                                                                                                                                                                     ->  Hash
+                                                                                                                                                                           ->  Seq Scan on timesegments t_1
+                                                                                                                                                                                 Filter: (unit_type = 'establishment'::statistical_unit_type)
                                                                                                                      ->  Limit
                                                                                                                            ->  Sort
                                                                                                                                  Sort Key: es_1.valid_from DESC
@@ -80,36 +80,36 @@
                                                                                        Sort Key: a_1.id DESC
                                                                                        ->  Seq Scan on activity a_1
                                                                                              Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (establishment_id = es_1.id) AND (type = 'secondary'::activity_type))
-                                                   ->  Hash Right Join
-                                                         Hash Cond: (phr.id = phl.region_id)
-                                                         ->  Seq Scan on region phr
-                                                         ->  Hash
-                                                               ->  Hash Right Join
-                                                                     Hash Cond: (phc.id = phl.country_id)
-                                                                     ->  Seq Scan on country phc
-                                                                     ->  Hash
-                                                                           ->  Subquery Scan on phl
-                                                                                 ->  Limit
-                                                                                       ->  Sort
-                                                                                             Sort Key: l.id DESC
-                                                                                             ->  Index Scan using ix_location_type on location l
-                                                                                                   Index Cond: (type = 'physical'::location_type)
-                                                                                                   Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (establishment_id = es_1.id))
-                                             ->  Hash Right Join
-                                                   Hash Cond: (por.id = pol.region_id)
-                                                   ->  Seq Scan on region por
-                                                   ->  Hash
+                                                   ->  Hash Left Join
+                                                         Hash Cond: (phl.region_id = phr.id)
                                                          ->  Hash Right Join
-                                                               Hash Cond: (poc.id = pol.country_id)
-                                                               ->  Seq Scan on country poc
+                                                               Hash Cond: (phc.id = phl.country_id)
+                                                               ->  Seq Scan on country phc
                                                                ->  Hash
-                                                                     ->  Subquery Scan on pol
+                                                                     ->  Subquery Scan on phl
                                                                            ->  Limit
                                                                                  ->  Sort
-                                                                                       Sort Key: l_1.id DESC
-                                                                                       ->  Index Scan using ix_location_type on location l_1
-                                                                                             Index Cond: (type = 'postal'::location_type)
-                                                                                             Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (establishment_id = es_1.id))
+                                                                                       Sort Key: l.id DESC
+                                                                                       ->  Index Scan using location_type_establishment_id_valid on location l
+                                                                                             Index Cond: ((type = 'physical'::location_type) AND (establishment_id = es_1.id))
+                                                                                             Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until))
+                                                         ->  Hash
+                                                               ->  Index Scan using region_pkey on region phr
+                                             ->  Hash Left Join
+                                                   Hash Cond: (pol.region_id = por.id)
+                                                   ->  Hash Right Join
+                                                         Hash Cond: (poc.id = pol.country_id)
+                                                         ->  Seq Scan on country poc
+                                                         ->  Hash
+                                                               ->  Subquery Scan on pol
+                                                                     ->  Limit
+                                                                           ->  Sort
+                                                                                 Sort Key: l_1.id DESC
+                                                                                 ->  Index Scan using location_type_establishment_id_valid on location l_1
+                                                                                       Index Cond: ((type = 'postal'::location_type) AND (establishment_id = es_1.id))
+                                                                                       Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until))
+                                                   ->  Hash
+                                                         ->  Index Scan using region_pkey on region por
                                        ->  Limit
                                              ->  Sort
                                                    Sort Key: c_1.id DESC

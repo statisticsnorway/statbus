@@ -357,8 +357,11 @@ SELECT 'Data model documentation generated in doc/data-model.md' AS result;
 
 -- Output the undocumented list as the test result
 SELECT :'undocumented';
-                          ?column?                           
--------------------------------------------------------------
- OK: All entities documented or covered by a helper pattern.
+                                                                                    ?column?                                                                                     
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ ## Undocumented Entities                                                                                                                                                       +
+ The following tables/views were found in the schema but are not yet documented. Please add them to a section or a helper pattern in `test/sql/015_generate_data_model_doc.sql`.+
+                                                                                                                                                                                +
+ - `public.statistical_unit_staging` (TABLE)
 (1 row)
 

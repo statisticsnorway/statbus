@@ -3568,6 +3568,267 @@ export type Database = {
         },
         Relationships: []
       },
+      statistical_unit_staging: {
+        Row: {
+          activity_category_paths: string[] | null
+          birth_date: string | null
+          data_source_codes: string[] | null
+          data_source_ids: number[] | null
+          death_date: string | null
+          domestic: boolean | null
+          email_address: string | null
+          excluded_enterprise_ids: number[] | null
+          excluded_establishment_ids: number[] | null
+          excluded_legal_unit_ids: number[] | null
+          external_idents: Json | null
+          fax_number: string | null
+          has_legal_unit: boolean | null
+          included_enterprise_count: number | null
+          included_enterprise_ids: number[] | null
+          included_establishment_count: number | null
+          included_establishment_ids: number[] | null
+          included_legal_unit_count: number | null
+          included_legal_unit_ids: number[] | null
+          invalid_codes: Json | null
+          landline: string | null
+          last_edit_at: string | null
+          last_edit_by_user_id: number | null
+          last_edit_comment: string | null
+          legal_form_code: string | null
+          legal_form_id: number | null
+          legal_form_name: string | null
+          mobile_number: string | null
+          name: string | null
+          phone_number: string | null
+          physical_address_part1: string | null
+          physical_address_part2: string | null
+          physical_address_part3: string | null
+          physical_altitude: number | null
+          physical_country_id: number | null
+          physical_country_iso_2: string | null
+          physical_latitude: number | null
+          physical_longitude: number | null
+          physical_postcode: string | null
+          physical_postplace: string | null
+          physical_region_code: string | null
+          physical_region_id: number | null
+          physical_region_path: string | null
+          postal_address_part1: string | null
+          postal_address_part2: string | null
+          postal_address_part3: string | null
+          postal_altitude: number | null
+          postal_country_id: number | null
+          postal_country_iso_2: string | null
+          postal_latitude: number | null
+          postal_longitude: number | null
+          postal_postcode: string | null
+          postal_postplace: string | null
+          postal_region_code: string | null
+          postal_region_id: number | null
+          postal_region_path: string | null
+          primary_activity_category_code: string | null
+          primary_activity_category_id: number | null
+          primary_activity_category_path: string | null
+          related_enterprise_ids: number[] | null
+          related_establishment_ids: number[] | null
+          related_legal_unit_ids: number[] | null
+          search: string | null
+          secondary_activity_category_code: string | null
+          secondary_activity_category_id: number | null
+          secondary_activity_category_path: string | null
+          sector_code: string | null
+          sector_id: number | null
+          sector_name: string | null
+          sector_path: string | null
+          stats: Json | null
+          stats_summary: Json | null
+          status_code: string | null
+          status_id: number | null
+          tag_paths: string[] | null
+          unit_id: number
+          unit_size_code: string | null
+          unit_size_id: number | null
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+          used_for_counting: boolean | null
+          valid_from: string | null
+          valid_to: string | null
+          valid_until: string | null
+          web_address: string | null
+        },
+        Insert: {
+          activity_category_paths?: string[] | null
+          birth_date?: string | null
+          data_source_codes?: string[] | null
+          data_source_ids?: number[] | null
+          death_date?: string | null
+          domestic?: boolean | null
+          email_address?: string | null
+          excluded_enterprise_ids?: number[] | null
+          excluded_establishment_ids?: number[] | null
+          excluded_legal_unit_ids?: number[] | null
+          external_idents?: Json | null
+          fax_number?: string | null
+          has_legal_unit?: boolean | null
+          included_enterprise_count?: number | null
+          included_enterprise_ids?: number[] | null
+          included_establishment_count?: number | null
+          included_establishment_ids?: number[] | null
+          included_legal_unit_count?: number | null
+          included_legal_unit_ids?: number[] | null
+          invalid_codes?: Json | null
+          landline?: string | null
+          last_edit_at?: string | null
+          last_edit_by_user_id?: number | null
+          last_edit_comment?: string | null
+          legal_form_code?: string | null
+          legal_form_id?: number | null
+          legal_form_name?: string | null
+          mobile_number?: string | null
+          name?: string | null
+          phone_number?: string | null
+          physical_address_part1?: string | null
+          physical_address_part2?: string | null
+          physical_address_part3?: string | null
+          physical_altitude?: number | null
+          physical_country_id?: number | null
+          physical_country_iso_2?: string | null
+          physical_latitude?: number | null
+          physical_longitude?: number | null
+          physical_postcode?: string | null
+          physical_postplace?: string | null
+          physical_region_code?: string | null
+          physical_region_id?: number | null
+          physical_region_path?: string | null
+          postal_address_part1?: string | null
+          postal_address_part2?: string | null
+          postal_address_part3?: string | null
+          postal_altitude?: number | null
+          postal_country_id?: number | null
+          postal_country_iso_2?: string | null
+          postal_latitude?: number | null
+          postal_longitude?: number | null
+          postal_postcode?: string | null
+          postal_postplace?: string | null
+          postal_region_code?: string | null
+          postal_region_id?: number | null
+          postal_region_path?: string | null
+          primary_activity_category_code?: string | null
+          primary_activity_category_id?: number | null
+          primary_activity_category_path?: string | null
+          related_enterprise_ids?: number[] | null
+          related_establishment_ids?: number[] | null
+          related_legal_unit_ids?: number[] | null
+          search?: string | null
+          secondary_activity_category_code?: string | null
+          secondary_activity_category_id?: number | null
+          secondary_activity_category_path?: string | null
+          sector_code?: string | null
+          sector_id?: number | null
+          sector_name?: string | null
+          sector_path?: string | null
+          stats?: Json | null
+          stats_summary?: Json | null
+          status_code?: string | null
+          status_id?: number | null
+          tag_paths?: string[] | null
+          unit_id: number
+          unit_size_code?: string | null
+          unit_size_id?: number | null
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+          used_for_counting?: boolean | null
+          valid_from?: string | null
+          valid_to?: string | null
+          valid_until?: string | null
+          web_address?: string | null
+        },
+        Update: {
+          activity_category_paths?: string[] | null
+          birth_date?: string | null
+          data_source_codes?: string[] | null
+          data_source_ids?: number[] | null
+          death_date?: string | null
+          domestic?: boolean | null
+          email_address?: string | null
+          excluded_enterprise_ids?: number[] | null
+          excluded_establishment_ids?: number[] | null
+          excluded_legal_unit_ids?: number[] | null
+          external_idents?: Json | null
+          fax_number?: string | null
+          has_legal_unit?: boolean | null
+          included_enterprise_count?: number | null
+          included_enterprise_ids?: number[] | null
+          included_establishment_count?: number | null
+          included_establishment_ids?: number[] | null
+          included_legal_unit_count?: number | null
+          included_legal_unit_ids?: number[] | null
+          invalid_codes?: Json | null
+          landline?: string | null
+          last_edit_at?: string | null
+          last_edit_by_user_id?: number | null
+          last_edit_comment?: string | null
+          legal_form_code?: string | null
+          legal_form_id?: number | null
+          legal_form_name?: string | null
+          mobile_number?: string | null
+          name?: string | null
+          phone_number?: string | null
+          physical_address_part1?: string | null
+          physical_address_part2?: string | null
+          physical_address_part3?: string | null
+          physical_altitude?: number | null
+          physical_country_id?: number | null
+          physical_country_iso_2?: string | null
+          physical_latitude?: number | null
+          physical_longitude?: number | null
+          physical_postcode?: string | null
+          physical_postplace?: string | null
+          physical_region_code?: string | null
+          physical_region_id?: number | null
+          physical_region_path?: string | null
+          postal_address_part1?: string | null
+          postal_address_part2?: string | null
+          postal_address_part3?: string | null
+          postal_altitude?: number | null
+          postal_country_id?: number | null
+          postal_country_iso_2?: string | null
+          postal_latitude?: number | null
+          postal_longitude?: number | null
+          postal_postcode?: string | null
+          postal_postplace?: string | null
+          postal_region_code?: string | null
+          postal_region_id?: number | null
+          postal_region_path?: string | null
+          primary_activity_category_code?: string | null
+          primary_activity_category_id?: number | null
+          primary_activity_category_path?: string | null
+          related_enterprise_ids?: number[] | null
+          related_establishment_ids?: number[] | null
+          related_legal_unit_ids?: number[] | null
+          search?: string | null
+          secondary_activity_category_code?: string | null
+          secondary_activity_category_id?: number | null
+          secondary_activity_category_path?: string | null
+          sector_code?: string | null
+          sector_id?: number | null
+          sector_name?: string | null
+          sector_path?: string | null
+          stats?: Json | null
+          stats_summary?: Json | null
+          status_code?: string | null
+          status_id?: number | null
+          tag_paths?: string[] | null
+          unit_id?: number
+          unit_size_code?: string | null
+          unit_size_id?: number | null
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
+          used_for_counting?: boolean | null
+          valid_from?: string | null
+          valid_to?: string | null
+          valid_until?: string | null
+          web_address?: string | null
+        },
+        Relationships: []
+      },
       status: {
         Row: {
           active: boolean
@@ -11014,15 +11275,6 @@ export type Database = {
         Returns: string
       },
       get_closed_group_batches: {
-        Args: {
-          p_target_batch_size?: number
-          p_establishment_ids?: number[]
-          p_legal_unit_ids?: number[]
-          p_enterprise_ids?: number[]
-        }
-        Returns: Record<string, unknown>[]
-      }
-        | {
         Args: {
           p_target_batch_size?: number
           p_establishment_ids?: number[]
