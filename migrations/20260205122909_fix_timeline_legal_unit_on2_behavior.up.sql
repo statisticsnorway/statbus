@@ -34,23 +34,24 @@ BEGIN
         -- Partial refresh: Pre-materialize filtered timeline_establishment to avoid O(n²) scan
         v_unit_ids := public.int4multirange_to_array(p_unit_id_ranges);
 
-        -- Drop temp table if exists from previous run (use to_regclass to avoid NOTICE)
-        IF to_regclass('pg_temp.timeline_establishment_filtered') IS NOT NULL THEN
-            DROP TABLE pg_temp.timeline_establishment_filtered;
-        END IF;
+        -- Drop staging table if exists from previous run (silent, no NOTICE)
+        PERFORM set_config('client_min_messages', 'warning', true);
+        DROP TABLE IF EXISTS public.timeline_establishment_filtered;
+        PERFORM set_config('client_min_messages', 'notice', true);
 
         -- Pre-filter timeline_establishment to only rows for these legal units
         -- This is O(m) where m = establishments linked to these legal units
-        CREATE TEMP TABLE pg_temp.timeline_establishment_filtered AS
+        -- Use UNLOGGED for cross-session visibility (enables concurrency > 1)
+        CREATE UNLOGGED TABLE public.timeline_establishment_filtered AS
         SELECT tes.*
         FROM public.timeline_establishment tes
         WHERE tes.legal_unit_id = ANY(v_unit_ids);
 
-        -- Create index on the temp table for the join
-        CREATE INDEX ON pg_temp.timeline_establishment_filtered (legal_unit_id, valid_from, valid_until);
+        -- Create index on the staging table for the join
+        CREATE INDEX ON public.timeline_establishment_filtered (legal_unit_id, valid_from, valid_until);
 
-        -- ANALYZE the temp table for good query plans
-        ANALYZE pg_temp.timeline_establishment_filtered;
+        -- ANALYZE the staging table for good query plans
+        ANALYZE public.timeline_establishment_filtered;
 
         -- Delete existing rows for these units
         DELETE FROM public.timeline_legal_unit
@@ -428,16 +429,17 @@ BEGIN
                    array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL AND NOT tes.used_for_counting) AS excluded_establishment_ids,
                    array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL AND tes.used_for_counting) AS included_establishment_ids,
                    public.jsonb_stats_summary_merge_agg(tes.stats_summary) FILTER (WHERE tes.used_for_counting) AS stats_summary
-                  FROM pg_temp.timeline_establishment_filtered tes
+                  FROM public.timeline_establishment_filtered tes
                  WHERE tes.legal_unit_id = basis.legal_unit_id
                    AND public.from_until_overlaps(basis.src_valid_from, basis.src_valid_until, tes.valid_from, tes.valid_until)
                  GROUP BY tes.legal_unit_id) esa ON true
          ORDER BY basis.src_unit_type, basis.src_unit_id, basis.src_valid_from;
 
         -- Clean up temp table (use to_regclass to avoid NOTICE)
-        IF to_regclass('pg_temp.timeline_establishment_filtered') IS NOT NULL THEN
-            DROP TABLE pg_temp.timeline_establishment_filtered;
-        END IF;
+        -- Clean up staging table (silent, no NOTICE)
+        PERFORM set_config('client_min_messages', 'warning', true);
+        DROP TABLE IF EXISTS public.timeline_establishment_filtered;
+        PERFORM set_config('client_min_messages', 'notice', true);
     END IF;
 END;
 $timeline_legal_unit_refresh$;

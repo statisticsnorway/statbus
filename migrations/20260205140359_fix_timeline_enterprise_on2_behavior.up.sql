@@ -68,33 +68,32 @@ BEGIN
         -- Partial refresh: Pre-materialize filtered tables to avoid O(n²) scan
         v_unit_ids := public.int4multirange_to_array(p_unit_id_ranges);
 
-        -- Drop temp tables if exist from previous run (use to_regclass to avoid NOTICE)
-        IF to_regclass('pg_temp.timeline_legal_unit_filtered') IS NOT NULL THEN
-            DROP TABLE pg_temp.timeline_legal_unit_filtered;
-        END IF;
-        IF to_regclass('pg_temp.timeline_establishment_filtered') IS NOT NULL THEN
-            DROP TABLE pg_temp.timeline_establishment_filtered;
-        END IF;
+        -- Drop staging tables if exist from previous run (silent, no NOTICE)
+        PERFORM set_config('client_min_messages', 'warning', true);
+        DROP TABLE IF EXISTS public.timeline_legal_unit_filtered;
+        DROP TABLE IF EXISTS public.timeline_establishment_filtered;
+        PERFORM set_config('client_min_messages', 'notice', true);
 
         -- Pre-filter timeline_legal_unit to only rows for these enterprises
-        CREATE TEMP TABLE pg_temp.timeline_legal_unit_filtered AS
+        -- Use UNLOGGED for cross-session visibility (enables concurrency > 1)
+        CREATE UNLOGGED TABLE public.timeline_legal_unit_filtered AS
         SELECT tlu.*
         FROM public.timeline_legal_unit tlu
         WHERE tlu.enterprise_id = ANY(v_unit_ids);
 
         -- Create index for the join
-        CREATE INDEX ON pg_temp.timeline_legal_unit_filtered (enterprise_id, valid_from, valid_until);
-        ANALYZE pg_temp.timeline_legal_unit_filtered;
+        CREATE INDEX ON public.timeline_legal_unit_filtered (enterprise_id, valid_from, valid_until);
+        ANALYZE public.timeline_legal_unit_filtered;
 
         -- Pre-filter timeline_establishment to only rows for these enterprises
-        CREATE TEMP TABLE pg_temp.timeline_establishment_filtered AS
+        CREATE UNLOGGED TABLE public.timeline_establishment_filtered AS
         SELECT tes.*
         FROM public.timeline_establishment tes
         WHERE tes.enterprise_id = ANY(v_unit_ids);
 
         -- Create index for the join
-        CREATE INDEX ON pg_temp.timeline_establishment_filtered (enterprise_id, valid_from, valid_until);
-        ANALYZE pg_temp.timeline_establishment_filtered;
+        CREATE INDEX ON public.timeline_establishment_filtered (enterprise_id, valid_from, valid_until);
+        ANALYZE public.timeline_establishment_filtered;
 
         -- Delete existing rows for these units
         DELETE FROM public.timeline_enterprise
@@ -146,7 +145,7 @@ BEGIN
                     array_agg(DISTINCT tlu_f.legal_unit_id) FILTER (WHERE NOT tlu_f.used_for_counting) AS excluded_legal_unit_ids,
                     array_agg(DISTINCT tlu_f.legal_unit_id) FILTER (WHERE tlu_f.used_for_counting) AS included_legal_unit_ids,
                     public.jsonb_stats_summary_merge_agg(tlu_f.stats_summary) FILTER (WHERE tlu_f.used_for_counting) AS stats_summary
-                FROM pg_temp.timeline_legal_unit_filtered tlu_f
+                FROM public.timeline_legal_unit_filtered tlu_f
                 WHERE tlu_f.enterprise_id = ten.enterprise_id
                   AND public.from_until_overlaps(ten.valid_from, ten.valid_until, tlu_f.valid_from, tlu_f.valid_until)
                 GROUP BY tlu_f.enterprise_id, ten.valid_from, ten.valid_until
@@ -162,7 +161,7 @@ BEGIN
                     array_agg(DISTINCT tes_f.establishment_id) FILTER (WHERE NOT tes_f.used_for_counting) AS excluded_establishment_ids,
                     array_agg(DISTINCT tes_f.establishment_id) FILTER (WHERE tes_f.used_for_counting) AS included_establishment_ids,
                     public.jsonb_stats_summary_merge_agg(tes_f.stats_summary) FILTER (WHERE tes_f.used_for_counting) AS stats_summary
-                FROM pg_temp.timeline_establishment_filtered tes_f
+                FROM public.timeline_establishment_filtered tes_f
                 WHERE tes_f.enterprise_id = ten.enterprise_id
                   AND public.from_until_overlaps(ten.valid_from, ten.valid_until, tes_f.valid_from, tes_f.valid_until)
                 GROUP BY tes_f.enterprise_id, ten.valid_from, ten.valid_until
@@ -334,7 +333,7 @@ BEGIN
                 -- Use temp table for primary legal unit lookup
                 LEFT JOIN LATERAL (
                     SELECT tlu_f.*
-                    FROM pg_temp.timeline_legal_unit_filtered tlu_f
+                    FROM public.timeline_legal_unit_filtered tlu_f
                     WHERE tlu_f.enterprise_id = en.id
                       AND tlu_f.primary_for_enterprise = true
                       AND public.from_until_overlaps(t.valid_from, t.valid_until, tlu_f.valid_from, tlu_f.valid_until)
@@ -344,7 +343,7 @@ BEGIN
                 -- Use temp table for primary establishment lookup
                 LEFT JOIN LATERAL (
                     SELECT tes_f.*
-                    FROM pg_temp.timeline_establishment_filtered tes_f
+                    FROM public.timeline_establishment_filtered tes_f
                     WHERE tes_f.enterprise_id = en.id
                       AND tes_f.primary_for_enterprise = true
                       AND public.from_until_overlaps(t.valid_from, t.valid_until, tes_f.valid_from, tes_f.valid_until)
@@ -456,13 +455,11 @@ BEGIN
         FROM enterprise_with_primary_and_aggregation
         ORDER BY unit_type, unit_id, valid_from;
 
-        -- Clean up temp tables
-        IF to_regclass('pg_temp.timeline_legal_unit_filtered') IS NOT NULL THEN
-            DROP TABLE pg_temp.timeline_legal_unit_filtered;
-        END IF;
-        IF to_regclass('pg_temp.timeline_establishment_filtered') IS NOT NULL THEN
-            DROP TABLE pg_temp.timeline_establishment_filtered;
-        END IF;
+        -- Clean up staging tables (silent, no NOTICE)
+        PERFORM set_config('client_min_messages', 'warning', true);
+        DROP TABLE IF EXISTS public.timeline_legal_unit_filtered;
+        DROP TABLE IF EXISTS public.timeline_establishment_filtered;
+        PERFORM set_config('client_min_messages', 'notice', true);
     END IF;
 END;
 $timeline_enterprise_refresh$;
