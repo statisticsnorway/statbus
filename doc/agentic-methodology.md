@@ -9,7 +9,7 @@ This document describes a proven methodology for coordinating multiple AI agents
 ### 1. **Focused Agent Specialization**
 Each agent receives a narrow, well-defined scope with minimal context to prevent:
 - Scope creep beyond intended functionality
-- Over-engineering of solutions  
+- Over-engineering of solutions
 - Analysis paralysis from too much information
 - Conflicting approaches within single implementations
 
@@ -36,10 +36,10 @@ Information flows between agents through standardized handoff files rather than 
 ```
 Phase 1: Foundation
 ├── Agent 1A: Schema Design → tmp/agent_handoff_schema.md
-├── Agent 1B: Recovery Logic → tmp/agent_handoff_recovery.md  
+├── Agent 1B: Recovery Logic → tmp/agent_handoff_recovery.md
 └── Agent 1C: Verification → tmp/verification_foundation.md
 
-Phase 2: Pilot Implementation  
+Phase 2: Pilot Implementation
 ├── Agent 2A: Step Analysis → tmp/agent_handoff_step_analysis.md
 ├── Agent 2B: Conversion → tmp/agent_handoff_converted_procedure.md
 ├── Agent 2C: Testing → tmp/agent_handoff_pilot_test.md
@@ -47,7 +47,7 @@ Phase 2: Pilot Implementation
 
 Phase 3: Production Deployment
 ├── Agent 3A: Migration Creation
-├── Agent 3B: Test Framework  
+├── Agent 3B: Test Framework
 └── Agent 3C: Final Review
 ```
 
@@ -55,7 +55,7 @@ Phase 3: Production Deployment
 
 #### **Global Context Files**
 - `tmp/implementation_status.md` - Overall progress and decisions
-- `tmp/current_migration_context.md` - Technical requirements and constraints  
+- `tmp/current_migration_context.md` - Technical requirements and constraints
 - `tmp/verification_checklist.md` - Quality gates and success criteria
 
 #### **Agent Handoff Files**
@@ -79,7 +79,7 @@ Phase 3: Production Deployment
 AGENT TASK TEMPLATE:
 
 **Mission**: Single focused objective
-**Context**: Read only relevant tmp/handoff files  
+**Context**: Read only relevant tmp/handoff files
 **Focused Task**: 3-4 specific deliverables
 **Technical Constraints**: Hard boundaries and limitations
 **Output**: Structured deliverable in tmp/agent_handoff_*.md
@@ -101,16 +101,16 @@ Agents access broader context through search rather than full consumption:
 ```
 Agent Receives:
 ├── Direct Handoff: tmp/agent_handoff_previous.md (always read)
-├── Global Context: tmp/implementation_status.md (always read)  
+├── Global Context: tmp/implementation_status.md (always read)
 ├── Focused Context: tmp/current_migration_context.md (always read)
 └── Search-Based Access: Query broader context when specific info needed
 ```
 
 **Search Patterns Used**:
-- **Technical Details**: "Find batch size settings" → discovers analysis_batch_size = 32768
-- **Implementation Patterns**: "Find UPDATE operations" → locates specific SQL patterns
-- **Integration Points**: "Find worker scheduling" → identifies admin.import_job_* functions
-- **Error Handling**: "Find error propagation" → discovers existing error patterns
+- **Technical Details**: "Find batch size settings" -> discovers analysis_batch_size = 32768
+- **Implementation Patterns**: "Find UPDATE operations" -> locates specific SQL patterns
+- **Integration Points**: "Find worker scheduling" -> identifies admin.import_job_* functions
+- **Error Handling**: "Find error propagation" -> discovers existing error patterns
 
 #### **Context Handoff Patterns**
 
@@ -119,7 +119,7 @@ Agent Receives:
 Agent 1A: Schema Design
 ↓ (tmp/agent_handoff_schema.md)
 Agent 1B: Recovery Logic (reads schema + searches for recovery patterns)
-↓ (tmp/agent_handoff_recovery.md)  
+↓ (tmp/agent_handoff_recovery.md)
 Agent 1C: Verification (reads both + searches for integration requirements)
 ```
 
@@ -136,7 +136,7 @@ Agent 2D: Verification (reads all outputs + searches for production patterns)
 **Convergence Points**: Verification agents integrate multiple streams:
 ```
 Foundation Components → Verification Agent → Go/No-Go Decision
-Implementation Assets → Verification Agent → Production Readiness  
+Implementation Assets → Verification Agent → Production Readiness
 Test Results + Code → Verification Agent → Deployment Recommendation
 ```
 
@@ -145,7 +145,7 @@ Dedicated coordination agent periodically reviews entire accumulated context:
 ```
 Context Oversight Agent:
 ├── Reviews: All tmp/agent_handoff_*.md files
-├── Reviews: All tmp/verification_*.md files  
+├── Reviews: All tmp/verification_*.md files
 ├── Reviews: tmp/implementation_status.md timeline
 ├── Searches: Codebase for consistency with agent outputs
 └── Outputs: tmp/strategic_context_review.md with:
@@ -171,7 +171,7 @@ Context Oversight Agent:
 
 ### **Maintained Solution Quality**
 - Each agent delivered focused, high-quality output within scope
-- No single agent became overwhelmed by entire problem complexity  
+- No single agent became overwhelmed by entire problem complexity
 - Clear decision points prevented continued investment in failed approaches
 - Reusable components (testing framework, schema designs) created for future iterations
 
@@ -201,7 +201,7 @@ Context Oversight Agent:
 - Agent 2C found real job data (3,924 processing rows) for empirical testing rather than creating synthetic data
 - Verification agents could cross-reference claims against actual codebase implementation
 
-### **Empirical Validation Requirement** 
+### **Empirical Validation Requirement**
 - All performance claims must be measured with real data
 - Theoretical calculations validated against actual system behavior
 - Failed optimizations caught before production deployment
@@ -228,35 +228,35 @@ Context Oversight Agent:
 ## Anti-Patterns Avoided
 
 ### **Single Agent Overwhelm**
-- ❌ One agent trying to solve entire complex problem
-- ✅ Multiple specialized agents with focused scopes
+- Don't: One agent trying to solve entire complex problem
+- Do: Multiple specialized agents with focused scopes
 
 ### **Theoretical Optimization**
-- ❌ Assuming performance improvements based on calculations
-- ✅ Requiring empirical validation with real data
+- Don't: Assuming performance improvements based on calculations
+- Do: Requiring empirical validation with real data
 
 ### **Scope Creep**
-- ❌ Agents expanding beyond defined responsibilities
-- ✅ Clear boundaries and handoff specifications
+- Don't: Agents expanding beyond defined responsibilities
+- Do: Clear boundaries and handoff specifications
 
 ### **Integration Surprises**
-- ❌ Discovering incompatibilities at final deployment
-- ✅ Verification agents checking integration at each phase
+- Don't: Discovering incompatibilities at final deployment
+- Do: Verification agents checking integration at each phase
 
 ### **Context Information Overload**
-- ❌ Agents reading all accumulated context and getting overwhelmed
-- ✅ Selective context access through search-based retrieval
+- Don't: Agents reading all accumulated context and getting overwhelmed
+- Do: Selective context access through search-based retrieval
 
 ### **Context Inconsistency**
-- ❌ Agent outputs contradicting each other without detection
-- ✅ Strategic oversight agent ensuring global coherence
+- Don't: Agent outputs contradicting each other without detection
+- Do: Strategic oversight agent ensuring global coherence
 
 ## Lessons Learned
 
 ### **Simplicity Often Wins**
 Complex optimizations (UNLOGGED tables, additional tracking) can create more overhead than they eliminate. Simple approaches (batch size increases, existing hot-patches) often provide better results with lower risk.
 
-### **Testing Infrastructure is Valuable**  
+### **Testing Infrastructure is Valuable**
 Even failed optimizations can produce valuable testing frameworks and measurement tools that enable future successful optimization attempts.
 
 ### **Agent Coordination Scales**
@@ -269,7 +269,7 @@ Catching a failed optimization in pilot phase (rather than production) represent
 
 This methodology applies to complex software engineering problems that:
 - Require multiple technical disciplines (schema design, performance optimization, testing, deployment)
-- Have high consequences for failure (production systems, performance-critical applications)  
+- Have high consequences for failure (production systems, performance-critical applications)
 - Benefit from iterative development with validation gates
 - Need systematic knowledge transfer between solution phases
 - Require empirical validation of theoretical improvements
