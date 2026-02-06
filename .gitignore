@@ -497,6 +497,8 @@ app/tmp/
 
 # Ignore AI tool files, except those useful.
 .aider*
+!.aider.conf.yml
+!.aiderignore
 # Claude Code: ignore local settings, but keep rules (committed conventions)
 .claude/settings.local.json
 .claude/todos.local.json
