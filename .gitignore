@@ -489,11 +489,17 @@ key-*.xml
 # Ignore Caddy data directory (ACME certs, custom certs, private keys)
 /caddy/data/
 
+# Scratch directories for AI tools and diagnostic scripts (pre-commit hook also blocks)
+tmp/
+!tmp/.gitkeep
+app/tmp/
+!app/tmp/.gitkeep
+
 # Ignore AI tool files, except those useful.
 .aider*
-!.aider.conf.yml
-!.aiderignore
-.claude/
+# Claude Code: ignore local settings, but keep rules (committed conventions)
+.claude/settings.local.json
+.claude/todos.local.json
 
 # Ignore migration snapshots (large binary dumps and list files, generated locally)
 migrations/snapshots/*.pg_dump
