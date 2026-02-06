@@ -1160,10 +1160,14 @@ SELECT
 \echo Run worker processing for analytics tasks - Block 1
 Run worker processing for analytics tasks - Block 1
 CALL worker.process_tasks(p_queue => 'analytics');
+NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created indices for stat_definition employees
+NOTICE:  Created indices for stat_definition turnover
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |    16
+ analytics | completed |    17
  import    | completed |   141
 (2 rows)
 
@@ -1334,10 +1338,14 @@ SELECT
 \echo Run worker processing for analytics tasks - Block 2
 Run worker processing for analytics tasks - Block 2
 CALL worker.process_tasks(p_queue => 'analytics');
+NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created indices for stat_definition employees
+NOTICE:  Created indices for stat_definition turnover
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |    16
+ analytics | completed |    17
  import    | completed |    94
 (2 rows)
 
@@ -1495,10 +1503,14 @@ SELECT
 \echo Run worker processing for analytics tasks - Block 3
 Run worker processing for analytics tasks - Block 3
 CALL worker.process_tasks(p_queue => 'analytics');
+NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created indices for stat_definition employees
+NOTICE:  Created indices for stat_definition turnover
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |    15
+ analytics | completed |    16
  import    | completed |    47
 (2 rows)
 
@@ -1626,10 +1638,14 @@ SELECT
 \echo Run worker processing for analytics tasks - Block 4
 Run worker processing for analytics tasks - Block 4
 CALL worker.process_tasks(p_queue => 'analytics');
+NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created indices for stat_definition employees
+NOTICE:  Created indices for stat_definition turnover
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |    15
+ analytics | completed |    16
  import    | completed |    47
 (2 rows)
 

@@ -226,10 +226,14 @@ SELECT row_id, state, errors, merge_status, action, operation, tax_ident_raw, na
 \echo Run worker processing for initial analytics tasks
 Run worker processing for initial analytics tasks
 CALL worker.process_tasks(p_queue => 'analytics');
+NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created indices for stat_definition employees
+NOTICE:  Created indices for stat_definition turnover
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |    42
+ analytics | completed |    43
  import    | completed |   141
 (2 rows)
 
@@ -858,10 +862,14 @@ FROM equator_enterprise
 \echo Run worker processing for analytics tasks (after import and manual connection)
 Run worker processing for analytics tasks (after import and manual connection)
 CALL worker.process_tasks(p_queue => 'analytics');
+NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
+NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
+NOTICE:  Created indices for stat_definition employees
+NOTICE:  Created indices for stat_definition turnover
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |    80
+ analytics | completed |    82
  import    | completed |   141
 (2 rows)
 
