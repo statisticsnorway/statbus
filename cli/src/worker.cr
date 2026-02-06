@@ -1282,40 +1282,52 @@ module Statbus
 
           # Then execute the SELECT statement to get results
           # Using the timestamp from before processing to find recently processed tasks
+          # SQL computes log_level and message - Crystal just dispatches to logger
+          # FAIL-FAST: state CASE has no ELSE - new states produce NULL → Crystal crashes on non-nil String
           results = db.query_all "SELECT
-                                    t.id AS task_id, -- The task ID
-                                    t.command,       -- The command that was executed
-                                    cr.queue,        -- The task queue
-                                    duration_ms,     -- Duration in ms from the database
-                                    state = 'completed'::worker.task_state AS success, -- Whether task succeeded
-                                    error            -- Error message if task failed, NULL otherwise
-                                  FROM worker.tasks t
-                                  JOIN worker.command_registry cr ON t.command = cr.command
-                                  WHERE processed_at IS NOT NULL
-                                  AND processed_at >= $2
+                                    CASE state
+                                      WHEN 'failed' THEN 'error'
+                                      WHEN 'completed' THEN 'debug'
+                                      WHEN 'waiting' THEN 'debug'
+                                    END AS log_level,
+                                    format('Task %s (%s) %s %sms%s',
+                                      t.id, t.command,
+                                      CASE state
+                                        WHEN 'completed' THEN 'completed in'
+                                        WHEN 'waiting' THEN 'spawned children after'
+                                        WHEN 'failed' THEN 'failed after'
+                                      END,
+                                      round(duration_ms, 2),
+                                      CASE WHEN error IS NOT NULL THEN ': ' || error ELSE '' END
+                                    ) AS message
+                                  FROM worker.tasks AS t
+                                  JOIN worker.command_registry AS cr ON t.command = cr.command
+                                  WHERE processed_at >= $2
                                   AND (cr.queue = $1 OR $1 IS NULL)
                                   ORDER BY processed_at ASC",
             queue, current_timestamp,
-            as: {Int64, String, String, PG::Numeric, Bool, String?}
+            as: {String, String}
 
           tasks_processed = results.size
 
           if results.empty?
             @log.debug { "No tasks to process for queue: #{queue}" }
           else
-            @log.debug { "Processed #{results.size} tasks for queue: #{queue}" }
-            results.each do |id, command, task_queue, duration, success, error|
-              duration_float = duration.to_f
-              if success
-                @log.debug { "Task #{id} (#{command}) completed in #{duration_float.round(2)}ms" }
+            failed_count = 0
+            results.each do |log_level, message|
+              case log_level
+              when "debug"
+                @log.debug { message }
+              when "error"
+                failed_count += 1
+                @log.error { message }
               else
-                @log.error { "Task #{id} (#{command}) failed after #{duration_float.round(2)}ms: #{error}" }
+                raise "Unexpected log_level '#{log_level}' - update SQL CASE to handle new task state"
               end
             end
 
-            # Only log at INFO level if there were errors
-            if results.any? { |_, _, _, _, success, _| !success }
-              @log.info { "Processed #{results.size} tasks with errors for queue: #{queue}" }
+            if failed_count > 0
+              @log.info { "Processed #{results.size} tasks, #{failed_count} failed for queue: #{queue}" }
             end
           end
 
