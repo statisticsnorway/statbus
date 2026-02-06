@@ -12,7 +12,7 @@
 # locally with `git add` to see diffs. An exception is made for `.gitkeep` and
 # `.gitignore` files.
 
-STAGED_TMP_FILES=$(git diff --cached --name-only | grep -E '^(tmp|app/tmp)/' | grep -v -E '/\.(gitkeep|gitignore)$')
+STAGED_TMP_FILES=$(git diff --cached --name-only --diff-filter=d | grep -E '^(tmp|app/tmp)/' | grep -v -E '/\.(gitkeep|gitignore)$')
 
 if [ -n "$STAGED_TMP_FILES" ]; then
     echo "COMMIT REJECTED"
