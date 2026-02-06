@@ -747,13 +747,14 @@ module Statbus
       end
     end
 
-    # Wait for worker schema and tables to be ready
+    # Wait for worker schema, tables, and types to be ready
     private def wait_for_worker_schema
       @log.info { "Checking for worker schema and tables..." }
 
       loop do
         schema_exists = false
         tables_exist = false
+        types_exist = false
 
         begin
           DB.connect(@config.connection_string("worker")) do |db|
@@ -769,10 +770,17 @@ module Statbus
                                            SELECT FROM pg_tables
                                            WHERE schemaname = 'worker' AND tablename = 'tasks'
                                          )", as: Bool
+
+              # Check if worker types exist (created by later migrations)
+              types_exist = db.query_one? "SELECT EXISTS (
+                                           SELECT FROM pg_type AS t
+                                           JOIN pg_namespace AS n ON t.typnamespace = n.oid
+                                           WHERE n.nspname = 'worker' AND t.typname = 'process_mode'
+                                         )", as: Bool
             end
           end
 
-          if schema_exists && tables_exist
+          if schema_exists && tables_exist && types_exist
             @log.info { "Worker schema and tables are ready" }
             return
           else
@@ -780,6 +788,8 @@ module Statbus
               @log.info { "Worker schema doesn't exist yet. Waiting for migrations to run..." }
             elsif !tables_exist
               @log.info { "Worker schema exists but tables don't exist yet. Waiting for migrations to run..." }
+            elsif !types_exist
+              @log.info { "Worker schema exists but types not yet created. Waiting for migrations to run..." }
             end
             sleep(5.seconds)
           end
