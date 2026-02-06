@@ -1295,6 +1295,432 @@ EOS
         echo "Following logs for app container..."
         docker compose logs --follow app
       ;;
+    'dump-db' )
+        # Dump local database to dbdumps/ directory
+        if ! ./devops/manage-statbus.sh is-db-running; then
+            echo "Error: Database is not running. Start with: ./devops/manage-statbus.sh start all"
+            exit 1
+        fi
+
+        DEPLOYMENT_SLOT_CODE=$(./devops/dotenv --file .env.config get DEPLOYMENT_SLOT_CODE)
+        TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+        DUMP_DIR="$WORKSPACE/dbdumps"
+        DUMP_FILE="$DUMP_DIR/${DEPLOYMENT_SLOT_CODE}_${TIMESTAMP}.pg_dump"
+        mkdir -p "$DUMP_DIR"
+
+        eval $(./devops/manage-statbus.sh postgres-variables)
+
+        echo "Dumping database $PGDATABASE to $DUMP_FILE..."
+        docker compose exec -T db pg_dump -Fc --no-owner \
+            --exclude-table-data=auth.secrets \
+            -U postgres "$PGDATABASE" > "$DUMP_FILE"
+
+        echo "Dump complete:"
+        ls -lh "$DUMP_FILE"
+      ;;
+    'download-db' )
+        # Download database dump from remote server via SSH
+        REMOTE_CODE="${1:-}"
+        if [ -z "$REMOTE_CODE" ]; then
+            echo "Usage: ./devops/manage-statbus.sh download-db <code>"
+            echo "  code: deployment slot code (e.g., no, dev, demo)"
+            echo ""
+            echo "Example: ./devops/manage-statbus.sh download-db no"
+            exit 1
+        fi
+
+        SSH_USER="statbus_${REMOTE_CODE}"
+        SSH_HOST="niue.statbus.org"
+        REMOTE_DB="statbus_${REMOTE_CODE}"
+        TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+        DUMP_DIR="$WORKSPACE/dbdumps"
+        DUMP_FILE="$DUMP_DIR/${REMOTE_CODE}_${TIMESTAMP}.pg_dump"
+        mkdir -p "$DUMP_DIR"
+
+        echo "Checking SSH connectivity to ${SSH_USER}@${SSH_HOST}..."
+        if ! ssh -o ConnectTimeout=10 -o BatchMode=yes "${SSH_USER}@${SSH_HOST}" "echo ok" > /dev/null 2>&1; then
+            echo "Error: Cannot connect to ${SSH_USER}@${SSH_HOST}"
+            echo "Check your SSH keys and network connectivity."
+            exit 1
+        fi
+
+        echo "Downloading database $REMOTE_DB from ${SSH_USER}@${SSH_HOST}..."
+        ssh "${SSH_USER}@${SSH_HOST}" \
+            "cd statbus && docker compose exec -T db pg_dump -Fc --no-owner --exclude-table-data=auth.secrets -U postgres $REMOTE_DB" \
+            > "$DUMP_FILE"
+
+        # Check for empty file (indicates remote db not running or other failure)
+        if [ ! -s "$DUMP_FILE" ]; then
+            echo "Error: Downloaded file is empty. The remote database may not be running."
+            rm -f "$DUMP_FILE"
+            exit 1
+        fi
+
+        echo "Download complete:"
+        ls -lh "$DUMP_FILE"
+      ;;
+    'list-db-dumps' )
+        DUMP_DIR="$WORKSPACE/dbdumps"
+        echo "Available database dumps in $DUMP_DIR:"
+        ls -lh "$DUMP_DIR"/*.pg_dump 2>/dev/null || echo "  (none - run 'dump-db' or 'download-db' to create one)"
+      ;;
+    'restore-db' )
+        # Restore a database dump locally or to a remote server
+        DUMP_ARG="${1:-}"
+        shift || true
+
+        if [ -z "$DUMP_ARG" ]; then
+            echo "Usage: ./devops/manage-statbus.sh restore-db <file> [--to <code>]"
+            echo ""
+            echo "  file: path to .pg_dump file (bare filename resolves against dbdumps/)"
+            echo "  --to: deploy to remote server (e.g., --to no, --to dev)"
+            echo ""
+            echo "Examples:"
+            echo "  ./devops/manage-statbus.sh restore-db no_20260206_143022.pg_dump"
+            echo "  ./devops/manage-statbus.sh restore-db dbdumps/no_20260206_143022.pg_dump --to dev"
+            echo ""
+            echo "Available dumps:"
+            ls -lh "$WORKSPACE/dbdumps/"*.pg_dump 2>/dev/null || echo "  (none)"
+            exit 1
+        fi
+
+        # Resolve bare filename against dbdumps/ directory
+        if [ ! -f "$DUMP_ARG" ] && [ -f "$WORKSPACE/dbdumps/$DUMP_ARG" ]; then
+            DUMP_ARG="$WORKSPACE/dbdumps/$DUMP_ARG"
+        fi
+
+        if [ ! -f "$DUMP_ARG" ]; then
+            echo "Error: Dump file not found: $DUMP_ARG"
+            exit 1
+        fi
+
+        # Parse --to and --yes flags
+        REMOTE_CODE=""
+        AUTO_YES=false
+        while [ $# -gt 0 ]; do
+            case "$1" in
+                --to)
+                    REMOTE_CODE="${2:-}"
+                    if [ -z "$REMOTE_CODE" ]; then
+                        echo "Error: --to requires a deployment code (e.g., --to no)"
+                        exit 1
+                    fi
+                    shift 2
+                    ;;
+                --yes)
+                    AUTO_YES=true
+                    shift
+                    ;;
+                *)
+                    echo "Error: Unknown option: $1"
+                    exit 1
+                    ;;
+            esac
+        done
+
+        if [ -n "$REMOTE_CODE" ]; then
+            # === Remote restore ===
+            SSH_USER="statbus_${REMOTE_CODE}"
+            SSH_HOST="niue.statbus.org"
+            REMOTE_DB="statbus_${REMOTE_CODE}"
+            REMOTE_DUMP_BASENAME=$(basename "$DUMP_ARG")
+
+            echo "WARNING: This will DESTROY the database $REMOTE_DB on ${SSH_USER}@${SSH_HOST}"
+            echo "and replace it with the contents of: $DUMP_ARG"
+            if [ "$AUTO_YES" = "true" ]; then
+                echo "(--yes flag set, skipping confirmation)"
+            else
+                echo ""
+                echo "Type the deployment code '$REMOTE_CODE' to confirm:"
+                read -r CONFIRM < "$TTY_INPUT"
+                if [ "$CONFIRM" != "$REMOTE_CODE" ]; then
+                    echo "Confirmation failed. Aborting."
+                    exit 1
+                fi
+            fi
+
+            echo "Checking SSH connectivity to ${SSH_USER}@${SSH_HOST}..."
+            if ! ssh -o ConnectTimeout=10 -o BatchMode=yes "${SSH_USER}@${SSH_HOST}" "echo ok" > /dev/null 2>&1; then
+                echo "Error: Cannot connect to ${SSH_USER}@${SSH_HOST}"
+                exit 1
+            fi
+
+            echo "Uploading dump file to remote server..."
+            scp "$DUMP_ARG" "${SSH_USER}@${SSH_HOST}:statbus/dbdumps/${REMOTE_DUMP_BASENAME}"
+
+            echo "Restoring on remote server..."
+            ssh "${SSH_USER}@${SSH_HOST}" bash -s "$REMOTE_DB" "$REMOTE_DUMP_BASENAME" <<'REMOTE_SCRIPT'
+                set -euo pipefail
+                REMOTE_DB="$1"
+                REMOTE_DUMP_BASENAME="$2"
+                cd statbus
+
+                echo "Stopping worker and rest services..."
+                docker compose stop worker rest 2>/dev/null || true
+
+                echo "Terminating connections to $REMOTE_DB..."
+                docker compose exec -T db psql -U postgres -d postgres -c "
+                    SELECT pg_terminate_backend(pid)
+                    FROM pg_stat_activity
+                    WHERE datname = '$REMOTE_DB'
+                    AND pid <> pg_backend_pid();
+                " || true
+
+                echo "Dropping and recreating database..."
+                docker compose exec -T db psql -U postgres -d postgres -c "DROP DATABASE IF EXISTS \"$REMOTE_DB\";"
+                docker compose exec -T db psql -U postgres -d postgres -c "CREATE DATABASE \"$REMOTE_DB\" OWNER postgres;"
+
+                echo "Copying dump into container..."
+                docker compose cp "dbdumps/${REMOTE_DUMP_BASENAME}" db:/tmp/restore.pg_dump
+
+                echo "Phase 1: Restoring schema..."
+                docker compose exec -T db pg_restore \
+                    --section=pre-data \
+                    --no-owner \
+                    --single-transaction \
+                    -U postgres -d "$REMOTE_DB" \
+                    /tmp/restore.pg_dump
+
+                echo "Phase 2: Deferring cross-schema CHECK constraints..."
+                docker compose exec -T db psql -U postgres -d "$REMOTE_DB" \
+                    -v ON_ERROR_STOP=1 --single-transaction <<'DEFER_SQL'
+                    CREATE TABLE public._deferred_checks AS
+                    SELECT
+                        n.nspname AS schema_name,
+                        c.relname AS table_name,
+                        con.conname AS constraint_name,
+                        pg_get_constraintdef(con.oid) AS constraint_def
+                    FROM pg_constraint con
+                    JOIN pg_class c ON con.conrelid = c.oid
+                    JOIN pg_namespace n ON c.relnamespace = n.oid
+                    WHERE con.contype = 'c'
+                      AND pg_get_constraintdef(con.oid) ~ '\m[a-z_]+\.[a-z_]+\(';
+
+                    DO $$
+                    DECLARE
+                        r RECORD;
+                    BEGIN
+                        FOR r IN SELECT * FROM public._deferred_checks
+                        LOOP
+                            RAISE NOTICE 'Deferring: %.%.%',
+                                r.schema_name, r.table_name, r.constraint_name;
+                            EXECUTE format(
+                                'ALTER TABLE %I.%I DROP CONSTRAINT %I',
+                                r.schema_name, r.table_name, r.constraint_name
+                            );
+                        END LOOP;
+                    END $$;
+DEFER_SQL
+
+                echo "Phase 3: Restoring data..."
+                docker compose exec -T db pg_restore \
+                    --section=data \
+                    --no-owner \
+                    --single-transaction \
+                    -U postgres -d "$REMOTE_DB" \
+                    /tmp/restore.pg_dump
+
+                echo "Phase 3b: Restoring indexes, triggers, and FK constraints..."
+                docker compose exec -T db pg_restore \
+                    --section=post-data \
+                    --no-owner \
+                    --single-transaction \
+                    -U postgres -d "$REMOTE_DB" \
+                    /tmp/restore.pg_dump
+
+                echo "Phase 4: Re-adding deferred CHECK constraints..."
+                docker compose exec -T db psql -U postgres -d "$REMOTE_DB" \
+                    -v ON_ERROR_STOP=1 --single-transaction <<'READD_SQL'
+                    DO $$
+                    DECLARE
+                        r RECORD;
+                    BEGIN
+                        FOR r IN SELECT * FROM public._deferred_checks
+                        LOOP
+                            RAISE NOTICE 'Re-adding: %.%.%',
+                                r.schema_name, r.table_name, r.constraint_name;
+                            EXECUTE format(
+                                'ALTER TABLE %I.%I ADD CONSTRAINT %I %s',
+                                r.schema_name, r.table_name, r.constraint_name,
+                                r.constraint_def
+                            );
+                        END LOOP;
+                    END $$;
+
+                    DROP TABLE public._deferred_checks;
+READD_SQL
+
+                docker compose exec -T db rm -f /tmp/restore.pg_dump
+
+                echo "Reloading JWT secret from remote .env.credentials..."
+                JWT_SECRET=$(./devops/dotenv --file .env.credentials get JWT_SECRET)
+                docker compose exec -T db psql -U postgres -d "$REMOTE_DB" -c \
+                    "INSERT INTO auth.secrets (key, value, description) VALUES ('jwt_secret', '$JWT_SECRET', 'JWT signing secret') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = clock_timestamp();"
+
+                echo "Setting deployment_slot_code..."
+                DEPLOYMENT_SLOT_CODE=$(./devops/dotenv --file .env.config get DEPLOYMENT_SLOT_CODE)
+                docker compose exec -T db psql -U postgres -d "$REMOTE_DB" -c \
+                    "ALTER DATABASE \"$REMOTE_DB\" SET app.settings.deployment_slot_code TO '$DEPLOYMENT_SLOT_CODE';"
+
+                echo "Restarting worker and rest services..."
+                docker compose start worker rest
+
+                echo "Cleaning up uploaded dump file..."
+                rm -f "dbdumps/${REMOTE_DUMP_BASENAME}"
+
+                echo "Remote restore complete."
+REMOTE_SCRIPT
+        else
+            # === Local restore ===
+            if ! ./devops/manage-statbus.sh is-db-running; then
+                echo "Error: Database is not running. Start with: ./devops/manage-statbus.sh start all"
+                exit 1
+            fi
+
+            eval $(./devops/manage-statbus.sh postgres-variables)
+
+            echo "WARNING: This will DESTROY the local database $PGDATABASE"
+            echo "and replace it with the contents of: $DUMP_ARG"
+            if [ "$AUTO_YES" = "true" ]; then
+                echo "(--yes flag set, skipping confirmation)"
+            else
+                echo ""
+                echo "Type 'yes' to confirm:"
+                read -r CONFIRM < "$TTY_INPUT"
+                if [ "$CONFIRM" != "yes" ]; then
+                    echo "Cancelled."
+                    exit 1
+                fi
+            fi
+
+            echo "Stopping worker and rest services..."
+            docker compose stop worker rest 2>/dev/null || true
+
+            echo "Terminating connections to $PGDATABASE..."
+            docker compose exec -T db psql -U postgres -d postgres -c "
+                SELECT pg_terminate_backend(pid)
+                FROM pg_stat_activity
+                WHERE datname = '$PGDATABASE'
+                AND pid <> pg_backend_pid();
+            " || true
+
+            echo "Dropping and recreating database..."
+            docker compose exec -T db psql -U postgres -d postgres -c "DROP DATABASE IF EXISTS \"$PGDATABASE\";"
+            docker compose exec -T db psql -U postgres -d postgres -c "CREATE DATABASE \"$PGDATABASE\" OWNER postgres;"
+
+            # Restore in 4 phases to handle function-based CHECK constraints
+            # (e.g., admin.legal_unit_id_exists()) that are embedded in CREATE TABLE
+            # and fail during COPY because referenced tables have no data yet.
+            #
+            # Phase 1: pre-data (schema with constraints)
+            # Phase 2: drop cross-schema function-based CHECK constraints
+            # Phase 3: data + post-data
+            # Phase 4: re-add the dropped CHECK constraints
+            echo "Copying dump into container..."
+            docker compose cp "$DUMP_ARG" db:/tmp/restore.pg_dump
+
+            echo "Phase 1: Restoring schema..."
+            docker compose exec -T db pg_restore \
+                --section=pre-data \
+                --no-owner \
+                --single-transaction \
+                -U postgres -d "$PGDATABASE" \
+                /tmp/restore.pg_dump
+
+            echo "Phase 2: Deferring cross-schema CHECK constraints..."
+            # Save and drop CHECK constraints whose definition references
+            # a different schema (these are the function-based ones that fail
+            # during COPY because the referenced table has no data yet).
+            # Uses a real table (not TEMP) so it persists across psql sessions.
+            docker compose exec -T db psql -U postgres -d "$PGDATABASE" \
+                -v ON_ERROR_STOP=1 --single-transaction <<'DEFER_SQL'
+                CREATE TABLE public._deferred_checks AS
+                SELECT
+                    n.nspname AS schema_name,
+                    c.relname AS table_name,
+                    con.conname AS constraint_name,
+                    pg_get_constraintdef(con.oid) AS constraint_def
+                FROM pg_constraint con
+                JOIN pg_class c ON con.conrelid = c.oid
+                JOIN pg_namespace n ON c.relnamespace = n.oid
+                WHERE con.contype = 'c'
+                  AND pg_get_constraintdef(con.oid) ~ '\m[a-z_]+\.[a-z_]+\(';
+
+                DO $$
+                DECLARE
+                    r RECORD;
+                BEGIN
+                    FOR r IN SELECT * FROM _deferred_checks
+                    LOOP
+                        RAISE NOTICE 'Deferring: %.%.%',
+                            r.schema_name, r.table_name, r.constraint_name;
+                        EXECUTE format(
+                            'ALTER TABLE %I.%I DROP CONSTRAINT %I',
+                            r.schema_name, r.table_name, r.constraint_name
+                        );
+                    END LOOP;
+                END $$;
+DEFER_SQL
+
+            echo "Phase 3: Restoring data..."
+            docker compose exec -T db pg_restore \
+                --section=data \
+                --no-owner \
+                --single-transaction \
+                -U postgres -d "$PGDATABASE" \
+                /tmp/restore.pg_dump
+
+            echo "Phase 3b: Restoring indexes, triggers, and FK constraints..."
+            docker compose exec -T db pg_restore \
+                --section=post-data \
+                --no-owner \
+                --single-transaction \
+                -U postgres -d "$PGDATABASE" \
+                /tmp/restore.pg_dump
+
+            echo "Phase 4: Re-adding deferred CHECK constraints..."
+            docker compose exec -T db psql -U postgres -d "$PGDATABASE" \
+                -v ON_ERROR_STOP=1 --single-transaction <<'READD_SQL'
+                DO $$
+                DECLARE
+                    r RECORD;
+                BEGIN
+                    FOR r IN SELECT * FROM _deferred_checks
+                    LOOP
+                        RAISE NOTICE 'Re-adding: %.%.%',
+                            r.schema_name, r.table_name, r.constraint_name;
+                        EXECUTE format(
+                            'ALTER TABLE %I.%I ADD CONSTRAINT %I %s',
+                            r.schema_name, r.table_name, r.constraint_name,
+                            r.constraint_def
+                        );
+                    END LOOP;
+                END $$;
+
+                DROP TABLE public._deferred_checks;
+READD_SQL
+
+            # Clean up container files
+            docker compose exec -T db rm -f /tmp/restore.pg_dump
+
+            echo "All phases complete."
+
+            echo "Reloading JWT secret from local .env.credentials..."
+            JWT_SECRET=$(./devops/dotenv --file .env.credentials get JWT_SECRET)
+            DEPLOYMENT_SLOT_CODE=$(./devops/dotenv --file .env.config get DEPLOYMENT_SLOT_CODE)
+            docker compose exec -T db psql -U postgres -d "$PGDATABASE" -c \
+                "INSERT INTO auth.secrets (key, value, description) VALUES ('jwt_secret', '$JWT_SECRET', 'JWT signing secret') ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = clock_timestamp();"
+
+            echo "Setting deployment_slot_code..."
+            docker compose exec -T db psql -U postgres -d "$PGDATABASE" -c \
+                "ALTER DATABASE \"$PGDATABASE\" SET app.settings.deployment_slot_code TO '$DEPLOYMENT_SLOT_CODE';"
+
+            echo "Restarting worker and rest services..."
+            docker compose start worker rest
+
+            echo "Local restore complete."
+        fi
+      ;;
      * )
       echo "Unknown action '$action', select one of"
       awk -F "'" '/^ +''(..+)'' \)$/{print $2}' devops/manage-statbus.sh | sort

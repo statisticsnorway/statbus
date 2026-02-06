@@ -507,3 +507,7 @@ app/tmp/
 migrations/snapshots/*.pg_dump
 migrations/snapshots/*.pg_list
 !migrations/snapshots/.gitkeep
+
+# Database dumps for debugging (large binary files)
+dbdumps/*.pg_dump
+!dbdumps/.gitkeep
