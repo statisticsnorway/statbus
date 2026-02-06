@@ -1317,6 +1317,15 @@ EOS
 
         echo "Dump complete:"
         ls -lh "$DUMP_FILE"
+
+        # Warn if many dumps are accumulating
+        DUMP_COUNT=$(find "$DUMP_DIR" -name '*.pg_dump' -type f 2>/dev/null | wc -l | tr -d ' ')
+        if [ "$DUMP_COUNT" -ge 3 ]; then
+            TOTAL_SIZE=$(du -sh "$DUMP_DIR"/*.pg_dump 2>/dev/null | tail -1 | cut -f1)
+            echo ""
+            echo "Note: $DUMP_COUNT dumps in dbdumps/ (total ~$TOTAL_SIZE)."
+            echo "  Run './devops/manage-statbus.sh purge-db-dumps' to clean up old ones."
+        fi
       ;;
     'download-db' )
         # Download database dump from remote server via SSH
@@ -1358,11 +1367,80 @@ EOS
 
         echo "Download complete:"
         ls -lh "$DUMP_FILE"
+
+        # Warn if many dumps are accumulating
+        DUMP_COUNT=$(find "$DUMP_DIR" -name '*.pg_dump' -type f 2>/dev/null | wc -l | tr -d ' ')
+        if [ "$DUMP_COUNT" -ge 3 ]; then
+            TOTAL_SIZE=$(du -sh "$DUMP_DIR"/*.pg_dump 2>/dev/null | tail -1 | cut -f1)
+            echo ""
+            echo "Note: $DUMP_COUNT dumps in dbdumps/ (total ~$TOTAL_SIZE)."
+            echo "  Run './devops/manage-statbus.sh purge-db-dumps' to clean up old ones."
+        fi
       ;;
     'list-db-dumps' )
         DUMP_DIR="$WORKSPACE/dbdumps"
         echo "Available database dumps in $DUMP_DIR:"
         ls -lh "$DUMP_DIR"/*.pg_dump 2>/dev/null || echo "  (none - run 'dump-db' or 'download-db' to create one)"
+      ;;
+    'purge-db-dumps' )
+        DUMP_DIR="$WORKSPACE/dbdumps"
+        KEEP=${1:-1}
+
+        # Validate KEEP is a positive integer
+        if ! [[ "$KEEP" =~ ^[0-9]+$ ]] || [ "$KEEP" -lt 0 ]; then
+            echo "Usage: ./devops/manage-statbus.sh purge-db-dumps [keep_count]"
+            echo "  keep_count: number of most recent dumps to keep per source (default: 1)"
+            exit 1
+        fi
+
+        DUMP_FILES=$(find "$DUMP_DIR" -name '*.pg_dump' -type f 2>/dev/null | sort)
+        if [ -z "$DUMP_FILES" ]; then
+            echo "No dumps to purge."
+            exit 0
+        fi
+
+        echo "Current dumps:"
+        ls -lh "$DUMP_DIR"/*.pg_dump
+
+        # Group by source prefix (everything before the timestamp), keep newest N per group
+        TO_DELETE=""
+        for prefix in $(echo "$DUMP_FILES" | sed 's/_[0-9]\{8\}_[0-9]\{6\}\.pg_dump$//' | sort -u); do
+            SOURCE=$(basename "$prefix")
+            GROUP_FILES=$(echo "$DUMP_FILES" | grep "^${prefix}_" | sort -r)
+            GROUP_COUNT=$(echo "$GROUP_FILES" | wc -l | tr -d ' ')
+
+            if [ "$GROUP_COUNT" -gt "$KEEP" ]; then
+                # Skip the newest KEEP, mark the rest for deletion
+                OLD_FILES=$(echo "$GROUP_FILES" | tail -n +$((KEEP + 1)))
+                TO_DELETE="$TO_DELETE
+$OLD_FILES"
+            fi
+        done
+
+        TO_DELETE=$(echo "$TO_DELETE" | sed '/^$/d')
+        if [ -z "$TO_DELETE" ]; then
+            echo ""
+            echo "Nothing to purge (keeping $KEEP per source)."
+            exit 0
+        fi
+
+        echo ""
+        echo "Will delete (keeping newest $KEEP per source):"
+        echo "$TO_DELETE" | while read -r f; do ls -lh "$f"; done
+
+        echo ""
+        read -p "Delete these files? [y/N] " -r < "$TTY_INPUT"
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "Cancelled."
+            exit 0
+        fi
+
+        echo "$TO_DELETE" | while read -r f; do
+            echo "Removing: $(basename "$f")"
+            rm -f "$f"
+        done
+
+        echo "Purge complete."
       ;;
     'restore-db' )
         # Restore a database dump locally or to a remote server
