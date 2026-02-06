@@ -108,7 +108,7 @@ This pattern has several advantages:
 ## Database Inspection
 Use `psql` for direct database inspection and querying during development. For example, to list available import definitions: `echo 'SELECT slug, name FROM public.import_definition;' | ./devops/manage-statbus.sh psql`
 
-For a super compact data model reference, see `doc/data-model.md`.
+For a compact data model reference, see `doc/data-model.md`.
 
 ## SQL Naming Conventions
 - `x_id` = foreign key to table `x`

@@ -1,6 +1,8 @@
 # AI Agent Guide for STATBUS
 
-This guide is for AI coding assistants working in the STATBUS codebase. STATBUS is a statistical business registry built with PostgreSQL 18+, PostgREST 12+, and Next.js 15+.
+This guide is for AI coding assistants working in the STATBUS codebase. STATBUS is a statistical business registry with temporal tables for tracking business activity throughout history. Built by Statistics Norway (SSB) using PostgreSQL 18+, PostgREST 12+, and Next.js 15+.
+
+**Architecture**: Database-centric progressive disclosure (NOT microservices). PostgreSQL IS the backend—PostgREST exposes the schema directly. Security happens entirely at the database layer via Row Level Security (RLS).
 
 ## Quick Commands
 
@@ -181,6 +183,50 @@ psql
 - `.env`: Generated file, **do not edit** directly
 - `.env.credentials`: Secrets, generated once, keep secure
 
+### Cloud Multi-Tenant Deployment
+
+The cloud infrastructure on **niue.statbus.org** uses **branches as pointers** for CI/CD. See `doc/CLOUD.md` for full details.
+
+1. **Trigger deployment** (GitHub Actions -> "Run workflow"):
+   - `master-to-X` workflow force-pushes `master` -> `devops/deploy-to-X` branch
+   - Example: "Push master -> devops/deploy-to-no" deploys to Norway
+
+2. **Automatic execution**: Push to `devops/deploy-to-X` triggers `deploy-to-X` workflow, which SSHs to the server and runs `devops/deploy.sh`
+
+3. **On the server** (`deploy.sh`):
+   - Fetches and hard-resets to match the deploy branch
+   - If `dbseed/` or existing `migrations/` changed: full recreate (delete-db + create-db)
+   - Otherwise: applies pending migrations and restarts app
+   - Sends Slack notification to `#statbus-utvikling`
+
+#### Deployment Targets
+
+| Workflow | Branch | Server | Notes |
+|----------|--------|--------|-------|
+| master-to-no | devops/deploy-to-no | statbus_no@niue | Norway |
+| master-to-demo | devops/deploy-to-demo | statbus_demo@niue | Demo |
+| master-to-dev | devops/deploy-to-dev | statbus_dev@niue | Development |
+| master-to-production | devops/deploy-to-production | — | Pointer only |
+| production-to-all | — | all servers | Cascades to all |
+
+#### Triggering Deployment
+
+```bash
+git push origin master:devops/deploy-to-no         # Deploy master to Norway
+git push origin master:devops/deploy-to-dev        # Deploy master to dev
+```
+
+This directly updates the branch pointer, which triggers `deploy-to-X.yaml`. The `master-to-X` workflows in GitHub UI do the same thing but add an extra hop.
+
+#### Manual Server Access
+
+```bash
+ssh statbus_no "cd statbus && <command>"           # Run command on server
+scp local/file statbus_no:statbus/path/to/file     # Copy file to server
+```
+
+**Before deploying**: Ensure remote working directory is clean (no uncommitted changes), or deploy will fail.
+
 ## Project Structure
 
 - `migrations/` - Database migrations (YYYYMMDDHHmmSS_description.up.sql/.down.sql)
@@ -192,7 +238,7 @@ psql
 
 ## Critical Conventions
 
-### SQL (See CONVENTIONS.md for full details)
+### SQL (See `.claude/rules/sql.md` for full details)
 
 **Function Definitions:**
 ```sql
@@ -224,7 +270,7 @@ $jwt_verify$;
 - `x_at` = TIMESTAMPTZ
 - `x_on` = DATE
 
-### TypeScript/Next.js (See app/CONVENTIONS.md for full details)
+### TypeScript/Next.js (See `.claude/rules/frontend.md` for full details)
 
 **Imports:**
 ```typescript
@@ -387,7 +433,12 @@ export const loginAtom = atom(null, async (get, set, credentials) => {
 
 ## Full Documentation
 
-- **Backend/SQL/Infrastructure**: See `CONVENTIONS.md` in project root
-- **Next.js/TypeScript/Frontend**: See `app/CONVENTIONS.md`
+- **SQL Conventions (detailed)**: See `.claude/rules/sql.md`
+- **Frontend Conventions (detailed)**: See `.claude/rules/frontend.md`
+- **Multi-Agent Methodology**: See `doc/agentic-methodology.md` (for complex multi-phase tasks)
 - **Data Model**: See `doc/data-model.md`
 - **Authentication**: See `doc/auth-design.md`
+- **Cloud Deployment**: See `doc/CLOUD.md` for multi-tenant on niue.statbus.org
+- **Single-Instance Deployment**: See `doc/DEPLOYMENT.md` for standalone server setup
+- **Import System**: See `doc/import-system.md`
+- **Integration (API/PostgreSQL)**: See `doc/INTEGRATE.md`

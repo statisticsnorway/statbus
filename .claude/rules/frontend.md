@@ -5,7 +5,7 @@ paths:
 
 # Next.js Application Conventions (STATBUS)
 
-Core conventions for the Next.js (v15) application. For SQL and infrastructure conventions, see `.claude/rules/sql.md`.
+Core conventions for the Next.js (v15) application. For SQL and infrastructure conventions, see `.claude/rules/sql.md`. For general project commands and architecture, see `AGENTS.md`.
 
 ## General
 - Language: TypeScript.
