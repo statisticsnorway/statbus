@@ -238,9 +238,47 @@ def drop_all_test_databases():
     conn.close()
 
 
-def setup_test_data():
-    """Setup test data like test 401 (Norway BRREG selection ~29K rows)"""
-    log_print(f"\n{BLUE}Setting up test data (like test 401)...{NC}")
+# ============================================================================
+# Dataset configurations
+# ============================================================================
+
+DATASETS = {
+    "selection": {
+        "description": "BRREG selection (~29K rows, like test 401)",
+        "definition_year": "2024",
+        "lu_slug": "import_hovedenhet_concurrent",
+        "es_slug": "import_underenhet_concurrent",
+        "lu_csv": "samples/norway/legal_unit/enheter-selection.csv",
+        "es_csv": "samples/norway/establishment/underenheter-selection.csv",
+    },
+    "downloads": {
+        "description": "BRREG full downloads (~1M rows, like test 403)",
+        "definition_year": "2025",
+        "lu_slug": "import_hovedenhet_2025",
+        "es_slug": "import_underenhet_2025",
+        "lu_csv": "tmp/enheter.csv",
+        "es_csv": "tmp/underenheter_filtered.csv",
+    },
+}
+
+
+def setup_test_data(dataset="selection"):
+    """Setup test data from the specified dataset."""
+    ds = DATASETS[dataset]
+    year = ds["definition_year"]
+
+    log_print(f"\n{BLUE}Setting up test data: {ds['description']}...{NC}")
+
+    # Check that CSV files exist
+    for label, path in [("LU", ds["lu_csv"]), ("ES", ds["es_csv"])]:
+        full_path = WORKSPACE / path
+        if not full_path.exists():
+            log_print(f"{RED}ERROR: {label} CSV not found: {full_path}{NC}", "error")
+            if dataset == "downloads":
+                log_print(f"  Download from BRREG and place in tmp/", "error")
+            sys.exit(1)
+        size_mb = full_path.stat().st_size / (1024 * 1024)
+        log_print(f"  {label} CSV: {path} ({size_mb:.1f} MB)")
 
     # Run setup files via psql
     log_print("  Running test/setup.sql...")
@@ -249,25 +287,25 @@ def setup_test_data():
     log_print("  Running samples/norway/getting-started.sql...")
     run_psql_file("samples/norway/getting-started.sql")
 
-    log_print("  Running import definition for hovedenhet...")
-    run_psql_file("samples/norway/brreg/create-import-definition-hovedenhet-2024.sql")
+    log_print(f"  Running import definition for hovedenhet ({year})...")
+    run_psql_file(f"samples/norway/brreg/create-import-definition-hovedenhet-{year}.sql")
 
-    log_print("  Running import definition for underenhet...")
-    run_psql_file("samples/norway/brreg/create-import-definition-underenhet-2024.sql")
+    log_print(f"  Running import definition for underenhet ({year})...")
+    run_psql_file(f"samples/norway/brreg/create-import-definition-underenhet-{year}.sql")
 
     # Create import jobs
     log_print("  Creating import jobs...")
-    run_psql("""
+    run_psql(f"""
 BEGIN;
 
 CALL test.set_user_from_email('test.admin@statbus.org');
 
 -- Create LU import job (uploaded FIRST = higher priority)
 WITH def_he AS (
-  SELECT id FROM public.import_definition WHERE slug = 'brreg_hovedenhet_2024'
+  SELECT id FROM public.import_definition WHERE slug = 'brreg_hovedenhet_{year}'
 )
 INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, user_id)
-SELECT def_he.id, 'import_hovedenhet_concurrent', '2025-01-01'::date, 'infinity'::date, 'Concurrent test LU',
+SELECT def_he.id, '{ds["lu_slug"]}', '2025-01-01'::date, 'infinity'::date, 'Concurrent test LU',
        (SELECT id FROM public.user WHERE email = 'test.admin@statbus.org')
 FROM def_he
 ON CONFLICT (slug) DO NOTHING;
@@ -276,21 +314,21 @@ COMMIT;
 """)
 
     # Load LU data FIRST (priority by upload order)
-    log_print("  Loading LU CSV data (enheter-selection.csv)...")
-    run_psql("\\copy public.import_hovedenhet_concurrent_upload FROM 'samples/norway/legal_unit/enheter-selection.csv' WITH CSV HEADER")
+    log_print(f"  Loading LU CSV data ({ds['lu_csv']})...")
+    run_psql(f"\\copy public.{ds['lu_slug']}_upload FROM '{ds['lu_csv']}' WITH CSV HEADER")
 
     # Create ES import job SECOND
-    run_psql("""
+    run_psql(f"""
 BEGIN;
 
 CALL test.set_user_from_email('test.admin@statbus.org');
 
 -- Create ES import job (uploaded SECOND = lower priority)
 WITH def_ue AS (
-  SELECT id FROM public.import_definition WHERE slug = 'brreg_underenhet_2024'
+  SELECT id FROM public.import_definition WHERE slug = 'brreg_underenhet_{year}'
 )
 INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, user_id)
-SELECT def_ue.id, 'import_underenhet_concurrent', '2025-01-01'::date, 'infinity'::date, 'Concurrent test ES',
+SELECT def_ue.id, '{ds["es_slug"]}', '2025-01-01'::date, 'infinity'::date, 'Concurrent test ES',
        (SELECT id FROM public.user WHERE email = 'test.admin@statbus.org')
 FROM def_ue
 ON CONFLICT (slug) DO NOTHING;
@@ -299,8 +337,8 @@ COMMIT;
 """)
 
     # Load ES data SECOND
-    log_print("  Loading ES CSV data (underenheter-selection.csv)...")
-    run_psql("\\copy public.import_underenhet_concurrent_upload FROM 'samples/norway/establishment/underenheter-selection.csv' WITH CSV HEADER")
+    log_print(f"  Loading ES CSV data ({ds['es_csv']})...")
+    run_psql(f"\\copy public.{ds['es_slug']}_upload FROM '{ds['es_csv']}' WITH CSV HEADER")
 
     # Show task state
     log_print(f"\n{BLUE}Test data loaded. Task states:{NC}")
@@ -532,6 +570,10 @@ if __name__ == "__main__":
                         help="Delete test database after run")
     parser.add_argument("--list", action="store_true",
                         help="List existing test databases and exit")
+    parser.add_argument("--dataset", choices=list(DATASETS.keys()), default="selection",
+                        help="Dataset to use: " + ", ".join(
+                            f"{k} ({v['description']})" for k, v in DATASETS.items()
+                        ) + " (default: selection)")
     parser.add_argument("--cleanup-all", action="store_true",
                         help="Drop ALL test_concurrent_* databases and exit")
     args = parser.parse_args()
@@ -549,7 +591,7 @@ if __name__ == "__main__":
     if not args.skip_setup:
         create_isolated_db()
         atexit.register(lambda: drop_isolated_db(force=args.cleanup))
-        setup_test_data()
+        setup_test_data(args.dataset)
     else:
         env = pg_env()
         TEST_DB = env.get("PGDATABASE", "statbus")
