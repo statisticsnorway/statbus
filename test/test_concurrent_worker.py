@@ -401,8 +401,17 @@ def worker_thread(thread_id, max_tasks):
                         continue
 
                     idle_count = 0
+                    call_start = time.time()
                     cur.execute("CALL worker.process_tasks(p_batch_size := 1)")
+                    call_ms = (time.time() - call_start) * 1000
                     result["tasks"] += 1
+
+                    # If process_tasks returned very quickly (<100ms), it likely
+                    # found no claimable work (another thread has it). Back off
+                    # to avoid spin-looping that can crash PostgreSQL.
+                    if call_ms < 100:
+                        time.sleep(0.2)
+
                     if result["tasks"] % 10 == 0:
                         log.info(f"Thread {thread_id}: processed {result['tasks']} tasks ({actionable} actionable)")
 
@@ -481,8 +490,18 @@ def run_concurrent_test(num_threads, tasks_per_thread):
     log_print(f"  Total tasks processed: {total_tasks}")
     log_print(f"  Total errors: {len(all_errors)}")
 
-    # Final task state
-    conn = get_conn()
+    # Final task state (retry connection in case DB is recovering)
+    for attempt in range(10):
+        try:
+            conn = get_conn()
+            break
+        except Exception as e:
+            if attempt < 9:
+                log_print(f"  {YELLOW}DB connection attempt {attempt+1}/10 failed, retrying in 5s...{NC}")
+                time.sleep(5)
+            else:
+                log_print(f"  {RED}Could not connect to DB for summary: {e}{NC}", "error")
+                return False
     with conn.cursor() as cur:
         cur.execute("""
             SELECT state, count(*)
