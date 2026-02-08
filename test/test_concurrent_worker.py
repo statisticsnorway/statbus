@@ -373,14 +373,16 @@ def worker_thread(thread_id, max_tasks):
     result = {"thread_id": thread_id, "tasks": 0, "errors": [], "elapsed": 0}
     start = time.time()
 
-    log.info(f"Thread {thread_id}: starting (max_tasks={max_tasks})")
+    log.info(f"Thread {thread_id}: starting (max_tasks={max_tasks or 'unlimited'})")
 
     try:
         conn = get_conn()
         conn.autocommit = True  # Each CALL is its own transaction
 
         idle_count = 0
-        for i in range(max_tasks):
+        iteration = 0
+        while max_tasks == 0 or iteration < max_tasks:
+            iteration += 1
             try:
                 with conn.cursor() as cur:
                     # Check if there are actionable tasks
@@ -562,8 +564,8 @@ if __name__ == "__main__":
     )
     parser.add_argument("-n", "--threads", type=int, default=4,
                         help="Number of concurrent threads (default: 4)")
-    parser.add_argument("-t", "--tasks", type=int, default=500,
-                        help="Max tasks per thread (default: 500)")
+    parser.add_argument("-t", "--tasks", type=int, default=0,
+                        help="Max process_tasks calls per thread (0=unlimited, default: 0)")
     parser.add_argument("--skip-setup", action="store_true",
                         help="Skip DB creation and data load (use current PGDATABASE)")
     parser.add_argument("--cleanup", action="store_true",
