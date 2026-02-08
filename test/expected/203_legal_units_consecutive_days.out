@@ -170,10 +170,6 @@ SELECT
 \echo Run worker processing for analytics tasks (Day 1)
 Run worker processing for analytics tasks (Day 1)
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
@@ -256,10 +252,6 @@ SELECT
 \echo Run worker processing for analytics tasks (Day 4)
 Run worker processing for analytics tasks (Day 4)
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
@@ -342,10 +334,6 @@ SELECT
 \echo Run worker processing for analytics tasks (Day 3)
 Run worker processing for analytics tasks (Day 3)
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
@@ -469,10 +457,6 @@ SELECT
 \echo Run worker processing for analytics tasks (Scenario 2 - Day 1 & 3)
 Run worker processing for analytics tasks (Scenario 2 - Day 1 & 3)
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
@@ -555,10 +539,6 @@ SELECT
 \echo Run worker processing for analytics tasks (Scenario 2 - Day 1, 3 & 4)
 Run worker processing for analytics tasks (Scenario 2 - Day 1, 3 & 4)
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------

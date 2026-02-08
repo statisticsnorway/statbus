@@ -228,10 +228,6 @@ GROUP BY ent.id, ent.short_name;
 (1 row)
 
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 \echo "Statistical Units (LU):"
 "Statistical Units (LU):"
 SELECT COUNT(*) as su_lu_count, su.name, su.external_idents->>'tax_ident' AS tax_ident, su.valid_from, su.valid_to
@@ -369,10 +365,6 @@ GROUP BY ent.id, ent.short_name;
 (1 row)
 
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 \echo "Statistical Units (LU):"
 "Statistical Units (LU):"
 SELECT COUNT(*) as su_lu_count, su.name, su.external_idents->>'tax_ident' AS tax_ident, su.valid_from, su.valid_to
@@ -485,10 +477,6 @@ GROUP BY ent.id, ent.short_name;
 (1 row)
 
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 \echo "Statistical Units (ES):"
 "Statistical Units (ES):"
 SELECT COUNT(*) as su_es_count, su.name, su.external_idents->>'tax_ident' AS tax_ident, su.valid_from, su.valid_to
@@ -590,10 +578,6 @@ ORDER BY (SELECT MIN(ei_order.ident) FROM public.legal_unit lu_order JOIN public
 (2 rows)
 
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 \echo "Statistical Units (LU):"
 "Statistical Units (LU):"
 SELECT su.name, su.external_idents->>'tax_ident' AS tax_ident, su.valid_from, su.valid_to
@@ -689,10 +673,6 @@ ORDER BY ei.ident, loc.type, loc.valid_from, loc.valid_to;
 (2 rows)
 
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 \echo "Statistical Units (LU - expect 2 slices due to address change in P3, reflected via location table):"
 "Statistical Units (LU - expect 2 slices due to address change in P3, reflected via location table):"
 SELECT su.name, su.external_idents->>'tax_ident' AS tax_ident, su.physical_address_part1, su.sector_code, su.valid_from, su.valid_to
@@ -822,10 +802,6 @@ ORDER BY est_ei.ident, est.valid_from, est.valid_to;
 (1 row)
 
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 \echo "Statistical Units (LU - expect 2 slices due to address change):"
 "Statistical Units (LU - expect 2 slices due to address change):"
 SELECT su.name, su.external_idents->>'tax_ident' AS tax_ident, su.physical_address_part1, su.valid_from, su.valid_to
@@ -936,10 +912,6 @@ ORDER BY ei.ident, loc.type, loc.valid_from, loc.valid_to;
 (2 rows)
 
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 \echo "Statistical Units (ES - expect 2 slices due to location change):"
 "Statistical Units (ES - expect 2 slices due to location change):"
 SELECT su.name, su.external_idents->>'tax_ident' AS tax_ident, su.physical_address_part1, su.valid_from, su.valid_to

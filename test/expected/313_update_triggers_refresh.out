@@ -173,10 +173,6 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo Run worker processing for analytics tasks
 Run worker processing for analytics tasks
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 -- 
 SELECT unit_type, external_idents, valid_from, valid_until, name, stats->'employees' as employees FROM public.statistical_unit
 WHERE name = 'Statistics Norway'
@@ -226,10 +222,6 @@ WHERE command = 'check_table' AND state = 'pending';
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics'); -- Processes check_table, enqueues derive tasks and process derived tasks
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 \echo "After: check stats for 'Statistics Norway'. Expect employees to be 100."
 "After: check stats for 'Statistics Norway'. Expect employees to be 100."
 \x
@@ -269,10 +261,6 @@ SELECT command, payload->>'table_name' as table_name, state FROM worker.tasks WH
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 \echo "After: Checking name for establishment 'Statistics Norway Updated'"
 "After: Checking name for establishment 'Statistics Norway Updated'"
 SELECT name FROM public.statistical_unit WHERE name = 'Statistics Norway Updated' AND unit_type = 'establishment';
@@ -307,10 +295,6 @@ SELECT command, payload->>'table_name' as table_name, state FROM worker.tasks WH
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 \echo "After: Checking name of enterprise for legal_unit 'Statistics Norway'. Expect 'GIL'."
 "After: Checking name of enterprise for legal_unit 'Statistics Norway'. Expect 'GIL'."
 SELECT name FROM public.statistical_unit WHERE unit_type = 'enterprise' AND unit_id = (SELECT enterprise_id FROM public.legal_unit WHERE name = 'Statistics Norway');
@@ -345,10 +329,6 @@ SELECT command, payload->>'table_name' as table_name, state FROM worker.tasks WH
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 \echo "After: Checking physical_address_part1 for 'Statistics Norway'"
 "After: Checking physical_address_part1 for 'Statistics Norway'"
 SELECT physical_address_part1 FROM public.statistical_unit WHERE name = 'Statistics Norway' AND unit_type = 'legal_unit';
@@ -386,10 +366,6 @@ SELECT command, payload->>'table_name' as table_name, state FROM worker.tasks WH
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 \echo "After: Checking primary_activity_category_path for 'Statistics Norway'"
 "After: Checking primary_activity_category_path for 'Statistics Norway'"
 SELECT primary_activity_category_path FROM public.statistical_unit WHERE name = 'Statistics Norway' AND unit_type = 'legal_unit';
@@ -435,10 +411,6 @@ SELECT command, payload->>'table_name' as table_name, state FROM worker.tasks WH
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 \echo "After: Checking email_address for 'Statistics Norway' (should be updated)"
 "After: Checking email_address for 'Statistics Norway' (should be updated)"
 SELECT email_address FROM public.statistical_unit WHERE name = 'Statistics Norway' AND unit_type = 'legal_unit';
@@ -478,10 +450,6 @@ SELECT command, payload->>'table_name' as table_name, state FROM worker.tasks WH
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 \echo "After: Checking name of enterprise. Expect 'SSB'."
 "After: Checking name of enterprise. Expect 'SSB'."
 SELECT name FROM public.statistical_unit
@@ -521,10 +489,6 @@ SELECT command, payload->>'table_name' as table_name, state FROM worker.tasks WH
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 \echo "After: check external_idents for 'Statistics Norway'. Expect updated tax_ident."
 "After: check external_idents for 'Statistics Norway'. Expect updated tax_ident."
 \x
@@ -575,10 +539,6 @@ ORDER BY command;
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 \echo "After: Checking new parent of establishment 'Statistics Norway Updated'. Expect 'Statistics Denmark'."
 "After: Checking new parent of establishment 'Statistics Norway Updated'. Expect 'Statistics Denmark'."
 SELECT lu.name as legal_unit_name
@@ -632,10 +592,6 @@ ORDER BY command;
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 \echo "After (1): Check 'Statistics Ethiopia'. Expect stat_ident to be gone."
 "After (1): Check 'Statistics Ethiopia'. Expect stat_ident to be gone."
 \x
@@ -669,10 +625,6 @@ ORDER BY command;
 \echo "Run worker to process tasks..."
 "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 \echo "After (2): Checking external_idents for both units. Ethiopia should have stat_ident 15, Sweden should not."
 "After (2): Checking external_idents for both units. Ethiopia should have stat_ident 15, Sweden should not."
 \x

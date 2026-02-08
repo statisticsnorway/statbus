@@ -511,10 +511,6 @@ ORDER BY lu.valid_from, lu.valid_to;
 \echo "Consolidated Statistical Unit view for LU-69A (69A000001) across all periods:"
 "Consolidated Statistical Unit view for LU-69A (69A000001) across all periods:"
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 SELECT
     su.name, su.valid_from, su.valid_to,
     su.physical_address_part1, su.physical_postcode, su.physical_region_code,
@@ -914,10 +910,6 @@ ORDER BY est.valid_from, est.valid_to;
 \echo "Consolidated Statistical Unit view for ES-69B (E69B00001) across all periods:"
 "Consolidated Statistical Unit view for ES-69B (E69B00001) across all periods:"
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 SELECT
     su.name, su.valid_from, su.valid_to,
     su.physical_address_part1, su.physical_postcode, su.physical_region_code,
@@ -1283,10 +1275,6 @@ ORDER BY est.valid_from, est.valid_to;
 \echo "Consolidated Statistical Unit view for ES-69C (E69C00001) across all periods:"
 "Consolidated Statistical Unit view for ES-69C (E69C00001) across all periods:"
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 SELECT
     su.name, su.valid_from, su.valid_to,
     su.physical_address_part1, su.physical_postcode, su.physical_region_code,

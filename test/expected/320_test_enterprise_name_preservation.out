@@ -205,10 +205,6 @@ SELECT public.connect_legal_unit_to_enterprise(
 (1 row)
 
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 -- Step 4: Verify enterprise name is preserved
 \echo 'Step 4: Verify enterprise name stays "Main Company Ltd" (from primary LU)'
 Step 4: Verify enterprise name stays "Main Company Ltd" (from primary LU)
@@ -280,10 +276,6 @@ INSERT INTO public.test320_informal_es_upload (
 );
 CALL worker.process_tasks(p_queue => 'import');
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 -- Get enterprise ID
 SELECT est.enterprise_id AS informal_enterprise_id
 FROM public.establishment est
@@ -333,10 +325,6 @@ SELECT public.connect_legal_unit_to_enterprise(
 (1 row)
 
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 \echo 'Enterprise name after LU connection (should be from LU):'
 Enterprise name after LU connection (should be from LU):
 SELECT ten.name AS enterprise_name
@@ -407,10 +395,6 @@ INSERT INTO public.test320_noise_lu_no_es_upload (
 );
 CALL worker.process_tasks(p_queue => 'import');
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 \echo ''
 
 \echo 'Background noise created. Now setting up main test scenario.'
@@ -473,10 +457,6 @@ SELECT public.set_primary_legal_unit_for_enterprise(:lu2_id, '2023-01-01'::date,
 (1 row)
 
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 \echo 'After setup - en1 should have name "Beta Corp" (from primary lu2):'
 After setup - en1 should have name "Beta Corp" (from primary lu2):
 SELECT ten.enterprise_id, ten.name AS enterprise_name
@@ -514,10 +494,6 @@ INSERT INTO public.test320_gamma_upload (
 );
 CALL worker.process_tasks(p_queue => 'import');
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 -- Get lu3 and en2 IDs
 SELECT lu.id AS lu3_id, lu.enterprise_id AS en2_id
 FROM public.legal_unit lu
@@ -565,10 +541,6 @@ SELECT public.connect_legal_unit_to_enterprise(:lu1_id, :en2_id, '2023-01-01'::d
 (1 row)
 
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 \echo 'After moving lu1 to en2:'
 After moving lu1 to en2:
 \echo 'en1 enterprise name (should still be "Beta Corp"):'
@@ -617,10 +589,6 @@ SELECT public.connect_legal_unit_to_enterprise(:lu2_id, :en2_id, '2023-01-01'::d
 (1 row)
 
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 \echo 'After moving lu2 to en2:'
 After moving lu2 to en2:
 \echo 'en1 should be deleted (expecting 0 rows):'
@@ -676,10 +644,6 @@ SELECT public.set_primary_legal_unit_for_enterprise(:lu1_id, '2023-01-01'::date,
 (1 row)
 
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 \echo 'After setting lu1 as primary:'
 After setting lu1 as primary:
 \echo 'en2 enterprise name (should now be "Alpha Corp"):'
@@ -795,10 +759,6 @@ INSERT INTO public.test320_market_stall_upload (
 );
 CALL worker.process_tasks(p_queue => 'import');
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 -- Get ES and enterprise IDs
 SELECT es.id AS es1_id, es.enterprise_id AS es1_en_id
 FROM public.establishment es
@@ -829,10 +789,6 @@ INSERT INTO public.test320_food_cart_upload (
 );
 CALL worker.process_tasks(p_queue => 'import');
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 -- Get ES2 ID
 SELECT es.id AS es2_id, es.enterprise_id AS es2_en_id
 FROM public.establishment es
@@ -865,10 +821,6 @@ SELECT public.connect_legal_unit_to_enterprise(:vendor_lu_id, :es1_en_id, '2023-
 (1 row)
 
 CALL worker.process_tasks(p_queue => 'analytics');
-NOTICE:  Created btree index su_ei_tax_ident_idx for external_ident_type
-NOTICE:  Created btree index su_ei_stat_ident_idx for external_ident_type
-NOTICE:  Created indices for stat_definition employees
-NOTICE:  Created indices for stat_definition turnover
 \echo 'Enterprise name after LU connection (should be "Registered Vendor Ltd"):'
 Enterprise name after LU connection (should be "Registered Vendor Ltd"):
 SELECT ten.name AS enterprise_name
