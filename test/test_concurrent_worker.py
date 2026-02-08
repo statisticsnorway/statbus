@@ -379,6 +379,12 @@ def worker_thread(thread_id, max_tasks):
         conn = get_conn()
         conn.autocommit = True  # Each CALL is its own transaction
 
+        # Reduce per-session memory to avoid OOM with many concurrent threads.
+        # Default work_mem (40MB) × 8 threads × multiple operations = OOM at 4GB.
+        with conn.cursor() as cur:
+            cur.execute("SET work_mem = '10MB'")
+            cur.execute("SET maintenance_work_mem = '128MB'")
+
         idle_count = 0
         iteration = 0
         while max_tasks == 0 or iteration < max_tasks:
