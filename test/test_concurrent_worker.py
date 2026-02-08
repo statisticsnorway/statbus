@@ -31,6 +31,7 @@ from psycopg2 import errors as pg_errors
 WORKSPACE = Path(__file__).parent.parent.absolute()
 TEMPLATE_DB = "template_statbus_migrated"
 MANAGE = str(WORKSPACE / "devops" / "manage-statbus.sh")
+ENV_CONFIG = WORKSPACE / ".env.config"
 
 # Colors
 RED = '\033[0;31m'
@@ -38,6 +39,60 @@ GREEN = '\033[0;32m'
 YELLOW = '\033[0;33m'
 BLUE = '\033[0;34m'
 NC = '\033[0m'
+
+def parse_mem_gb(value):
+    """Parse memory string like '4G', '8g', '4096M' to float GB."""
+    value = value.strip().upper()
+    if value.endswith("G"):
+        return float(value[:-1])
+    if value.endswith("GB"):
+        return float(value[:-2])
+    if value.endswith("M"):
+        return float(value[:-1]) / 1024
+    if value.endswith("MB"):
+        return float(value[:-2]) / 1024
+    return float(value) / (1024 ** 3)  # assume bytes
+
+
+def get_db_mem_limit_gb():
+    """Read DB_MEM_LIMIT from .env.config, return as float GB."""
+    if not ENV_CONFIG.exists():
+        return None
+    for line in ENV_CONFIG.read_text().splitlines():
+        line = line.strip()
+        if line.startswith("DB_MEM_LIMIT="):
+            return parse_mem_gb(line.split("=", 1)[1])
+    return None
+
+
+def check_memory(num_threads, dataset):
+    """Check if DB_MEM_LIMIT is sufficient for the workload. Exit with advice if not."""
+    mem_gb = get_db_mem_limit_gb()
+    if mem_gb is None:
+        return  # Can't determine, proceed anyway
+
+    # Heuristic: shared_buffers(1GB) + work_mem(40MB) * ~4 ops * threads + overhead
+    # Empirically, 4GB OOM'd with 8 threads on downloads dataset.
+    # Budget ~0.5GB per thread for safety.
+    min_gb = 2.0 + 0.5 * num_threads
+    if dataset == "selection":
+        min_gb = min(min_gb, 4.0)  # selection is small, 4GB is always enough
+
+    if mem_gb < min_gb:
+        print(f"{RED}ERROR: DB_MEM_LIMIT={mem_gb:.0f}G is too low for {num_threads} threads with '{dataset}' dataset.{NC}")
+        print(f"{RED}       Minimum recommended: {min_gb:.0f}G{NC}")
+        print()
+        print(f"  Fix: edit {ENV_CONFIG.relative_to(WORKSPACE)} and set:")
+        print(f"    DB_MEM_LIMIT={min_gb:.0f}G")
+        print()
+        print(f"  Then restart the database:")
+        print(f"    ./devops/manage-statbus.sh start db")
+        print()
+        print(f"  Or reduce threads: -n {max(1, int((mem_gb - 2) / 0.5))}")
+        sys.exit(1)
+    else:
+        print(f"{GREEN}DB memory: {mem_gb:.0f}G (minimum {min_gb:.0f}G for {num_threads} threads){NC}")
+
 
 # Global test database name (set during setup)
 TEST_DB = None
@@ -607,6 +662,7 @@ if __name__ == "__main__":
         list_test_databases()
         sys.exit(0)
 
+    check_memory(args.threads, args.dataset)
     log_print(f"{BLUE}Log file: {LOG_FILE}{NC}")
 
     if not args.skip_setup:
