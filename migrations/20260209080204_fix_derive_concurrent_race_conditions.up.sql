@@ -4,6 +4,7 @@
 -- both DELETE+INSERT for the same time range simultaneously.
 -- Worker A does DELETE+INSERT, worker B does DELETE(finds nothing)+INSERT → duplicate key.
 -- Use ON CONFLICT DO UPDATE so the last writer wins with the freshest source data.
+SELECT pg_catalog.set_config('search_path', 'public', false);
 BEGIN;
 
 -- Fix 1: statistical_history_derive — ON CONFLICT DO UPDATE
