@@ -108,8 +108,7 @@ if test -n "$dbseed_changes" || test -n "$migrations_changes" || test -n "${RECR
 
   if test -f ${HOME}/statbus/tmp/enheter.csv; then
     # Extract first user email from .users.yml for brreg import
-    WORKDIR=$(./devops/dotenv --file .env get WORKDIR)
-    USER_EMAIL=$(yq eval '.users[0].email' "$WORKDIR/.users.yml") || { echo "Failed to extract user email from .users.yml"; exit 1; }
+    USER_EMAIL=$(yq eval '.[0].email' ".users.yml") || { echo "Failed to extract user email from .users.yml"; exit 1; }
     echo "Using user email: $USER_EMAIL for brreg import"
     USER_EMAIL=$USER_EMAIL ./samples/norway/brreg/brreg-import-selection.sh
     echo "Running import of entire brreg registry"
