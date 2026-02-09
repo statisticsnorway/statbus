@@ -72,9 +72,9 @@ def check_memory(num_threads, dataset):
         return  # Can't determine, proceed anyway
 
     # Heuristic: shared_buffers(1GB) + work_mem(40MB) * ~4 ops * threads + overhead
-    # Empirically, 4GB OOM'd with 8 threads on downloads dataset.
-    # Budget ~0.5GB per thread for safety.
-    min_gb = 2.0 + 0.5 * num_threads
+    # Empirically, 4GB OOM'd with 4 threads on downloads dataset (~1M rows).
+    # Budget ~1GB per thread for safety.
+    min_gb = 2.0 + 1.0 * num_threads
     if dataset == "selection":
         min_gb = min(min_gb, 4.0)  # selection is small, 4GB is always enough
 
@@ -88,7 +88,7 @@ def check_memory(num_threads, dataset):
         print(f"  Then restart the database:")
         print(f"    ./devops/manage-statbus.sh start db")
         print()
-        print(f"  Or reduce threads: -n {max(1, int((mem_gb - 2) / 0.5))}")
+        print(f"  Or reduce threads: -n {max(1, int((mem_gb - 2) / 1.0))}")
         sys.exit(1)
     else:
         print(f"{GREEN}DB memory: {mem_gb:.0f}G (minimum {min_gb:.0f}G for {num_threads} threads){NC}")
