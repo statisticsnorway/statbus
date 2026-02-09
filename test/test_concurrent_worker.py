@@ -31,6 +31,7 @@ from psycopg2 import errors as pg_errors
 WORKSPACE = Path(__file__).parent.parent.absolute()
 TEMPLATE_DB = "template_statbus_migrated"
 MANAGE = str(WORKSPACE / "devops" / "manage-statbus.sh")
+ENV_CONFIG = WORKSPACE / ".env.config"
 
 # Colors
 RED = '\033[0;31m'
@@ -38,6 +39,83 @@ GREEN = '\033[0;32m'
 YELLOW = '\033[0;33m'
 BLUE = '\033[0;34m'
 NC = '\033[0m'
+
+def parse_mem_gb(value):
+    """Parse memory string like '4G', '8g', '4096M' to float GB."""
+    value = value.strip().upper()
+    if value.endswith("G"):
+        return float(value[:-1])
+    if value.endswith("GB"):
+        return float(value[:-2])
+    if value.endswith("M"):
+        return float(value[:-1]) / 1024
+    if value.endswith("MB"):
+        return float(value[:-2]) / 1024
+    return float(value) / (1024 ** 3)  # assume bytes
+
+
+def get_db_mem_limit_gb():
+    """Read DB_MEM_LIMIT from .env.config, return as float GB."""
+    if not ENV_CONFIG.exists():
+        return None
+    for line in ENV_CONFIG.read_text().splitlines():
+        line = line.strip()
+        if line.startswith("DB_MEM_LIMIT="):
+            return parse_mem_gb(line.split("=", 1)[1])
+    return None
+
+
+def get_queue_layout(conn):
+    """Read queue configuration from database and return Crystal-style fiber layout.
+
+    Returns list of (mode, queue) tuples matching the Crystal worker's fiber layout:
+    - 1 top fiber per queue (processes top-level tasks serially)
+    - N child fibers per queue (process spawned children concurrently)
+    """
+    layout = []
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT queue, default_concurrency
+            FROM worker.queue_registry
+            ORDER BY queue
+        """)
+        for queue, concurrency in cur.fetchall():
+            # 1 top thread per queue
+            layout.append(('top', queue))
+            # N child threads per queue (based on default_concurrency)
+            for _ in range(concurrency):
+                layout.append(('child', queue))
+    return layout
+
+
+def check_memory(num_threads, dataset):
+    """Check if DB_MEM_LIMIT is sufficient for the workload. Exit with advice if not."""
+    mem_gb = get_db_mem_limit_gb()
+    if mem_gb is None:
+        return  # Can't determine, proceed anyway
+
+    # Heuristic: shared_buffers(1GB) + work_mem(40MB) * ~4 ops * threads + overhead
+    # Empirically, 4GB OOM'd with 4 threads on downloads dataset (~1M rows).
+    # Budget ~1GB per thread for safety.
+    min_gb = 2.0 + 1.0 * num_threads
+    if dataset == "selection":
+        min_gb = min(min_gb, 4.0)  # selection is small, 4GB is always enough
+
+    if mem_gb < min_gb:
+        print(f"{RED}ERROR: DB_MEM_LIMIT={mem_gb:.0f}G is too low for {num_threads} threads with '{dataset}' dataset.{NC}")
+        print(f"{RED}       Minimum recommended: {min_gb:.0f}G{NC}")
+        print()
+        print(f"  Fix: edit {ENV_CONFIG.relative_to(WORKSPACE)} and set:")
+        print(f"    DB_MEM_LIMIT={min_gb:.0f}G")
+        print()
+        print(f"  Then restart the database:")
+        print(f"    ./devops/manage-statbus.sh start db")
+        print()
+        print(f"  Or reduce threads: -n {max(1, int((mem_gb - 2) / 1.0))}")
+        sys.exit(1)
+    else:
+        print(f"{GREEN}DB memory: {mem_gb:.0f}G (minimum {min_gb:.0f}G for {num_threads} threads){NC}")
+
 
 # Global test database name (set during setup)
 TEST_DB = None
@@ -368,57 +446,89 @@ COMMIT;
 # Concurrent Worker Simulation
 # ============================================================================
 
-def worker_thread(thread_id, max_tasks):
-    """Simulate a worker fiber: own connection, calls process_tasks in a loop"""
-    result = {"thread_id": thread_id, "tasks": 0, "errors": [], "elapsed": 0}
+def worker_thread(thread_id, max_tasks, queue=None, mode=None):
+    """Simulate a worker fiber: own connection, calls process_tasks in a loop.
+
+    When queue and mode are provided, matches Crystal worker behavior:
+    - Each thread processes only its assigned queue
+    - 'top' mode processes top-level tasks serially
+    - 'child' mode processes spawned children concurrently
+    """
+    thread_name = f"{queue}:{mode}:{thread_id}" if queue else f"thread-{thread_id}"
+    result = {"thread_id": thread_id, "thread_name": thread_name, "tasks": 0, "errors": [], "elapsed": 0}
     start = time.time()
 
-    log.info(f"Thread {thread_id}: starting (max_tasks={max_tasks})")
+    log.info(f"{thread_name}: starting (max_tasks={max_tasks or 'unlimited'}, queue={queue}, mode={mode})")
 
     try:
         conn = get_conn()
         conn.autocommit = True  # Each CALL is its own transaction
 
         idle_count = 0
-        for i in range(max_tasks):
+        iteration = 0
+        while max_tasks == 0 or iteration < max_tasks:
+            iteration += 1
             try:
                 with conn.cursor() as cur:
-                    # Check if there are actionable tasks
-                    cur.execute("""
-                        SELECT count(*) FROM worker.tasks
-                        WHERE state IN ('pending', 'processing', 'waiting')
-                    """)
+                    # Check if there are actionable tasks (in our queue if specified)
+                    if queue:
+                        cur.execute("""
+                            SELECT count(*) FROM worker.tasks AS t
+                            JOIN worker.command_registry AS cr ON cr.command = t.command
+                            WHERE t.state IN ('pending', 'processing', 'waiting')
+                              AND cr.queue = %s
+                        """, (queue,))
+                    else:
+                        cur.execute("""
+                            SELECT count(*) FROM worker.tasks
+                            WHERE state IN ('pending', 'processing', 'waiting')
+                        """)
                     actionable = cur.fetchone()[0]
 
                     if actionable == 0:
                         idle_count += 1
                         if idle_count >= 5:
-                            log.info(f"Thread {thread_id}: no more work after {result['tasks']} tasks")
+                            log.info(f"{thread_name}: no more work after {result['tasks']} tasks")
                             break
                         time.sleep(1)
                         continue
 
                     idle_count = 0
-                    cur.execute("CALL worker.process_tasks(p_batch_size := 1)")
+                    call_start = time.time()
+                    if queue and mode:
+                        cur.execute(
+                            "CALL worker.process_tasks(p_batch_size := 1, p_queue := %s, p_mode := %s::worker.process_mode)",
+                            (queue, mode)
+                        )
+                    else:
+                        cur.execute("CALL worker.process_tasks(p_batch_size := 1)")
+                    call_ms = (time.time() - call_start) * 1000
                     result["tasks"] += 1
+
+                    # If process_tasks returned very quickly (<100ms), it likely
+                    # found no claimable work (another thread has it). Back off
+                    # to avoid spin-looping that can crash PostgreSQL.
+                    if call_ms < 100:
+                        time.sleep(0.2)
+
                     if result["tasks"] % 10 == 0:
-                        log.info(f"Thread {thread_id}: processed {result['tasks']} tasks ({actionable} actionable)")
+                        log.info(f"{thread_name}: processed {result['tasks']} tasks ({actionable} actionable)")
 
             except pg_errors.DeadlockDetected as e:
                 msg = f"DEADLOCK: {e.pgerror}"
                 result["errors"].append(msg)
-                log.error(f"Thread {thread_id}: {msg}")
+                log.error(f"{thread_name}: {msg}")
                 # Don't break - retry like the real worker would
                 time.sleep(0.1)
             except pg_errors.SerializationFailure as e:
                 msg = f"SERIALIZATION: {e.pgerror}"
                 result["errors"].append(msg)
-                log.error(f"Thread {thread_id}: {msg}")
+                log.error(f"{thread_name}: {msg}")
                 time.sleep(0.1)
             except psycopg2.Error as e:
                 msg = f"DB ERROR ({e.pgcode}): {e.pgerror}"
                 result["errors"].append(msg)
-                log.error(f"Thread {thread_id}: {msg}")
+                log.error(f"{thread_name}: {msg}")
                 # Reconnect on connection-level errors
                 try:
                     conn.close()
@@ -434,28 +544,46 @@ def worker_thread(thread_id, max_tasks):
     except Exception as e:
         msg = f"CONNECTION ERROR: {e}"
         result["errors"].append(msg)
-        log.error(f"Thread {thread_id}: {msg}")
+        log.error(f"{thread_name}: {msg}")
 
     result["elapsed"] = time.time() - start
-    log.info(f"Thread {thread_id}: finished in {result['elapsed']:.1f}s, {result['tasks']} tasks, {len(result['errors'])} errors")
+    log.info(f"{thread_name}: finished in {result['elapsed']:.1f}s, {result['tasks']} tasks, {len(result['errors'])} errors")
     return result
 
 
-def run_concurrent_test(num_threads, tasks_per_thread):
-    """Run concurrent worker test"""
+def run_concurrent_test(tasks_per_thread):
+    """Run concurrent worker test with Crystal-style queue isolation.
+
+    Creates threads matching the Crystal worker's fiber layout:
+    - 1 top fiber per queue (serial top-level tasks)
+    - N child fibers per queue (concurrent children, N = default_concurrency)
+
+    The -n flag is ignored when queue layout is used (thread count is determined
+    by database queue_registry configuration).
+    """
+    # Read queue layout from database
+    conn = get_conn()
+    queue_layout = get_queue_layout(conn)
+    conn.close()
+
+    actual_threads = len(queue_layout)
+
     log_print(f"\n{'='*60}")
-    log_print(f"  Concurrent Worker Test")
+    log_print(f"  Concurrent Worker Test (Crystal-style queue isolation)")
     log_print(f"  Database: {TEST_DB}")
-    log_print(f"  Threads: {num_threads}, Max tasks/thread: {tasks_per_thread}")
+    log_print(f"  Thread layout ({actual_threads} threads):")
+    for mode, queue in queue_layout:
+        log_print(f"    {queue}:{mode}")
+    log_print(f"  Max tasks/thread: {tasks_per_thread}")
     log_print(f"  Log: {LOG_FILE}")
     log_print(f"{'='*60}")
 
     start = time.time()
 
-    with ThreadPoolExecutor(max_workers=num_threads) as executor:
+    with ThreadPoolExecutor(max_workers=actual_threads) as executor:
         futures = {
-            executor.submit(worker_thread, i, tasks_per_thread): i
-            for i in range(num_threads)
+            executor.submit(worker_thread, i, tasks_per_thread, queue=queue, mode=mode): i
+            for i, (mode, queue) in enumerate(queue_layout)
         }
 
         results = []
@@ -463,7 +591,7 @@ def run_concurrent_test(num_threads, tasks_per_thread):
             r = future.result()
             results.append(r)
             status = f"{GREEN}OK{NC}" if not r["errors"] else f"{RED}{len(r['errors'])} errors{NC}"
-            log_print(f"  Thread {r['thread_id']}: {r['tasks']} tasks, {r['elapsed']:.1f}s [{status}]")
+            log_print(f"  {r['thread_name']}: {r['tasks']} tasks, {r['elapsed']:.1f}s [{status}]")
 
     elapsed = time.time() - start
 
@@ -479,8 +607,18 @@ def run_concurrent_test(num_threads, tasks_per_thread):
     log_print(f"  Total tasks processed: {total_tasks}")
     log_print(f"  Total errors: {len(all_errors)}")
 
-    # Final task state
-    conn = get_conn()
+    # Final task state (retry connection in case DB is recovering)
+    for attempt in range(10):
+        try:
+            conn = get_conn()
+            break
+        except Exception as e:
+            if attempt < 9:
+                log_print(f"  {YELLOW}DB connection attempt {attempt+1}/10 failed, retrying in 5s...{NC}")
+                time.sleep(5)
+            else:
+                log_print(f"  {RED}Could not connect to DB for summary: {e}{NC}", "error")
+                return False
     with conn.cursor() as cur:
         cur.execute("""
             SELECT state, count(*)
@@ -526,7 +664,7 @@ def run_concurrent_test(num_threads, tasks_per_thread):
         return False
     else:
         log_print(f"\n{GREEN}{'='*60}")
-        log_print(f"  SUCCESS: All {num_threads} threads completed, 0 failed tasks")
+        log_print(f"  SUCCESS: All {actual_threads} threads completed, 0 failed tasks")
         log_print(f"{'='*60}{NC}")
         return True
 
@@ -560,10 +698,10 @@ if __name__ == "__main__":
         description="Test concurrent worker processing with isolated database",
         epilog="Databases are RETAINED by default for comparison. Use --cleanup to delete."
     )
-    parser.add_argument("-n", "--threads", type=int, default=4,
-                        help="Number of concurrent threads (default: 4)")
-    parser.add_argument("-t", "--tasks", type=int, default=500,
-                        help="Max tasks per thread (default: 500)")
+    parser.add_argument("-n", "--threads", type=int, default=None,
+                        help="Ignored (thread count determined by queue_registry). Kept for backward compatibility.")
+    parser.add_argument("-t", "--tasks", type=int, default=0,
+                        help="Max process_tasks calls per thread (0=unlimited, default: 0)")
     parser.add_argument("--skip-setup", action="store_true",
                         help="Skip DB creation and data load (use current PGDATABASE)")
     parser.add_argument("--cleanup", action="store_true",
@@ -597,5 +735,11 @@ if __name__ == "__main__":
         TEST_DB = env.get("PGDATABASE", "statbus")
         log_print(f"Using existing database: {TEST_DB}")
 
-    success = run_concurrent_test(args.threads, args.tasks)
+    # Determine actual thread count from queue layout and check memory
+    conn = get_conn()
+    queue_layout = get_queue_layout(conn)
+    conn.close()
+    check_memory(len(queue_layout), args.dataset)
+
+    success = run_concurrent_test(args.tasks)
     sys.exit(0 if success else 1)
