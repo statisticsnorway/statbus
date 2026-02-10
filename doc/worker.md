@@ -3,6 +3,8 @@
 This document describes the architecture and operation of the STATBUS background worker system. The worker is responsible for handling asynchronous tasks such as deriving statistical data, performing data cleanup, and processing imports.
 
 For details on how the worker's status is communicated to the frontend for UI notifications, see [Worker Notifications](./worker-notifications.md).
+For the derive pipeline (how statistical tables are computed), see [Derive Pipeline](./derive-pipeline.md).
+For structured concurrency (parent/child task model), see [Structured Concurrency](./worker-structured-concurrency.md).
 
 ## 1. Core Architecture
 

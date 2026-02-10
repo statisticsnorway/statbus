@@ -31,8 +31,8 @@ We'll implement a lightweight system stability indicator that shows whether the 
 1. Create lightweight status functions:
    - **Specific Task Status:** For granular UI feedback, use these functions (accessible via `/rest/rpc/...`):
      - `public.is_importing()`: Returns `true` if any import jobs (`import_job_process`) are pending or processing.
-     - `public.is_deriving_statistical_units()`: Returns `true` if the core statistical unit derivation (`derive_statistical_unit`) is pending or processing.
-     - `public.is_deriving_reports()`: Returns `true` if report/facet derivation (`derive_reports`) is pending or processing.
+     - `public.is_deriving_statistical_units()`: Returns `true` if the core statistical unit derivation (`derive_statistical_unit`) is pending, processing, or **waiting** (parent awaiting children).
+     - `public.is_deriving_reports()`: Returns `true` if report/facet derivation (`derive_reports`) is pending, processing, or **waiting**.
 
    ```sql
    -- Specific task status checks (in public schema)

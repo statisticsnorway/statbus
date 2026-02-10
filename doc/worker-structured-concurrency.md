@@ -85,47 +85,56 @@ This allows:
 
 The parent remains in `waiting` state until ALL children (including dynamically spawned ones) complete.
 
-## Concurrent vs Serial Mode
+## How Fibers Cooperate
 
-The `process_tasks` procedure operates in two modes:
+Each queue has **1 top fiber** and **N child fibers** (where N = concurrency - 1).
+The top fiber is the only one that picks top-level tasks. Child fibers sleep
+until explicitly woken.
 
-### Serial Mode (default)
+For the original concept, see [Notes on structured concurrency, or: Go
+statement considered harmful](https://vorpus.org/blog/notes-on-structured-concurrency-or-go-statement-considered-harmful/)
+by Nathaniel J. Smith.
 
-When no `waiting` parent exists:
-- Pick top-level tasks (`parent_id IS NULL`)
-- Process one at a time in priority order
-- Multiple fibers can still run, but each picks its own top-level task
+### Top Fiber (serial execution)
 
-### Concurrent Mode
+The top fiber picks **exactly one** top-level task at a time:
+- If the handler spawns children, the parent enters `waiting` state
+- The top fiber wakes the child fibers and **blocks** until they all signal done
+- Only then does it loop to pick the next top-level task
+- If a `waiting` parent exists when `mode='top'`, the SQL returns immediately
+  (no second top-level task can start)
 
-When a `waiting` parent exists:
-- Pick children of the first waiting parent (by priority)
-- Multiple fibers process children in parallel
-- `FOR UPDATE SKIP LOCKED` prevents conflicts
-- All fibers focus on completing the current parent before moving on
+### Child Fibers (parallel execution within scope)
+
+Child fibers sleep until the top fiber wakes them:
+- Each picks **one pending child** of the waiting parent (`LIMIT 1, SKIP LOCKED`)
+- Multiple child fibers process different children concurrently
+- When no more children remain, each signals the top fiber and goes back to sleep
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Serial Mode: No waiting parent                             │
+│  Top-level tasks: strictly sequential                       │
 │  ┌──────┐  ┌──────┐  ┌──────┐                              │
-│  │Task A│→ │Task B│→ │Task C│  (one at a time)             │
+│  │Task A│→ │Task B│→ │Task C│  (one at a time, top fiber)  │
 │  └──────┘  └──────┘  └──────┘                              │
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
-│  Concurrent Mode: Parent waiting for children               │
+│  When a task spawns children: scoped concurrency             │
 │                                                             │
 │  ┌──────────────────────────────────┐                      │
 │  │ Parent Task (state: waiting)     │                      │
+│  │ Top fiber BLOCKED here           │                      │
 │  │                                  │                      │
 │  │  ┌───────┐ ┌───────┐ ┌───────┐  │                      │
-│  │  │Child 1│ │Child 2│ │Child 3│  │  (parallel)          │
-│  │  │Fiber 1│ │Fiber 2│ │Fiber 3│  │                      │
+│  │  │Child 1│ │Child 2│ │Child 3│  │  (parallel on child  │
+│  │  │Fiber 1│ │Fiber 2│ │Fiber 3│  │   fibers)            │
 │  │  └───────┘ └───────┘ └───────┘  │                      │
 │  │              ↓                   │                      │
 │  │     All children complete        │                      │
 │  │              ↓                   │                      │
 │  │     Parent → completed           │                      │
+│  │     Top fiber unblocked          │                      │
 │  └──────────────────────────────────┘                      │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -148,23 +157,26 @@ Uncle tasks:
 
 ## Example: Statistical Unit Derivation
 
+For the full pipeline diagram, see [derive-pipeline.md](./derive-pipeline.md).
+
 ```
-1. Trigger fires → enqueues derive_statistical_unit (priority 10)
+1. check_table detects changes → enqueues derive_statistical_unit
 
 2. derive_statistical_unit runs:
    - Computes closed groups of affected enterprises
-   - Spawns batch children (priority 20):
+   - Spawns batch children:
      - statistical_unit_refresh_batch (batch 1)
      - statistical_unit_refresh_batch (batch 2)
      - statistical_unit_refresh_batch (batch 3)
-   - Enqueues uncle tasks:
-     - analyze_tables (runs after completion)
-     - derive_reports (runs after completion)
+     - ... (N batches of ~1000 enterprises each)
+   - Enqueues uncle tasks (run after parent completes):
+     - statistical_unit_flush_staging
+     - derive_reports (triggers DSH → DSUF → DSHF chain)
    - Handler returns → state becomes 'waiting'
 
 3. Concurrent mode activates:
    - 4 analytics fibers process batch children in parallel
-   - Each batch refreshes a subset of enterprises
+   - Each batch refreshes statistical_unit for a subset of enterprises
    - SKIP LOCKED prevents conflicts
 
 4. All children complete:
@@ -172,8 +184,11 @@ Uncle tasks:
    - Parent state → completed
 
 5. Serial mode resumes:
-   - analyze_tables runs (updates statistics)
-   - derive_reports runs (generates reports)
+   - statistical_unit_flush_staging runs (merges staging → main table)
+   - derive_reports runs (enqueues derive_statistical_history)
+   - derive_statistical_history runs (spawns period children → concurrent)
+   - derive_statistical_unit_facet runs (monolithic, no children)
+   - derive_statistical_history_facet runs (spawns period children → concurrent)
 ```
 
 ## Why Skip ANALYZE in Batches?
