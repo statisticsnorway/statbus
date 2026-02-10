@@ -112,7 +112,7 @@ if test -n "$dbseed_changes" || test -n "$migrations_changes" || test -n "${RECR
     echo "Using user email: $USER_EMAIL for brreg import"
     USER_EMAIL=$USER_EMAIL ./samples/norway/brreg/brreg-import-selection.sh
     echo "Running import of entire brreg registry"
-    USER_EMAIL=$USER_EMAIL ./samples/norway/brreg-import-downloads-from-tmp.sh
+    USER_EMAIL=$USER_EMAIL ./samples/norway/brreg/brreg-import-downloads-from-tmp.sh
   fi
 else
   echo "No changes requiring DB recreation found, applying any pending migrations and restarting app"
