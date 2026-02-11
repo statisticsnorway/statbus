@@ -20,6 +20,14 @@ fi
 WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 cd "$WORKSPACE"
 
+# Build worker binary if needed (check both worker.cr and cli.cr)
+BINARY="$WORKSPACE/cli/bin/statbus"
+if [ ! -f "$BINARY" ] || [ "$WORKSPACE/cli/src/worker.cr" -nt "$BINARY" ] || [ "$WORKSPACE/cli/src/cli.cr" -nt "$BINARY" ]; then
+  echo "Building worker binary..."
+  cd "$WORKSPACE/cli" && shards build statbus
+  cd "$WORKSPACE"
+fi
+
 # Set up Python virtual environment
 VENV_DIR="$WORKSPACE/.venv"
 
