@@ -67,6 +67,7 @@ require "./config"
 module Statbus
   class Worker
     @log : ::Log
+    @log_backend : Log::IOBackend = Log::IOBackend.new
     @config : Config
     # Increased buffer size to prevent potential deadlocks
     @timer_queue = Channel(Time).new(8)                 # Queue for scheduled tasks. We have only 1 scheduled task as of 2025-Q1
@@ -77,6 +78,7 @@ module Statbus
     @available_queues = [] of String                    # List of available queues
     @channel_buffer_size = 8192                         # There can be a lot of task notifications for large imports, so have a sizeable queue.
     @queue_discovery_channel = Channel(Nil).new(8)      # Channel to trigger queue discovery. We have only 3 queues as of 2025-Q1
+    property stop_when_idle : Bool = false                # Exit when all queues are idle (for testing)
     @shutdown = false                                   # Flag to indicate shutdown in progress
     @shutdown_complete = Channel(Bool).new(1)           # Channel to signal when shutdown is complete
     @shutdown_ack_channel = Channel(Nil).new(10)        # Channel for fibers to acknowledge shutdown
@@ -92,8 +94,12 @@ module Statbus
 
       # Configure logging based on environment variables
       # This will respect LOG_LEVEL env var by default
+      # Store backend reference so we can close it cleanly during shutdown
+      # (IOBackend defaults to AsyncDispatcher which uses a channel + fiber)
+      @log_backend = Log::IOBackend.new
       Log.setup_from_env(
-        default_level: ENV["VERBOSE"]? == "1" ? Log::Severity::Trace : ENV["DEBUG"]? == "1" ? Log::Severity::Debug : Log::Severity::Info
+        default_level: ENV["VERBOSE"]? == "1" ? Log::Severity::Trace : ENV["DEBUG"]? == "1" ? Log::Severity::Debug : Log::Severity::Info,
+        backend: @log_backend
       )
 
       @log = ::Log.for("worker")
@@ -212,6 +218,10 @@ module Statbus
           # Signal that shutdown is complete
           @shutdown_complete.send(true) rescue nil
           @log.info { "Shutdown complete, exiting..." }
+          # Close the Log backend's AsyncDispatcher channel and wait for its
+          # fiber to drain. Without this, exit() closes internal channels
+          # while the dispatch fiber is still running.
+          @log_backend.close
           exit(0) # Use explicit success exit code
         rescue ex
           @log.error { "Error during shutdown: #{ex.class.name} - #{ex.message}" }
@@ -420,6 +430,31 @@ module Statbus
 
             # Now that we have the lock, start the queue discovery and timer checking
             start_queue_discovery
+
+            # If --stop-when-idle, spawn a fiber that watches for all queues to drain
+            if @stop_when_idle
+              spawn do
+                # Wait for initial queue discovery and processing to begin
+                sleep(2.seconds)
+                idle_checks = 0
+                loop do
+                  break if @shutdown
+                  sleep(1.second)
+                  active = count_active_tasks
+                  if active == 0
+                    idle_checks += 1
+                    if idle_checks >= 3
+                      @log.info { "All queues idle for #{idle_checks}s, shutting down (stop-when-idle)" }
+                      log_task_summary
+                      handle_shutdown_signal("stop-when-idle")
+                      break
+                    end
+                  else
+                    idle_checks = 0
+                  end
+                end
+              end
+            end
 
             # Start timer checking fiber with exception handling
             fiber = spawn do
@@ -1214,6 +1249,37 @@ module Statbus
       end
     end
 
+    # Count tasks that are still active (pending, processing, or waiting)
+    # Excludes tasks scheduled for the future since they aren't actionable now
+    private def count_active_tasks : Int32
+      DB.connect(@config.connection_string("worker")) do |db|
+        db.query_one("SELECT count(*)::int FROM worker.tasks WHERE state IN ('pending', 'processing', 'waiting') AND (scheduled_at IS NULL OR scheduled_at <= now())", as: Int32)
+      end
+    rescue ex
+      @log.debug { "Error counting active tasks: #{ex.message}" }
+      -1 # On error, assume tasks exist (prevent premature shutdown)
+    end
+
+    # Log a summary of task states grouped by queue
+    private def log_task_summary
+      @log.info { "Task summary:" }
+      DB.connect(@config.connection_string("worker")) do |db|
+        sql = <<-SQL
+          SELECT cr.queue, t.state::text, count(*)::int
+          FROM worker.tasks t
+          JOIN worker.command_registry cr ON cr.command = t.command
+          GROUP BY cr.queue, t.state
+          ORDER BY cr.queue, t.state
+        SQL
+        results = db.query_all(sql, as: {String, String, Int32})
+        results.each do |queue, state, count|
+          @log.info { "  #{queue}: #{state} = #{count}" }
+        end
+      end
+    rescue ex
+      @log.error { "Failed to generate task summary: #{ex.message}" }
+    end
+
     # Check if there's a waiting parent task for the given queue
     private def has_waiting_parent?(queue : String) : Bool
       DB.connect(@config.connection_string("worker")) do |db|
@@ -1338,6 +1404,8 @@ module Statbus
 
             if failed_count > 0
               @log.info { "Processed #{results.size} tasks, #{failed_count} failed for queue: #{queue}" }
+            else
+              @log.info { "Processed #{results.size} tasks for queue: #{queue}" }
             end
           end
 

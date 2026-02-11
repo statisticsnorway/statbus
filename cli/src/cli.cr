@@ -101,6 +101,12 @@ module Statbus
         end
         parser.on("worker", "Run Statbus Worker for background processing") do
           @mode = Mode::Worker
+          parser.on("--stop-when-idle", "Exit when all queues are idle (for testing)") do
+            @worker.stop_when_idle = true
+          end
+          parser.on("--database DB", "Override database name") do |db|
+            @config.postgres_db = db
+          end
         end
         parser.on("import", "Import into installed StatBus") do
           @mode = Mode::Import
