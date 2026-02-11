@@ -3323,6 +3323,7 @@ export type Database = {
           related_enterprise_ids: number[] | null
           related_establishment_ids: number[] | null
           related_legal_unit_ids: number[] | null
+          report_partition_seq: number | null
           search: string | null
           secondary_activity_category_code: string | null
           secondary_activity_category_id: number | null
@@ -3410,6 +3411,7 @@ export type Database = {
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
+          report_partition_seq?: number | null
           search?: string | null
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
@@ -3497,6 +3499,7 @@ export type Database = {
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
+          report_partition_seq?: number | null
           search?: string | null
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
@@ -3555,6 +3558,66 @@ export type Database = {
         Update: {
           count?: number | null
           legal_form_id?: number | null
+          physical_country_id?: number | null
+          physical_region_path?: string | null
+          primary_activity_category_path?: string | null
+          sector_path?: string | null
+          stats_summary?: Json | null
+          status_id?: number | null
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
+          valid_from?: string | null
+          valid_to?: string | null
+          valid_until?: string | null
+        },
+        Relationships: []
+      },
+      statistical_unit_facet_dirty_partitions: {
+        Row: {
+          partition_seq: number
+        },
+        Insert: {
+          partition_seq: number
+        },
+        Update: {
+          partition_seq?: number
+        },
+        Relationships: []
+      },
+      statistical_unit_facet_staging: {
+        Row: {
+          count: number
+          legal_form_id: number | null
+          partition_seq: number
+          physical_country_id: number | null
+          physical_region_path: string | null
+          primary_activity_category_path: string | null
+          sector_path: string | null
+          stats_summary: Json | null
+          status_id: number | null
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
+          valid_from: string | null
+          valid_to: string | null
+          valid_until: string | null
+        },
+        Insert: {
+          count: number
+          legal_form_id?: number | null
+          partition_seq: number
+          physical_country_id?: number | null
+          physical_region_path?: string | null
+          primary_activity_category_path?: string | null
+          sector_path?: string | null
+          stats_summary?: Json | null
+          status_id?: number | null
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
+          valid_from?: string | null
+          valid_to?: string | null
+          valid_until?: string | null
+        },
+        Update: {
+          count?: number
+          legal_form_id?: number | null
+          partition_seq?: number
           physical_country_id?: number | null
           physical_region_path?: string | null
           primary_activity_category_path?: string | null
@@ -3632,6 +3695,7 @@ export type Database = {
           related_enterprise_ids: number[] | null
           related_establishment_ids: number[] | null
           related_legal_unit_ids: number[] | null
+          report_partition_seq: number | null
           search: string | null
           secondary_activity_category_code: string | null
           secondary_activity_category_id: number | null
@@ -3718,6 +3782,7 @@ export type Database = {
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
+          report_partition_seq?: number | null
           search?: string | null
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
@@ -3804,6 +3869,7 @@ export type Database = {
           related_enterprise_ids?: number[] | null
           related_establishment_ids?: number[] | null
           related_legal_unit_ids?: number[] | null
+          report_partition_seq?: number | null
           search?: string | null
           secondary_activity_category_code?: string | null
           secondary_activity_category_id?: number | null
@@ -12496,6 +12562,22 @@ export type Database = {
           arg2?: string
         }
         Returns: string
+      },
+      report_partition_seq: {
+        Args: {
+          p_unit_type?: string
+          p_unit_id?: number
+          p_num_partitions?: number
+        }
+        Returns: number
+      }
+        | {
+        Args: {
+          p_unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
+          p_unit_id?: number
+          p_num_partitions?: number
+        }
+        Returns: number
       },
       reset: {
         Args: {

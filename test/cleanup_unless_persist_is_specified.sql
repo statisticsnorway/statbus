@@ -1,3 +1,6 @@
+\echo -- test/cleanup_unless_persist_is_specified.sql output suppressed
+\set ECHO none
+\o /dev/null
 ---------------------------------------------------------------------------
 -- Support development loading of the data without cleanup using
 --   ./devops/manage-statbus.sh psql --variable=PERSIST=true < test/sql/400_import_jobs_for_norway_history.sql

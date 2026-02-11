@@ -1,6 +1,18 @@
+\echo -- test/setup.sql output suppressed for cleaner test output
+\set ECHO none
+\o /dev/null
 -- While the datestyle is set for the database, the pg_regress tool sets the MDY format
 -- to ensure consistent date formatting, so we must manually override this
 SET datestyle TO 'ISO, DMY';
+
+-- Reset unit sequences for deterministic IDs across test runs.
+-- nextval() is non-transactional (advances survive ROLLBACK), so shared tests
+-- that run sequentially on the same database see accumulated sequence values.
+-- ALTER SEQUENCE RESTART is transactional (reverted on ROLLBACK), so this gives
+-- each test deterministic unit_ids without affecting subsequent tests.
+ALTER SEQUENCE public.enterprise_id_seq RESTART WITH 1;
+ALTER SEQUENCE public.legal_unit_id_seq RESTART WITH 1;
+ALTER SEQUENCE public.establishment_id_seq RESTART WITH 1;
 
 \if :{?DEBUG}
 SET client_min_messages TO debug1;
@@ -40,7 +52,7 @@ $sudo_exec$;
 -- Grant execute to public since this is for testing
 GRANT EXECUTE ON FUNCTION test.sudo_exec(text) TO PUBLIC;
 
-\echo Add users for testing purposes
+-- Add users for testing purposes
 SELECT * FROM public.user_create(p_display_name => 'Test Admin', p_email => 'test.admin@statbus.org', p_statbus_role => 'admin_user'::statbus_role, p_password => 'Admin#123!');
 SELECT * FROM public.user_create(p_display_name => 'Test Regular', p_email => 'test.regular@statbus.org', p_statbus_role => 'regular_user'::statbus_role, p_password => 'Regular#123!');
 SELECT * FROM public.user_create(p_display_name => 'Test Restricted', p_email => 'test.restricted@statbus.org', p_statbus_role => 'restricted_user'::statbus_role, p_password => 'Restricted#123!');
@@ -83,3 +95,6 @@ BEGIN
     CALL sql_saga.temporal_merge_drop_temp_tables();
 END;
 $remove_pg_temp_for_tx_user_switch$;
+\o
+\set ECHO all
+\echo -- test/setup.sql done, test output follows

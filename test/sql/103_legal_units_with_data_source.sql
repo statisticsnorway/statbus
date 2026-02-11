@@ -65,4 +65,4 @@ SELECT name, external_idents, unit_type, data_source_codes, invalid_codes, prima
  WHERE valid_from <= CURRENT_DATE AND CURRENT_DATE < valid_until
  ORDER BY name, external_idents->>'tax_ident', unit_type, valid_from, unit_id;
 
-ROLLBACK;
+\i test/rollback_unless_persist_is_specified.sql

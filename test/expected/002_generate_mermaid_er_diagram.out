@@ -742,6 +742,7 @@ erDiagram
 		integer included_enterprise_count
 		ltree[] tag_paths
 		daterange valid_range
+		integer report_partition_seq
 	}
 	statistical_unit_facet["statistical_unit_facet"] {
 		date valid_from
@@ -755,6 +756,24 @@ erDiagram
 		integer physical_country_id
 		integer status_id
 		bigint count
+		jsonb stats_summary
+	}
+	statistical_unit_facet_dirty_partitions["statistical_unit_facet_dirty_partitions"] {
+		integer partition_seq
+	}
+	statistical_unit_facet_staging["statistical_unit_facet_staging"] {
+		integer partition_seq
+		date valid_from
+		date valid_to
+		date valid_until
+		statistical_unit_type unit_type
+		ltree physical_region_path
+		ltree primary_activity_category_path
+		ltree sector_path
+		integer legal_form_id
+		integer physical_country_id
+		integer status_id
+		integer count
 		jsonb stats_summary
 	}
 	statistical_unit_staging["statistical_unit_staging"] {
@@ -842,6 +861,7 @@ erDiagram
 		integer included_legal_unit_count
 		integer included_enterprise_count
 		ltree[] tag_paths
+		integer report_partition_seq
 	}
 	status["status"] {
 		integer id

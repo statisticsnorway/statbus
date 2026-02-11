@@ -312,6 +312,7 @@ SELECT valid_from
           -'valid_to'
           -'unit_type'
           -'external_idents'
+          -'report_partition_seq'
           )
      ) AS statistical_unit_data
      , jsonb_pretty(stats) AS stats

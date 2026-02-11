@@ -1,101 +1,10 @@
 BEGIN;
 \i test/setup.sql
--- While the datestyle is set for the database, the pg_regress tool sets the MDY format
--- to ensure consistent date formatting, so we must manually override this
-SET datestyle TO 'ISO, DMY';
-\if :{?DEBUG}
-SET client_min_messages TO debug1;
-\else
-SET client_min_messages TO NOTICE;
-\endif
--- Create temporary function to execute queries as system user
-CREATE OR REPLACE FUNCTION test.sudo_exec(
-    sql text,
-    OUT results jsonb
-) RETURNS jsonb
-SECURITY DEFINER LANGUAGE plpgsql AS $sudo_exec$
-DECLARE
-    result_rows jsonb;
-BEGIN
-    -- Check if the SQL starts with common DDL keywords
-    IF sql ~* '^\s*(CREATE|DROP|ALTER|TRUNCATE|GRANT|REVOKE|ANALYZE)' THEN
-        -- For DDL statements, execute directly
-        EXECUTE sql;
-        results := '[]'::jsonb;
-    ELSE
-        -- For DML/queries, wrap in a SELECT to capture results
-        EXECUTE format('
-            SELECT COALESCE(
-                jsonb_agg(row_to_json(t)),
-                ''[]''::jsonb
-            )
-            FROM (%s) t',
-            sql
-        ) INTO result_rows;
-        results := result_rows;
-    END IF;
-END;
-$sudo_exec$;
--- Grant execute to public since this is for testing
-GRANT EXECUTE ON FUNCTION test.sudo_exec(text) TO PUBLIC;
-\echo Add users for testing purposes
-Add users for testing purposes
-SELECT * FROM public.user_create(p_display_name => 'Test Admin', p_email => 'test.admin@statbus.org', p_statbus_role => 'admin_user'::statbus_role, p_password => 'Admin#123!');
-         email          |  password  
-------------------------+------------
- test.admin@statbus.org | Admin#123!
-(1 row)
-
-SELECT * FROM public.user_create(p_display_name => 'Test Regular', p_email => 'test.regular@statbus.org', p_statbus_role => 'regular_user'::statbus_role, p_password => 'Regular#123!');
-          email           |   password   
---------------------------+--------------
- test.regular@statbus.org | Regular#123!
-(1 row)
-
-SELECT * FROM public.user_create(p_display_name => 'Test Restricted', p_email => 'test.restricted@statbus.org', p_statbus_role => 'restricted_user'::statbus_role, p_password => 'Restricted#123!');
-            email            |    password     
------------------------------+-----------------
- test.restricted@statbus.org | Restricted#123!
-(1 row)
-
-CREATE OR REPLACE PROCEDURE test.remove_pg_temp_for_tx_user_switch(p_keep_tables text[] DEFAULT '{}')
-LANGUAGE plpgsql
-AS $remove_pg_temp_for_tx_user_switch$
-DECLARE
-    rec record;
-    v_found_count integer := 0;
-BEGIN
-    RAISE DEBUG 'Running test.remove_pg_temp_for_tx_user_switch(p_keep_tables => %)...', p_keep_tables;
-    -- Remove temporary cache tables used by import, as we switch user inside the *same* transaction,
-    -- and the new user can not modify tables owned by the previous import.
-    -- This generic loop cleans up all tables and views in the pg_temp schema, except those specified to keep.
-    FOR rec IN
-        SELECT
-            c.relname,
-            c.relkind
-        FROM pg_catalog.pg_class AS c
-        LEFT JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
-        WHERE c.relkind IN ('r', 'p', 'v', 'm') AND n.oid = pg_my_temp_schema() -- r=table, p=partitioned, v=view, m=materialized
-          AND c.relname <> ALL(p_keep_tables)
-    LOOP
-        v_found_count := v_found_count + 1;
-        IF rec.relkind IN ('r', 'p', 'm') THEN
-            RAISE DEBUG '  -> Dropping temp TABLE %', rec.relname;
-            EXECUTE format('DROP TABLE IF EXISTS pg_temp.%I CASCADE', rec.relname);
-        ELSIF rec.relkind = 'v' THEN
-            RAISE DEBUG '  -> Dropping temp VIEW %', rec.relname;
-            EXECUTE format('DROP VIEW IF EXISTS pg_temp.%I CASCADE', rec.relname);
-        END IF;
-    END LOOP;
-
-    RAISE DEBUG '...finished test.remove_pg_temp_for_tx_user_switch(). Found and dropped % objects.', v_found_count;
-
-    -- This procedure is part of the sql_saga extension and has its own cleanup logic.
-    -- While the loop above handles tables/views, this call ensures any other temporary
-    -- objects it creates are also cleaned up.
-    CALL sql_saga.temporal_merge_drop_temp_tables();
-END;
-$remove_pg_temp_for_tx_user_switch$;
+\echo -- test/setup.sql output suppressed for cleaner test output
+-- test/setup.sql output suppressed for cleaner test output
+\set ECHO none
+\echo -- test/setup.sql done, test output follows
+-- test/setup.sql done, test output follows
 \echo "Test 319: Import Job Failure Handling"
 "Test 319: Import Job Failure Handling"
 \echo "This test verifies that import jobs correctly enter 'failed' state with error details when exceptions occur."
