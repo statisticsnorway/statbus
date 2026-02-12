@@ -19,11 +19,11 @@
                                              ->  Nested Loop Left Join
                                                    Disabled: true
                                                    ->  Hash Join
-                                                         Hash Cond: (en_1.id = t_1.unit_id)
-                                                         ->  Seq Scan on enterprise en_1
+                                                         Hash Cond: (t_1.unit_id = en_1.id)
+                                                         ->  Index Scan using idx_timesegments_unit_daterange on timesegments t_1
+                                                               Index Cond: (unit_type = 'enterprise'::statistical_unit_type)
                                                          ->  Hash
-                                                               ->  Seq Scan on timesegments t_1
-                                                                     Filter: (unit_type = 'enterprise'::statistical_unit_type)
+                                                               ->  Seq Scan on enterprise en_1
                                                    ->  GroupAggregate
                                                          ->  Sort
                                                                Sort Key: timeline_legal_unit.legal_unit_id
@@ -38,11 +38,11 @@
                                                                Filter: ((t_1.valid_from < valid_until) AND (valid_from < t_1.valid_until))
                            ->  Hash
                                  ->  Hash Join
-                                       Hash Cond: (en.id = t.unit_id)
-                                       ->  Seq Scan on enterprise en
+                                       Hash Cond: (t.unit_id = en.id)
+                                       ->  Index Scan using idx_timesegments_unit_daterange on timesegments t
+                                             Index Cond: (unit_type = 'enterprise'::statistical_unit_type)
                                        ->  Hash
-                                             ->  Seq Scan on timesegments t
-                                                   Filter: (unit_type = 'enterprise'::statistical_unit_type)
+                                             ->  Seq Scan on enterprise en
                      ->  Limit
                            ->  Incremental Sort
                                  Sort Key: enplu_1.valid_from DESC, enplu_1.legal_unit_id DESC

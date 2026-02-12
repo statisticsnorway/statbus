@@ -2838,7 +2838,7 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | pending   |     7
+ analytics | pending   |     1
  import    | completed |    94
 (2 rows)
 
@@ -2949,7 +2949,7 @@ SELECT 'establishment' AS unit_type, COUNT(DISTINCT id) AS count FROM public.est
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | pending   |     7
+ analytics | pending   |     1
  import    | completed |    94
 (2 rows)
 
@@ -2959,7 +2959,7 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   150
+ analytics | completed |   144
  import    | completed |    94
 (2 rows)
 
@@ -3057,7 +3057,7 @@ CALL worker.process_tasks(p_queue => 'import');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE t.id > :max_task_id GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | pending   |     7
+ analytics | pending   |     1
  import    | completed |    92
 (2 rows)
 
