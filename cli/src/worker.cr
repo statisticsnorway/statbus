@@ -42,7 +42,7 @@ require "./config"
 # Components:
 # 1. PostgreSQL Tasks Table:
 #    - Database stores tasks in worker.tasks table
-#    - Commands: refresh_derived_data, check_table, deleted_row
+#    - Commands: collect_changes, derive_statistical_unit, etc.
 #    - Each task has typed columns for parameters
 #
 # 2. Worker Listener:
@@ -1095,6 +1095,8 @@ module Statbus
             @log.debug { "#{worker_id}: Waiting for children to complete" }
             num_children.times { children_done_channel.receive rescue nil }
             @log.debug { "#{worker_id}: All children signaled done, continuing" }
+            # Safety net: children found nothing — rescue stuck parent if all children are done
+            rescue_stuck_waiting_parent(queue)
             # Loop again to pick up the next task (possibly a continuation)
           else
             break  # No tasks, no waiting parent - queue is empty
@@ -1133,6 +1135,8 @@ module Statbus
                 @log.debug { "#{worker_id}: Waiting for children to complete" }
                 num_children.times { children_done_channel.receive rescue nil }
                 @log.debug { "#{worker_id}: All children signaled done, continuing" }
+                # Safety net: children found nothing — rescue stuck parent if all children are done
+                rescue_stuck_waiting_parent(queue)
                 # Continue the loop to pick up next task
               else
                 break  # Queue is empty
@@ -1294,6 +1298,34 @@ module Statbus
     rescue ex
       @log.error { "Error checking for waiting parent: #{ex.message}" }
       false
+    end
+
+    # Safety net: rescue a stuck waiting parent when all children are done
+    # but no fiber completed the parent (race condition defense-in-depth).
+    private def rescue_stuck_waiting_parent(queue : String)
+      DB.connect(@config.connection_string("worker")) do |db|
+        result = db.query_one?(<<-SQL, queue, as: Int64?)
+          WITH stuck_parent AS (
+            SELECT t.id
+            FROM worker.tasks t
+            JOIN worker.command_registry cr ON t.command = cr.command
+            WHERE t.state = 'waiting'::worker.task_state
+              AND cr.queue = $1
+              AND NOT worker.has_pending_children(t.id)
+            ORDER BY t.priority, t.id
+            LIMIT 1
+            FOR UPDATE OF t SKIP LOCKED
+          )
+          UPDATE worker.tasks SET state = 'completed', completed_at = clock_timestamp()
+          FROM stuck_parent WHERE worker.tasks.id = stuck_parent.id
+          RETURNING worker.tasks.id
+        SQL
+        if result
+          @log.info { "Rescued stuck waiting parent task #{result} for queue: #{queue}" }
+        end
+      end
+    rescue ex
+      @log.debug { "Error rescuing stuck parent: #{ex.message}" }
     end
 
     # Track when we last checked for scheduled tasks to avoid redundant checks
