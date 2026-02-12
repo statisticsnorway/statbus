@@ -1304,9 +1304,13 @@ module Statbus
     # but no fiber completed the parent (race condition defense-in-depth).
     private def rescue_stuck_waiting_parent(queue : String)
       DB.connect(@config.connection_string("worker")) do |db|
-        result = db.query_one?(<<-SQL, queue, as: Int64?)
+        result = db.query_one?(<<-SQL, queue, as: {Int64, Bool})
           WITH stuck_parent AS (
-            SELECT t.id
+            SELECT t.id,
+                   EXISTS (
+                       SELECT 1 FROM worker.tasks c
+                       WHERE c.parent_id = t.id AND c.state = 'failed'
+                   ) AS has_failed_children
             FROM worker.tasks t
             JOIN worker.command_registry cr ON t.command = cr.command
             WHERE t.state = 'waiting'::worker.task_state
@@ -1316,12 +1320,24 @@ module Statbus
             LIMIT 1
             FOR UPDATE OF t SKIP LOCKED
           )
-          UPDATE worker.tasks SET state = 'completed', completed_at = clock_timestamp()
+          UPDATE worker.tasks SET
+              state = CASE WHEN stuck_parent.has_failed_children
+                           THEN 'failed'::worker.task_state
+                           ELSE 'completed'::worker.task_state END,
+              completed_at = clock_timestamp(),
+              error = CASE WHEN stuck_parent.has_failed_children
+                           THEN 'One or more child tasks failed (rescued by safety net)'
+                           ELSE NULL END
           FROM stuck_parent WHERE worker.tasks.id = stuck_parent.id
-          RETURNING worker.tasks.id
+          RETURNING worker.tasks.id, stuck_parent.has_failed_children
         SQL
         if result
-          @log.info { "Rescued stuck waiting parent task #{result} for queue: #{queue}" }
+          task_id, has_failed = result
+          if has_failed
+            @log.warn { "Rescued stuck waiting parent task #{task_id} as FAILED (children failed) for queue: #{queue}" }
+          else
+            @log.info { "Rescued stuck waiting parent task #{task_id} as completed for queue: #{queue}" }
+          end
         end
       end
     rescue ex
