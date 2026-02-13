@@ -87,6 +87,7 @@ module Statbus
     @pause_until : Time? = nil                          # When the pause expires (auto-resume)
     @pause_requested_at : Time? = nil                   # When pause was requested (for actionable WARN)
     @resume_channel = Channel(Nil).new(1)               # Channel to wake paused fibers on resume
+    @shutdown_channel = Channel(Nil).new                 # Closed during shutdown to wake ALL blocked fibers
 
     def initialize(config)
       @config = config
@@ -142,6 +143,7 @@ module Statbus
       return if @shutdown # Prevent multiple shutdown sequences
 
       @shutdown = true
+      @shutdown_channel.close rescue nil  # Broadcast to ALL blocked fibers
       @log.info { "Received #{signal_name}, initiating graceful shutdown..." }
 
       # Start a fiber to handle the shutdown sequence with exception handling
@@ -329,10 +331,10 @@ module Statbus
           # Implement circuit breaker pattern for persistent errors
           if consecutive_errors >= max_consecutive_errors
             @log.error { "Too many consecutive errors (#{consecutive_errors}), pausing discovery loop for recovery" }
-            sleep(60.seconds)      # Longer pause to allow system to recover
+            wait_with_shutdown_check(60.seconds)      # Longer pause to allow system to recover
             consecutive_errors = 0 # Reset after recovery period
           else
-            sleep(10.seconds) # Wait before retrying
+            wait_with_shutdown_check(10.seconds) # Wait before retrying
           end
         end
       end
@@ -392,11 +394,11 @@ module Statbus
             if @stop_when_idle
               idle_watcher_fiber = spawn do
                 # Wait for initial queue discovery and processing to begin
-                sleep(2.seconds)
+                wait_with_shutdown_check(2.seconds)
                 idle_checks = 0
                 loop do
                   break if @shutdown
-                  sleep(1.second)
+                  wait_with_shutdown_check(1.second)
                   active = count_active_tasks
                   if active == 0
                     idle_checks += 1
@@ -488,10 +490,16 @@ module Statbus
             # Keep the connection open until shutdown
             until @shutdown
               begin
-                sleep(30.seconds) # Check more frequently
-                # Run a query to keep the connection alive with better diagnostics
-                db.exec("SELECT 1 AS keepalive")
-                @log.debug { "Keepalive successful" }
+                select
+                when @shutdown_channel.receive
+                  break
+                when timeout(30.seconds)
+                  # Run a query to keep the connection alive
+                  db.exec("SELECT 1 AS keepalive")
+                  @log.debug { "Keepalive successful" }
+                end
+              rescue Channel::ClosedError
+                break  # Shutdown in progress
               rescue ex : IO::EOFError | DB::ConnectionLost | DB::ConnectionRefused | Socket::ConnectError
                 @log.error { "Database connection lost during keepalive: #{ex.message || ex.class.name}" }
                 # Don't exit here - let the outer exception handler deal with reconnection
@@ -672,11 +680,15 @@ module Statbus
 
     # Helper method to wait while checking for shutdown
     private def wait_with_shutdown_check(duration : Time::Span)
-      start_time = Statbus.monotonic_time
-      while (Statbus.monotonic_time - start_time) < duration
-        return if @shutdown
-        sleep(0.1.seconds) # Check for shutdown frequently
+      return if @shutdown
+      select
+      when @shutdown_channel.receive
+        # Shutdown signaled
+      when timeout(duration)
+        # Duration expired normally
       end
+    rescue Channel::ClosedError
+      # Shutdown in progress (channel already closed)
     end
 
     # Wait while worker is paused, with support for:
@@ -891,13 +903,17 @@ module Statbus
             # Wait for children to signal they're done (with shutdown check)
             @log.debug { "#{worker_id}: Waiting for children to complete" }
             received = 0
-            while received < num_children && !@shutdown
-              select
-              when children_done_channel.receive
-                received += 1
-              when timeout(1.seconds)
-                # Re-check @shutdown
+            begin
+              while received < num_children && !@shutdown
+                select
+                when children_done_channel.receive
+                  received += 1
+                when @shutdown_channel.receive
+                  break
+                end
               end
+            rescue Channel::ClosedError
+              # Shutdown in progress
             end
             @log.debug { "#{worker_id}: All children signaled done, continuing" }
             # Safety net: children found nothing — rescue stuck parent if all children are done
@@ -939,13 +955,17 @@ module Statbus
                 # Wait for children to signal they're done (with shutdown check)
                 @log.debug { "#{worker_id}: Waiting for children to complete" }
                 received = 0
-                while received < num_children && !@shutdown
-                  select
-                  when children_done_channel.receive
-                    received += 1
-                  when timeout(1.seconds)
-                    # Re-check @shutdown
+                begin
+                  while received < num_children && !@shutdown
+                    select
+                    when children_done_channel.receive
+                      received += 1
+                    when @shutdown_channel.receive
+                      break
+                    end
                   end
+                rescue Channel::ClosedError
+                  # Shutdown in progress
                 end
                 @log.debug { "#{worker_id}: All children signaled done, continuing" }
                 # Safety net: children found nothing — rescue stuck parent if all children are done
@@ -1015,9 +1035,8 @@ module Statbus
           select
           when wake_children_channel.receive
             @log.debug { "#{worker_id}: Woken by top fiber, processing children" }
-          when timeout(1.seconds)
-            # Periodic check for shutdown
-            next
+          when @shutdown_channel.receive
+            break
           end
 
           break if @shutdown || shutdown_requested
@@ -1269,10 +1288,10 @@ module Statbus
         # Implement circuit breaker pattern
         if consecutive_errors >= max_consecutive_errors
           @log.error { "Too many consecutive connection errors (#{consecutive_errors}), pausing queue processor" }
-          sleep(30.seconds)      # Longer pause to allow database to recover
+          wait_with_shutdown_check(30.seconds)      # Longer pause to allow database to recover
           consecutive_errors = 0 # Reset after recovery period
         else
-          sleep(5.seconds) # Wait before retrying
+          wait_with_shutdown_check(5.seconds) # Wait before retrying
         end
       rescue ex
         consecutive_errors += 1
@@ -1282,10 +1301,10 @@ module Statbus
         # Implement circuit breaker pattern
         if consecutive_errors >= max_consecutive_errors
           @log.error { "Too many consecutive errors (#{consecutive_errors}), pausing queue processor" }
-          sleep(30.seconds)      # Longer pause to allow system to recover
+          wait_with_shutdown_check(30.seconds)      # Longer pause to allow system to recover
           consecutive_errors = 0 # Reset after recovery period
         else
-          sleep(5.seconds) # Wait before retrying
+          wait_with_shutdown_check(5.seconds) # Wait before retrying
         end
       ensure
         duration_ms = (Statbus.monotonic_time - start_time).total_milliseconds.to_i
