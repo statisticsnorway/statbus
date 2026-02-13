@@ -5,8 +5,7 @@ BEGIN;
 CREATE TYPE admin.view_type_enum AS ENUM ('ordered', 'available', 'system', 'custom');
 CREATE TYPE admin.batch_api_table_properties AS (
     has_priority boolean,
-    has_active boolean,
-    has_archived boolean,
+    has_enabled boolean,
     has_path boolean,
     has_code boolean,
     has_custom boolean,
@@ -48,10 +47,8 @@ BEGIN
         columns_str := '*';
     WHEN 'available' THEN
         from_str := format('%1$I.%2$I', table_properties.schema_name, table_properties.table_name || '_ordered');
-        IF table_properties.has_active THEN
-            where_clause_str := 'WHERE active';
-        ELSIF table_properties.has_archived THEN
-            where_clause_str := 'WHERE NOT archived';
+        IF table_properties.has_enabled THEN
+            where_clause_str := 'WHERE enabled';
         ELSE
             RAISE EXCEPTION 'Invalid table properties or unsupported table structure for: %', table_properties;
         END IF;
@@ -121,10 +118,8 @@ RETURNS text[] LANGUAGE plpgsql AS $get_unique_columns$
 DECLARE
     unique_columns text[] := ARRAY[]::text[];
 BEGIN
-    IF table_properties.has_active THEN
-        unique_columns := array_append(unique_columns, 'active');
-    ELSEIF table_properties.has_archived THEN
-        unique_columns := array_append(unique_columns, 'archived');
+    IF table_properties.has_enabled THEN
+        unique_columns := array_append(unique_columns, 'enabled');
     END IF;
 
     IF table_properties.has_path THEN
@@ -190,10 +185,10 @@ BEGIN
         content_update_sets := content_update_sets || ', description = NEW.description';
     END IF;
 
-    IF table_properties.has_active THEN
-        content_columns := content_columns || ', active';
+    IF table_properties.has_enabled THEN
+        content_columns := content_columns || ', enabled';
         content_values := content_values || ', TRUE';
-        content_update_sets := content_update_sets || ', active = TRUE';
+        content_update_sets := content_update_sets || ', enabled = TRUE';
     END IF;
 
     function_name_str := 'upsert_' || table_name_str || '_' || view_type::text;
@@ -289,7 +284,7 @@ BEGIN
         FROM %3$I.%4$I
         WHERE path OPERATOR(public.=) public.subpath(NEW.path, 0, public.nlevel(NEW.path) - 1)
     )
-    INSERT INTO %3$I.%4$I (path, parent_id, name, active, custom, updated_at)
+    INSERT INTO %3$I.%4$I (path, parent_id, name, enabled, custom, updated_at)
     VALUES (NEW.path, (SELECT id FROM parent), NEW.name, %5$L, %6$L, statement_timestamp())
     ON CONFLICT (%7$s) DO UPDATE SET
         parent_id = (SELECT id FROM parent),
@@ -341,8 +336,8 @@ RETURNS TRIGGER LANGUAGE plpgsql AS $body$
 BEGIN
     -- Deactivate all non-custom entries before insertion
     UPDATE %3$I.%4$I
-       SET active = false
-     WHERE active = true
+       SET enabled = false
+     WHERE enabled = true
        AND custom = false;
 
     RETURN NULL;
@@ -423,8 +418,7 @@ DECLARE
 BEGIN
     -- Initialize the result with default values
     result.has_priority := false;
-    result.has_active := false;
-    result.has_archived := false;
+    result.has_enabled := false;
     result.has_path := false;
     result.has_code := false;
     result.has_custom := false;
@@ -449,16 +443,9 @@ BEGIN
 
     PERFORM 1
     FROM pg_attribute
-    WHERE attrelid = table_name AND attname = 'active' AND NOT attisdropped;
+    WHERE attrelid = table_name AND attname = 'enabled' AND NOT attisdropped;
     IF FOUND THEN
-        result.has_active := true;
-    END IF;
-
-    PERFORM 1
-    FROM pg_attribute
-    WHERE attrelid = table_name AND attname = 'archived' AND NOT attisdropped;
-    IF FOUND THEN
-        result.has_archived := true;
+        result.has_enabled := true;
     END IF;
 
     PERFORM 1
