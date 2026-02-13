@@ -13,10 +13,12 @@ Run with: ./test/test_concurrent_worker.sh [-t TIMEOUT]
 import os
 import sys
 import time
+import signal
 import subprocess
 import argparse
 import atexit
 import logging
+import threading
 from pathlib import Path
 
 import psycopg2
@@ -372,6 +374,9 @@ def run_worker(test_db, timeout_seconds=300, debug=True):
 
     The worker runs with --stop-when-idle which makes it exit after
     all queues have been idle for 3 consecutive seconds.
+
+    Timeout: sends SIGTERM after timeout_seconds, then SIGKILL after 10s grace.
+    Output is streamed in a background thread so the timeout is not blocked.
     """
     binary = WORKSPACE / "cli" / "bin" / "statbus"
     if not binary.exists():
@@ -392,26 +397,45 @@ def run_worker(test_db, timeout_seconds=300, debug=True):
         text=True, env=env, cwd=str(WORKSPACE)
     )
 
-    # Stream and capture output
+    # Stream output in a background thread so the main thread can enforce timeout
     output_lines = []
-    try:
-        for line in proc.stdout:
-            line = line.rstrip('\n')
-            output_lines.append(line)
-            log_print(f"  [worker] {line}")
-    except Exception as e:
-        log_print(f"{YELLOW}Error reading worker output: {e}{NC}", "warning")
 
+    def stream_output():
+        try:
+            for line in proc.stdout:
+                line = line.rstrip('\n')
+                output_lines.append(line)
+                log_print(f"  [worker] {line}")
+        except Exception as e:
+            log_print(f"{YELLOW}Error reading worker output: {e}{NC}", "warning")
+
+    reader = threading.Thread(target=stream_output, daemon=True)
+    reader.start()
+
+    # Wait for process with actual timeout enforcement
+    timed_out = False
     try:
         proc.wait(timeout=timeout_seconds)
     except subprocess.TimeoutExpired:
-        log_print(f"{RED}Worker timed out after {timeout_seconds}s, killing...{NC}", "error")
-        proc.kill()
-        proc.wait()
+        timed_out = True
+        log_print(f"\n{RED}Worker timed out after {timeout_seconds}s, sending SIGTERM...{NC}", "error")
+        proc.terminate()  # SIGTERM — let worker shut down gracefully
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            log_print(f"{RED}Worker did not exit after SIGTERM, sending SIGKILL...{NC}", "error")
+            proc.kill()
+            proc.wait()
+
+    # Wait for reader thread to finish draining output
+    reader.join(timeout=5)
 
     elapsed = time.time() - start
 
-    log_print(f"\n{BLUE}Worker exited with code {proc.returncode} in {elapsed:.1f}s{NC}")
+    if timed_out:
+        log_print(f"\n{RED}Worker KILLED after {elapsed:.1f}s (timeout: {timeout_seconds}s){NC}")
+    else:
+        log_print(f"\n{BLUE}Worker exited with code {proc.returncode} in {elapsed:.1f}s{NC}")
     return proc.returncode, output_lines, elapsed
 
 
