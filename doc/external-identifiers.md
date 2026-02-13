@@ -99,8 +99,8 @@ CREATE TABLE external_ident_type (
     labels LTREE, -- Schema for hierarchical types (e.g., 'region.district.unit')
     description text,
     priority integer UNIQUE,
-    archived boolean NOT NULL DEFAULT false,
-    
+    enabled boolean NOT NULL DEFAULT true,
+
     -- Constraint: hierarchical types must have labels, regular types must not
     CONSTRAINT shape_labels_consistency CHECK (
         (shape = 'regular' AND labels IS NULL) OR

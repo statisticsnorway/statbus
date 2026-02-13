@@ -52,7 +52,7 @@ CREATE INDEX ix_analysis_log_analysis_queue_id_enterprise_group_id ON public.ana
 CREATE TABLE public.postal_index (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     name text,
-    archived boolean NOT NULL DEFAULT false,
+    enabled boolean NOT NULL DEFAULT true,
     name_language1 text,
     name_language2 text
 );
@@ -66,7 +66,7 @@ CREATE TABLE public.report_tree (
     type text,
     report_id integer,
     parent_node_id integer,
-    archived boolean NOT NULL DEFAULT false,
+    enabled boolean NOT NULL DEFAULT true,
     resource_group text,
     report_url text
 );
@@ -94,7 +94,7 @@ CREATE INDEX ix_sample_frame_user_id ON public.sample_frame USING btree (user_id
 -- TODO: Create a view to see an establishment with statistics
 -- TODO: allow upsert on statistics view according to stat_definition
 
----- Example dynamic generation of view for each active stat_definition
+---- Example dynamic generation of view for each enabled stat_definition
 -- CREATE OR REPLACE FUNCTION generate_legal_unit_history_with_stats_view()
 -- RETURNS VOID LANGUAGE plpgsql AS $$
 -- DECLARE
@@ -105,7 +105,7 @@ CREATE INDEX ix_sample_frame_user_id ON public.sample_frame USING btree (user_id
 --     dyn_query := 'CREATE OR REPLACE VIEW legal_unit_history_with_stats AS SELECT id, unit_ident, name, edit_comment, valid_from, valid_to';
 --
 --     -- For each code in stat_definition, add it as a column
---     FOR stat_code IN (SELECT code FROM stat_definition WHERE archived = false ORDER BY priority)
+--     FOR stat_code IN (SELECT code FROM stat_definition WHERE enabled = true ORDER BY priority)
 --     LOOP
 --         dyn_query := dyn_query || ', stats ->> ''' || stat_code.code || ''' AS "' || stat_code.code || '"';
 --     END LOOP;
@@ -281,7 +281,7 @@ BEGIN
           ELSE NEW."stiftelsesdato"::date
           END AS birth_date
         , NEW."navn" AS name
-        , true AS active
+        , true AS enabled
         , 'Batch import' AS edit_comment
         , (SELECT id FROM su) AS edit_by_user_id
     ),
@@ -291,7 +291,7 @@ BEGIN
           , valid_to = upsert_data.valid_to
           , birth_date = upsert_data.birth_date
           , name = upsert_data.name
-          , active = upsert_data.active
+          , enabled = upsert_data.enabled
           , edit_comment = upsert_data.edit_comment
           , edit_by_user_id = upsert_data.edit_by_user_id
         FROM upsert_data
@@ -306,7 +306,7 @@ BEGIN
           , valid_to
           , birth_date
           , name
-          , active
+          , enabled
           , edit_comment
           , edit_by_user_id
           )
@@ -316,7 +316,7 @@ BEGIN
           , upsert_data.valid_to
           , upsert_data.birth_date
           , upsert_data.name
-          , upsert_data.active
+          , upsert_data.enabled
           , upsert_data.edit_comment
           , upsert_data.edit_by_user_id
         FROM upsert_data
@@ -406,7 +406,7 @@ BEGIN
           ELSE NEW."oppstartsdato"::date
           END AS birth_date
         , NEW."navn" AS name
-        , true AS active
+        , true AS enabled
         , 'Batch import' AS edit_comment
         , (SELECT id FROM su) AS edit_by_user_id
     ),
@@ -416,7 +416,7 @@ BEGIN
           , valid_to = upsert_data.valid_to
           , birth_date = upsert_data.birth_date
           , name = upsert_data.name
-          , active = upsert_data.active
+          , enabled = upsert_data.enabled
           , edit_comment = upsert_data.edit_comment
           , edit_by_user_id = upsert_data.edit_by_user_id
         FROM upsert_data
@@ -431,7 +431,7 @@ BEGIN
           , valid_to
           , birth_date
           , name
-          , active
+          , enabled
           , edit_comment
           , edit_by_user_id
           )
@@ -441,7 +441,7 @@ BEGIN
           , upsert_data.valid_to
           , upsert_data.birth_date
           , upsert_data.name
-          , upsert_data.active
+          , upsert_data.enabled
           , upsert_data.edit_comment
           , upsert_data.edit_by_user_id
         FROM upsert_data

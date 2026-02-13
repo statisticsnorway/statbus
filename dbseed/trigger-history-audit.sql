@@ -21,7 +21,7 @@ CREATE TABLE legal_unit(
   change_description varchar NOT NULL,
   valid_from date DEFAULT CURRENT_DATE NOT NULL,
   valid_to date DEFAULT 'infinity' ::date NOT NULL,
-  active boolean GENERATED ALWAYS AS (valid_to = 'infinity'::date) STORED,
+  enabled boolean GENERATED ALWAYS AS (valid_to = 'infinity'::date) STORED,
   updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
   CONSTRAINT valid_to_from_in_timely_order CHECK (valid_from <= valid_to)
 );
@@ -135,11 +135,11 @@ CREATE TABLE stat_definition(
   name varchar NOT NULL,
   description text,
   priority integer UNIQUE,
-  archived boolean NOT NULL DEFAULT false
+  enabled boolean NOT NULL DEFAULT true
 );
 --
 COMMENT ON COLUMN stat_definition.priority IS 'UI ordering of the entry fields';
-COMMENT ON COLUMN stat_definition.archived IS 'At the time of data entry, only non archived codes can be used.';
+COMMENT ON COLUMN stat_definition.enabled IS 'At the time of data entry, only enabled codes can be used.';
 --
 INSERT INTO stat_definition(code, type, frequency, name, description, priority) VALUES
   ('employees','int','monthly','Number of people employed','The number of people receiving an official salary with government reporting.',2),
@@ -183,7 +183,7 @@ BEGIN
     dyn_query := 'CREATE OR REPLACE VIEW legal_unit_history_with_stats AS SELECT id, unit_ident, name, change_description, valid_from, valid_to';
 
     -- For each code in stat_definition, add it as a column
-    FOR stat_code IN (SELECT code FROM stat_definition WHERE archived = false ORDER BY priority)
+    FOR stat_code IN (SELECT code FROM stat_definition WHERE enabled = true ORDER BY priority)
     LOOP
         dyn_query := dyn_query || ', stats ->> ''' || stat_code.code || ''' AS "' || stat_code.code || '"';
     END LOOP;
@@ -281,10 +281,10 @@ DECLARE
     invalid_keys TEXT[];
     missing_keys TEXT[];
 BEGIN
-    -- Fetch valid codes from stat_definition where they are not archived
+    -- Fetch valid codes from stat_definition where they are enabled
     SELECT ARRAY_AGG(code) INTO valid_codes
     FROM stat_definition
-    WHERE archived IS FALSE;
+    WHERE enabled IS TRUE;
 
     -- Extract all the keys from the stats JSONB column
     SELECT ARRAY_AGG(jsonb_object_keys) INTO stat_keys
@@ -439,7 +439,7 @@ BEGIN
         END IF;
         IF c.valid_to < adjusted_valid_from THEN
           RAISE DEBUG 'Don''t create zero duration row';
-        ELSIF NEW.active THEN
+        ELSIF NEW.enabled THEN
           RAISE DEBUG 'Inserting new tail';
           INSERT INTO legal_unit_history(legal_unit_id, name, stats, valid_from, valid_to, change_description)
             VALUES (NEW.id, adjusted_valid_from, c.name, c.stats, c.valid_from, c.valid_to, c.change_description);
@@ -474,7 +474,7 @@ BEGIN
           RAISE DEBUG 'Deleting conflict with zero valid duration';
           DELETE FROM legal_unit_history
           WHERE id = c.id;
-        ELSIF NOT NEW.active THEN
+        ELSIF NOT NEW.enabled THEN
           RAISE DEBUG 'Deleting conflict after liquidation';
           DELETE FROM legal_unit_history
           WHERE id = c.id;
@@ -535,8 +535,8 @@ CREATE OR REPLACE FUNCTION legal_unit_before_delete()
 BEGIN
   -- Only allow delete if the valid_to was previously set to a sensible value
   -- thereby capturing the intent to delete.
-  IF OLD.active THEN
-    RAISE EXCEPTION 'Cannot delete a record while active. Requires valid_to to have a date';
+  IF OLD.enabled THEN
+    RAISE EXCEPTION 'Cannot delete a record while enabled. Requires valid_to to have a date';
   END IF;
 
   -- End the known_to for the previous audit.

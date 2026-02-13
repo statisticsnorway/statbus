@@ -244,7 +244,7 @@ BEGIN
     END LOOP;
     BEGIN -- Handle fixed columns
         upsert_function_stmt := upsert_function_stmt ||
-        ', true AS active' ||
+        ', true AS enabled' ||
         ', statement_timestamp() AS seen_in_import_at' ||
         ', ''Batch import'' AS edit_comment' ||
         ', (SELECT id FROM su) AS edit_by_user_id';
@@ -274,7 +274,7 @@ BEGIN
         -- , valid_to = upsert_data.valid_to
         -- , birth_date = upsert_data.birth_date
         upsert_function_stmt := upsert_function_stmt ||
-          ', active = upsert_data.active' ||
+          ', enabled = upsert_data.enabled' ||
           ', seen_in_import_at = upsert_data.seen_in_import_at' ||
           ', edit_comment = upsert_data.edit_comment' ||
           ', edit_by_user_id = upsert_data.edit_by_user_id' ||
@@ -327,7 +327,7 @@ BEGIN
             --   , valid_to
             --   , birth_date
             upsert_function_stmt := upsert_function_stmt ||
-            ', active' ||
+            ', enabled' ||
             ', seen_in_import_at' ||
             ', edit_comment' ||
             ', edit_by_user_id' ||
@@ -354,7 +354,7 @@ BEGIN
             --  , upsert_data.valid_to
             --  , upsert_data.birth_date
             upsert_function_stmt := upsert_function_stmt ||
-            ', upsert_data.active' ||
+            ', upsert_data.enabled' ||
             ', upsert_data.seen_in_import_at' ||
             ', upsert_data.edit_comment' ||
             ', upsert_data.edit_by_user_id' ||
@@ -386,7 +386,7 @@ $$ LANGUAGE plpgsql;';
         SET valid_to = statement_timestamp()
           , edit_comment = ''Absent from upload''
           , edit_by_user_id = (SELECT id FROM su)
-          , active = false
+          , enabled = false
         WHERE seen_in_import_at < statement_timestamp();
         RETURN NULL;
     END;
