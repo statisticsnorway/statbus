@@ -2,7 +2,7 @@ declare interface ActivityCategoryStandard {
   id: number;
   code: string;
   name: string;
-  obsolete: boolean;
+  enabled: boolean;
 }
 
 declare interface ActivityCategory {
@@ -12,7 +12,7 @@ declare interface ActivityCategory {
   path: string;
   label: string;
   level: number;
-  active: boolean;
+  enabled: boolean;
   custom: boolean;
   parent_id: number;
   updated_at: string;
@@ -38,7 +38,7 @@ declare interface Activity {
 }
 
 declare interface LegalForm {
-  active: boolean;
+  enabled: boolean;
   code: string;
   created_at: string;
   custom: boolean;
@@ -48,7 +48,7 @@ declare interface LegalForm {
 }
 
 declare interface Sector {
-  active: boolean;
+  enabled: boolean;
   code: string | null;
   created_at: string;
   custom: boolean;
@@ -74,7 +74,7 @@ declare interface Region {
 declare interface Country {
   id: number;
   name: string;
-  active: boolean;
+  enabled: boolean;
   iso_2: string;
   iso_3: string;
   custom: boolean;
@@ -131,7 +131,7 @@ declare interface StatDefinition {
   id: number;
   code: string;
   name: string;
-  archived: boolean;
+  enabled: boolean;
   priority: number;
   frequency: string;
   stat_type: string;
@@ -156,7 +156,7 @@ declare interface StatForUnit {
 }
 
 declare interface Status {
-  active: boolean;
+  enabled: boolean;
   assigned_by_default: boolean;
   code: string;
   created_at: string;
@@ -169,7 +169,7 @@ declare interface Status {
 }
 
 declare interface UnitSize {
-  active: boolean;
+  enabled: boolean;
   code: string;
   created_at: string;
   custom: boolean;
@@ -181,7 +181,7 @@ declare interface UnitSize {
 declare interface StatisticalUnit {
   id: number;
   notes: string | null;
-  active: boolean;
+  enabled: boolean;
   valid_to: string;
   birth_date: string;
   death_date: string | null;

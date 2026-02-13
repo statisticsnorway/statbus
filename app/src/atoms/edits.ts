@@ -171,7 +171,7 @@ const detailsPageDataPromiseAtom = atomWithRefresh<Promise<DetailsPageData>>(
         client.from("data_source_available").select(),
         client.from("region").select(),
         client.from("country").select(),
-        client.from("status").select().eq("active", true),
+        client.from("status").select().eq("enabled", true),
         client.from("activity_category_available").select(),
         client.from("legal_form_available").select(),
         client.from("sector_available").select(),
