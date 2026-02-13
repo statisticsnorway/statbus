@@ -7,12 +7,12 @@
 -- a nested loop join that scans all active categories for each import row,
 -- resulting in O(n × m) comparisons (e.g., 24k rows × 2k categories = 53M).
 --
--- With this partial index (WHERE active = true), lookups are O(1) per row.
+-- With this partial index (WHERE enabled = true), lookups are O(1) per row.
 -- Observed improvement: 40s → 0.4s for batch activity lookup (100x faster).
 BEGIN;
 
-CREATE INDEX idx_activity_category_standard_code_active
+CREATE INDEX idx_activity_category_standard_code_enabled
 ON public.activity_category (standard_id, code)
-WHERE active = true;
+WHERE enabled = true;
 
 END;

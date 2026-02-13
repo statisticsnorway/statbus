@@ -11,13 +11,13 @@ DECLARE
     v_def public.import_definition;
 BEGIN
     SELECT * INTO v_def FROM public.import_definition WHERE id = p_definition_id;
-    -- Only synchronize active, system-provided (custom=FALSE) definitions
-    IF NOT (v_def.active AND v_def.custom = FALSE) THEN
+    -- Only synchronize enabled, system-provided (custom=FALSE) definitions
+    IF NOT (v_def.enabled AND v_def.custom = FALSE) THEN
         RAISE DEBUG '[Sync Mappings Def ID %] Skipping sync for step %, definition is inactive or user-customized (custom=TRUE).', p_definition_id, p_step_code;
         RETURN;
     END IF;
 
-    RAISE DEBUG '[Sync Mappings Def ID %] Synchronizing mappings for step % (Definition: active=%, custom=%).', p_definition_id, p_step_code, v_def.active, v_def.custom;
+    RAISE DEBUG '[Sync Mappings Def ID %] Synchronizing mappings for step % (Definition: enabled=%, custom=%).', p_definition_id, p_step_code, v_def.enabled, v_def.custom;
 
     -- Get the current max priority for this definition once, before the loop
     SELECT COALESCE(MAX(priority), 0) INTO v_max_priority
@@ -81,7 +81,7 @@ DECLARE
 BEGIN
     RAISE DEBUG '--> Running import.synchronize_default_definitions_all_steps...';
     FOR v_def IN
-        SELECT id FROM public.import_definition WHERE active = TRUE AND custom = FALSE
+        SELECT id FROM public.import_definition WHERE enabled = TRUE AND custom = FALSE
     LOOP
         RAISE DEBUG '  [-] Synchronizing definition ID: %', v_def.id;
         -- Sync for external_idents step
@@ -114,7 +114,7 @@ DECLARE
 BEGIN
     RAISE DEBUG '--> Running import.cleanup_orphaned_synced_mappings...';
     FOR v_def IN
-        SELECT id FROM public.import_definition WHERE active = TRUE AND custom = FALSE
+        SELECT id FROM public.import_definition WHERE enabled = TRUE AND custom = FALSE
     LOOP
         RAISE DEBUG '  [-] Checking definition ID: % for orphaned synced mappings.', v_def.id;
         FOR v_source_col IN

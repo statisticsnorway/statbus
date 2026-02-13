@@ -28,7 +28,7 @@ BEGIN
     END IF;
 
     -- Get default status_id
-    SELECT id INTO v_default_status_id FROM public.status WHERE assigned_by_default = true AND active = true LIMIT 1;
+    SELECT id INTO v_default_status_id FROM public.status WHERE assigned_by_default = true AND enabled = true LIMIT 1;
     RAISE DEBUG '[Job %] analyse_status: Default status_id found: %', p_job_id, v_default_status_id;
 
     v_sql := format($$
@@ -50,7 +50,7 @@ BEGIN
                 dc.code,
                 s.id as resolved_id
             FROM distinct_codes dc
-            LEFT JOIN public.status s ON s.code = dc.code AND s.active = true
+            LEFT JOIN public.status s ON s.code = dc.code AND s.enabled = true
         ),
         status_lookup AS (
             SELECT
