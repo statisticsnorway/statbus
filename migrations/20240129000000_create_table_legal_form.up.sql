@@ -4,13 +4,13 @@ CREATE TABLE public.legal_form (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     code text NOT NULL,
     name text NOT NULL,
-    active boolean NOT NULL,
+    enabled boolean NOT NULL,
     custom boolean NOT NULL,
     created_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
-    UNIQUE(code, active, custom)
+    UNIQUE(code, enabled, custom)
 );
-CREATE UNIQUE INDEX ix_legal_form_code ON public.legal_form USING btree (code) WHERE active;
-CREATE INDEX ix_legal_form_active ON public.legal_form USING btree (active);
+CREATE UNIQUE INDEX ix_legal_form_code ON public.legal_form USING btree (code) WHERE enabled;
+CREATE INDEX ix_legal_form_enabled ON public.legal_form USING btree (enabled);
 
 END;

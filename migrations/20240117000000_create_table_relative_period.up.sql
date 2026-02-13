@@ -50,7 +50,7 @@ CREATE TABLE public.relative_period (
     name_when_query character varying(256),
     name_when_input character varying(256),
     scope public.relative_period_scope NOT NULL,
-    active boolean NOT NULL DEFAULT true,
+    enabled boolean NOT NULL DEFAULT true,
     CONSTRAINT "scope input_and_query requires name_when_input"
     CHECK (
         CASE scope
@@ -60,6 +60,6 @@ CREATE TABLE public.relative_period (
         END
     )
 );
-CREATE INDEX ix_relative_period_active ON public.relative_period USING btree (active);
+CREATE INDEX ix_relative_period_enabled ON public.relative_period USING btree (enabled);
 
 END;

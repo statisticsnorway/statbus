@@ -5,12 +5,12 @@ CREATE TABLE public.reorg_type (
     code text UNIQUE NOT NULL,
     name text NOT NULL,
     description text NOT NULL,
-    active boolean NOT NULL,
+    enabled boolean NOT NULL,
     custom boolean NOT NULL,
     created_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
 );
-CREATE UNIQUE INDEX ix_reorg_type_code ON public.reorg_type USING btree (code) WHERE active;
-CREATE INDEX ix_reorg_type_active ON public.reorg_type USING btree (active);
+CREATE UNIQUE INDEX ix_reorg_type_code ON public.reorg_type USING btree (code) WHERE enabled;
+CREATE INDEX ix_reorg_type_enabled ON public.reorg_type USING btree (enabled);
 
 END;

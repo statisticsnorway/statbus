@@ -11,7 +11,7 @@ CREATE TABLE public.tag (
     code varchar GENERATED ALWAYS AS (NULLIF(regexp_replace(path::text, '[^0-9]', '', 'g'), '')) STORED,
     name character varying(256) NOT NULL,
     description text,
-    active boolean NOT NULL DEFAULT true,
+    enabled boolean NOT NULL DEFAULT true,
     type public.tag_type NOT NULL,
     context_valid_from date,
     context_valid_to date,
@@ -28,6 +28,6 @@ CREATE TABLE public.tag (
 );
 
 CREATE INDEX ix_tag_type ON public.tag USING btree (type);
-CREATE INDEX ix_tag_active ON public.tag USING btree (active);
+CREATE INDEX ix_tag_enabled ON public.tag USING btree (enabled);
 
 END;

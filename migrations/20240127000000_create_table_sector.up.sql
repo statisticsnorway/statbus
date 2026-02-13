@@ -8,14 +8,14 @@ CREATE TABLE public.sector (
     code varchar GENERATED ALWAYS AS (NULLIF(regexp_replace(path::text, '[^0-9]', '', 'g'), '')) STORED,
     name text NOT NULL,
     description text,
-    active boolean NOT NULL,
+    enabled boolean NOT NULL,
     custom bool NOT NULL,
     created_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
-    UNIQUE(path, active, custom)
+    UNIQUE(path, enabled, custom)
 );
-CREATE UNIQUE INDEX sector_code_active_key ON public.sector USING btree (code) WHERE active;
-CREATE INDEX ix_sector_active ON public.sector USING btree (active);
+CREATE UNIQUE INDEX sector_code_enabled_key ON public.sector USING btree (code) WHERE enabled;
+CREATE INDEX ix_sector_enabled ON public.sector USING btree (enabled);
 CREATE INDEX sector_parent_id_idx ON public.sector USING btree (parent_id);
 
 END;

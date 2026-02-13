@@ -26,13 +26,13 @@ CREATE TABLE public.stat_definition(
   name varchar NOT NULL,
   description text,
   priority integer UNIQUE,
-  archived boolean NOT NULL DEFAULT false
+  enabled boolean NOT NULL DEFAULT true
 );
 --
 CREATE INDEX ix_stat_definition_type ON public.stat_definition USING btree (type);
 --
 COMMENT ON COLUMN public.stat_definition.priority IS 'UI ordering of the entry fields';
-COMMENT ON COLUMN public.stat_definition.archived IS 'At the time of data entry, only non archived codes can be used.';
+COMMENT ON COLUMN public.stat_definition.enabled IS 'At the time of data entry, only enabled codes can be used.';
 --
 CREATE VIEW public.stat_definition_ordered AS
     SELECT *
@@ -43,7 +43,7 @@ CREATE VIEW public.stat_definition_ordered AS
 CREATE VIEW public.stat_definition_active AS
     SELECT *
     FROM public.stat_definition_ordered
-    WHERE NOT archived
+    WHERE enabled
 ;
 
 END;
