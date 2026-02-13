@@ -6,7 +6,7 @@ SELECT c.id
      , c.name
 FROM public.country AS c
 WHERE c.id IN (SELECT physical_country_id FROM public.statistical_unit WHERE physical_country_id IS NOT NULL)
-  AND c.active
+  AND c.enabled
 ORDER BY c.id;
 
 CREATE TABLE public.country_used AS

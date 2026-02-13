@@ -8,7 +8,7 @@ WITH base_periods AS (
         name_when_query,
         name_when_input,
         scope,
-        active,
+        enabled,
         CASE code
             WHEN 'today' THEN current_date
             WHEN 'year_prev' THEN date_trunc('year', current_date) - interval '1 day'

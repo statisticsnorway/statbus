@@ -5,7 +5,7 @@ DECLARE
     parent_id integer;
 BEGIN
     INSERT INTO public.relative_period
-        (code                         , name_when_query                      , name_when_input                  , scope             , active)
+        (code                         , name_when_query                      , name_when_input                  , scope             , enabled)
     VALUES
         ('today'                      , 'Today'                              , 'From today and onwards'         , 'input_and_query' , false)   ,
         --

@@ -121,7 +121,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , ac.name
         FROM
             public.activity_category AS ac
-        WHERE ac.active
+        WHERE ac.enabled
            AND ac.standard_id = (SELECT id FROM settings_activity_category_standard)
            AND
             (     activity_category_path IS NOT NULL
@@ -136,7 +136,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , ac.name
         FROM
             public.activity_category AS ac
-        WHERE ac.active
+        WHERE ac.enabled
            AND ac.standard_id = (SELECT id FROM settings_activity_category_standard)
            AND
             (
