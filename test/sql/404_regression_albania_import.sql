@@ -20,16 +20,16 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 -- 3. Custom stat definitions: female, male, selfemp, punpag
 -- (Inlined from custom/al.sql to avoid permission issues with procedure creation)
 
--- Archive stat_ident as Albania doesn't use it
-UPDATE public.external_ident_type SET archived = TRUE WHERE code = 'stat_ident';
+-- Disable stat_ident as Albania doesn't use it
+UPDATE public.external_ident_type SET enabled = FALSE WHERE code = 'stat_ident';
 
 -- Add 'tax' data source
 INSERT INTO public.data_source_custom (code, name) VALUES ('tax', 'Tax');
 
--- Deactivate default status codes and add Albania-specific ones
-UPDATE public.status SET active = FALSE WHERE id IN (1, 2);
+-- Disable default status codes and add Albania-specific ones
+UPDATE public.status SET enabled = FALSE WHERE id IN (1, 2);
 
-INSERT INTO public.status (code, name, assigned_by_default, used_for_counting, priority, active, custom)
+INSERT INTO public.status (code, name, assigned_by_default, used_for_counting, priority, enabled, custom)
 VALUES
     ('1', 'Active', TRUE, TRUE, 3, TRUE, TRUE),
     ('2', 'Closed', FALSE, FALSE, 6, TRUE, TRUE),
@@ -43,7 +43,7 @@ VALUES
     ('male', 'int', 'yearly', 'Male', 4),
     ('selfemp', 'int', 'yearly', 'SelfEmp', 5),
     ('punpag', 'int', 'yearly', 'PunPag', 6)
-ON CONFLICT (code) DO UPDATE SET archived = false;
+ON CONFLICT (code) DO UPDATE SET enabled = true;
 
 \echo "Setting activity category standard to ISIC v4 and country to Albania"
 INSERT INTO settings(activity_category_standard_id, country_id)

@@ -84,28 +84,28 @@ WHERE id.slug = 'establishment_for_lu_job_provided'
 \echo "   ------------------------------------------------------------------------------------------"
 
 \echo ""
-\echo "   4a. Archive 'tax_ident' and insert 'vat_ident' as a new active external_ident_type"
+\echo "   4a. Disable 'tax_ident' and insert 'vat_ident' as a new enabled external_ident_type"
 -- Ensure user context allows modification if RLS/permissions are very strict, though admin should be fine.
 -- CALL test.set_user_from_email('test.admin@statbus.org'); -- Already set at the beginning
 
--- Archive tax_ident
-UPDATE public.external_ident_type SET archived = true WHERE code = 'tax_ident';
-DO $$ BEGIN RAISE NOTICE 'Archived tax_ident'; END; $$;
+-- Disable tax_ident
+UPDATE public.external_ident_type SET enabled = false WHERE code = 'tax_ident';
+DO $$ BEGIN RAISE NOTICE 'Disabled tax_ident'; END; $$;
 
--- Insert vat_ident (or ensure it's active with the correct priority if it somehow exists)
+-- Insert vat_ident (or ensure it's enabled with the correct priority if it somehow exists)
 -- tax_ident was priority 35. stat_ident is 36. We can reuse 35 for vat_ident.
-INSERT INTO public.external_ident_type (code, name, priority, description, archived)
-VALUES ('vat_ident', 'VAT Identifier', 35, 'Value Added Tax Identifier (dynamic test)', false)
+INSERT INTO public.external_ident_type (code, name, priority, description, enabled)
+VALUES ('vat_ident', 'VAT Identifier', 35, 'Value Added Tax Identifier (dynamic test)', true)
 ON CONFLICT (code) DO UPDATE SET
     name = EXCLUDED.name,
     priority = EXCLUDED.priority,
     description = EXCLUDED.description,
-    archived = EXCLUDED.archived;
+    enabled = EXCLUDED.enabled;
 DO $$ BEGIN RAISE NOTICE 'Inserted/Updated vat_ident'; END; $$;
 
--- Display current active external_ident_types and all data columns for external_idents step
-\echo "   Active external_ident_types after modification:"
-SELECT code, name, priority, archived FROM public.external_ident_type WHERE archived = false ORDER BY priority;
+-- Display current enabled external_ident_types and all data columns for external_idents step
+\echo "   Enabled external_ident_types after modification:"
+SELECT code, name, priority, enabled FROM public.external_ident_type WHERE enabled = true ORDER BY priority;
 
 \echo ""
 \echo "   4b. Verify 'import_data_column's for 'external_idents' step reflect these changes"
@@ -117,8 +117,8 @@ WHERE s.code = 'external_idents' AND dc.purpose = 'source_input'
 ORDER BY dc.column_name;
 
 \echo ""
-\echo "   4c. Verify mapping for 'legal_unit_job_provided' and (now archived) 'tax_ident'"
-\echo "       Expected: The 'tax_ident' source column on the definition is removed because its external_ident_type was archived."
+\echo "   4c. Verify mapping for 'legal_unit_job_provided' and (now disabled) 'tax_ident'"
+\echo "       Expected: The 'tax_ident' source column on the definition is removed because its external_ident_type was disabled."
 \echo "                 Therefore, no mapping exists, and the query should return 0 rows."
 SELECT
     id.slug AS definition_slug,
@@ -138,7 +138,7 @@ WHERE id.slug = 'legal_unit_job_provided';
 \echo ""
 \echo "   4d. Verify mapping for 'legal_unit_job_provided' and new 'vat_ident'"
 \echo "       Expected: A 'vat_ident' source column is automatically created and mapped on the 'legal_unit_job_provided' definition"
-\echo "                 because 'vat_ident' became an active external_ident_type. (Query should return 1 row)"
+\echo "                 because 'vat_ident' became an enabled external_ident_type. (Query should return 1 row)"
 SELECT
     id.slug AS definition_slug,
     isc.column_name AS source_column_name,
