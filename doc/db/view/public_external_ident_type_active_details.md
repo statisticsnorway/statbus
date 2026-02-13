@@ -9,7 +9,7 @@
  labels      | ltree                  |           |          |         | extended | 
  description | text                   |           |          |         | extended | 
  priority    | integer                |           |          |         | plain    | 
- archived    | boolean                |           |          |         | plain    | 
+ enabled     | boolean                |           |          |         | plain    | 
 View definition:
  SELECT id,
     code,
@@ -18,8 +18,8 @@ View definition:
     labels,
     description,
     priority,
-    archived
+    enabled
    FROM external_ident_type_ordered
-  WHERE NOT archived;
+  WHERE enabled;
 
 ```

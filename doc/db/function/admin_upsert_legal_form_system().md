@@ -6,10 +6,10 @@ AS $function$
 DECLARE
     row RECORD;
 BEGIN
-    INSERT INTO public.legal_form (code, name, active, custom, updated_at)
+    INSERT INTO public.legal_form (code, name, enabled, custom, updated_at)
     VALUES (NEW.code, NEW.name, TRUE, 'f', statement_timestamp())
-    ON CONFLICT (active, code) DO UPDATE SET
-        name = NEW.name, active = TRUE,
+    ON CONFLICT (enabled, code) DO UPDATE SET
+        name = NEW.name, enabled = TRUE,
         custom = 'f',
         updated_at = statement_timestamp()
     WHERE legal_form.id = EXCLUDED.id

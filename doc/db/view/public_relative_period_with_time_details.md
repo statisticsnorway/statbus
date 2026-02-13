@@ -7,7 +7,7 @@
  name_when_query | character varying(256) |           |          |         | extended | 
  name_when_input | character varying(256) |           |          |         | extended | 
  scope           | relative_period_scope  |           |          |         | plain    | 
- active          | boolean                |           |          |         | plain    | 
+ enabled         | boolean                |           |          |         | plain    | 
  valid_on        | date                   |           |          |         | plain    | 
  valid_from      | date                   |           |          |         | plain    | 
  valid_to        | date                   |           |          |         | plain    | 
@@ -18,7 +18,7 @@ View definition:
             relative_period.name_when_query,
             relative_period.name_when_input,
             relative_period.scope,
-            relative_period.active,
+            relative_period.enabled,
                 CASE relative_period.code
                     WHEN 'today'::relative_period_code THEN CURRENT_DATE::timestamp with time zone
                     WHEN 'year_prev'::relative_period_code THEN date_trunc('year'::text, CURRENT_DATE::timestamp with time zone) - '1 day'::interval
@@ -83,7 +83,7 @@ View definition:
     name_when_query,
     name_when_input,
     scope,
-    active,
+    enabled,
     valid_on,
     valid_from,
     valid_to

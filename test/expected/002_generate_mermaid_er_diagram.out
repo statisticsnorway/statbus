@@ -96,7 +96,7 @@ erDiagram
 		character_varying code
 		character_varying(256) name
 		text description
-		boolean active
+		boolean enabled
 		boolean custom
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
@@ -112,7 +112,7 @@ erDiagram
 		character_varying name
 		character_varying description
 		activity_category_code_behaviour code_pattern
-		boolean obsolete
+		boolean enabled
 	}
 	activity_category_used["activity_category_used"] {
 		character_varying(16) standard_code
@@ -149,7 +149,7 @@ erDiagram
 		text iso_3
 		text iso_num
 		text name
-		boolean active
+		boolean enabled
 		boolean custom
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
@@ -163,7 +163,7 @@ erDiagram
 		integer id
 		text code
 		text name
-		boolean active
+		boolean enabled
 		boolean custom
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
@@ -175,7 +175,7 @@ erDiagram
 	}
 	enterprise["enterprise"] {
 		integer id
-		boolean active
+		boolean enabled
 		character_varying(16) short_name
 		character_varying(512) edit_comment
 		integer edit_by_user_id
@@ -205,7 +205,7 @@ erDiagram
 		integer id
 		text code
 		text name
-		boolean active
+		boolean enabled
 		boolean custom
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
@@ -214,7 +214,7 @@ erDiagram
 		integer id
 		text code
 		text name
-		boolean active
+		boolean enabled
 		boolean custom
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
@@ -267,13 +267,13 @@ erDiagram
 		ltree labels
 		text description
 		integer priority
-		boolean archived
+		boolean enabled
 	}
 	foreign_participation["foreign_participation"] {
 		integer id
 		text code
 		text name
-		boolean active
+		boolean enabled
 		boolean custom
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
@@ -308,7 +308,7 @@ erDiagram
 		import_mode mode
 		import_valid_time_from valid_time_from
 		integer user_id
-		boolean active
+		boolean enabled
 		boolean custom
 		boolean valid
 		text validation_error
@@ -400,7 +400,7 @@ erDiagram
 		integer id
 		text code
 		text name
-		boolean active
+		boolean enabled
 		boolean custom
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
@@ -494,7 +494,7 @@ erDiagram
 		integer id
 		text code
 		text name
-		boolean active
+		boolean enabled
 		boolean custom
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
@@ -530,14 +530,14 @@ erDiagram
 		character_varying(256) name_when_query
 		character_varying(256) name_when_input
 		relative_period_scope scope
-		boolean active
+		boolean enabled
 	}
 	reorg_type["reorg_type"] {
 		integer id
 		text code
 		text name
 		text description
-		boolean active
+		boolean enabled
 		boolean custom
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
@@ -550,7 +550,7 @@ erDiagram
 		character_varying code
 		text name
 		text description
-		boolean active
+		boolean enabled
 		boolean custom
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
@@ -576,7 +576,7 @@ erDiagram
 		character_varying name
 		text description
 		integer priority
-		boolean archived
+		boolean enabled
 	}
 	stat_for_unit["stat_for_unit"] {
 		integer id
@@ -870,7 +870,7 @@ erDiagram
 		boolean assigned_by_default
 		boolean used_for_counting
 		integer priority
-		boolean active
+		boolean enabled
 		boolean custom
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
@@ -884,7 +884,7 @@ erDiagram
 		character_varying code
 		character_varying(256) name
 		text description
-		boolean active
+		boolean enabled
 		tag_type type
 		date context_valid_from
 		date context_valid_to
@@ -1188,7 +1188,7 @@ erDiagram
 		integer id
 		text code
 		text name
-		boolean active
+		boolean enabled
 		boolean custom
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at

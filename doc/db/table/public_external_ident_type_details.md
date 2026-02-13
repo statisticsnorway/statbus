@@ -9,7 +9,7 @@
  labels      | ltree                  |           |          |                                 | extended |             |              | 
  description | text                   |           |          |                                 | extended |             |              | 
  priority    | integer                |           |          |                                 | plain    |             |              | 
- archived    | boolean                |           | not null | false                           | plain    |             |              | 
+ enabled     | boolean                |           | not null | true                            | plain    |             |              | 
 Indexes:
     "external_ident_type_pkey" PRIMARY KEY, btree (id)
     "external_ident_type_code_key" UNIQUE CONSTRAINT, btree (code)
@@ -33,7 +33,7 @@ Not-null constraints:
     "external_ident_type_id_not_null" NOT NULL "id"
     "external_ident_type_code_not_null" NOT NULL "code"
     "external_ident_type_shape_not_null" NOT NULL "shape"
-    "external_ident_type_archived_not_null" NOT NULL "archived"
+    "external_ident_type_enabled_not_null" NOT NULL "enabled"
 Triggers:
     external_ident_type_lifecycle_callbacks_after_delete AFTER DELETE ON external_ident_type FOR EACH STATEMENT EXECUTE FUNCTION lifecycle_callbacks.cleanup_and_generate()
     external_ident_type_lifecycle_callbacks_after_insert AFTER INSERT ON external_ident_type FOR EACH STATEMENT EXECUTE FUNCTION lifecycle_callbacks.cleanup_and_generate()

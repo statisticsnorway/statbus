@@ -8,7 +8,7 @@ View definition:
  SELECT code,
     name
    FROM legal_form ac
-  WHERE active AND custom
+  WHERE enabled AND custom
   ORDER BY code;
 Triggers:
     legal_form_custom_only_prepare_trigger BEFORE INSERT ON legal_form_custom_only FOR EACH STATEMENT EXECUTE FUNCTION admin.legal_form_custom_only_prepare()

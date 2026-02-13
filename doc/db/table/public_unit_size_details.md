@@ -5,15 +5,15 @@
  id         | integer                  |           | not null | generated always as identity | plain    |             |              | 
  code       | text                     |           | not null |                              | extended |             |              | 
  name       | text                     |           | not null |                              | extended |             |              | 
- active     | boolean                  |           | not null |                              | plain    |             |              | 
+ enabled    | boolean                  |           | not null |                              | plain    |             |              | 
  custom     | boolean                  |           | not null |                              | plain    |             |              | 
  created_at | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
  updated_at | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
 Indexes:
     "unit_size_pkey" PRIMARY KEY, btree (id)
-    "ix_unit_size_active" btree (active)
-    "ix_unit_size_active_code" UNIQUE, btree (active, code)
-    "ix_unit_size_code" UNIQUE, btree (code) WHERE active
+    "ix_unit_size_code" UNIQUE, btree (code) WHERE enabled
+    "ix_unit_size_enabled" btree (enabled)
+    "ix_unit_size_enabled_code" UNIQUE, btree (enabled, code)
 Referenced by:
     TABLE "enterprise_group" CONSTRAINT "enterprise_group_unit_size_id_fkey" FOREIGN KEY (unit_size_id) REFERENCES unit_size(id)
     TABLE "establishment" CONSTRAINT "establishment_unit_size_id_fkey" FOREIGN KEY (unit_size_id) REFERENCES unit_size(id)
@@ -33,7 +33,7 @@ Not-null constraints:
     "unit_size_id_not_null" NOT NULL "id"
     "unit_size_code_not_null" NOT NULL "code"
     "unit_size_name_not_null" NOT NULL "name"
-    "unit_size_active_not_null" NOT NULL "active"
+    "unit_size_enabled_not_null" NOT NULL "enabled"
     "unit_size_custom_not_null" NOT NULL "custom"
     "unit_size_created_at_not_null" NOT NULL "created_at"
     "unit_size_updated_at_not_null" NOT NULL "updated_at"

@@ -1,9 +1,9 @@
 ```sql
-                               Table "public.statistical_unit"
-              Column              |           Type           | Collation | Nullable | Default 
-----------------------------------+--------------------------+-----------+----------+---------
- unit_type                        | statistical_unit_type    |           |          | 
- unit_id                          | integer                  |           |          | 
+                                                              Table "public.statistical_unit"
+              Column              |           Type           | Collation | Nullable |                                Default                                
+----------------------------------+--------------------------+-----------+----------+-----------------------------------------------------------------------
+ unit_type                        | statistical_unit_type    |           | not null | 
+ unit_id                          | integer                  |           | not null | 
  valid_from                       | date                     |           |          | 
  valid_to                         | date                     |           |          | 
  valid_until                      | date                     |           |          | 
@@ -86,7 +86,10 @@
  included_legal_unit_count        | integer                  |           |          | 
  included_enterprise_count        | integer                  |           |          | 
  tag_paths                        | ltree[]                  |           |          | 
+ valid_range                      | daterange                |           | not null | generated always as (daterange(valid_from, valid_until)) stored
+ report_partition_seq             | integer                  |           |          | generated always as (report_partition_seq(unit_type, unit_id)) stored
 Indexes:
+    "statistical_unit_temporal_pk" PRIMARY KEY (unit_type, unit_id, valid_range WITHOUT OVERLAPS)
     "idx_gist_statistical_unit_activity_category_paths" gist (activity_category_paths)
     "idx_gist_statistical_unit_external_idents" gin (external_idents jsonb_path_ops)
     "idx_gist_statistical_unit_physical_region_path" gist (physical_region_path)
@@ -110,6 +113,7 @@ Indexes:
     "idx_statistical_unit_related_enterprise_ids" gin (related_enterprise_ids)
     "idx_statistical_unit_related_establishment_ids" gin (related_establishment_ids)
     "idx_statistical_unit_related_legal_unit_ids" gin (related_legal_unit_ids)
+    "idx_statistical_unit_report_partition_seq" btree (report_partition_seq)
     "idx_statistical_unit_search" gin (search)
     "idx_statistical_unit_secondary_activity_category_id" btree (secondary_activity_category_id)
     "idx_statistical_unit_secondary_activity_category_path" btree (secondary_activity_category_path)
@@ -118,7 +122,6 @@ Indexes:
     "idx_statistical_unit_tag_paths" btree (tag_paths)
     "idx_statistical_unit_unit_type" btree (unit_type)
     "statistical_unit_from_key" UNIQUE, btree (valid_from, valid_until, unit_type, unit_id)
-    "statistical_unit_type_id_daterange_excl" EXCLUDE USING gist (unit_type WITH =, unit_id WITH =, daterange(valid_from, valid_until, '[)'::text) WITH &&) DEFERRABLE
     "statistical_unit_upsert_pkey" UNIQUE, btree (unit_type, unit_id, valid_from)
     "su_ei_stat_ident_idx" btree ((external_idents ->> 'stat_ident'::text))
     "su_ei_tax_ident_idx" btree ((external_idents ->> 'tax_ident'::text))

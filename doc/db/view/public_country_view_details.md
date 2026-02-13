@@ -7,7 +7,7 @@
  iso_3   | text    |           |          |         | extended | 
  iso_num | text    |           |          |         | extended | 
  name    | text    |           |          |         | extended | 
- active  | boolean |           |          |         | plain    | 
+ enabled | boolean |           |          |         | plain    | 
  custom  | boolean |           |          |         | plain    | 
 View definition:
  SELECT id,
@@ -15,7 +15,7 @@ View definition:
     iso_3,
     iso_num,
     name,
-    active,
+    enabled,
     custom
    FROM country;
 Triggers:

@@ -10,7 +10,7 @@ The system revolves around four main statistical units, often with temporal vali
 
 - `enterprise_group(id, short_name, name, enterprise_group_type_id, reorg_type_id, edit_by_user_id, unit_size_id, data_source_id, foreign_participation_id, valid_range, valid_from, valid_to, valid_until, edit_at, contact_person, edit_comment, reorg_references, reorg_date)` (EG) (temporal)
   - Key FKs: data_source_id, edit_by_user_id, enterprise_group_type_id, foreign_participation_id, reorg_type_id, unit_size_id.
-- `enterprise(id, short_name, edit_by_user_id, edit_at, active, edit_comment)` (EN)
+- `enterprise(id, short_name, edit_by_user_id, edit_at, enabled, edit_comment)` (EN)
   - Key FKs: edit_by_user_id.
 - `legal_unit(id, short_name, name, invalid_codes, sector_id, status_id, legal_form_id, edit_by_user_id, unit_size_id, foreign_participation_id, data_source_id, enterprise_id, image_id, valid_range, valid_from, valid_to, valid_until, edit_at, birth_date, death_date, free_econ_zone, edit_comment, primary_for_enterprise)` (LU) (temporal)
   - Key FKs: data_source_id, edit_by_user_id, enterprise_id, foreign_participation_id, image_id, legal_form_id, sector_id, status_id, unit_size_id.
@@ -40,9 +40,9 @@ These tables link to any of the four core statistical units:
 - `activity(id, type, category_id, data_source_id, edit_by_user_id, establishment_id, legal_unit_id, valid_range, valid_from, valid_to, valid_until, edit_at, edit_comment)` (temporal)
   - Key FKs: category_id, data_source_id, edit_by_user_id, establishment_id, legal_unit_id, valid_range, valid_range.
   - Enums: `type` (`public.activity_type`).
-- `activity_category(id, path, label, code, name, standard_id, parent_id, created_at, updated_at, active, level, description, custom)`
+- `activity_category(id, path, label, code, name, standard_id, parent_id, created_at, updated_at, enabled, level, description, custom)`
   - Key FKs: parent_id, standard_id.
-- `activity_category_standard(id, code, name, code_pattern, description, obsolete)`
+- `activity_category_standard(id, code, name, code_pattern, enabled, description)`
   - Enums: `code_pattern` (`public.activity_category_code_behaviour`).
 - `activity_category_isic_v4(path, label, code, name, standard, description)`
 - `activity_category_nace_v2_1(path, label, code, name, standard, description)`
@@ -56,8 +56,8 @@ These tables link to any of the four core statistical units:
   - Key FKs: data_source_id, edit_by_user_id, establishment_id, legal_unit_id, valid_range, valid_range.
 - `region(id, path, label, code, name, parent_id, level, center_latitude, center_longitude, center_altitude)`
   - Key FKs: parent_id.
-- `country(id, name, created_at, updated_at, active, iso_2, iso_3, iso_num, custom)`
-- `country_view(id, name, active, iso_2, iso_3, iso_num, custom)`
+- `country(id, name, created_at, updated_at, enabled, iso_2, iso_3, iso_num, custom)`
+- `country_view(id, name, enabled, iso_2, iso_3, iso_num, custom)`
 
 ### Persons
 
@@ -66,32 +66,32 @@ These tables link to any of the four core statistical units:
   - Enums: `sex` (`public.person_sex`).
 - `person_for_unit(id, person_id, person_role_id, data_source_id, establishment_id, legal_unit_id, edit_by_user_id, valid_range, valid_from, valid_to, valid_until, edit_at, edit_comment)` (temporal)
   - Key FKs: data_source_id, edit_by_user_id, establishment_id, legal_unit_id, person_id, person_role_id, valid_range, valid_range.
-- `person_role(id, code, name, created_at, updated_at, active, custom)`
+- `person_role(id, code, name, created_at, updated_at, enabled, custom)`
 
 ### Statistics
 
 - `stat_for_unit(id, value_int, value_float, value_string, value_bool, stat_definition_id, data_source_id, establishment_id, legal_unit_id, edit_by_user_id, valid_range, valid_from, valid_to, valid_until, edit_at, edit_comment)` (temporal)
   - Key FKs: data_source_id, edit_by_user_id, establishment_id, legal_unit_id, stat_definition_id, valid_range, valid_range.
-- `stat_definition(id, code, type, name, frequency, description, priority, archived)`
+- `stat_definition(id, code, type, name, enabled, frequency, description, priority)`
   - Enums: `frequency` (`public.stat_frequency`), `type` (`public.stat_type`).
 
 ### General Code/Classification Tables
-These tables typically store codes, names, and flags for `custom` and `active` status.
+These tables typically store codes, names, and flags for `custom` and `enabled` status.
 
-- `data_source(id, code, name, created_at, updated_at, active, custom)`
-- `enterprise_group_type(id, code, name, created_at, updated_at, active, custom)`
-- `enterprise_group_role(id, code, name, created_at, updated_at, active, custom)`
-- `external_ident_type(id, code, name, labels, shape, description, priority, archived)`
+- `data_source(id, code, name, created_at, updated_at, enabled, custom)`
+- `enterprise_group_type(id, code, name, created_at, updated_at, enabled, custom)`
+- `enterprise_group_role(id, code, name, created_at, updated_at, enabled, custom)`
+- `external_ident_type(id, code, name, labels, enabled, shape, description, priority)`
   - Enums: `shape` (`public.external_ident_shape`).
-- `foreign_participation(id, code, name, created_at, updated_at, active, custom)`
-- `legal_form(id, code, name, created_at, updated_at, active, custom)`
-- `reorg_type(id, code, name, created_at, updated_at, active, description, custom)`
-- `sector(id, path, label, code, name, parent_id, created_at, updated_at, active, description, custom)`
-- `status(id, code, name, created_at, updated_at, active, assigned_by_default, used_for_counting, priority, custom)`
-- `tag(id, path, label, code, name, type, parent_id, context_valid_on, created_at, updated_at, active, level, description, context_valid_from, context_valid_to, context_valid_until)`
+- `foreign_participation(id, code, name, created_at, updated_at, enabled, custom)`
+- `legal_form(id, code, name, created_at, updated_at, enabled, custom)`
+- `reorg_type(id, code, name, created_at, updated_at, enabled, description, custom)`
+- `sector(id, path, label, code, name, parent_id, created_at, updated_at, enabled, description, custom)`
+- `status(id, code, name, created_at, updated_at, enabled, assigned_by_default, used_for_counting, priority, custom)`
+- `tag(id, path, label, code, name, type, parent_id, context_valid_on, created_at, updated_at, enabled, level, description, context_valid_from, context_valid_to, context_valid_until)`
   - Key FKs: parent_id.
   - Enums: `type` (`public.tag_type`).
-- `unit_size(id, code, name, created_at, updated_at, active, custom)`
+- `unit_size(id, code, name, created_at, updated_at, enabled, custom)`
 
 ### Enum Definitions
 Enumerated types used across the schema, with their possible values.
@@ -145,9 +145,9 @@ Enumerated types used across the schema, with their possible values.
 ### Derivations for UI listing of relevant time periods
 
 - `timesegments_years(year)`
-- `relative_period(id, code, name_when_query, name_when_input, active, scope)`
+- `relative_period(id, code, name_when_query, name_when_input, enabled, scope)`
   - Enums: `code` (`public.relative_period_code`), `scope` (`public.relative_period_scope`).
-- `relative_period_with_time(id, code, name_when_query, name_when_input, valid_on, valid_from, valid_to, active, scope)`
+- `relative_period_with_time(id, code, name_when_query, name_when_input, valid_on, valid_from, valid_to, enabled, scope)`
   - Enums: `code` (`public.relative_period_code`), `scope` (`public.relative_period_scope`).
 - `time_context(type, ident, name_when_query, name_when_input, code, path, valid_from, valid_to, valid_on, scope)`
   - Enums: `code` (`public.relative_period_code`), `scope` (`public.relative_period_scope`), `type` (`public.time_context_type`).
@@ -168,7 +168,7 @@ Enumerated types used across the schema, with their possible values.
 ## Import System
 Handles the ingestion of data from external files.
 
-- `import_definition(id, slug, name, data_source_id, user_id, valid_time_from, created_at, updated_at, active, note, strategy, mode, custom, valid, validation_error, default_retention_period, import_as_null)`
+- `import_definition(id, slug, name, data_source_id, user_id, valid_time_from, created_at, updated_at, enabled, note, strategy, mode, custom, valid, validation_error, default_retention_period, import_as_null)`
   - Key FKs: data_source_id, user_id.
   - Enums: `mode` (`public.import_mode`), `strategy` (`public.import_strategy`), `valid_time_from` (`public.import_valid_time_from`).
 - `import_step(id, code, name, created_at, updated_at, priority, analyse_procedure, process_procedure, is_holistic)`
@@ -230,7 +230,7 @@ The schema includes numerous helper views, often for UI dropdowns or specific da
 - `*_custom*`: Writable views for inserting new custom classification codes.
 - `*_system*`: Writable views for inserting new system-defined classification codes (typically used during initial setup).
 - `*_ordered*`: Views providing a specific sort order for classifications, often for UI display.
-- `*_active*`: Views that filter for only the `active` records in a classification table.
+- `*_active*`: Views that filter for only the `enabled` records in a classification table.
 - `*__for_portion_of_valid*`: Helper view created by sql_saga for temporal REST updates (FOR PORTION OF).
 - `*_custom_only*`: Helper view for listing and loading custom classification data, separating it from system-provided data.
 - `*_staging*`: Internal staging table for bulk inserts, merged into main table at end of batch processing.

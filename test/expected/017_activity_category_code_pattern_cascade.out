@@ -24,34 +24,34 @@ SELECT code, code_pattern FROM public.activity_category_standard WHERE code = 't
 -- Path 'A.01.1.1.0' should become:
 --   - 'digits':              '01110'
 --   - 'dot_after_two_digits': '01.110'
-INSERT INTO public.activity_category(standard_id, path, name, description, active, custom)
+INSERT INTO public.activity_category(standard_id, path, name, description, enabled, custom)
 SELECT acs.id, 'A', 'Section A', 'Agriculture', true, false
 FROM public.activity_category_standard AS acs WHERE acs.code = 'test_std';
-INSERT INTO public.activity_category(standard_id, path, name, description, active, custom)
+INSERT INTO public.activity_category(standard_id, path, name, description, enabled, custom)
 SELECT acs.id, 'A.01', 'Division 01', 'Crop production', true, false
 FROM public.activity_category_standard AS acs WHERE acs.code = 'test_std';
-INSERT INTO public.activity_category(standard_id, path, name, description, active, custom)
+INSERT INTO public.activity_category(standard_id, path, name, description, enabled, custom)
 SELECT acs.id, 'A.01.1', 'Group 01.1', 'Growing of non-perennial crops', true, false
 FROM public.activity_category_standard AS acs WHERE acs.code = 'test_std';
-INSERT INTO public.activity_category(standard_id, path, name, description, active, custom)
+INSERT INTO public.activity_category(standard_id, path, name, description, enabled, custom)
 SELECT acs.id, 'A.01.1.1', 'Class 01.11', 'Growing of cereals', true, false
 FROM public.activity_category_standard AS acs WHERE acs.code = 'test_std';
-INSERT INTO public.activity_category(standard_id, path, name, description, active, custom)
+INSERT INTO public.activity_category(standard_id, path, name, description, enabled, custom)
 SELECT acs.id, 'A.01.1.1.0', 'Subclass 01.110', 'Growing of cereals (detailed)', true, false
 FROM public.activity_category_standard AS acs WHERE acs.code = 'test_std';
--- Also insert an inactive category to verify inactive categories are also updated
-INSERT INTO public.activity_category(standard_id, path, name, description, active, custom)
-SELECT acs.id, 'B.05', 'Division 05 (inactive)', 'Mining of coal', false, false
+-- Also insert a disabled category to verify disabled categories are also updated
+INSERT INTO public.activity_category(standard_id, path, name, description, enabled, custom)
+SELECT acs.id, 'B.05', 'Division 05 (disabled)', 'Mining of coal', false, false
 FROM public.activity_category_standard AS acs WHERE acs.code = 'test_std';
 \echo '-- Verify activity categories with digits pattern --'
 -- Verify activity categories with digits pattern --
-SELECT ac.path, ac.code, ac.active
+SELECT ac.path, ac.code, ac.enabled
 FROM public.activity_category AS ac
 JOIN public.activity_category_standard AS acs ON ac.standard_id = acs.id
 WHERE acs.code = 'test_std'
 ORDER BY ac.path;
-    path    | code  | active 
-------------+-------+--------
+    path    | code  | enabled 
+------------+-------+---------
  A          |       | t
  A.01       | 01    | t
  A.01.1     | 011   | t
@@ -84,7 +84,7 @@ BEGIN
         ASSERT (SELECT ac.code FROM public.activity_category AS ac
                 JOIN public.activity_category_standard AS acs ON ac.standard_id = acs.id
                 WHERE acs.code = 'test_std' AND ac.path::text = 'B.05') = '05',
-               'Path B.05 (inactive) should have code 05 with digits pattern';
+               'Path B.05 (disabled) should have code 05 with digits pattern';
         
         RAISE NOTICE 'Test 1: PASSED - Initial codes correct for digits pattern';
     EXCEPTION
@@ -108,13 +108,13 @@ SET code_pattern = 'dot_after_two_digits'
 WHERE code = 'test_std';
 \echo '-- Verify activity categories after code_pattern change --'
 -- Verify activity categories after code_pattern change --
-SELECT ac.path, ac.code, ac.active
+SELECT ac.path, ac.code, ac.enabled
 FROM public.activity_category AS ac
 JOIN public.activity_category_standard AS acs ON ac.standard_id = acs.id
 WHERE acs.code = 'test_std'
 ORDER BY ac.path;
-    path    |  code  | active 
-------------+--------+--------
+    path    |  code  | enabled 
+------------+--------+---------
  A          |        | t
  A.01       | 01     | t
  A.01.1     | 01.1   | t
@@ -144,11 +144,11 @@ BEGIN
                 WHERE acs.code = 'test_std' AND ac.path::text = 'A.01.1') = '01.1',
                'Path A.01.1 should have code 01.1 with dot_after_two_digits pattern';
         
-        -- Verify inactive categories are also updated
+        -- Verify disabled categories are also updated
         ASSERT (SELECT ac.code FROM public.activity_category AS ac
                 JOIN public.activity_category_standard AS acs ON ac.standard_id = acs.id
                 WHERE acs.code = 'test_std' AND ac.path::text = 'B.05') = '05',
-               'Path B.05 (inactive) should still have code 05 (no change for 2-digit codes)';
+               'Path B.05 (disabled) should still have code 05 (no change for 2-digit codes)';
         
         RAISE NOTICE 'Test 2: PASSED - Codes correctly recalculated after code_pattern change';
     EXCEPTION
@@ -171,13 +171,13 @@ SET code_pattern = 'digits'
 WHERE code = 'test_std';
 \echo '-- Verify activity categories after reverting code_pattern --'
 -- Verify activity categories after reverting code_pattern --
-SELECT ac.path, ac.code, ac.active
+SELECT ac.path, ac.code, ac.enabled
 FROM public.activity_category AS ac
 JOIN public.activity_category_standard AS acs ON ac.standard_id = acs.id
 WHERE acs.code = 'test_std'
 ORDER BY ac.path;
-    path    | code  | active 
-------------+-------+--------
+    path    | code  | enabled 
+------------+-------+---------
  A          |       | t
  A.01       | 01    | t
  A.01.1     | 011   | t

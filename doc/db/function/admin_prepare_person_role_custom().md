@@ -6,8 +6,8 @@ AS $function$
 BEGIN
     -- Deactivate all non-custom entries before insertion
     UPDATE public.person_role
-       SET active = false
-     WHERE active = true
+       SET enabled = false
+     WHERE enabled = true
        AND custom = false;
 
     RETURN NULL;

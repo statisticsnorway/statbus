@@ -37,7 +37,7 @@ BEGIN
         FROM %3$I.%4$I
         WHERE path OPERATOR(public.=) public.subpath(NEW.path, 0, public.nlevel(NEW.path) - 1)
     )
-    INSERT INTO %3$I.%4$I (path, parent_id, name, active, custom, updated_at)
+    INSERT INTO %3$I.%4$I (path, parent_id, name, enabled, custom, updated_at)
     VALUES (NEW.path, (SELECT id FROM parent), NEW.name, %5$L, %6$L, statement_timestamp())
     ON CONFLICT (%7$s) DO UPDATE SET
         parent_id = (SELECT id FROM parent),

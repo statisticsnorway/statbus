@@ -64,9 +64,9 @@ SAVEPOINT scenario_113_1_hierarchical_setup;
 -- Setup: Create hierarchical identifier types
 \echo "Setting up hierarchical identifier types"
 "Setting up hierarchical identifier types"
-INSERT INTO public.external_ident_type (code, name, shape, labels, description, priority, archived)
+INSERT INTO public.external_ident_type (code, name, shape, labels, description, priority, enabled)
 VALUES ('test_surveyor_hierarchical', 'Test Surveyor Hierarchical', 'hierarchical', 'region.city.seq',
-        'Region/City/Seq hierarchical composite key', 50, false);
+        'Region/City/Seq hierarchical composite key', 50, true);
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_employees_idx
@@ -81,9 +81,9 @@ NOTICE:  Created btree index su_ei_test_surveyor_hierarchical_idx for external_i
 NOTICE:  Created GIST ltree index su_ei_test_surveyor_hierarchical_ltree_gist_idx for hierarchical external_ident_type
 NOTICE:  Created indices for stat_definition employees
 NOTICE:  Created indices for stat_definition turnover
-INSERT INTO public.external_ident_type (code, name, shape, labels, description, priority, archived)
+INSERT INTO public.external_ident_type (code, name, shape, labels, description, priority, enabled)
 VALUES ('region_district', 'Regional District Code', 'hierarchical', 'region.district',
-        'Simple 2-level regional district identifier', 51, false);
+        'Simple 2-level regional district identifier', 51, true);
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_ei_test_surveyor_hierarchical_idx
@@ -263,9 +263,9 @@ SAVEPOINT scenario_113_3_hierarchical_happy_path;
 -- Setup: Create hierarchical identifier types
 \echo "Setting up hierarchical identifier types"
 "Setting up hierarchical identifier types"
-INSERT INTO public.external_ident_type (code, name, shape, labels, description, priority, archived)
+INSERT INTO public.external_ident_type (code, name, shape, labels, description, priority, enabled)
 VALUES ('test_hierarchical_surveyor', 'Test Hierarchical Surveyor', 'hierarchical', 'region.city.seq',
-        'Region/City/Seq hierarchical composite key', 50, false);
+        'Region/City/Seq hierarchical composite key', 50, true);
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_employees_idx
@@ -280,9 +280,9 @@ NOTICE:  Created btree index su_ei_test_hierarchical_surveyor_idx for external_i
 NOTICE:  Created GIST ltree index su_ei_test_hierarchical_surveyor_ltree_gist_idx for hierarchical external_ident_type
 NOTICE:  Created indices for stat_definition employees
 NOTICE:  Created indices for stat_definition turnover
-INSERT INTO public.external_ident_type (code, name, shape, labels, description, priority, archived)
+INSERT INTO public.external_ident_type (code, name, shape, labels, description, priority, enabled)
 VALUES ('region_district', 'Regional District Code', 'hierarchical', 'region.district',
-        'Simple 2-level regional district identifier for success test', 51, false);
+        'Simple 2-level regional district identifier for success test', 51, true);
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_ei_test_hierarchical_surveyor_idx

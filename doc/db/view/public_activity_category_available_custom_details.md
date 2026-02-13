@@ -11,7 +11,7 @@ View definition:
     description
    FROM activity_category ac
   WHERE standard_id = (( SELECT settings.activity_category_standard_id
-           FROM settings)) AND active AND custom
+           FROM settings)) AND enabled AND custom
   ORDER BY path;
 Triggers:
     activity_category_available_custom_upsert_custom INSTEAD OF INSERT ON activity_category_available_custom FOR EACH ROW EXECUTE FUNCTION admin.activity_category_available_custom_upsert_custom()

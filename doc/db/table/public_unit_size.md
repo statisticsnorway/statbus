@@ -5,15 +5,15 @@
  id         | integer                  |           | not null | generated always as identity
  code       | text                     |           | not null | 
  name       | text                     |           | not null | 
- active     | boolean                  |           | not null | 
+ enabled    | boolean                  |           | not null | 
  custom     | boolean                  |           | not null | 
  created_at | timestamp with time zone |           | not null | statement_timestamp()
  updated_at | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
     "unit_size_pkey" PRIMARY KEY, btree (id)
-    "ix_unit_size_active" btree (active)
-    "ix_unit_size_active_code" UNIQUE, btree (active, code)
-    "ix_unit_size_code" UNIQUE, btree (code) WHERE active
+    "ix_unit_size_code" UNIQUE, btree (code) WHERE enabled
+    "ix_unit_size_enabled" btree (enabled)
+    "ix_unit_size_enabled_code" UNIQUE, btree (enabled, code)
 Referenced by:
     TABLE "enterprise_group" CONSTRAINT "enterprise_group_unit_size_id_fkey" FOREIGN KEY (unit_size_id) REFERENCES unit_size(id)
     TABLE "establishment" CONSTRAINT "establishment_unit_size_id_fkey" FOREIGN KEY (unit_size_id) REFERENCES unit_size(id)

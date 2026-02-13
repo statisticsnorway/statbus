@@ -10,7 +10,7 @@
  code                | character varying        |           |          | generated always as (NULLIF(regexp_replace(path::text, '[^0-9]'::text, ''::text, 'g'::text), ''::text)) stored | extended |             |              | 
  name                | character varying(256)   |           | not null |                                                                                                                | extended |             |              | 
  description         | text                     |           |          |                                                                                                                | extended |             |              | 
- active              | boolean                  |           | not null | true                                                                                                           | plain    |             |              | 
+ enabled             | boolean                  |           | not null | true                                                                                                           | plain    |             |              | 
  type                | tag_type                 |           | not null |                                                                                                                | plain    |             |              | 
  context_valid_from  | date                     |           |          |                                                                                                                | plain    |             |              | 
  context_valid_to    | date                     |           |          |                                                                                                                | plain    |             |              | 
@@ -20,7 +20,7 @@
  updated_at          | timestamp with time zone |           | not null | statement_timestamp()                                                                                          | plain    |             |              | 
 Indexes:
     "tag_pkey" PRIMARY KEY, btree (id)
-    "ix_tag_active" btree (active)
+    "ix_tag_enabled" btree (enabled)
     "ix_tag_type" btree (type)
     "tag_path_key" UNIQUE CONSTRAINT, btree (path)
 Check constraints:
@@ -47,7 +47,7 @@ Not-null constraints:
     "tag_path_not_null" NOT NULL "path"
     "tag_label_not_null" NOT NULL "label"
     "tag_name_not_null" NOT NULL "name"
-    "tag_active_not_null" NOT NULL "active"
+    "tag_enabled_not_null" NOT NULL "enabled"
     "tag_type_not_null" NOT NULL "type"
     "tag_created_at_not_null" NOT NULL "created_at"
     "tag_updated_at_not_null" NOT NULL "updated_at"

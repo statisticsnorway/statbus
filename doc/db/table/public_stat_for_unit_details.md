@@ -26,7 +26,6 @@ Indexes:
     "ix_stat_for_unit_legal_unit_id" btree (legal_unit_id)
     "ix_stat_for_unit_legal_unit_id_valid_range" gist (legal_unit_id, valid_range)
     "ix_stat_for_unit_stat_definition_id" btree (stat_definition_id)
-    "ix_stat_for_unit_valid_range" gist (valid_range)
     "stat_for_u_stat_defin_legal_unit_establishm_valid_rang_idx" btree (stat_definition_id, legal_unit_id, establishment_id, valid_range)
     "stat_for_unit_establishment_id_legal_unit_id_stat_definitio_idx" btree (establishment_id, legal_unit_id, stat_definition_id)
     "stat_for_unit_establishment_id_stat_definition_id_idx" btree (establishment_id, stat_definition_id) WHERE legal_unit_id IS NULL
@@ -68,10 +67,11 @@ Not-null constraints:
     "stat_for_unit_edit_by_user_id_not_null" NOT NULL "edit_by_user_id"
     "stat_for_unit_edit_at_not_null" NOT NULL "edit_at"
 Triggers:
+    a_stat_for_unit_log_delete AFTER DELETE ON stat_for_unit REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
+    a_stat_for_unit_log_insert AFTER INSERT ON stat_for_unit REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
+    a_stat_for_unit_log_update AFTER UPDATE ON stat_for_unit REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
+    b_stat_for_unit_ensure_collect AFTER INSERT OR DELETE OR UPDATE ON stat_for_unit FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes()
     check_stat_for_unit_values_trigger BEFORE INSERT OR UPDATE ON stat_for_unit FOR EACH ROW EXECUTE FUNCTION admin.check_stat_for_unit_values()
-    stat_for_unit_deletes_trigger BEFORE DELETE ON stat_for_unit FOR EACH ROW EXECUTE FUNCTION worker.notify_worker_about_deletes()
-    stat_for_unit_row_changes_trigger AFTER UPDATE ON stat_for_unit FOR EACH ROW WHEN (old.establishment_id IS DISTINCT FROM new.establishment_id OR old.legal_unit_id IS DISTINCT FROM new.legal_unit_id) EXECUTE FUNCTION worker.notify_worker_about_row_changes()
-    stat_for_unit_statement_changes_trigger AFTER INSERT OR UPDATE ON stat_for_unit FOR EACH STATEMENT EXECUTE FUNCTION worker.notify_worker_about_statement_changes()
     stat_for_unit_valid_sync_temporal_trg BEFORE INSERT OR UPDATE OF valid_range, valid_to, valid_from, valid_until ON stat_for_unit FOR EACH ROW EXECUTE FUNCTION sql_saga.public_stat_for_unit_valid_template_sync()
     trigger_prevent_stat_for_unit_id_update BEFORE UPDATE OF id ON stat_for_unit FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap

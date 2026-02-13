@@ -8,7 +8,7 @@ AS $function$
     SELECT 1
     FROM worker.tasks
     WHERE command = 'derive_reports'
-      AND state IN ('pending', 'processing')
+      AND state IN ('pending', 'processing', 'waiting')
     LIMIT 1
   );
 $function$

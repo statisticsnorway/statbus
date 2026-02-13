@@ -189,7 +189,7 @@ SELECT jsonb_pretty(
 -----------------------------------------------------------------------------------------------------------------------------------
  {                                                                                                                                +
      "enterprise": {                                                                                                              +
-         "active": true,                                                                                                          +
+         "enabled": true,                                                                                                         +
          "legal_unit": [                                                                                                          +
              {                                                                                                                    +
                  "name": "NILE PEARL WATER",                                                                                      +
@@ -198,15 +198,15 @@ SELECT jsonb_pretty(
                      "name": "Central government",                                                                                +
                      "path": "DOMESTIC.C.6100",                                                                                   +
                      "label": "DOMESTICC6100",                                                                                    +
-                     "active": true,                                                                                              +
                      "custom": true,                                                                                              +
+                     "enabled": true,                                                                                             +
                      "description": "Central government"                                                                          +
                  },                                                                                                               +
                  "status": {                                                                                                      +
                      "code": "active",                                                                                            +
                      "name": "Active",                                                                                            +
-                     "active": true,                                                                                              +
                      "custom": false,                                                                                             +
+                     "enabled": true,                                                                                             +
                      "priority": 1,                                                                                               +
                      "used_for_counting": true,                                                                                   +
                      "assigned_by_default": true                                                                                  +
@@ -219,8 +219,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -231,13 +231,13 @@ SELECT jsonb_pretty(
                              "path": "G.47.5.2",                                                                                  +
                              "label": "G4752",                                                                                    +
                              "level": 4,                                                                                          +
-                             "active": true,                                                                                      +
                              "custom": false,                                                                                     +
+                             "enabled": true,                                                                                     +
                              "description": null,                                                                                 +
                              "activity_category_standard": {                                                                      +
                                  "code": "isic_v4",                                                                               +
                                  "name": "ISIC 4",                                                                                +
-                                 "obsolete": false,                                                                               +
+                                 "enabled": true,                                                                                 +
                                  "description": "ISIC Version 4",                                                                 +
                                  "code_pattern": "digits"                                                                         +
                              }                                                                                                    +
@@ -261,8 +261,8 @@ SELECT jsonb_pretty(
                              "name": "Uganda",                                                                                    +
                              "iso_2": "UG",                                                                                       +
                              "iso_3": "UGA",                                                                                      +
-                             "active": true,                                                                                      +
                              "custom": false,                                                                                     +
+                             "enabled": true,                                                                                     +
                              "iso_num": "800"                                                                                     +
                          },                                                                                                       +
                          "altitude": null,                                                                                        +
@@ -275,8 +275,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -292,16 +292,16 @@ SELECT jsonb_pretty(
                  "legal_form": {                                                                                                  +
                      "code": "4",                                                                                                 +
                      "name": "Cooperative",                                                                                       +
-                     "active": true,                                                                                              +
-                     "custom": true                                                                                               +
+                     "custom": true,                                                                                              +
+                     "enabled": true                                                                                              +
                  },                                                                                                               +
                  "short_name": null,                                                                                              +
                  "valid_from": "2024-01-01",                                                                                      +
                  "data_source": {                                                                                                 +
                      "code": "nlr",                                                                                               +
                      "name": "National Legal Business Registry",                                                                  +
-                     "active": true,                                                                                              +
-                     "custom": false                                                                                              +
+                     "custom": false,                                                                                             +
+                     "enabled": true                                                                                              +
                  },                                                                                                               +
                  "valid_range": "[2024-01-01,infinity)",                                                                          +
                  "valid_until": "infinity",                                                                                       +
@@ -312,8 +312,8 @@ SELECT jsonb_pretty(
                          "status": {                                                                                              +
                              "code": "active",                                                                                    +
                              "name": "Active",                                                                                    +
-                             "active": true,                                                                                      +
                              "custom": false,                                                                                     +
+                             "enabled": true,                                                                                     +
                              "priority": 1,                                                                                       +
                              "used_for_counting": true,                                                                           +
                              "assigned_by_default": true                                                                          +
@@ -326,8 +326,8 @@ SELECT jsonb_pretty(
                                  "data_source": {                                                                                 +
                                      "code": "nlr",                                                                               +
                                      "name": "National Legal Business Registry",                                                  +
-                                     "active": true,                                                                              +
-                                     "custom": false                                                                              +
+                                     "custom": false,                                                                             +
+                                     "enabled": true                                                                              +
                                  },                                                                                               +
                                  "valid_range": "[2024-01-01,infinity)",                                                          +
                                  "valid_until": "infinity",                                                                       +
@@ -338,13 +338,13 @@ SELECT jsonb_pretty(
                                      "path": "G.47.5.2",                                                                          +
                                      "label": "G4752",                                                                            +
                                      "level": 4,                                                                                  +
-                                     "active": true,                                                                              +
                                      "custom": false,                                                                             +
+                                     "enabled": true,                                                                             +
                                      "description": null,                                                                         +
                                      "activity_category_standard": {                                                              +
                                          "code": "isic_v4",                                                                       +
                                          "name": "ISIC 4",                                                                        +
-                                         "obsolete": false,                                                                       +
+                                         "enabled": true,                                                                         +
                                          "description": "ISIC Version 4",                                                         +
                                          "code_pattern": "digits"                                                                 +
                                      }                                                                                            +
@@ -368,8 +368,8 @@ SELECT jsonb_pretty(
                                      "name": "Uganda",                                                                            +
                                      "iso_2": "UG",                                                                               +
                                      "iso_3": "UGA",                                                                              +
-                                     "active": true,                                                                              +
                                      "custom": false,                                                                             +
+                                     "enabled": true,                                                                             +
                                      "iso_num": "800"                                                                             +
                                  },                                                                                               +
                                  "altitude": null,                                                                                +
@@ -382,8 +382,8 @@ SELECT jsonb_pretty(
                                  "data_source": {                                                                                 +
                                      "code": "nlr",                                                                               +
                                      "name": "National Legal Business Registry",                                                  +
-                                     "active": true,                                                                              +
-                                     "custom": false                                                                              +
+                                     "custom": false,                                                                             +
+                                     "enabled": true                                                                              +
                                  },                                                                                               +
                                  "valid_range": "[2024-01-01,infinity)",                                                          +
                                  "valid_until": "infinity",                                                                       +
@@ -401,8 +401,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -417,8 +417,8 @@ SELECT jsonb_pretty(
                                  "data_source": {                                                                                 +
                                      "code": "nlr",                                                                               +
                                      "name": "National Legal Business Registry",                                                  +
-                                     "active": true,                                                                              +
-                                     "custom": false                                                                              +
+                                     "custom": false,                                                                             +
+                                     "enabled": true                                                                              +
                                  },                                                                                               +
                                  "valid_range": "[2024-01-01,infinity)",                                                          +
                                  "valid_until": "infinity",                                                                       +
@@ -429,7 +429,7 @@ SELECT jsonb_pretty(
                                      "code": "employees",                                                                         +
                                      "name": "Employees",                                                                         +
                                      "type": "int",                                                                               +
-                                     "archived": false,                                                                           +
+                                     "enabled": true,                                                                             +
                                      "priority": 1,                                                                               +
                                      "frequency": "yearly",                                                                       +
                                      "description": "The number of people receiving an official salary with government reporting."+
@@ -443,8 +443,8 @@ SELECT jsonb_pretty(
                                  "data_source": {                                                                                 +
                                      "code": "nlr",                                                                               +
                                      "name": "National Legal Business Registry",                                                  +
-                                     "active": true,                                                                              +
-                                     "custom": false                                                                              +
+                                     "custom": false,                                                                             +
+                                     "enabled": true                                                                              +
                                  },                                                                                               +
                                  "valid_range": "[2024-01-01,infinity)",                                                          +
                                  "valid_until": "infinity",                                                                       +
@@ -455,7 +455,7 @@ SELECT jsonb_pretty(
                                      "code": "turnover",                                                                          +
                                      "name": "Turnover",                                                                          +
                                      "type": "float",                                                                             +
-                                     "archived": false,                                                                           +
+                                     "enabled": true,                                                                             +
                                      "priority": 2,                                                                               +
                                      "frequency": "yearly",                                                                       +
                                      "description": "The amount (Local Currency)"                                                 +
@@ -481,8 +481,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -493,7 +493,7 @@ SELECT jsonb_pretty(
                              "code": "employees",                                                                                 +
                              "name": "Employees",                                                                                 +
                              "type": "int",                                                                                       +
-                             "archived": false,                                                                                   +
+                             "enabled": true,                                                                                     +
                              "priority": 1,                                                                                       +
                              "frequency": "yearly",                                                                               +
                              "description": "The number of people receiving an official salary with government reporting."        +
@@ -507,8 +507,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -519,7 +519,7 @@ SELECT jsonb_pretty(
                              "code": "turnover",                                                                                  +
                              "name": "Turnover",                                                                                  +
                              "type": "float",                                                                                     +
-                             "archived": false,                                                                                   +
+                             "enabled": true,                                                                                     +
                              "priority": 2,                                                                                       +
                              "frequency": "yearly",                                                                               +
                              "description": "The amount (Local Currency)"                                                         +
@@ -562,7 +562,7 @@ SELECT jsonb_pretty(
 ---------------------------------------------------------------------------------------------------------------------------
  {                                                                                                                        +
      "enterprise": {                                                                                                      +
-         "active": true,                                                                                                  +
+         "enabled": true,                                                                                                 +
          "short_name": null,                                                                                              +
          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                           +
          "establishment": [                                                                                               +
@@ -571,8 +571,8 @@ SELECT jsonb_pretty(
                  "status": {                                                                                              +
                      "code": "active",                                                                                    +
                      "name": "Active",                                                                                    +
-                     "active": true,                                                                                      +
                      "custom": false,                                                                                     +
+                     "enabled": true,                                                                                     +
                      "priority": 1,                                                                                       +
                      "used_for_counting": true,                                                                           +
                      "assigned_by_default": true                                                                          +
@@ -585,8 +585,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                 +
                              "code": "nlr",                                                                               +
                              "name": "National Legal Business Registry",                                                  +
-                             "active": true,                                                                              +
-                             "custom": false                                                                              +
+                             "custom": false,                                                                             +
+                             "enabled": true                                                                              +
                          },                                                                                               +
                          "valid_range": "[2024-01-01,infinity)",                                                          +
                          "valid_until": "infinity",                                                                       +
@@ -597,13 +597,13 @@ SELECT jsonb_pretty(
                              "path": "I.56.1.0",                                                                          +
                              "label": "I5610",                                                                            +
                              "level": 4,                                                                                  +
-                             "active": true,                                                                              +
                              "custom": false,                                                                             +
+                             "enabled": true,                                                                             +
                              "description": null,                                                                         +
                              "activity_category_standard": {                                                              +
                                  "code": "isic_v4",                                                                       +
                                  "name": "ISIC 4",                                                                        +
-                                 "obsolete": false,                                                                       +
+                                 "enabled": true,                                                                         +
                                  "description": "ISIC Version 4",                                                         +
                                  "code_pattern": "digits"                                                                 +
                              }                                                                                            +
@@ -627,8 +627,8 @@ SELECT jsonb_pretty(
                              "name": "Uganda",                                                                            +
                              "iso_2": "UG",                                                                               +
                              "iso_3": "UGA",                                                                              +
-                             "active": true,                                                                              +
                              "custom": false,                                                                             +
+                             "enabled": true,                                                                             +
                              "iso_num": "800"                                                                             +
                          },                                                                                               +
                          "altitude": null,                                                                                +
@@ -641,8 +641,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                 +
                              "code": "nlr",                                                                               +
                              "name": "National Legal Business Registry",                                                  +
-                             "active": true,                                                                              +
-                             "custom": false                                                                              +
+                             "custom": false,                                                                             +
+                             "enabled": true                                                                              +
                          },                                                                                               +
                          "valid_range": "[2024-01-01,infinity)",                                                          +
                          "valid_until": "infinity",                                                                       +
@@ -660,8 +660,8 @@ SELECT jsonb_pretty(
                  "data_source": {                                                                                         +
                      "code": "nlr",                                                                                       +
                      "name": "National Legal Business Registry",                                                          +
-                     "active": true,                                                                                      +
-                     "custom": false                                                                                      +
+                     "custom": false,                                                                                     +
+                     "enabled": true                                                                                      +
                  },                                                                                                       +
                  "valid_range": "[2024-01-01,infinity)",                                                                  +
                  "valid_until": "infinity",                                                                               +
@@ -676,8 +676,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                 +
                              "code": "nlr",                                                                               +
                              "name": "National Legal Business Registry",                                                  +
-                             "active": true,                                                                              +
-                             "custom": false                                                                              +
+                             "custom": false,                                                                             +
+                             "enabled": true                                                                              +
                          },                                                                                               +
                          "valid_range": "[2024-01-01,infinity)",                                                          +
                          "valid_until": "infinity",                                                                       +
@@ -688,7 +688,7 @@ SELECT jsonb_pretty(
                              "code": "employees",                                                                         +
                              "name": "Employees",                                                                         +
                              "type": "int",                                                                               +
-                             "archived": false,                                                                           +
+                             "enabled": true,                                                                             +
                              "priority": 1,                                                                               +
                              "frequency": "yearly",                                                                       +
                              "description": "The number of people receiving an official salary with government reporting."+
@@ -702,8 +702,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                 +
                              "code": "nlr",                                                                               +
                              "name": "National Legal Business Registry",                                                  +
-                             "active": true,                                                                              +
-                             "custom": false                                                                              +
+                             "custom": false,                                                                             +
+                             "enabled": true                                                                              +
                          },                                                                                               +
                          "valid_range": "[2024-01-01,infinity)",                                                          +
                          "valid_until": "infinity",                                                                       +
@@ -714,7 +714,7 @@ SELECT jsonb_pretty(
                              "code": "turnover",                                                                          +
                              "name": "Turnover",                                                                          +
                              "type": "float",                                                                             +
-                             "archived": false,                                                                           +
+                             "enabled": true,                                                                             +
                              "priority": 2,                                                                               +
                              "frequency": "yearly",                                                                       +
                              "description": "The amount (Local Currency)"                                                 +
@@ -846,7 +846,7 @@ SELECT jsonb_pretty(
 -----------------------------------------------------------------------------------------------------------------------------------
  {                                                                                                                                +
      "enterprise": {                                                                                                              +
-         "active": true,                                                                                                          +
+         "enabled": true,                                                                                                         +
          "legal_unit": [                                                                                                          +
              {                                                                                                                    +
                  "name": "NILE PEARL WATER",                                                                                      +
@@ -855,15 +855,15 @@ SELECT jsonb_pretty(
                      "name": "Central government",                                                                                +
                      "path": "DOMESTIC.C.6100",                                                                                   +
                      "label": "DOMESTICC6100",                                                                                    +
-                     "active": true,                                                                                              +
                      "custom": true,                                                                                              +
+                     "enabled": true,                                                                                             +
                      "description": "Central government"                                                                          +
                  },                                                                                                               +
                  "status": {                                                                                                      +
                      "code": "active",                                                                                            +
                      "name": "Active",                                                                                            +
-                     "active": true,                                                                                              +
                      "custom": false,                                                                                             +
+                     "enabled": true,                                                                                             +
                      "priority": 1,                                                                                               +
                      "used_for_counting": true,                                                                                   +
                      "assigned_by_default": true                                                                                  +
@@ -876,8 +876,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -888,13 +888,13 @@ SELECT jsonb_pretty(
                              "path": "G.47.5.2",                                                                                  +
                              "label": "G4752",                                                                                    +
                              "level": 4,                                                                                          +
-                             "active": true,                                                                                      +
                              "custom": false,                                                                                     +
+                             "enabled": true,                                                                                     +
                              "description": null,                                                                                 +
                              "activity_category_standard": {                                                                      +
                                  "code": "isic_v4",                                                                               +
                                  "name": "ISIC 4",                                                                                +
-                                 "obsolete": false,                                                                               +
+                                 "enabled": true,                                                                                 +
                                  "description": "ISIC Version 4",                                                                 +
                                  "code_pattern": "digits"                                                                         +
                              }                                                                                                    +
@@ -918,8 +918,8 @@ SELECT jsonb_pretty(
                              "name": "Uganda",                                                                                    +
                              "iso_2": "UG",                                                                                       +
                              "iso_3": "UGA",                                                                                      +
-                             "active": true,                                                                                      +
                              "custom": false,                                                                                     +
+                             "enabled": true,                                                                                     +
                              "iso_num": "800"                                                                                     +
                          },                                                                                                       +
                          "altitude": null,                                                                                        +
@@ -932,8 +932,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -949,16 +949,16 @@ SELECT jsonb_pretty(
                  "legal_form": {                                                                                                  +
                      "code": "4",                                                                                                 +
                      "name": "Cooperative",                                                                                       +
-                     "active": true,                                                                                              +
-                     "custom": true                                                                                               +
+                     "custom": true,                                                                                              +
+                     "enabled": true                                                                                              +
                  },                                                                                                               +
                  "short_name": null,                                                                                              +
                  "valid_from": "2024-01-01",                                                                                      +
                  "data_source": {                                                                                                 +
                      "code": "nlr",                                                                                               +
                      "name": "National Legal Business Registry",                                                                  +
-                     "active": true,                                                                                              +
-                     "custom": false                                                                                              +
+                     "custom": false,                                                                                             +
+                     "enabled": true                                                                                              +
                  },                                                                                                               +
                  "valid_range": "[2024-01-01,infinity)",                                                                          +
                  "valid_until": "infinity",                                                                                       +
@@ -969,8 +969,8 @@ SELECT jsonb_pretty(
                          "status": {                                                                                              +
                              "code": "active",                                                                                    +
                              "name": "Active",                                                                                    +
-                             "active": true,                                                                                      +
                              "custom": false,                                                                                     +
+                             "enabled": true,                                                                                     +
                              "priority": 1,                                                                                       +
                              "used_for_counting": true,                                                                           +
                              "assigned_by_default": true                                                                          +
@@ -983,8 +983,8 @@ SELECT jsonb_pretty(
                                  "data_source": {                                                                                 +
                                      "code": "nlr",                                                                               +
                                      "name": "National Legal Business Registry",                                                  +
-                                     "active": true,                                                                              +
-                                     "custom": false                                                                              +
+                                     "custom": false,                                                                             +
+                                     "enabled": true                                                                              +
                                  },                                                                                               +
                                  "valid_range": "[2024-01-01,infinity)",                                                          +
                                  "valid_until": "infinity",                                                                       +
@@ -995,13 +995,13 @@ SELECT jsonb_pretty(
                                      "path": "G.47.5.2",                                                                          +
                                      "label": "G4752",                                                                            +
                                      "level": 4,                                                                                  +
-                                     "active": true,                                                                              +
                                      "custom": false,                                                                             +
+                                     "enabled": true,                                                                             +
                                      "description": null,                                                                         +
                                      "activity_category_standard": {                                                              +
                                          "code": "isic_v4",                                                                       +
                                          "name": "ISIC 4",                                                                        +
-                                         "obsolete": false,                                                                       +
+                                         "enabled": true,                                                                         +
                                          "description": "ISIC Version 4",                                                         +
                                          "code_pattern": "digits"                                                                 +
                                      }                                                                                            +
@@ -1025,8 +1025,8 @@ SELECT jsonb_pretty(
                                      "name": "Uganda",                                                                            +
                                      "iso_2": "UG",                                                                               +
                                      "iso_3": "UGA",                                                                              +
-                                     "active": true,                                                                              +
                                      "custom": false,                                                                             +
+                                     "enabled": true,                                                                             +
                                      "iso_num": "800"                                                                             +
                                  },                                                                                               +
                                  "altitude": null,                                                                                +
@@ -1039,8 +1039,8 @@ SELECT jsonb_pretty(
                                  "data_source": {                                                                                 +
                                      "code": "nlr",                                                                               +
                                      "name": "National Legal Business Registry",                                                  +
-                                     "active": true,                                                                              +
-                                     "custom": false                                                                              +
+                                     "custom": false,                                                                             +
+                                     "enabled": true                                                                              +
                                  },                                                                                               +
                                  "valid_range": "[2024-01-01,infinity)",                                                          +
                                  "valid_until": "infinity",                                                                       +
@@ -1058,8 +1058,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -1074,8 +1074,8 @@ SELECT jsonb_pretty(
                                  "data_source": {                                                                                 +
                                      "code": "nlr",                                                                               +
                                      "name": "National Legal Business Registry",                                                  +
-                                     "active": true,                                                                              +
-                                     "custom": false                                                                              +
+                                     "custom": false,                                                                             +
+                                     "enabled": true                                                                              +
                                  },                                                                                               +
                                  "valid_range": "[2024-01-01,infinity)",                                                          +
                                  "valid_until": "infinity",                                                                       +
@@ -1086,7 +1086,7 @@ SELECT jsonb_pretty(
                                      "code": "employees",                                                                         +
                                      "name": "Employees",                                                                         +
                                      "type": "int",                                                                               +
-                                     "archived": false,                                                                           +
+                                     "enabled": true,                                                                             +
                                      "priority": 1,                                                                               +
                                      "frequency": "yearly",                                                                       +
                                      "description": "The number of people receiving an official salary with government reporting."+
@@ -1100,8 +1100,8 @@ SELECT jsonb_pretty(
                                  "data_source": {                                                                                 +
                                      "code": "nlr",                                                                               +
                                      "name": "National Legal Business Registry",                                                  +
-                                     "active": true,                                                                              +
-                                     "custom": false                                                                              +
+                                     "custom": false,                                                                             +
+                                     "enabled": true                                                                              +
                                  },                                                                                               +
                                  "valid_range": "[2024-01-01,infinity)",                                                          +
                                  "valid_until": "infinity",                                                                       +
@@ -1112,7 +1112,7 @@ SELECT jsonb_pretty(
                                      "code": "turnover",                                                                          +
                                      "name": "Turnover",                                                                          +
                                      "type": "float",                                                                             +
-                                     "archived": false,                                                                           +
+                                     "enabled": true,                                                                             +
                                      "priority": 2,                                                                               +
                                      "frequency": "yearly",                                                                       +
                                      "description": "The amount (Local Currency)"                                                 +
@@ -1138,8 +1138,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -1150,7 +1150,7 @@ SELECT jsonb_pretty(
                              "code": "employees",                                                                                 +
                              "name": "Employees",                                                                                 +
                              "type": "int",                                                                                       +
-                             "archived": false,                                                                                   +
+                             "enabled": true,                                                                                     +
                              "priority": 1,                                                                                       +
                              "frequency": "yearly",                                                                               +
                              "description": "The number of people receiving an official salary with government reporting."        +
@@ -1164,8 +1164,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -1176,7 +1176,7 @@ SELECT jsonb_pretty(
                              "code": "turnover",                                                                                  +
                              "name": "Turnover",                                                                                  +
                              "type": "float",                                                                                     +
-                             "archived": false,                                                                                   +
+                             "enabled": true,                                                                                     +
                              "priority": 2,                                                                                       +
                              "frequency": "yearly",                                                                               +
                              "description": "The amount (Local Currency)"                                                         +
@@ -1199,8 +1199,8 @@ SELECT jsonb_pretty(
                  "status": {                                                                                                      +
                      "code": "active",                                                                                            +
                      "name": "Active",                                                                                            +
-                     "active": true,                                                                                              +
                      "custom": false,                                                                                             +
+                     "enabled": true,                                                                                             +
                      "priority": 1,                                                                                               +
                      "used_for_counting": true,                                                                                   +
                      "assigned_by_default": true                                                                                  +
@@ -1213,8 +1213,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -1225,13 +1225,13 @@ SELECT jsonb_pretty(
                              "path": "I.56.1.0",                                                                                  +
                              "label": "I5610",                                                                                    +
                              "level": 4,                                                                                          +
-                             "active": true,                                                                                      +
                              "custom": false,                                                                                     +
+                             "enabled": true,                                                                                     +
                              "description": null,                                                                                 +
                              "activity_category_standard": {                                                                      +
                                  "code": "isic_v4",                                                                               +
                                  "name": "ISIC 4",                                                                                +
-                                 "obsolete": false,                                                                               +
+                                 "enabled": true,                                                                                 +
                                  "description": "ISIC Version 4",                                                                 +
                                  "code_pattern": "digits"                                                                         +
                              }                                                                                                    +
@@ -1255,8 +1255,8 @@ SELECT jsonb_pretty(
                              "name": "Uganda",                                                                                    +
                              "iso_2": "UG",                                                                                       +
                              "iso_3": "UGA",                                                                                      +
-                             "active": true,                                                                                      +
                              "custom": false,                                                                                     +
+                             "enabled": true,                                                                                     +
                              "iso_num": "800"                                                                                     +
                          },                                                                                                       +
                          "altitude": null,                                                                                        +
@@ -1269,8 +1269,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -1288,8 +1288,8 @@ SELECT jsonb_pretty(
                  "data_source": {                                                                                                 +
                      "code": "nlr",                                                                                               +
                      "name": "National Legal Business Registry",                                                                  +
-                     "active": true,                                                                                              +
-                     "custom": false                                                                                              +
+                     "custom": false,                                                                                             +
+                     "enabled": true                                                                                              +
                  },                                                                                                               +
                  "valid_range": "[2024-01-01,infinity)",                                                                          +
                  "valid_until": "infinity",                                                                                       +
@@ -1304,8 +1304,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -1316,7 +1316,7 @@ SELECT jsonb_pretty(
                              "code": "employees",                                                                                 +
                              "name": "Employees",                                                                                 +
                              "type": "int",                                                                                       +
-                             "archived": false,                                                                                   +
+                             "enabled": true,                                                                                     +
                              "priority": 1,                                                                                       +
                              "frequency": "yearly",                                                                               +
                              "description": "The number of people receiving an official salary with government reporting."        +
@@ -1330,8 +1330,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -1342,7 +1342,7 @@ SELECT jsonb_pretty(
                              "code": "turnover",                                                                                  +
                              "name": "Turnover",                                                                                  +
                              "type": "float",                                                                                     +
-                             "archived": false,                                                                                   +
+                             "enabled": true,                                                                                     +
                              "priority": 2,                                                                                       +
                              "frequency": "yearly",                                                                               +
                              "description": "The amount (Local Currency)"                                                         +
@@ -1384,7 +1384,7 @@ SELECT jsonb_pretty(
 -----------------------------------------------------------------------------------------------------------------------------------
  {                                                                                                                                +
      "enterprise": {                                                                                                              +
-         "active": true,                                                                                                          +
+         "enabled": true,                                                                                                         +
          "legal_unit": [                                                                                                          +
              {                                                                                                                    +
                  "name": "NILE PEARL WATER",                                                                                      +
@@ -1393,15 +1393,15 @@ SELECT jsonb_pretty(
                      "name": "Central government",                                                                                +
                      "path": "DOMESTIC.C.6100",                                                                                   +
                      "label": "DOMESTICC6100",                                                                                    +
-                     "active": true,                                                                                              +
                      "custom": true,                                                                                              +
+                     "enabled": true,                                                                                             +
                      "description": "Central government"                                                                          +
                  },                                                                                                               +
                  "status": {                                                                                                      +
                      "code": "active",                                                                                            +
                      "name": "Active",                                                                                            +
-                     "active": true,                                                                                              +
                      "custom": false,                                                                                             +
+                     "enabled": true,                                                                                             +
                      "priority": 1,                                                                                               +
                      "used_for_counting": true,                                                                                   +
                      "assigned_by_default": true                                                                                  +
@@ -1414,8 +1414,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -1426,13 +1426,13 @@ SELECT jsonb_pretty(
                              "path": "G.47.5.2",                                                                                  +
                              "label": "G4752",                                                                                    +
                              "level": 4,                                                                                          +
-                             "active": true,                                                                                      +
                              "custom": false,                                                                                     +
+                             "enabled": true,                                                                                     +
                              "description": null,                                                                                 +
                              "activity_category_standard": {                                                                      +
                                  "code": "isic_v4",                                                                               +
                                  "name": "ISIC 4",                                                                                +
-                                 "obsolete": false,                                                                               +
+                                 "enabled": true,                                                                                 +
                                  "description": "ISIC Version 4",                                                                 +
                                  "code_pattern": "digits"                                                                         +
                              }                                                                                                    +
@@ -1456,8 +1456,8 @@ SELECT jsonb_pretty(
                              "name": "Uganda",                                                                                    +
                              "iso_2": "UG",                                                                                       +
                              "iso_3": "UGA",                                                                                      +
-                             "active": true,                                                                                      +
                              "custom": false,                                                                                     +
+                             "enabled": true,                                                                                     +
                              "iso_num": "800"                                                                                     +
                          },                                                                                                       +
                          "altitude": null,                                                                                        +
@@ -1470,8 +1470,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -1487,16 +1487,16 @@ SELECT jsonb_pretty(
                  "legal_form": {                                                                                                  +
                      "code": "4",                                                                                                 +
                      "name": "Cooperative",                                                                                       +
-                     "active": true,                                                                                              +
-                     "custom": true                                                                                               +
+                     "custom": true,                                                                                              +
+                     "enabled": true                                                                                              +
                  },                                                                                                               +
                  "short_name": null,                                                                                              +
                  "valid_from": "2024-01-01",                                                                                      +
                  "data_source": {                                                                                                 +
                      "code": "nlr",                                                                                               +
                      "name": "National Legal Business Registry",                                                                  +
-                     "active": true,                                                                                              +
-                     "custom": false                                                                                              +
+                     "custom": false,                                                                                             +
+                     "enabled": true                                                                                              +
                  },                                                                                                               +
                  "valid_range": "[2024-01-01,infinity)",                                                                          +
                  "valid_until": "infinity",                                                                                       +
@@ -1507,8 +1507,8 @@ SELECT jsonb_pretty(
                          "status": {                                                                                              +
                              "code": "active",                                                                                    +
                              "name": "Active",                                                                                    +
-                             "active": true,                                                                                      +
                              "custom": false,                                                                                     +
+                             "enabled": true,                                                                                     +
                              "priority": 1,                                                                                       +
                              "used_for_counting": true,                                                                           +
                              "assigned_by_default": true                                                                          +
@@ -1521,8 +1521,8 @@ SELECT jsonb_pretty(
                                  "data_source": {                                                                                 +
                                      "code": "nlr",                                                                               +
                                      "name": "National Legal Business Registry",                                                  +
-                                     "active": true,                                                                              +
-                                     "custom": false                                                                              +
+                                     "custom": false,                                                                             +
+                                     "enabled": true                                                                              +
                                  },                                                                                               +
                                  "valid_range": "[2024-01-01,infinity)",                                                          +
                                  "valid_until": "infinity",                                                                       +
@@ -1533,13 +1533,13 @@ SELECT jsonb_pretty(
                                      "path": "G.47.5.2",                                                                          +
                                      "label": "G4752",                                                                            +
                                      "level": 4,                                                                                  +
-                                     "active": true,                                                                              +
                                      "custom": false,                                                                             +
+                                     "enabled": true,                                                                             +
                                      "description": null,                                                                         +
                                      "activity_category_standard": {                                                              +
                                          "code": "isic_v4",                                                                       +
                                          "name": "ISIC 4",                                                                        +
-                                         "obsolete": false,                                                                       +
+                                         "enabled": true,                                                                         +
                                          "description": "ISIC Version 4",                                                         +
                                          "code_pattern": "digits"                                                                 +
                                      }                                                                                            +
@@ -1563,8 +1563,8 @@ SELECT jsonb_pretty(
                                      "name": "Uganda",                                                                            +
                                      "iso_2": "UG",                                                                               +
                                      "iso_3": "UGA",                                                                              +
-                                     "active": true,                                                                              +
                                      "custom": false,                                                                             +
+                                     "enabled": true,                                                                             +
                                      "iso_num": "800"                                                                             +
                                  },                                                                                               +
                                  "altitude": null,                                                                                +
@@ -1577,8 +1577,8 @@ SELECT jsonb_pretty(
                                  "data_source": {                                                                                 +
                                      "code": "nlr",                                                                               +
                                      "name": "National Legal Business Registry",                                                  +
-                                     "active": true,                                                                              +
-                                     "custom": false                                                                              +
+                                     "custom": false,                                                                             +
+                                     "enabled": true                                                                              +
                                  },                                                                                               +
                                  "valid_range": "[2024-01-01,infinity)",                                                          +
                                  "valid_until": "infinity",                                                                       +
@@ -1596,8 +1596,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -1612,8 +1612,8 @@ SELECT jsonb_pretty(
                                  "data_source": {                                                                                 +
                                      "code": "nlr",                                                                               +
                                      "name": "National Legal Business Registry",                                                  +
-                                     "active": true,                                                                              +
-                                     "custom": false                                                                              +
+                                     "custom": false,                                                                             +
+                                     "enabled": true                                                                              +
                                  },                                                                                               +
                                  "valid_range": "[2024-01-01,infinity)",                                                          +
                                  "valid_until": "infinity",                                                                       +
@@ -1624,7 +1624,7 @@ SELECT jsonb_pretty(
                                      "code": "employees",                                                                         +
                                      "name": "Employees",                                                                         +
                                      "type": "int",                                                                               +
-                                     "archived": false,                                                                           +
+                                     "enabled": true,                                                                             +
                                      "priority": 1,                                                                               +
                                      "frequency": "yearly",                                                                       +
                                      "description": "The number of people receiving an official salary with government reporting."+
@@ -1638,8 +1638,8 @@ SELECT jsonb_pretty(
                                  "data_source": {                                                                                 +
                                      "code": "nlr",                                                                               +
                                      "name": "National Legal Business Registry",                                                  +
-                                     "active": true,                                                                              +
-                                     "custom": false                                                                              +
+                                     "custom": false,                                                                             +
+                                     "enabled": true                                                                              +
                                  },                                                                                               +
                                  "valid_range": "[2024-01-01,infinity)",                                                          +
                                  "valid_until": "infinity",                                                                       +
@@ -1650,7 +1650,7 @@ SELECT jsonb_pretty(
                                      "code": "turnover",                                                                          +
                                      "name": "Turnover",                                                                          +
                                      "type": "float",                                                                             +
-                                     "archived": false,                                                                           +
+                                     "enabled": true,                                                                             +
                                      "priority": 2,                                                                               +
                                      "frequency": "yearly",                                                                       +
                                      "description": "The amount (Local Currency)"                                                 +
@@ -1676,8 +1676,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -1688,7 +1688,7 @@ SELECT jsonb_pretty(
                              "code": "employees",                                                                                 +
                              "name": "Employees",                                                                                 +
                              "type": "int",                                                                                       +
-                             "archived": false,                                                                                   +
+                             "enabled": true,                                                                                     +
                              "priority": 1,                                                                                       +
                              "frequency": "yearly",                                                                               +
                              "description": "The number of people receiving an official salary with government reporting."        +
@@ -1702,8 +1702,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -1714,7 +1714,7 @@ SELECT jsonb_pretty(
                              "code": "turnover",                                                                                  +
                              "name": "Turnover",                                                                                  +
                              "type": "float",                                                                                     +
-                             "archived": false,                                                                                   +
+                             "enabled": true,                                                                                     +
                              "priority": 2,                                                                                       +
                              "frequency": "yearly",                                                                               +
                              "description": "The amount (Local Currency)"                                                         +
@@ -1737,8 +1737,8 @@ SELECT jsonb_pretty(
                  "status": {                                                                                                      +
                      "code": "active",                                                                                            +
                      "name": "Active",                                                                                            +
-                     "active": true,                                                                                              +
                      "custom": false,                                                                                             +
+                     "enabled": true,                                                                                             +
                      "priority": 1,                                                                                               +
                      "used_for_counting": true,                                                                                   +
                      "assigned_by_default": true                                                                                  +
@@ -1751,8 +1751,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -1763,13 +1763,13 @@ SELECT jsonb_pretty(
                              "path": "I.56.1.0",                                                                                  +
                              "label": "I5610",                                                                                    +
                              "level": 4,                                                                                          +
-                             "active": true,                                                                                      +
                              "custom": false,                                                                                     +
+                             "enabled": true,                                                                                     +
                              "description": null,                                                                                 +
                              "activity_category_standard": {                                                                      +
                                  "code": "isic_v4",                                                                               +
                                  "name": "ISIC 4",                                                                                +
-                                 "obsolete": false,                                                                               +
+                                 "enabled": true,                                                                                 +
                                  "description": "ISIC Version 4",                                                                 +
                                  "code_pattern": "digits"                                                                         +
                              }                                                                                                    +
@@ -1793,8 +1793,8 @@ SELECT jsonb_pretty(
                              "name": "Uganda",                                                                                    +
                              "iso_2": "UG",                                                                                       +
                              "iso_3": "UGA",                                                                                      +
-                             "active": true,                                                                                      +
                              "custom": false,                                                                                     +
+                             "enabled": true,                                                                                     +
                              "iso_num": "800"                                                                                     +
                          },                                                                                                       +
                          "altitude": null,                                                                                        +
@@ -1807,8 +1807,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -1826,8 +1826,8 @@ SELECT jsonb_pretty(
                  "data_source": {                                                                                                 +
                      "code": "nlr",                                                                                               +
                      "name": "National Legal Business Registry",                                                                  +
-                     "active": true,                                                                                              +
-                     "custom": false                                                                                              +
+                     "custom": false,                                                                                             +
+                     "enabled": true                                                                                              +
                  },                                                                                                               +
                  "valid_range": "[2024-01-01,infinity)",                                                                          +
                  "valid_until": "infinity",                                                                                       +
@@ -1842,8 +1842,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -1854,7 +1854,7 @@ SELECT jsonb_pretty(
                              "code": "employees",                                                                                 +
                              "name": "Employees",                                                                                 +
                              "type": "int",                                                                                       +
-                             "archived": false,                                                                                   +
+                             "enabled": true,                                                                                     +
                              "priority": 1,                                                                                       +
                              "frequency": "yearly",                                                                               +
                              "description": "The number of people receiving an official salary with government reporting."        +
@@ -1868,8 +1868,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -1880,7 +1880,7 @@ SELECT jsonb_pretty(
                              "code": "turnover",                                                                                  +
                              "name": "Turnover",                                                                                  +
                              "type": "float",                                                                                     +
-                             "archived": false,                                                                                   +
+                             "enabled": true,                                                                                     +
                              "priority": 2,                                                                                       +
                              "frequency": "yearly",                                                                               +
                              "description": "The amount (Local Currency)"                                                         +
@@ -1922,7 +1922,7 @@ SELECT jsonb_pretty(
 -----------------------------------------------------------------------------------------------------------------------------------
  {                                                                                                                                +
      "enterprise": {                                                                                                              +
-         "active": true,                                                                                                          +
+         "enabled": true,                                                                                                         +
          "legal_unit": [                                                                                                          +
              {                                                                                                                    +
                  "name": "NILE PEARL WATER",                                                                                      +
@@ -1931,15 +1931,15 @@ SELECT jsonb_pretty(
                      "name": "Central government",                                                                                +
                      "path": "DOMESTIC.C.6100",                                                                                   +
                      "label": "DOMESTICC6100",                                                                                    +
-                     "active": true,                                                                                              +
                      "custom": true,                                                                                              +
+                     "enabled": true,                                                                                             +
                      "description": "Central government"                                                                          +
                  },                                                                                                               +
                  "status": {                                                                                                      +
                      "code": "active",                                                                                            +
                      "name": "Active",                                                                                            +
-                     "active": true,                                                                                              +
                      "custom": false,                                                                                             +
+                     "enabled": true,                                                                                             +
                      "priority": 1,                                                                                               +
                      "used_for_counting": true,                                                                                   +
                      "assigned_by_default": true                                                                                  +
@@ -1952,8 +1952,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -1964,13 +1964,13 @@ SELECT jsonb_pretty(
                              "path": "G.47.5.2",                                                                                  +
                              "label": "G4752",                                                                                    +
                              "level": 4,                                                                                          +
-                             "active": true,                                                                                      +
                              "custom": false,                                                                                     +
+                             "enabled": true,                                                                                     +
                              "description": null,                                                                                 +
                              "activity_category_standard": {                                                                      +
                                  "code": "isic_v4",                                                                               +
                                  "name": "ISIC 4",                                                                                +
-                                 "obsolete": false,                                                                               +
+                                 "enabled": true,                                                                                 +
                                  "description": "ISIC Version 4",                                                                 +
                                  "code_pattern": "digits"                                                                         +
                              }                                                                                                    +
@@ -1994,8 +1994,8 @@ SELECT jsonb_pretty(
                              "name": "Uganda",                                                                                    +
                              "iso_2": "UG",                                                                                       +
                              "iso_3": "UGA",                                                                                      +
-                             "active": true,                                                                                      +
                              "custom": false,                                                                                     +
+                             "enabled": true,                                                                                     +
                              "iso_num": "800"                                                                                     +
                          },                                                                                                       +
                          "altitude": null,                                                                                        +
@@ -2008,8 +2008,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -2025,16 +2025,16 @@ SELECT jsonb_pretty(
                  "legal_form": {                                                                                                  +
                      "code": "4",                                                                                                 +
                      "name": "Cooperative",                                                                                       +
-                     "active": true,                                                                                              +
-                     "custom": true                                                                                               +
+                     "custom": true,                                                                                              +
+                     "enabled": true                                                                                              +
                  },                                                                                                               +
                  "short_name": null,                                                                                              +
                  "valid_from": "2024-01-01",                                                                                      +
                  "data_source": {                                                                                                 +
                      "code": "nlr",                                                                                               +
                      "name": "National Legal Business Registry",                                                                  +
-                     "active": true,                                                                                              +
-                     "custom": false                                                                                              +
+                     "custom": false,                                                                                             +
+                     "enabled": true                                                                                              +
                  },                                                                                                               +
                  "valid_range": "[2024-01-01,infinity)",                                                                          +
                  "valid_until": "infinity",                                                                                       +
@@ -2045,8 +2045,8 @@ SELECT jsonb_pretty(
                          "status": {                                                                                              +
                              "code": "active",                                                                                    +
                              "name": "Active",                                                                                    +
-                             "active": true,                                                                                      +
                              "custom": false,                                                                                     +
+                             "enabled": true,                                                                                     +
                              "priority": 1,                                                                                       +
                              "used_for_counting": true,                                                                           +
                              "assigned_by_default": true                                                                          +
@@ -2059,8 +2059,8 @@ SELECT jsonb_pretty(
                                  "data_source": {                                                                                 +
                                      "code": "nlr",                                                                               +
                                      "name": "National Legal Business Registry",                                                  +
-                                     "active": true,                                                                              +
-                                     "custom": false                                                                              +
+                                     "custom": false,                                                                             +
+                                     "enabled": true                                                                              +
                                  },                                                                                               +
                                  "valid_range": "[2024-01-01,infinity)",                                                          +
                                  "valid_until": "infinity",                                                                       +
@@ -2071,13 +2071,13 @@ SELECT jsonb_pretty(
                                      "path": "G.47.5.2",                                                                          +
                                      "label": "G4752",                                                                            +
                                      "level": 4,                                                                                  +
-                                     "active": true,                                                                              +
                                      "custom": false,                                                                             +
+                                     "enabled": true,                                                                             +
                                      "description": null,                                                                         +
                                      "activity_category_standard": {                                                              +
                                          "code": "isic_v4",                                                                       +
                                          "name": "ISIC 4",                                                                        +
-                                         "obsolete": false,                                                                       +
+                                         "enabled": true,                                                                         +
                                          "description": "ISIC Version 4",                                                         +
                                          "code_pattern": "digits"                                                                 +
                                      }                                                                                            +
@@ -2101,8 +2101,8 @@ SELECT jsonb_pretty(
                                      "name": "Uganda",                                                                            +
                                      "iso_2": "UG",                                                                               +
                                      "iso_3": "UGA",                                                                              +
-                                     "active": true,                                                                              +
                                      "custom": false,                                                                             +
+                                     "enabled": true,                                                                             +
                                      "iso_num": "800"                                                                             +
                                  },                                                                                               +
                                  "altitude": null,                                                                                +
@@ -2115,8 +2115,8 @@ SELECT jsonb_pretty(
                                  "data_source": {                                                                                 +
                                      "code": "nlr",                                                                               +
                                      "name": "National Legal Business Registry",                                                  +
-                                     "active": true,                                                                              +
-                                     "custom": false                                                                              +
+                                     "custom": false,                                                                             +
+                                     "enabled": true                                                                              +
                                  },                                                                                               +
                                  "valid_range": "[2024-01-01,infinity)",                                                          +
                                  "valid_until": "infinity",                                                                       +
@@ -2134,8 +2134,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -2150,8 +2150,8 @@ SELECT jsonb_pretty(
                                  "data_source": {                                                                                 +
                                      "code": "nlr",                                                                               +
                                      "name": "National Legal Business Registry",                                                  +
-                                     "active": true,                                                                              +
-                                     "custom": false                                                                              +
+                                     "custom": false,                                                                             +
+                                     "enabled": true                                                                              +
                                  },                                                                                               +
                                  "valid_range": "[2024-01-01,infinity)",                                                          +
                                  "valid_until": "infinity",                                                                       +
@@ -2162,7 +2162,7 @@ SELECT jsonb_pretty(
                                      "code": "employees",                                                                         +
                                      "name": "Employees",                                                                         +
                                      "type": "int",                                                                               +
-                                     "archived": false,                                                                           +
+                                     "enabled": true,                                                                             +
                                      "priority": 1,                                                                               +
                                      "frequency": "yearly",                                                                       +
                                      "description": "The number of people receiving an official salary with government reporting."+
@@ -2176,8 +2176,8 @@ SELECT jsonb_pretty(
                                  "data_source": {                                                                                 +
                                      "code": "nlr",                                                                               +
                                      "name": "National Legal Business Registry",                                                  +
-                                     "active": true,                                                                              +
-                                     "custom": false                                                                              +
+                                     "custom": false,                                                                             +
+                                     "enabled": true                                                                              +
                                  },                                                                                               +
                                  "valid_range": "[2024-01-01,infinity)",                                                          +
                                  "valid_until": "infinity",                                                                       +
@@ -2188,7 +2188,7 @@ SELECT jsonb_pretty(
                                      "code": "turnover",                                                                          +
                                      "name": "Turnover",                                                                          +
                                      "type": "float",                                                                             +
-                                     "archived": false,                                                                           +
+                                     "enabled": true,                                                                             +
                                      "priority": 2,                                                                               +
                                      "frequency": "yearly",                                                                       +
                                      "description": "The amount (Local Currency)"                                                 +
@@ -2214,8 +2214,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -2226,7 +2226,7 @@ SELECT jsonb_pretty(
                              "code": "employees",                                                                                 +
                              "name": "Employees",                                                                                 +
                              "type": "int",                                                                                       +
-                             "archived": false,                                                                                   +
+                             "enabled": true,                                                                                     +
                              "priority": 1,                                                                                       +
                              "frequency": "yearly",                                                                               +
                              "description": "The number of people receiving an official salary with government reporting."        +
@@ -2240,8 +2240,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -2252,7 +2252,7 @@ SELECT jsonb_pretty(
                              "code": "turnover",                                                                                  +
                              "name": "Turnover",                                                                                  +
                              "type": "float",                                                                                     +
-                             "archived": false,                                                                                   +
+                             "enabled": true,                                                                                     +
                              "priority": 2,                                                                                       +
                              "frequency": "yearly",                                                                               +
                              "description": "The amount (Local Currency)"                                                         +
@@ -2275,8 +2275,8 @@ SELECT jsonb_pretty(
                  "status": {                                                                                                      +
                      "code": "active",                                                                                            +
                      "name": "Active",                                                                                            +
-                     "active": true,                                                                                              +
                      "custom": false,                                                                                             +
+                     "enabled": true,                                                                                             +
                      "priority": 1,                                                                                               +
                      "used_for_counting": true,                                                                                   +
                      "assigned_by_default": true                                                                                  +
@@ -2289,8 +2289,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -2301,13 +2301,13 @@ SELECT jsonb_pretty(
                              "path": "I.56.1.0",                                                                                  +
                              "label": "I5610",                                                                                    +
                              "level": 4,                                                                                          +
-                             "active": true,                                                                                      +
                              "custom": false,                                                                                     +
+                             "enabled": true,                                                                                     +
                              "description": null,                                                                                 +
                              "activity_category_standard": {                                                                      +
                                  "code": "isic_v4",                                                                               +
                                  "name": "ISIC 4",                                                                                +
-                                 "obsolete": false,                                                                               +
+                                 "enabled": true,                                                                                 +
                                  "description": "ISIC Version 4",                                                                 +
                                  "code_pattern": "digits"                                                                         +
                              }                                                                                                    +
@@ -2331,8 +2331,8 @@ SELECT jsonb_pretty(
                              "name": "Uganda",                                                                                    +
                              "iso_2": "UG",                                                                                       +
                              "iso_3": "UGA",                                                                                      +
-                             "active": true,                                                                                      +
                              "custom": false,                                                                                     +
+                             "enabled": true,                                                                                     +
                              "iso_num": "800"                                                                                     +
                          },                                                                                                       +
                          "altitude": null,                                                                                        +
@@ -2345,8 +2345,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -2364,8 +2364,8 @@ SELECT jsonb_pretty(
                  "data_source": {                                                                                                 +
                      "code": "nlr",                                                                                               +
                      "name": "National Legal Business Registry",                                                                  +
-                     "active": true,                                                                                              +
-                     "custom": false                                                                                              +
+                     "custom": false,                                                                                             +
+                     "enabled": true                                                                                              +
                  },                                                                                                               +
                  "valid_range": "[2024-01-01,infinity)",                                                                          +
                  "valid_until": "infinity",                                                                                       +
@@ -2380,8 +2380,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -2392,7 +2392,7 @@ SELECT jsonb_pretty(
                              "code": "employees",                                                                                 +
                              "name": "Employees",                                                                                 +
                              "type": "int",                                                                                       +
-                             "archived": false,                                                                                   +
+                             "enabled": true,                                                                                     +
                              "priority": 1,                                                                                       +
                              "frequency": "yearly",                                                                               +
                              "description": "The number of people receiving an official salary with government reporting."        +
@@ -2406,8 +2406,8 @@ SELECT jsonb_pretty(
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
                              "name": "National Legal Business Registry",                                                          +
-                             "active": true,                                                                                      +
-                             "custom": false                                                                                      +
+                             "custom": false,                                                                                     +
+                             "enabled": true                                                                                      +
                          },                                                                                                       +
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
@@ -2418,7 +2418,7 @@ SELECT jsonb_pretty(
                              "code": "turnover",                                                                                  +
                              "name": "Turnover",                                                                                  +
                              "type": "float",                                                                                     +
-                             "archived": false,                                                                                   +
+                             "enabled": true,                                                                                     +
                              "priority": 2,                                                                                       +
                              "frequency": "yearly",                                                                               +
                              "description": "The amount (Local Currency)"                                                         +

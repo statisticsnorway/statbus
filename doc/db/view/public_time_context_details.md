@@ -35,7 +35,7 @@ View definition:
             relative_period_with_time.code,
             NULL::ltree AS path
            FROM relative_period_with_time
-          WHERE relative_period_with_time.active
+          WHERE relative_period_with_time.enabled
         UNION ALL
          SELECT 'tag'::time_context_type AS type,
             't_'::text || tag.path::character varying::text AS ident,
@@ -48,7 +48,7 @@ View definition:
             NULL::relative_period_code AS code,
             tag.path
            FROM tag
-          WHERE tag.active AND tag.path IS NOT NULL AND tag.context_valid_from IS NOT NULL AND tag.context_valid_to IS NOT NULL AND tag.context_valid_on IS NOT NULL
+          WHERE tag.enabled AND tag.path IS NOT NULL AND tag.context_valid_from IS NOT NULL AND tag.context_valid_to IS NOT NULL AND tag.context_valid_on IS NOT NULL
         UNION ALL
          SELECT 'year'::time_context_type AS type,
             'y_'::text || ty.year::text AS ident,

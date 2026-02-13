@@ -5,16 +5,16 @@
  id         | integer                  |           | not null | generated always as identity
  code       | text                     |           | not null | 
  name       | text                     |           | not null | 
- active     | boolean                  |           | not null | 
+ enabled    | boolean                  |           | not null | 
  custom     | boolean                  |           | not null | 
  created_at | timestamp with time zone |           | not null | statement_timestamp()
  updated_at | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
     "legal_form_pkey" PRIMARY KEY, btree (id)
-    "ix_legal_form_active" btree (active)
-    "ix_legal_form_active_code" UNIQUE, btree (active, code)
-    "ix_legal_form_code" UNIQUE, btree (code) WHERE active
-    "legal_form_code_active_custom_key" UNIQUE CONSTRAINT, btree (code, active, custom)
+    "ix_legal_form_code" UNIQUE, btree (code) WHERE enabled
+    "ix_legal_form_enabled" btree (enabled)
+    "ix_legal_form_enabled_code" UNIQUE, btree (enabled, code)
+    "legal_form_code_enabled_custom_key" UNIQUE CONSTRAINT, btree (code, enabled, custom)
 Referenced by:
     TABLE "legal_unit" CONSTRAINT "legal_unit_legal_form_id_fkey" FOREIGN KEY (legal_form_id) REFERENCES legal_form(id)
 Policies:

@@ -6,7 +6,7 @@
  code        | text                     |           |          |         | extended | 
  name        | text                     |           |          |         | extended | 
  description | text                     |           |          |         | extended | 
- active      | boolean                  |           |          |         | plain    | 
+ enabled     | boolean                  |           |          |         | plain    | 
  custom      | boolean                  |           |          |         | plain    | 
  created_at  | timestamp with time zone |           |          |         | plain    | 
  updated_at  | timestamp with time zone |           |          |         | plain    | 
@@ -15,12 +15,12 @@ View definition:
     code,
     name,
     description,
-    active,
+    enabled,
     custom,
     created_at,
     updated_at
    FROM reorg_type_ordered
-  WHERE active;
+  WHERE enabled;
 Options: security_invoker=on
 
 ```

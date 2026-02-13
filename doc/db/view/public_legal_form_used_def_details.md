@@ -12,7 +12,7 @@ View definition:
    FROM legal_form lf
   WHERE (id IN ( SELECT statistical_unit.legal_form_id
            FROM statistical_unit
-          WHERE statistical_unit.legal_form_id IS NOT NULL)) AND active
+          WHERE statistical_unit.legal_form_id IS NOT NULL)) AND enabled
   ORDER BY id;
 
 ```

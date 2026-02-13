@@ -9,17 +9,17 @@
  code        | character varying        |           |          | generated always as (NULLIF(regexp_replace(path::text, '[^0-9]'::text, ''::text, 'g'::text), ''::text)) stored
  name        | text                     |           | not null | 
  description | text                     |           |          | 
- active      | boolean                  |           | not null | 
+ enabled     | boolean                  |           | not null | 
  custom      | boolean                  |           | not null | 
  created_at  | timestamp with time zone |           | not null | statement_timestamp()
  updated_at  | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
     "sector_pkey" PRIMARY KEY, btree (id)
-    "ix_sector_active" btree (active)
-    "ix_sector_active_path" UNIQUE, btree (active, path)
-    "sector_code_active_key" UNIQUE, btree (code) WHERE active
+    "ix_sector_enabled" btree (enabled)
+    "ix_sector_enabled_path" UNIQUE, btree (enabled, path)
+    "sector_code_enabled_key" UNIQUE, btree (code) WHERE enabled
     "sector_parent_id_idx" btree (parent_id)
-    "sector_path_active_custom_key" UNIQUE CONSTRAINT, btree (path, active, custom)
+    "sector_path_enabled_custom_key" UNIQUE CONSTRAINT, btree (path, enabled, custom)
     "sector_path_key" UNIQUE CONSTRAINT, btree (path)
 Referenced by:
     TABLE "establishment" CONSTRAINT "establishment_sector_id_fkey" FOREIGN KEY (sector_id) REFERENCES sector(id) ON DELETE RESTRICT

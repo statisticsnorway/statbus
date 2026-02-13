@@ -62,13 +62,17 @@ BEGIN
 
                 RAISE DEBUG '[Job %] Recounted total_rows to % and updated total_analysis_steps_weighted.', job.id, job.total_rows;
 
-                -- PERFORMANCE FIX: Analyze the data table after populating it to ensure the query planner has statistics for the analysis phase.
+                -- ATOMICALLY assign batch_seq AND set state to 'analysing' to satisfy CHECK constraint.
+                -- The constraint requires: state='analysing' implies batch_seq IS NOT NULL.
+                RAISE DEBUG '[Job %] Assigning batch_seq and transitioning rows to analysing in table %', job_id, job.data_table_name;
+                PERFORM admin.import_job_assign_batch_seq(job.data_table_name, job.analysis_batch_size, FALSE, 'analysing'::public.import_data_state);
+
+                -- PERFORMANCE FIX: ANALYZE must run AFTER batch_seq is assigned.
+                -- Otherwise the planner sees batch_seq = NULL for all rows and estimates
+                -- rows=1 for WHERE batch_seq = $1, causing Nested Loop instead of Hash Join.
                 RAISE DEBUG '[Job %] Running ANALYZE on data table %', job_id, job.data_table_name;
                 EXECUTE format('ANALYZE public.%I', job.data_table_name);
-
-                -- Transition rows in _data table from 'pending' to 'analysing'
-                RAISE DEBUG '[Job %] Updating data rows from pending to analysing in table %', job_id, job.data_table_name;
-                EXECUTE format($$UPDATE public.%I SET state = %L WHERE state = %L$$, job.data_table_name, 'analysing'::public.import_data_state, 'pending'::public.import_data_state);
+                
                 job := admin.import_job_set_state(job, 'analysing_data');
                 should_reschedule := TRUE; -- Reschedule immediately to start analysis
             END;
@@ -76,13 +80,24 @@ BEGIN
         WHEN 'analysing_data' THEN
             DECLARE
                 v_completed_steps_weighted BIGINT;
+                v_old_step_code TEXT;
             BEGIN
                 RAISE DEBUG '[Job %] Starting analysis phase.', job_id;
 
+                v_old_step_code := job.current_step_code;
+
                 should_reschedule := admin.import_job_analysis_phase(job);
 
-                -- After each batch run, recount progress. State transitions happen only when the phase is complete.
-                IF job.max_analysis_priority IS NOT NULL THEN
+                -- Refresh job record to see current step
+                SELECT * INTO job FROM public.import_job WHERE id = job.id;
+
+                -- PERFORMANCE FIX: Only recount weighted progress when step changes (not every batch).
+                -- This avoids O(n) full table scans after every batch. Instead, we only recount
+                -- when moving to a new step or when the phase completes, reducing scans from ~350 to ~10.
+                IF job.max_analysis_priority IS NOT NULL AND (
+                    job.current_step_code IS DISTINCT FROM v_old_step_code  -- Step changed
+                    OR NOT should_reschedule  -- Phase is complete
+                ) THEN
                     -- Recount weighted steps for granular progress
                     EXECUTE format($$ SELECT COALESCE(SUM(last_completed_priority), 0) FROM public.%I WHERE state IN ('analysing', 'analysed', 'error') $$,
                         job.data_table_name)
@@ -92,11 +107,8 @@ BEGIN
                     SET completed_analysis_steps_weighted = v_completed_steps_weighted
                     WHERE id = job.id;
 
-                    RAISE DEBUG '[Job %] Recounted progress: completed_analysis_steps_weighted=%', job.id, v_completed_steps_weighted;
+                    RAISE DEBUG '[Job %] Recounted progress (step changed or phase complete): completed_analysis_steps_weighted=%', job.id, v_completed_steps_weighted;
                 END IF;
-
-                -- Refresh job record to see if an error was set by the phase
-                SELECT * INTO job FROM public.import_job WHERE id = job.id;
 
                 IF job.error IS NOT NULL THEN
                     RAISE WARNING '[Job %] Error detected during analysis phase: %. Transitioning to finished.', job_id, job.error;
@@ -110,9 +122,10 @@ BEGIN
                         job := admin.import_job_set_state(job, 'waiting_for_review');
                         RAISE DEBUG '[Job %] Analysis complete, waiting for review.', job_id;
                     ELSE
-                        -- Transition rows from 'analysing' to 'processing' if no review
-                        RAISE DEBUG '[Job %] Updating data rows from analysing to processing and resetting LCP in table %', job_id, job.data_table_name;
-                        EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L AND action = 'use'$$, job.data_table_name, 'processing'::public.import_data_state, 'analysing'::public.import_data_state);
+                        -- ATOMICALLY assign batch_seq, set state to 'processing', AND reset priority in ONE UPDATE.
+                        -- This satisfies the CHECK constraint and minimizes UPDATE count for performance.
+                        RAISE DEBUG '[Job %] Assigning batch_seq and transitioning rows to processing in table %', job_id, job.data_table_name;
+                        PERFORM admin.import_job_assign_batch_seq(job.data_table_name, job.processing_batch_size, TRUE, 'processing'::public.import_data_state, TRUE);
 
                         -- The performance index is now created when the job is generated.
                         -- We still need to ANALYZE to update statistics after the analysis phase.
@@ -134,9 +147,9 @@ BEGIN
         WHEN 'approved' THEN
             BEGIN
                 RAISE DEBUG '[Job %] Approved, transitioning to processing_data.', job_id;
-                -- Transition rows in _data table from 'analysed' to 'processing' and reset LCP
-                RAISE DEBUG '[Job %] Updating data rows from analysed to processing and resetting LCP in table % after approval', job_id, job.data_table_name;
-                EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L AND action = 'use'$$, job.data_table_name, 'processing'::public.import_data_state, 'analysed'::public.import_data_state);
+                -- ATOMICALLY assign batch_seq, set state to 'processing', AND reset priority in ONE UPDATE.
+                RAISE DEBUG '[Job %] Assigning batch_seq and transitioning rows to processing in table % after approval', job_id, job.data_table_name;
+                PERFORM admin.import_job_assign_batch_seq(job.data_table_name, job.processing_batch_size, TRUE, 'processing'::public.import_data_state, TRUE);
 
                 -- The performance index is now created when the job is generated.
                 -- We still need to ANALYZE to update statistics after the analysis phase.
@@ -153,21 +166,18 @@ BEGIN
             should_reschedule := FALSE;
 
         WHEN 'processing_data' THEN
-            DECLARE
-                v_processed_count INTEGER;
             BEGIN
                 RAISE DEBUG '[Job %] Starting processing phase.', job_id;
 
                 should_reschedule := admin.import_job_processing_phase(job);
 
-                -- Recount progress after each batch.
-                EXECUTE format($$SELECT count(*) FROM public.%I WHERE state = 'processed'$$, job.data_table_name)
-                INTO v_processed_count;
-                UPDATE public.import_job SET imported_rows = v_processed_count WHERE id = job.id;
-                RAISE DEBUG '[Job %] Recounted imported_rows: %', job.id, v_processed_count;
+                -- PERFORMANCE FIX: Progress tracking is now done incrementally inside import_job_processing_phase.
+                -- This avoids a full table scan (COUNT(*) WHERE state = 'processed') after every batch.
 
                 -- Refresh job record to see if an error was set by the phase
                 SELECT * INTO job FROM public.import_job WHERE id = job.id;
+
+                RAISE DEBUG '[Job %] Processing phase batch complete. imported_rows: %', job.id, job.imported_rows;
 
                 IF job.error IS NOT NULL THEN
                     RAISE WARNING '[Job %] Error detected during processing phase: %. Job already transitioned to finished.', job.id, job.error;
@@ -183,32 +193,17 @@ BEGIN
             RAISE DEBUG '[Job %] Already finished.', job_id;
             should_reschedule := FALSE;
 
+        WHEN 'failed' THEN
+            RAISE DEBUG '[Job %] Job has failed.', job_id;
+            should_reschedule := FALSE;
+
         ELSE
-            RAISE EXCEPTION '[Job %] Unknown import job state: %', job.id, job.state;
+            RAISE EXCEPTION 'Unexpected job state: %', job.state;
     END CASE;
 
-    -- Reset the user context
-    PERFORM admin.reset_import_job_user_context();
-
-    -- Reschedule if work remains for the current phase or if transitioned to a processing state
     IF should_reschedule THEN
         PERFORM admin.reschedule_import_job_process(job_id);
-        RAISE DEBUG '[Job %] Rescheduled for further processing.', job_id;
     END IF;
-
-EXCEPTION WHEN OTHERS THEN
-    -- Mark job as failed with error details
-    UPDATE public.import_job 
-    SET state = 'failed',
-        error = jsonb_build_object(
-            'message', 'Unexpected error in import_job_process',
-            'exception', SQLERRM,
-            'sqlstate', SQLSTATE
-        )::TEXT
-    WHERE id = job_id;
-    -- Ensure context is reset even on error
-    PERFORM admin.reset_import_job_user_context();
-    -- Don't re-raise - let worker task complete successfully but job is marked failed
 END;
 $procedure$
 ```

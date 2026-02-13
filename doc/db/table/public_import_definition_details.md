@@ -11,7 +11,7 @@
  mode                     | import_mode              |           | not null |                                                                                   | plain    |             |              | Defines the structural mode of the import, e.g., if an establishment is linked to a legal unit (formal) or directly to an enterprise (informal).
  valid_time_from          | import_valid_time_from   |           | not null |                                                                                   | plain    |             |              | Declaratively defines how the validity period for imported records is determined (from a job-level time context or from columns in the source file).
  user_id                  | integer                  |           |          |                                                                                   | plain    |             |              | 
- active                   | boolean                  |           | not null | true                                                                              | plain    |             |              | 
+ enabled                  | boolean                  |           | not null | true                                                                              | plain    |             |              | 
  custom                   | boolean                  |           | not null | true                                                                              | plain    |             |              | 
  valid                    | boolean                  |           | not null | false                                                                             | plain    |             |              | Indicates if the definition passes validation checks.
  validation_error         | text                     |           |          |                                                                                   | extended |             |              | Stores validation error messages if not valid.
@@ -24,7 +24,7 @@ Indexes:
     "import_definition_name_key" UNIQUE CONSTRAINT, btree (name)
     "import_definition_slug_key" UNIQUE CONSTRAINT, btree (slug)
     "ix_import_data_source_id" btree (data_source_id)
-    "ix_import_definition_active" btree (active)
+    "ix_import_definition_enabled" btree (enabled)
     "ix_import_user_id" btree (user_id)
 Foreign-key constraints:
     "import_definition_data_source_id_fkey" FOREIGN KEY (data_source_id) REFERENCES data_source(id) ON DELETE RESTRICT
@@ -52,7 +52,7 @@ Not-null constraints:
     "import_definition_strategy_not_null" NOT NULL "strategy"
     "import_definition_mode_not_null" NOT NULL "mode"
     "import_definition_valid_time_from_not_null" NOT NULL "valid_time_from"
-    "import_definition_active_not_null" NOT NULL "active"
+    "import_definition_enabled_not_null" NOT NULL "enabled"
     "import_definition_custom_not_null" NOT NULL "custom"
     "import_definition_valid_not_null" NOT NULL "valid"
     "import_definition_default_retention_period_not_null" NOT NULL "default_retention_period"

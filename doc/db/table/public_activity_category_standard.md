@@ -7,7 +7,7 @@
  name         | character varying                |           | not null | 
  description  | character varying                |           | not null | 
  code_pattern | activity_category_code_behaviour |           | not null | 
- obsolete     | boolean                          |           | not null | false
+ enabled      | boolean                          |           | not null | true
 Indexes:
     "activity_category_standard_pkey" PRIMARY KEY, btree (id)
     "activity_category_standard_code_key" UNIQUE CONSTRAINT, btree (code)

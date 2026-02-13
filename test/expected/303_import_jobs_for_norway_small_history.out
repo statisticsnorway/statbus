@@ -811,8 +811,8 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          "name": "Import of BRREG Hovedenhet using 2024 columns",                 +
          "note": "Easy upload of the CSV file found at brreg.",                   +
          "slug": "brreg_hovedenhet_2024",                                         +
-         "active": true,                                                          +
          "custom": true,                                                          +
+         "enabled": true,                                                         +
          "strategy": "insert_or_update",                                          +
          "import_as_null": [                                                      +
              "",                                                                  +
@@ -2800,8 +2800,8 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          "name": "Import of BRREG Underenhet using 2024 columns",                   +
          "note": "Easy upload of the CSV file found at brreg.",                     +
          "slug": "brreg_underenhet_2024",                                           +
-         "active": true,                                                            +
          "custom": true,                                                            +
+         "enabled": true,                                                           +
          "strategy": "insert_or_update",                                            +
          "import_as_null": [                                                        +
              "",                                                                    +

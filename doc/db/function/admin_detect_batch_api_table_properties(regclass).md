@@ -8,8 +8,7 @@ DECLARE
 BEGIN
     -- Initialize the result with default values
     result.has_priority := false;
-    result.has_active := false;
-    result.has_archived := false;
+    result.has_enabled := false;
     result.has_path := false;
     result.has_code := false;
     result.has_custom := false;
@@ -34,16 +33,9 @@ BEGIN
 
     PERFORM 1
     FROM pg_attribute
-    WHERE attrelid = table_name AND attname = 'active' AND NOT attisdropped;
+    WHERE attrelid = table_name AND attname = 'enabled' AND NOT attisdropped;
     IF FOUND THEN
-        result.has_active := true;
-    END IF;
-
-    PERFORM 1
-    FROM pg_attribute
-    WHERE attrelid = table_name AND attname = 'archived' AND NOT attisdropped;
-    IF FOUND THEN
-        result.has_archived := true;
+        result.has_enabled := true;
     END IF;
 
     PERFORM 1

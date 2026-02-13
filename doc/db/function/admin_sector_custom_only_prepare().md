@@ -6,8 +6,8 @@ AS $function$
 BEGIN
     -- Deactivate all non-custom sector entries before insertion
     UPDATE public.sector
-       SET active = false
-     WHERE active = true
+       SET enabled = false
+     WHERE enabled = true
        AND custom = false;
     RETURN NEW;
 END;

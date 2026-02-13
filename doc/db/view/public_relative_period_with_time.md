@@ -7,7 +7,7 @@
  name_when_query | character varying(256) |           |          | 
  name_when_input | character varying(256) |           |          | 
  scope           | relative_period_scope  |           |          | 
- active          | boolean                |           |          | 
+ enabled         | boolean                |           |          | 
  valid_on        | date                   |           |          | 
  valid_from      | date                   |           |          | 
  valid_to        | date                   |           |          | 

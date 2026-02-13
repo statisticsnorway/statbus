@@ -6,10 +6,8 @@ AS $function$
 DECLARE
     unique_columns text[] := ARRAY[]::text[];
 BEGIN
-    IF table_properties.has_active THEN
-        unique_columns := array_append(unique_columns, 'active');
-    ELSEIF table_properties.has_archived THEN
-        unique_columns := array_append(unique_columns, 'archived');
+    IF table_properties.has_enabled THEN
+        unique_columns := array_append(unique_columns, 'enabled');
     END IF;
 
     IF table_properties.has_path THEN

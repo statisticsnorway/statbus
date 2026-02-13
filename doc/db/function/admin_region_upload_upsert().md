@@ -70,7 +70,7 @@ BEGIN
             center_latitude = EXCLUDED.center_latitude,
             center_longitude = EXCLUDED.center_longitude,
             center_altitude = EXCLUDED.center_altitude
-        WHERE region.id = EXCLUDED.id
+        -- No WHERE clause needed: ON CONFLICT (path) already identifies the row to update
         RETURNING * INTO row;
       EXCEPTION WHEN OTHERS THEN
           RAISE EXCEPTION 'Failed to insert/update region: %', jsonb_pretty(

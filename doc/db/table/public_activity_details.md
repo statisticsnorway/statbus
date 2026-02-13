@@ -37,7 +37,6 @@ Indexes:
     "ix_activity_legal_unit_id" btree (legal_unit_id)
     "ix_activity_legal_unit_id_valid_range" gist (legal_unit_id, valid_range)
     "ix_activity_type" btree (type)
-    "ix_activity_valid_range" gist (valid_range)
 Check constraints:
     "One and only one statistical unit id must be set" CHECK (num_nonnulls(establishment_id, legal_unit_id) = 1)
     "activity_valid_check" CHECK (NOT isempty(valid_range))
@@ -84,10 +83,11 @@ Not-null constraints:
     "activity_edit_by_user_id_not_null" NOT NULL "edit_by_user_id"
     "activity_edit_at_not_null" NOT NULL "edit_at"
 Triggers:
-    activity_deletes_trigger BEFORE DELETE ON activity FOR EACH ROW EXECUTE FUNCTION worker.notify_worker_about_deletes()
-    activity_row_changes_trigger AFTER UPDATE ON activity FOR EACH ROW WHEN (old.establishment_id IS DISTINCT FROM new.establishment_id OR old.legal_unit_id IS DISTINCT FROM new.legal_unit_id) EXECUTE FUNCTION worker.notify_worker_about_row_changes()
-    activity_statement_changes_trigger AFTER INSERT OR UPDATE ON activity FOR EACH STATEMENT EXECUTE FUNCTION worker.notify_worker_about_statement_changes()
+    a_activity_log_delete AFTER DELETE ON activity REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
+    a_activity_log_insert AFTER INSERT ON activity REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
+    a_activity_log_update AFTER UPDATE ON activity REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
     activity_valid_sync_temporal_trg BEFORE INSERT OR UPDATE OF valid_range, valid_to, valid_from, valid_until ON activity FOR EACH ROW EXECUTE FUNCTION sql_saga.public_activity_valid_template_sync()
+    b_activity_ensure_collect AFTER INSERT OR DELETE OR UPDATE ON activity FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes()
     trigger_prevent_activity_id_update BEFORE UPDATE OF id ON activity FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap
 

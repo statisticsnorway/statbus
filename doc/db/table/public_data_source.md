@@ -5,15 +5,15 @@
  id         | integer                  |           | not null | generated always as identity
  code       | text                     |           | not null | 
  name       | text                     |           | not null | 
- active     | boolean                  |           | not null | 
+ enabled    | boolean                  |           | not null | 
  custom     | boolean                  |           | not null | 
  created_at | timestamp with time zone |           | not null | statement_timestamp()
  updated_at | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
     "data_source_pkey" PRIMARY KEY, btree (id)
-    "ix_data_source_active" btree (active)
-    "ix_data_source_active_code" UNIQUE, btree (active, code)
-    "ix_data_source_code" UNIQUE, btree (code) WHERE active
+    "ix_data_source_code" UNIQUE, btree (code) WHERE enabled
+    "ix_data_source_enabled" btree (enabled)
+    "ix_data_source_enabled_code" UNIQUE, btree (enabled, code)
 Referenced by:
     TABLE "activity" CONSTRAINT "activity_data_source_id_fkey" FOREIGN KEY (data_source_id) REFERENCES data_source(id) ON DELETE SET NULL
     TABLE "contact" CONSTRAINT "contact_data_source_id_fkey" FOREIGN KEY (data_source_id) REFERENCES data_source(id)

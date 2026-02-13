@@ -11,14 +11,15 @@
  code        | character varying        |           | not null |                                                                       | extended |             |              | 
  name        | character varying(256)   |           | not null |                                                                       | extended |             |              | 
  description | text                     |           |          |                                                                       | extended |             |              | 
- active      | boolean                  |           | not null |                                                                       | plain    |             |              | 
+ enabled     | boolean                  |           | not null |                                                                       | plain    |             |              | 
  custom      | boolean                  |           | not null |                                                                       | plain    |             |              | 
  created_at  | timestamp with time zone |           | not null | statement_timestamp()                                                 | plain    |             |              | 
  updated_at  | timestamp with time zone |           | not null | statement_timestamp()                                                 | plain    |             |              | 
 Indexes:
     "activity_category_pkey" PRIMARY KEY, btree (id)
-    "activity_category_standard_id_path_active_key" UNIQUE CONSTRAINT, btree (standard_id, path, active)
-    "ix_activity_category_active" btree (active)
+    "activity_category_standard_id_path_enabled_key" UNIQUE CONSTRAINT, btree (standard_id, path, enabled)
+    "idx_activity_category_standard_code_enabled" btree (standard_id, code) WHERE enabled = true
+    "ix_activity_category_enabled" btree (enabled)
     "ix_activity_category_parent_id" btree (parent_id)
     "ix_activity_category_standard_id" btree (standard_id)
 Foreign-key constraints:
@@ -46,7 +47,7 @@ Not-null constraints:
     "activity_category_label_not_null" NOT NULL "label"
     "activity_category_code_not_null" NOT NULL "code"
     "activity_category_name_not_null" NOT NULL "name"
-    "activity_category_active_not_null" NOT NULL "active"
+    "activity_category_enabled_not_null" NOT NULL "enabled"
     "activity_category_custom_not_null" NOT NULL "custom"
     "activity_category_created_at_not_null" NOT NULL "created_at"
     "activity_category_updated_at_not_null" NOT NULL "updated_at"

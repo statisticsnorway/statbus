@@ -9,17 +9,17 @@
  code        | character varying        |           |          | generated always as (NULLIF(regexp_replace(path::text, '[^0-9]'::text, ''::text, 'g'::text), ''::text)) stored | extended |             |              | 
  name        | text                     |           | not null |                                                                                                                | extended |             |              | 
  description | text                     |           |          |                                                                                                                | extended |             |              | 
- active      | boolean                  |           | not null |                                                                                                                | plain    |             |              | 
+ enabled     | boolean                  |           | not null |                                                                                                                | plain    |             |              | 
  custom      | boolean                  |           | not null |                                                                                                                | plain    |             |              | 
  created_at  | timestamp with time zone |           | not null | statement_timestamp()                                                                                          | plain    |             |              | 
  updated_at  | timestamp with time zone |           | not null | statement_timestamp()                                                                                          | plain    |             |              | 
 Indexes:
     "sector_pkey" PRIMARY KEY, btree (id)
-    "ix_sector_active" btree (active)
-    "ix_sector_active_path" UNIQUE, btree (active, path)
-    "sector_code_active_key" UNIQUE, btree (code) WHERE active
+    "ix_sector_enabled" btree (enabled)
+    "ix_sector_enabled_path" UNIQUE, btree (enabled, path)
+    "sector_code_enabled_key" UNIQUE, btree (code) WHERE enabled
     "sector_parent_id_idx" btree (parent_id)
-    "sector_path_active_custom_key" UNIQUE CONSTRAINT, btree (path, active, custom)
+    "sector_path_enabled_custom_key" UNIQUE CONSTRAINT, btree (path, enabled, custom)
     "sector_path_key" UNIQUE CONSTRAINT, btree (path)
 Referenced by:
     TABLE "establishment" CONSTRAINT "establishment_sector_id_fkey" FOREIGN KEY (sector_id) REFERENCES sector(id) ON DELETE RESTRICT
@@ -40,7 +40,7 @@ Not-null constraints:
     "sector_path_not_null" NOT NULL "path"
     "sector_label_not_null" NOT NULL "label"
     "sector_name_not_null" NOT NULL "name"
-    "sector_active_not_null" NOT NULL "active"
+    "sector_enabled_not_null" NOT NULL "enabled"
     "sector_custom_not_null" NOT NULL "custom"
     "sector_created_at_not_null" NOT NULL "created_at"
     "sector_updated_at_not_null" NOT NULL "updated_at"

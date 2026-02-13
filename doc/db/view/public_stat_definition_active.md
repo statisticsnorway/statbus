@@ -9,6 +9,6 @@
  name        | character varying |           |          | 
  description | text              |           |          | 
  priority    | integer           |           |          | 
- archived    | boolean           |           |          | 
+ enabled     | boolean           |           |          | 
 
 ```

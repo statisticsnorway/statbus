@@ -11,7 +11,7 @@ BEGIN
         ( code
         , name
         , updated_at
-        , active
+        , enabled
         , custom
         )
     VALUES
@@ -21,11 +21,11 @@ BEGIN
         , TRUE -- Active
         , TRUE -- Custom
         )
-    ON CONFLICT (code, active, custom)
+    ON CONFLICT (code, enabled, custom)
     DO UPDATE
         SET name = NEW.name
           , updated_at = statement_timestamp()
-          , active = TRUE
+          , enabled = TRUE
           , custom = TRUE
        WHERE legal_form.id = EXCLUDED.id
        RETURNING * INTO row;

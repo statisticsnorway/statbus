@@ -5,16 +5,16 @@
  id         | integer                  |           | not null | generated always as identity | plain    |             |              | 
  code       | text                     |           | not null |                              | extended |             |              | 
  name       | text                     |           | not null |                              | extended |             |              | 
- active     | boolean                  |           | not null |                              | plain    |             |              | 
+ enabled    | boolean                  |           | not null |                              | plain    |             |              | 
  custom     | boolean                  |           | not null |                              | plain    |             |              | 
  created_at | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
  updated_at | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
 Indexes:
     "legal_form_pkey" PRIMARY KEY, btree (id)
-    "ix_legal_form_active" btree (active)
-    "ix_legal_form_active_code" UNIQUE, btree (active, code)
-    "ix_legal_form_code" UNIQUE, btree (code) WHERE active
-    "legal_form_code_active_custom_key" UNIQUE CONSTRAINT, btree (code, active, custom)
+    "ix_legal_form_code" UNIQUE, btree (code) WHERE enabled
+    "ix_legal_form_enabled" btree (enabled)
+    "ix_legal_form_enabled_code" UNIQUE, btree (enabled, code)
+    "legal_form_code_enabled_custom_key" UNIQUE CONSTRAINT, btree (code, enabled, custom)
 Referenced by:
     TABLE "legal_unit" CONSTRAINT "legal_unit_legal_form_id_fkey" FOREIGN KEY (legal_form_id) REFERENCES legal_form(id)
 Policies:
@@ -32,7 +32,7 @@ Not-null constraints:
     "legal_form_id_not_null" NOT NULL "id"
     "legal_form_code_not_null" NOT NULL "code"
     "legal_form_name_not_null" NOT NULL "name"
-    "legal_form_active_not_null" NOT NULL "active"
+    "legal_form_enabled_not_null" NOT NULL "enabled"
     "legal_form_custom_not_null" NOT NULL "custom"
     "legal_form_created_at_not_null" NOT NULL "created_at"
     "legal_form_updated_at_not_null" NOT NULL "updated_at"

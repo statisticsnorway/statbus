@@ -5,14 +5,14 @@
  id         | integer                  |           | not null | generated always as identity | plain    |             |              | 
  code       | text                     |           | not null |                              | extended |             |              | 
  name       | text                     |           | not null |                              | extended |             |              | 
- active     | boolean                  |           | not null |                              | plain    |             |              | 
+ enabled    | boolean                  |           | not null |                              | plain    |             |              | 
  custom     | boolean                  |           | not null |                              | plain    |             |              | 
  created_at | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
  updated_at | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
 Indexes:
     "person_role_pkey" PRIMARY KEY, btree (id)
-    "ix_person_role_active" btree (active)
-    "ix_person_role_active_code" UNIQUE, btree (active, code)
+    "ix_person_role_enabled" btree (enabled)
+    "ix_person_role_enabled_code" UNIQUE, btree (enabled, code)
     "person_role_code_key" UNIQUE CONSTRAINT, btree (code)
     "person_role_name_key" UNIQUE CONSTRAINT, btree (name)
 Referenced by:
@@ -32,7 +32,7 @@ Not-null constraints:
     "person_role_id_not_null" NOT NULL "id"
     "person_role_code_not_null" NOT NULL "code"
     "person_role_name_not_null" NOT NULL "name"
-    "person_role_active_not_null" NOT NULL "active"
+    "person_role_enabled_not_null" NOT NULL "enabled"
     "person_role_custom_not_null" NOT NULL "custom"
     "person_role_created_at_not_null" NOT NULL "created_at"
     "person_role_updated_at_not_null" NOT NULL "updated_at"

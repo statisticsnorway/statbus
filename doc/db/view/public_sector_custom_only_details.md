@@ -10,7 +10,7 @@ View definition:
     name,
     description
    FROM sector ac
-  WHERE active AND custom
+  WHERE enabled AND custom
   ORDER BY path;
 Triggers:
     sector_custom_only_prepare_trigger BEFORE INSERT ON sector_custom_only FOR EACH STATEMENT EXECUTE FUNCTION admin.sector_custom_only_prepare()

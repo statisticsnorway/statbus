@@ -25,7 +25,7 @@ View definition:
      JOIN activity_category_standard acs ON ac.standard_id = acs.id
      LEFT JOIN activity_category acp ON ac.parent_id = acp.id
   WHERE acs.id = (( SELECT settings.activity_category_standard_id
-           FROM settings)) AND ac.active
+           FROM settings)) AND ac.enabled
   ORDER BY ac.path;
 Triggers:
     activity_category_available_upsert_custom INSTEAD OF INSERT ON activity_category_available FOR EACH ROW EXECUTE FUNCTION admin.activity_category_available_upsert_custom()

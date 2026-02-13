@@ -7,10 +7,10 @@
  name_when_query | character varying(256) |           |          |                              | extended |             |              | 
  name_when_input | character varying(256) |           |          |                              | extended |             |              | 
  scope           | relative_period_scope  |           | not null |                              | plain    |             |              | 
- active          | boolean                |           | not null | true                         | plain    |             |              | 
+ enabled         | boolean                |           | not null | true                         | plain    |             |              | 
 Indexes:
     "relative_period_pkey" PRIMARY KEY, btree (id)
-    "ix_relative_period_active" btree (active)
+    "ix_relative_period_enabled" btree (enabled)
     "relative_period_code_key" UNIQUE CONSTRAINT, btree (code)
 Check constraints:
     "scope input_and_query requires name_when_input" CHECK (
@@ -35,7 +35,7 @@ Not-null constraints:
     "relative_period_id_not_null" NOT NULL "id"
     "relative_period_code_not_null" NOT NULL "code"
     "relative_period_scope_not_null" NOT NULL "scope"
-    "relative_period_active_not_null" NOT NULL "active"
+    "relative_period_enabled_not_null" NOT NULL "enabled"
 Triggers:
     trigger_prevent_relative_period_id_update BEFORE UPDATE OF id ON relative_period FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap

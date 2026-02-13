@@ -12,12 +12,19 @@ DECLARE
     v_batch_duration_ms numeric;
     v_batch_speed numeric;
     v_current_batch_size int;
+    -- Array for btree-optimized queries
+    v_unit_ids INT[];
 BEGIN
     IF p_unit_id_ranges IS NOT NULL THEN
-        EXECUTE format('DELETE FROM public.%I WHERE unit_type = %L AND unit_id <@ %L::int4multirange', p_target_table, p_unit_type, p_unit_id_ranges);
-        EXECUTE format('INSERT INTO public.%I SELECT * FROM public.%I WHERE unit_type = %L AND unit_id <@ %L::int4multirange',
-                       p_target_table, v_def_view_name, p_unit_type, p_unit_id_ranges);
+        -- Partial refresh: Use = ANY(array) for btree index optimization
+        v_unit_ids := public.int4multirange_to_array(p_unit_id_ranges);
+
+        EXECUTE format('DELETE FROM public.%I WHERE unit_type = %L AND unit_id = ANY(%L::INT[])',
+                       p_target_table, p_unit_type, v_unit_ids);
+        EXECUTE format('INSERT INTO public.%I SELECT * FROM public.%I WHERE unit_type = %L AND unit_id = ANY(%L::INT[])',
+                       p_target_table, v_def_view_name, p_unit_type, v_unit_ids);
     ELSE
+        -- Full refresh with ANALYZE
         SELECT MIN(unit_id), MAX(unit_id), COUNT(unit_id) INTO v_min_id, v_max_id, v_total_units FROM public.timesegments WHERE unit_type = p_unit_type;
         IF v_min_id IS NULL THEN RETURN; END IF;
 
@@ -33,13 +40,13 @@ BEGIN
                            p_target_table, v_def_view_name, p_unit_type, v_start_id, v_end_id);
 
             v_batch_duration_ms := (EXTRACT(EPOCH FROM (clock_timestamp() - v_batch_start_time))) * 1000;
-            v_current_batch_size := v_batch_size; -- Simplified for this loop type
+            v_current_batch_size := v_batch_size;
             v_batch_speed := v_current_batch_size / (v_batch_duration_ms / 1000.0);
             RAISE DEBUG '% batch %/% done. (% units, % ms, % units/s)', p_target_table, v_batch_num, ceil(v_total_units::decimal / v_batch_size), v_current_batch_size, round(v_batch_duration_ms), round(v_batch_speed);
         END LOOP;
-    END IF;
 
-    EXECUTE format('ANALYZE public.%I', p_target_table);
+        EXECUTE format('ANALYZE public.%I', p_target_table);
+    END IF;
 END;
 $procedure$
 ```

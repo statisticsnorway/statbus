@@ -27,13 +27,15 @@
                                                    ->  GroupAggregate
                                                          ->  Sort
                                                                Sort Key: timeline_legal_unit.legal_unit_id
-                                                               ->  Seq Scan on timeline_legal_unit
-                                                                     Filter: ((t_1.valid_from < valid_until) AND (valid_from < t_1.valid_until) AND (enterprise_id = en_1.id))
+                                                               ->  Index Scan using idx_timeline_legal_unit_valid_period on timeline_legal_unit
+                                                                     Index Cond: ((valid_from < t_1.valid_until) AND (valid_until > t_1.valid_from))
+                                                                     Filter: (enterprise_id = en_1.id)
                                              ->  GroupAggregate
                                                    ->  Sort
                                                          Sort Key: timeline_establishment.establishment_id
-                                                         ->  Seq Scan on timeline_establishment
-                                                               Filter: ((t_1.valid_from < valid_until) AND (valid_from < t_1.valid_until) AND (enterprise_id = en_1.id))
+                                                         ->  Index Scan using idx_timeline_establishment_enterprise_id on timeline_establishment
+                                                               Index Cond: (enterprise_id = en_1.id)
+                                                               Filter: ((t_1.valid_from < valid_until) AND (valid_from < t_1.valid_until))
                            ->  Hash
                                  ->  Hash Join
                                        Hash Cond: (t.unit_id = en.id)
@@ -42,15 +44,18 @@
                                        ->  Hash
                                              ->  Seq Scan on enterprise en
                      ->  Limit
-                           ->  Sort
+                           ->  Incremental Sort
                                  Sort Key: enplu_1.valid_from DESC, enplu_1.legal_unit_id DESC
-                                 ->  Seq Scan on timeline_legal_unit enplu_1
-                                       Filter: (primary_for_enterprise AND (t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (enterprise_id = en.id))
+                                 Presorted Key: enplu_1.valid_from
+                                 ->  Index Scan Backward using idx_timeline_legal_unit_valid_period on timeline_legal_unit enplu_1
+                                       Index Cond: ((valid_from < t.valid_until) AND (valid_until > t.valid_from))
+                                       Filter: (primary_for_enterprise AND (enterprise_id = en.id))
                ->  Limit
                      ->  Sort
                            Sort Key: enpes_1.valid_from DESC, enpes_1.establishment_id DESC
-                           ->  Seq Scan on timeline_establishment enpes_1
-                                 Filter: (primary_for_enterprise AND (t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (enterprise_id = en.id))
+                           ->  Index Scan using idx_timeline_establishment_enterprise_id on timeline_establishment enpes_1
+                                 Index Cond: (enterprise_id = en.id)
+                                 Filter: (primary_for_enterprise AND (t.valid_from < valid_until) AND (valid_from < t.valid_until))
          ->  Memoize
                Cache Key: en.edit_comment, en.edit_by_user_id, en.edit_at, enplu_1.last_edit_comment, enplu_1.last_edit_by_user_id, enplu_1.last_edit_at, enpes_1.last_edit_comment, enpes_1.last_edit_by_user_id, enpes_1.last_edit_at
                Cache Mode: binary
@@ -101,5 +106,5 @@
                                    ->  Result
                              ->  ProjectSet
                                    ->  Result
-(101 rows)
+(106 rows)
 

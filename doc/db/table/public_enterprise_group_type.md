@@ -5,7 +5,7 @@
  id         | integer                  |           | not null | generated always as identity
  code       | text                     |           | not null | 
  name       | text                     |           | not null | 
- active     | boolean                  |           | not null | 
+ enabled    | boolean                  |           | not null | 
  custom     | boolean                  |           | not null | 
  created_at | timestamp with time zone |           | not null | statement_timestamp()
  updated_at | timestamp with time zone |           | not null | statement_timestamp()
@@ -13,9 +13,9 @@ Indexes:
     "enterprise_group_type_pkey" PRIMARY KEY, btree (id)
     "enterprise_group_type_code_key" UNIQUE CONSTRAINT, btree (code)
     "enterprise_group_type_name_key" UNIQUE CONSTRAINT, btree (name)
-    "ix_enterprise_group_type_active" btree (active)
-    "ix_enterprise_group_type_active_code" UNIQUE, btree (active, code)
-    "ix_enterprise_group_type_code" UNIQUE, btree (code) WHERE active
+    "ix_enterprise_group_type_code" UNIQUE, btree (code) WHERE enabled
+    "ix_enterprise_group_type_enabled" btree (enabled)
+    "ix_enterprise_group_type_enabled_code" UNIQUE, btree (enabled, code)
 Referenced by:
     TABLE "enterprise_group" CONSTRAINT "enterprise_group_enterprise_group_type_id_fkey" FOREIGN KEY (enterprise_group_type_id) REFERENCES enterprise_group_type(id)
 Policies:

@@ -739,7 +739,7 @@ NOTICE:  Created indices for stat_definition women_employees
 NOTICE:  Created indices for stat_definition children_employees
 \echo "Stop using the children_employees, it can no longer be imported, but will be in statistics."
 "Stop using the children_employees, it can no longer be imported, but will be in statistics."
-UPDATE public.stat_definition SET archived = true wHERE code = 'children_employees';
+UPDATE public.stat_definition SET enabled = false wHERE code = 'children_employees';
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_children_employees_idx
@@ -1121,7 +1121,7 @@ NOTICE:  Created indices for stat_definition boy_employees
 NOTICE:  Created indices for stat_definition girl_employees
 \echo "Stop using the mobile, peoples number changed to often, it can no longer be imported, but will be in statistics."
 "Stop using the mobile, peoples number changed to often, it can no longer be imported, but will be in statistics."
-UPDATE public.external_ident_type SET archived = true wHERE code = 'mobile';
+UPDATE public.external_ident_type SET enabled = false wHERE code = 'mobile';
 NOTICE:  Dropped index su_ei_mobile_idx
 NOTICE:  Dropped index su_ei_pin_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx

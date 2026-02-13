@@ -25,7 +25,6 @@ Indexes:
     "ix_person_for_unit_legal_unit_id_valid_range" gist (legal_unit_id, valid_range)
     "ix_person_for_unit_person_id" btree (person_id)
     "ix_person_for_unit_person_role_id" btree (person_role_id)
-    "ix_person_for_unit_valid_range" gist (valid_range)
     "person_f_person_i_person_r_legal_un_establis_valid_ra_idx" btree (person_id, person_role_id, legal_unit_id, establishment_id, valid_range)
     "person_for__person_id_person_role_legal_unit__establishme_idx" btree (person_id, person_role_id, legal_unit_id, establishment_id)
     "person_for_unit_id_idx" btree (id)

@@ -4,58 +4,66 @@ CREATE OR REPLACE FUNCTION admin.import_job_processing_phase(job import_job)
  LANGUAGE plpgsql
 AS $function$
 DECLARE
-    v_batch_row_id_ranges int4multirange;
+    v_current_batch INTEGER;
+    v_max_batch INTEGER;
+    v_rows_processed INTEGER;
+    error_message TEXT;
+    error_context TEXT;
 BEGIN
-    RAISE DEBUG '[Job %] Processing phase: checking for a batch.', job.id;
+    -- Get the current batch to process (smallest batch_seq that still has unprocessed rows)
+    EXECUTE format($$
+        SELECT MIN(batch_seq), MAX(batch_seq)
+        FROM public.%1$I
+        WHERE batch_seq IS NOT NULL AND state = 'processing'
+    $$, job.data_table_name) INTO v_current_batch, v_max_batch;
 
-    -- This is a simplified and more direct query that is more reliable.
-    -- The previous complex version with a self-join confused the query planner.
-    EXECUTE format(
-        $$
-        WITH batch_rows AS (
-            SELECT row_id
-            FROM public.%1$I
-            WHERE state = 'processing' AND action = 'use'
-                             ORDER BY state, action, row_id
-            LIMIT %2$L
-            FOR UPDATE SKIP LOCKED
-        )
-        SELECT public.array_to_int4multirange(array_agg(row_id)) FROM batch_rows
-        $$,
-        job.data_table_name,        /* %1$I */
-        job.processing_batch_size   /* %2$L */
-    ) INTO v_batch_row_id_ranges;
-
-    IF v_batch_row_id_ranges IS NOT NULL AND NOT isempty(v_batch_row_id_ranges) THEN
-        RAISE DEBUG '[Job %] Found batch of ranges to process: %s.', job.id, v_batch_row_id_ranges::text;
-        BEGIN
-            CALL admin.import_job_process_batch(job, v_batch_row_id_ranges);
-
-            -- Mark all rows in the batch that are not in an error state as 'processed'.
-            -- This is safe because any errors within the batch call would have already set the row state to 'error'.
-            EXECUTE format($$UPDATE public.%1$I SET state = 'processed' WHERE row_id <@ $1 AND state != 'error'$$,
-                           job.data_table_name /* %1$I */) USING v_batch_row_id_ranges;
-            RAISE DEBUG '[Job %] Batch successfully processed. Marked non-error rows in ranges %s as processed.', job.id, v_batch_row_id_ranges::text;
-        EXCEPTION WHEN OTHERS THEN
-            DECLARE
-                error_message TEXT;
-                error_context TEXT;
-            BEGIN
-                GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT,
-                                      error_context = PG_EXCEPTION_CONTEXT;
-                RAISE WARNING '[Job %] Error processing batch: %. Context: %. Marking batch rows as error and failing job.', job.id, error_message, error_context;
-                EXECUTE format($$UPDATE public.%1$I SET state = 'error', errors = COALESCE(errors, '{}'::jsonb) || %2$L WHERE row_id <@ $1$$,
-                               job.data_table_name /* %1$I */, jsonb_build_object('process_batch_error', error_message, 'context', error_context) /* %2$L */) USING v_batch_row_id_ranges;
-                UPDATE public.import_job SET error = jsonb_build_object('error_in_processing_batch', error_message, 'context', error_context)::TEXT, state = 'failed' WHERE id = job.id;
-                -- On error, do not reschedule.
-                RETURN FALSE;
-            END;
-        END;
-        RETURN TRUE; -- Work was done.
-    ELSE
-        RAISE DEBUG '[Job %] No more rows found in ''processing'' state. Phase complete.', job.id;
+    IF v_current_batch IS NULL THEN
+        RAISE DEBUG '[Job %] No more batches to process. Phase complete.', job.id;
         RETURN FALSE; -- No work found.
     END IF;
+
+    RAISE DEBUG '[Job %] Processing batch % of % (max).', job.id, v_current_batch, v_max_batch;
+
+    BEGIN
+        CALL admin.import_job_process_batch(job, v_current_batch);
+
+        -- Mark all rows in the batch that are not in an error state as 'processed'.
+        EXECUTE format($$
+            UPDATE public.%1$I 
+            SET state = 'processed' 
+            WHERE batch_seq = %2$L AND state != 'error'
+        $$, job.data_table_name, v_current_batch);
+        GET DIAGNOSTICS v_rows_processed = ROW_COUNT;
+        
+        RAISE DEBUG '[Job %] Batch % successfully processed. Marked % non-error rows as processed.', 
+            job.id, v_current_batch, v_rows_processed;
+
+        -- Increment imported_rows counter directly instead of doing a full table scan.
+        UPDATE public.import_job SET imported_rows = imported_rows + v_rows_processed WHERE id = job.id;
+
+    EXCEPTION WHEN OTHERS THEN
+        GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT,
+                              error_context = PG_EXCEPTION_CONTEXT;
+        RAISE WARNING '[Job %] Error processing batch %: %. Context: %. Marking batch rows as error and failing job.', 
+            job.id, v_current_batch, error_message, error_context;
+        
+        EXECUTE format($$
+            UPDATE public.%1$I 
+            SET state = 'error', errors = COALESCE(errors, '{}'::jsonb) || %2$L 
+            WHERE batch_seq = %3$L
+        $$, job.data_table_name, 
+            jsonb_build_object('process_batch_error', error_message, 'context', error_context),
+            v_current_batch);
+        
+        UPDATE public.import_job 
+        SET error = jsonb_build_object('error_in_processing_batch', error_message, 'context', error_context)::TEXT, 
+            state = 'failed' 
+        WHERE id = job.id;
+        
+        RETURN FALSE; -- On error, do not reschedule.
+    END;
+    
+    RETURN TRUE; -- Work was done.
 END;
 $function$
 ```
