@@ -10,7 +10,7 @@
  code                | character varying        |           |          | generated always as (NULLIF(regexp_replace(path::text, '[^0-9]'::text, ''::text, 'g'::text), ''::text)) stored
  name                | character varying(256)   |           | not null | 
  description         | text                     |           |          | 
- active              | boolean                  |           | not null | true
+ enabled             | boolean                  |           | not null | true
  type                | tag_type                 |           | not null | 
  context_valid_from  | date                     |           |          | 
  context_valid_to    | date                     |           |          | 
@@ -20,7 +20,7 @@
  updated_at          | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
     "tag_pkey" PRIMARY KEY, btree (id)
-    "ix_tag_active" btree (active)
+    "ix_tag_enabled" btree (enabled)
     "ix_tag_type" btree (type)
     "tag_path_key" UNIQUE CONSTRAINT, btree (path)
 Check constraints:

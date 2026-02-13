@@ -121,7 +121,7 @@ BEGIN
                     t.valid_from,
                     t.valid_until,
                     en.id,
-                    en.active,
+                    en.enabled,
                     en.short_name,
                     en.edit_comment,
                     en.edit_by_user_id,

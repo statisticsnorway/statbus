@@ -9,15 +9,15 @@ BEGIN;
 "Setting up Statbus to load establishments without legal units"
 -- A Super User configures statbus.
 CALL test.set_user_from_email('test.admin@statbus.org');
-SELECT code, name, active, custom FROM public.data_source_available;
-  code  |               name               | active | custom 
---------+----------------------------------+--------+--------
- census | Census                           | t      | f
- mi     | Manual Input                     | t      | f
- nlr    | National Legal Business Registry | t      | f
- ntr    | National Tax Registry            | t      | f
- other  | Other External Data Source       | t      | f
- survey | Survey Data                      | t      | f
+SELECT code, name, enabled, custom FROM public.data_source_available;
+  code  |               name               | enabled | custom 
+--------+----------------------------------+---------+--------
+ census | Census                           | t       | f
+ mi     | Manual Input                     | t       | f
+ nlr    | National Legal Business Registry | t       | f
+ ntr    | National Tax Registry            | t       | f
+ other  | Other External Data Source       | t       | f
+ survey | Survey Data                      | t       | f
 (6 rows)
 
 \i samples/norway/getting-started.sql
@@ -80,15 +80,15 @@ SELECT count(*) FROM public.data_source_available;
      6
 (1 row)
 
-SELECT code, name, active, custom FROM public.data_source_available;
- code  |               name               | active | custom 
--------+----------------------------------+--------+--------
- annet | Annen ekstern kilde              | t      | t
- brreg | Brønnøysundregistrene            | t      | t
- mi    | Manuell Inntasting               | t      | t
- nav   | Arbeids- og velferdsforvaltninga | t      | t
- skatt | Skatteetaten                     | t      | t
- spør  | Spørreskjema fra SSB             | t      | t
+SELECT code, name, enabled, custom FROM public.data_source_available;
+ code  |               name               | enabled | custom 
+-------+----------------------------------+---------+--------
+ annet | Annen ekstern kilde              | t       | t
+ brreg | Brønnøysundregistrene            | t       | t
+ mi    | Manuell Inntasting               | t       | t
+ nav   | Arbeids- og velferdsforvaltninga | t       | t
+ skatt | Skatteetaten                     | t       | t
+ spør  | Spørreskjema fra SSB             | t       | t
 (6 rows)
 
 SELECT

@@ -20,8 +20,8 @@ RETURNS TRIGGER LANGUAGE plpgsql AS $body$
 BEGIN
     -- Deactivate all non-custom entries before insertion
     UPDATE %3$I.%4$I
-       SET active = false
-     WHERE active = true
+       SET enabled = false
+     WHERE enabled = true
        AND custom = false;
 
     RETURN NULL;

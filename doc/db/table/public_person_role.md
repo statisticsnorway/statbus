@@ -5,14 +5,14 @@
  id         | integer                  |           | not null | generated always as identity
  code       | text                     |           | not null | 
  name       | text                     |           | not null | 
- active     | boolean                  |           | not null | 
+ enabled    | boolean                  |           | not null | 
  custom     | boolean                  |           | not null | 
  created_at | timestamp with time zone |           | not null | statement_timestamp()
  updated_at | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
     "person_role_pkey" PRIMARY KEY, btree (id)
-    "ix_person_role_active" btree (active)
-    "ix_person_role_active_code" UNIQUE, btree (active, code)
+    "ix_person_role_enabled" btree (enabled)
+    "ix_person_role_enabled_code" UNIQUE, btree (enabled, code)
     "person_role_code_key" UNIQUE CONSTRAINT, btree (code)
     "person_role_name_key" UNIQUE CONSTRAINT, btree (name)
 Referenced by:

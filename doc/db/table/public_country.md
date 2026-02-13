@@ -7,7 +7,7 @@
  iso_3      | text                     |           | not null | 
  iso_num    | text                     |           | not null | 
  name       | text                     |           | not null | 
- active     | boolean                  |           | not null | 
+ enabled    | boolean                  |           | not null | 
  custom     | boolean                  |           | not null | 
  created_at | timestamp with time zone |           | not null | statement_timestamp()
  updated_at | timestamp with time zone |           | not null | statement_timestamp()
@@ -18,10 +18,10 @@ Indexes:
     "country_iso_3_key" UNIQUE CONSTRAINT, btree (iso_3)
     "country_iso_num_key" UNIQUE CONSTRAINT, btree (iso_num)
     "country_name_key" UNIQUE CONSTRAINT, btree (name)
-    "ix_country_active" btree (active)
-    "ix_country_iso_2" UNIQUE, btree (iso_2) WHERE active
-    "ix_country_iso_3" UNIQUE, btree (iso_3) WHERE active
-    "ix_country_iso_num" UNIQUE, btree (iso_num) WHERE active
+    "ix_country_enabled" btree (enabled)
+    "ix_country_iso_2" UNIQUE, btree (iso_2) WHERE enabled
+    "ix_country_iso_3" UNIQUE, btree (iso_3) WHERE enabled
+    "ix_country_iso_num" UNIQUE, btree (iso_num) WHERE enabled
 Referenced by:
     TABLE "location" CONSTRAINT "location_country_id_fkey" FOREIGN KEY (country_id) REFERENCES country(id) ON DELETE RESTRICT
     TABLE "person" CONSTRAINT "person_country_id_fkey" FOREIGN KEY (country_id) REFERENCES country(id)

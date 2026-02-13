@@ -31,13 +31,13 @@ SAVEPOINT scenario_113_1_hierarchical_setup;
 
 -- Setup: Create hierarchical identifier types
 \echo "Setting up hierarchical identifier types"
-INSERT INTO public.external_ident_type (code, name, shape, labels, description, priority, archived)
+INSERT INTO public.external_ident_type (code, name, shape, labels, description, priority, enabled)
 VALUES ('test_surveyor_hierarchical', 'Test Surveyor Hierarchical', 'hierarchical', 'region.city.seq',
-        'Region/City/Seq hierarchical composite key', 50, false);
+        'Region/City/Seq hierarchical composite key', 50, true);
 
-INSERT INTO public.external_ident_type (code, name, shape, labels, description, priority, archived)
+INSERT INTO public.external_ident_type (code, name, shape, labels, description, priority, enabled)
 VALUES ('region_district', 'Regional District Code', 'hierarchical', 'region.district',
-        'Simple 2-level regional district identifier', 51, false);
+        'Simple 2-level regional district identifier', 51, true);
 
 -- Verify the hierarchical setup
 \echo "Verifying hierarchical setup:"
@@ -169,13 +169,13 @@ SAVEPOINT scenario_113_3_hierarchical_happy_path;
 
 -- Setup: Create hierarchical identifier types
 \echo "Setting up hierarchical identifier types"
-INSERT INTO public.external_ident_type (code, name, shape, labels, description, priority, archived)
+INSERT INTO public.external_ident_type (code, name, shape, labels, description, priority, enabled)
 VALUES ('test_hierarchical_surveyor', 'Test Hierarchical Surveyor', 'hierarchical', 'region.city.seq',
-        'Region/City/Seq hierarchical composite key', 50, false);
+        'Region/City/Seq hierarchical composite key', 50, true);
 
-INSERT INTO public.external_ident_type (code, name, shape, labels, description, priority, archived)
+INSERT INTO public.external_ident_type (code, name, shape, labels, description, priority, enabled)
 VALUES ('region_district', 'Regional District Code', 'hierarchical', 'region.district',
-        'Simple 2-level regional district identifier for success test', 51, false);
+        'Simple 2-level regional district identifier for success test', 51, true);
 
 -- Verify the hierarchical setup
 \echo "Verifying hierarchical setup:"

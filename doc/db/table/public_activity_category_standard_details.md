@@ -7,7 +7,7 @@
  name         | character varying                |           | not null |                              | extended |             |              | 
  description  | character varying                |           | not null |                              | extended |             |              | 
  code_pattern | activity_category_code_behaviour |           | not null |                              | plain    |             |              | 
- obsolete     | boolean                          |           | not null | false                        | plain    |             |              | 
+ enabled      | boolean                          |           | not null | true                         | plain    |             |              | 
 Indexes:
     "activity_category_standard_pkey" PRIMARY KEY, btree (id)
     "activity_category_standard_code_key" UNIQUE CONSTRAINT, btree (code)
@@ -33,7 +33,7 @@ Not-null constraints:
     "activity_category_standard_name_not_null" NOT NULL "name"
     "activity_category_standard_description_not_null" NOT NULL "description"
     "activity_category_standard_code_pattern_not_null" NOT NULL "code_pattern"
-    "activity_category_standard_obsolete_not_null" NOT NULL "obsolete"
+    "activity_category_standard_enabled_not_null" NOT NULL "enabled"
 Triggers:
     recalculate_activity_category_codes_after_update AFTER UPDATE OF code_pattern ON activity_category_standard FOR EACH ROW WHEN (old.code_pattern IS DISTINCT FROM new.code_pattern) EXECUTE FUNCTION recalculate_activity_category_codes()
     trigger_prevent_activity_category_standard_id_update BEFORE UPDATE OF id ON activity_category_standard FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()

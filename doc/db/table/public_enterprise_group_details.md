@@ -32,7 +32,6 @@ Indexes:
     "ix_enterprise_group_name" btree (name)
     "ix_enterprise_group_reorg_type_id" btree (reorg_type_id)
     "ix_enterprise_group_size_id" btree (unit_size_id)
-    "ix_enterprise_group_valid_range" gist (valid_range)
 Check constraints:
     "enterprise_group_valid_check" CHECK (NOT isempty(valid_range))
 Foreign-key constraints:

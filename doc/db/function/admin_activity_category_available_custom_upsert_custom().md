@@ -22,25 +22,25 @@ BEGIN
           FROM public.activity_category
          WHERE standard_id = var_standard_id
            AND path OPERATOR(public.=) public.subltree(NEW.path, 0, public.nlevel(NEW.path) - 1)
-           AND active;
+           AND enabled;
         RAISE DEBUG 'found_parent_id %', found_parent_id;
         IF NOT FOUND THEN
           RAISE EXCEPTION 'Could not find parent for path %', NEW.path;
         END IF;
     END IF;
 
-    -- Query to see if there is an existing "active AND NOT custom" row
+    -- Query to see if there is an existing "enabled AND NOT custom" row
     SELECT id INTO existing_category_id
       FROM public.activity_category
      WHERE standard_id = var_standard_id
        AND path = NEW.path
-       AND active
+       AND enabled
        AND NOT custom;
 
-    -- If there is, then update that row to active = FALSE
+    -- If there is, then update that row to enabled = FALSE
     IF existing_category_id IS NOT NULL THEN
         UPDATE public.activity_category
-           SET active = FALSE
+           SET enabled = FALSE
          WHERE id = existing_category_id
          RETURNING * INTO existing_category;
         RAISE DEBUG 'EXISTING %', to_json(existing_category);
@@ -54,7 +54,7 @@ BEGIN
         , name
         , description
         , updated_at
-        , active
+        , enabled
         , custom
         )
     VALUES
@@ -67,13 +67,13 @@ BEGIN
         , TRUE -- Active
         , TRUE -- Custom
         )
-    ON CONFLICT (standard_id, path, active)
+    ON CONFLICT (standard_id, path, enabled)
     DO UPDATE SET
             parent_id = found_parent_id
           , name = NEW.name
           , description = NEW.description
           , updated_at = statement_timestamp()
-          , active = TRUE
+          , enabled = TRUE
           , custom = TRUE
        WHERE activity_category.id = EXCLUDED.id
        RETURNING * INTO row;

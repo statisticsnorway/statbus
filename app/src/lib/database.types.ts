@@ -158,11 +158,11 @@ export type Database = {
       },
       activity_category: {
         Row: {
-          active: boolean
           code: string
           created_at: string
           custom: boolean
           description: string | null
+          enabled: boolean
           id: number
           label: string
           level: number | null
@@ -173,11 +173,11 @@ export type Database = {
           updated_at: string
         },
         Insert: {
-          active: boolean
           code: string
           created_at?: string
           custom: boolean
           description?: string | null
+          enabled: boolean
           id?: never
           label: string
           level?: number | null
@@ -188,11 +188,11 @@ export type Database = {
           updated_at?: string
         },
         Update: {
-          active?: boolean
           code?: string
           created_at?: string
           custom?: boolean
           description?: string | null
+          enabled?: boolean
           id?: never
           label?: string
           level?: number | null
@@ -299,25 +299,25 @@ export type Database = {
           code: string
           code_pattern: Database["public"]["Enums"]["activity_category_code_behaviour"]
           description: string
+          enabled: boolean
           id: number
           name: string
-          obsolete: boolean
         },
         Insert: {
           code: string
           code_pattern: Database["public"]["Enums"]["activity_category_code_behaviour"]
           description: string
+          enabled?: boolean
           id?: never
           name: string
-          obsolete?: boolean
         },
         Update: {
           code?: string
           code_pattern?: Database["public"]["Enums"]["activity_category_code_behaviour"]
           description?: string
+          enabled?: boolean
           id?: never
           name?: string
-          obsolete?: boolean
         },
         Relationships: []
       },
@@ -494,9 +494,9 @@ export type Database = {
       },
       country: {
         Row: {
-          active: boolean
           created_at: string
           custom: boolean
+          enabled: boolean
           id: number
           iso_2: string
           iso_3: string
@@ -505,9 +505,9 @@ export type Database = {
           updated_at: string
         },
         Insert: {
-          active: boolean
           created_at?: string
           custom: boolean
+          enabled: boolean
           id?: never
           iso_2: string
           iso_3: string
@@ -516,9 +516,9 @@ export type Database = {
           updated_at?: string
         },
         Update: {
-          active?: boolean
           created_at?: string
           custom?: boolean
+          enabled?: boolean
           id?: never
           iso_2?: string
           iso_3?: string
@@ -548,28 +548,28 @@ export type Database = {
       },
       data_source: {
         Row: {
-          active: boolean
           code: string
           created_at: string
           custom: boolean
+          enabled: boolean
           id: number
           name: string
           updated_at: string
         },
         Insert: {
-          active: boolean
           code: string
           created_at?: string
           custom: boolean
+          enabled: boolean
           id?: never
           name: string
           updated_at?: string
         },
         Update: {
-          active?: boolean
           code?: string
           created_at?: string
           custom?: boolean
+          enabled?: boolean
           id?: never
           name?: string
           updated_at?: string
@@ -596,26 +596,26 @@ export type Database = {
       },
       enterprise: {
         Row: {
-          active: boolean
           edit_at: string
           edit_by_user_id: number
           edit_comment: string | null
+          enabled: boolean
           id: number
           short_name: string | null
         },
         Insert: {
-          active?: boolean
           edit_at?: string
           edit_by_user_id: number
           edit_comment?: string | null
+          enabled?: boolean
           id?: never
           short_name?: string | null
         },
         Update: {
-          active?: boolean
           edit_at?: string
           edit_by_user_id?: number
           edit_comment?: string | null
+          enabled?: boolean
           id?: never
           short_name?: string | null
         },
@@ -828,28 +828,28 @@ export type Database = {
       },
       enterprise_group_role: {
         Row: {
-          active: boolean
           code: string
           created_at: string
           custom: boolean
+          enabled: boolean
           id: number
           name: string
           updated_at: string
         },
         Insert: {
-          active: boolean
           code: string
           created_at?: string
           custom: boolean
+          enabled: boolean
           id?: never
           name: string
           updated_at?: string
         },
         Update: {
-          active?: boolean
           code?: string
           created_at?: string
           custom?: boolean
+          enabled?: boolean
           id?: never
           name?: string
           updated_at?: string
@@ -858,28 +858,28 @@ export type Database = {
       },
       enterprise_group_type: {
         Row: {
-          active: boolean
           code: string
           created_at: string
           custom: boolean
+          enabled: boolean
           id: number
           name: string
           updated_at: string
         },
         Insert: {
-          active: boolean
           code: string
           created_at?: string
           custom: boolean
+          enabled: boolean
           id?: never
           name: string
           updated_at?: string
         },
         Update: {
-          active?: boolean
           code?: string
           created_at?: string
           custom?: boolean
+          enabled?: boolean
           id?: never
           name?: string
           updated_at?: string
@@ -1233,9 +1233,9 @@ export type Database = {
       },
       external_ident_type: {
         Row: {
-          archived: boolean
           code: string
           description: string | null
+          enabled: boolean
           id: number
           labels: string | null
           name: string | null
@@ -1243,9 +1243,9 @@ export type Database = {
           shape: Database["public"]["Enums"]["external_ident_shape"]
         },
         Insert: {
-          archived?: boolean
           code: string
           description?: string | null
+          enabled?: boolean
           id?: never
           labels?: string | null
           name?: string | null
@@ -1253,9 +1253,9 @@ export type Database = {
           shape?: Database["public"]["Enums"]["external_ident_shape"]
         },
         Update: {
-          archived?: boolean
           code?: string
           description?: string | null
+          enabled?: boolean
           id?: never
           labels?: string | null
           name?: string | null
@@ -1266,28 +1266,28 @@ export type Database = {
       },
       foreign_participation: {
         Row: {
-          active: boolean
           code: string
           created_at: string
           custom: boolean
+          enabled: boolean
           id: number
           name: string
           updated_at: string
         },
         Insert: {
-          active: boolean
           code: string
           created_at?: string
           custom: boolean
+          enabled: boolean
           id?: never
           name: string
           updated_at?: string
         },
         Update: {
-          active?: boolean
           code?: string
           created_at?: string
           custom?: boolean
+          enabled?: boolean
           id?: never
           name?: string
           updated_at?: string
@@ -1378,11 +1378,11 @@ export type Database = {
       },
       import_definition: {
         Row: {
-          active: boolean
           created_at: string
           custom: boolean
           data_source_id: number | null
           default_retention_period: string
+          enabled: boolean
           id: number
           import_as_null: string[]
           mode: Database["public"]["Enums"]["import_mode"]
@@ -1397,11 +1397,11 @@ export type Database = {
           validation_error: string | null
         },
         Insert: {
-          active?: boolean
           created_at?: string
           custom?: boolean
           data_source_id?: number | null
           default_retention_period?: string
+          enabled?: boolean
           id?: never
           import_as_null?: string[]
           mode: Database["public"]["Enums"]["import_mode"]
@@ -1416,11 +1416,11 @@ export type Database = {
           validation_error?: string | null
         },
         Update: {
-          active?: boolean
           created_at?: string
           custom?: boolean
           data_source_id?: number | null
           default_retention_period?: string
+          enabled?: boolean
           id?: never
           import_as_null?: string[]
           mode?: Database["public"]["Enums"]["import_mode"]
@@ -1793,28 +1793,28 @@ export type Database = {
       },
       legal_form: {
         Row: {
-          active: boolean
           code: string
           created_at: string
           custom: boolean
+          enabled: boolean
           id: number
           name: string
           updated_at: string
         },
         Insert: {
-          active: boolean
           code: string
           created_at?: string
           custom: boolean
+          enabled: boolean
           id?: never
           name: string
           updated_at?: string
         },
         Update: {
-          active?: boolean
           code?: string
           created_at?: string
           custom?: boolean
+          enabled?: boolean
           id?: never
           name?: string
           updated_at?: string
@@ -2545,28 +2545,28 @@ export type Database = {
       },
       person_role: {
         Row: {
-          active: boolean
           code: string
           created_at: string
           custom: boolean
+          enabled: boolean
           id: number
           name: string
           updated_at: string
         },
         Insert: {
-          active: boolean
           code: string
           created_at?: string
           custom: boolean
+          enabled: boolean
           id?: never
           name: string
           updated_at?: string
         },
         Update: {
-          active?: boolean
           code?: string
           created_at?: string
           custom?: boolean
+          enabled?: boolean
           id?: never
           name?: string
           updated_at?: string
@@ -2696,24 +2696,24 @@ export type Database = {
       },
       relative_period: {
         Row: {
-          active: boolean
           code: Database["public"]["Enums"]["relative_period_code"]
+          enabled: boolean
           id: number
           name_when_input: string | null
           name_when_query: string | null
           scope: Database["public"]["Enums"]["relative_period_scope"]
         },
         Insert: {
-          active?: boolean
           code: Database["public"]["Enums"]["relative_period_code"]
+          enabled?: boolean
           id?: never
           name_when_input?: string | null
           name_when_query?: string | null
           scope: Database["public"]["Enums"]["relative_period_scope"]
         },
         Update: {
-          active?: boolean
           code?: Database["public"]["Enums"]["relative_period_code"]
+          enabled?: boolean
           id?: never
           name_when_input?: string | null
           name_when_query?: string | null
@@ -2723,31 +2723,31 @@ export type Database = {
       },
       reorg_type: {
         Row: {
-          active: boolean
           code: string
           created_at: string
           custom: boolean
           description: string
+          enabled: boolean
           id: number
           name: string
           updated_at: string
         },
         Insert: {
-          active: boolean
           code: string
           created_at?: string
           custom: boolean
           description: string
+          enabled: boolean
           id?: never
           name: string
           updated_at?: string
         },
         Update: {
-          active?: boolean
           code?: string
           created_at?: string
           custom?: boolean
           description?: string
+          enabled?: boolean
           id?: never
           name?: string
           updated_at?: string
@@ -2756,11 +2756,11 @@ export type Database = {
       },
       sector: {
         Row: {
-          active: boolean
           code: string | null
           created_at: string
           custom: boolean
           description: string | null
+          enabled: boolean
           id: number
           label: string
           name: string
@@ -2769,11 +2769,11 @@ export type Database = {
           updated_at: string
         },
         Insert: {
-          active: boolean
           code?: string | null
           created_at?: string
           custom: boolean
           description?: string | null
+          enabled: boolean
           id?: never
           label: string
           name: string
@@ -2782,11 +2782,11 @@ export type Database = {
           updated_at?: string
         },
         Update: {
-          active?: boolean
           code?: string | null
           created_at?: string
           custom?: boolean
           description?: string | null
+          enabled?: boolean
           id?: never
           label?: string
           name?: string
@@ -2886,9 +2886,9 @@ export type Database = {
       },
       stat_definition: {
         Row: {
-          archived: boolean
           code: string
           description: string | null
+          enabled: boolean
           frequency: Database["public"]["Enums"]["stat_frequency"]
           id: number
           name: string
@@ -2896,9 +2896,9 @@ export type Database = {
           type: Database["public"]["Enums"]["stat_type"]
         },
         Insert: {
-          archived?: boolean
           code: string
           description?: string | null
+          enabled?: boolean
           frequency: Database["public"]["Enums"]["stat_frequency"]
           id?: number
           name: string
@@ -2906,9 +2906,9 @@ export type Database = {
           type: Database["public"]["Enums"]["stat_type"]
         },
         Update: {
-          archived?: boolean
           code?: string
           description?: string | null
+          enabled?: boolean
           frequency?: Database["public"]["Enums"]["stat_frequency"]
           id?: number
           name?: string
@@ -3897,11 +3897,11 @@ export type Database = {
       },
       status: {
         Row: {
-          active: boolean
           assigned_by_default: boolean
           code: string
           created_at: string
           custom: boolean
+          enabled: boolean
           id: number
           name: string
           priority: number
@@ -3909,11 +3909,11 @@ export type Database = {
           used_for_counting: boolean
         },
         Insert: {
-          active: boolean
           assigned_by_default: boolean
           code: string
           created_at?: string
           custom?: boolean
+          enabled: boolean
           id?: never
           name: string
           priority: number
@@ -3921,11 +3921,11 @@ export type Database = {
           used_for_counting: boolean
         },
         Update: {
-          active?: boolean
           assigned_by_default?: boolean
           code?: string
           created_at?: string
           custom?: boolean
+          enabled?: boolean
           id?: never
           name?: string
           priority?: number
@@ -3936,7 +3936,6 @@ export type Database = {
       },
       tag: {
         Row: {
-          active: boolean
           code: string | null
           context_valid_from: string | null
           context_valid_on: string | null
@@ -3944,6 +3943,7 @@ export type Database = {
           context_valid_until: string | null
           created_at: string
           description: string | null
+          enabled: boolean
           id: number
           label: string
           level: number | null
@@ -3954,7 +3954,6 @@ export type Database = {
           updated_at: string
         },
         Insert: {
-          active?: boolean
           code?: string | null
           context_valid_from?: string | null
           context_valid_on?: string | null
@@ -3962,6 +3961,7 @@ export type Database = {
           context_valid_until?: string | null
           created_at?: string
           description?: string | null
+          enabled?: boolean
           id?: never
           label: string
           level?: number | null
@@ -3972,7 +3972,6 @@ export type Database = {
           updated_at?: string
         },
         Update: {
-          active?: boolean
           code?: string | null
           context_valid_from?: string | null
           context_valid_on?: string | null
@@ -3980,6 +3979,7 @@ export type Database = {
           context_valid_until?: string | null
           created_at?: string
           description?: string | null
+          enabled?: boolean
           id?: never
           label?: string
           level?: number | null
@@ -4949,28 +4949,28 @@ export type Database = {
       },
       unit_size: {
         Row: {
-          active: boolean
           code: string
           created_at: string
           custom: boolean
+          enabled: boolean
           id: number
           name: string
           updated_at: string
         },
         Insert: {
-          active: boolean
           code: string
           created_at?: string
           custom: boolean
+          enabled: boolean
           id?: never
           name: string
           updated_at?: string
         },
         Update: {
-          active?: boolean
           code?: string
           created_at?: string
           custom?: boolean
+          enabled?: boolean
           id?: never
           name?: string
           updated_at?: string
@@ -5466,8 +5466,8 @@ export type Database = {
       },
       country_view: {
         Row: {
-          active: boolean | null
           custom: boolean | null
+          enabled: boolean | null
           id: number | null
           iso_2: string | null
           iso_3: string | null
@@ -5475,8 +5475,8 @@ export type Database = {
           name: string | null
         },
         Insert: {
-          active?: boolean | null
           custom?: boolean | null
+          enabled?: boolean | null
           id?: number | null
           iso_2?: string | null
           iso_3?: string | null
@@ -5484,8 +5484,8 @@ export type Database = {
           name?: string | null
         },
         Update: {
-          active?: boolean | null
           custom?: boolean | null
+          enabled?: boolean | null
           id?: number | null
           iso_2?: string | null
           iso_3?: string | null
@@ -5496,28 +5496,28 @@ export type Database = {
       },
       data_source_available: {
         Row: {
-          active: boolean | null
           code: string | null
           created_at: string | null
           custom: boolean | null
+          enabled: boolean | null
           id: number | null
           name: string | null
           updated_at: string | null
         },
         Insert: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null
         },
         Update: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null
@@ -5541,28 +5541,28 @@ export type Database = {
       },
       data_source_ordered: {
         Row: {
-          active: boolean | null
           code: string | null
           created_at: string | null
           custom: boolean | null
+          enabled: boolean | null
           id: number | null
           name: string | null
           updated_at: string | null
         },
         Insert: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null
         },
         Update: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null
@@ -5828,28 +5828,28 @@ export type Database = {
       },
       enterprise_group_role_available: {
         Row: {
-          active: boolean | null
           code: string | null
           created_at: string | null
           custom: boolean | null
+          enabled: boolean | null
           id: number | null
           name: string | null
           updated_at: string | null
         },
         Insert: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null
         },
         Update: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null
@@ -5873,28 +5873,28 @@ export type Database = {
       },
       enterprise_group_role_ordered: {
         Row: {
-          active: boolean | null
           code: string | null
           created_at: string | null
           custom: boolean | null
+          enabled: boolean | null
           id: number | null
           name: string | null
           updated_at: string | null
         },
         Insert: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null
         },
         Update: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null
@@ -5918,28 +5918,28 @@ export type Database = {
       },
       enterprise_group_type_available: {
         Row: {
-          active: boolean | null
           code: string | null
           created_at: string | null
           custom: boolean | null
+          enabled: boolean | null
           id: number | null
           name: string | null
           updated_at: string | null
         },
         Insert: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null
         },
         Update: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null
@@ -5963,28 +5963,28 @@ export type Database = {
       },
       enterprise_group_type_ordered: {
         Row: {
-          active: boolean | null
           code: string | null
           created_at: string | null
           custom: boolean | null
+          enabled: boolean | null
           id: number | null
           name: string | null
           updated_at: string | null
         },
         Insert: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null
         },
         Update: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null
@@ -6262,9 +6262,9 @@ export type Database = {
       },
       external_ident_type_active: {
         Row: {
-          archived: boolean | null
           code: string | null
           description: string | null
+          enabled: boolean | null
           id: number | null
           labels: string | null
           name: string | null
@@ -6272,9 +6272,9 @@ export type Database = {
           shape: Database["public"]["Enums"]["external_ident_shape"] | null
         },
         Insert: {
-          archived?: boolean | null
           code?: string | null
           description?: string | null
+          enabled?: boolean | null
           id?: number | null
           labels?: string | null
           name?: string | null
@@ -6282,9 +6282,9 @@ export type Database = {
           shape?: Database["public"]["Enums"]["external_ident_shape"] | null
         },
         Update: {
-          archived?: boolean | null
           code?: string | null
           description?: string | null
+          enabled?: boolean | null
           id?: number | null
           labels?: string | null
           name?: string | null
@@ -6295,9 +6295,9 @@ export type Database = {
       },
       external_ident_type_ordered: {
         Row: {
-          archived: boolean | null
           code: string | null
           description: string | null
+          enabled: boolean | null
           id: number | null
           labels: string | null
           name: string | null
@@ -6305,9 +6305,9 @@ export type Database = {
           shape: Database["public"]["Enums"]["external_ident_shape"] | null
         },
         Insert: {
-          archived?: boolean | null
           code?: string | null
           description?: string | null
+          enabled?: boolean | null
           id?: number | null
           labels?: string | null
           name?: string | null
@@ -6315,9 +6315,9 @@ export type Database = {
           shape?: Database["public"]["Enums"]["external_ident_shape"] | null
         },
         Update: {
-          archived?: boolean | null
           code?: string | null
           description?: string | null
+          enabled?: boolean | null
           id?: number | null
           labels?: string | null
           name?: string | null
@@ -6328,28 +6328,28 @@ export type Database = {
       },
       foreign_participation_available: {
         Row: {
-          active: boolean | null
           code: string | null
           created_at: string | null
           custom: boolean | null
+          enabled: boolean | null
           id: number | null
           name: string | null
           updated_at: string | null
         },
         Insert: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null
         },
         Update: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null
@@ -6373,28 +6373,28 @@ export type Database = {
       },
       foreign_participation_ordered: {
         Row: {
-          active: boolean | null
           code: string | null
           created_at: string | null
           custom: boolean | null
+          enabled: boolean | null
           id: number | null
           name: string | null
           updated_at: string | null
         },
         Insert: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null
         },
         Update: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null
@@ -6469,28 +6469,28 @@ export type Database = {
       },
       legal_form_available: {
         Row: {
-          active: boolean | null
           code: string | null
           created_at: string | null
           custom: boolean | null
+          enabled: boolean | null
           id: number | null
           name: string | null
           updated_at: string | null
         },
         Insert: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null
         },
         Update: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null
@@ -6529,28 +6529,28 @@ export type Database = {
       },
       legal_form_ordered: {
         Row: {
-          active: boolean | null
           code: string | null
           created_at: string | null
           custom: boolean | null
+          enabled: boolean | null
           id: number | null
           name: string | null
           updated_at: string | null
         },
         Insert: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null
         },
         Update: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null
@@ -7223,28 +7223,28 @@ export type Database = {
       },
       person_role_available: {
         Row: {
-          active: boolean | null
           code: string | null
           created_at: string | null
           custom: boolean | null
+          enabled: boolean | null
           id: number | null
           name: string | null
           updated_at: string | null
         },
         Insert: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null
         },
         Update: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null
@@ -7268,28 +7268,28 @@ export type Database = {
       },
       person_role_ordered: {
         Row: {
-          active: boolean | null
           code: string | null
           created_at: string | null
           custom: boolean | null
+          enabled: boolean | null
           id: number | null
           name: string | null
           updated_at: string | null
         },
         Insert: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null
         },
         Update: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null
@@ -7364,8 +7364,8 @@ export type Database = {
       },
       relative_period_with_time: {
         Row: {
-          active: boolean | null
           code: Database["public"]["Enums"]["relative_period_code"] | null
+          enabled: boolean | null
           id: number | null
           name_when_input: string | null
           name_when_query: string | null
@@ -7375,8 +7375,8 @@ export type Database = {
           valid_to: string | null
         },
         Insert: {
-          active?: boolean | null
           code?: Database["public"]["Enums"]["relative_period_code"] | null
+          enabled?: boolean | null
           id?: number | null
           name_when_input?: string | null
           name_when_query?: string | null
@@ -7386,8 +7386,8 @@ export type Database = {
           valid_to?: string | null
         },
         Update: {
-          active?: boolean | null
           code?: Database["public"]["Enums"]["relative_period_code"] | null
+          enabled?: boolean | null
           id?: number | null
           name_when_input?: string | null
           name_when_query?: string | null
@@ -7400,31 +7400,31 @@ export type Database = {
       },
       reorg_type_available: {
         Row: {
-          active: boolean | null
           code: string | null
           created_at: string | null
           custom: boolean | null
           description: string | null
+          enabled: boolean | null
           id: number | null
           name: string | null
           updated_at: string | null
         },
         Insert: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
           description?: string | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null
         },
         Update: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
           description?: string | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null
@@ -7451,31 +7451,31 @@ export type Database = {
       },
       reorg_type_ordered: {
         Row: {
-          active: boolean | null
           code: string | null
           created_at: string | null
           custom: boolean | null
           description: string | null
+          enabled: boolean | null
           id: number | null
           name: string | null
           updated_at: string | null
         },
         Insert: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
           description?: string | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null
         },
         Update: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
           description?: string | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null
@@ -7502,11 +7502,11 @@ export type Database = {
       },
       sector_available: {
         Row: {
-          active: boolean | null
           code: string | null
           created_at: string | null
           custom: boolean | null
           description: string | null
+          enabled: boolean | null
           id: number | null
           label: string | null
           name: string | null
@@ -7515,11 +7515,11 @@ export type Database = {
           updated_at: string | null
         },
         Insert: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
           description?: string | null
+          enabled?: boolean | null
           id?: number | null
           label?: string | null
           name?: string | null
@@ -7528,11 +7528,11 @@ export type Database = {
           updated_at?: string | null
         },
         Update: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
           description?: string | null
+          enabled?: boolean | null
           id?: number | null
           label?: string | null
           name?: string | null
@@ -7580,11 +7580,11 @@ export type Database = {
       },
       sector_ordered: {
         Row: {
-          active: boolean | null
           code: string | null
           created_at: string | null
           custom: boolean | null
           description: string | null
+          enabled: boolean | null
           id: number | null
           label: string | null
           name: string | null
@@ -7593,11 +7593,11 @@ export type Database = {
           updated_at: string | null
         },
         Insert: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
           description?: string | null
+          enabled?: boolean | null
           id?: number | null
           label?: string | null
           name?: string | null
@@ -7606,11 +7606,11 @@ export type Database = {
           updated_at?: string | null
         },
         Update: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
           description?: string | null
+          enabled?: boolean | null
           id?: number | null
           label?: string | null
           name?: string | null
@@ -7664,9 +7664,9 @@ export type Database = {
       },
       stat_definition_active: {
         Row: {
-          archived: boolean | null
           code: string | null
           description: string | null
+          enabled: boolean | null
           frequency: Database["public"]["Enums"]["stat_frequency"] | null
           id: number | null
           name: string | null
@@ -7674,9 +7674,9 @@ export type Database = {
           type: Database["public"]["Enums"]["stat_type"] | null
         },
         Insert: {
-          archived?: boolean | null
           code?: string | null
           description?: string | null
+          enabled?: boolean | null
           frequency?: Database["public"]["Enums"]["stat_frequency"] | null
           id?: number | null
           name?: string | null
@@ -7684,9 +7684,9 @@ export type Database = {
           type?: Database["public"]["Enums"]["stat_type"] | null
         },
         Update: {
-          archived?: boolean | null
           code?: string | null
           description?: string | null
+          enabled?: boolean | null
           frequency?: Database["public"]["Enums"]["stat_frequency"] | null
           id?: number | null
           name?: string | null
@@ -7697,9 +7697,9 @@ export type Database = {
       },
       stat_definition_ordered: {
         Row: {
-          archived: boolean | null
           code: string | null
           description: string | null
+          enabled: boolean | null
           frequency: Database["public"]["Enums"]["stat_frequency"] | null
           id: number | null
           name: string | null
@@ -7707,9 +7707,9 @@ export type Database = {
           type: Database["public"]["Enums"]["stat_type"] | null
         },
         Insert: {
-          archived?: boolean | null
           code?: string | null
           description?: string | null
+          enabled?: boolean | null
           frequency?: Database["public"]["Enums"]["stat_frequency"] | null
           id?: number | null
           name?: string | null
@@ -7717,9 +7717,9 @@ export type Database = {
           type?: Database["public"]["Enums"]["stat_type"] | null
         },
         Update: {
-          archived?: boolean | null
           code?: string | null
           description?: string | null
+          enabled?: boolean | null
           frequency?: Database["public"]["Enums"]["stat_frequency"] | null
           id?: number | null
           name?: string | null
@@ -9293,28 +9293,28 @@ export type Database = {
       },
       unit_size_available: {
         Row: {
-          active: boolean | null
           code: string | null
           created_at: string | null
           custom: boolean | null
+          enabled: boolean | null
           id: number | null
           name: string | null
           updated_at: string | null
         },
         Insert: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null
         },
         Update: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null
@@ -9338,28 +9338,28 @@ export type Database = {
       },
       unit_size_ordered: {
         Row: {
-          active: boolean | null
           code: string | null
           created_at: string | null
           custom: boolean | null
+          enabled: boolean | null
           id: number | null
           name: string | null
           updated_at: string | null
         },
         Insert: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null
         },
         Update: {
-          active?: boolean | null
           code?: string | null
           created_at?: string | null
           custom?: boolean | null
+          enabled?: boolean | null
           id?: number | null
           name?: string | null
           updated_at?: string | null

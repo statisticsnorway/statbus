@@ -6,7 +6,7 @@ SELECT lf.id
      , lf.name
 FROM public.legal_form AS lf
 WHERE lf.id IN (SELECT legal_form_id FROM public.statistical_unit WHERE legal_form_id IS NOT NULL)
-  AND lf.active
+  AND lf.enabled
 ORDER BY lf.id;
 
 CREATE TABLE public.legal_form_used AS

@@ -9,7 +9,7 @@
  name        | character varying |           | not null | 
  description | text              |           |          | 
  priority    | integer           |           |          | 
- archived    | boolean           |           | not null | false
+ enabled     | boolean           |           | not null | true
 Indexes:
     "stat_definition_pkey" PRIMARY KEY, btree (id)
     "ix_stat_definition_type" btree (type)

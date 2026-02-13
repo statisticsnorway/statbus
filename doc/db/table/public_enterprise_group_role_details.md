@@ -5,15 +5,15 @@
  id         | integer                  |           | not null | generated always as identity | plain    |             |              | 
  code       | text                     |           | not null |                              | extended |             |              | 
  name       | text                     |           | not null |                              | extended |             |              | 
- active     | boolean                  |           | not null |                              | plain    |             |              | 
+ enabled    | boolean                  |           | not null |                              | plain    |             |              | 
  custom     | boolean                  |           | not null |                              | plain    |             |              | 
  created_at | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
  updated_at | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
 Indexes:
     "enterprise_group_role_pkey" PRIMARY KEY, btree (id)
-    "ix_enterprise_group_role_active" btree (active)
-    "ix_enterprise_group_role_active_code" UNIQUE, btree (active, code)
-    "ix_enterprise_group_role_code" UNIQUE, btree (code) WHERE active
+    "ix_enterprise_group_role_code" UNIQUE, btree (code) WHERE enabled
+    "ix_enterprise_group_role_enabled" btree (enabled)
+    "ix_enterprise_group_role_enabled_code" UNIQUE, btree (enabled, code)
 Policies:
     POLICY "enterprise_group_role_admin_user_manage"
       TO admin_user
@@ -29,7 +29,7 @@ Not-null constraints:
     "enterprise_group_role_id_not_null" NOT NULL "id"
     "enterprise_group_role_code_not_null" NOT NULL "code"
     "enterprise_group_role_name_not_null" NOT NULL "name"
-    "enterprise_group_role_active_not_null" NOT NULL "active"
+    "enterprise_group_role_enabled_not_null" NOT NULL "enabled"
     "enterprise_group_role_custom_not_null" NOT NULL "custom"
     "enterprise_group_role_created_at_not_null" NOT NULL "created_at"
     "enterprise_group_role_updated_at_not_null" NOT NULL "updated_at"

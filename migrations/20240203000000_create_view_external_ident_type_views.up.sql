@@ -9,7 +9,7 @@ CREATE VIEW public.external_ident_type_ordered AS
 CREATE VIEW public.external_ident_type_active AS
     SELECT *
     FROM public.external_ident_type_ordered
-    WHERE NOT archived
+    WHERE enabled
 ;
 
 END;

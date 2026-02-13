@@ -35,18 +35,18 @@ BEGIN
         END IF;
     END IF;
 
-    -- Query to see if there is an existing "active AND NOT custom" row
+    -- Query to see if there is an existing "enabled AND NOT custom" row
     SELECT id INTO existing_category_id
       FROM public.activity_category
      WHERE standard_id = setting_standard_id
        AND path = NEW.path
-       AND active
+       AND enabled
        AND NOT custom;
 
-    -- If there is, then update that row to active = FALSE
+    -- If there is, then update that row to enabled = FALSE
     IF existing_category_id IS NOT NULL THEN
         UPDATE public.activity_category
-           SET active = FALSE
+           SET enabled = FALSE
          WHERE id = existing_category_id;
     END IF;
 
@@ -58,7 +58,7 @@ BEGIN
         , name
         , description
         , updated_at
-        , active
+        , enabled
         , custom
         )
     VALUES
@@ -77,7 +77,7 @@ BEGIN
           , name = NEW.name
           , description = NEW.description
           , updated_at = statement_timestamp()
-          , active = TRUE
+          , enabled = TRUE
           , custom = TRUE
        WHERE activity_category.id = EXCLUDED.id;
 

@@ -31,7 +31,7 @@ DECLARE
         {"pattern": "%_custom", "description": "Writable views for inserting new custom classification codes."},
         {"pattern": "%_system", "description": "Writable views for inserting new system-defined classification codes (typically used during initial setup)."},
         {"pattern": "%_ordered", "description": "Views providing a specific sort order for classifications, often for UI display."},
-        {"pattern": "%_active", "description": "Views that filter for only the `active` records in a classification table."},
+        {"pattern": "%_active", "description": "Views that filter for only the `enabled` records in a classification table."},
         {"pattern": "%__for_portion_of_valid", "description": "Helper view created by sql_saga for temporal REST updates (FOR PORTION OF)."},
         {"pattern": "%_custom_only", "description": "Helper view for listing and loading custom classification data, separating it from system-provided data."},
         {"pattern": "%_staging", "description": "Internal staging table for bulk inserts, merged into main table at end of batch processing."}
@@ -80,7 +80,7 @@ DECLARE
             '{"schema": "public", "name": "stat_for_unit"}'::jsonb,
             '{"schema": "public", "name": "stat_definition"}'::jsonb
         )),
-        (3, 2, 5, 'General Code/Classification Tables', 'These tables typically store codes, names, and flags for `custom` and `active` status.', jsonb_build_array(
+        (3, 2, 5, 'General Code/Classification Tables', 'These tables typically store codes, names, and flags for `custom` and `enabled` status.', jsonb_build_array(
             '{"schema": "public", "name": "data_source"}'::jsonb,
             '{"schema": "public", "name": "enterprise_group_type"}'::jsonb,
             '{"schema": "public", "name": "enterprise_group_role"}'::jsonb,
@@ -226,7 +226,7 @@ This document provides a compact overview of the StatBus database schema, focusi
                         WHEN column_name ~ '(name|code|path|ident|slug|title|notes|command|value|label|sub|email|type)' THEN 2
                         WHEN column_name LIKE '%\_id' THEN 3
                         WHEN column_name LIKE 'valid\_%' OR column_name LIKE '%\_at' OR column_name LIKE '%\_on' THEN 4
-                        WHEN column_name = 'active' THEN 5
+                        WHEN column_name = 'enabled' THEN 5
                         ELSE 6
                     END as priority
                 FROM information_schema.columns

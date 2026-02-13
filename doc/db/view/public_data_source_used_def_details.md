@@ -12,7 +12,7 @@ View definition:
    FROM data_source s
   WHERE (id IN ( SELECT unnest(array_distinct_concat(statistical_unit.data_source_ids)) AS unnest
            FROM statistical_unit
-          WHERE statistical_unit.data_source_ids IS NOT NULL)) AND active
+          WHERE statistical_unit.data_source_ids IS NOT NULL)) AND enabled
   ORDER BY code;
 
 ```

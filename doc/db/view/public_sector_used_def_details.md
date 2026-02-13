@@ -16,7 +16,7 @@ View definition:
    FROM sector s
   WHERE path @> (( SELECT array_agg(DISTINCT statistical_unit.sector_path) AS array_agg
            FROM statistical_unit
-          WHERE statistical_unit.sector_path IS NOT NULL)) AND active
+          WHERE statistical_unit.sector_path IS NOT NULL)) AND enabled
   ORDER BY path;
 
 ```

@@ -14237,7 +14237,7 @@ SELECT jsonb_pretty(
 statistical_unit_hierarchy
 {
     "enterprise": {
-        "active": true,
+        "enabled": true,
         "legal_unit": [
             {
                 "name": "KRANLØFT ENK",
@@ -14246,15 +14246,15 @@ statistical_unit_hierarchy
                     "name": "Private aksjeselskaper mv.",
                     "path": "innl.a_ikke_fin.2100",
                     "label": "innla_ikke_fin2100",
-                    "active": true,
                     "custom": true,
+                    "enabled": true,
                     "description": "### Notes:\nSektoren omfatter markedsproduserende ikke-finansielle selskaper med begrenset økonomisk ansvar hvor private nasjonale aktører eller utlendinger direkte eller indirekte eier mer enn 50 prosent av innbetalt eierkapital."
                 },
                 "status": {
                     "code": "active",
                     "name": "Active",
-                    "active": true,
                     "custom": false,
+                    "enabled": true,
                     "priority": 1,
                     "used_for_counting": true,
                     "assigned_by_default": true
@@ -14267,8 +14267,8 @@ statistical_unit_hierarchy
                         "data_source": {
                             "code": "skatt",
                             "name": "Skatteetaten",
-                            "active": true,
-                            "custom": true
+                            "custom": true,
+                            "enabled": true
                         },
                         "valid_range": "[2010-01-01,2013-01-01)",
                         "valid_until": "2013-01-01",
@@ -14279,13 +14279,13 @@ statistical_unit_hierarchy
                             "path": "H.49.4.1.0",
                             "label": "H49410",
                             "level": 5,
-                            "active": true,
                             "custom": true,
+                            "enabled": true,
                             "description": "### Shortname: Godstransport på vei\n\n### Notes:\nInkluderer også: Omfatter også utleie av lastebiler med sjåfør og godstransport med kjøretøyer som trekkes av dyr eller mennesker Ekskluderer: Transport av tømmer i skogen som ledd i skogsdrift grupperes under: 02.40 Tjenester tilknyttet skogbruk. Lastebiltransport med distribusjon av vann grupperes under: 36.00 Uttak fra kilde, rensing og distribusjon av vann. Avfallstransport som ledd i renovasjonsvirksomhet grupperes under hhv.: 38.11 Innsamling av ikke-farlig avfall og: 38.12 Innsamling av farlig avfall. Drift av godsterminaler grupperes under: 52.211 Drift av gods- og transportsentraler. Pakking for transport grupperes under: 52.291 Spedisjon. Post- og kurervirksomhet grupperes under hhv.: 53.10 Landsdekkende posttjenester og: 53.20 Andre post- og budtjenester",
                             "activity_category_standard": {
                                 "code": "nace_v2.1",
                                 "name": "NACE 2.1",
-                                "obsolete": false,
+                                "enabled": true,
                                 "description": "NACE Version 2 Revision 1",
                                 "code_pattern": "dot_after_two_digits"
                             }
@@ -14309,8 +14309,8 @@ statistical_unit_hierarchy
                             "name": "Norway",
                             "iso_2": "NO",
                             "iso_3": "NOR",
-                            "active": true,
                             "custom": false,
+                            "enabled": true,
                             "iso_num": "578"
                         },
                         "altitude": null,
@@ -14323,8 +14323,8 @@ statistical_unit_hierarchy
                         "data_source": {
                             "code": "skatt",
                             "name": "Skatteetaten",
-                            "active": true,
-                            "custom": true
+                            "custom": true,
+                            "enabled": true
                         },
                         "valid_range": "[2010-01-01,2013-01-01)",
                         "valid_until": "2013-01-01",
@@ -14340,16 +14340,16 @@ statistical_unit_hierarchy
                 "legal_form": {
                     "code": "ENK",
                     "name": "Enkeltpersonforetak",
-                    "active": true,
-                    "custom": true
+                    "custom": true,
+                    "enabled": true
                 },
                 "short_name": null,
                 "valid_from": "2010-01-01",
                 "data_source": {
                     "code": "skatt",
                     "name": "Skatteetaten",
-                    "active": true,
-                    "custom": true
+                    "custom": true,
+                    "enabled": true
                 },
                 "valid_range": "[2010-01-01,2013-01-01)",
                 "valid_until": "2013-01-01",
@@ -14360,8 +14360,8 @@ statistical_unit_hierarchy
                         "status": {
                             "code": "active",
                             "name": "Active",
-                            "active": true,
                             "custom": false,
+                            "enabled": true,
                             "priority": 1,
                             "used_for_counting": true,
                             "assigned_by_default": true
@@ -14374,8 +14374,8 @@ statistical_unit_hierarchy
                                 "data_source": {
                                     "code": "brreg",
                                     "name": "Brønnøysundregistrene",
-                                    "active": true,
-                                    "custom": true
+                                    "custom": true,
+                                    "enabled": true
                                 },
                                 "valid_range": "[2010-01-01,infinity)",
                                 "valid_until": "infinity",
@@ -14386,13 +14386,13 @@ statistical_unit_hierarchy
                                     "path": "H.49.4.1.0",
                                     "label": "H49410",
                                     "level": 5,
-                                    "active": true,
                                     "custom": true,
+                                    "enabled": true,
                                     "description": "### Shortname: Godstransport på vei\n\n### Notes:\nInkluderer også: Omfatter også utleie av lastebiler med sjåfør og godstransport med kjøretøyer som trekkes av dyr eller mennesker Ekskluderer: Transport av tømmer i skogen som ledd i skogsdrift grupperes under: 02.40 Tjenester tilknyttet skogbruk. Lastebiltransport med distribusjon av vann grupperes under: 36.00 Uttak fra kilde, rensing og distribusjon av vann. Avfallstransport som ledd i renovasjonsvirksomhet grupperes under hhv.: 38.11 Innsamling av ikke-farlig avfall og: 38.12 Innsamling av farlig avfall. Drift av godsterminaler grupperes under: 52.211 Drift av gods- og transportsentraler. Pakking for transport grupperes under: 52.291 Spedisjon. Post- og kurervirksomhet grupperes under hhv.: 53.10 Landsdekkende posttjenester og: 53.20 Andre post- og budtjenester",
                                     "activity_category_standard": {
                                         "code": "nace_v2.1",
                                         "name": "NACE 2.1",
-                                        "obsolete": false,
+                                        "enabled": true,
                                         "description": "NACE Version 2 Revision 1",
                                         "code_pattern": "dot_after_two_digits"
                                     }
@@ -14416,8 +14416,8 @@ statistical_unit_hierarchy
                                     "name": "Norway",
                                     "iso_2": "NO",
                                     "iso_3": "NOR",
-                                    "active": true,
                                     "custom": false,
+                                    "enabled": true,
                                     "iso_num": "578"
                                 },
                                 "altitude": null,
@@ -14430,8 +14430,8 @@ statistical_unit_hierarchy
                                 "data_source": {
                                     "code": "brreg",
                                     "name": "Brønnøysundregistrene",
-                                    "active": true,
-                                    "custom": true
+                                    "custom": true,
+                                    "enabled": true
                                 },
                                 "valid_range": "[2010-01-01,infinity)",
                                 "valid_until": "infinity",
@@ -14445,8 +14445,8 @@ statistical_unit_hierarchy
                         "unit_size": {
                             "code": "tny",
                             "name": "Tiny",
-                            "active": true,
-                            "custom": false
+                            "custom": false,
+                            "enabled": true
                         },
                         "birth_date": "2010-01-01",
                         "death_date": null,
@@ -14455,8 +14455,8 @@ statistical_unit_hierarchy
                         "data_source": {
                             "code": "brreg",
                             "name": "Brønnøysundregistrene",
-                            "active": true,
-                            "custom": true
+                            "custom": true,
+                            "enabled": true
                         },
                         "valid_range": "[2010-01-01,2013-01-01)",
                         "valid_until": "2013-01-01",
@@ -14471,8 +14471,8 @@ statistical_unit_hierarchy
                                 "data_source": {
                                     "code": "brreg",
                                     "name": "Brønnøysundregistrene",
-                                    "active": true,
-                                    "custom": true
+                                    "custom": true,
+                                    "enabled": true
                                 },
                                 "valid_range": "[2010-01-01,2013-01-01)",
                                 "valid_until": "2013-01-01",
@@ -14483,7 +14483,7 @@ statistical_unit_hierarchy
                                     "code": "employees",
                                     "name": "Employees",
                                     "type": "int",
-                                    "archived": false,
+                                    "enabled": true,
                                     "priority": 1,
                                     "frequency": "yearly",
                                     "description": "The number of people receiving an official salary with government reporting."
@@ -14497,8 +14497,8 @@ statistical_unit_hierarchy
                                 "data_source": {
                                     "code": "brreg",
                                     "name": "Brønnøysundregistrene",
-                                    "active": true,
-                                    "custom": true
+                                    "custom": true,
+                                    "enabled": true
                                 },
                                 "valid_range": "[2010-01-01,2013-01-01)",
                                 "valid_until": "2013-01-01",
@@ -14509,7 +14509,7 @@ statistical_unit_hierarchy
                                     "code": "turnover",
                                     "name": "Turnover",
                                     "type": "float",
-                                    "archived": false,
+                                    "enabled": true,
                                     "priority": 2,
                                     "frequency": "yearly",
                                     "description": "The amount (Local Currency)"
@@ -14551,7 +14551,7 @@ SELECT jsonb_pretty(
 statistical_unit_hierarchy
 {
     "enterprise": {
-        "active": true,
+        "enabled": true,
         "legal_unit": [
             {
                 "name": "KRAN & SPESIALLØFT AS",
@@ -14560,15 +14560,15 @@ statistical_unit_hierarchy
                     "name": "Private aksjeselskaper mv.",
                     "path": "innl.a_ikke_fin.2100",
                     "label": "innla_ikke_fin2100",
-                    "active": true,
                     "custom": true,
+                    "enabled": true,
                     "description": "### Notes:\nSektoren omfatter markedsproduserende ikke-finansielle selskaper med begrenset økonomisk ansvar hvor private nasjonale aktører eller utlendinger direkte eller indirekte eier mer enn 50 prosent av innbetalt eierkapital."
                 },
                 "status": {
                     "code": "active",
                     "name": "Active",
-                    "active": true,
                     "custom": false,
+                    "enabled": true,
                     "priority": 1,
                     "used_for_counting": true,
                     "assigned_by_default": true
@@ -14581,8 +14581,8 @@ statistical_unit_hierarchy
                         "data_source": {
                             "code": "skatt",
                             "name": "Skatteetaten",
-                            "active": true,
-                            "custom": true
+                            "custom": true,
+                            "enabled": true
                         },
                         "valid_range": "[2013-01-01,infinity)",
                         "valid_until": "infinity",
@@ -14593,13 +14593,13 @@ statistical_unit_hierarchy
                             "path": "H.49.4.1.0",
                             "label": "H49410",
                             "level": 5,
-                            "active": true,
                             "custom": true,
+                            "enabled": true,
                             "description": "### Shortname: Godstransport på vei\n\n### Notes:\nInkluderer også: Omfatter også utleie av lastebiler med sjåfør og godstransport med kjøretøyer som trekkes av dyr eller mennesker Ekskluderer: Transport av tømmer i skogen som ledd i skogsdrift grupperes under: 02.40 Tjenester tilknyttet skogbruk. Lastebiltransport med distribusjon av vann grupperes under: 36.00 Uttak fra kilde, rensing og distribusjon av vann. Avfallstransport som ledd i renovasjonsvirksomhet grupperes under hhv.: 38.11 Innsamling av ikke-farlig avfall og: 38.12 Innsamling av farlig avfall. Drift av godsterminaler grupperes under: 52.211 Drift av gods- og transportsentraler. Pakking for transport grupperes under: 52.291 Spedisjon. Post- og kurervirksomhet grupperes under hhv.: 53.10 Landsdekkende posttjenester og: 53.20 Andre post- og budtjenester",
                             "activity_category_standard": {
                                 "code": "nace_v2.1",
                                 "name": "NACE 2.1",
-                                "obsolete": false,
+                                "enabled": true,
                                 "description": "NACE Version 2 Revision 1",
                                 "code_pattern": "dot_after_two_digits"
                             }
@@ -14623,8 +14623,8 @@ statistical_unit_hierarchy
                             "name": "Norway",
                             "iso_2": "NO",
                             "iso_3": "NOR",
-                            "active": true,
                             "custom": false,
+                            "enabled": true,
                             "iso_num": "578"
                         },
                         "altitude": null,
@@ -14637,8 +14637,8 @@ statistical_unit_hierarchy
                         "data_source": {
                             "code": "skatt",
                             "name": "Skatteetaten",
-                            "active": true,
-                            "custom": true
+                            "custom": true,
+                            "enabled": true
                         },
                         "valid_range": "[2013-01-01,infinity)",
                         "valid_until": "infinity",
@@ -14654,16 +14654,16 @@ statistical_unit_hierarchy
                 "legal_form": {
                     "code": "AS",
                     "name": "Aksjeselskap",
-                    "active": true,
-                    "custom": true
+                    "custom": true,
+                    "enabled": true
                 },
                 "short_name": null,
                 "valid_from": "2013-01-01",
                 "data_source": {
                     "code": "skatt",
                     "name": "Skatteetaten",
-                    "active": true,
-                    "custom": true
+                    "custom": true,
+                    "enabled": true
                 },
                 "valid_range": "[2013-01-01,infinity)",
                 "valid_until": "infinity",
@@ -14674,8 +14674,8 @@ statistical_unit_hierarchy
                         "status": {
                             "code": "active",
                             "name": "Active",
-                            "active": true,
                             "custom": false,
+                            "enabled": true,
                             "priority": 1,
                             "used_for_counting": true,
                             "assigned_by_default": true
@@ -14688,8 +14688,8 @@ statistical_unit_hierarchy
                                 "data_source": {
                                     "code": "brreg",
                                     "name": "Brønnøysundregistrene",
-                                    "active": true,
-                                    "custom": true
+                                    "custom": true,
+                                    "enabled": true
                                 },
                                 "valid_range": "[2010-01-01,infinity)",
                                 "valid_until": "infinity",
@@ -14700,13 +14700,13 @@ statistical_unit_hierarchy
                                     "path": "H.49.4.1.0",
                                     "label": "H49410",
                                     "level": 5,
-                                    "active": true,
                                     "custom": true,
+                                    "enabled": true,
                                     "description": "### Shortname: Godstransport på vei\n\n### Notes:\nInkluderer også: Omfatter også utleie av lastebiler med sjåfør og godstransport med kjøretøyer som trekkes av dyr eller mennesker Ekskluderer: Transport av tømmer i skogen som ledd i skogsdrift grupperes under: 02.40 Tjenester tilknyttet skogbruk. Lastebiltransport med distribusjon av vann grupperes under: 36.00 Uttak fra kilde, rensing og distribusjon av vann. Avfallstransport som ledd i renovasjonsvirksomhet grupperes under hhv.: 38.11 Innsamling av ikke-farlig avfall og: 38.12 Innsamling av farlig avfall. Drift av godsterminaler grupperes under: 52.211 Drift av gods- og transportsentraler. Pakking for transport grupperes under: 52.291 Spedisjon. Post- og kurervirksomhet grupperes under hhv.: 53.10 Landsdekkende posttjenester og: 53.20 Andre post- og budtjenester",
                                     "activity_category_standard": {
                                         "code": "nace_v2.1",
                                         "name": "NACE 2.1",
-                                        "obsolete": false,
+                                        "enabled": true,
                                         "description": "NACE Version 2 Revision 1",
                                         "code_pattern": "dot_after_two_digits"
                                     }
@@ -14730,8 +14730,8 @@ statistical_unit_hierarchy
                                     "name": "Norway",
                                     "iso_2": "NO",
                                     "iso_3": "NOR",
-                                    "active": true,
                                     "custom": false,
+                                    "enabled": true,
                                     "iso_num": "578"
                                 },
                                 "altitude": null,
@@ -14744,8 +14744,8 @@ statistical_unit_hierarchy
                                 "data_source": {
                                     "code": "brreg",
                                     "name": "Brønnøysundregistrene",
-                                    "active": true,
-                                    "custom": true
+                                    "custom": true,
+                                    "enabled": true
                                 },
                                 "valid_range": "[2010-01-01,infinity)",
                                 "valid_until": "infinity",
@@ -14759,8 +14759,8 @@ statistical_unit_hierarchy
                         "unit_size": {
                             "code": "lrg",
                             "name": "Large",
-                            "active": true,
-                            "custom": false
+                            "custom": false,
+                            "enabled": true
                         },
                         "birth_date": "2010-01-01",
                         "death_date": null,
@@ -14769,8 +14769,8 @@ statistical_unit_hierarchy
                         "data_source": {
                             "code": "brreg",
                             "name": "Brønnøysundregistrene",
-                            "active": true,
-                            "custom": true
+                            "custom": true,
+                            "enabled": true
                         },
                         "valid_range": "[2020-01-01,infinity)",
                         "valid_until": "infinity",
@@ -14785,8 +14785,8 @@ statistical_unit_hierarchy
                                 "data_source": {
                                     "code": "brreg",
                                     "name": "Brønnøysundregistrene",
-                                    "active": true,
-                                    "custom": true
+                                    "custom": true,
+                                    "enabled": true
                                 },
                                 "valid_range": "[2020-01-01,infinity)",
                                 "valid_until": "infinity",
@@ -14797,7 +14797,7 @@ statistical_unit_hierarchy
                                     "code": "employees",
                                     "name": "Employees",
                                     "type": "int",
-                                    "archived": false,
+                                    "enabled": true,
                                     "priority": 1,
                                     "frequency": "yearly",
                                     "description": "The number of people receiving an official salary with government reporting."
@@ -14811,8 +14811,8 @@ statistical_unit_hierarchy
                                 "data_source": {
                                     "code": "brreg",
                                     "name": "Brønnøysundregistrene",
-                                    "active": true,
-                                    "custom": true
+                                    "custom": true,
+                                    "enabled": true
                                 },
                                 "valid_range": "[2020-01-01,infinity)",
                                 "valid_until": "infinity",
@@ -14823,7 +14823,7 @@ statistical_unit_hierarchy
                                     "code": "turnover",
                                     "name": "Turnover",
                                     "type": "float",
-                                    "archived": false,
+                                    "enabled": true,
                                     "priority": 2,
                                     "frequency": "yearly",
                                     "description": "The amount (Local Currency)"
@@ -14864,7 +14864,7 @@ SELECT jsonb_pretty(
 statistical_unit_hierarchy
 {
     "enterprise": {
-        "active": true,
+        "enabled": true,
         "legal_unit": [
             {
                 "name": "KRAN & SPESIALLØFT AS",
@@ -14873,15 +14873,15 @@ statistical_unit_hierarchy
                     "name": "Private aksjeselskaper mv.",
                     "path": "innl.a_ikke_fin.2100",
                     "label": "innla_ikke_fin2100",
-                    "active": true,
                     "custom": true,
+                    "enabled": true,
                     "description": "### Notes:\nSektoren omfatter markedsproduserende ikke-finansielle selskaper med begrenset økonomisk ansvar hvor private nasjonale aktører eller utlendinger direkte eller indirekte eier mer enn 50 prosent av innbetalt eierkapital."
                 },
                 "status": {
                     "code": "active",
                     "name": "Active",
-                    "active": true,
                     "custom": false,
+                    "enabled": true,
                     "priority": 1,
                     "used_for_counting": true,
                     "assigned_by_default": true
@@ -14894,8 +14894,8 @@ statistical_unit_hierarchy
                         "data_source": {
                             "code": "skatt",
                             "name": "Skatteetaten",
-                            "active": true,
-                            "custom": true
+                            "custom": true,
+                            "enabled": true
                         },
                         "valid_range": "[2013-01-01,infinity)",
                         "valid_until": "infinity",
@@ -14906,13 +14906,13 @@ statistical_unit_hierarchy
                             "path": "H.49.4.1.0",
                             "label": "H49410",
                             "level": 5,
-                            "active": true,
                             "custom": true,
+                            "enabled": true,
                             "description": "### Shortname: Godstransport på vei\n\n### Notes:\nInkluderer også: Omfatter også utleie av lastebiler med sjåfør og godstransport med kjøretøyer som trekkes av dyr eller mennesker Ekskluderer: Transport av tømmer i skogen som ledd i skogsdrift grupperes under: 02.40 Tjenester tilknyttet skogbruk. Lastebiltransport med distribusjon av vann grupperes under: 36.00 Uttak fra kilde, rensing og distribusjon av vann. Avfallstransport som ledd i renovasjonsvirksomhet grupperes under hhv.: 38.11 Innsamling av ikke-farlig avfall og: 38.12 Innsamling av farlig avfall. Drift av godsterminaler grupperes under: 52.211 Drift av gods- og transportsentraler. Pakking for transport grupperes under: 52.291 Spedisjon. Post- og kurervirksomhet grupperes under hhv.: 53.10 Landsdekkende posttjenester og: 53.20 Andre post- og budtjenester",
                             "activity_category_standard": {
                                 "code": "nace_v2.1",
                                 "name": "NACE 2.1",
-                                "obsolete": false,
+                                "enabled": true,
                                 "description": "NACE Version 2 Revision 1",
                                 "code_pattern": "dot_after_two_digits"
                             }
@@ -14936,8 +14936,8 @@ statistical_unit_hierarchy
                             "name": "Norway",
                             "iso_2": "NO",
                             "iso_3": "NOR",
-                            "active": true,
                             "custom": false,
+                            "enabled": true,
                             "iso_num": "578"
                         },
                         "altitude": null,
@@ -14950,8 +14950,8 @@ statistical_unit_hierarchy
                         "data_source": {
                             "code": "skatt",
                             "name": "Skatteetaten",
-                            "active": true,
-                            "custom": true
+                            "custom": true,
+                            "enabled": true
                         },
                         "valid_range": "[2013-01-01,infinity)",
                         "valid_until": "infinity",
@@ -14967,16 +14967,16 @@ statistical_unit_hierarchy
                 "legal_form": {
                     "code": "AS",
                     "name": "Aksjeselskap",
-                    "active": true,
-                    "custom": true
+                    "custom": true,
+                    "enabled": true
                 },
                 "short_name": null,
                 "valid_from": "2013-01-01",
                 "data_source": {
                     "code": "skatt",
                     "name": "Skatteetaten",
-                    "active": true,
-                    "custom": true
+                    "custom": true,
+                    "enabled": true
                 },
                 "valid_range": "[2013-01-01,infinity)",
                 "valid_until": "infinity",
@@ -14987,8 +14987,8 @@ statistical_unit_hierarchy
                         "status": {
                             "code": "active",
                             "name": "Active",
-                            "active": true,
                             "custom": false,
+                            "enabled": true,
                             "priority": 1,
                             "used_for_counting": true,
                             "assigned_by_default": true
@@ -15001,8 +15001,8 @@ statistical_unit_hierarchy
                                 "data_source": {
                                     "code": "brreg",
                                     "name": "Brønnøysundregistrene",
-                                    "active": true,
-                                    "custom": true
+                                    "custom": true,
+                                    "enabled": true
                                 },
                                 "valid_range": "[2010-01-01,infinity)",
                                 "valid_until": "infinity",
@@ -15013,13 +15013,13 @@ statistical_unit_hierarchy
                                     "path": "H.49.4.1.0",
                                     "label": "H49410",
                                     "level": 5,
-                                    "active": true,
                                     "custom": true,
+                                    "enabled": true,
                                     "description": "### Shortname: Godstransport på vei\n\n### Notes:\nInkluderer også: Omfatter også utleie av lastebiler med sjåfør og godstransport med kjøretøyer som trekkes av dyr eller mennesker Ekskluderer: Transport av tømmer i skogen som ledd i skogsdrift grupperes under: 02.40 Tjenester tilknyttet skogbruk. Lastebiltransport med distribusjon av vann grupperes under: 36.00 Uttak fra kilde, rensing og distribusjon av vann. Avfallstransport som ledd i renovasjonsvirksomhet grupperes under hhv.: 38.11 Innsamling av ikke-farlig avfall og: 38.12 Innsamling av farlig avfall. Drift av godsterminaler grupperes under: 52.211 Drift av gods- og transportsentraler. Pakking for transport grupperes under: 52.291 Spedisjon. Post- og kurervirksomhet grupperes under hhv.: 53.10 Landsdekkende posttjenester og: 53.20 Andre post- og budtjenester",
                                     "activity_category_standard": {
                                         "code": "nace_v2.1",
                                         "name": "NACE 2.1",
-                                        "obsolete": false,
+                                        "enabled": true,
                                         "description": "NACE Version 2 Revision 1",
                                         "code_pattern": "dot_after_two_digits"
                                     }
@@ -15043,8 +15043,8 @@ statistical_unit_hierarchy
                                     "name": "Norway",
                                     "iso_2": "NO",
                                     "iso_3": "NOR",
-                                    "active": true,
                                     "custom": false,
+                                    "enabled": true,
                                     "iso_num": "578"
                                 },
                                 "altitude": null,
@@ -15057,8 +15057,8 @@ statistical_unit_hierarchy
                                 "data_source": {
                                     "code": "brreg",
                                     "name": "Brønnøysundregistrene",
-                                    "active": true,
-                                    "custom": true
+                                    "custom": true,
+                                    "enabled": true
                                 },
                                 "valid_range": "[2010-01-01,infinity)",
                                 "valid_until": "infinity",
@@ -15072,8 +15072,8 @@ statistical_unit_hierarchy
                         "unit_size": {
                             "code": "lrg",
                             "name": "Large",
-                            "active": true,
-                            "custom": false
+                            "custom": false,
+                            "enabled": true
                         },
                         "birth_date": "2010-01-01",
                         "death_date": null,
@@ -15082,8 +15082,8 @@ statistical_unit_hierarchy
                         "data_source": {
                             "code": "brreg",
                             "name": "Brønnøysundregistrene",
-                            "active": true,
-                            "custom": true
+                            "custom": true,
+                            "enabled": true
                         },
                         "valid_range": "[2020-01-01,infinity)",
                         "valid_until": "infinity",
@@ -15098,8 +15098,8 @@ statistical_unit_hierarchy
                                 "data_source": {
                                     "code": "brreg",
                                     "name": "Brønnøysundregistrene",
-                                    "active": true,
-                                    "custom": true
+                                    "custom": true,
+                                    "enabled": true
                                 },
                                 "valid_range": "[2020-01-01,infinity)",
                                 "valid_until": "infinity",
@@ -15110,7 +15110,7 @@ statistical_unit_hierarchy
                                     "code": "employees",
                                     "name": "Employees",
                                     "type": "int",
-                                    "archived": false,
+                                    "enabled": true,
                                     "priority": 1,
                                     "frequency": "yearly",
                                     "description": "The number of people receiving an official salary with government reporting."
@@ -15124,8 +15124,8 @@ statistical_unit_hierarchy
                                 "data_source": {
                                     "code": "brreg",
                                     "name": "Brønnøysundregistrene",
-                                    "active": true,
-                                    "custom": true
+                                    "custom": true,
+                                    "enabled": true
                                 },
                                 "valid_range": "[2020-01-01,infinity)",
                                 "valid_until": "infinity",
@@ -15136,7 +15136,7 @@ statistical_unit_hierarchy
                                     "code": "turnover",
                                     "name": "Turnover",
                                     "type": "float",
-                                    "archived": false,
+                                    "enabled": true,
                                     "priority": 2,
                                     "frequency": "yearly",
                                     "description": "The amount (Local Currency)"

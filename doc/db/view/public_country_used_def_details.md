@@ -12,7 +12,7 @@ View definition:
    FROM country c
   WHERE (id IN ( SELECT statistical_unit.physical_country_id
            FROM statistical_unit
-          WHERE statistical_unit.physical_country_id IS NOT NULL)) AND active
+          WHERE statistical_unit.physical_country_id IS NOT NULL)) AND enabled
   ORDER BY id;
 
 ```

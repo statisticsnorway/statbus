@@ -27,16 +27,18 @@ BEGIN
     units_in_period AS (
         -- Get a broad candidate pool of all unit versions that were valid at any point
         -- during the previous or current periods, using inclusive date ranges.
+        -- PERF: Use native daterange && operator instead of from_to_overlaps() function.
         SELECT *
         FROM public.statistical_unit su
-        WHERE from_to_overlaps(su.valid_from, su.valid_to, v_prev_start, v_curr_stop)
+        WHERE daterange(su.valid_from, su.valid_until, '[)') && daterange(v_prev_start, v_curr_stop + 1, '[)')
     ),
     latest_versions_curr AS (
         -- Find the single, most recent version of each unit that was active at any point
         -- during the *current* period. This represents all entities with economic activity.
+        -- FIX: Use valid_until > v_curr_start for half-open interval semantics [valid_from, valid_until)
         SELECT DISTINCT ON (uip.unit_id, uip.unit_type) uip.*
         FROM units_in_period AS uip
-        WHERE uip.valid_from <= v_curr_stop AND uip.valid_to >= v_curr_start
+        WHERE uip.valid_from <= v_curr_stop AND uip.valid_until > v_curr_start
         ORDER BY uip.unit_id, uip.unit_type, uip.valid_from DESC, uip.valid_until DESC
     ),
     latest_versions_prev AS (
@@ -74,6 +76,15 @@ BEGIN
         FROM stock_at_end_of_curr c
         FULL JOIN stock_at_end_of_prev p ON c.unit_id = p.unit_id AND c.unit_type = p.unit_type
         LEFT JOIN latest_versions_curr lvc ON lvc.unit_id = COALESCE(p.unit_id, c.unit_id) AND lvc.unit_type = COALESCE(p.unit_type, c.unit_type)
+    ),
+    -- PERF: Pre-aggregate stats_summary by unit_type instead of using LATERAL JOIN.
+    stats_by_unit_type AS (
+        SELECT
+            lvc.unit_type,
+            COALESCE(public.jsonb_stats_summary_merge_agg(lvc.stats_summary), '{}'::jsonb) AS stats_summary
+        FROM latest_versions_curr lvc
+        WHERE lvc.used_for_counting
+        GROUP BY lvc.unit_type
     ),
     demographics AS (
         SELECT
@@ -114,18 +125,10 @@ BEGIN
         d.name_change_count, d.primary_activity_category_change_count, d.secondary_activity_category_change_count,
         d.sector_change_count, d.legal_form_change_count, d.physical_region_change_count,
         d.physical_country_change_count, d.physical_address_change_count,
-        ss.stats_summary
+        -- PERF: Use regular LEFT JOIN instead of LATERAL JOIN
+        COALESCE(sbut.stats_summary, '{}'::jsonb) AS stats_summary
     FROM demographics d
-    LEFT JOIN LATERAL (
-        -- FINESSE: The `stats_summary` is calculated here, separately from the demographic counts.
-        -- It aggregates summaries from `latest_versions_curr`, which represents all units active
-        -- *during* the period, correctly including economic activity from units that died before
-        -- the period ended. This is semantically different from the `demographics` CTE, which
-        -- is concerned only with the final "stock" of units.
-        SELECT COALESCE(public.jsonb_stats_summary_merge_agg(lvc.stats_summary), '{}'::jsonb) AS stats_summary
-        FROM latest_versions_curr lvc
-        WHERE lvc.unit_type = d.unit_type AND lvc.used_for_counting
-    ) ss ON true;
+    LEFT JOIN stats_by_unit_type sbut ON sbut.unit_type = d.unit_type;
 END;
 $function$
 ```

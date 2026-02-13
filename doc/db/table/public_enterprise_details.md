@@ -3,15 +3,15 @@
      Column      |           Type           | Collation | Nullable |           Default            | Storage  | Compression | Stats target | Description 
 -----------------+--------------------------+-----------+----------+------------------------------+----------+-------------+--------------+-------------
  id              | integer                  |           | not null | generated always as identity | plain    |             |              | 
- active          | boolean                  |           | not null | true                         | plain    |             |              | 
+ enabled         | boolean                  |           | not null | true                         | plain    |             |              | 
  short_name      | character varying(16)    |           |          |                              | extended |             |              | 
  edit_comment    | character varying(512)   |           |          |                              | extended |             |              | 
  edit_by_user_id | integer                  |           | not null |                              | plain    |             |              | 
  edit_at         | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
 Indexes:
     "enterprise_pkey" PRIMARY KEY, btree (id)
-    "ix_enterprise_active" btree (active)
     "ix_enterprise_edit_by_user_id" btree (edit_by_user_id)
+    "ix_enterprise_enabled" btree (enabled)
 Foreign-key constraints:
     "enterprise_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT
 Referenced by:
@@ -34,12 +34,14 @@ Policies:
       WITH CHECK (true)
 Not-null constraints:
     "enterprise_id_not_null" NOT NULL "id"
-    "enterprise_active_not_null" NOT NULL "active"
+    "enterprise_enabled_not_null" NOT NULL "enabled"
     "enterprise_edit_by_user_id_not_null" NOT NULL "edit_by_user_id"
     "enterprise_edit_at_not_null" NOT NULL "edit_at"
 Triggers:
-    enterprise_deletes_trigger BEFORE DELETE ON enterprise FOR EACH ROW EXECUTE FUNCTION worker.notify_worker_about_deletes()
-    enterprise_statement_changes_trigger AFTER INSERT OR UPDATE ON enterprise FOR EACH STATEMENT EXECUTE FUNCTION worker.notify_worker_about_statement_changes()
+    a_enterprise_log_delete AFTER DELETE ON enterprise REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
+    a_enterprise_log_insert AFTER INSERT ON enterprise REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
+    a_enterprise_log_update AFTER UPDATE ON enterprise REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
+    b_enterprise_ensure_collect AFTER INSERT OR DELETE OR UPDATE ON enterprise FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes()
     trigger_prevent_enterprise_id_update BEFORE UPDATE OF id ON enterprise FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap
 

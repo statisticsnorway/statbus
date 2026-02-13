@@ -12,7 +12,7 @@ BEGIN
         SELECT id INTO maybe_parent_id
           FROM public.sector
          WHERE path OPERATOR(public.=) public.subltree(NEW.path, 0, public.nlevel(NEW.path) - 1)
-           AND active
+           AND enabled
            AND custom;
         IF NOT FOUND THEN
           RAISE EXCEPTION 'Could not find parent for path %', NEW.path;
@@ -28,7 +28,7 @@ BEGIN
             , name
             , description
             , updated_at
-            , active
+            , enabled
             , custom
             )
         VALUES
@@ -40,13 +40,13 @@ BEGIN
             , TRUE -- Active
             , TRUE -- Custom
             )
-        ON CONFLICT (path, active, custom)
+        ON CONFLICT (path, enabled, custom)
         DO UPDATE SET
                 parent_id = maybe_parent_id
               , name = NEW.name
               , description = NEW.description
               , updated_at = statement_timestamp()
-              , active = TRUE
+              , enabled = TRUE
               , custom = TRUE
            RETURNING * INTO row;
 

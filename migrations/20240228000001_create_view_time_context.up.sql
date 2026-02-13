@@ -40,7 +40,7 @@ WITH combined_data AS (
   ,      code                                  AS code  -- Specific order column for relative_period
   ,      NULL::public.LTREE                    AS path  -- Null for path as not applicable here
   FROM public.relative_period_with_time
-  WHERE active
+  WHERE enabled
 
   UNION ALL
 
@@ -55,7 +55,7 @@ WITH combined_data AS (
   ,      NULL::public.relative_period_code               AS code  -- Null for code as not applicable here
   ,      path                                            AS path  -- Specific order column for tag
   FROM public.tag
-  WHERE active
+  WHERE enabled
     AND path IS NOT NULL
     AND context_valid_from IS NOT NULL
     AND context_valid_to   IS NOT NULL

@@ -9,7 +9,7 @@
  name        | character varying |           |          |         | extended | 
  description | text              |           |          |         | extended | 
  priority    | integer           |           |          |         | plain    | 
- archived    | boolean           |           |          |         | plain    | 
+ enabled     | boolean           |           |          |         | plain    | 
 View definition:
  SELECT id,
     code,
@@ -18,8 +18,8 @@ View definition:
     name,
     description,
     priority,
-    archived
+    enabled
    FROM stat_definition_ordered
-  WHERE NOT archived;
+  WHERE enabled;
 
 ```

@@ -1,7 +1,7 @@
 ```sql
-                                                                                         Table "public.stat_definition"
-   Column    |       Type        | Collation | Nullable |                   Default                   | Storage  | Compression | Stats target |                           Description                           
--------------+-------------------+-----------+----------+---------------------------------------------+----------+-------------+--------------+-----------------------------------------------------------------
+                                                                                      Table "public.stat_definition"
+   Column    |       Type        | Collation | Nullable |                   Default                   | Storage  | Compression | Stats target |                        Description                         
+-------------+-------------------+-----------+----------+---------------------------------------------+----------+-------------+--------------+------------------------------------------------------------
  id          | integer           |           | not null | nextval('stat_definition_id_seq'::regclass) | plain    |             |              | 
  code        | character varying |           | not null |                                             | extended |             |              | 
  type        | stat_type         |           | not null |                                             | plain    |             |              | 
@@ -9,7 +9,7 @@
  name        | character varying |           | not null |                                             | extended |             |              | 
  description | text              |           |          |                                             | extended |             |              | 
  priority    | integer           |           |          |                                             | plain    |             |              | UI ordering of the entry fields
- archived    | boolean           |           | not null | false                                       | plain    |             |              | At the time of data entry, only non archived codes can be used.
+ enabled     | boolean           |           | not null | true                                        | plain    |             |              | At the time of data entry, only enabled codes can be used.
 Indexes:
     "stat_definition_pkey" PRIMARY KEY, btree (id)
     "ix_stat_definition_type" btree (type)
@@ -34,7 +34,7 @@ Not-null constraints:
     "stat_definition_type_not_null" NOT NULL "type"
     "stat_definition_frequency_not_null" NOT NULL "frequency"
     "stat_definition_name_not_null" NOT NULL "name"
-    "stat_definition_archived_not_null" NOT NULL "archived"
+    "stat_definition_enabled_not_null" NOT NULL "enabled"
 Triggers:
     stat_definition_lifecycle_callbacks_after_delete AFTER DELETE ON stat_definition FOR EACH STATEMENT EXECUTE FUNCTION lifecycle_callbacks.cleanup_and_generate()
     stat_definition_lifecycle_callbacks_after_insert AFTER INSERT ON stat_definition FOR EACH STATEMENT EXECUTE FUNCTION lifecycle_callbacks.cleanup_and_generate()

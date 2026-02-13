@@ -23,7 +23,7 @@ View definition:
      JOIN activity_category_standard acs ON ac.standard_id = acs.id
      LEFT JOIN activity_category acp ON ac.parent_id = acp.id
   WHERE acs.id = (( SELECT settings.activity_category_standard_id
-           FROM settings)) AND ac.active AND (ac.path @> (( SELECT array_agg(DISTINCT statistical_unit.primary_activity_category_path) AS array_agg
+           FROM settings)) AND ac.enabled AND (ac.path @> (( SELECT array_agg(DISTINCT statistical_unit.primary_activity_category_path) AS array_agg
            FROM statistical_unit
           WHERE statistical_unit.primary_activity_category_path IS NOT NULL)) OR ac.path @> (( SELECT array_agg(DISTINCT statistical_unit.secondary_activity_category_path) AS array_agg
            FROM statistical_unit

@@ -7,18 +7,27 @@ DECLARE
     v_en_batch INT[];
     v_lu_batch INT[];
     v_es_batch INT[];
-    v_batch_size INT := 32768; -- Number of enterprises to process per batch
+    v_batch_size INT := 32768;
     v_total_enterprises INT;
     v_processed_count INT := 0;
     v_batch_num INT := 0;
     v_batch_start_time timestamptz;
     v_batch_duration_ms numeric;
     v_batch_speed numeric;
+    v_is_partial_refresh BOOLEAN;
+    -- Arrays for btree-optimized queries
+    v_establishment_ids INT[];
+    v_legal_unit_ids INT[];
+    v_enterprise_ids INT[];
 BEGIN
-    ANALYZE public.establishment, public.legal_unit, public.enterprise, public.activity, public.location, public.contact, public.stat_for_unit, public.person_for_unit;
+    v_is_partial_refresh := (p_establishment_id_ranges IS NOT NULL
+                            OR p_legal_unit_id_ranges IS NOT NULL
+                            OR p_enterprise_id_ranges IS NOT NULL);
 
-    IF p_establishment_id_ranges IS NULL AND p_legal_unit_id_ranges IS NULL AND p_enterprise_id_ranges IS NULL THEN
-        -- Full refresh: Use a staging table for performance and to minimize lock duration.
+    -- Only ANALYZE for full refresh (sync points handle partial refresh ANALYZE)
+    IF NOT v_is_partial_refresh THEN
+        ANALYZE public.establishment, public.legal_unit, public.enterprise, public.activity, public.location, public.contact, public.stat_for_unit, public.person_for_unit;
+
         CREATE TEMP TABLE timepoints_new (LIKE public.timepoints) ON COMMIT DROP;
 
         SELECT count(*) INTO v_total_enterprises FROM public.enterprise;
@@ -29,7 +38,6 @@ BEGIN
 
             IF array_length(v_en_batch, 1) >= v_batch_size THEN
                 v_batch_start_time := clock_timestamp();
-                -- For this batch of enterprises, find all descendant LUs and ESTs
                 v_processed_count := v_processed_count + array_length(v_en_batch, 1);
                 v_batch_num := v_batch_num + 1;
 
@@ -49,13 +57,12 @@ BEGIN
 
                 v_batch_duration_ms := (EXTRACT(EPOCH FROM (clock_timestamp() - v_batch_start_time))) * 1000;
                 v_batch_speed := v_batch_size / (v_batch_duration_ms / 1000.0);
-                RAISE DEBUG 'Timepoints batch %/% for enterprises done. (% units, % ms, % units/s)', v_batch_num, ceil(v_total_enterprises::decimal / v_batch_size), v_batch_size, round(v_batch_duration_ms), round(v_batch_speed);
+                RAISE DEBUG 'Timepoints batch %/% done. (% units, % ms, % units/s)', v_batch_num, ceil(v_total_enterprises::decimal / v_batch_size), v_batch_size, round(v_batch_duration_ms), round(v_batch_speed);
 
-                v_en_batch := '{}'; -- Reset for next batch
+                v_en_batch := '{}';
             END IF;
         END LOOP;
 
-        -- Process the final, smaller batch
         IF array_length(v_en_batch, 1) > 0 THEN
             v_batch_start_time := clock_timestamp();
             v_batch_num := v_batch_num + 1;
@@ -73,25 +80,31 @@ BEGIN
             ) ON CONFLICT DO NOTHING;
             v_batch_duration_ms := (EXTRACT(EPOCH FROM (clock_timestamp() - v_batch_start_time))) * 1000;
             v_batch_speed := array_length(v_en_batch, 1) / (v_batch_duration_ms / 1000.0);
-            RAISE DEBUG 'Timepoints final batch %/% for enterprises done. (% units, % ms, % units/s)', v_batch_num, ceil(v_total_enterprises::decimal / v_batch_size), array_length(v_en_batch, 1), round(v_batch_duration_ms), round(v_batch_speed);
+            RAISE DEBUG 'Timepoints final batch done. (% units, % ms, % units/s)', array_length(v_en_batch, 1), round(v_batch_duration_ms), round(v_batch_speed);
         END IF;
 
-        -- Atomically swap the data
         RAISE DEBUG 'Populated staging table, now swapping data...';
         TRUNCATE public.timepoints;
         INSERT INTO public.timepoints SELECT DISTINCT * FROM timepoints_new;
         RAISE DEBUG 'Full timepoints refresh complete.';
+
+        ANALYZE public.timepoints;
     ELSE
-        -- Partial refresh
+        -- Partial refresh: Use = ANY(array) for btree index optimization
         RAISE DEBUG 'Starting partial timepoints refresh...';
+
+        -- Convert multiranges to arrays for btree-friendly queries
         IF p_establishment_id_ranges IS NOT NULL THEN
-            DELETE FROM public.timepoints WHERE unit_type = 'establishment' AND unit_id <@ p_establishment_id_ranges;
+            v_establishment_ids := public.int4multirange_to_array(p_establishment_id_ranges);
+            DELETE FROM public.timepoints WHERE unit_type = 'establishment' AND unit_id = ANY(v_establishment_ids);
         END IF;
         IF p_legal_unit_id_ranges IS NOT NULL THEN
-            DELETE FROM public.timepoints WHERE unit_type = 'legal_unit' AND unit_id <@ p_legal_unit_id_ranges;
+            v_legal_unit_ids := public.int4multirange_to_array(p_legal_unit_id_ranges);
+            DELETE FROM public.timepoints WHERE unit_type = 'legal_unit' AND unit_id = ANY(v_legal_unit_ids);
         END IF;
         IF p_enterprise_id_ranges IS NOT NULL THEN
-            DELETE FROM public.timepoints WHERE unit_type = 'enterprise' AND unit_id <@ p_enterprise_id_ranges;
+            v_enterprise_ids := public.int4multirange_to_array(p_enterprise_id_ranges);
+            DELETE FROM public.timepoints WHERE unit_type = 'enterprise' AND unit_id = ANY(v_enterprise_ids);
         END IF;
 
         INSERT INTO public.timepoints SELECT * FROM public.timepoints_calculate(
@@ -102,8 +115,6 @@ BEGIN
 
         RAISE DEBUG 'Partial timepoints refresh complete.';
     END IF;
-
-    ANALYZE public.timepoints;
 END;
 $procedure$
 ```

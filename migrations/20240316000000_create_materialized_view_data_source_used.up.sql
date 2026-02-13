@@ -11,7 +11,7 @@ WHERE s.id IN (
       FROM public.statistical_unit
      WHERE data_source_ids IS NOT NULL
   )
-  AND s.active
+  AND s.enabled
 ORDER BY s.code;
 
 -- Create table from the view definition

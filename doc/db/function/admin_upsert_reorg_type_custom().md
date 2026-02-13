@@ -6,10 +6,10 @@ AS $function$
 DECLARE
     row RECORD;
 BEGIN
-    INSERT INTO public.reorg_type (code, name, description, active, custom, updated_at)
+    INSERT INTO public.reorg_type (code, name, description, enabled, custom, updated_at)
     VALUES (NEW.code, NEW.name, NEW.description, TRUE, 't', statement_timestamp())
-    ON CONFLICT (active, code) DO UPDATE SET
-        name = NEW.name, description = NEW.description, active = TRUE,
+    ON CONFLICT (enabled, code) DO UPDATE SET
+        name = NEW.name, description = NEW.description, enabled = TRUE,
         custom = 't',
         updated_at = statement_timestamp()
     WHERE reorg_type.id = EXCLUDED.id

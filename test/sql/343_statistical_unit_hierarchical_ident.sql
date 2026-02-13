@@ -9,9 +9,9 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 \i samples/norway/getting-started.sql
 
 -- Create hierarchical identifier type
-INSERT INTO public.external_ident_type (code, name, shape, labels, description, priority, archived)
+INSERT INTO public.external_ident_type (code, name, shape, labels, description, priority, enabled)
 VALUES ('surveyor_ident', 'Surveyor Identifier', 'hierarchical', 'region.district.seq',
-        'Region/District/Sequence hierarchical composite key', 50, false);
+        'Region/District/Sequence hierarchical composite key', 50, true);
 
 -- Create Legal Unit with hierarchical identifier
 DO $$

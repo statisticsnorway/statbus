@@ -9,7 +9,7 @@
  labels      | ltree                  |           |          | 
  description | text                   |           |          | 
  priority    | integer                |           |          | 
- archived    | boolean                |           | not null | false
+ enabled     | boolean                |           | not null | true
 Indexes:
     "external_ident_type_pkey" PRIMARY KEY, btree (id)
     "external_ident_type_code_key" UNIQUE CONSTRAINT, btree (code)

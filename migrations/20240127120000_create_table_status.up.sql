@@ -8,18 +8,18 @@ CREATE TABLE public.status (
     assigned_by_default BOOLEAN NOT NULL,
     used_for_counting boolean NOT NULL,
     priority integer NOT NULL,
-    active boolean NOT NULL,
+    enabled boolean NOT NULL,
     custom boolean NOT NULL DEFAULT false,
     created_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
-    UNIQUE(code, active, custom)
+    UNIQUE(code, enabled, custom)
 );
-CREATE UNIQUE INDEX ix_status_code ON public.foreign_participation USING btree (code) WHERE active;
-CREATE INDEX ix_status_active ON public.status USING btree (active);
-CREATE UNIQUE INDEX ix_status_only_one_assigned_by_default ON public.status USING btree (assigned_by_default) WHERE active AND assigned_by_default;
+CREATE UNIQUE INDEX ix_status_code ON public.foreign_participation USING btree (code) WHERE enabled;
+CREATE INDEX ix_status_enabled ON public.status USING btree (enabled);
+CREATE UNIQUE INDEX ix_status_only_one_assigned_by_default ON public.status USING btree (assigned_by_default) WHERE enabled AND assigned_by_default;
 
 -- Insert default statuses
-INSERT INTO public.status (code, name, used_for_counting, assigned_by_default, priority, active, custom) VALUES
+INSERT INTO public.status (code, name, used_for_counting, assigned_by_default, priority, enabled, custom) VALUES
     ('active', 'Active', true, true, 1, true, false),
     ('passive', 'Passive', false, false, 2, true, false);
 

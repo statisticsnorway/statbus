@@ -36,7 +36,6 @@ Indexes:
     "ix_legal_unit_sector_id" btree (sector_id)
     "ix_legal_unit_size_id" btree (unit_size_id)
     "ix_legal_unit_status_id" btree (status_id)
-    "ix_legal_unit_valid_range" gist (valid_range)
     "legal_unit_enterprise_id_primary_valid_excl" EXCLUDE USING gist (enterprise_id WITH =, valid_range WITH &&) WHERE (primary_for_enterprise IS TRUE) DEFERRABLE
     "legal_unit_enterprise_id_valid_range_idx" btree (enterprise_id, valid_range)
     "legal_unit_id_idx" btree (id)
@@ -74,9 +73,10 @@ Policies:
       USING (true)
       WITH CHECK (true)
 Triggers:
-    legal_unit_deletes_trigger BEFORE DELETE ON legal_unit FOR EACH ROW EXECUTE FUNCTION worker.notify_worker_about_deletes()
-    legal_unit_row_changes_trigger AFTER UPDATE ON legal_unit FOR EACH ROW WHEN (old.enterprise_id IS DISTINCT FROM new.enterprise_id) EXECUTE FUNCTION worker.notify_worker_about_row_changes()
-    legal_unit_statement_changes_trigger AFTER INSERT OR UPDATE ON legal_unit FOR EACH STATEMENT EXECUTE FUNCTION worker.notify_worker_about_statement_changes()
+    a_legal_unit_log_delete AFTER DELETE ON legal_unit REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
+    a_legal_unit_log_insert AFTER INSERT ON legal_unit REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
+    a_legal_unit_log_update AFTER UPDATE ON legal_unit REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
+    b_legal_unit_ensure_collect AFTER INSERT OR DELETE OR UPDATE ON legal_unit FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes()
     legal_unit_valid_sync_temporal_trg BEFORE INSERT OR UPDATE OF valid_range, valid_to, valid_from, valid_until ON legal_unit FOR EACH ROW EXECUTE FUNCTION sql_saga.public_legal_unit_valid_template_sync()
     trigger_prevent_legal_unit_id_update BEFORE UPDATE OF id ON legal_unit FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 

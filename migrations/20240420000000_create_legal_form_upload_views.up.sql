@@ -5,7 +5,7 @@ WITH (security_invoker=on) AS
 SELECT ac.code
      , ac.name
 FROM public.legal_form AS ac
-WHERE ac.active
+WHERE ac.enabled
   AND ac.custom
 ORDER BY code;
 
@@ -19,7 +19,7 @@ BEGIN
         ( code
         , name
         , updated_at
-        , active
+        , enabled
         , custom
         )
     VALUES
@@ -29,11 +29,11 @@ BEGIN
         , TRUE -- Active
         , TRUE -- Custom
         )
-    ON CONFLICT (code, active, custom)
+    ON CONFLICT (code, enabled, custom)
     DO UPDATE
         SET name = NEW.name
           , updated_at = statement_timestamp()
-          , active = TRUE
+          , enabled = TRUE
           , custom = TRUE
        WHERE legal_form.id = EXCLUDED.id
        RETURNING * INTO row;
@@ -55,8 +55,8 @@ RETURNS TRIGGER AS $$
 BEGIN
     -- Deactivate all non-custom legal_form entries before insertion
     UPDATE public.legal_form
-       SET active = false
-     WHERE active = true
+       SET enabled = false
+     WHERE enabled = true
        AND custom = false;
     RETURN NEW;
 END;

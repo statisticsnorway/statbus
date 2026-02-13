@@ -75,7 +75,7 @@ BEGIN
             END AS priority
         FROM long_format_metrics lf
         LEFT JOIN public.stat_definition sd ON sd.code = lf.metric_code
-        WHERE sd.archived IS DISTINCT FROM true -- Exclude archived stats, allow non-matches
+        WHERE sd.enabled IS DISTINCT FROM false -- Exclude disabled stats, allow non-matches
     )
     SELECT
         -- 4a. Get the latest name of the unit for the chart title.

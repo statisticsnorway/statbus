@@ -6,15 +6,15 @@
  code        | text                     |           | not null |                              | extended |             |              | 
  name        | text                     |           | not null |                              | extended |             |              | 
  description | text                     |           | not null |                              | extended |             |              | 
- active      | boolean                  |           | not null |                              | plain    |             |              | 
+ enabled     | boolean                  |           | not null |                              | plain    |             |              | 
  custom      | boolean                  |           | not null |                              | plain    |             |              | 
  created_at  | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
  updated_at  | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
 Indexes:
     "reorg_type_pkey" PRIMARY KEY, btree (id)
-    "ix_reorg_type_active" btree (active)
-    "ix_reorg_type_active_code" UNIQUE, btree (active, code)
-    "ix_reorg_type_code" UNIQUE, btree (code) WHERE active
+    "ix_reorg_type_code" UNIQUE, btree (code) WHERE enabled
+    "ix_reorg_type_enabled" btree (enabled)
+    "ix_reorg_type_enabled_code" UNIQUE, btree (enabled, code)
     "reorg_type_code_key" UNIQUE CONSTRAINT, btree (code)
 Referenced by:
     TABLE "enterprise_group" CONSTRAINT "enterprise_group_reorg_type_id_fkey" FOREIGN KEY (reorg_type_id) REFERENCES reorg_type(id)
@@ -34,7 +34,7 @@ Not-null constraints:
     "reorg_type_code_not_null" NOT NULL "code"
     "reorg_type_name_not_null" NOT NULL "name"
     "reorg_type_description_not_null" NOT NULL "description"
-    "reorg_type_active_not_null" NOT NULL "active"
+    "reorg_type_enabled_not_null" NOT NULL "enabled"
     "reorg_type_custom_not_null" NOT NULL "custom"
     "reorg_type_created_at_not_null" NOT NULL "created_at"
     "reorg_type_updated_at_not_null" NOT NULL "updated_at"

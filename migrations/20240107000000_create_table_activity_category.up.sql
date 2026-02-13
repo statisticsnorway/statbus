@@ -10,15 +10,15 @@ CREATE TABLE public.activity_category (
     code varchar NOT NULL,
     name character varying(256) NOT NULL,
     description text,
-    active boolean NOT NULL,
+    enabled boolean NOT NULL,
     custom bool NOT NULL,
     created_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
-    UNIQUE(standard_id, path, active)
+    UNIQUE(standard_id, path, enabled)
 );
 CREATE INDEX ix_activity_category_parent_id ON public.activity_category USING btree (parent_id);
 CREATE INDEX ix_activity_category_standard_id ON public.activity_category USING btree (standard_id);
-CREATE INDEX ix_activity_category_active ON public.activity_category USING btree (active);
+CREATE INDEX ix_activity_category_enabled ON public.activity_category USING btree (enabled);
 
 -- Trigger function to handle path updates, derive code, and lookup parent
 CREATE FUNCTION public.lookup_parent_and_derive_code() RETURNS trigger LANGUAGE plpgsql AS $$
@@ -51,7 +51,7 @@ BEGIN
         SELECT id INTO NEW.parent_id
         FROM public.activity_category
         WHERE path OPERATOR(public.=) public.subltree(NEW.path, 0, public.nlevel(NEW.path) - 1)
-          AND active
+          AND enabled
         ;
     ELSE
         NEW.parent_id := NULL; -- No parent, set parent_id to NULL

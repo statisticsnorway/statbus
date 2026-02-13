@@ -51,7 +51,7 @@ BEGIN
         SELECT id INTO maybe_parent_id
           FROM public.sector
          WHERE path OPERATOR(public.=) public.subltree(NEW.path, 0, public.nlevel(NEW.path) - 1)
-           AND active
+           AND enabled
            AND custom;
         IF NOT FOUND THEN
           RAISE EXCEPTION 'Could not find parent for path %', NEW.path;
@@ -67,7 +67,7 @@ BEGIN
             , name
             , description
             , updated_at
-            , active
+            , enabled
             , custom
             )
         VALUES
@@ -79,13 +79,13 @@ BEGIN
             , TRUE -- Active
             , TRUE -- Custom
             )
-        ON CONFLICT (path, active, custom)
+        ON CONFLICT (path, enabled, custom)
         DO UPDATE SET
                 parent_id = maybe_parent_id
               , name = NEW.name
               , description = NEW.description
               , updated_at = statement_timestamp()
-              , active = TRUE
+              , enabled = TRUE
               , custom = TRUE
            RETURNING * INTO row;
 
@@ -111,7 +111,7 @@ $function$
 \echo "User uploads the sectors with errors"
 "User uploads the sectors with errors"
 \copy public.sector_custom_only(path,name,description) FROM 'test/data/30_ug_sectorcodes_with_index_error.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-ERROR:  duplicate key value violates unique constraint "sector_code_active_key" for row {"code": 1, "name": "er ror,part2 ", "path": "s1", "description": "desc works"}
+ERROR:  duplicate key value violates unique constraint "sector_code_enabled_key" for row {"code": 1, "name": "er ror,part2 ", "path": "s1", "description": "desc works"}
 DETAIL:  Failed during UPSERT operation
 HINT:  Check for path derived numeric code violations
 CONTEXT:  PL/pgSQL function admin.sector_custom_only_upsert() line 58 at RAISE

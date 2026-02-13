@@ -32,7 +32,7 @@ BEGIN
         SELECT id INTO NEW.parent_id
         FROM public.activity_category
         WHERE path OPERATOR(public.=) public.subltree(NEW.path, 0, public.nlevel(NEW.path) - 1)
-          AND active
+          AND enabled
         ;
     ELSE
         NEW.parent_id := NULL; -- No parent, set parent_id to NULL

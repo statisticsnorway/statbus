@@ -5,15 +5,15 @@
  id         | integer                  |           | not null | generated always as identity
  code       | text                     |           | not null | 
  name       | text                     |           | not null | 
- active     | boolean                  |           | not null | 
+ enabled    | boolean                  |           | not null | 
  custom     | boolean                  |           | not null | 
  created_at | timestamp with time zone |           | not null | statement_timestamp()
  updated_at | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
     "enterprise_group_role_pkey" PRIMARY KEY, btree (id)
-    "ix_enterprise_group_role_active" btree (active)
-    "ix_enterprise_group_role_active_code" UNIQUE, btree (active, code)
-    "ix_enterprise_group_role_code" UNIQUE, btree (code) WHERE active
+    "ix_enterprise_group_role_code" UNIQUE, btree (code) WHERE enabled
+    "ix_enterprise_group_role_enabled" btree (enabled)
+    "ix_enterprise_group_role_enabled_code" UNIQUE, btree (enabled, code)
 Policies:
     POLICY "enterprise_group_role_admin_user_manage"
       TO admin_user

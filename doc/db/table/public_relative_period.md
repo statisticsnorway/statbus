@@ -7,10 +7,10 @@
  name_when_query | character varying(256) |           |          | 
  name_when_input | character varying(256) |           |          | 
  scope           | relative_period_scope  |           | not null | 
- active          | boolean                |           | not null | true
+ enabled         | boolean                |           | not null | true
 Indexes:
     "relative_period_pkey" PRIMARY KEY, btree (id)
-    "ix_relative_period_active" btree (active)
+    "ix_relative_period_enabled" btree (enabled)
     "relative_period_code_key" UNIQUE CONSTRAINT, btree (code)
 Check constraints:
     "scope input_and_query requires name_when_input" CHECK (

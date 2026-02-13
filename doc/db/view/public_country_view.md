@@ -7,7 +7,7 @@
  iso_3   | text    |           |          | 
  iso_num | text    |           |          | 
  name    | text    |           |          | 
- active  | boolean |           |          | 
+ enabled | boolean |           |          | 
  custom  | boolean |           |          | 
 Triggers:
     delete_stale_country_view AFTER INSERT ON country_view FOR EACH STATEMENT EXECUTE FUNCTION admin.delete_stale_country()

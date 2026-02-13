@@ -11,14 +11,15 @@
  code        | character varying        |           | not null | 
  name        | character varying(256)   |           | not null | 
  description | text                     |           |          | 
- active      | boolean                  |           | not null | 
+ enabled     | boolean                  |           | not null | 
  custom      | boolean                  |           | not null | 
  created_at  | timestamp with time zone |           | not null | statement_timestamp()
  updated_at  | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
     "activity_category_pkey" PRIMARY KEY, btree (id)
-    "activity_category_standard_id_path_active_key" UNIQUE CONSTRAINT, btree (standard_id, path, active)
-    "ix_activity_category_active" btree (active)
+    "activity_category_standard_id_path_enabled_key" UNIQUE CONSTRAINT, btree (standard_id, path, enabled)
+    "idx_activity_category_standard_code_enabled" btree (standard_id, code) WHERE enabled = true
+    "ix_activity_category_enabled" btree (enabled)
     "ix_activity_category_parent_id" btree (parent_id)
     "ix_activity_category_standard_id" btree (standard_id)
 Foreign-key constraints:

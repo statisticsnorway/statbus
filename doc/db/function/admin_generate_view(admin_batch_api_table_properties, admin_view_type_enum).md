@@ -32,10 +32,8 @@ BEGIN
         columns_str := '*';
     WHEN 'available' THEN
         from_str := format('%1$I.%2$I', table_properties.schema_name, table_properties.table_name || '_ordered');
-        IF table_properties.has_active THEN
-            where_clause_str := 'WHERE active';
-        ELSIF table_properties.has_archived THEN
-            where_clause_str := 'WHERE NOT archived';
+        IF table_properties.has_enabled THEN
+            where_clause_str := 'WHERE enabled';
         ELSE
             RAISE EXCEPTION 'Invalid table properties or unsupported table structure for: %', table_properties;
         END IF;

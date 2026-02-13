@@ -70,7 +70,7 @@ INSERT INTO public.stat_definition(code, type, frequency, name, description, pri
   ('children_employees','int','yearly','Number of children employed','The number of children receiving an official salary with government reporting.',4);
 
 \echo "Stop using the children_employees, it can no longer be imported, but will be in statistics."
-UPDATE public.stat_definition SET archived = true wHERE code = 'children_employees';
+UPDATE public.stat_definition SET enabled = false wHERE code = 'children_employees';
 
 \echo "Track children by gender"
 INSERT INTO public.stat_definition(code, type, frequency, name, description, priority) VALUES
@@ -226,7 +226,7 @@ INSERT INTO public.external_ident_type(code, name, priority, description) VALUES
 	('mobile', 'Mobile Number', 3, 'Mandated reporting by all phone companies.');
 
 \echo "Stop using the mobile, peoples number changed to often, it can no longer be imported, but will be in statistics."
-UPDATE public.external_ident_type SET archived = true wHERE code = 'mobile';
+UPDATE public.external_ident_type SET enabled = false wHERE code = 'mobile';
 
 \echo "Check generated code from external_ident_type modifications"
 

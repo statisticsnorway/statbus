@@ -27,17 +27,17 @@ INSERT INTO public.tag (path, name, type) VALUES
 ON CONFLICT (path) DO NOTHING;
 
 \echo "Setup custom stat definitions and external ident types for Test 71"
-INSERT INTO public.stat_definition (code, name, type, frequency, description, archived, priority) VALUES
-('men_employees', 'Number of Men Employees', 'int', 'yearly', 'Number of men employees in the unit', false, 10),
-('women_employees', 'Number of Women Employees', 'int', 'yearly', 'Number of women employees in the unit', false, 11)
-ON CONFLICT (code) DO UPDATE SET archived = false; -- Ensure they are active for this test
+INSERT INTO public.stat_definition (code, name, type, frequency, description, enabled, priority) VALUES
+('men_employees', 'Number of Men Employees', 'int', 'yearly', 'Number of men employees in the unit', true, 10),
+('women_employees', 'Number of Women Employees', 'int', 'yearly', 'Number of women employees in the unit', true, 11)
+ON CONFLICT (code) DO UPDATE SET enabled = true; -- Ensure they are enabled for this test
 
-INSERT INTO public.external_ident_type (code, name, description, priority, archived) VALUES
-('nin_ident', 'National Identity Number', 'Custom NIN ident for test 71', 3, false)
-ON CONFLICT (code) DO UPDATE SET archived = false; -- Ensure it's active
+INSERT INTO public.external_ident_type (code, name, description, priority, enabled) VALUES
+('nin_ident', 'National Identity Number', 'Custom NIN ident for test 71', 3, true)
+ON CONFLICT (code) DO UPDATE SET enabled = true; -- Ensure it's enabled
 
--- Archive stat_ident for this test to ensure nin_ident is picked up where applicable
-UPDATE public.external_ident_type SET archived = true WHERE code = 'stat_ident';
+-- Disable stat_ident for this test to ensure nin_ident is picked up where applicable
+UPDATE public.external_ident_type SET enabled = false WHERE code = 'stat_ident';
 
 \echo "Define custom import definitions for Test 71"
 DO $$

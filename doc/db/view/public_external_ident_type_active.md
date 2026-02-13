@@ -9,6 +9,6 @@
  labels      | ltree                  |           |          | 
  description | text                   |           |          | 
  priority    | integer                |           |          | 
- archived    | boolean                |           |          | 
+ enabled     | boolean                |           |          | 
 
 ```

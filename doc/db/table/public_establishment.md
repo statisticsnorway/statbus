@@ -46,7 +46,6 @@ Indexes:
     "ix_establishment_sector_id" btree (sector_id)
     "ix_establishment_size_id" btree (unit_size_id)
     "ix_establishment_status_id" btree (status_id)
-    "ix_establishment_valid_range" gist (valid_range)
 Check constraints:
     "Must have either legal_unit_id or enterprise_id" CHECK (num_nonnulls(enterprise_id, legal_unit_id) = 1)
     "enterprise_id enables sector_id" CHECK (
@@ -85,9 +84,10 @@ Policies:
       USING (true)
       WITH CHECK (true)
 Triggers:
-    establishment_deletes_trigger BEFORE DELETE ON establishment FOR EACH ROW EXECUTE FUNCTION worker.notify_worker_about_deletes()
-    establishment_row_changes_trigger AFTER UPDATE ON establishment FOR EACH ROW WHEN (old.legal_unit_id IS DISTINCT FROM new.legal_unit_id OR old.enterprise_id IS DISTINCT FROM new.enterprise_id) EXECUTE FUNCTION worker.notify_worker_about_row_changes()
-    establishment_statement_changes_trigger AFTER INSERT OR UPDATE ON establishment FOR EACH STATEMENT EXECUTE FUNCTION worker.notify_worker_about_statement_changes()
+    a_establishment_log_delete AFTER DELETE ON establishment REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
+    a_establishment_log_insert AFTER INSERT ON establishment REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
+    a_establishment_log_update AFTER UPDATE ON establishment REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
+    b_establishment_ensure_collect AFTER INSERT OR DELETE OR UPDATE ON establishment FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes()
     establishment_valid_sync_temporal_trg BEFORE INSERT OR UPDATE OF valid_range, valid_to, valid_from, valid_until ON establishment FOR EACH ROW EXECUTE FUNCTION sql_saga.public_establishment_valid_template_sync()
     trigger_prevent_establishment_id_update BEFORE UPDATE OF id ON establishment FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 

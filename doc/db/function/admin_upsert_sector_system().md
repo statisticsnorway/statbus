@@ -9,9 +9,9 @@ BEGIN
         FROM public.sector
         WHERE path OPERATOR(public.=) public.subpath(NEW.path, 0, public.nlevel(NEW.path) - 1)
     )
-    INSERT INTO public.sector (path, parent_id, name, active, custom, updated_at)
+    INSERT INTO public.sector (path, parent_id, name, enabled, custom, updated_at)
     VALUES (NEW.path, (SELECT id FROM parent), NEW.name, 't', 'f', statement_timestamp())
-    ON CONFLICT (active, path) DO UPDATE SET
+    ON CONFLICT (enabled, path) DO UPDATE SET
         parent_id = (SELECT id FROM parent),
         name = EXCLUDED.name,
         custom = 'f',

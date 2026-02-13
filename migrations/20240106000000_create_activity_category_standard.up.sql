@@ -8,7 +8,7 @@ CREATE TABLE public.activity_category_standard (
     name character varying UNIQUE NOT NULL,
     description character varying UNIQUE NOT NULL,
     code_pattern public.activity_category_code_behaviour NOT NULL, -- Custom type
-    obsolete boolean NOT NULL DEFAULT false
+    enabled boolean NOT NULL DEFAULT true
 );
 
 INSERT INTO public.activity_category_standard(code, name, description, code_pattern)

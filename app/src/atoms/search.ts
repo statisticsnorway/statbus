@@ -174,8 +174,8 @@ export const fetchSearchPageDataAtom = atom(
       ] = await Promise.all([
         client.from("region_used").select(),
         client.from("activity_category_used").select(),
-        client.from("status").select().filter("active", "eq", true),
-        client.from("unit_size").select().filter("active", "eq", true),
+        client.from("status").select().filter("enabled", "eq", true),
+        client.from("unit_size").select().filter("enabled", "eq", true),
         client.from("data_source_used").select(),
         client.from("external_ident_type_active").select(),
         client.from("legal_form_used").select().not("code", "is", null),

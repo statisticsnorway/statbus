@@ -23,10 +23,10 @@ BEGIN
         content_update_sets := content_update_sets || ', description = NEW.description';
     END IF;
 
-    IF table_properties.has_active THEN
-        content_columns := content_columns || ', active';
+    IF table_properties.has_enabled THEN
+        content_columns := content_columns || ', enabled';
         content_values := content_values || ', TRUE';
-        content_update_sets := content_update_sets || ', active = TRUE';
+        content_update_sets := content_update_sets || ', enabled = TRUE';
     END IF;
 
     function_name_str := 'upsert_' || table_name_str || '_' || view_type::text;

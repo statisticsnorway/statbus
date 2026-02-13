@@ -5,7 +5,7 @@
  id         | integer                  |           |          | 
  code       | text                     |           |          | 
  name       | text                     |           |          | 
- active     | boolean                  |           |          | 
+ enabled    | boolean                  |           |          | 
  custom     | boolean                  |           |          | 
  created_at | timestamp with time zone |           |          | 
  updated_at | timestamp with time zone |           |          | 

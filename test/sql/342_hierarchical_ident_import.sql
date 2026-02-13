@@ -28,9 +28,9 @@ SELECT
 
 -- Setup: Create a hierarchical identifier type (Uganda-style: region.district.seq)
 \echo "Creating hierarchical identifier type 'surveyor_ident' with labels 'region.district.seq'"
-INSERT INTO public.external_ident_type (code, name, shape, labels, description, priority, archived)
+INSERT INTO public.external_ident_type (code, name, shape, labels, description, priority, enabled)
 VALUES ('surveyor_ident', 'Surveyor Identifier', 'hierarchical', 'region.district.seq',
-        'Region/District/Sequence hierarchical composite key', 50, false);
+        'Region/District/Sequence hierarchical composite key', 50, true);
 
 -- Verify the type was created correctly
 \echo "Verifying hierarchical identifier type:"
@@ -359,9 +359,9 @@ ORDER BY row_id;
 \echo "=============================================================="
 
 -- Create a simpler 2-level hierarchical identifier type
-INSERT INTO public.external_ident_type (code, name, shape, labels, description, priority, archived)
+INSERT INTO public.external_ident_type (code, name, shape, labels, description, priority, enabled)
 VALUES ('region_code', 'Regional Code', 'hierarchical', 'region.district',
-        'Two-level regional code', 51, false);
+        'Two-level regional code', 51, true);
 
 -- Note: Lifecycle callbacks are automatically triggered when we insert into external_ident_type
 

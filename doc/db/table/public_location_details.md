@@ -35,7 +35,6 @@ Indexes:
     "ix_location_legal_unit_id_valid_range" gist (legal_unit_id, valid_range)
     "ix_location_region_id" btree (region_id)
     "ix_location_type" btree (type)
-    "ix_location_valid_range" gist (valid_range)
     "location_establishment_id_legal_unit_id_type_idx" btree (establishment_id, legal_unit_id, type)
     "location_establishment_id_type_idx" btree (establishment_id, type) WHERE legal_unit_id IS NULL
     "location_id_idx" btree (id)
@@ -99,9 +98,10 @@ Not-null constraints:
     "location_edit_by_user_id_not_null" NOT NULL "edit_by_user_id"
     "location_edit_at_not_null" NOT NULL "edit_at"
 Triggers:
-    location_deletes_trigger BEFORE DELETE ON location FOR EACH ROW EXECUTE FUNCTION worker.notify_worker_about_deletes()
-    location_row_changes_trigger AFTER UPDATE ON location FOR EACH ROW WHEN (old.establishment_id IS DISTINCT FROM new.establishment_id OR old.legal_unit_id IS DISTINCT FROM new.legal_unit_id) EXECUTE FUNCTION worker.notify_worker_about_row_changes()
-    location_statement_changes_trigger AFTER INSERT OR UPDATE ON location FOR EACH STATEMENT EXECUTE FUNCTION worker.notify_worker_about_statement_changes()
+    a_location_log_delete AFTER DELETE ON location REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
+    a_location_log_insert AFTER INSERT ON location REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
+    a_location_log_update AFTER UPDATE ON location REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
+    b_location_ensure_collect AFTER INSERT OR DELETE OR UPDATE ON location FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes()
     location_valid_sync_temporal_trg BEFORE INSERT OR UPDATE OF valid_range, valid_to, valid_from, valid_until ON location FOR EACH ROW EXECUTE FUNCTION sql_saga.public_location_valid_template_sync()
     trigger_prevent_location_id_update BEFORE UPDATE OF id ON location FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap

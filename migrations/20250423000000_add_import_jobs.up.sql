@@ -97,7 +97,7 @@ CREATE TABLE public.import_definition(
     mode public.import_mode NOT NULL, -- Defines the structural mode (e.g., for establishment imports)
     valid_time_from public.import_valid_time_from NOT NULL, -- Declarative method for time validity.
     user_id integer REFERENCES auth.user(id) ON DELETE SET NULL,
-    active boolean NOT NULL DEFAULT true, -- Whether the definition is active and usable
+    enabled boolean NOT NULL DEFAULT true, -- Whether the definition is enabled and usable
     custom boolean NOT NULL DEFAULT true, -- True if system-provided default, false if user-created/customized.
     valid boolean NOT NULL DEFAULT false, -- Indicates if the definition passes validation checks
     validation_error text,                -- Stores validation error messages if not valid
@@ -107,7 +107,7 @@ CREATE TABLE public.import_definition(
     updated_at timestamp with time zone NOT NULL DEFAULT NOW()
     -- Removed draft column and draft_valid_error_states constraint
 );
-CREATE INDEX ix_import_definition_active ON public.import_definition USING btree (active);
+CREATE INDEX ix_import_definition_enabled ON public.import_definition USING btree (enabled);
 CREATE INDEX ix_import_user_id ON public.import_definition USING btree (user_id);
 CREATE INDEX ix_import_data_source_id ON public.import_definition USING btree (data_source_id);
 

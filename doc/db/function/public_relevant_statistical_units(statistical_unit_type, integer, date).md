@@ -113,13 +113,13 @@ AS $function$
          , invalid_codes
          , has_legal_unit
          , related_establishment_ids
-         , related_legal_unit_ids
-         , related_enterprise_ids
          , excluded_establishment_ids
-         , excluded_legal_unit_ids
-         , excluded_enterprise_ids
          , included_establishment_ids
+         , related_legal_unit_ids
+         , excluded_legal_unit_ids
          , included_legal_unit_ids
+         , related_enterprise_ids
+         , excluded_enterprise_ids
          , included_enterprise_ids
          , stats
          , stats_summary
@@ -127,6 +127,8 @@ AS $function$
          , included_legal_unit_count
          , included_enterprise_count
          , tag_paths
+         , daterange(valid_from, valid_until) AS valid_range
+         , report_partition_seq
     FROM ordered_units;
 $function$
 ```

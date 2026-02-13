@@ -38,7 +38,6 @@ Indexes:
     "ix_contact_establishment_id_valid_range" gist (establishment_id, valid_range)
     "ix_contact_legal_unit_id" btree (legal_unit_id)
     "ix_contact_legal_unit_id_valid_range" gist (legal_unit_id, valid_range)
-    "ix_contact_valid_range" gist (valid_range)
 Check constraints:
     "One and only one statistical unit id must be set" CHECK (num_nonnulls(establishment_id, legal_unit_id) = 1)
     "One information must be provided" CHECK (num_nonnulls(web_address, email_address, phone_number, landline, mobile_number, fax_number) >= 1)
@@ -67,9 +66,10 @@ Not-null constraints:
     "contact_edit_by_user_id_not_null" NOT NULL "edit_by_user_id"
     "contact_edit_at_not_null" NOT NULL "edit_at"
 Triggers:
-    contact_deletes_trigger BEFORE DELETE ON contact FOR EACH ROW EXECUTE FUNCTION worker.notify_worker_about_deletes()
-    contact_row_changes_trigger AFTER UPDATE ON contact FOR EACH ROW WHEN (old.establishment_id IS DISTINCT FROM new.establishment_id OR old.legal_unit_id IS DISTINCT FROM new.legal_unit_id) EXECUTE FUNCTION worker.notify_worker_about_row_changes()
-    contact_statement_changes_trigger AFTER INSERT OR UPDATE ON contact FOR EACH STATEMENT EXECUTE FUNCTION worker.notify_worker_about_statement_changes()
+    a_contact_log_delete AFTER DELETE ON contact REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
+    a_contact_log_insert AFTER INSERT ON contact REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
+    a_contact_log_update AFTER UPDATE ON contact REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION worker.log_base_change()
+    b_contact_ensure_collect AFTER INSERT OR DELETE OR UPDATE ON contact FOR EACH STATEMENT EXECUTE FUNCTION worker.ensure_collect_changes()
     contact_valid_sync_temporal_trg BEFORE INSERT OR UPDATE OF valid_range, valid_to, valid_from, valid_until ON contact FOR EACH ROW EXECUTE FUNCTION sql_saga.public_contact_valid_template_sync()
     trigger_prevent_contact_id_update BEFORE UPDATE OF id ON contact FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap

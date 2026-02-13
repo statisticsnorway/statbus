@@ -9,7 +9,7 @@ SELECT s.id
      , s.name
 FROM public.sector AS s
 WHERE s.path OPERATOR(public.@>) (SELECT array_agg(DISTINCT sector_path) FROM public.statistical_unit WHERE sector_path IS NOT NULL)
-  AND s.active
+  AND s.enabled
 ORDER BY s.path;
 
 -- Create table from the view definition

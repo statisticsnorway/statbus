@@ -27,7 +27,7 @@ BEGIN
         , name
         , description
         , updated_at
-        , active
+        , enabled
         , custom
         )
     SELECT standardId
@@ -38,7 +38,7 @@ BEGIN
          , statement_timestamp()
          , true
          , false
-    ON CONFLICT (standard_id, path, active)
+    ON CONFLICT (standard_id, path, enabled)
     DO UPDATE SET parent_id = (SELECT id FROM parent)
                 , name = NEW.name
                 , description = NEW.description

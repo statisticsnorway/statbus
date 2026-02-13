@@ -7,7 +7,7 @@
  iso_3      | text                     |           | not null |                              | extended |             |              | 
  iso_num    | text                     |           | not null |                              | extended |             |              | 
  name       | text                     |           | not null |                              | extended |             |              | 
- active     | boolean                  |           | not null |                              | plain    |             |              | 
+ enabled    | boolean                  |           | not null |                              | plain    |             |              | 
  custom     | boolean                  |           | not null |                              | plain    |             |              | 
  created_at | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
  updated_at | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
@@ -18,10 +18,10 @@ Indexes:
     "country_iso_3_key" UNIQUE CONSTRAINT, btree (iso_3)
     "country_iso_num_key" UNIQUE CONSTRAINT, btree (iso_num)
     "country_name_key" UNIQUE CONSTRAINT, btree (name)
-    "ix_country_active" btree (active)
-    "ix_country_iso_2" UNIQUE, btree (iso_2) WHERE active
-    "ix_country_iso_3" UNIQUE, btree (iso_3) WHERE active
-    "ix_country_iso_num" UNIQUE, btree (iso_num) WHERE active
+    "ix_country_enabled" btree (enabled)
+    "ix_country_iso_2" UNIQUE, btree (iso_2) WHERE enabled
+    "ix_country_iso_3" UNIQUE, btree (iso_3) WHERE enabled
+    "ix_country_iso_num" UNIQUE, btree (iso_num) WHERE enabled
 Referenced by:
     TABLE "location" CONSTRAINT "location_country_id_fkey" FOREIGN KEY (country_id) REFERENCES country(id) ON DELETE RESTRICT
     TABLE "person" CONSTRAINT "person_country_id_fkey" FOREIGN KEY (country_id) REFERENCES country(id)
@@ -43,7 +43,7 @@ Not-null constraints:
     "country_iso_3_not_null" NOT NULL "iso_3"
     "country_iso_num_not_null" NOT NULL "iso_num"
     "country_name_not_null" NOT NULL "name"
-    "country_active_not_null" NOT NULL "active"
+    "country_enabled_not_null" NOT NULL "enabled"
     "country_custom_not_null" NOT NULL "custom"
     "country_created_at_not_null" NOT NULL "created_at"
     "country_updated_at_not_null" NOT NULL "updated_at"
