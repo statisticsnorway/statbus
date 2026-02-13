@@ -321,6 +321,9 @@ SELECT valid_from
 
 
 \echo '--- Generating query plans for review ---'
+SET client_min_messages = error;
+ANALYZE;
+RESET client_min_messages;
 \o test/expected/explain/303_import_jobs_for_norway_small_history-timepoints.txt
 EXPLAIN (COSTS FALSE) SELECT * FROM public.timepoints;
 \o test/expected/explain/303_import_jobs_for_norway_small_history-timesegments_def.txt
