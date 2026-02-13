@@ -14,6 +14,13 @@ ALTER SEQUENCE public.enterprise_id_seq RESTART WITH 1;
 ALTER SEQUENCE public.legal_unit_id_seq RESTART WITH 1;
 ALTER SEQUENCE public.establishment_id_seq RESTART WITH 1;
 
+-- Clean up accumulated worker tasks for test isolation.
+-- Only maintenance tasks (task_cleanup, import_job_cleanup) are kept.
+-- Delete children first (FK on parent_id), then remaining non-maintenance tasks.
+DELETE FROM worker.tasks WHERE parent_id IS NOT NULL;
+DELETE FROM worker.tasks WHERE command NOT IN ('task_cleanup', 'import_job_cleanup');
+ALTER SEQUENCE worker.tasks_id_seq RESTART WITH 3;
+
 \if :{?DEBUG}
 SET client_min_messages TO debug1;
 \else

@@ -36,28 +36,18 @@ BEGIN
     END IF;
 END;
 $sudo_exec$;
+psql:test/setup.sql:38: ERROR:  schema "test" does not exist
 -- Grant execute to public since this is for testing
 GRANT EXECUTE ON FUNCTION test.sudo_exec(text) TO PUBLIC;
+psql:test/setup.sql:41: ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo Add users for testing purposes
 Add users for testing purposes
 SELECT * FROM public.user_create('test.admin@statbus.org', 'admin_user'::statbus_role, 'Admin#123!');
-         email          |  password  
-------------------------+------------
- test.admin@statbus.org | Admin#123!
-(1 row)
-
+psql:test/setup.sql:44: ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM public.user_create('test.regular@statbus.org', 'regular_user'::statbus_role, 'Regular#123!');
-          email           |   password   
---------------------------+--------------
- test.regular@statbus.org | Regular#123!
-(1 row)
-
+psql:test/setup.sql:45: ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM public.user_create('test.restricted@statbus.org', 'restricted_user'::statbus_role, 'Restricted#123!');
-            email            |    password     
------------------------------+-----------------
- test.restricted@statbus.org | Restricted#123!
-(1 row)
-
+psql:test/setup.sql:46: ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo '----------------------------------------------------------------------------'
 ----------------------------------------------------------------------------
 \echo 'Test: import.batch_insert_or_update_generic_valid_time_table'
@@ -65,9 +55,11 @@ Test: import.batch_insert_or_update_generic_valid_time_table
 \echo '----------------------------------------------------------------------------'
 ----------------------------------------------------------------------------
 SET client_min_messages TO NOTICE; -- Reverted to NOTICE for cleaner output
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 CREATE SCHEMA IF NOT EXISTS batch_test_update; 
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 CREATE SEQUENCE IF NOT EXISTS batch_test_update.batch_upsert_target_id_seq;
-NOTICE:  Granted USAGE on new sequence batch_test_update.batch_upsert_target_id_seq to authenticated
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 CREATE TABLE batch_test_update.batch_upsert_target (
     id INT NOT NULL DEFAULT nextval('batch_test_update.batch_upsert_target_id_seq'),
     valid_after DATE NOT NULL, -- (exclusive start)
@@ -79,6 +71,7 @@ CREATE TABLE batch_test_update.batch_upsert_target (
     edit_comment TEXT,
     PRIMARY KEY (id, valid_after) -- PK uses valid_after
 );
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 CREATE TABLE batch_test_update.batch_upsert_source (
     row_id BIGSERIAL PRIMARY KEY,
     founding_row_id BIGINT,
@@ -91,6 +84,7 @@ CREATE TABLE batch_test_update.batch_upsert_source (
     updated_on DATE, -- Added
     edit_comment TEXT
 );
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \set target_schema 'batch_test_update'
 \set target_table 'batch_upsert_target'
 \set source_schema 'batch_test_update'
@@ -112,11 +106,13 @@ BEGIN
     END IF;
 END;
 $$ LANGUAGE plpgsql;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Scenario 1: Initial Insert (same as replace)
 \echo 'Scenario 1: Initial Insert'
 Scenario 1: Initial Insert
 INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, NULL, '2023-12-31', '2024-12-31', 'A', 10, 'Initial C1', '2024-01-15', 'Initial A'); -- row_id=1, founding_row_id=1
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_target_schema_name           => :'target_schema',
     p_target_table_name            => :'target_table',
@@ -127,25 +123,22 @@ SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_id_column_name               => :'id_col',
     p_generated_columns_override   => NULL
 );
- source_row_id | upserted_record_id | status  | error_message 
----------------+--------------------+---------+---------------
-             1 |                  1 | SUCCESS | 
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM batch_test_update.show_target_table();
- id | valid_after |  valid_to  | value_a | value_b |  value_c   | updated_on | edit_comment 
-----+-------------+------------+---------+---------+------------+------------+--------------
-  1 | 2023-12-31  | 2024-12-31 | A       |      10 | Initial C1 | 2024-01-15 | Initial A
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_update.batch_upsert_target; ALTER SEQUENCE batch_test_update.batch_upsert_target_id_seq RESTART WITH 1;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Scenario 2: Update existing - Full Overlap, Non-Null Update
 \echo 'Scenario 2: Update existing - Full Overlap, Non-Null Update'
 Scenario 2: Update existing - Full Overlap, Non-Null Update
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, '2023-12-31', '2024-12-31', 'A', 10, 'Original C', '2024-01-10', 'Original');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, 1, '2023-12-31', '2024-12-31', 'A', 20, 'Updated C', '2024-01-15', 'Update B and C'); -- founding_row_id=target_id=1
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_target_schema_name           => :'target_schema',
     p_target_table_name            => :'target_table',
@@ -156,25 +149,22 @@ SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_id_column_name               => :'id_col',
     p_generated_columns_override   => NULL
 );
- source_row_id | upserted_record_id | status  | error_message 
----------------+--------------------+---------+---------------
-             1 |                  1 | SUCCESS | 
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM batch_test_update.show_target_table(1); -- Expected: value_b=20, value_c='Updated C', updated_on='2024-01-15'
- id | valid_after |  valid_to  | value_a | value_b |  value_c  | updated_on |  edit_comment  
-----+-------------+------------+---------+---------+-----------+------------+----------------
-  1 | 2023-12-31  | 2024-12-31 | A       |      20 | Updated C | 2024-01-15 | Update B and C
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_update.batch_upsert_target; ALTER SEQUENCE batch_test_update.batch_upsert_target_id_seq RESTART WITH 1;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Scenario 3: Update existing - Full Overlap, Partial Null Update (value_b is NULL in source)
 \echo 'Scenario 3: Update existing - Full Overlap, Partial Null Update'
 Scenario 3: Update existing - Full Overlap, Partial Null Update
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, '2023-12-31', '2024-12-31', 'A', 10, 'Original C', '2024-01-10', 'Original');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, 1, '2023-12-31', '2024-12-31', 'A', NULL, 'Updated C by partial null', '2024-01-15', 'Update C, B is null in source'); -- founding_row_id=target_id=1
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_target_schema_name           => :'target_schema',
     p_target_table_name            => :'target_table',
@@ -185,25 +175,22 @@ SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_id_column_name               => :'id_col',
     p_generated_columns_override   => NULL
 );
- source_row_id | upserted_record_id | status  | error_message 
----------------+--------------------+---------+---------------
-             1 |                  1 | SUCCESS | 
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM batch_test_update.show_target_table(1); -- Expected: value_b=10 (unchanged), value_c='Updated C by partial null', updated_on='2024-01-15'
- id | valid_after |  valid_to  | value_a | value_b |          value_c          | updated_on |         edit_comment          
-----+-------------+------------+---------+---------+---------------------------+------------+-------------------------------
-  1 | 2023-12-31  | 2024-12-31 | A       |      10 | Updated C by partial null | 2024-01-15 | Update C, B is null in source
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_update.batch_upsert_target; ALTER SEQUENCE batch_test_update.batch_upsert_target_id_seq RESTART WITH 1;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Scenario 4: Update existing - Inside Different (Split with Update)
 \echo 'Scenario 4: Update existing - Inside Different (Split with Update)'
 Scenario 4: Update existing - Inside Different (Split with Update)
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, '2023-12-31', '2024-12-31', 'A', 10, 'Original C', '2024-01-10', 'Original Jan-Dec');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, 1, '2024-03-31', '2024-08-31', 'A', 20, NULL, '2024-01-15', 'Update Apr-Aug, C is null'); -- founding_row_id=target_id=1
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_target_schema_name           => :'target_schema',
     p_target_table_name            => :'target_table',
@@ -214,39 +201,30 @@ SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_id_column_name               => :'id_col',
     p_generated_columns_override   => NULL
 );
- source_row_id | upserted_record_id | status  | error_message 
----------------+--------------------+---------+---------------
-             1 |                  1 | SUCCESS | 
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM batch_test_update.show_target_table(1); 
- id | valid_after |  valid_to  | value_a | value_b |  value_c   | updated_on |       edit_comment        
-----+-------------+------------+---------+---------+------------+------------+---------------------------
-  1 | 2023-12-31  | 2024-03-31 | A       |      10 | Original C | 2024-01-10 | Original Jan-Dec
-  1 | 2024-03-31  | 2024-08-31 | A       |      20 | Original C | 2024-01-15 | Update Apr-Aug, C is null
-  1 | 2024-08-31  | 2024-12-31 | A       |      10 | Original C | 2024-01-10 | Original Jan-Dec
-(3 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Expected: 
 -- Row 1: va=2023-12-31, vt=2024-03-31, value_a='A', value_b=10, value_c='Original C', updated_on='2024-01-10'
 -- Row 2: va=2024-03-31, vt=2024-08-31, value_a='A', value_b=20, value_c='Original C', updated_on='2024-01-15' (c unchanged due to null in source)
 -- Row 3: va=2024-08-31, vt=2024-12-31, value_a='A', value_b=10, value_c='Original C', updated_on='2024-01-10'
 TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_update.batch_upsert_target; ALTER SEQUENCE batch_test_update.batch_upsert_target_id_seq RESTART WITH 1;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Scenario 5: No data change, only temporal adjustment (adjacent equivalent merge)
 \echo 'Scenario 5: No data change, only temporal adjustment (adjacent equivalent merge)'
 Scenario 5: No data change, only temporal adjustment (adjacent equivalent merge)
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, '2023-12-31', '2024-06-30', 'A', 10, 'C val', '2024-01-10', 'First half');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, 1, '2024-06-30', '2024-12-31', 'A', 10, 'C val', '2024-01-15', 'Second half'); -- founding_row_id=target_id=1
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo 'Manual check for earlier adjacent record before function call (Scenario 5):'
 Manual check for earlier adjacent record before function call (Scenario 5):
 SELECT * FROM batch_test_update.batch_upsert_target WHERE id = 1 AND valid_to = '2024-06-30'::DATE LIMIT 1;
- id | valid_after |  valid_to  | value_a | value_b | value_c | updated_on | edit_comment 
-----+-------------+------------+---------+---------+---------+------------+--------------
-  1 | 2023-12-31  | 2024-06-30 | A       |      10 | C val   | 2024-01-10 | First half
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo 'End of manual check.'
 End of manual check.
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
@@ -259,25 +237,22 @@ SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_id_column_name               => :'id_col',
     p_generated_columns_override   => NULL
 );
- source_row_id | upserted_record_id | status  | error_message 
----------------+--------------------+---------+---------------
-             1 |                  1 | SUCCESS | 
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM batch_test_update.show_target_table(1); -- Expected: One merged row: (2023-12-31, 2024-12-31], updated_on='2024-01-15', edit_comment='Second half'
- id | valid_after |  valid_to  | value_a | value_b | value_c | updated_on | edit_comment 
-----+-------------+------------+---------+---------+---------+------------+--------------
-  1 | 2023-12-31  | 2024-12-31 | A       |      10 | C val   | 2024-01-15 | Second half
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_update.batch_upsert_target; ALTER SEQUENCE batch_test_update.batch_upsert_target_id_seq RESTART WITH 1;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Scenario 6: Source overlaps start of existing, data different
 \echo 'Scenario 6: Source overlaps start of existing, data different'
 Scenario 6: Source overlaps start of existing, data different
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, '2024-02-28', '2024-10-31', 'A', 10, 'Original C', '2024-01-10', 'Existing Mid-Year');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, 1, '2023-12-31', '2024-05-31', 'A', 20, 'Updated C by Source Overlap Start', '2024-01-15', 'Source Overlaps Start'); -- founding_row_id=target_id=1
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_target_schema_name           => :'target_schema',
     p_target_table_name            => :'target_table',
@@ -288,31 +263,26 @@ SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_id_column_name               => :'id_col',
     p_generated_columns_override   => NULL
 );
- source_row_id | upserted_record_id | status  | error_message 
----------------+--------------------+---------+---------------
-             1 |                  1 | SUCCESS | 
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM batch_test_update.show_target_table(1);
- id | valid_after |  valid_to  | value_a | value_b |              value_c              | updated_on |     edit_comment      
-----+-------------+------------+---------+---------+-----------------------------------+------------+-----------------------
-  1 | 2023-12-31  | 2024-02-28 | A       |      20 | Updated C by Source Overlap Start | 2024-01-15 | Source Overlaps Start
-  1 | 2024-02-28  | 2024-05-31 | A       |      20 | Updated C by Source Overlap Start | 2024-01-15 | Source Overlaps Start
-  1 | 2024-05-31  | 2024-10-31 | A       |      10 | Original C                        | 2024-01-10 | Existing Mid-Year
-(3 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Expected: 3 rows
 -- Row 1: va=2023-12-31, vt=2024-02-28, value_b=20, value_c='Updated C by Source Overlap Start', updated_on='2024-01-15' (Leading source part)
 -- Row 2: va=2024-02-28, vt=2024-05-31, value_b=20, value_c='Updated C by Source Overlap Start', updated_on='2024-01-15' (Middle overlapping part)
 -- Row 3: va=2024-05-31, vt=2024-10-31, value_b=10, value_c='Original C', updated_on='2024-01-10' (Trailing existing part)
 TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_update.batch_upsert_target; ALTER SEQUENCE batch_test_update.batch_upsert_target_id_seq RESTART WITH 1;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Scenario 7: Source overlaps end of existing, data different
 \echo 'Scenario 7: Source overlaps end of existing, data different'
 Scenario 7: Source overlaps end of existing, data different
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, '2023-12-31', '2024-08-31', 'A', 10, 'Original C', '2024-01-10', 'Existing Early-Mid Year');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, 1, '2024-05-31', '2024-12-31', 'A', 30, 'Updated C by Source Overlap End', '2024-01-15', 'Source Overlaps End'); -- founding_row_id=target_id=1
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_target_schema_name           => :'target_schema',
     p_target_table_name            => :'target_table',
@@ -323,31 +293,26 @@ SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_id_column_name               => :'id_col',
     p_generated_columns_override   => NULL
 );
- source_row_id | upserted_record_id | status  | error_message 
----------------+--------------------+---------+---------------
-             1 |                  1 | SUCCESS | 
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM batch_test_update.show_target_table(1);
- id | valid_after |  valid_to  | value_a | value_b |             value_c             | updated_on |      edit_comment       
-----+-------------+------------+---------+---------+---------------------------------+------------+-------------------------
-  1 | 2023-12-31  | 2024-05-31 | A       |      10 | Original C                      | 2024-01-10 | Existing Early-Mid Year
-  1 | 2024-05-31  | 2024-08-31 | A       |      30 | Updated C by Source Overlap End | 2024-01-15 | Source Overlaps End
-  1 | 2024-08-31  | 2024-12-31 | A       |      30 | Updated C by Source Overlap End | 2024-01-15 | Source Overlaps End
-(3 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Expected: 3 rows
 -- Row 1: va=2023-12-31, vt=2024-05-31, value_b=10, value_c='Original C', updated_on='2024-01-10' (Leading existing part)
 -- Row 2: va=2024-05-31, vt=2024-08-31, value_b=30, value_c='Updated C by Source Overlap End', updated_on='2024-01-15' (Middle overlapping part)
 -- Row 3: va=2024-08-31, vt=2024-12-31, value_b=30, value_c='Updated C by Source Overlap End', updated_on='2024-01-15' (Trailing source part)
 TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_update.batch_upsert_target; ALTER SEQUENCE batch_test_update.batch_upsert_target_id_seq RESTART WITH 1;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Scenario 8: Existing is contained within source, data different
 \echo 'Scenario 8: Existing is contained within source, data different'
 Scenario 8: Existing is contained within source, data different
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, '2024-02-28', '2024-08-31', 'A', 10, 'Original C', '2024-01-10', 'Existing Mid-Period');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, 1, '2023-12-31', '2024-12-31', 'A', 40, 'Updated C by Source Contains Existing', '2024-01-15', 'Source Contains Existing'); -- founding_row_id=target_id=1
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_target_schema_name           => :'target_schema',
     p_target_table_name            => :'target_table',
@@ -358,31 +323,26 @@ SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_id_column_name               => :'id_col',
     p_generated_columns_override   => NULL
 );
- source_row_id | upserted_record_id | status  | error_message 
----------------+--------------------+---------+---------------
-             1 |                  1 | SUCCESS | 
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM batch_test_update.show_target_table(1);
- id | valid_after |  valid_to  | value_a | value_b |                value_c                | updated_on |       edit_comment       
-----+-------------+------------+---------+---------+---------------------------------------+------------+--------------------------
-  1 | 2023-12-31  | 2024-02-28 | A       |      40 | Updated C by Source Contains Existing | 2024-01-15 | Source Contains Existing
-  1 | 2024-02-28  | 2024-08-31 | A       |      40 | Updated C by Source Contains Existing | 2024-01-15 | Source Contains Existing
-  1 | 2024-08-31  | 2024-12-31 | A       |      40 | Updated C by Source Contains Existing | 2024-01-15 | Source Contains Existing
-(3 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Expected: 3 rows
 -- Row 1: va=2023-12-31, vt=2024-02-28, value_b=40, value_c='Updated C by Source Contains Existing', updated_on='2024-01-15' (Leading source part)
 -- Row 2: va=2024-02-28, vt=2024-08-31, value_b=40, value_c='Updated C by Source Contains Existing', updated_on='2024-01-15' (Middle updated part)
 -- Row 3: va=2024-08-31, vt=2024-12-31, value_b=40, value_c='Updated C by Source Contains Existing', updated_on='2024-01-15' (Trailing source part)
 TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_update.batch_upsert_target; ALTER SEQUENCE batch_test_update.batch_upsert_target_id_seq RESTART WITH 1;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Scenario 9: Existing is contained within source, data equivalent
 \echo 'Scenario 9: Existing is contained within source, data equivalent'
 Scenario 9: Existing is contained within source, data equivalent
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, '2024-02-28', '2024-08-31', 'A', 10, 'Same C', '2024-01-10', 'Existing Mid-Period, Same Data');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, 1, '2023-12-31', '2024-12-31', 'A', 10, 'Same C', '2024-01-15', 'Source Contains Existing, Same Data'); -- founding_row_id=target_id=1
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_target_schema_name           => :'target_schema',
     p_target_table_name            => :'target_table',
@@ -393,27 +353,24 @@ SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_id_column_name               => :'id_col',
     p_generated_columns_override   => NULL
 );
- source_row_id | upserted_record_id | status  | error_message 
----------------+--------------------+---------+---------------
-             1 |                  1 | SUCCESS | 
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM batch_test_update.show_target_table(1);
- id | valid_after |  valid_to  | value_a | value_b | value_c | updated_on |            edit_comment             
-----+-------------+------------+---------+---------+---------+------------+-------------------------------------
-  1 | 2023-12-31  | 2024-12-31 | A       |      10 | Same C  | 2024-01-15 | Source Contains Existing, Same Data
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Expected: 1 row (the source record, as the existing one was deleted due to being contained with equivalent data)
 -- Row 1: va=2023-12-31, vt=2024-12-31, value_b=10, value_c='Same C', updated_on='2024-01-15', edit_comment='Source Contains Existing, Same Data'
 TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_update.batch_upsert_target; ALTER SEQUENCE batch_test_update.batch_upsert_target_id_seq RESTART WITH 1;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Scenario 10: Source overlaps start of existing, data equivalent
 \echo 'Scenario 10: Source overlaps start of existing, data equivalent'
 Scenario 10: Source overlaps start of existing, data equivalent
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, '2024-02-28', '2024-10-31', 'A', 10, 'Same C', '2024-01-10', 'Existing Mid-Year, Same Data');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, 1, '2023-12-31', '2024-05-31', 'A', 10, 'Same C', '2024-01-15', 'Source Overlaps Start, Same Data'); -- founding_row_id=target_id=1
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_target_schema_name           => :'target_schema',
     p_target_table_name            => :'target_table',
@@ -424,27 +381,24 @@ SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_id_column_name               => :'id_col',
     p_generated_columns_override   => NULL
 );
- source_row_id | upserted_record_id | status  | error_message 
----------------+--------------------+---------+---------------
-             1 |                  1 | SUCCESS | 
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM batch_test_update.show_target_table(1);
- id | valid_after |  valid_to  | value_a | value_b | value_c | updated_on |           edit_comment           
-----+-------------+------------+---------+---------+---------+------------+----------------------------------
-  1 | 2023-12-31  | 2024-10-31 | A       |      10 | Same C  | 2024-01-15 | Source Overlaps Start, Same Data
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Expected: 1 row, existing extended to start earlier
 -- Row 1: va=2023-12-31, vt=2024-10-31, value_b=10, value_c='Same C', updated_on='2024-01-15', edit_comment='Source Overlaps Start, Same Data'
 TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_update.batch_upsert_target; ALTER SEQUENCE batch_test_update.batch_upsert_target_id_seq RESTART WITH 1;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Scenario 11: Source overlaps end of existing, data equivalent
 \echo 'Scenario 11: Source overlaps end of existing, data equivalent'
 Scenario 11: Source overlaps end of existing, data equivalent
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, '2023-12-31', '2024-08-31', 'A', 10, 'Same C', '2024-01-10', 'Existing Early-Mid Year, Same Data');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, 1, '2024-05-31', '2024-12-31', 'A', 10, 'Same C', '2024-01-15', 'Source Overlaps End, Same Data'); -- founding_row_id=target_id=1
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_target_schema_name           => :'target_schema',
     p_target_table_name            => :'target_table',
@@ -455,27 +409,24 @@ SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_id_column_name               => :'id_col',
     p_generated_columns_override   => NULL
 );
- source_row_id | upserted_record_id | status  | error_message 
----------------+--------------------+---------+---------------
-             1 |                  1 | SUCCESS | 
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM batch_test_update.show_target_table(1);
- id | valid_after |  valid_to  | value_a | value_b | value_c | updated_on |          edit_comment          
-----+-------------+------------+---------+---------+---------+------------+--------------------------------
-  1 | 2023-12-31  | 2024-12-31 | A       |      10 | Same C  | 2024-01-15 | Source Overlaps End, Same Data
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Expected: 1 row, existing extended to end later
 -- Row 1: va=2023-12-31, vt=2024-12-31, value_b=10, value_c='Same C', updated_on='2024-01-15', edit_comment='Source Overlaps End, Same Data'
 TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_update.batch_upsert_target; ALTER SEQUENCE batch_test_update.batch_upsert_target_id_seq RESTART WITH 1;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Scenario 12: Source starts existing, data different
 \echo 'Scenario 12: Source starts existing, data different'
 Scenario 12: Source starts existing, data different
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, '2023-12-31', '2024-10-31', 'A', 10, 'Original C', '2024-01-10', 'Existing Full Year');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, 1, '2023-12-31', '2024-05-31', 'A', 50, 'Updated C by Source Starts Existing', '2024-01-15', 'Source Starts Existing'); -- founding_row_id=target_id=1
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_target_schema_name           => :'target_schema',
     p_target_table_name            => :'target_table',
@@ -486,29 +437,25 @@ SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_id_column_name               => :'id_col',
     p_generated_columns_override   => NULL
 );
- source_row_id | upserted_record_id | status  | error_message 
----------------+--------------------+---------+---------------
-             1 |                  1 | SUCCESS | 
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM batch_test_update.show_target_table(1);
- id | valid_after |  valid_to  | value_a | value_b |               value_c               | updated_on |      edit_comment      
-----+-------------+------------+---------+---------+-------------------------------------+------------+------------------------
-  1 | 2023-12-31  | 2024-05-31 | A       |      50 | Updated C by Source Starts Existing | 2024-01-15 | Source Starts Existing
-  1 | 2024-05-31  | 2024-10-31 | A       |      10 | Original C                          | 2024-01-10 | Existing Full Year
-(2 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Expected: 2 rows
 -- Row 1: va=2023-12-31, vt=2024-05-31, value_b=50, value_c='Updated C by Source Starts Existing', updated_on='2024-01-15' (Updated part)
 -- Row 2: va=2024-05-31, vt=2024-10-31, value_b=10, value_c='Original C', updated_on='2024-01-10' (Remaining existing part)
 TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_update.batch_upsert_target; ALTER SEQUENCE batch_test_update.batch_upsert_target_id_seq RESTART WITH 1;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Scenario 13: Existing starts source, data different
 \echo 'Scenario 13: Existing starts source, data different'
 Scenario 13: Existing starts source, data different
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, '2023-12-31', '2024-05-31', 'A', 10, 'Original C', '2024-01-10', 'Existing Shorter Period');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, 1, '2023-12-31', '2024-10-31', 'A', 60, 'Updated C by Existing Starts Source', '2024-01-15', 'Existing Starts Source'); -- founding_row_id=target_id=1
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_target_schema_name           => :'target_schema',
     p_target_table_name            => :'target_table',
@@ -519,29 +466,25 @@ SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_id_column_name               => :'id_col',
     p_generated_columns_override   => NULL
 );
- source_row_id | upserted_record_id | status  | error_message 
----------------+--------------------+---------+---------------
-             1 |                  1 | SUCCESS | 
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM batch_test_update.show_target_table(1);
- id | valid_after |  valid_to  | value_a | value_b |               value_c               | updated_on |      edit_comment      
-----+-------------+------------+---------+---------+-------------------------------------+------------+------------------------
-  1 | 2023-12-31  | 2024-05-31 | A       |      60 | Updated C by Existing Starts Source | 2024-01-15 | Existing Starts Source
-  1 | 2024-05-31  | 2024-10-31 | A       |      60 | Updated C by Existing Starts Source | 2024-01-15 | Existing Starts Source
-(2 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Expected: 2 rows
 -- Row 1: va=2023-12-31, vt=2024-05-31, value_b=60, value_c='Updated C by Existing Starts Source', updated_on='2024-01-15' (Updated part, original extent of existing)
 -- Row 2: va=2024-05-31, vt=2024-10-31, value_b=60, value_c='Updated C by Existing Starts Source', updated_on='2024-01-15' (Trailing source part)
 TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_update.batch_upsert_target; ALTER SEQUENCE batch_test_update.batch_upsert_target_id_seq RESTART WITH 1;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Scenario 14: Existing finishes source, data different
 \echo 'Scenario 14: Existing finishes source, data different'
 Scenario 14: Existing finishes source, data different
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, '2024-03-31', '2024-10-31', 'A', 10, 'Original C', '2024-01-10', 'Existing Later Part');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, 1, '2023-12-31', '2024-10-31', 'A', 70, 'Updated C by Existing Finishes Source', '2024-01-15', 'Existing Finishes Source'); -- founding_row_id=target_id=1
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_target_schema_name           => :'target_schema',
     p_target_table_name            => :'target_table',
@@ -552,29 +495,25 @@ SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_id_column_name               => :'id_col',
     p_generated_columns_override   => NULL
 );
- source_row_id | upserted_record_id | status  | error_message 
----------------+--------------------+---------+---------------
-             1 |                  1 | SUCCESS | 
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM batch_test_update.show_target_table(1);
- id | valid_after |  valid_to  | value_a | value_b |                value_c                | updated_on |       edit_comment       
-----+-------------+------------+---------+---------+---------------------------------------+------------+--------------------------
-  1 | 2023-12-31  | 2024-03-31 | A       |      70 | Updated C by Existing Finishes Source | 2024-01-15 | Existing Finishes Source
-  1 | 2024-03-31  | 2024-10-31 | A       |      70 | Updated C by Existing Finishes Source | 2024-01-15 | Existing Finishes Source
-(2 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Expected: 2 rows
 -- Row 1: va=2023-12-31, vt=2024-03-31, value_b=70, value_c='Updated C by Existing Finishes Source', updated_on='2024-01-15' (Leading source part)
 -- Row 2: va=2024-03-31, vt=2024-10-31, value_b=70, value_c='Updated C by Existing Finishes Source', updated_on='2024-01-15' (Updated/finishing part)
 TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_update.batch_upsert_target; ALTER SEQUENCE batch_test_update.batch_upsert_target_id_seq RESTART WITH 1;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Scenario 15: Source starts existing, data equivalent
 \echo 'Scenario 15: Source starts existing, data equivalent'
 Scenario 15: Source starts existing, data equivalent
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, '2023-12-31', '2024-10-31', 'A', 10, 'Same C', '2024-01-10', 'Existing Full Year, Same Data'); 
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, 1, '2023-12-31', '2024-05-31', 'A', 10, 'Same C', '2024-01-15', 'Source Starts Existing, Same Data'); -- founding_row_id=target_id=1
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_target_schema_name           => :'target_schema',
     p_target_table_name            => :'target_table',
@@ -585,27 +524,24 @@ SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_id_column_name               => :'id_col',
     p_generated_columns_override   => NULL
 );
- source_row_id | upserted_record_id | status  | error_message 
----------------+--------------------+---------+---------------
-             1 |                  1 | SUCCESS | 
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM batch_test_update.show_target_table(1);
- id | valid_after |  valid_to  | value_a | value_b | value_c | updated_on |           edit_comment            
-----+-------------+------------+---------+---------+---------+------------+-----------------------------------
-  1 | 2023-12-31  | 2024-10-31 | A       |      10 | Same C  | 2024-01-15 | Source Starts Existing, Same Data
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Expected: 1 row (existing record unchanged, source is fully handled, ephemeral data updated from source)
 -- Row 1: va=2023-12-31, vt=2024-10-31, value_b=10, value_c='Same C', updated_on='2024-01-15', edit_comment='Source Starts Existing, Same Data'
 TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_update.batch_upsert_target; ALTER SEQUENCE batch_test_update.batch_upsert_target_id_seq RESTART WITH 1;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Scenario 16: Existing starts source, data equivalent
 \echo 'Scenario 16: Existing starts source, data equivalent'
 Scenario 16: Existing starts source, data equivalent
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, '2023-12-31', '2024-05-31', 'A', 10, 'Same C', '2024-01-10', 'Existing Shorter, Same Data'); 
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, 1, '2023-12-31', '2024-10-31', 'A', 10, 'Same C', '2024-01-15', 'Existing Starts Source, Same Data'); -- founding_row_id=target_id=1
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_target_schema_name           => :'target_schema',
     p_target_table_name            => :'target_table',
@@ -616,27 +552,24 @@ SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_id_column_name               => :'id_col',
     p_generated_columns_override   => NULL
 );
- source_row_id | upserted_record_id | status  | error_message 
----------------+--------------------+---------+---------------
-             1 |                  1 | SUCCESS | 
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM batch_test_update.show_target_table(1);
- id | valid_after |  valid_to  | value_a | value_b | value_c | updated_on |           edit_comment            
-----+-------------+------------+---------+---------+---------+------------+-----------------------------------
-  1 | 2023-12-31  | 2024-10-31 | A       |      10 | Same C  | 2024-01-15 | Existing Starts Source, Same Data
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Expected: 1 row (source record, existing was deleted)
 -- Row 1: va=2023-12-31, vt=2024-10-31, value_b=10, value_c='Same C', updated_on='2024-01-15', edit_comment='Existing Starts Source, Same Data'
 TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_update.batch_upsert_target; ALTER SEQUENCE batch_test_update.batch_upsert_target_id_seq RESTART WITH 1;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Scenario 17: Source finishes existing, data equivalent
 \echo 'Scenario 17: Source finishes existing, data equivalent'
 Scenario 17: Source finishes existing, data equivalent
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, '2023-12-31', '2024-10-31', 'A', 10, 'Same C', '2024-01-10', 'Existing Full Year, Same Data'); 
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, 1, '2024-03-31', '2024-10-31', 'A', 10, 'Same C', '2024-01-15', 'Source Finishes Existing, Same Data'); -- founding_row_id=target_id=1
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_target_schema_name           => :'target_schema',
     p_target_table_name            => :'target_table',
@@ -647,27 +580,24 @@ SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_id_column_name               => :'id_col',
     p_generated_columns_override   => NULL
 );
- source_row_id | upserted_record_id | status  | error_message 
----------------+--------------------+---------+---------------
-             1 |                  1 | SUCCESS | 
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM batch_test_update.show_target_table(1);
- id | valid_after |  valid_to  | value_a | value_b | value_c | updated_on |            edit_comment             
-----+-------------+------------+---------+---------+---------+------------+-------------------------------------
-  1 | 2023-12-31  | 2024-10-31 | A       |      10 | Same C  | 2024-01-15 | Source Finishes Existing, Same Data
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Expected: 1 row (existing record unchanged, source is fully handled, ephemeral data updated from source)
 -- Row 1: va=2023-12-31, vt=2024-10-31, value_b=10, value_c='Same C', updated_on='2024-01-15', edit_comment='Source Finishes Existing, Same Data'
 TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_update.batch_upsert_target; ALTER SEQUENCE batch_test_update.batch_upsert_target_id_seq RESTART WITH 1;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Scenario 18: Existing finishes source, data equivalent
 \echo 'Scenario 18: Existing finishes source, data equivalent'
 Scenario 18: Existing finishes source, data equivalent
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, '2024-03-31', '2024-10-31', 'A', 10, 'Same C', '2024-01-10', 'Existing Later Part, Same Data'); 
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, 1, '2023-12-31', '2024-10-31', 'A', 10, 'Same C', '2024-01-15', 'Existing Finishes Source, Same Data'); -- founding_row_id=target_id=1
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_target_schema_name           => :'target_schema',
     p_target_table_name            => :'target_table',
@@ -678,29 +608,28 @@ SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_id_column_name               => :'id_col',
     p_generated_columns_override   => NULL
 );
- source_row_id | upserted_record_id | status  | error_message 
----------------+--------------------+---------+---------------
-             1 |                  1 | SUCCESS | 
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM batch_test_update.show_target_table(1);
- id | valid_after |  valid_to  | value_a | value_b | value_c | updated_on |            edit_comment             
-----+-------------+------------+---------+---------+---------+------------+-------------------------------------
-  1 | 2023-12-31  | 2024-10-31 | A       |      10 | Same C  | 2024-01-15 | Existing Finishes Source, Same Data
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Expected: 1 row (source record, existing was deleted)
 -- Row 1: va=2023-12-31, vt=2024-10-31, value_b=10, value_c='Same C', updated_on='2024-01-15', edit_comment='Existing Finishes Source, Same Data'
 TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_update.batch_upsert_target; ALTER SEQUENCE batch_test_update.batch_upsert_target_id_seq RESTART WITH 1;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- New Scenario: Multiple Edits to Same New Entity in One Batch (founding_row_id cache test)
 \echo 'Scenario N1: Multiple Edits to Same New Entity in One Batch (founding_row_id cache test)'
 Scenario N1: Multiple Edits to Same New Entity in One Batch (founding_row_id cache test)
 TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 DELETE FROM batch_test_update.batch_upsert_target;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 ALTER SEQUENCE batch_test_update.batch_upsert_target_id_seq RESTART WITH 1;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (101, NULL, '2023-01-01', '2023-06-30', 'MultiEditNew', 10, 'C_First', '2023-01-15', 'First part new'), -- row_id=1
 (101, NULL, '2023-07-01', '2023-12-31', 'MultiEditNew', 20, 'C_Second', '2023-07-15', 'Second part new, values changed'); -- row_id=2
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_target_schema_name           => :'target_schema',
     p_target_table_name            => :'target_table',
@@ -711,34 +640,31 @@ SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_id_column_name               => :'id_col',
     p_generated_columns_override   => NULL
 ) ORDER BY source_row_id;
- source_row_id | upserted_record_id | status  | error_message 
----------------+--------------------+---------+---------------
-             1 |                  1 | SUCCESS | 
-             2 |                  1 | SUCCESS | 
-(2 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM batch_test_update.show_target_table();
- id | valid_after |  valid_to  |   value_a    | value_b | value_c  | updated_on |          edit_comment           
-----+-------------+------------+--------------+---------+----------+------------+---------------------------------
-  1 | 2023-01-01  | 2023-06-30 | MultiEditNew |      10 | C_First  | 2023-01-15 | First part new
-  1 | 2023-07-01  | 2023-12-31 | MultiEditNew |      20 | C_Second | 2023-07-15 | Second part new, values changed
-(2 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Expected: A single new ID (e.g., 1) should be created for 'MultiEditNew'.
 -- Two rows for this ID due to different value_b/c in different periods.
 -- ID (e.g. 1): (MultiEditNew, 10, C_First) valid_after='2023-01-01', valid_to='2023-06-30', updated_on='2023-01-15'
 -- ID (e.g. 1): (MultiEditNew, 20, C_Second) valid_after='2023-07-01', valid_to='2023-12-31', updated_on='2023-07-15'
 TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_update.batch_upsert_target;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 ALTER SEQUENCE batch_test_update.batch_upsert_target_id_seq RESTART WITH 1;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- New Scenario: Rolling Infinity Updates - Equivalent Core Data
 \echo 'Scenario N2: Rolling Infinity Updates - Equivalent Core Data'
 Scenario N2: Rolling Infinity Updates - Equivalent Core Data
 TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 DELETE FROM batch_test_update.batch_upsert_target;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 ALTER SEQUENCE batch_test_update.batch_upsert_target_id_seq RESTART WITH 1;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Step 1: Insert initial record with valid_to = infinity
 INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (201, NULL, '2022-12-31', 'infinity', 'RollingInf', 100, 'C_Initial', '2023-01-01', 'Initial Infinity');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_target_schema_name           => :'target_schema',
     p_target_table_name            => :'target_table',
@@ -749,22 +675,16 @@ SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_id_column_name               => :'id_col',
     p_generated_columns_override   => NULL
 );
- source_row_id | upserted_record_id | status  | error_message 
----------------+--------------------+---------+---------------
-             1 |                  1 | SUCCESS | 
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM batch_test_update.show_target_table();
- id | valid_after | valid_to |  value_a   | value_b |  value_c  | updated_on |   edit_comment   
-----+-------------+----------+------------+---------+-----------+------------+------------------
-  1 | 2022-12-31  | infinity | RollingInf |     100 | C_Initial | 2023-01-01 | Initial Infinity
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Expected: One row for new ID (e.g. 1), (RollingInf, 100, C_Initial), va='2022-12-31', vt='infinity', updated_on='2023-01-01'
 -- Step 2: Update with a new record that meets the previous one, same core data, new ephemeral data
 TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (201, 1, '2023-12-31', 'infinity', 'RollingInf', 100, 'C_Initial', '2024-01-01', 'Update Ephemeral for Infinity'); -- Assumes ID 1 was created
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_target_schema_name           => :'target_schema',
     p_target_table_name            => :'target_table',
@@ -775,25 +695,26 @@ SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
     p_id_column_name               => :'id_col',
     p_generated_columns_override   => NULL
 );
- source_row_id | upserted_record_id | status  | error_message 
----------------+--------------------+---------+---------------
-             1 |                  1 | SUCCESS | 
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM batch_test_update.show_target_table(1);
- id | valid_after | valid_to |  value_a   | value_b |  value_c  | updated_on |         edit_comment          
-----+-------------+----------+------------+---------+-----------+------------+-------------------------------
-  1 | 2022-12-31  | infinity | RollingInf |     100 | C_Initial | 2024-01-01 | Update Ephemeral for Infinity
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Expected: One row for ID 1, (RollingInf, 100, C_Initial), va='2022-12-31', vt='infinity', updated_on='2024-01-01' (original closed, new one merged and extended)
 TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_update.batch_upsert_target;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 ALTER SEQUENCE batch_test_update.batch_upsert_target_id_seq RESTART WITH 1;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Cleanup
 DROP FUNCTION batch_test_update.show_target_table(INT);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 DROP TABLE batch_test_update.batch_upsert_source;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 DROP TABLE batch_test_update.batch_upsert_target;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 DROP SEQUENCE batch_test_update.batch_upsert_target_id_seq;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 DROP SCHEMA batch_test_update CASCADE;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SET client_min_messages TO NOTICE; -- Revert client_min_messages at the end (or to original if known)
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 ROLLBACK;

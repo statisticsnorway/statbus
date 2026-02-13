@@ -160,7 +160,7 @@ Uncle tasks:
 For the full pipeline diagram, see [derive-pipeline.md](./derive-pipeline.md).
 
 ```
-1. check_table detects changes → enqueues derive_statistical_unit
+1. collect_changes drains base_change_log → enqueues derive_statistical_unit
 
 2. derive_statistical_unit runs:
    - Computes closed groups of affected enterprises

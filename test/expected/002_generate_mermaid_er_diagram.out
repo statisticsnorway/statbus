@@ -1289,6 +1289,15 @@ erDiagram
 		name[] generated_columns
 		name[] ephemeral_columns
 	}
+	worker_base_change_log["worker.base_change_log"] {
+		int4multirange establishment_ids
+		int4multirange legal_unit_ids
+		int4multirange enterprise_ids
+		datemultirange edited_by_valid_range
+	}
+	worker_base_change_log_has_pending["worker.base_change_log_has_pending"] {
+		boolean has_pending
+	}
 	worker_command_registry["worker.command_registry"] {
 		text command
 		text handler_procedure
@@ -1298,10 +1307,6 @@ erDiagram
 		text queue
 		timestamp_with_time_zone created_at
 		integer batches_per_wave
-	}
-	worker_last_processed["worker.last_processed"] {
-		text table_name
-		bigint transaction_id
 	}
 	worker_queue_registry["worker.queue_registry"] {
 		text queue

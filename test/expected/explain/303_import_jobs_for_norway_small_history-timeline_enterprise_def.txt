@@ -19,49 +19,46 @@
                                              ->  Nested Loop Left Join
                                                    Disabled: true
                                                    ->  Hash Join
-                                                         Hash Cond: (en_1.id = t_1.unit_id)
-                                                         ->  Seq Scan on enterprise en_1
+                                                         Hash Cond: (t_1.unit_id = en_1.id)
+                                                         ->  Seq Scan on timesegments t_1
+                                                               Filter: (unit_type = 'enterprise'::statistical_unit_type)
                                                          ->  Hash
-                                                               ->  Seq Scan on timesegments t_1
-                                                                     Filter: (unit_type = 'enterprise'::statistical_unit_type)
+                                                               ->  Seq Scan on enterprise en_1
                                                    ->  GroupAggregate
                                                          ->  Sort
                                                                Sort Key: timeline_legal_unit.legal_unit_id
-                                                               ->  Index Scan using idx_timeline_legal_unit_enterprise_id on timeline_legal_unit
-                                                                     Index Cond: (enterprise_id = en_1.id)
-                                                                     Filter: ((t_1.valid_from < valid_until) AND (valid_from < t_1.valid_until))
+                                                               ->  Seq Scan on timeline_legal_unit
+                                                                     Filter: ((t_1.valid_from < valid_until) AND (valid_from < t_1.valid_until) AND (enterprise_id = en_1.id))
                                              ->  GroupAggregate
                                                    ->  Sort
                                                          Sort Key: timeline_establishment.establishment_id
-                                                         ->  Index Scan using idx_timeline_establishment_enterprise_id on timeline_establishment
-                                                               Index Cond: (enterprise_id = en_1.id)
-                                                               Filter: ((t_1.valid_from < valid_until) AND (valid_from < t_1.valid_until))
+                                                         ->  Seq Scan on timeline_establishment
+                                                               Filter: ((t_1.valid_from < valid_until) AND (valid_from < t_1.valid_until) AND (enterprise_id = en_1.id))
                            ->  Hash
                                  ->  Hash Join
-                                       Hash Cond: (en.id = t.unit_id)
-                                       ->  Seq Scan on enterprise en
+                                       Hash Cond: (t.unit_id = en.id)
+                                       ->  Seq Scan on timesegments t
+                                             Filter: (unit_type = 'enterprise'::statistical_unit_type)
                                        ->  Hash
-                                             ->  Seq Scan on timesegments t
-                                                   Filter: (unit_type = 'enterprise'::statistical_unit_type)
+                                             ->  Seq Scan on enterprise en
                      ->  Limit
-                           ->  Incremental Sort
+                           ->  Sort
                                  Sort Key: enplu_1.valid_from DESC, enplu_1.legal_unit_id DESC
-                                 Presorted Key: enplu_1.valid_from
-                                 ->  Index Scan Backward using idx_timeline_legal_unit_valid_period on timeline_legal_unit enplu_1
-                                       Index Cond: ((valid_from < t.valid_until) AND (valid_until > t.valid_from))
-                                       Filter: (primary_for_enterprise AND (enterprise_id = en.id))
+                                 ->  Seq Scan on timeline_legal_unit enplu_1
+                                       Filter: (primary_for_enterprise AND (t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (enterprise_id = en.id))
                ->  Limit
-                     ->  Incremental Sort
+                     ->  Sort
                            Sort Key: enpes_1.valid_from DESC, enpes_1.establishment_id DESC
-                           Presorted Key: enpes_1.valid_from
-                           ->  Index Scan Backward using idx_timeline_establishment_valid_period on timeline_establishment enpes_1
-                                 Index Cond: ((valid_from < t.valid_until) AND (valid_until > t.valid_from))
-                                 Filter: (primary_for_enterprise AND (enterprise_id = en.id))
-         ->  Limit
-               ->  Sort
-                     Sort Key: "*VALUES*".column3 DESC
-                     ->  Values Scan on "*VALUES*"
-                           Filter: (column3 IS NOT NULL)
+                           ->  Seq Scan on timeline_establishment enpes_1
+                                 Filter: (primary_for_enterprise AND (t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (enterprise_id = en.id))
+         ->  Memoize
+               Cache Key: en.edit_comment, en.edit_by_user_id, en.edit_at, enplu_1.last_edit_comment, enplu_1.last_edit_by_user_id, enplu_1.last_edit_at, enpes_1.last_edit_comment, enpes_1.last_edit_by_user_id, enpes_1.last_edit_at
+               Cache Mode: binary
+               ->  Limit
+                     ->  Sort
+                           Sort Key: "*VALUES*".column3 DESC
+                           ->  Values Scan on "*VALUES*"
+                                 Filter: (column3 IS NOT NULL)
          SubPlan 2
            ->  Aggregate
                  ->  Unique
@@ -104,5 +101,5 @@
                                    ->  Result
                              ->  ProjectSet
                                    ->  Result
-(104 rows)
+(101 rows)
 

@@ -74,7 +74,7 @@ group. The queues are fully independent — work on one queue never blocks anoth
 ```
 
 **Import queue** (1 fiber): Processes `import_job_process` one at a time.
-When an import modifies data, it triggers `check_table` on the analytics queue.
+When an import modifies data, it triggers `collect_changes` on the analytics queue.
 
 **Analytics queue** (4 fibers = 1 top + 3 child): Derives all statistical
 tables. The top fiber runs each pipeline stage sequentially; when a stage
@@ -102,9 +102,9 @@ all downstream tables. Each box below is a **top-level task** — they run
     │ lifecycle trigger
     ▼
                           ┌─────────────────────────────────────────────┐
-                     ①    │ check_table                                 │
-                          │  Detects changed legal_unit / establishment │
-                          │  rows. Enqueues derive_statistical_unit.    │
+                     ①    │ collect_changes                             │
+                          │  Drains base_change_log accumulator and     │
+                          │  enqueues derive_statistical_unit.          │
                           └──────────────────┬──────────────────────────┘
                                              │ (strictly sequential — next task)
                                              ▼
@@ -160,13 +160,25 @@ all downstream tables. Each box below is a **top-level task** — they run
                                              │
                                              ▼
                           ┌─────────────────────────────────────────────┐
-                     ⑥    │ derive_statistical_unit_facet   MONOLITHIC  │
+                     ⑥    │ derive_statistical_unit_facet       PARENT  │
                           │                                             │
-                          │  Aggregates statistical_unit into facets    │
-                          │  for the drilldown UI. Runs as a single    │
-                          │  operation (see "Why monolithic?" below).   │
+                          │  Spawns partition children (parallel):      │
+                          │  ┌──────────┐ ┌──────────┐ ┌──────────┐   │
+                          │  │ part 0   │ │ part 1   │ │ part N   │...│
+                          │  └──────────┘ └──────────┘ └──────────┘   │
+                          │  derive_statistical_unit_facet_partition    │
                           │                                             │
+                          │  Enqueues → statistical_unit_facet_reduce   │
                           │  Enqueues → derive_statistical_history_facet│
+                          │                                             │
+                          │  Parent "waiting" → children → done         │
+                          └──────────────────┬──────────────────────────┘
+                                             │
+                                             ▼
+                          ┌─────────────────────────────────────────────┐
+                    ⑥b    │ statistical_unit_facet_reduce       SERIAL  │
+                          │  Merges partition staging data into         │
+                          │  main statistical_unit_facet table.         │
                           └──────────────────┬──────────────────────────┘
                                              │
                                              ▼
@@ -195,7 +207,28 @@ all children finish. This is structured concurrency — concurrency is scoped
 inside the parent, never between top-level tasks.
 
 
-## Why derive_statistical_unit_facet Is Monolithic
+## Staging Pattern and Race Safety
+
+Step ② (`derive_statistical_unit`) writes to an UNLOGGED staging table
+(`statistical_unit_staging`) via batch children, then step ③
+(`statistical_unit_flush_staging`) merges staging into the main table and
+TRUNCATEs staging.
+
+**Why there is no TRUNCATE at the start of derive_statistical_unit:**
+An earlier version TRUNCATEd staging at the start of each derive cycle to
+"clean up interrupted runs." This created a latent race: if `collect_changes`
+enqueued a new `derive_statistical_unit` before the previous cycle's
+`flush_staging` ran, the TRUNCATE would destroy all staged data. The race was
+nearly triggered in concurrent testing (priority gaps as small as 2 sequence
+values). The TRUNCATE was removed because:
+
+1. Batch children already do `DELETE FROM staging WHERE unit_type/unit_id`
+   before inserting — stale data from a previous cycle gets overwritten
+2. `flush_staging` TRUNCATEs at the end after merging staging → main
+3. UNLOGGED tables auto-truncate on unclean shutdown (PostgreSQL guarantee)
+
+
+## Partitioning derive_statistical_unit_facet
 
 The three derived tables have different data models:
 
@@ -203,7 +236,7 @@ The three derived tables have different data models:
 |----------------------------|----------------------------------------|-------------------|
 | `statistical_history`      | `(resolution, year, month, unit_type)` | period            |
 | `statistical_history_facet`| `(resolution, year, month, ...dims)`   | period            |
-| `statistical_unit_facet`   | `(valid_from, valid_until, ...dims)`   | date range        |
+| `statistical_unit_facet`   | `(valid_from, valid_until, ...dims)`   | `(unit_type, unit_id)` |
 
 `statistical_history` and `statistical_history_facet` use period-based keys
 (`year`, `month`), so each period child touches **disjoint rows** — perfect
@@ -214,10 +247,13 @@ A facet row with `valid_from=2020, valid_until=2025` would overlap **65
 periods** (5 year + 60 month). Splitting by period would cause each child to
 redundantly DELETE and re-INSERT the same row. Correct but 65x wasteful.
 
-At current scale (3.1M statistical units), DSUF takes 30–180 seconds as a
-monolithic operation. This is fast enough. If it becomes a bottleneck with
-larger datasets, the right approach is splitting by `(unit_type, unit_id)`
-using a map-reduce pattern (not by period).
+Instead, DSUF partitions by `(unit_type, unit_id)` using a **map-reduce**
+pattern: each partition child writes partial aggregations to an UNLOGGED
+staging table, then `statistical_unit_facet_reduce` merges and swaps the
+results into the main table in a single transaction.
+
+Only **dirty partitions** (those with changed data tracked in
+`statistical_unit_facet_dirty_partitions`) are recomputed.
 
 
 ## Production Performance (1.1M LU + 826K ES = 3.1M stat units)
@@ -254,23 +290,24 @@ the next-largest costs. The reporting stages (DSH, DSHF) take seconds.
 
 All commands and their queue assignments:
 
-| Queue       | Command                                | Role        | Notes                        |
-|-------------|----------------------------------------|-------------|------------------------------|
-| analytics   | `check_table`                          | top-level   | Detects changed rows         |
-| analytics   | `derive_statistical_unit`              | parent      | Spawns batch children        |
-| analytics   | `statistical_unit_refresh_batch`       | child       | Parallel batch processing    |
-| analytics   | `derive_statistical_unit_continue`     | top-level   | ANALYZE sync point           |
-| analytics   | `statistical_unit_flush_staging`       | top-level   | Merge staging → main table   |
-| analytics   | `derive_reports`                       | top-level   | Enqueues DSH                 |
-| analytics   | `derive_statistical_history`           | parent      | Spawns period children       |
-| analytics   | `derive_statistical_history_period`    | child       | Per-period aggregation       |
-| analytics   | `derive_statistical_unit_facet`        | top-level   | Monolithic facet derivation  |
-| analytics   | `derive_statistical_history_facet`     | parent      | Spawns period children       |
-| analytics   | `derive_statistical_history_facet_period` | child    | Per-period facet aggregation |
-| analytics   | `deleted_row`                          | top-level   | Handle deletions             |
-| import      | `import_job_process`                   | top-level   | One import at a time         |
-| maintenance | `task_cleanup`                         | top-level   | Clean old tasks              |
-| maintenance | `import_job_cleanup`                   | top-level   | Clean expired imports        |
+| Queue       | Command                                   | Role        | Notes                        |
+|-------------|-------------------------------------------|-------------|------------------------------|
+| analytics   | `collect_changes`                         | top-level   | Drains base_change_log       |
+| analytics   | `derive_statistical_unit`                 | parent      | Spawns batch children        |
+| analytics   | `statistical_unit_refresh_batch`          | child       | Parallel batch processing    |
+| analytics   | `derive_statistical_unit_continue`        | top-level   | ANALYZE sync point           |
+| analytics   | `statistical_unit_flush_staging`          | top-level   | Merge staging → main table   |
+| analytics   | `derive_reports`                          | top-level   | Enqueues DSH                 |
+| analytics   | `derive_statistical_history`              | parent      | Spawns period children       |
+| analytics   | `derive_statistical_history_period`       | child       | Per-period aggregation       |
+| analytics   | `derive_statistical_unit_facet`           | parent      | Spawns partition children    |
+| analytics   | `derive_statistical_unit_facet_partition` | child       | Per-partition facet compute  |
+| analytics   | `statistical_unit_facet_reduce`           | top-level   | Merge partitions → main      |
+| analytics   | `derive_statistical_history_facet`        | parent      | Spawns period children       |
+| analytics   | `derive_statistical_history_facet_period` | child       | Per-period facet aggregation |
+| import      | `import_job_process`                      | top-level   | One import at a time         |
+| maintenance | `task_cleanup`                            | top-level   | Clean old tasks              |
+| maintenance | `import_job_cleanup`                      | top-level   | Clean expired imports        |
 
 
 ## Frontend Status Detection

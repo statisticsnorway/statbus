@@ -9,7 +9,7 @@ BEGIN;
 -- 1. Load initial data using the import system (ported from 306_load_demo_data.sql)
 -- 2. Check the initial state of a statistical unit.
 -- 3. Perform an UPDATE on a related `activity` record.
--- 4. Verify that a `check_table` task is enqueued in worker.tasks.
+-- 4. Verify that a `collect_changes` task is enqueued in worker.tasks.
 -- 5. Process the tasks.
 -- 6. Verify that the statistical unit has been updated with the new data.
 
@@ -59,7 +59,7 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo Run worker processing for analytics tasks
 CALL worker.process_tasks(p_queue => 'analytics');
 
--- 
+--
 SELECT unit_type, external_idents, valid_from, valid_until, name, stats->'employees' as employees FROM public.statistical_unit
 WHERE name = 'Statistics Norway'
 ORDER BY unit_type, unit_id, valid_from, valid_until;
@@ -83,13 +83,13 @@ SET value_int = 100
 WHERE legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'Statistics Norway')
 AND stat_definition_id = (SELECT id FROM public.stat_definition WHERE code = 'employees');
 
-\echo "Check: Expect one 'check_table' task for 'stat_for_unit'."
-SELECT command, payload->>'table_name' as table_name, state
+\echo "Check: Expect one 'collect_changes' task."
+SELECT command, state
 FROM worker.tasks
-WHERE command = 'check_table' AND state = 'pending';
+WHERE command = 'collect_changes' AND state = 'pending';
 
 \echo "Run worker to process tasks..."
-CALL worker.process_tasks(p_queue => 'analytics'); -- Processes check_table, enqueues derive tasks and process derived tasks
+CALL worker.process_tasks(p_queue => 'analytics'); -- Processes collect_changes, enqueues derive tasks and process derived tasks
 
 \echo "After: check stats for 'Statistics Norway'. Expect employees to be 100."
 \x
@@ -108,8 +108,8 @@ SELECT name FROM public.statistical_unit WHERE name = 'Statistics Norway' AND un
 \echo "Action: Updating establishment name"
 UPDATE public.establishment SET name = 'Statistics Norway Updated' WHERE name = 'Statistics Norway';
 
-\echo "Check: Expect one 'check_table' task for 'establishment'."
-SELECT command, payload->>'table_name' as table_name, state FROM worker.tasks WHERE command = 'check_table' AND state = 'pending';
+\echo "Check: Expect one 'collect_changes' task."
+SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND state = 'pending';
 \echo "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
 
@@ -125,8 +125,8 @@ SELECT name FROM public.statistical_unit WHERE unit_type = 'enterprise' AND unit
 \echo "Action: Updating legal_unit short_name"
 UPDATE public.legal_unit SET short_name = 'GIL' WHERE name = 'Statistics Norway';
 
-\echo "Check: Expect one 'check_table' task for 'legal_unit'."
-SELECT command, payload->>'table_name' as table_name, state FROM worker.tasks WHERE command = 'check_table' AND state = 'pending';
+\echo "Check: Expect one 'collect_changes' task."
+SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND state = 'pending';
 \echo "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
 
@@ -142,8 +142,8 @@ SELECT physical_address_part1 FROM public.statistical_unit WHERE name = 'Statist
 \echo "Action: Updating location address_part1"
 UPDATE public.location SET address_part1 = '123 New Street' WHERE legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'Statistics Norway');
 
-\echo "Check: Expect one 'check_table' task for 'location'."
-SELECT command, payload->>'table_name' as table_name, state FROM worker.tasks WHERE command = 'check_table' AND state = 'pending';
+\echo "Check: Expect one 'collect_changes' task."
+SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND state = 'pending';
 \echo "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
 
@@ -162,8 +162,8 @@ SET category_id = (SELECT id FROM public.activity_category_available WHERE path 
 WHERE legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'Statistics Norway')
   AND type = 'primary';
 
-\echo "Check: Expect one 'check_table' task for 'activity'."
-SELECT command, payload->>'table_name' as table_name, state FROM worker.tasks WHERE command = 'check_table' AND state = 'pending';
+\echo "Check: Expect one 'collect_changes' task."
+SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND state = 'pending';
 \echo "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
 
@@ -192,8 +192,8 @@ UPDATE public.contact
 SET email_address = 'updated.test@example.com'
 WHERE legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'Statistics Norway');
 
-\echo "Check: Expect one 'check_table' task for 'contact' (coalesced from INSERT and UPDATE)."
-SELECT command, payload->>'table_name' as table_name, state FROM worker.tasks WHERE command = 'check_table' AND state = 'pending';
+\echo "Check: Expect one 'collect_changes' task (coalesced from INSERT and UPDATE)."
+SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND state = 'pending';
 
 \echo "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
@@ -216,8 +216,8 @@ UPDATE public.enterprise
 SET short_name = 'SSB'
 WHERE id = (SELECT enterprise_id FROM public.legal_unit WHERE name = 'Statistics Norway');
 
-\echo "Check: Expect one 'check_table' task for 'enterprise'."
-SELECT command, payload->>'table_name' as table_name, state FROM worker.tasks WHERE command = 'check_table' AND state = 'pending';
+\echo "Check: Expect one 'collect_changes' task."
+SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND state = 'pending';
 
 \echo "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
@@ -241,8 +241,8 @@ SET ident = '947111110'
 WHERE legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'Statistics Norway')
   AND type_id = (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident');
 
-\echo "Check: Expect one 'check_table' task for 'external_ident'."
-SELECT command, payload->>'table_name' as table_name, state FROM worker.tasks WHERE command = 'check_table' AND state = 'pending';
+\echo "Check: Expect one 'collect_changes' task."
+SELECT command, state FROM worker.tasks WHERE command = 'collect_changes' AND state = 'pending';
 
 \echo "Run worker to process tasks..."
 CALL worker.process_tasks(p_queue => 'analytics');
@@ -276,8 +276,8 @@ UPDATE public.establishment
 SET legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'Statistics Denmark')
 WHERE name = 'Statistics Norway Updated';
 
-\echo "Check: Expect 'check_table' for 'establishment' and 'enqueue_deleted_row' for the old parent."
-SELECT command, payload->>'table_name' as table_name, state
+\echo "Check: Expect one 'collect_changes' task (captures both old and new parent IDs)."
+SELECT command, state
 FROM worker.tasks
 WHERE state = 'pending'
 ORDER BY command;
@@ -311,9 +311,9 @@ WHERE legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'Statistics
   AND type_id = (SELECT id FROM public.external_ident_type WHERE code = 'stat_ident')
   AND ident = '18';
 
-\echo "Check: Expect 'enqueue_deleted_row' for the parent LU."
--- The DELETE will trigger enqueue_deleted_row for the parent LU.
-SELECT command, payload->>'table_name' as table_name, state
+\echo "Check: Expect one 'collect_changes' task."
+-- The DELETE fires the statement trigger which logs to base_change_log and enqueues collect_changes.
+SELECT command, state
 FROM worker.tasks
 WHERE state = 'pending'
 ORDER BY command;
@@ -333,10 +333,10 @@ WHERE legal_unit_id = (SELECT id FROM public.legal_unit WHERE name = 'Statistics
   AND type_id = (SELECT id FROM public.external_ident_type WHERE code = 'stat_ident')
   AND ident = '15';
 
-\echo "Check: Expect 'check_table' for 'external_ident' and 'enqueue_deleted_row' for old parent."
--- The UPDATE on legal_unit_id will trigger enqueue_deleted_row for the OLD parent LU,
--- and the generic trigger will call check_table for external_ident.
-SELECT command, payload->>'table_name' as table_name, state
+\echo "Check: Expect one 'collect_changes' task (captures both old and new parent IDs via UNION ALL)."
+-- The UPDATE on legal_unit_id fires the statement trigger which logs both OLD and NEW rows,
+-- capturing both the old parent (Sweden) and new parent (Ethiopia) LU IDs.
+SELECT command, state
 FROM worker.tasks
 WHERE state = 'pending'
 ORDER BY command;

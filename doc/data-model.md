@@ -195,7 +195,8 @@ Handles background processing. A long-running worker process calls `worker.proce
 - `command_registry(command, created_at, handler_procedure, before_procedure, after_procedure, description, queue, batches_per_wave)`
   - Key FKs: queue.
 - `queue_registry(queue, description, default_concurrency)`
-- `last_processed(table_name, transaction_id)`
+- `base_change_log(establishment_ids, legal_unit_ids, enterprise_ids, edited_by_valid_range)`
+- `base_change_log_has_pending(has_pending)`
 
 ## Auth & System Tables/Views
 

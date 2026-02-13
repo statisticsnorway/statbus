@@ -3,9 +3,11 @@
 
 BEGIN;
 
--- Clean up any existing test tasks and reset sequence for deterministic IDs in error messages
-DELETE FROM worker.tasks WHERE command IN ('derive_statistical_unit', 'statistical_unit_refresh_batch', 'derive_reports');
--- Reset sequence to get predictable task IDs (3 onwards, since 1 and 2 are maintenance tasks)
+-- Lock worker.tasks to prevent the background worker from advancing the sequence
+-- during the test. This ensures deterministic task IDs in error messages.
+LOCK TABLE worker.tasks IN EXCLUSIVE MODE;
+-- Delete any non-maintenance tasks created between setup.sql and this transaction
+DELETE FROM worker.tasks WHERE command NOT IN ('task_cleanup', 'import_job_cleanup');
 ALTER SEQUENCE worker.tasks_id_seq RESTART WITH 3;
 
 \echo "=== 1. Verify task_state enum includes 'waiting' ==="

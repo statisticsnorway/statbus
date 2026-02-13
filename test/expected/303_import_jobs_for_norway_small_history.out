@@ -5094,7 +5094,7 @@ Check the state of all tasks before running analytics.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | pending   |     7
+ analytics | pending   |     1
  import    | completed |   376
 (2 rows)
 
@@ -5105,7 +5105,7 @@ Check the state of all tasks after running analytics.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   324
+ analytics | completed |   318
  import    | completed |   376
 (2 rows)
 
@@ -5117,7 +5117,7 @@ Check the state of all tasks after running analytics.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |   324
+ analytics | completed |   318
  import    | completed |   376
 (2 rows)
 
@@ -9001,6 +9001,9 @@ stats_summary         | {                                                       
 \x
 \echo '--- Generating query plans for review ---'
 --- Generating query plans for review ---
+SET client_min_messages = error;
+ANALYZE;
+RESET client_min_messages;
 \o test/expected/explain/303_import_jobs_for_norway_small_history-timepoints.txt
 EXPLAIN (COSTS FALSE) SELECT * FROM public.timepoints;
 \o test/expected/explain/303_import_jobs_for_norway_small_history-timesegments_def.txt

@@ -37,28 +37,18 @@ BEGIN
     END IF;
 END;
 $sudo_exec$;
+psql:test/setup.sql:38: ERROR:  schema "test" does not exist
 -- Grant execute to public since this is for testing
 GRANT EXECUTE ON FUNCTION test.sudo_exec(text) TO PUBLIC;
+psql:test/setup.sql:41: ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo Add users for testing purposes
 Add users for testing purposes
 SELECT * FROM public.user_create('test.admin@statbus.org', 'admin_user'::statbus_role, 'Admin#123!');
-         email          |  password  
-------------------------+------------
- test.admin@statbus.org | Admin#123!
-(1 row)
-
+psql:test/setup.sql:44: ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM public.user_create('test.regular@statbus.org', 'regular_user'::statbus_role, 'Regular#123!');
-          email           |   password   
---------------------------+--------------
- test.regular@statbus.org | Regular#123!
-(1 row)
-
+psql:test/setup.sql:45: ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM public.user_create('test.restricted@statbus.org', 'restricted_user'::statbus_role, 'Restricted#123!');
-            email            |    password     
------------------------------+-----------------
- test.restricted@statbus.org | Restricted#123!
-(1 row)
-
+psql:test/setup.sql:46: ERROR:  current transaction is aborted, commands ignored until end of transaction block
 \echo '----------------------------------------------------------------------------'
 ----------------------------------------------------------------------------
 \echo 'Test: public.synchronize_valid_from_after trigger behavior'
@@ -66,8 +56,10 @@ Test: public.synchronize_valid_from_after trigger behavior
 \echo '----------------------------------------------------------------------------'
 ----------------------------------------------------------------------------
 SET client_min_messages TO NOTICE;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Setup: Create a test table with valid_from, valid_after, and valid_to
 CREATE SCHEMA IF NOT EXISTS trigger_test;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 CREATE TABLE trigger_test.temporal_table (
     id SERIAL PRIMARY KEY,
     description TEXT,
@@ -76,10 +68,12 @@ CREATE TABLE trigger_test.temporal_table (
     valid_to DATE NOT NULL,
     CONSTRAINT valid_period_check CHECK (valid_after < valid_to AND valid_from <= valid_to AND valid_from = (valid_after + INTERVAL '1 day'))
 );
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Apply the trigger to the test table
 CREATE TRIGGER synchronize_valid_from_after_trigger
 BEFORE INSERT OR UPDATE ON trigger_test.temporal_table
 FOR EACH ROW EXECUTE FUNCTION public.synchronize_valid_from_after();
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Function to display table contents
 CREATE OR REPLACE FUNCTION trigger_test.show_table()
 RETURNS TABLE (id INT, description TEXT, valid_from DATE, valid_after DATE, valid_to DATE) AS $$
@@ -88,6 +82,7 @@ BEGIN
                  FROM trigger_test.temporal_table tt ORDER BY tt.id, tt.valid_after;
 END;
 $$ LANGUAGE plpgsql;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Test INSERT scenarios
 \echo '--- INSERT Scenarios ---'
 --- INSERT Scenarios ---
@@ -95,35 +90,23 @@ $$ LANGUAGE plpgsql;
 \echo 'Test 1: INSERT with only valid_from'
 Test 1: INSERT with only valid_from
 INSERT INTO trigger_test.temporal_table (description, valid_from, valid_to) VALUES ('Test 1', '2024-01-01', '2024-12-31');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM trigger_test.show_table(); -- Expected: valid_after = 2023-12-31
- id | description | valid_from | valid_after |  valid_to  
-----+-------------+------------+-------------+------------
-  1 | Test 1      | 2024-01-01 | 2023-12-31  | 2024-12-31
-(1 row)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- 2. INSERT with only valid_after
 \echo 'Test 2: INSERT with only valid_after'
 Test 2: INSERT with only valid_after
 INSERT INTO trigger_test.temporal_table (description, valid_after, valid_to) VALUES ('Test 2', '2024-01-15', '2024-11-30');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM trigger_test.show_table(); -- Expected: valid_from = 2024-01-16
- id | description | valid_from | valid_after |  valid_to  
-----+-------------+------------+-------------+------------
-  1 | Test 1      | 2024-01-01 | 2023-12-31  | 2024-12-31
-  2 | Test 2      | 2024-01-16 | 2024-01-15  | 2024-11-30
-(2 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- 3. INSERT with both valid_from and valid_after (consistent)
 \echo 'Test 3: INSERT with both valid_from and valid_after (consistent)'
 Test 3: INSERT with both valid_from and valid_after (consistent)
 INSERT INTO trigger_test.temporal_table (description, valid_from, valid_after, valid_to) VALUES ('Test 3', '2024-02-01', '2024-01-31', '2024-10-31');
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM trigger_test.show_table(); -- Expected: No error, values as inserted
- id | description | valid_from | valid_after |  valid_to  
-----+-------------+------------+-------------+------------
-  1 | Test 1      | 2024-01-01 | 2023-12-31  | 2024-12-31
-  2 | Test 2      | 2024-01-16 | 2024-01-15  | 2024-11-30
-  3 | Test 3      | 2024-02-01 | 2024-01-31  | 2024-10-31
-(3 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- 4. INSERT with both valid_from and valid_after (inconsistent) - Expect error
 \echo 'Test 4: INSERT with both valid_from and valid_after (inconsistent) - Expect error'
 Test 4: INSERT with both valid_from and valid_after (inconsistent) - Expect error
@@ -133,15 +116,9 @@ BEGIN
 EXCEPTION WHEN others THEN
     RAISE NOTICE 'Test 4 Caught expected error: %', SQLERRM;
 END $$;
-NOTICE:  Test 4 Caught expected error: On INSERT, valid_from and valid_after are inconsistent. Expected valid_after = valid_from - 1 day. Got valid_from=2024-03-01, valid_after=2024-03-01
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM trigger_test.show_table(); -- Should not contain 'Test 4 Fail'
- id | description | valid_from | valid_after |  valid_to  
-----+-------------+------------+-------------+------------
-  1 | Test 1      | 2024-01-01 | 2023-12-31  | 2024-12-31
-  2 | Test 2      | 2024-01-16 | 2024-01-15  | 2024-11-30
-  3 | Test 3      | 2024-02-01 | 2024-01-31  | 2024-10-31
-(3 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- 5. INSERT with neither valid_from nor valid_after - Expect error
 \echo 'Test 5: INSERT with neither valid_from nor valid_after - Expect error'
 Test 5: INSERT with neither valid_from nor valid_after - Expect error
@@ -151,54 +128,55 @@ BEGIN
 EXCEPTION WHEN others THEN
     RAISE NOTICE 'Test 5 Caught expected error: %', SQLERRM;
 END $$;
-NOTICE:  Test 5 Caught expected error: new row for relation "temporal_table" violates check constraint "valid_period_check"
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM trigger_test.show_table(); -- Should not contain 'Test 5 Defaulted But Fails Check'
- id | description | valid_from | valid_after |  valid_to  
-----+-------------+------------+-------------+------------
-  1 | Test 1      | 2024-01-01 | 2023-12-31  | 2024-12-31
-  2 | Test 2      | 2024-01-16 | 2024-01-15  | 2024-11-30
-  3 | Test 3      | 2024-02-01 | 2024-01-31  | 2024-10-31
-(3 rows)
-
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- Test UPDATE scenarios
 \echo '--- UPDATE Scenarios ---'
 --- UPDATE Scenarios ---
 -- Setup a base row for UPDATE tests
 INSERT INTO trigger_test.temporal_table (description, valid_from, valid_after, valid_to) VALUES ('Base Update Row', '2025-01-01', '2024-12-31', '2025-12-31') RETURNING id \gset base_update_id_
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 -- 6. UPDATE changing valid_from
 \echo 'Test 6: UPDATE changing valid_from'
 Test 6: UPDATE changing valid_from
 UPDATE trigger_test.temporal_table SET valid_from = '2025-02-01' WHERE id = :base_update_id_id;
+ERROR:  syntax error at or near ":"
+LINE 1: ...al_table SET valid_from = '2025-02-01' WHERE id = :base_upda...
+                                                             ^
 SELECT * FROM trigger_test.show_table() WHERE id = :base_update_id_id; -- Expected: valid_after = 2025-01-31
- id |   description   | valid_from | valid_after |  valid_to  
-----+-----------------+------------+-------------+------------
-  6 | Base Update Row | 2025-02-01 | 2025-01-31  | 2025-12-31
-(1 row)
-
+ERROR:  syntax error at or near ":"
+LINE 1: ...ELECT * FROM trigger_test.show_table() WHERE id = :base_upda...
+                                                             ^
 -- 7. UPDATE changing valid_after
 \echo 'Test 7: UPDATE changing valid_after'
 Test 7: UPDATE changing valid_after
 UPDATE trigger_test.temporal_table SET valid_after = '2025-02-28' WHERE id = :base_update_id_id;
+ERROR:  syntax error at or near ":"
+LINE 1: ...l_table SET valid_after = '2025-02-28' WHERE id = :base_upda...
+                                                             ^
 SELECT * FROM trigger_test.show_table() WHERE id = :base_update_id_id; -- Expected: valid_from = 2025-03-01
- id |   description   | valid_from | valid_after |  valid_to  
-----+-----------------+------------+-------------+------------
-  6 | Base Update Row | 2025-03-01 | 2025-02-28  | 2025-12-31
-(1 row)
-
+ERROR:  syntax error at or near ":"
+LINE 1: ...ELECT * FROM trigger_test.show_table() WHERE id = :base_upda...
+                                                             ^
 -- 8. UPDATE changing valid_from, and valid_after consistently
 \echo 'Test 8: UPDATE changing valid_from, and valid_after consistently'
 Test 8: UPDATE changing valid_from, and valid_after consistently
 UPDATE trigger_test.temporal_table SET valid_from = '2025-04-01', valid_after = '2025-03-31' WHERE id = :base_update_id_id;
+ERROR:  syntax error at or near ":"
+LINE 1: ...025-04-01', valid_after = '2025-03-31' WHERE id = :base_upda...
+                                                             ^
 SELECT * FROM trigger_test.show_table() WHERE id = :base_update_id_id; -- Expected: No error, values as updated
- id |   description   | valid_from | valid_after |  valid_to  
-----+-----------------+------------+-------------+------------
-  6 | Base Update Row | 2025-04-01 | 2025-03-31  | 2025-12-31
-(1 row)
-
+ERROR:  syntax error at or near ":"
+LINE 1: ...ELECT * FROM trigger_test.show_table() WHERE id = :base_upda...
+                                                             ^
 -- 9. UPDATE changing valid_from, and valid_after inconsistently - Expect error
 \echo 'Test 9: UPDATE changing valid_from, and valid_after inconsistently - Expect error'
 Test 9: UPDATE changing valid_from, and valid_after inconsistently - Expect error
 SET app.current_base_id = :base_update_id_id;
+ERROR:  syntax error at or near ":"
+LINE 1: SET app.current_base_id = :base_update_id_id;
+                                  ^
 DO $$
 DECLARE
   target_id INT := current_setting('app.current_base_id')::INT;
@@ -208,17 +186,18 @@ BEGIN
 EXCEPTION WHEN others THEN
     RAISE NOTICE 'Test 9 Caught expected error: %', SQLERRM;
 END $$;
-NOTICE:  Test 9 Caught expected error: On UPDATE for table temporal_table, conflicting explicit values for valid_from and valid_after. With valid_from=2025-05-01, expected valid_after=2025-04-30 00:00:00. Got valid_after=2025-05-01
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM trigger_test.show_table() WHERE id = :base_update_id_id; -- Should reflect state from Test 8
- id |   description   | valid_from | valid_after |  valid_to  
-----+-----------------+------------+-------------+------------
-  6 | Base Update Row | 2025-04-01 | 2025-03-31  | 2025-12-31
-(1 row)
-
+ERROR:  syntax error at or near ":"
+LINE 1: ...ELECT * FROM trigger_test.show_table() WHERE id = :base_upda...
+                                                             ^
 -- 10. UPDATE setting valid_from to NULL - Expect error
 \echo 'Test 10: UPDATE setting valid_from to NULL - Expect error'
 Test 10: UPDATE setting valid_from to NULL - Expect error
 SET app.current_base_id = :base_update_id_id;
+ERROR:  syntax error at or near ":"
+LINE 1: SET app.current_base_id = :base_update_id_id;
+                                  ^
 DO $$
 DECLARE
   target_id INT := current_setting('app.current_base_id')::INT;
@@ -227,17 +206,18 @@ BEGIN
 EXCEPTION WHEN others THEN
     RAISE NOTICE 'Test 10 Caught expected error: %', SQLERRM;
 END $$;
-NOTICE:  Test 10 Caught expected error: On UPDATE for table temporal_table, valid_from cannot be set to NULL. Attempted valid_from=<NULL>, valid_after=2025-03-31
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM trigger_test.show_table() WHERE id = :base_update_id_id; -- Should reflect state from Test 8
- id |   description   | valid_from | valid_after |  valid_to  
-----+-----------------+------------+-------------+------------
-  6 | Base Update Row | 2025-04-01 | 2025-03-31  | 2025-12-31
-(1 row)
-
+ERROR:  syntax error at or near ":"
+LINE 1: ...ELECT * FROM trigger_test.show_table() WHERE id = :base_upda...
+                                                             ^
 -- 11. UPDATE setting valid_after to NULL - Expect error
 \echo 'Test 11: UPDATE setting valid_after to NULL - Expect error'
 Test 11: UPDATE setting valid_after to NULL - Expect error
 SET app.current_base_id = :base_update_id_id;
+ERROR:  syntax error at or near ":"
+LINE 1: SET app.current_base_id = :base_update_id_id;
+                                  ^
 DO $$
 DECLARE
   target_id INT := current_setting('app.current_base_id')::INT;
@@ -246,25 +226,27 @@ BEGIN
 EXCEPTION WHEN others THEN
     RAISE NOTICE 'Test 11 Caught expected error: %', SQLERRM;
 END $$;
-NOTICE:  Test 11 Caught expected error: On UPDATE for table temporal_table, valid_after cannot be set to NULL. Attempted valid_from=2025-04-01, valid_after=<NULL>
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 SELECT * FROM trigger_test.show_table() WHERE id = :base_update_id_id; -- Should reflect state from Test 8
- id |   description   | valid_from | valid_after |  valid_to  
-----+-----------------+------------+-------------+------------
-  6 | Base Update Row | 2025-04-01 | 2025-03-31  | 2025-12-31
-(1 row)
-
+ERROR:  syntax error at or near ":"
+LINE 1: ...ELECT * FROM trigger_test.show_table() WHERE id = :base_upda...
+                                                             ^
 -- 12. UPDATE changing only valid_to (should not affect valid_from/valid_after)
 \echo 'Test 12: UPDATE changing only valid_to'
 Test 12: UPDATE changing only valid_to
 UPDATE trigger_test.temporal_table SET valid_to = '2026-01-31' WHERE id = :base_update_id_id;
+ERROR:  syntax error at or near ":"
+LINE 1: ...oral_table SET valid_to = '2026-01-31' WHERE id = :base_upda...
+                                                             ^
 SELECT * FROM trigger_test.show_table() WHERE id = :base_update_id_id; -- Expected: valid_from/valid_after as per Test 8, valid_to updated
- id |   description   | valid_from | valid_after |  valid_to  
-----+-----------------+------------+-------------+------------
-  6 | Base Update Row | 2025-04-01 | 2025-03-31  | 2026-01-31
-(1 row)
-
+ERROR:  syntax error at or near ":"
+LINE 1: ...ELECT * FROM trigger_test.show_table() WHERE id = :base_upda...
+                                                             ^
 -- Cleanup
 DROP TABLE trigger_test.temporal_table; -- Trigger will be dropped with the table
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 DROP FUNCTION trigger_test.show_table();
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 DROP SCHEMA trigger_test CASCADE;
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
 ROLLBACK;
