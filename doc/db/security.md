@@ -24,7 +24,7 @@ each role can see and modify.
 ### Public Tables
 
 - **`activity`** — RLS ON
-  - Policies: `activity_admin_user_manage` (ALL → admin_user), `activity_authenticated_read` (SELECT → authenticated), `activity_regular_user_manage` (ALL → regular_user), `admin_user_activity_access` (ALL → admin_user), `regular_user_activity_access` (ALL → regular_user), `restricted_user_activity_access` (ALL → restricted_user)
+  - Policies: `activity_admin_user_manage` (ALL → admin_user), `activity_authenticated_read` (SELECT → authenticated), `activity_regular_user_manage` (ALL → regular_user), `restricted_user_activity_access` (ALL → restricted_user)
 - **`activity_category`** — RLS ON
   - Policies: `activity_category_admin_user_manage` (ALL → admin_user), `activity_category_authenticated_read` (SELECT → authenticated), `activity_category_regular_user_read` (SELECT → regular_user)
 - **`activity_category_access`** — RLS ON
@@ -113,6 +113,7 @@ each role can see and modify.
   - Policies: `statistical_history_admin_user_manage` (ALL → admin_user), `statistical_history_authenticated_read` (SELECT → authenticated), `statistical_history_regular_user_read` (SELECT → regular_user)
 - **`statistical_history_facet`** — RLS ON
   - Policies: `statistical_history_facet_admin_user_manage` (ALL → admin_user), `statistical_history_facet_authenticated_read` (SELECT → authenticated), `statistical_history_facet_regular_user_read` (SELECT → regular_user)
+- **`statistical_history_facet_partitions`** — RLS OFF (exempt: internal staging table)
 - **`statistical_unit`** — RLS ON
   - Policies: `statistical_unit_admin_user_manage` (ALL → admin_user), `statistical_unit_authenticated_read` (SELECT → authenticated), `statistical_unit_regular_user_read` (SELECT → regular_user)
 - **`statistical_unit_facet`** — RLS ON
@@ -231,4 +232,127 @@ granted to `authenticated`, `regular_user`, and `admin_user`.
 - **`unit_size_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`unit_size_system`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`user`**: authenticated: SELECT
+
+## SECURITY DEFINER Functions
+
+Functions that bypass RLS by executing as the function owner. Each must be
+registered in the test with justification.
+
+### Authentication & Sessions
+
+Access `auth.secrets` (force-RLS, zero policies), `auth.user` (RLS), session management.
+
+- `auth.auto_create_api_token_on_confirmation`
+- `auth.check_api_key_revocation`
+- `auth.cleanup_expired_sessions`
+- `auth.drop_user_role`
+- `auth.generate_api_key_token`
+- `auth.jwt_verify`
+- `auth.sync_user_credentials_and_roles`
+- `public.auth_expire_access_keep_refresh`
+- `public.auth_status`
+- `public.list_active_sessions`
+- `public.login`
+- `public.logout`
+- `public.refresh`
+- `public.revoke_session`
+
+### Import System
+
+DDL (CREATE/DROP TABLE), session context manipulation.
+
+- `admin.import_job_cleanup`
+- `admin.import_job_generate`
+- `admin.reset_import_job_user_context`
+- `admin.set_import_job_user_context`
+- `admin.set_optimal_import_session_settings`
+- `public.get_import_job_progress`
+
+### Worker/Derive Pipeline
+
+Write to RLS-protected tables, DDL, worker orchestration.
+
+- `admin.disable_temporal_triggers`
+- `admin.enable_temporal_triggers`
+- `worker.command_collect_changes`
+- `worker.command_import_job_cleanup`
+- `worker.command_task_cleanup`
+- `worker.derive_reports`
+- `worker.derive_statistical_history`
+- `worker.derive_statistical_history_facet`
+- `worker.derive_statistical_history_facet_period`
+- `worker.derive_statistical_history_period`
+- `worker.derive_statistical_unit`
+- `worker.derive_statistical_unit_continue`
+- `worker.derive_statistical_unit_facet`
+- `worker.derive_statistical_unit_facet_partition`
+- `worker.statistical_history_facet_reduce`
+- `worker.statistical_history_reduce`
+- `worker.statistical_unit_facet_reduce`
+- `worker.statistical_unit_flush_staging`
+- `worker.statistical_unit_refresh_batch`
+
+### Derived Table Refresh
+
+Bulk DELETE+INSERT on RLS-protected tables.
+
+- `public.activity_category_used_derive`
+- `public.data_source_used_derive`
+- `public.region_used_derive`
+- `public.sector_used_derive`
+
+### Drilldown Functions
+
+Performance: avoid RLS evaluation on large read-only queries.
+
+- `public.statistical_history_drilldown`
+- `public.statistical_unit_facet_drilldown`
+
+### GraphQL Schema
+
+Access `graphql` schema sequence (no grants to non-postgres).
+
+- `graphql.get_schema_version`
+- `graphql.increment_schema_version`
+
+### Lifecycle Callbacks
+
+Trigger calling DDL procedures.
+
+- `lifecycle_callbacks.cleanup_and_generate`
+
+### sql_saga
+
+DDL operations (CREATE/ALTER/DROP on tables, views, triggers). Matched by schema.
+
+- `sql_saga.__internal_add_system_time_era`
+- `sql_saga.__internal_ddl_command_affects_managed_object`
+- `sql_saga.add_current_view`
+- `sql_saga.add_era`
+- `sql_saga.add_for_portion_of_view`
+- `sql_saga.add_foreign_key`
+- `sql_saga.add_regular_foreign_key`
+- `sql_saga.add_synchronize_temporal_columns_trigger`
+- `sql_saga.add_system_versioning`
+- `sql_saga.add_temporal_foreign_key`
+- `sql_saga.add_unique_key`
+- `sql_saga.drop_current_view`
+- `sql_saga.drop_era`
+- `sql_saga.drop_for_portion_of_view`
+- `sql_saga.drop_foreign_key`
+- `sql_saga.drop_foreign_key_by_name`
+- `sql_saga.drop_protection`
+- `sql_saga.drop_synchronize_temporal_columns_trigger`
+- `sql_saga.drop_system_time_era`
+- `sql_saga.drop_system_versioning`
+- `sql_saga.drop_unique_key`
+- `sql_saga.drop_unique_key_by_name`
+- `sql_saga.generated_always_as_row_start_end`
+- `sql_saga.health_checks`
+- `sql_saga.rename_following`
+- `sql_saga.set_era_ephemeral_columns`
+- `sql_saga.set_system_time_era_excluded_columns`
+- `sql_saga.temporal_merge_cache_maybe_purge`
+- `sql_saga.truncate_system_versioning`
+- `sql_saga.write_history`
 
