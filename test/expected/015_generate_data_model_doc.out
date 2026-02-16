@@ -129,6 +129,7 @@ DECLARE
             '{"schema": "worker", "name": "tasks"}'::jsonb,
             '{"schema": "worker", "name": "command_registry"}'::jsonb,
             '{"schema": "worker", "name": "queue_registry"}'::jsonb,
+            '{"schema": "worker", "name": "pipeline_progress"}'::jsonb,
             '{"schema": "worker", "name": "base_change_log"}'::jsonb,
             '{"schema": "worker", "name": "base_change_log_has_pending"}'::jsonb
         )),

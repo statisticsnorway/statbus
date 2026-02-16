@@ -83,6 +83,7 @@ BEGIN
         LEFT JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace
         WHERE c.relkind IN ('r', 'p', 'v', 'm') AND n.oid = pg_my_temp_schema() -- r=table, p=partitioned, v=view, m=materialized
           AND c.relname <> ALL(p_keep_tables)
+          AND c.relowner = (SELECT usesysid FROM pg_user WHERE usename = current_user) -- Skip tables owned by other users (e.g. created by SECURITY DEFINER functions)
     LOOP
         v_found_count := v_found_count + 1;
         IF rec.relkind IN ('r', 'p', 'm') THEN

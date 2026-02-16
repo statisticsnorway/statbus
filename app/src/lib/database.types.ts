@@ -2826,18 +2826,21 @@ export type Database = {
           country_id: number
           id: number
           only_one_setting: boolean | null
+          report_partition_count: number
         },
         Insert: {
           activity_category_standard_id: number
           country_id: number
           id?: never
           only_one_setting?: boolean | null
+          report_partition_count?: number
         },
         Update: {
           activity_category_standard_id?: number
           country_id?: number
           id?: never
           only_one_setting?: boolean | null
+          report_partition_count?: number
         },
         Relationships: [
           {
@@ -3088,6 +3091,7 @@ export type Database = {
           legal_form_change_count: number | null
           month: number | null
           name_change_count: number | null
+          partition_seq: number | null
           physical_address_change_count: number | null
           physical_country_change_count: number | null
           physical_region_change_count: number | null
@@ -3113,6 +3117,7 @@ export type Database = {
           legal_form_change_count?: number | null
           month?: number | null
           name_change_count?: number | null
+          partition_seq?: number | null
           physical_address_change_count?: number | null
           physical_country_change_count?: number | null
           physical_region_change_count?: number | null
@@ -3138,6 +3143,7 @@ export type Database = {
           legal_form_change_count?: number | null
           month?: number | null
           name_change_count?: number | null
+          partition_seq?: number | null
           physical_address_change_count?: number | null
           physical_country_change_count?: number | null
           physical_region_change_count?: number | null
@@ -3167,6 +3173,7 @@ export type Database = {
           legal_form_id: number | null
           month: number | null
           name_change_count: number | null
+          partition_seq: number | null
           physical_address_change_count: number | null
           physical_country_change_count: number | null
           physical_country_id: number | null
@@ -3202,6 +3209,7 @@ export type Database = {
           legal_form_id?: number | null
           month?: number | null
           name_change_count?: number | null
+          partition_seq?: number | null
           physical_address_change_count?: number | null
           physical_country_change_count?: number | null
           physical_country_id?: number | null
@@ -3237,6 +3245,7 @@ export type Database = {
           legal_form_id?: number | null
           month?: number | null
           name_change_count?: number | null
+          partition_seq?: number | null
           physical_address_change_count?: number | null
           physical_country_change_count?: number | null
           physical_country_id?: number | null
@@ -3530,6 +3539,7 @@ export type Database = {
         Row: {
           count: number | null
           legal_form_id: number | null
+          partition_seq: number | null
           physical_country_id: number | null
           physical_region_path: string | null
           primary_activity_category_path: string | null
@@ -3544,6 +3554,7 @@ export type Database = {
         Insert: {
           count?: number | null
           legal_form_id?: number | null
+          partition_seq?: number | null
           physical_country_id?: number | null
           physical_region_path?: string | null
           primary_activity_category_path?: string | null
@@ -3558,6 +3569,7 @@ export type Database = {
         Update: {
           count?: number | null
           legal_form_id?: number | null
+          partition_seq?: number | null
           physical_country_id?: number | null
           physical_region_path?: string | null
           primary_activity_category_path?: string | null
@@ -3580,54 +3592,6 @@ export type Database = {
         },
         Update: {
           partition_seq?: number
-        },
-        Relationships: []
-      },
-      statistical_unit_facet_staging: {
-        Row: {
-          count: number
-          legal_form_id: number | null
-          partition_seq: number
-          physical_country_id: number | null
-          physical_region_path: string | null
-          primary_activity_category_path: string | null
-          sector_path: string | null
-          stats_summary: Json | null
-          status_id: number | null
-          unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
-          valid_from: string | null
-          valid_to: string | null
-          valid_until: string | null
-        },
-        Insert: {
-          count: number
-          legal_form_id?: number | null
-          partition_seq: number
-          physical_country_id?: number | null
-          physical_region_path?: string | null
-          primary_activity_category_path?: string | null
-          sector_path?: string | null
-          stats_summary?: Json | null
-          status_id?: number | null
-          unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
-          valid_from?: string | null
-          valid_to?: string | null
-          valid_until?: string | null
-        },
-        Update: {
-          count?: number
-          legal_form_id?: number | null
-          partition_seq?: number
-          physical_country_id?: number | null
-          physical_region_path?: string | null
-          primary_activity_category_path?: string | null
-          sector_path?: string | null
-          stats_summary?: Json | null
-          status_id?: number | null
-          unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
-          valid_from?: string | null
-          valid_to?: string | null
-          valid_until?: string | null
         },
         Relationships: []
       },
@@ -12706,6 +12670,7 @@ export type Database = {
           p_resolution?: Database["public"]["Enums"]["history_resolution"]
           p_year?: number
           p_month?: number
+          p_partition_seq?: number
         }
         Returns: Database["public"]["CompositeTypes"]["statistical_history_type"][]
       },
@@ -12737,6 +12702,7 @@ export type Database = {
           p_resolution?: Database["public"]["Enums"]["history_resolution"]
           p_year?: number
           p_month?: number
+          p_partition_seq?: number
         }
         Returns: Database["public"]["CompositeTypes"]["statistical_history_facet_type"][]
       },
@@ -13272,6 +13238,7 @@ export type Database = {
         unit_size_change_count: number | null
         status_change_count: number | null
         stats_summary: Json | null
+        partition_seq: number | null
       },
       statistical_history_type: {
         resolution: Database["public"]["Enums"]["history_resolution"] | null
@@ -13297,6 +13264,7 @@ export type Database = {
         physical_country_change_count: number | null
         physical_address_change_count: number | null
         stats_summary: Json | null
+        partition_seq: number | null
       },
       statistical_unit_stats: {
         unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null

@@ -567,6 +567,7 @@ erDiagram
 		integer activity_category_standard_id
 		integer country_id
 		boolean only_one_setting
+		integer report_partition_count
 	}
 	stat_definition["stat_definition"] {
 		integer id
@@ -620,6 +621,7 @@ erDiagram
 		integer physical_country_change_count
 		integer physical_address_change_count
 		jsonb stats_summary
+		integer partition_seq
 	}
 	statistical_history_facet["statistical_history_facet"] {
 		history_resolution resolution
@@ -655,6 +657,7 @@ erDiagram
 		integer unit_size_change_count
 		integer status_change_count
 		jsonb stats_summary
+		integer partition_seq
 	}
 	statistical_unit["statistical_unit"] {
 		statistical_unit_type unit_type
@@ -757,24 +760,10 @@ erDiagram
 		integer status_id
 		bigint count
 		jsonb stats_summary
+		integer partition_seq
 	}
 	statistical_unit_facet_dirty_partitions["statistical_unit_facet_dirty_partitions"] {
 		integer partition_seq
-	}
-	statistical_unit_facet_staging["statistical_unit_facet_staging"] {
-		integer partition_seq
-		date valid_from
-		date valid_to
-		date valid_until
-		statistical_unit_type unit_type
-		ltree physical_region_path
-		ltree primary_activity_category_path
-		ltree sector_path
-		integer legal_form_id
-		integer physical_country_id
-		integer status_id
-		integer count
-		jsonb stats_summary
 	}
 	statistical_unit_staging["statistical_unit_staging"] {
 		statistical_unit_type unit_type
@@ -1307,6 +1296,12 @@ erDiagram
 		text queue
 		timestamp_with_time_zone created_at
 		integer batches_per_wave
+	}
+	worker_pipeline_progress["worker.pipeline_progress"] {
+		text step
+		integer total
+		integer completed
+		timestamp_with_time_zone updated_at
 	}
 	worker_queue_registry["worker.queue_registry"] {
 		text queue
