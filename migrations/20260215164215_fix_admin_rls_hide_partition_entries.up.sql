@@ -1,34 +1,19 @@
 -- Migration 20260215164215: fix_admin_rls_hide_partition_entries
 --
--- The admin_user MANAGE policy had USING(true), making partition entries visible
--- to admin users in SELECT queries. Worker procedures are SECURITY DEFINER
--- (bypass RLS as postgres), so restricting the USING clause is safe.
+-- Only statistical_history has inline partition_seq (small table, ~50 root rows).
+-- statistical_history_facet and statistical_unit_facet use separate UNLOGGED partition
+-- tables, so their main tables have no partition entries to hide.
 --
+-- Fix admin_user MANAGE policy for statistical_history:
 -- Changed: USING(true) → USING(partition_seq IS NULL)
--- Kept: WITH CHECK(true) so direct INSERTs of partition entries still work
+-- Kept: WITH CHECK(true) so worker procedures (SECURITY DEFINER) can still insert partition entries
 BEGIN;
 
 -- =====================================================================
--- statistical_history
+-- statistical_history (inline partition_seq — needs RLS fix)
 -- =====================================================================
 DROP POLICY IF EXISTS statistical_history_admin_user_manage ON public.statistical_history;
 CREATE POLICY statistical_history_admin_user_manage ON public.statistical_history
-    FOR ALL TO admin_user
-    USING (partition_seq IS NULL) WITH CHECK (true);
-
--- =====================================================================
--- statistical_history_facet
--- =====================================================================
-DROP POLICY IF EXISTS statistical_history_facet_admin_user_manage ON public.statistical_history_facet;
-CREATE POLICY statistical_history_facet_admin_user_manage ON public.statistical_history_facet
-    FOR ALL TO admin_user
-    USING (partition_seq IS NULL) WITH CHECK (true);
-
--- =====================================================================
--- statistical_unit_facet
--- =====================================================================
-DROP POLICY IF EXISTS statistical_unit_facet_admin_user_manage ON public.statistical_unit_facet;
-CREATE POLICY statistical_unit_facet_admin_user_manage ON public.statistical_unit_facet
     FOR ALL TO admin_user
     USING (partition_seq IS NULL) WITH CHECK (true);
 

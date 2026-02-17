@@ -154,7 +154,7 @@ Enumerated types used across the schema, with their possible values.
 
 ### Derivations for drilling on facets of statistical_unit (/reports)
 
-- `statistical_unit_facet(unit_type, physical_region_path, primary_activity_category_path, sector_path, legal_form_id, physical_country_id, status_id, valid_from, valid_to, valid_until, count, stats_summary, partition_seq)` (temporal)
+- `statistical_unit_facet(unit_type, physical_region_path, primary_activity_category_path, sector_path, legal_form_id, physical_country_id, status_id, valid_from, valid_to, valid_until, count, stats_summary)` (temporal)
   - Enums: `unit_type` (`public.statistical_unit_type`).
 - `statistical_unit_facet_dirty_partitions(partition_seq)`
 
@@ -162,7 +162,9 @@ Enumerated types used across the schema, with their possible values.
 
 - `statistical_history(unit_type, name_change_count, resolution, year, month, exists_count, exists_change, exists_added_count, exists_removed_count, countable_count, countable_change, countable_added_count, countable_removed_count, births, deaths, primary_activity_category_change_count, secondary_activity_category_change_count, sector_change_count, legal_form_change_count, physical_region_change_count, physical_country_change_count, physical_address_change_count, stats_summary, partition_seq)`
   - Enums: `resolution` (`public.history_resolution`), `unit_type` (`public.statistical_unit_type`).
-- `statistical_history_facet(unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path, physical_region_path, name_change_count, legal_form_id, physical_country_id, unit_size_id, status_id, resolution, year, month, exists_count, exists_change, exists_added_count, exists_removed_count, countable_count, countable_change, countable_added_count, countable_removed_count, births, deaths, primary_activity_category_change_count, secondary_activity_category_change_count, sector_change_count, legal_form_change_count, physical_region_change_count, physical_country_change_count, physical_address_change_count, unit_size_change_count, status_change_count, stats_summary, partition_seq)`
+- `statistical_history_facet(unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path, physical_region_path, name_change_count, legal_form_id, physical_country_id, unit_size_id, status_id, resolution, year, month, exists_count, exists_change, exists_added_count, exists_removed_count, countable_count, countable_change, countable_added_count, countable_removed_count, births, deaths, primary_activity_category_change_count, secondary_activity_category_change_count, sector_change_count, legal_form_change_count, physical_region_change_count, physical_country_change_count, physical_address_change_count, unit_size_change_count, status_change_count, stats_summary)`
+  - Enums: `resolution` (`public.history_resolution`), `unit_type` (`public.statistical_unit_type`).
+- `statistical_history_facet_partitions(unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path, physical_region_path, name_change_count, legal_form_id, physical_country_id, unit_size_id, status_id, partition_seq, resolution, year, month, exists_count, exists_change, exists_added_count, exists_removed_count, countable_count, countable_change, countable_added_count, countable_removed_count, births, deaths, primary_activity_category_change_count, secondary_activity_category_change_count, sector_change_count, legal_form_change_count, physical_region_change_count, physical_country_change_count, physical_address_change_count, unit_size_change_count, status_change_count, stats_summary)`
   - Enums: `resolution` (`public.history_resolution`), `unit_type` (`public.statistical_unit_type`).
 
 ## Import System

@@ -657,7 +657,42 @@ erDiagram
 		integer unit_size_change_count
 		integer status_change_count
 		jsonb stats_summary
+	}
+	statistical_history_facet_partitions["statistical_history_facet_partitions"] {
 		integer partition_seq
+		history_resolution resolution
+		integer year
+		integer month
+		statistical_unit_type unit_type
+		ltree primary_activity_category_path
+		ltree secondary_activity_category_path
+		ltree sector_path
+		integer legal_form_id
+		ltree physical_region_path
+		integer physical_country_id
+		integer unit_size_id
+		integer status_id
+		integer exists_count
+		integer exists_change
+		integer exists_added_count
+		integer exists_removed_count
+		integer countable_count
+		integer countable_change
+		integer countable_added_count
+		integer countable_removed_count
+		integer births
+		integer deaths
+		integer name_change_count
+		integer primary_activity_category_change_count
+		integer secondary_activity_category_change_count
+		integer sector_change_count
+		integer legal_form_change_count
+		integer physical_region_change_count
+		integer physical_country_change_count
+		integer physical_address_change_count
+		integer unit_size_change_count
+		integer status_change_count
+		jsonb stats_summary
 	}
 	statistical_unit["statistical_unit"] {
 		statistical_unit_type unit_type
@@ -760,10 +795,24 @@ erDiagram
 		integer status_id
 		bigint count
 		jsonb stats_summary
-		integer partition_seq
 	}
 	statistical_unit_facet_dirty_partitions["statistical_unit_facet_dirty_partitions"] {
 		integer partition_seq
+	}
+	statistical_unit_facet_staging["statistical_unit_facet_staging"] {
+		integer partition_seq
+		date valid_from
+		date valid_to
+		date valid_until
+		statistical_unit_type unit_type
+		ltree physical_region_path
+		ltree primary_activity_category_path
+		ltree sector_path
+		integer legal_form_id
+		integer physical_country_id
+		integer status_id
+		integer count
+		jsonb stats_summary
 	}
 	statistical_unit_staging["statistical_unit_staging"] {
 		statistical_unit_type unit_type

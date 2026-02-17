@@ -1,98 +1,62 @@
 -- Migration 20260215151259: partitioned_statistical_history_facet
 --
--- Same pattern as partitioned_statistical_history but for the facet table.
--- Add partition_seq for inline partition entries with reduce pattern.
+-- Partition-aware analytics for statistical_history_facet using UNLOGGED partition table.
+-- Partition entries go into a separate UNLOGGED table (fast writes, no WAL overhead).
+-- Reduce aggregates from partition table into main table using TRUNCATE (zero dead tuples).
+-- Main table stays unchanged — no partition_seq column, no index changes, no RLS changes.
 BEGIN;
 
 -- =====================================================================
--- 1. Add partition_seq to the type (cascades to typed table)
+-- 1. Create UNLOGGED partition table for intermediate computation
 -- =====================================================================
-ALTER TYPE public.statistical_history_facet_type ADD ATTRIBUTE partition_seq integer CASCADE;
-
--- =====================================================================
--- 2. Convert unique constraints to partial (root entries only)
--- =====================================================================
-DROP INDEX IF EXISTS public.statistical_history_facet_year_key;
-DROP INDEX IF EXISTS public.statistical_history_facet_month_key;
-
-CREATE UNIQUE INDEX statistical_history_facet_year_key
-    ON public.statistical_history_facet (year, month, unit_type,
+CREATE UNLOGGED TABLE public.statistical_history_facet_partitions (
+    partition_seq integer NOT NULL,
+    resolution public.history_resolution,
+    year integer,
+    month integer,
+    unit_type public.statistical_unit_type,
+    primary_activity_category_path public.ltree,
+    secondary_activity_category_path public.ltree,
+    sector_path public.ltree,
+    legal_form_id integer,
+    physical_region_path public.ltree,
+    physical_country_id integer,
+    unit_size_id integer,
+    status_id integer,
+    exists_count integer,
+    exists_change integer,
+    exists_added_count integer,
+    exists_removed_count integer,
+    countable_count integer,
+    countable_change integer,
+    countable_added_count integer,
+    countable_removed_count integer,
+    births integer,
+    deaths integer,
+    name_change_count integer,
+    primary_activity_category_change_count integer,
+    secondary_activity_category_change_count integer,
+    sector_change_count integer,
+    legal_form_change_count integer,
+    physical_region_change_count integer,
+    physical_country_change_count integer,
+    physical_address_change_count integer,
+    unit_size_change_count integer,
+    status_change_count integer,
+    stats_summary jsonb,
+    UNIQUE NULLS NOT DISTINCT (partition_seq, resolution, year, month, unit_type,
         primary_activity_category_path, secondary_activity_category_path,
-        sector_path, legal_form_id, physical_region_path, physical_country_id)
-    WHERE resolution = 'year'::public.history_resolution AND partition_seq IS NULL;
+        sector_path, legal_form_id, physical_region_path,
+        physical_country_id, unit_size_id, status_id)
+);
 
-CREATE UNIQUE INDEX statistical_history_facet_month_key
-    ON public.statistical_history_facet (resolution, year, month, unit_type,
-        primary_activity_category_path, secondary_activity_category_path,
-        sector_path, legal_form_id, physical_region_path, physical_country_id)
-    WHERE resolution = 'year-month'::public.history_resolution AND partition_seq IS NULL;
+CREATE INDEX idx_shf_partitions_seq ON public.statistical_history_facet_partitions (partition_seq);
 
 -- =====================================================================
--- 3. Convert all 14 performance indexes to partial (root entries only)
+-- 2. Update statistical_history_facet_def to accept partition_seq filter
 -- =====================================================================
-DROP INDEX IF EXISTS public.idx_gist_statistical_history_facet_physical_region_path;
-DROP INDEX IF EXISTS public.idx_gist_statistical_history_facet_primary_activity_category_pa;
-DROP INDEX IF EXISTS public.idx_gist_statistical_history_facet_secondary_activity_category_;
-DROP INDEX IF EXISTS public.idx_gist_statistical_history_facet_sector_path;
-DROP INDEX IF EXISTS public.idx_statistical_history_facet_legal_form_id;
-DROP INDEX IF EXISTS public.idx_statistical_history_facet_month;
-DROP INDEX IF EXISTS public.idx_statistical_history_facet_physical_country_id;
-DROP INDEX IF EXISTS public.idx_statistical_history_facet_physical_region_path;
-DROP INDEX IF EXISTS public.idx_statistical_history_facet_primary_activity_category_path;
-DROP INDEX IF EXISTS public.idx_statistical_history_facet_secondary_activity_category_path;
-DROP INDEX IF EXISTS public.idx_statistical_history_facet_sector_path;
-DROP INDEX IF EXISTS public.idx_statistical_history_facet_stats_summary;
-DROP INDEX IF EXISTS public.idx_statistical_history_facet_unit_type;
-DROP INDEX IF EXISTS public.idx_statistical_history_facet_year;
-
--- Recreate with partial WHERE partition_seq IS NULL
-CREATE INDEX idx_gist_statistical_history_facet_physical_region_path
-    ON public.statistical_history_facet USING gist (physical_region_path) WHERE partition_seq IS NULL;
-CREATE INDEX idx_gist_statistical_history_facet_primary_activity_category_pa
-    ON public.statistical_history_facet USING gist (primary_activity_category_path) WHERE partition_seq IS NULL;
-CREATE INDEX idx_gist_statistical_history_facet_secondary_activity_category_
-    ON public.statistical_history_facet USING gist (secondary_activity_category_path) WHERE partition_seq IS NULL;
-CREATE INDEX idx_gist_statistical_history_facet_sector_path
-    ON public.statistical_history_facet USING gist (sector_path) WHERE partition_seq IS NULL;
-CREATE INDEX idx_statistical_history_facet_legal_form_id
-    ON public.statistical_history_facet (legal_form_id) WHERE partition_seq IS NULL;
-CREATE INDEX idx_statistical_history_facet_month
-    ON public.statistical_history_facet (month) WHERE partition_seq IS NULL;
-CREATE INDEX idx_statistical_history_facet_physical_country_id
-    ON public.statistical_history_facet (physical_country_id) WHERE partition_seq IS NULL;
-CREATE INDEX idx_statistical_history_facet_physical_region_path
-    ON public.statistical_history_facet (physical_region_path) WHERE partition_seq IS NULL;
-CREATE INDEX idx_statistical_history_facet_primary_activity_category_path
-    ON public.statistical_history_facet (primary_activity_category_path) WHERE partition_seq IS NULL;
-CREATE INDEX idx_statistical_history_facet_secondary_activity_category_path
-    ON public.statistical_history_facet (secondary_activity_category_path) WHERE partition_seq IS NULL;
-CREATE INDEX idx_statistical_history_facet_sector_path
-    ON public.statistical_history_facet (sector_path) WHERE partition_seq IS NULL;
-CREATE INDEX idx_statistical_history_facet_stats_summary
-    ON public.statistical_history_facet USING gin (stats_summary jsonb_path_ops) WHERE partition_seq IS NULL;
-CREATE INDEX idx_statistical_history_facet_unit_type
-    ON public.statistical_history_facet (unit_type) WHERE partition_seq IS NULL;
-CREATE INDEX idx_statistical_history_facet_year
-    ON public.statistical_history_facet (year) WHERE partition_seq IS NULL;
-
--- Index for efficient partition cleanup
-CREATE INDEX idx_statistical_history_facet_partition_seq
-    ON public.statistical_history_facet (partition_seq) WHERE partition_seq IS NOT NULL;
-
--- =====================================================================
--- 4. Update RLS policies to hide partition entries
--- =====================================================================
-DROP POLICY IF EXISTS statistical_history_facet_authenticated_read ON public.statistical_history_facet;
-DROP POLICY IF EXISTS statistical_history_facet_regular_user_read ON public.statistical_history_facet;
-
-CREATE POLICY statistical_history_facet_authenticated_read ON public.statistical_history_facet
-    FOR SELECT TO authenticated USING (partition_seq IS NULL);
-CREATE POLICY statistical_history_facet_regular_user_read ON public.statistical_history_facet
-    FOR SELECT TO regular_user USING (partition_seq IS NULL);
-
--- =====================================================================
--- 5. Update statistical_history_facet_def to accept partition_seq
--- =====================================================================
+-- The function accepts p_partition_seq for filtering but returns the
+-- unchanged type (no partition_seq column in output).
 CREATE OR REPLACE FUNCTION public.statistical_history_facet_def(
   p_resolution public.history_resolution,
   p_year integer,
@@ -209,8 +173,7 @@ BEGIN
         d.legal_form_change_count, d.physical_region_change_count,
         d.physical_country_change_count, d.physical_address_change_count,
         d.unit_size_change_count, d.status_change_count,
-        ss.stats_summary,
-        p_partition_seq
+        ss.stats_summary
     FROM demographics d
     LEFT JOIN LATERAL (
         SELECT COALESCE(public.jsonb_stats_summary_merge_agg(lvc.stats_summary), '{}'::jsonb) AS stats_summary
@@ -233,7 +196,7 @@ $statistical_history_facet_def$;
 DROP FUNCTION IF EXISTS public.statistical_history_facet_def(public.history_resolution, integer, integer);
 
 -- =====================================================================
--- 6. Create statistical_history_facet_reduce procedure
+-- 3. Create statistical_history_facet_reduce procedure
 -- =====================================================================
 CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_statistical_history_facet_reduce_dedup
     ON worker.tasks (command)
@@ -281,10 +244,11 @@ DECLARE
 BEGIN
     RAISE DEBUG 'statistical_history_facet_reduce: valid_from=%, valid_until=%', v_valid_from, v_valid_until;
 
-    -- Delete existing root entries
-    DELETE FROM public.statistical_history_facet WHERE partition_seq IS NULL;
+    -- TRUNCATE is instant (no dead tuples, no per-row WAL), unlike DELETE which
+    -- accumulates ~800K dead tuples per cycle causing progressive slowdown.
+    TRUNCATE public.statistical_history_facet;
 
-    -- Recalculate root entries by summing across partition entries
+    -- Aggregate from UNLOGGED partition table into main LOGGED table
     INSERT INTO public.statistical_history_facet (
         resolution, year, month, unit_type,
         primary_activity_category_path, secondary_activity_category_path,
@@ -298,7 +262,7 @@ BEGIN
         legal_form_change_count, physical_region_change_count,
         physical_country_change_count, physical_address_change_count,
         unit_size_change_count, status_change_count,
-        stats_summary, partition_seq
+        stats_summary
     )
     SELECT
         resolution, year, month, unit_type,
@@ -315,16 +279,13 @@ BEGIN
         SUM(legal_form_change_count)::integer, SUM(physical_region_change_count)::integer,
         SUM(physical_country_change_count)::integer, SUM(physical_address_change_count)::integer,
         SUM(unit_size_change_count)::integer, SUM(status_change_count)::integer,
-        public.jsonb_stats_summary_merge_agg(stats_summary),
-        NULL  -- root entry
-    FROM public.statistical_history_facet
-    WHERE partition_seq IS NOT NULL
+        public.jsonb_stats_summary_merge_agg(stats_summary)
+    FROM public.statistical_history_facet_partitions
     GROUP BY resolution, year, month, unit_type,
              primary_activity_category_path, secondary_activity_category_path,
              sector_path, legal_form_id, physical_region_path,
              physical_country_id, unit_size_id, status_id;
 
-    -- This is the last phase in the analytics pipeline — no more tasks to enqueue.
     RAISE DEBUG 'statistical_history_facet_reduce: done';
 END;
 $statistical_history_facet_reduce$;
@@ -336,7 +297,7 @@ ON CONFLICT (command) DO UPDATE SET handler_procedure = EXCLUDED.handler_procedu
 
 
 -- =====================================================================
--- 7. Update dedup index to include partition_seq (period × partition children)
+-- 4. Update dedup index to include partition_seq (period × partition children)
 -- =====================================================================
 DROP INDEX IF EXISTS worker.idx_tasks_derive_history_facet_period_dedup;
 CREATE UNIQUE INDEX idx_tasks_derive_history_facet_period_dedup
@@ -344,7 +305,7 @@ CREATE UNIQUE INDEX idx_tasks_derive_history_facet_period_dedup
     WHERE command = 'derive_statistical_history_facet_period' AND state = 'pending';
 
 -- =====================================================================
--- 8. Update derive_statistical_history_facet: period × partition children
+-- 5. Update derive_statistical_history_facet: period × partition children
 -- =====================================================================
 CREATE OR REPLACE PROCEDURE worker.derive_statistical_history_facet(IN payload jsonb)
 LANGUAGE plpgsql
@@ -371,8 +332,8 @@ BEGIN
     SELECT array_agg(partition_seq ORDER BY partition_seq) INTO v_dirty_partitions
     FROM public.statistical_unit_facet_dirty_partitions;
 
-    -- If no partition entries exist yet, force full refresh
-    IF NOT EXISTS (SELECT 1 FROM public.statistical_history_facet WHERE partition_seq IS NOT NULL LIMIT 1) THEN
+    -- If no partition entries exist yet (UNLOGGED data lost or first run), force full refresh
+    IF NOT EXISTS (SELECT 1 FROM public.statistical_history_facet_partitions LIMIT 1) THEN
         v_dirty_partitions := NULL;
         RAISE DEBUG 'derive_statistical_history_facet: No partition entries exist, forcing full refresh';
     END IF;
@@ -435,7 +396,7 @@ $derive_statistical_history_facet$;
 
 
 -- =====================================================================
--- 8. Update derive_statistical_history_facet_period: partition-aware
+-- 6. Update derive_statistical_history_facet_period: write to partition table
 -- =====================================================================
 CREATE OR REPLACE PROCEDURE worker.derive_statistical_history_facet_period(IN payload jsonb)
 LANGUAGE plpgsql
@@ -451,23 +412,37 @@ BEGIN
                  v_resolution, v_year, v_month, v_partition_seq;
 
     IF v_partition_seq IS NOT NULL THEN
-        -- Delete and reinsert for this partition × period
-        DELETE FROM public.statistical_history_facet
+        -- Delete and reinsert for this partition × period in the UNLOGGED partition table
+        DELETE FROM public.statistical_history_facet_partitions
         WHERE resolution = v_resolution
           AND year = v_year
           AND month IS NOT DISTINCT FROM v_month
           AND partition_seq = v_partition_seq;
 
-        INSERT INTO public.statistical_history_facet
-        SELECT h.*
+        INSERT INTO public.statistical_history_facet_partitions (
+            partition_seq,
+            resolution, year, month, unit_type,
+            primary_activity_category_path, secondary_activity_category_path,
+            sector_path, legal_form_id, physical_region_path,
+            physical_country_id, unit_size_id, status_id,
+            exists_count, exists_change, exists_added_count, exists_removed_count,
+            countable_count, countable_change, countable_added_count, countable_removed_count,
+            births, deaths,
+            name_change_count, primary_activity_category_change_count,
+            secondary_activity_category_change_count, sector_change_count,
+            legal_form_change_count, physical_region_change_count,
+            physical_country_change_count, physical_address_change_count,
+            unit_size_change_count, status_change_count,
+            stats_summary
+        )
+        SELECT v_partition_seq, h.*
         FROM public.statistical_history_facet_def(v_resolution, v_year, v_month, v_partition_seq) AS h;
     ELSE
-        -- Legacy non-partitioned path
+        -- Legacy non-partitioned path: write directly to main table
         DELETE FROM public.statistical_history_facet
         WHERE resolution = v_resolution
           AND year = v_year
-          AND month IS NOT DISTINCT FROM v_month
-          AND partition_seq IS NULL;
+          AND month IS NOT DISTINCT FROM v_month;
 
         INSERT INTO public.statistical_history_facet
         SELECT h.*

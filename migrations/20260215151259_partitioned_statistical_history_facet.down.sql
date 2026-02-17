@@ -1,9 +1,6 @@
 -- Down Migration 20260215151259: partitioned_statistical_history_facet
 BEGIN;
 
--- Delete all partition entries (keep only root entries for clean state)
-DELETE FROM public.statistical_history_facet WHERE partition_seq IS NOT NULL;
-
 -- Restore original derive_statistical_history_facet_period (without partition_seq)
 CREATE OR REPLACE PROCEDURE worker.derive_statistical_history_facet_period(IN payload jsonb)
 LANGUAGE plpgsql
@@ -285,8 +282,7 @@ BEGIN
         d.physical_address_change_count,
         d.unit_size_change_count,
         d.status_change_count,
-        COALESCE(s.stats_summary, '{}'::jsonb) AS stats_summary,
-        NULL::integer AS partition_seq
+        COALESCE(s.stats_summary, '{}'::jsonb) AS stats_summary
     FROM demographics d
     LEFT JOIN stats_by_facet s ON s.facet_key = d.facet_key;
 END;
@@ -295,73 +291,7 @@ $statistical_history_facet_def$;
 -- Drop the 4-parameter overload
 DROP FUNCTION IF EXISTS public.statistical_history_facet_def(public.history_resolution, integer, integer, integer);
 
--- Restore original indexes (not partial)
-DROP INDEX IF EXISTS public.statistical_history_facet_year_key;
-DROP INDEX IF EXISTS public.statistical_history_facet_month_key;
-DROP INDEX IF EXISTS public.idx_gist_statistical_history_facet_physical_region_path;
-DROP INDEX IF EXISTS public.idx_gist_statistical_history_facet_primary_activity_category_pa;
-DROP INDEX IF EXISTS public.idx_gist_statistical_history_facet_secondary_activity_category_;
-DROP INDEX IF EXISTS public.idx_gist_statistical_history_facet_sector_path;
-DROP INDEX IF EXISTS public.idx_statistical_history_facet_legal_form_id;
-DROP INDEX IF EXISTS public.idx_statistical_history_facet_month;
-DROP INDEX IF EXISTS public.idx_statistical_history_facet_physical_country_id;
-DROP INDEX IF EXISTS public.idx_statistical_history_facet_physical_region_path;
-DROP INDEX IF EXISTS public.idx_statistical_history_facet_primary_activity_category_path;
-DROP INDEX IF EXISTS public.idx_statistical_history_facet_secondary_activity_category_path;
-DROP INDEX IF EXISTS public.idx_statistical_history_facet_sector_path;
-DROP INDEX IF EXISTS public.idx_statistical_history_facet_stats_summary;
-DROP INDEX IF EXISTS public.idx_statistical_history_facet_unit_type;
-DROP INDEX IF EXISTS public.idx_statistical_history_facet_year;
-DROP INDEX IF EXISTS public.idx_statistical_history_facet_partition_seq;
-
-CREATE UNIQUE INDEX statistical_history_facet_year_key
-    ON public.statistical_history_facet (year, month, unit_type,
-        primary_activity_category_path, secondary_activity_category_path,
-        sector_path, legal_form_id, physical_region_path, physical_country_id)
-    WHERE resolution = 'year'::public.history_resolution;
-CREATE UNIQUE INDEX statistical_history_facet_month_key
-    ON public.statistical_history_facet (resolution, year, month, unit_type,
-        primary_activity_category_path, secondary_activity_category_path,
-        sector_path, legal_form_id, physical_region_path, physical_country_id)
-    WHERE resolution = 'year-month'::public.history_resolution;
-CREATE INDEX idx_gist_statistical_history_facet_physical_region_path
-    ON public.statistical_history_facet USING gist (physical_region_path);
-CREATE INDEX idx_gist_statistical_history_facet_primary_activity_category_pa
-    ON public.statistical_history_facet USING gist (primary_activity_category_path);
-CREATE INDEX idx_gist_statistical_history_facet_secondary_activity_category_
-    ON public.statistical_history_facet USING gist (secondary_activity_category_path);
-CREATE INDEX idx_gist_statistical_history_facet_sector_path
-    ON public.statistical_history_facet USING gist (sector_path);
-CREATE INDEX idx_statistical_history_facet_legal_form_id
-    ON public.statistical_history_facet (legal_form_id);
-CREATE INDEX idx_statistical_history_facet_month
-    ON public.statistical_history_facet (month);
-CREATE INDEX idx_statistical_history_facet_physical_country_id
-    ON public.statistical_history_facet (physical_country_id);
-CREATE INDEX idx_statistical_history_facet_physical_region_path
-    ON public.statistical_history_facet (physical_region_path);
-CREATE INDEX idx_statistical_history_facet_primary_activity_category_path
-    ON public.statistical_history_facet (primary_activity_category_path);
-CREATE INDEX idx_statistical_history_facet_secondary_activity_category_path
-    ON public.statistical_history_facet (secondary_activity_category_path);
-CREATE INDEX idx_statistical_history_facet_sector_path
-    ON public.statistical_history_facet (sector_path);
-CREATE INDEX idx_statistical_history_facet_stats_summary
-    ON public.statistical_history_facet USING gin (stats_summary jsonb_path_ops);
-CREATE INDEX idx_statistical_history_facet_unit_type
-    ON public.statistical_history_facet (unit_type);
-CREATE INDEX idx_statistical_history_facet_year
-    ON public.statistical_history_facet (year);
-
--- Restore original RLS (no partition_seq filter)
-DROP POLICY IF EXISTS statistical_history_facet_authenticated_read ON public.statistical_history_facet;
-DROP POLICY IF EXISTS statistical_history_facet_regular_user_read ON public.statistical_history_facet;
-CREATE POLICY statistical_history_facet_authenticated_read ON public.statistical_history_facet
-    FOR SELECT TO authenticated USING (true);
-CREATE POLICY statistical_history_facet_regular_user_read ON public.statistical_history_facet
-    FOR SELECT TO regular_user USING (true);
-
--- Remove partition_seq from type (cascades to table)
-ALTER TYPE public.statistical_history_facet_type DROP ATTRIBUTE partition_seq CASCADE;
+-- Drop the UNLOGGED partition table
+DROP TABLE IF EXISTS public.statistical_history_facet_partitions;
 
 END;

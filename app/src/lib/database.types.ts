@@ -3173,7 +3173,6 @@ export type Database = {
           legal_form_id: number | null
           month: number | null
           name_change_count: number | null
-          partition_seq: number | null
           physical_address_change_count: number | null
           physical_country_change_count: number | null
           physical_country_id: number | null
@@ -3209,7 +3208,6 @@ export type Database = {
           legal_form_id?: number | null
           month?: number | null
           name_change_count?: number | null
-          partition_seq?: number | null
           physical_address_change_count?: number | null
           physical_country_change_count?: number | null
           physical_country_id?: number | null
@@ -3245,7 +3243,117 @@ export type Database = {
           legal_form_id?: number | null
           month?: number | null
           name_change_count?: number | null
-          partition_seq?: number | null
+          physical_address_change_count?: number | null
+          physical_country_change_count?: number | null
+          physical_country_id?: number | null
+          physical_region_change_count?: number | null
+          physical_region_path?: string | null
+          primary_activity_category_change_count?: number | null
+          primary_activity_category_path?: string | null
+          resolution?: Database["public"]["Enums"]["history_resolution"] | null
+          secondary_activity_category_change_count?: number | null
+          secondary_activity_category_path?: string | null
+          sector_change_count?: number | null
+          sector_path?: string | null
+          stats_summary?: Json | null
+          status_change_count?: number | null
+          status_id?: number | null
+          unit_size_change_count?: number | null
+          unit_size_id?: number | null
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
+          year?: number | null
+        },
+        Relationships: []
+      },
+      statistical_history_facet_partitions: {
+        Row: {
+          births: number | null
+          countable_added_count: number | null
+          countable_change: number | null
+          countable_count: number | null
+          countable_removed_count: number | null
+          deaths: number | null
+          exists_added_count: number | null
+          exists_change: number | null
+          exists_count: number | null
+          exists_removed_count: number | null
+          legal_form_change_count: number | null
+          legal_form_id: number | null
+          month: number | null
+          name_change_count: number | null
+          partition_seq: number
+          physical_address_change_count: number | null
+          physical_country_change_count: number | null
+          physical_country_id: number | null
+          physical_region_change_count: number | null
+          physical_region_path: string | null
+          primary_activity_category_change_count: number | null
+          primary_activity_category_path: string | null
+          resolution: Database["public"]["Enums"]["history_resolution"] | null
+          secondary_activity_category_change_count: number | null
+          secondary_activity_category_path: string | null
+          sector_change_count: number | null
+          sector_path: string | null
+          stats_summary: Json | null
+          status_change_count: number | null
+          status_id: number | null
+          unit_size_change_count: number | null
+          unit_size_id: number | null
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
+          year: number | null
+        },
+        Insert: {
+          births?: number | null
+          countable_added_count?: number | null
+          countable_change?: number | null
+          countable_count?: number | null
+          countable_removed_count?: number | null
+          deaths?: number | null
+          exists_added_count?: number | null
+          exists_change?: number | null
+          exists_count?: number | null
+          exists_removed_count?: number | null
+          legal_form_change_count?: number | null
+          legal_form_id?: number | null
+          month?: number | null
+          name_change_count?: number | null
+          partition_seq: number
+          physical_address_change_count?: number | null
+          physical_country_change_count?: number | null
+          physical_country_id?: number | null
+          physical_region_change_count?: number | null
+          physical_region_path?: string | null
+          primary_activity_category_change_count?: number | null
+          primary_activity_category_path?: string | null
+          resolution?: Database["public"]["Enums"]["history_resolution"] | null
+          secondary_activity_category_change_count?: number | null
+          secondary_activity_category_path?: string | null
+          sector_change_count?: number | null
+          sector_path?: string | null
+          stats_summary?: Json | null
+          status_change_count?: number | null
+          status_id?: number | null
+          unit_size_change_count?: number | null
+          unit_size_id?: number | null
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
+          year?: number | null
+        },
+        Update: {
+          births?: number | null
+          countable_added_count?: number | null
+          countable_change?: number | null
+          countable_count?: number | null
+          countable_removed_count?: number | null
+          deaths?: number | null
+          exists_added_count?: number | null
+          exists_change?: number | null
+          exists_count?: number | null
+          exists_removed_count?: number | null
+          legal_form_change_count?: number | null
+          legal_form_id?: number | null
+          month?: number | null
+          name_change_count?: number | null
+          partition_seq?: number
           physical_address_change_count?: number | null
           physical_country_change_count?: number | null
           physical_country_id?: number | null
@@ -3539,7 +3647,6 @@ export type Database = {
         Row: {
           count: number | null
           legal_form_id: number | null
-          partition_seq: number | null
           physical_country_id: number | null
           physical_region_path: string | null
           primary_activity_category_path: string | null
@@ -3554,7 +3661,6 @@ export type Database = {
         Insert: {
           count?: number | null
           legal_form_id?: number | null
-          partition_seq?: number | null
           physical_country_id?: number | null
           physical_region_path?: string | null
           primary_activity_category_path?: string | null
@@ -3569,7 +3675,6 @@ export type Database = {
         Update: {
           count?: number | null
           legal_form_id?: number | null
-          partition_seq?: number | null
           physical_country_id?: number | null
           physical_region_path?: string | null
           primary_activity_category_path?: string | null
@@ -3592,6 +3697,54 @@ export type Database = {
         },
         Update: {
           partition_seq?: number
+        },
+        Relationships: []
+      },
+      statistical_unit_facet_staging: {
+        Row: {
+          count: number
+          legal_form_id: number | null
+          partition_seq: number
+          physical_country_id: number | null
+          physical_region_path: string | null
+          primary_activity_category_path: string | null
+          sector_path: string | null
+          stats_summary: Json | null
+          status_id: number | null
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
+          valid_from: string | null
+          valid_to: string | null
+          valid_until: string | null
+        },
+        Insert: {
+          count: number
+          legal_form_id?: number | null
+          partition_seq: number
+          physical_country_id?: number | null
+          physical_region_path?: string | null
+          primary_activity_category_path?: string | null
+          sector_path?: string | null
+          stats_summary?: Json | null
+          status_id?: number | null
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
+          valid_from?: string | null
+          valid_to?: string | null
+          valid_until?: string | null
+        },
+        Update: {
+          count?: number
+          legal_form_id?: number | null
+          partition_seq?: number
+          physical_country_id?: number | null
+          physical_region_path?: string | null
+          primary_activity_category_path?: string | null
+          sector_path?: string | null
+          stats_summary?: Json | null
+          status_id?: number | null
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"] | null
+          valid_from?: string | null
+          valid_to?: string | null
+          valid_until?: string | null
         },
         Relationships: []
       },
@@ -13238,7 +13391,6 @@ export type Database = {
         unit_size_change_count: number | null
         status_change_count: number | null
         stats_summary: Json | null
-        partition_seq: number | null
       },
       statistical_history_type: {
         resolution: Database["public"]["Enums"]["history_resolution"] | null
