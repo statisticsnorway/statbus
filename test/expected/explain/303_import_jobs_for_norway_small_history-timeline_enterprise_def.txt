@@ -1,7 +1,7 @@
                                                                                                                                                                             QUERY PLAN                                                                                                                                                                            
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
  Sort
-   Sort Key: t.unit_id, t.valid_from
+   Sort Key: t.unit_type, t.unit_id, t.valid_from
    ->  Nested Loop Left Join
          Disabled: true
          ->  Nested Loop Left Join
@@ -23,13 +23,12 @@
                                                          ->  Seq Scan on timesegments t_1
                                                                Filter: (unit_type = 'enterprise'::statistical_unit_type)
                                                          ->  Hash
-                                                               ->  Seq Scan on enterprise en_1
+                                                               ->  Index Only Scan using enterprise_pkey on enterprise en_1
                                                    ->  GroupAggregate
                                                          ->  Sort
                                                                Sort Key: timeline_legal_unit.legal_unit_id
-                                                               ->  Index Scan using idx_timeline_legal_unit_valid_period on timeline_legal_unit
-                                                                     Index Cond: ((valid_from < t_1.valid_until) AND (valid_until > t_1.valid_from))
-                                                                     Filter: (enterprise_id = en_1.id)
+                                                               ->  Seq Scan on timeline_legal_unit
+                                                                     Filter: ((t_1.valid_from < valid_until) AND (valid_from < t_1.valid_until) AND (enterprise_id = en_1.id))
                                              ->  GroupAggregate
                                                    ->  Sort
                                                          Sort Key: timeline_establishment.establishment_id
@@ -43,12 +42,10 @@
                                        ->  Hash
                                              ->  Seq Scan on enterprise en
                      ->  Limit
-                           ->  Incremental Sort
+                           ->  Sort
                                  Sort Key: enplu_1.valid_from DESC, enplu_1.legal_unit_id DESC
-                                 Presorted Key: enplu_1.valid_from
-                                 ->  Index Scan Backward using idx_timeline_legal_unit_valid_period on timeline_legal_unit enplu_1
-                                       Index Cond: ((valid_from < t.valid_until) AND (valid_until > t.valid_from))
-                                       Filter: (primary_for_enterprise AND (enterprise_id = en.id))
+                                 ->  Seq Scan on timeline_legal_unit enplu_1
+                                       Filter: (primary_for_enterprise AND (t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (enterprise_id = en.id))
                ->  Limit
                      ->  Sort
                            Sort Key: enpes_1.valid_from DESC, enpes_1.establishment_id DESC
@@ -104,5 +101,5 @@
                                    ->  Result
                              ->  ProjectSet
                                    ->  Result
-(104 rows)
+(101 rows)
 
