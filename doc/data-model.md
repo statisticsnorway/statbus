@@ -160,9 +160,11 @@ Enumerated types used across the schema, with their possible values.
 
 ### Derivations to create statistical_history for reporting and statistical_history_facet for drilldown.
 
-- `statistical_history(unit_type, name_change_count, resolution, year, month, exists_count, exists_change, exists_added_count, exists_removed_count, countable_count, countable_change, countable_added_count, countable_removed_count, births, deaths, primary_activity_category_change_count, secondary_activity_category_change_count, sector_change_count, legal_form_change_count, physical_region_change_count, physical_country_change_count, physical_address_change_count, stats_summary)`
+- `statistical_history(unit_type, name_change_count, resolution, year, month, exists_count, exists_change, exists_added_count, exists_removed_count, countable_count, countable_change, countable_added_count, countable_removed_count, births, deaths, primary_activity_category_change_count, secondary_activity_category_change_count, sector_change_count, legal_form_change_count, physical_region_change_count, physical_country_change_count, physical_address_change_count, stats_summary, partition_seq)`
   - Enums: `resolution` (`public.history_resolution`), `unit_type` (`public.statistical_unit_type`).
 - `statistical_history_facet(unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path, physical_region_path, name_change_count, legal_form_id, physical_country_id, unit_size_id, status_id, resolution, year, month, exists_count, exists_change, exists_added_count, exists_removed_count, countable_count, countable_change, countable_added_count, countable_removed_count, births, deaths, primary_activity_category_change_count, secondary_activity_category_change_count, sector_change_count, legal_form_change_count, physical_region_change_count, physical_country_change_count, physical_address_change_count, unit_size_change_count, status_change_count, stats_summary)`
+  - Enums: `resolution` (`public.history_resolution`), `unit_type` (`public.statistical_unit_type`).
+- `statistical_history_facet_partitions(unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path, physical_region_path, name_change_count, legal_form_id, physical_country_id, unit_size_id, status_id, partition_seq, resolution, year, month, exists_count, exists_change, exists_added_count, exists_removed_count, countable_count, countable_change, countable_added_count, countable_removed_count, births, deaths, primary_activity_category_change_count, secondary_activity_category_change_count, sector_change_count, legal_form_change_count, physical_region_change_count, physical_country_change_count, physical_address_change_count, unit_size_change_count, status_change_count, stats_summary)`
   - Enums: `resolution` (`public.history_resolution`), `unit_type` (`public.statistical_unit_type`).
 
 ## Import System
@@ -195,6 +197,7 @@ Handles background processing. A long-running worker process calls `worker.proce
 - `command_registry(command, created_at, handler_procedure, before_procedure, after_procedure, description, queue, batches_per_wave)`
   - Key FKs: queue.
 - `queue_registry(queue, description, default_concurrency)`
+- `pipeline_progress(updated_at, step, total, completed)`
 - `base_change_log(establishment_ids, legal_unit_ids, enterprise_ids, edited_by_valid_range)`
 - `base_change_log_has_pending(has_pending)`
 
@@ -210,7 +213,7 @@ Handles background processing. A long-running worker process calls `worker.proce
 - `refresh_session(id, user_id, created_at, last_used_at, expires_at, jti, refresh_version, user_agent, ip_address)`
   - Key FKs: user_id.
 - `secrets(value, created_at, updated_at, key, description)`
-- `settings(id, activity_category_standard_id, country_id, only_one_setting)`
+- `settings(id, activity_category_standard_id, country_id, only_one_setting, report_partition_count)`
   - Key FKs: activity_category_standard_id, country_id.
 - `region_access(id, user_id, region_id)`
   - Key FKs: region_id, user_id.

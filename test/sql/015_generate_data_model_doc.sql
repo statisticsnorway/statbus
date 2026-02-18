@@ -118,7 +118,8 @@ DECLARE
         )),
         (4, 2, 4, 'Derivations to create statistical_history for reporting and statistical_history_facet for drilldown.', NULL, jsonb_build_array(
             '{"schema": "public", "name": "statistical_history"}'::jsonb,
-            '{"schema": "public", "name": "statistical_history_facet"}'::jsonb
+            '{"schema": "public", "name": "statistical_history_facet"}'::jsonb,
+            '{"schema": "public", "name": "statistical_history_facet_partitions"}'::jsonb
         )),
         (5, 1, 1, 'Import System', 'Handles the ingestion of data from external files.', jsonb_build_array(
             '{"schema": "public", "name": "import_definition"}'::jsonb,
@@ -133,6 +134,7 @@ DECLARE
             '{"schema": "worker", "name": "tasks"}'::jsonb,
             '{"schema": "worker", "name": "command_registry"}'::jsonb,
             '{"schema": "worker", "name": "queue_registry"}'::jsonb,
+            '{"schema": "worker", "name": "pipeline_progress"}'::jsonb,
             '{"schema": "worker", "name": "base_change_log"}'::jsonb,
             '{"schema": "worker", "name": "base_change_log_has_pending"}'::jsonb
         )),

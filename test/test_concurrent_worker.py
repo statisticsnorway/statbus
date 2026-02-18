@@ -475,6 +475,33 @@ def run_concurrent_test(timeout_seconds=300, debug=True):
             log_print(f"\n  {RED}Failed tasks:{NC}")
             for row in failed:
                 log_print(f"    Task {row[0]} ({row[1]}): {row[2]}", "error")
+
+        # Pipeline timing breakdown
+        cur.execute("""
+            SELECT command
+                 , count(*) AS tasks
+                 , sum(duration_ms)::numeric(10,0) AS total_ms
+                 , min(duration_ms)::numeric(10,0) AS min_ms
+                 , max(duration_ms)::numeric(10,0) AS max_ms
+                 , avg(duration_ms)::numeric(10,1) AS avg_ms
+            FROM worker.tasks
+            WHERE state = 'completed' AND duration_ms IS NOT NULL
+            GROUP BY command
+            ORDER BY total_ms DESC
+        """)
+        timing_rows = cur.fetchall()
+        if timing_rows:
+            log_print(f"\n  {BLUE}Pipeline timing breakdown:{NC}")
+            log_print(f"    {'Command':<50} {'#':>4} {'Total':>8} {'Min':>8} {'Max':>8} {'Avg':>8}")
+            log_print(f"    {'-'*50} {'----':>4} {'--------':>8} {'--------':>8} {'--------':>8} {'--------':>8}")
+            for row in timing_rows:
+                cmd, tasks, total, mn, mx, avg = row
+                log_print(f"    {cmd:<50} {tasks:>4} {total:>7}ms {mn:>7}ms {mx:>7}ms {avg:>7}ms")
+            # Grand total
+            grand_total = sum(r[2] for r in timing_rows)
+            grand_tasks = sum(r[1] for r in timing_rows)
+            log_print(f"    {'-'*50} {'----':>4} {'--------':>8}")
+            log_print(f"    {'TOTAL':<50} {grand_tasks:>4} {grand_total:>7}ms")
     conn.close()
 
     success = returncode == 0 and not failed
@@ -509,6 +536,48 @@ def list_test_databases():
     conn.close()
 
 
+def show_timing(dbname):
+    """Show pipeline timing from a persisted test database."""
+    conn = get_conn(dbname=dbname)
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT state, count(*)
+            FROM worker.tasks
+            GROUP BY state ORDER BY state
+        """)
+        log_print(f"\n  Task states in {dbname}:")
+        for row in cur.fetchall():
+            log_print(f"    {row[0]}: {row[1]}")
+
+        cur.execute("""
+            SELECT command
+                 , count(*) AS tasks
+                 , sum(duration_ms)::numeric(10,0) AS total_ms
+                 , min(duration_ms)::numeric(10,0) AS min_ms
+                 , max(duration_ms)::numeric(10,0) AS max_ms
+                 , avg(duration_ms)::numeric(10,1) AS avg_ms
+            FROM worker.tasks
+            WHERE state = 'completed' AND duration_ms IS NOT NULL
+            GROUP BY command
+            ORDER BY total_ms DESC
+        """)
+        timing_rows = cur.fetchall()
+        if timing_rows:
+            log_print(f"\n  {BLUE}Pipeline timing breakdown:{NC}")
+            log_print(f"    {'Command':<50} {'#':>4} {'Total':>8} {'Min':>8} {'Max':>8} {'Avg':>8}")
+            log_print(f"    {'-'*50} {'----':>4} {'--------':>8} {'--------':>8} {'--------':>8} {'--------':>8}")
+            for row in timing_rows:
+                cmd, tasks, total, mn, mx, avg = row
+                log_print(f"    {cmd:<50} {tasks:>4} {total:>7}ms {mn:>7}ms {mx:>7}ms {avg:>7}ms")
+            grand_total = sum(r[2] for r in timing_rows)
+            grand_tasks = sum(r[1] for r in timing_rows)
+            log_print(f"    {'-'*50} {'----':>4} {'--------':>8}")
+            log_print(f"    {'TOTAL':<50} {grand_tasks:>4} {grand_total:>7}ms")
+        else:
+            log_print("  No completed tasks with timing data found.")
+    conn.close()
+
+
 # ============================================================================
 # Main
 # ============================================================================
@@ -532,6 +601,8 @@ if __name__ == "__main__":
                         ) + " (default: selection)")
     parser.add_argument("--cleanup-all", action="store_true",
                         help="Drop ALL test_concurrent_* databases and exit")
+    parser.add_argument("--timing", metavar="DBNAME",
+                        help="Show pipeline timing from an existing test database and exit")
     parser.add_argument("--debug", action="store_true", default=True,
                         help="Enable debug logging in worker (default: true)")
     parser.add_argument("--no-debug", action="store_true",
@@ -544,6 +615,11 @@ if __name__ == "__main__":
 
     if args.list:
         list_test_databases()
+        sys.exit(0)
+
+    if args.timing:
+        TEST_DB = args.timing
+        show_timing(args.timing)
         sys.exit(0)
 
     log_print(f"{BLUE}Log file: {LOG_FILE}{NC}")
