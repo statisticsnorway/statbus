@@ -5,7 +5,7 @@ interface DetailsPageHeaderProps {
   title: string | null;
   subtitle?: string;
   className?: string;
-  unitType?: "establishment" | "legal_unit" | "enterprise" | "enterprise_group";
+  unitType?: "establishment" | "legal_unit" | "enterprise" | "power_group";
   unitTypeLabel?: string;
 }
 

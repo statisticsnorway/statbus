@@ -6,7 +6,7 @@ interface TopologyItemIconProps {
     | "legal_unit"
     | "establishment"
     | "enterprise"
-    | "enterprise_group"
+    | "power_group"
     | null;
   className?: string;
   hasLegalUnit?: boolean;
