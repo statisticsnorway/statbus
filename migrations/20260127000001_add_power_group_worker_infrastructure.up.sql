@@ -10,7 +10,7 @@ BEGIN;
 -- Traverses temporal legal_relationship to find controlling ownership hierarchies
 --------------------------------------------------------------------------------
 
-CREATE VIEW public.legal_unit_power_hierarchy AS
+CREATE VIEW public.legal_unit_power_hierarchy WITH (security_invoker = on) AS
 WITH RECURSIVE hierarchy AS (
     -- Base case: Root legal units (those that have controlling children but no controlling parent)
     SELECT 
@@ -77,7 +77,7 @@ COMMENT ON VIEW public.legal_unit_power_hierarchy IS
 -- Groups by root_legal_unit_id to define what power groups should exist
 --------------------------------------------------------------------------------
 
-CREATE VIEW public.power_group_def AS
+CREATE VIEW public.power_group_def WITH (security_invoker = on) AS
 SELECT 
     root_legal_unit_id,
     MAX(power_level) - 1 AS depth,  -- Longest path from root (0 for single root)
@@ -94,7 +94,7 @@ COMMENT ON VIEW public.power_group_def IS
 -- Each cluster of connected relationships forms a power group
 --------------------------------------------------------------------------------
 
-CREATE VIEW public.legal_relationship_cluster AS
+CREATE VIEW public.legal_relationship_cluster WITH (security_invoker = on) AS
 WITH hierarchy_relationships AS (
     -- Get all relationships that are part of a controlling hierarchy
     SELECT DISTINCT
@@ -140,7 +140,11 @@ DECLARE
     _current_user_id integer;
 BEGIN
     RAISE DEBUG '[derive_power_groups] Starting power group derivation';
-    
+
+    -- Disable the trigger that re-enqueues derive_power_groups when we update legal_relationship.power_group_id
+    -- Without this, every UPDATE below fires the trigger → enqueues a new task → infinite loop
+    ALTER TABLE public.legal_relationship DISABLE TRIGGER legal_relationship_derive_power_groups_trigger;
+
     -- Find a user for edit tracking
     SELECT id INTO _current_user_id 
     FROM auth.user 
@@ -255,6 +259,9 @@ BEGIN
     
     RAISE DEBUG '[derive_power_groups] Completed: created=%, updated=%, linked=%',
         _created_count, _updated_count, _linked_count;
+
+    -- Re-enable the trigger so future DML on legal_relationship queues derivation normally
+    ALTER TABLE public.legal_relationship ENABLE TRIGGER legal_relationship_derive_power_groups_trigger;
 END;
 $derive_power_groups$;
 
@@ -264,6 +271,7 @@ COMMENT ON FUNCTION worker.derive_power_groups() IS
 -- Command handler procedure (wrapper for worker system)
 CREATE PROCEDURE worker.derive_power_groups(payload JSONB)
 SECURITY DEFINER
+SET search_path = public, worker, pg_temp
 LANGUAGE plpgsql
 AS $procedure$
 BEGIN
@@ -355,7 +363,7 @@ EXECUTE FUNCTION public.legal_relationship_queue_derive_power_groups();
 -- have a valid_range containing that time
 --------------------------------------------------------------------------------
 
-CREATE VIEW public.power_group_active AS
+CREATE VIEW public.power_group_active WITH (security_invoker = on) AS
 SELECT DISTINCT
     pg.id,
     pg.ident,
@@ -373,7 +381,7 @@ COMMENT ON VIEW public.power_group_active IS
 -- PART 7: Helper view for power group membership (which LUs belong to which PG)
 --------------------------------------------------------------------------------
 
-CREATE VIEW public.power_group_membership AS
+CREATE VIEW public.power_group_membership WITH (security_invoker = on) AS
 SELECT DISTINCT
     pg.id AS power_group_id,
     pg.ident AS power_group_ident,
@@ -394,11 +402,14 @@ COMMENT ON VIEW public.power_group_membership IS
 -- PART 8: Grant permissions
 --------------------------------------------------------------------------------
 
-GRANT SELECT ON public.legal_unit_power_hierarchy TO authenticated;
-GRANT SELECT ON public.power_group_def TO authenticated;
-GRANT SELECT ON public.legal_relationship_cluster TO authenticated;
-GRANT SELECT ON public.power_group_active TO authenticated;
-GRANT SELECT ON public.power_group_membership TO authenticated;
+-- Views: SELECT and INSERT for authenticated, regular_user, admin_user
+GRANT SELECT, INSERT ON public.legal_unit_power_hierarchy TO authenticated, regular_user, admin_user;
+GRANT SELECT, INSERT ON public.power_group_def TO authenticated, regular_user, admin_user;
+GRANT SELECT, INSERT ON public.legal_relationship_cluster TO authenticated, regular_user, admin_user;
+GRANT SELECT, INSERT ON public.power_group_active TO authenticated, regular_user, admin_user;
+GRANT SELECT, INSERT ON public.power_group_membership TO authenticated, regular_user, admin_user;
+
+-- Tables
 GRANT SELECT ON public.legal_relationship TO authenticated;
 GRANT SELECT ON public.power_group TO authenticated;
 GRANT EXECUTE ON FUNCTION worker.enqueue_derive_power_groups() TO authenticated;
