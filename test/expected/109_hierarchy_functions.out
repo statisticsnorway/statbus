@@ -480,6 +480,10 @@ SELECT jsonb_pretty(
                          "invalid_codes": null,                                                                                   +
                          "stat_for_unit": [                                                                                       +
                              {                                                                                                    +
+                                 "stat": {                                                                                        +
+                                     "type": "int",                                                                               +
+                                     "value": 5                                                                                   +
+                                 },                                                                                               +
                                  "valid_to": "infinity",                                                                          +
                                  "value_int": 5,                                                                                  +
                                  "valid_from": "2024-01-01",                                                                      +
@@ -506,6 +510,10 @@ SELECT jsonb_pretty(
                                  }                                                                                                +
                              },                                                                                                   +
                              {                                                                                                    +
+                                 "stat": {                                                                                        +
+                                     "type": "float",                                                                             +
+                                     "value": 5000000.0                                                                           +
+                                 },                                                                                               +
                                  "valid_to": "infinity",                                                                          +
                                  "value_int": null,                                                                               +
                                  "valid_from": "2024-01-01",                                                                      +
@@ -643,6 +651,10 @@ SELECT jsonb_pretty(
                          "invalid_codes": null,                                                                                   +
                          "stat_for_unit": [                                                                                       +
                              {                                                                                                    +
+                                 "stat": {                                                                                        +
+                                     "type": "int",                                                                               +
+                                     "value": 10                                                                                  +
+                                 },                                                                                               +
                                  "valid_to": "infinity",                                                                          +
                                  "value_int": 10,                                                                                 +
                                  "valid_from": "2024-01-01",                                                                      +
@@ -669,6 +681,10 @@ SELECT jsonb_pretty(
                                  }                                                                                                +
                              },                                                                                                   +
                              {                                                                                                    +
+                                 "stat": {                                                                                        +
+                                     "type": "float",                                                                             +
+                                     "value": 10000000.0                                                                          +
+                                 },                                                                                               +
                                  "valid_to": "infinity",                                                                          +
                                  "value_int": null,                                                                               +
                                  "valid_from": "2024-01-01",                                                                      +
@@ -707,6 +723,10 @@ SELECT jsonb_pretty(
                  "invalid_codes": null,                                                                                           +
                  "stat_for_unit": [                                                                                               +
                      {                                                                                                            +
+                         "stat": {                                                                                                +
+                             "type": "int",                                                                                       +
+                             "value": 0                                                                                           +
+                         },                                                                                                       +
                          "valid_to": "infinity",                                                                                  +
                          "value_int": 0,                                                                                          +
                          "valid_from": "2024-01-01",                                                                              +
@@ -733,6 +753,10 @@ SELECT jsonb_pretty(
                          }                                                                                                        +
                      },                                                                                                           +
                      {                                                                                                            +
+                         "stat": {                                                                                                +
+                             "type": "float",                                                                                     +
+                             "value": 0.0                                                                                         +
+                         },                                                                                                       +
                          "valid_to": "infinity",                                                                                  +
                          "value_int": null,                                                                                       +
                          "valid_from": "2024-01-01",                                                                              +
@@ -915,6 +939,10 @@ SELECT jsonb_pretty(
                  "invalid_codes": null,                                                                                   +
                  "stat_for_unit": [                                                                                       +
                      {                                                                                                    +
+                         "stat": {                                                                                        +
+                             "type": "int",                                                                               +
+                             "value": 75                                                                                  +
+                         },                                                                                               +
                          "valid_to": "infinity",                                                                          +
                          "value_int": 75,                                                                                 +
                          "valid_from": "2024-01-01",                                                                      +
@@ -941,6 +969,10 @@ SELECT jsonb_pretty(
                          }                                                                                                +
                      },                                                                                                   +
                      {                                                                                                    +
+                         "stat": {                                                                                        +
+                             "type": "float",                                                                             +
+                             "value": 4400000.0                                                                           +
+                         },                                                                                               +
                          "valid_to": "infinity",                                                                          +
                          "value_int": null,                                                                               +
                          "valid_from": "2024-01-01",                                                                      +
@@ -1445,6 +1477,10 @@ SELECT jsonb_pretty(
              "invalid_codes": null,                                                                                   +
              "stat_for_unit": [                                                                                       +
                  {                                                                                                    +
+                     "stat": {                                                                                        +
+                         "type": "int",                                                                               +
+                         "value": 0                                                                                   +
+                     },                                                                                               +
                      "valid_to": "infinity",                                                                          +
                      "value_int": 0,                                                                                  +
                      "valid_from": "2024-01-01",                                                                      +
@@ -1471,6 +1507,10 @@ SELECT jsonb_pretty(
                      }                                                                                                +
                  },                                                                                                   +
                  {                                                                                                    +
+                     "stat": {                                                                                        +
+                         "type": "float",                                                                             +
+                         "value": 0.0                                                                                 +
+                     },                                                                                               +
                      "valid_to": "infinity",                                                                          +
                      "value_int": null,                                                                               +
                      "valid_from": "2024-01-01",                                                                      +
@@ -1523,130 +1563,149 @@ FROM public.statistical_unit_stats(
         (SELECT unit_id FROM selected_legal_unit),
         '2024-01-01'::DATE
     );
--[ RECORD 1 ]+-----------------------------------------------------------------
+-[ RECORD 1 ]+-----------------------------------------------
 unit_type    | establishment
-jsonb_pretty | {                                                               +
-             |     "turnover": 10000000,                                       +
-             |     "employees": 10                                             +
+jsonb_pretty | {                                             +
+             |     "type": "stats",                          +
+             |     "turnover": {                             +
+             |         "type": "float",                      +
+             |         "value": 10000000.0                   +
+             |     },                                        +
+             |     "employees": {                            +
+             |         "type": "int",                        +
+             |         "value": 10                           +
+             |     }                                         +
              | }
-jsonb_pretty | {                                                               +
-             |     "turnover": {                                               +
-             |         "max": 10000000,                                        +
-             |         "min": 10000000,                                        +
-             |         "sum": 10000000,                                        +
-             |         "mean": 10000000,                                       +
-             |         "type": "number",                                       +
-             |         "count": 1,                                             +
-             |         "stddev": 0,                                            +
-             |         "variance": 0,                                          +
-             |         "sum_sq_diff": 0,                                       +
-             |         "coefficient_of_variation_pct": 0                       +
-             |     },                                                          +
-             |     "employees": {                                              +
-             |         "max": 10,                                              +
-             |         "min": 10,                                              +
-             |         "sum": 10,                                              +
-             |         "mean": 10,                                             +
-             |         "type": "number",                                       +
-             |         "count": 1,                                             +
-             |         "stddev": 0,                                            +
-             |         "variance": 0,                                          +
-             |         "sum_sq_diff": 0,                                       +
-             |         "coefficient_of_variation_pct": 0                       +
-             |     }                                                           +
+jsonb_pretty | {                                             +
+             |     "type": "stats_agg",                      +
+             |     "turnover": {                             +
+             |         "max": 10000000,                      +
+             |         "min": 10000000,                      +
+             |         "sum": 10000000,                      +
+             |         "mean": 10000000.00,                  +
+             |         "type": "float_agg",                  +
+             |         "count": 1,                           +
+             |         "stddev": null,                       +
+             |         "variance": null,                     +
+             |         "sum_sq_diff": 0.00,                  +
+             |         "coefficient_of_variation_pct": null  +
+             |     },                                        +
+             |     "employees": {                            +
+             |         "max": 10,                            +
+             |         "min": 10,                            +
+             |         "sum": 10,                            +
+             |         "mean": 10.00,                        +
+             |         "type": "int_agg",                    +
+             |         "count": 1,                           +
+             |         "stddev": null,                       +
+             |         "variance": null,                     +
+             |         "sum_sq_diff": 0.00,                  +
+             |         "coefficient_of_variation_pct": null  +
+             |     }                                         +
              | }
--[ RECORD 2 ]+-----------------------------------------------------------------
+-[ RECORD 2 ]+-----------------------------------------------
 unit_type    | establishment
-jsonb_pretty | {                                                               +
-             |     "turnover": 5000000,                                        +
-             |     "employees": 5                                              +
+jsonb_pretty | {                                             +
+             |     "type": "stats",                          +
+             |     "turnover": {                             +
+             |         "type": "float",                      +
+             |         "value": 5000000.0                    +
+             |     },                                        +
+             |     "employees": {                            +
+             |         "type": "int",                        +
+             |         "value": 5                            +
+             |     }                                         +
              | }
-jsonb_pretty | {                                                               +
-             |     "turnover": {                                               +
-             |         "max": 5000000,                                         +
-             |         "min": 5000000,                                         +
-             |         "sum": 5000000,                                         +
-             |         "mean": 5000000,                                        +
-             |         "type": "number",                                       +
-             |         "count": 1,                                             +
-             |         "stddev": 0,                                            +
-             |         "variance": 0,                                          +
-             |         "sum_sq_diff": 0,                                       +
-             |         "coefficient_of_variation_pct": 0                       +
-             |     },                                                          +
-             |     "employees": {                                              +
-             |         "max": 5,                                               +
-             |         "min": 5,                                               +
-             |         "sum": 5,                                               +
-             |         "mean": 5,                                              +
-             |         "type": "number",                                       +
-             |         "count": 1,                                             +
-             |         "stddev": 0,                                            +
-             |         "variance": 0,                                          +
-             |         "sum_sq_diff": 0,                                       +
-             |         "coefficient_of_variation_pct": 0                       +
-             |     }                                                           +
+jsonb_pretty | {                                             +
+             |     "type": "stats_agg",                      +
+             |     "turnover": {                             +
+             |         "max": 5000000,                       +
+             |         "min": 5000000,                       +
+             |         "sum": 5000000,                       +
+             |         "mean": 5000000.00,                   +
+             |         "type": "float_agg",                  +
+             |         "count": 1,                           +
+             |         "stddev": null,                       +
+             |         "variance": null,                     +
+             |         "sum_sq_diff": 0.00,                  +
+             |         "coefficient_of_variation_pct": null  +
+             |     },                                        +
+             |     "employees": {                            +
+             |         "max": 5,                             +
+             |         "min": 5,                             +
+             |         "sum": 5,                             +
+             |         "mean": 5.00,                         +
+             |         "type": "int_agg",                    +
+             |         "count": 1,                           +
+             |         "stddev": null,                       +
+             |         "variance": null,                     +
+             |         "sum_sq_diff": 0.00,                  +
+             |         "coefficient_of_variation_pct": null  +
+             |     }                                         +
              | }
--[ RECORD 3 ]+-----------------------------------------------------------------
+-[ RECORD 3 ]+-----------------------------------------------
 unit_type    | legal_unit
-jsonb_pretty | {                                                               +
-             |     "turnover": 0,                                              +
-             |     "employees": 0                                              +
+jsonb_pretty | {                                             +
+             |     "type": "stats",                          +
+             |     "turnover": {                             +
+             |         "type": "float",                      +
+             |         "value": 0.0                          +
+             |     },                                        +
+             |     "employees": {                            +
+             |         "type": "int",                        +
+             |         "value": 0                            +
+             |     }                                         +
              | }
-jsonb_pretty | {                                                               +
-             |     "turnover": {                                               +
-             |         "max": 10000000,                                        +
-             |         "min": 0,                                               +
-             |         "sum": 15000000,                                        +
-             |         "mean": 5000000.000000000000,                           +
-             |         "type": "number",                                       +
-             |         "count": 3,                                             +
-             |         "stddev": 5000000.000000000,                            +
-             |         "variance": 25000000000000.0000,                        +
-             |         "sum_sq_diff": 50000000000000.0000,                     +
-             |         "coefficient_of_variation_pct": 100.00000000000000000000+
-             |     },                                                          +
-             |     "employees": {                                              +
-             |         "max": 10,                                              +
-             |         "min": 0,                                               +
-             |         "sum": 15,                                              +
-             |         "mean": 5.0000000000000000,                             +
-             |         "type": "number",                                       +
-             |         "count": 3,                                             +
-             |         "stddev": 5.0000000000000000,                           +
-             |         "variance": 25.0000000000000000,                        +
-             |         "sum_sq_diff": 50.0000000000000000,                     +
-             |         "coefficient_of_variation_pct": 100.00000000000000000000+
-             |     }                                                           +
+jsonb_pretty | {                                             +
+             |     "type": "stats_agg",                      +
+             |     "turnover": {                             +
+             |         "max": 10000000,                      +
+             |         "min": 0,                             +
+             |         "sum": 15000000,                      +
+             |         "mean": 5000000,                      +
+             |         "type": "float_agg",                  +
+             |         "count": 3,                           +
+             |         "sum_sq_diff": 50000000000000         +
+             |     },                                        +
+             |     "employees": {                            +
+             |         "max": 10,                            +
+             |         "min": 0,                             +
+             |         "sum": 15,                            +
+             |         "mean": 5,                            +
+             |         "type": "int_agg",                    +
+             |         "count": 3,                           +
+             |         "sum_sq_diff": 50                     +
+             |     }                                         +
              | }
--[ RECORD 4 ]+-----------------------------------------------------------------
+-[ RECORD 4 ]+-----------------------------------------------
 unit_type    | enterprise
 jsonb_pretty | 
-jsonb_pretty | {                                                               +
-             |     "turnover": {                                               +
-             |         "max": 10000000,                                        +
-             |         "min": 0,                                               +
-             |         "sum": 15000000,                                        +
-             |         "mean": 5000000.00,                                     +
-             |         "type": "number",                                       +
-             |         "count": 3,                                             +
-             |         "stddev": 5000000.00,                                   +
-             |         "variance": 25000000000000.00,                          +
-             |         "sum_sq_diff": 50000000000000.00,                       +
-             |         "coefficient_of_variation_pct": 100.00                  +
-             |     },                                                          +
-             |     "employees": {                                              +
-             |         "max": 10,                                              +
-             |         "min": 0,                                               +
-             |         "sum": 15,                                              +
-             |         "mean": 5.00,                                           +
-             |         "type": "number",                                       +
-             |         "count": 3,                                             +
-             |         "stddev": 5.00,                                         +
-             |         "variance": 25.00,                                      +
-             |         "sum_sq_diff": 50.00,                                   +
-             |         "coefficient_of_variation_pct": 100.00                  +
-             |     }                                                           +
+jsonb_pretty | {                                             +
+             |     "type": "stats_agg",                      +
+             |     "turnover": {                             +
+             |         "max": 10000000,                      +
+             |         "min": 0,                             +
+             |         "sum": 15000000,                      +
+             |         "mean": 5000000.00,                   +
+             |         "type": "float_agg",                  +
+             |         "count": 3,                           +
+             |         "stddev": 5000000.00,                 +
+             |         "variance": 25000000000000.00,        +
+             |         "sum_sq_diff": 50000000000000.00,     +
+             |         "coefficient_of_variation_pct": 100.00+
+             |     },                                        +
+             |     "employees": {                            +
+             |         "max": 10,                            +
+             |         "min": 0,                             +
+             |         "sum": 15,                            +
+             |         "mean": 5.00,                         +
+             |         "type": "int_agg",                    +
+             |         "count": 3,                           +
+             |         "stddev": 5.00,                       +
+             |         "variance": 25.00,                    +
+             |         "sum_sq_diff": 50.00,                 +
+             |         "coefficient_of_variation_pct": 100.00+
+             |     }                                         +
              | }
 
 \echo "Test statistical_unit_stats - for THE MARINE SERVICES"
@@ -1666,62 +1725,71 @@ FROM public.statistical_unit_stats(
 -[ RECORD 1 ]+---------------------------------------------
 unit_type    | establishment
 jsonb_pretty | {                                           +
-             |     "turnover": 4400000,                    +
-             |     "employees": 75                         +
-             | }
-jsonb_pretty | {                                           +
+             |     "type": "stats",                        +
              |     "turnover": {                           +
-             |         "max": 4400000,                     +
-             |         "min": 4400000,                     +
-             |         "sum": 4400000,                     +
-             |         "mean": 4400000,                    +
-             |         "type": "number",                   +
-             |         "count": 1,                         +
-             |         "stddev": 0,                        +
-             |         "variance": 0,                      +
-             |         "sum_sq_diff": 0,                   +
-             |         "coefficient_of_variation_pct": 0   +
+             |         "type": "float",                    +
+             |         "value": 4400000.0                  +
              |     },                                      +
              |     "employees": {                          +
-             |         "max": 75,                          +
-             |         "min": 75,                          +
-             |         "sum": 75,                          +
-             |         "mean": 75,                         +
-             |         "type": "number",                   +
-             |         "count": 1,                         +
-             |         "stddev": 0,                        +
-             |         "variance": 0,                      +
-             |         "sum_sq_diff": 0,                   +
-             |         "coefficient_of_variation_pct": 0   +
+             |         "type": "int",                      +
+             |         "value": 75                         +
              |     }                                       +
              | }
--[ RECORD 2 ]+---------------------------------------------
-unit_type    | enterprise
-jsonb_pretty | 
 jsonb_pretty | {                                           +
+             |     "type": "stats_agg",                    +
              |     "turnover": {                           +
              |         "max": 4400000,                     +
              |         "min": 4400000,                     +
              |         "sum": 4400000,                     +
              |         "mean": 4400000.00,                 +
-             |         "type": "number",                   +
+             |         "type": "float_agg",                +
              |         "count": 1,                         +
-             |         "stddev": 0.00,                     +
-             |         "variance": 0.00,                   +
+             |         "stddev": null,                     +
+             |         "variance": null,                   +
              |         "sum_sq_diff": 0.00,                +
-             |         "coefficient_of_variation_pct": 0.00+
+             |         "coefficient_of_variation_pct": null+
              |     },                                      +
              |     "employees": {                          +
              |         "max": 75,                          +
              |         "min": 75,                          +
              |         "sum": 75,                          +
              |         "mean": 75.00,                      +
-             |         "type": "number",                   +
+             |         "type": "int_agg",                  +
              |         "count": 1,                         +
-             |         "stddev": 0.00,                     +
-             |         "variance": 0.00,                   +
+             |         "stddev": null,                     +
+             |         "variance": null,                   +
              |         "sum_sq_diff": 0.00,                +
-             |         "coefficient_of_variation_pct": 0.00+
+             |         "coefficient_of_variation_pct": null+
+             |     }                                       +
+             | }
+-[ RECORD 2 ]+---------------------------------------------
+unit_type    | enterprise
+jsonb_pretty | 
+jsonb_pretty | {                                           +
+             |     "type": "stats_agg",                    +
+             |     "turnover": {                           +
+             |         "max": 4400000,                     +
+             |         "min": 4400000,                     +
+             |         "sum": 4400000,                     +
+             |         "mean": 4400000.00,                 +
+             |         "type": "float_agg",                +
+             |         "count": 1,                         +
+             |         "stddev": null,                     +
+             |         "variance": null,                   +
+             |         "sum_sq_diff": 0.00,                +
+             |         "coefficient_of_variation_pct": null+
+             |     },                                      +
+             |     "employees": {                          +
+             |         "max": 75,                          +
+             |         "min": 75,                          +
+             |         "sum": 75,                          +
+             |         "mean": 75.00,                      +
+             |         "type": "int_agg",                  +
+             |         "count": 1,                         +
+             |         "stddev": null,                     +
+             |         "variance": null,                   +
+             |         "sum_sq_diff": 0.00,                +
+             |         "coefficient_of_variation_pct": null+
              |     }                                       +
              | }
 

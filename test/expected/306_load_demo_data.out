@@ -1082,7 +1082,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 SELECT unit_type
      , COUNT(DISTINCT unit_id)
      , jsonb_agg(DISTINCT invalid_codes) FILTER (WHERE invalid_codes IS NOT NULL) AS invalid_codes
-     , jsonb_pretty(jsonb_stats_summary_merge_agg(stats_summary)) AS stats_summary
+     , jsonb_pretty(jsonb_stats_merge_agg(stats_summary)) AS stats_summary
  FROM statistical_unit
  WHERE valid_from <= CURRENT_DATE AND CURRENT_DATE < valid_until
  GROUP BY unit_type;
@@ -1091,12 +1091,13 @@ unit_type     | establishment
 count         | 50
 invalid_codes | 
 stats_summary | {                                             +
+              |     "type": "stats_agg",                      +
               |     "turnover": {                             +
               |         "max": 4400,                          +
               |         "min": 0,                             +
               |         "sum": 51036,                         +
               |         "mean": 1020.72,                      +
-              |         "type": "number",                     +
+              |         "type": "float_agg",                  +
               |         "count": 50,                          +
               |         "stddev": 1517.97,                    +
               |         "variance": 2304235.88,               +
@@ -1108,7 +1109,7 @@ stats_summary | {                                             +
               |         "min": 0,                             +
               |         "sum": 75,                            +
               |         "mean": 1.50,                         +
-              |         "type": "number",                     +
+              |         "type": "int_agg",                    +
               |         "count": 50,                          +
               |         "stddev": 1.82,                       +
               |         "variance": 3.32,                     +
@@ -1121,16 +1122,17 @@ unit_type     | legal_unit
 count         | 23
 invalid_codes | 
 stats_summary | {                                             +
+              |     "type": "stats_agg",                      +
               |     "turnover": {                             +
               |         "max": 90000000,                      +
               |         "min": 0,                             +
               |         "sum": 262610000,                     +
               |         "mean": 5471041.67,                   +
-              |         "type": "number",                     +
+              |         "type": "float_agg",                  +
               |         "count": 48,                          +
               |         "stddev": 15741429.18,                +
-              |         "variance": 247792592508865.25,       +
-              |         "sum_sq_diff": 11646251847916666.67,  +
+              |         "variance": 247792592508865.28,       +
+              |         "sum_sq_diff": 11646251847916668.00,  +
               |         "coefficient_of_variation_pct": 287.72+
               |     },                                        +
               |     "employees": {                            +
@@ -1138,7 +1140,7 @@ stats_summary | {                                             +
               |         "min": 0,                             +
               |         "sum": 172,                           +
               |         "mean": 3.58,                         +
-              |         "type": "number",                     +
+              |         "type": "int_agg",                    +
               |         "count": 48,                          +
               |         "stddev": 10.55,                      +
               |         "variance": 111.31,                   +
@@ -1151,16 +1153,17 @@ unit_type     | enterprise
 count         | 48
 invalid_codes | 
 stats_summary | {                                             +
+              |     "type": "stats_agg",                      +
               |     "turnover": {                             +
               |         "max": 90000000,                      +
               |         "min": 0,                             +
               |         "sum": 262661036,                     +
               |         "mean": 3598096.38,                   +
-              |         "type": "number",                     +
+              |         "type": "float_agg",                  +
               |         "count": 73,                          +
               |         "stddev": 12983923.04,                +
               |         "variance": 168582257517595.41,       +
-              |         "sum_sq_diff": 12137922541266869.26,  +
+              |         "sum_sq_diff": 12137922541266870.00,  +
               |         "coefficient_of_variation_pct": 360.86+
               |     },                                        +
               |     "employees": {                            +
@@ -1168,7 +1171,7 @@ stats_summary | {                                             +
               |         "min": 0,                             +
               |         "sum": 247,                           +
               |         "mean": 3.38,                         +
-              |         "type": "number",                     +
+              |         "type": "int_agg",                    +
               |         "count": 73,                          +
               |         "stddev": 8.57,                       +
               |         "variance": 73.43,                    +
@@ -1256,7 +1259,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 SELECT unit_type
      , COUNT(DISTINCT unit_id)
      , jsonb_agg(DISTINCT invalid_codes) FILTER (WHERE invalid_codes IS NOT NULL) AS invalid_codes
-     , jsonb_pretty(jsonb_stats_summary_merge_agg(stats_summary)) AS stats_summary
+     , jsonb_pretty(jsonb_stats_merge_agg(stats_summary)) AS stats_summary
  FROM statistical_unit
  WHERE valid_from <= CURRENT_DATE AND CURRENT_DATE < valid_until
  GROUP BY unit_type;
@@ -1265,12 +1268,13 @@ unit_type     | establishment
 count         | 25
 invalid_codes | 
 stats_summary | {                                             +
+              |     "type": "stats_agg",                      +
               |     "turnover": {                             +
               |         "max": 0,                             +
               |         "min": 0,                             +
               |         "sum": 0,                             +
               |         "mean": 0.00,                         +
-              |         "type": "number",                     +
+              |         "type": "float_agg",                  +
               |         "count": 25,                          +
               |         "stddev": 0.00,                       +
               |         "variance": 0.00,                     +
@@ -1282,7 +1286,7 @@ stats_summary | {                                             +
               |         "min": 0,                             +
               |         "sum": 0,                             +
               |         "mean": 0.00,                         +
-              |         "type": "number",                     +
+              |         "type": "int_agg",                    +
               |         "count": 25,                          +
               |         "stddev": 0.00,                       +
               |         "variance": 0.00,                     +
@@ -1295,16 +1299,17 @@ unit_type     | legal_unit
 count         | 23
 invalid_codes | 
 stats_summary | {                                             +
+              |     "type": "stats_agg",                      +
               |     "turnover": {                             +
               |         "max": 90000000,                      +
               |         "min": 0,                             +
               |         "sum": 262610000,                     +
               |         "mean": 5471041.67,                   +
-              |         "type": "number",                     +
+              |         "type": "float_agg",                  +
               |         "count": 48,                          +
               |         "stddev": 15741429.18,                +
-              |         "variance": 247792592508865.25,       +
-              |         "sum_sq_diff": 11646251847916666.67,  +
+              |         "variance": 247792592508865.28,       +
+              |         "sum_sq_diff": 11646251847916668.00,  +
               |         "coefficient_of_variation_pct": 287.72+
               |     },                                        +
               |     "employees": {                            +
@@ -1312,7 +1317,7 @@ stats_summary | {                                             +
               |         "min": 0,                             +
               |         "sum": 172,                           +
               |         "mean": 3.58,                         +
-              |         "type": "number",                     +
+              |         "type": "int_agg",                    +
               |         "count": 48,                          +
               |         "stddev": 10.55,                      +
               |         "variance": 111.31,                   +
@@ -1325,16 +1330,17 @@ unit_type     | enterprise
 count         | 23
 invalid_codes | 
 stats_summary | {                                             +
+              |     "type": "stats_agg",                      +
               |     "turnover": {                             +
               |         "max": 90000000,                      +
               |         "min": 0,                             +
               |         "sum": 262610000,                     +
               |         "mean": 5471041.67,                   +
-              |         "type": "number",                     +
+              |         "type": "float_agg",                  +
               |         "count": 48,                          +
               |         "stddev": 15741429.18,                +
-              |         "variance": 247792592508865.25,       +
-              |         "sum_sq_diff": 11646251847916666.67,  +
+              |         "variance": 247792592508865.28,       +
+              |         "sum_sq_diff": 11646251847916668.00,  +
               |         "coefficient_of_variation_pct": 287.72+
               |     },                                        +
               |     "employees": {                            +
@@ -1342,7 +1348,7 @@ stats_summary | {                                             +
               |         "min": 0,                             +
               |         "sum": 172,                           +
               |         "mean": 3.58,                         +
-              |         "type": "number",                     +
+              |         "type": "int_agg",                    +
               |         "count": 48,                          +
               |         "stddev": 10.55,                      +
               |         "variance": 111.31,                   +
@@ -1417,7 +1423,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 SELECT unit_type
      , COUNT(DISTINCT unit_id)
      , jsonb_agg(DISTINCT invalid_codes) FILTER (WHERE invalid_codes IS NOT NULL) AS invalid_codes
-     , jsonb_pretty(jsonb_stats_summary_merge_agg(stats_summary)) AS stats_summary
+     , jsonb_pretty(jsonb_stats_merge_agg(stats_summary)) AS stats_summary
  FROM statistical_unit
  WHERE valid_from <= CURRENT_DATE AND CURRENT_DATE < valid_until
  GROUP BY unit_type;
@@ -1426,16 +1432,17 @@ unit_type     | legal_unit
 count         | 23
 invalid_codes | 
 stats_summary | {                                             +
+              |     "type": "stats_agg",                      +
               |     "turnover": {                             +
               |         "max": 90000000,                      +
               |         "min": 300000,                        +
               |         "sum": 262610000,                     +
               |         "mean": 11417826.09,                  +
-              |         "type": "number",                     +
+              |         "type": "float_agg",                  +
               |         "count": 23,                          +
               |         "stddev": 21410030.35,                +
-              |         "variance": 458389399604743.08,       +
-              |         "sum_sq_diff": 10084566791304347.83,  +
+              |         "variance": 458389399604743.06,       +
+              |         "sum_sq_diff": 10084566791304348.00,  +
               |         "coefficient_of_variation_pct": 187.51+
               |     },                                        +
               |     "employees": {                            +
@@ -1443,7 +1450,7 @@ stats_summary | {                                             +
               |         "min": 0,                             +
               |         "sum": 172,                           +
               |         "mean": 7.48,                         +
-              |         "type": "number",                     +
+              |         "type": "int_agg",                    +
               |         "count": 23,                          +
               |         "stddev": 14.40,                      +
               |         "variance": 207.35,                   +
@@ -1456,16 +1463,17 @@ unit_type     | enterprise
 count         | 23
 invalid_codes | 
 stats_summary | {                                             +
+              |     "type": "stats_agg",                      +
               |     "turnover": {                             +
               |         "max": 90000000,                      +
               |         "min": 300000,                        +
               |         "sum": 262610000,                     +
               |         "mean": 11417826.09,                  +
-              |         "type": "number",                     +
+              |         "type": "float_agg",                  +
               |         "count": 23,                          +
               |         "stddev": 21410030.35,                +
-              |         "variance": 458389399604743.08,       +
-              |         "sum_sq_diff": 10084566791304347.83,  +
+              |         "variance": 458389399604743.06,       +
+              |         "sum_sq_diff": 10084566791304348.00,  +
               |         "coefficient_of_variation_pct": 187.51+
               |     },                                        +
               |     "employees": {                            +
@@ -1473,7 +1481,7 @@ stats_summary | {                                             +
               |         "min": 0,                             +
               |         "sum": 172,                           +
               |         "mean": 7.48,                         +
-              |         "type": "number",                     +
+              |         "type": "int_agg",                    +
               |         "count": 23,                          +
               |         "stddev": 14.40,                      +
               |         "variance": 207.35,                   +
@@ -1548,7 +1556,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 SELECT unit_type
      , COUNT(DISTINCT unit_id)
      , jsonb_agg(DISTINCT invalid_codes) FILTER (WHERE invalid_codes IS NOT NULL) AS invalid_codes
-     , jsonb_pretty(jsonb_stats_summary_merge_agg(stats_summary)) AS stats_summary
+     , jsonb_pretty(jsonb_stats_merge_agg(stats_summary)) AS stats_summary
  FROM statistical_unit
  WHERE valid_from <= CURRENT_DATE AND CURRENT_DATE < valid_until
  GROUP BY unit_type;
@@ -1557,12 +1565,13 @@ unit_type     | establishment
 count         | 25
 invalid_codes | 
 stats_summary | {                                            +
+              |     "type": "stats_agg",                     +
               |     "turnover": {                            +
               |         "max": 4400,                         +
               |         "min": 100,                          +
               |         "sum": 51036,                        +
               |         "mean": 2041.44,                     +
-              |         "type": "number",                    +
+              |         "type": "float_agg",                 +
               |         "count": 25,                         +
               |         "stddev": 1591.83,                   +
               |         "variance": 2533920.51,              +
@@ -1574,7 +1583,7 @@ stats_summary | {                                            +
               |         "min": 1,                            +
               |         "sum": 75,                           +
               |         "mean": 3.00,                        +
-              |         "type": "number",                    +
+              |         "type": "int_agg",                   +
               |         "count": 25,                         +
               |         "stddev": 1.44,                      +
               |         "variance": 2.08,                    +
@@ -1587,12 +1596,13 @@ unit_type     | enterprise
 count         | 25
 invalid_codes | 
 stats_summary | {                                            +
+              |     "type": "stats_agg",                     +
               |     "turnover": {                            +
               |         "max": 4400,                         +
               |         "min": 100,                          +
               |         "sum": 51036,                        +
               |         "mean": 2041.44,                     +
-              |         "type": "number",                    +
+              |         "type": "float_agg",                 +
               |         "count": 25,                         +
               |         "stddev": 1591.83,                   +
               |         "variance": 2533920.51,              +
@@ -1604,7 +1614,7 @@ stats_summary | {                                            +
               |         "min": 1,                            +
               |         "sum": 75,                           +
               |         "mean": 3.00,                        +
-              |         "type": "number",                    +
+              |         "type": "int_agg",                   +
               |         "count": 25,                         +
               |         "stddev": 1.44,                      +
               |         "variance": 2.08,                    +

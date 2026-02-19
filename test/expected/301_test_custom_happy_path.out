@@ -608,10 +608,10 @@ SELECT
 FROM public.statistical_unit su
 WHERE su.unit_type = 'legal_unit' AND su.external_idents->>'tax_ident' = '71A000001'
 ORDER BY su.valid_from, su.valid_to;
-             name             | valid_from |  valid_to  | tax_ident | nin_ident | men_employees | women_employees |  tag_paths   
-------------------------------+------------+------------+-----------+-----------+---------------+-----------------+--------------
- LU-71A Period 1              | 2023-01-01 | 2023-03-31 | 71A000001 | NIN71A001 | 6             | 4               | {TestTag.LU}
- LU-71A Period 2 Updated Name | 2023-04-01 | 2023-06-30 | 71A000001 | NIN71A001 | 7             | 4               | {TestTag.LU}
+             name             | valid_from |  valid_to  | tax_ident | nin_ident |        men_employees        |       women_employees       |  tag_paths   
+------------------------------+------------+------------+-----------+-----------+-----------------------------+-----------------------------+--------------
+ LU-71A Period 1              | 2023-01-01 | 2023-03-31 | 71A000001 | NIN71A001 | {"type": "int", "value": 6} | {"type": "int", "value": 4} | {TestTag.LU}
+ LU-71A Period 2 Updated Name | 2023-04-01 | 2023-06-30 | 71A000001 | NIN71A001 | {"type": "int", "value": 7} | {"type": "int", "value": 4} | {TestTag.LU}
 (2 rows)
 
 ROLLBACK TO scenario_71_a_lu_lifecycle;
@@ -690,9 +690,9 @@ SELECT
 FROM public.statistical_unit su
 WHERE su.unit_type = 'establishment' AND su.external_idents->>'tax_ident' = 'E71B00001'
 ORDER BY su.valid_from, su.valid_to;
-      name       | valid_from |  valid_to  | tax_ident |   nin_ident   | legal_unit_tax_ident | men_employees | women_employees |      tag_paths      
------------------+------------+------------+-----------+---------------+----------------------+---------------+-----------------+---------------------
- ES-71B Period 1 | 2023-01-01 | 2023-03-31 | E71B00001 | NIN_ES_71B001 |                      | 3             | 2               | {TestTag.ES.Formal}
+      name       | valid_from |  valid_to  | tax_ident |   nin_ident   | legal_unit_tax_ident |        men_employees        |       women_employees       |      tag_paths      
+-----------------+------------+------------+-----------+---------------+----------------------+-----------------------------+-----------------------------+---------------------
+ ES-71B Period 1 | 2023-01-01 | 2023-03-31 | E71B00001 | NIN_ES_71B001 |                      | {"type": "int", "value": 3} | {"type": "int", "value": 2} | {TestTag.ES.Formal}
 (1 row)
 
 ROLLBACK TO scenario_71_b_formal_es_lifecycle;
@@ -757,9 +757,9 @@ SELECT
 FROM public.statistical_unit su
 WHERE su.unit_type = 'establishment' AND su.external_idents->>'tax_ident' = 'E71C00001'
 ORDER BY su.valid_from, su.valid_to;
-      name       | valid_from |  valid_to  | tax_ident |   nin_ident   | men_employees | women_employees |       tag_paths       
------------------+------------+------------+-----------+---------------+---------------+-----------------+-----------------------
- ES-71C Period 1 | 2023-01-01 | 2023-03-31 | E71C00001 | NIN_ES_71C001 | 1             | 1               | {TestTag.ES.Informal}
+      name       | valid_from |  valid_to  | tax_ident |   nin_ident   |        men_employees        |       women_employees       |       tag_paths       
+-----------------+------------+------------+-----------+---------------+-----------------------------+-----------------------------+-----------------------
+ ES-71C Period 1 | 2023-01-01 | 2023-03-31 | E71C00001 | NIN_ES_71C001 | {"type": "int", "value": 1} | {"type": "int", "value": 1} | {TestTag.ES.Informal}
 (1 row)
 
 ROLLBACK TO scenario_71_c_informal_es_lifecycle;

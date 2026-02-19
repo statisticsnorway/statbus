@@ -64,7 +64,7 @@ CALL worker.process_tasks(p_queue => 'analytics');
 "Taking snapshot of statistics before partial update (for the historical period being changed)"
 CREATE TEMP TABLE stats_before_update AS
 SELECT unit_type
-     , jsonb_stats_summary_merge_agg(stats_summary) AS stats_summary
+     , jsonb_stats_merge_agg(stats_summary) AS stats_summary
  FROM statistical_unit
  WHERE valid_from <= '2023-07-01'::date AND '2023-07-01'::date < valid_until
    AND unit_type = 'legal_unit'
@@ -299,7 +299,7 @@ ORDER BY idt.stat_ident::int, sd.code, sfu.valid_from;
 "Checking resulting statistics after Partial Update. Should show turnover updated, and employees unchanged."
 \x off
 WITH stats_after AS (
-    SELECT unit_type, jsonb_stats_summary_merge_agg(stats_summary) AS stats_summary
+    SELECT unit_type, jsonb_stats_merge_agg(stats_summary) AS stats_summary
     FROM statistical_unit
     WHERE valid_from <= '2023-07-01'::date AND '2023-07-01'::date < valid_until AND unit_type = 'legal_unit'
     GROUP BY unit_type
@@ -324,7 +324,7 @@ FROM stats_after sa JOIN stats_before_update sb ON sa.unit_type = sb.unit_type;
            |               |     "min": 20023,                       +|     "min": 2525,                         +
            |               |     "sum": 460529,                      +|     "sum": 320545,                       +
            |               |     "mean": 20023.00,                   +|     "mean": 13936.74,                    +
-           |               |     "type": "number",                   +|     "type": "number",                    +
+           |               |     "type": "float_agg",                +|     "type": "float_agg",                 +
            |               |     "count": 23,                        +|     "count": 23,                         +
            |               |     "stddev": 0.00,                     +|     "stddev": 8521.26,                   +
            |               |     "variance": 0.00,                   +|     "variance": 72611858.66,             +
@@ -336,7 +336,7 @@ FROM stats_after sa JOIN stats_before_update sb ON sa.unit_type = sb.unit_type;
            |               |     "min": 23,                          +|     "min": 23,                           +
            |               |     "sum": 529,                         +|     "sum": 529,                          +
            |               |     "mean": 23.00,                      +|     "mean": 23.00,                       +
-           |               |     "type": "number",                   +|     "type": "number",                    +
+           |               |     "type": "int_agg",                  +|     "type": "int_agg",                   +
            |               |     "count": 23,                        +|     "count": 23,                         +
            |               |     "stddev": 0.00,                     +|     "stddev": 0.00,                      +
            |               |     "variance": 0.00,                   +|     "variance": 0.00,                    +

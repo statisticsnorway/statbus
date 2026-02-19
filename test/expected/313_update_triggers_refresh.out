@@ -86,10 +86,10 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT unit_type, external_idents, valid_from, valid_until, name, stats->'employees' as employees FROM public.statistical_unit
 WHERE name = 'Statistics Norway'
 ORDER BY unit_type, unit_id, valid_from, valid_until;
-   unit_type   |                 external_idents                 | valid_from | valid_until |       name        | employees 
----------------+-------------------------------------------------+------------+-------------+-------------------+-----------
- establishment | {"tax_ident": "94711111", "stat_ident": "1021"} | 2026-01-01 | infinity    | Statistics Norway | 0
- legal_unit    | {"tax_ident": "4711111", "stat_ident": "230"}   | 2026-01-01 | infinity    | Statistics Norway | 1
+   unit_type   |                 external_idents                 | valid_from | valid_until |       name        |          employees          
+---------------+-------------------------------------------------+------------+-------------+-------------------+-----------------------------
+ establishment | {"tax_ident": "94711111", "stat_ident": "1021"} | 2026-01-01 | infinity    | Statistics Norway | {"type": "int", "value": 0}
+ legal_unit    | {"tax_ident": "4711111", "stat_ident": "230"}   | 2026-01-01 | infinity    | Statistics Norway | {"type": "int", "value": 1}
  enterprise    | {"tax_ident": "4711111", "stat_ident": "230"}   | 2026-01-01 | infinity    | Statistics Norway | 
 (3 rows)
 
@@ -109,7 +109,7 @@ AND valid_from <= current_date AND current_date < valid_until;
 -[ RECORD 1 ]---+----------------------------------------------
 external_idents | {"tax_ident": "4711111", "stat_ident": "230"}
 name            | Statistics Norway
-employees       | 1
+employees       | {"type": "int", "value": 1}
 
 \x
 \echo "Action: Updating a stat_for_unit record for 'Statistics Norway' legal unit"
@@ -141,7 +141,7 @@ AND valid_from <= current_date AND current_date < valid_until;
 -[ RECORD 1 ]---+----------------------------------------------
 external_idents | {"tax_ident": "4711111", "stat_ident": "230"}
 name            | Statistics Norway
-employees       | 100
+employees       | {"type": "int", "value": 100}
 
 \x
 --------------------------------------------------------------------------------

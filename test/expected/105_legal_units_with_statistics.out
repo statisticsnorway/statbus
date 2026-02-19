@@ -2373,625 +2373,645 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 SELECT unit_type, name, external_idents, stats, jsonb_pretty(stats_summary) AS stats_summary
 FROM statistical_unit
 ORDER BY name, unit_type;
--[ RECORD 1 ]---+---------------------------------------------
+-[ RECORD 1 ]---+------------------------------------------------------------------------------------------------------------------
 unit_type       | legal_unit
 name            | AA LILLEHAMMER
 external_idents | {"tax_ident": "932116340"}
-stats           | {"turnover": 12345678, "employees": 32}
-stats_summary   | {                                           +
-                |     "turnover": {                           +
-                |         "max": 12345678,                    +
-                |         "min": 12345678,                    +
-                |         "sum": 12345678,                    +
-                |         "mean": 12345678,                   +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0,                        +
-                |         "variance": 0,                      +
-                |         "sum_sq_diff": 0,                   +
-                |         "coefficient_of_variation_pct": 0   +
-                |     },                                      +
-                |     "employees": {                          +
-                |         "max": 32,                          +
-                |         "min": 32,                          +
-                |         "sum": 32,                          +
-                |         "mean": 32,                         +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0,                        +
-                |         "variance": 0,                      +
-                |         "sum_sq_diff": 0,                   +
-                |         "coefficient_of_variation_pct": 0   +
-                |     }                                       +
+stats           | {"type": "stats", "turnover": {"type": "float", "value": 12345678.0}, "employees": {"type": "int", "value": 32}}
+stats_summary   | {                                                                                                                +
+                |     "type": "stats_agg",                                                                                         +
+                |     "turnover": {                                                                                                +
+                |         "max": 12345678,                                                                                         +
+                |         "min": 12345678,                                                                                         +
+                |         "sum": 12345678,                                                                                         +
+                |         "mean": 12345678.00,                                                                                     +
+                |         "type": "float_agg",                                                                                     +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     },                                                                                                           +
+                |     "employees": {                                                                                               +
+                |         "max": 32,                                                                                               +
+                |         "min": 32,                                                                                               +
+                |         "sum": 32,                                                                                               +
+                |         "mean": 32.00,                                                                                           +
+                |         "type": "int_agg",                                                                                       +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     }                                                                                                            +
                 | }
--[ RECORD 2 ]---+---------------------------------------------
+-[ RECORD 2 ]---+------------------------------------------------------------------------------------------------------------------
 unit_type       | enterprise
 name            | AA LILLEHAMMER
 external_idents | {"tax_ident": "932116340"}
 stats           | 
-stats_summary   | {                                           +
-                |     "turnover": {                           +
-                |         "max": 12345678,                    +
-                |         "min": 12345678,                    +
-                |         "sum": 12345678,                    +
-                |         "mean": 12345678.00,                +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0.00,                     +
-                |         "variance": 0.00,                   +
-                |         "sum_sq_diff": 0.00,                +
-                |         "coefficient_of_variation_pct": 0.00+
-                |     },                                      +
-                |     "employees": {                          +
-                |         "max": 32,                          +
-                |         "min": 32,                          +
-                |         "sum": 32,                          +
-                |         "mean": 32.00,                      +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0.00,                     +
-                |         "variance": 0.00,                   +
-                |         "sum_sq_diff": 0.00,                +
-                |         "coefficient_of_variation_pct": 0.00+
-                |     }                                       +
+stats_summary   | {                                                                                                                +
+                |     "type": "stats_agg",                                                                                         +
+                |     "turnover": {                                                                                                +
+                |         "max": 12345678,                                                                                         +
+                |         "min": 12345678,                                                                                         +
+                |         "sum": 12345678,                                                                                         +
+                |         "mean": 12345678.00,                                                                                     +
+                |         "type": "float_agg",                                                                                     +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     },                                                                                                           +
+                |     "employees": {                                                                                               +
+                |         "max": 32,                                                                                               +
+                |         "min": 32,                                                                                               +
+                |         "sum": 32,                                                                                               +
+                |         "mean": 32.00,                                                                                           +
+                |         "type": "int_agg",                                                                                       +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     }                                                                                                            +
                 | }
--[ RECORD 3 ]---+---------------------------------------------
+-[ RECORD 3 ]---+------------------------------------------------------------------------------------------------------------------
 unit_type       | legal_unit
 name            | AKER BRYGGE KIROPRAKTORKLINIKK ERIK RINGDAHL
 external_idents | {"tax_ident": "980146014"}
-stats           | {"turnover": 43300, "employees": 2}
-stats_summary   | {                                           +
-                |     "turnover": {                           +
-                |         "max": 43300,                       +
-                |         "min": 43300,                       +
-                |         "sum": 43300,                       +
-                |         "mean": 43300,                      +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0,                        +
-                |         "variance": 0,                      +
-                |         "sum_sq_diff": 0,                   +
-                |         "coefficient_of_variation_pct": 0   +
-                |     },                                      +
-                |     "employees": {                          +
-                |         "max": 2,                           +
-                |         "min": 2,                           +
-                |         "sum": 2,                           +
-                |         "mean": 2,                          +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0,                        +
-                |         "variance": 0,                      +
-                |         "sum_sq_diff": 0,                   +
-                |         "coefficient_of_variation_pct": 0   +
-                |     }                                       +
+stats           | {"type": "stats", "turnover": {"type": "float", "value": 43300.0}, "employees": {"type": "int", "value": 2}}
+stats_summary   | {                                                                                                                +
+                |     "type": "stats_agg",                                                                                         +
+                |     "turnover": {                                                                                                +
+                |         "max": 43300,                                                                                            +
+                |         "min": 43300,                                                                                            +
+                |         "sum": 43300,                                                                                            +
+                |         "mean": 43300.00,                                                                                        +
+                |         "type": "float_agg",                                                                                     +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     },                                                                                                           +
+                |     "employees": {                                                                                               +
+                |         "max": 2,                                                                                                +
+                |         "min": 2,                                                                                                +
+                |         "sum": 2,                                                                                                +
+                |         "mean": 2.00,                                                                                            +
+                |         "type": "int_agg",                                                                                       +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     }                                                                                                            +
                 | }
--[ RECORD 4 ]---+---------------------------------------------
+-[ RECORD 4 ]---+------------------------------------------------------------------------------------------------------------------
 unit_type       | enterprise
 name            | AKER BRYGGE KIROPRAKTORKLINIKK ERIK RINGDAHL
 external_idents | {"tax_ident": "980146014"}
 stats           | 
-stats_summary   | {                                           +
-                |     "turnover": {                           +
-                |         "max": 43300,                       +
-                |         "min": 43300,                       +
-                |         "sum": 43300,                       +
-                |         "mean": 43300.00,                   +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0.00,                     +
-                |         "variance": 0.00,                   +
-                |         "sum_sq_diff": 0.00,                +
-                |         "coefficient_of_variation_pct": 0.00+
-                |     },                                      +
-                |     "employees": {                          +
-                |         "max": 2,                           +
-                |         "min": 2,                           +
-                |         "sum": 2,                           +
-                |         "mean": 2.00,                       +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0.00,                     +
-                |         "variance": 0.00,                   +
-                |         "sum_sq_diff": 0.00,                +
-                |         "coefficient_of_variation_pct": 0.00+
-                |     }                                       +
+stats_summary   | {                                                                                                                +
+                |     "type": "stats_agg",                                                                                         +
+                |     "turnover": {                                                                                                +
+                |         "max": 43300,                                                                                            +
+                |         "min": 43300,                                                                                            +
+                |         "sum": 43300,                                                                                            +
+                |         "mean": 43300.00,                                                                                        +
+                |         "type": "float_agg",                                                                                     +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     },                                                                                                           +
+                |     "employees": {                                                                                               +
+                |         "max": 2,                                                                                                +
+                |         "min": 2,                                                                                                +
+                |         "sum": 2,                                                                                                +
+                |         "mean": 2.00,                                                                                            +
+                |         "type": "int_agg",                                                                                       +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     }                                                                                                            +
                 | }
--[ RECORD 5 ]---+---------------------------------------------
+-[ RECORD 5 ]---+------------------------------------------------------------------------------------------------------------------
 unit_type       | legal_unit
 name            | BADABING PRODUCTIONS ROBERT HAUGE
 external_idents | {"tax_ident": "895213802"}
-stats           | {"turnover": 4233222, "employees": 168}
-stats_summary   | {                                           +
-                |     "turnover": {                           +
-                |         "max": 4233222,                     +
-                |         "min": 4233222,                     +
-                |         "sum": 4233222,                     +
-                |         "mean": 4233222,                    +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0,                        +
-                |         "variance": 0,                      +
-                |         "sum_sq_diff": 0,                   +
-                |         "coefficient_of_variation_pct": 0   +
-                |     },                                      +
-                |     "employees": {                          +
-                |         "max": 168,                         +
-                |         "min": 168,                         +
-                |         "sum": 168,                         +
-                |         "mean": 168,                        +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0,                        +
-                |         "variance": 0,                      +
-                |         "sum_sq_diff": 0,                   +
-                |         "coefficient_of_variation_pct": 0   +
-                |     }                                       +
+stats           | {"type": "stats", "turnover": {"type": "float", "value": 4233222.0}, "employees": {"type": "int", "value": 168}}
+stats_summary   | {                                                                                                                +
+                |     "type": "stats_agg",                                                                                         +
+                |     "turnover": {                                                                                                +
+                |         "max": 4233222,                                                                                          +
+                |         "min": 4233222,                                                                                          +
+                |         "sum": 4233222,                                                                                          +
+                |         "mean": 4233222.00,                                                                                      +
+                |         "type": "float_agg",                                                                                     +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     },                                                                                                           +
+                |     "employees": {                                                                                               +
+                |         "max": 168,                                                                                              +
+                |         "min": 168,                                                                                              +
+                |         "sum": 168,                                                                                              +
+                |         "mean": 168.00,                                                                                          +
+                |         "type": "int_agg",                                                                                       +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     }                                                                                                            +
                 | }
--[ RECORD 6 ]---+---------------------------------------------
+-[ RECORD 6 ]---+------------------------------------------------------------------------------------------------------------------
 unit_type       | enterprise
 name            | BADABING PRODUCTIONS ROBERT HAUGE
 external_idents | {"tax_ident": "895213802"}
 stats           | 
-stats_summary   | {                                           +
-                |     "turnover": {                           +
-                |         "max": 4233222,                     +
-                |         "min": 4233222,                     +
-                |         "sum": 4233222,                     +
-                |         "mean": 4233222.00,                 +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0.00,                     +
-                |         "variance": 0.00,                   +
-                |         "sum_sq_diff": 0.00,                +
-                |         "coefficient_of_variation_pct": 0.00+
-                |     },                                      +
-                |     "employees": {                          +
-                |         "max": 168,                         +
-                |         "min": 168,                         +
-                |         "sum": 168,                         +
-                |         "mean": 168.00,                     +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0.00,                     +
-                |         "variance": 0.00,                   +
-                |         "sum_sq_diff": 0.00,                +
-                |         "coefficient_of_variation_pct": 0.00+
-                |     }                                       +
+stats_summary   | {                                                                                                                +
+                |     "type": "stats_agg",                                                                                         +
+                |     "turnover": {                                                                                                +
+                |         "max": 4233222,                                                                                          +
+                |         "min": 4233222,                                                                                          +
+                |         "sum": 4233222,                                                                                          +
+                |         "mean": 4233222.00,                                                                                      +
+                |         "type": "float_agg",                                                                                     +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     },                                                                                                           +
+                |     "employees": {                                                                                               +
+                |         "max": 168,                                                                                              +
+                |         "min": 168,                                                                                              +
+                |         "sum": 168,                                                                                              +
+                |         "mean": 168.00,                                                                                          +
+                |         "type": "int_agg",                                                                                       +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     }                                                                                                            +
                 | }
--[ RECORD 7 ]---+---------------------------------------------
+-[ RECORD 7 ]---+------------------------------------------------------------------------------------------------------------------
 unit_type       | legal_unit
 name            | CORDIS MEDICAL NORWAY AS
 external_idents | {"tax_ident": "915862993"}
-stats           | {"turnover": 4747000, "employees": 23}
-stats_summary   | {                                           +
-                |     "turnover": {                           +
-                |         "max": 4747000,                     +
-                |         "min": 4747000,                     +
-                |         "sum": 4747000,                     +
-                |         "mean": 4747000,                    +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0,                        +
-                |         "variance": 0,                      +
-                |         "sum_sq_diff": 0,                   +
-                |         "coefficient_of_variation_pct": 0   +
-                |     },                                      +
-                |     "employees": {                          +
-                |         "max": 23,                          +
-                |         "min": 23,                          +
-                |         "sum": 23,                          +
-                |         "mean": 23,                         +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0,                        +
-                |         "variance": 0,                      +
-                |         "sum_sq_diff": 0,                   +
-                |         "coefficient_of_variation_pct": 0   +
-                |     }                                       +
+stats           | {"type": "stats", "turnover": {"type": "float", "value": 4747000.0}, "employees": {"type": "int", "value": 23}}
+stats_summary   | {                                                                                                                +
+                |     "type": "stats_agg",                                                                                         +
+                |     "turnover": {                                                                                                +
+                |         "max": 4747000,                                                                                          +
+                |         "min": 4747000,                                                                                          +
+                |         "sum": 4747000,                                                                                          +
+                |         "mean": 4747000.00,                                                                                      +
+                |         "type": "float_agg",                                                                                     +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     },                                                                                                           +
+                |     "employees": {                                                                                               +
+                |         "max": 23,                                                                                               +
+                |         "min": 23,                                                                                               +
+                |         "sum": 23,                                                                                               +
+                |         "mean": 23.00,                                                                                           +
+                |         "type": "int_agg",                                                                                       +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     }                                                                                                            +
                 | }
--[ RECORD 8 ]---+---------------------------------------------
+-[ RECORD 8 ]---+------------------------------------------------------------------------------------------------------------------
 unit_type       | enterprise
 name            | CORDIS MEDICAL NORWAY AS
 external_idents | {"tax_ident": "915862993"}
 stats           | 
-stats_summary   | {                                           +
-                |     "turnover": {                           +
-                |         "max": 4747000,                     +
-                |         "min": 4747000,                     +
-                |         "sum": 4747000,                     +
-                |         "mean": 4747000.00,                 +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0.00,                     +
-                |         "variance": 0.00,                   +
-                |         "sum_sq_diff": 0.00,                +
-                |         "coefficient_of_variation_pct": 0.00+
-                |     },                                      +
-                |     "employees": {                          +
-                |         "max": 23,                          +
-                |         "min": 23,                          +
-                |         "sum": 23,                          +
-                |         "mean": 23.00,                      +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0.00,                     +
-                |         "variance": 0.00,                   +
-                |         "sum_sq_diff": 0.00,                +
-                |         "coefficient_of_variation_pct": 0.00+
-                |     }                                       +
+stats_summary   | {                                                                                                                +
+                |     "type": "stats_agg",                                                                                         +
+                |     "turnover": {                                                                                                +
+                |         "max": 4747000,                                                                                          +
+                |         "min": 4747000,                                                                                          +
+                |         "sum": 4747000,                                                                                          +
+                |         "mean": 4747000.00,                                                                                      +
+                |         "type": "float_agg",                                                                                     +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     },                                                                                                           +
+                |     "employees": {                                                                                               +
+                |         "max": 23,                                                                                               +
+                |         "min": 23,                                                                                               +
+                |         "sum": 23,                                                                                               +
+                |         "mean": 23.00,                                                                                           +
+                |         "type": "int_agg",                                                                                       +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     }                                                                                                            +
                 | }
--[ RECORD 9 ]---+---------------------------------------------
+-[ RECORD 9 ]---+------------------------------------------------------------------------------------------------------------------
 unit_type       | legal_unit
 name            | FIRMA BJØRN LANGVIK
 external_idents | {"tax_ident": "987083174"}
-stats           | {"turnover": 700000, "employees": 4}
-stats_summary   | {                                           +
-                |     "turnover": {                           +
-                |         "max": 700000,                      +
-                |         "min": 700000,                      +
-                |         "sum": 700000,                      +
-                |         "mean": 700000,                     +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0,                        +
-                |         "variance": 0,                      +
-                |         "sum_sq_diff": 0,                   +
-                |         "coefficient_of_variation_pct": 0   +
-                |     },                                      +
-                |     "employees": {                          +
-                |         "max": 4,                           +
-                |         "min": 4,                           +
-                |         "sum": 4,                           +
-                |         "mean": 4,                          +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0,                        +
-                |         "variance": 0,                      +
-                |         "sum_sq_diff": 0,                   +
-                |         "coefficient_of_variation_pct": 0   +
-                |     }                                       +
+stats           | {"type": "stats", "turnover": {"type": "float", "value": 700000.0}, "employees": {"type": "int", "value": 4}}
+stats_summary   | {                                                                                                                +
+                |     "type": "stats_agg",                                                                                         +
+                |     "turnover": {                                                                                                +
+                |         "max": 700000,                                                                                           +
+                |         "min": 700000,                                                                                           +
+                |         "sum": 700000,                                                                                           +
+                |         "mean": 700000.00,                                                                                       +
+                |         "type": "float_agg",                                                                                     +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     },                                                                                                           +
+                |     "employees": {                                                                                               +
+                |         "max": 4,                                                                                                +
+                |         "min": 4,                                                                                                +
+                |         "sum": 4,                                                                                                +
+                |         "mean": 4.00,                                                                                            +
+                |         "type": "int_agg",                                                                                       +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     }                                                                                                            +
                 | }
--[ RECORD 10 ]--+---------------------------------------------
+-[ RECORD 10 ]--+------------------------------------------------------------------------------------------------------------------
 unit_type       | enterprise
 name            | FIRMA BJØRN LANGVIK
 external_idents | {"tax_ident": "987083174"}
 stats           | 
-stats_summary   | {                                           +
-                |     "turnover": {                           +
-                |         "max": 700000,                      +
-                |         "min": 700000,                      +
-                |         "sum": 700000,                      +
-                |         "mean": 700000.00,                  +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0.00,                     +
-                |         "variance": 0.00,                   +
-                |         "sum_sq_diff": 0.00,                +
-                |         "coefficient_of_variation_pct": 0.00+
-                |     },                                      +
-                |     "employees": {                          +
-                |         "max": 4,                           +
-                |         "min": 4,                           +
-                |         "sum": 4,                           +
-                |         "mean": 4.00,                       +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0.00,                     +
-                |         "variance": 0.00,                   +
-                |         "sum_sq_diff": 0.00,                +
-                |         "coefficient_of_variation_pct": 0.00+
-                |     }                                       +
+stats_summary   | {                                                                                                                +
+                |     "type": "stats_agg",                                                                                         +
+                |     "turnover": {                                                                                                +
+                |         "max": 700000,                                                                                           +
+                |         "min": 700000,                                                                                           +
+                |         "sum": 700000,                                                                                           +
+                |         "mean": 700000.00,                                                                                       +
+                |         "type": "float_agg",                                                                                     +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     },                                                                                                           +
+                |     "employees": {                                                                                               +
+                |         "max": 4,                                                                                                +
+                |         "min": 4,                                                                                                +
+                |         "sum": 4,                                                                                                +
+                |         "mean": 4.00,                                                                                            +
+                |         "type": "int_agg",                                                                                       +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     }                                                                                                            +
                 | }
--[ RECORD 11 ]--+---------------------------------------------
+-[ RECORD 11 ]--+------------------------------------------------------------------------------------------------------------------
 unit_type       | legal_unit
 name            | HÅKON BJØRNHOLT
 external_idents | {"tax_ident": "915737250"}
-stats           | {"turnover": 630000, "employees": 20}
-stats_summary   | {                                           +
-                |     "turnover": {                           +
-                |         "max": 630000,                      +
-                |         "min": 630000,                      +
-                |         "sum": 630000,                      +
-                |         "mean": 630000,                     +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0,                        +
-                |         "variance": 0,                      +
-                |         "sum_sq_diff": 0,                   +
-                |         "coefficient_of_variation_pct": 0   +
-                |     },                                      +
-                |     "employees": {                          +
-                |         "max": 20,                          +
-                |         "min": 20,                          +
-                |         "sum": 20,                          +
-                |         "mean": 20,                         +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0,                        +
-                |         "variance": 0,                      +
-                |         "sum_sq_diff": 0,                   +
-                |         "coefficient_of_variation_pct": 0   +
-                |     }                                       +
+stats           | {"type": "stats", "turnover": {"type": "float", "value": 630000.0}, "employees": {"type": "int", "value": 20}}
+stats_summary   | {                                                                                                                +
+                |     "type": "stats_agg",                                                                                         +
+                |     "turnover": {                                                                                                +
+                |         "max": 630000,                                                                                           +
+                |         "min": 630000,                                                                                           +
+                |         "sum": 630000,                                                                                           +
+                |         "mean": 630000.00,                                                                                       +
+                |         "type": "float_agg",                                                                                     +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     },                                                                                                           +
+                |     "employees": {                                                                                               +
+                |         "max": 20,                                                                                               +
+                |         "min": 20,                                                                                               +
+                |         "sum": 20,                                                                                               +
+                |         "mean": 20.00,                                                                                           +
+                |         "type": "int_agg",                                                                                       +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     }                                                                                                            +
                 | }
--[ RECORD 12 ]--+---------------------------------------------
+-[ RECORD 12 ]--+------------------------------------------------------------------------------------------------------------------
 unit_type       | enterprise
 name            | HÅKON BJØRNHOLT
 external_idents | {"tax_ident": "915737250"}
 stats           | 
-stats_summary   | {                                           +
-                |     "turnover": {                           +
-                |         "max": 630000,                      +
-                |         "min": 630000,                      +
-                |         "sum": 630000,                      +
-                |         "mean": 630000.00,                  +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0.00,                     +
-                |         "variance": 0.00,                   +
-                |         "sum_sq_diff": 0.00,                +
-                |         "coefficient_of_variation_pct": 0.00+
-                |     },                                      +
-                |     "employees": {                          +
-                |         "max": 20,                          +
-                |         "min": 20,                          +
-                |         "sum": 20,                          +
-                |         "mean": 20.00,                      +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0.00,                     +
-                |         "variance": 0.00,                   +
-                |         "sum_sq_diff": 0.00,                +
-                |         "coefficient_of_variation_pct": 0.00+
-                |     }                                       +
+stats_summary   | {                                                                                                                +
+                |     "type": "stats_agg",                                                                                         +
+                |     "turnover": {                                                                                                +
+                |         "max": 630000,                                                                                           +
+                |         "min": 630000,                                                                                           +
+                |         "sum": 630000,                                                                                           +
+                |         "mean": 630000.00,                                                                                       +
+                |         "type": "float_agg",                                                                                     +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     },                                                                                                           +
+                |     "employees": {                                                                                               +
+                |         "max": 20,                                                                                               +
+                |         "min": 20,                                                                                               +
+                |         "sum": 20,                                                                                               +
+                |         "mean": 20.00,                                                                                           +
+                |         "type": "int_agg",                                                                                       +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     }                                                                                                            +
                 | }
--[ RECORD 13 ]--+---------------------------------------------
+-[ RECORD 13 ]--+------------------------------------------------------------------------------------------------------------------
 unit_type       | legal_unit
 name            | INDISKA 1901 AS
 external_idents | {"tax_ident": "987375507"}
-stats           | {"turnover": 6000000, "employees": 43}
-stats_summary   | {                                           +
-                |     "turnover": {                           +
-                |         "max": 6000000,                     +
-                |         "min": 6000000,                     +
-                |         "sum": 6000000,                     +
-                |         "mean": 6000000,                    +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0,                        +
-                |         "variance": 0,                      +
-                |         "sum_sq_diff": 0,                   +
-                |         "coefficient_of_variation_pct": 0   +
-                |     },                                      +
-                |     "employees": {                          +
-                |         "max": 43,                          +
-                |         "min": 43,                          +
-                |         "sum": 43,                          +
-                |         "mean": 43,                         +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0,                        +
-                |         "variance": 0,                      +
-                |         "sum_sq_diff": 0,                   +
-                |         "coefficient_of_variation_pct": 0   +
-                |     }                                       +
+stats           | {"type": "stats", "turnover": {"type": "float", "value": 6000000.0}, "employees": {"type": "int", "value": 43}}
+stats_summary   | {                                                                                                                +
+                |     "type": "stats_agg",                                                                                         +
+                |     "turnover": {                                                                                                +
+                |         "max": 6000000,                                                                                          +
+                |         "min": 6000000,                                                                                          +
+                |         "sum": 6000000,                                                                                          +
+                |         "mean": 6000000.00,                                                                                      +
+                |         "type": "float_agg",                                                                                     +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     },                                                                                                           +
+                |     "employees": {                                                                                               +
+                |         "max": 43,                                                                                               +
+                |         "min": 43,                                                                                               +
+                |         "sum": 43,                                                                                               +
+                |         "mean": 43.00,                                                                                           +
+                |         "type": "int_agg",                                                                                       +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     }                                                                                                            +
                 | }
--[ RECORD 14 ]--+---------------------------------------------
+-[ RECORD 14 ]--+------------------------------------------------------------------------------------------------------------------
 unit_type       | enterprise
 name            | INDISKA 1901 AS
 external_idents | {"tax_ident": "987375507"}
 stats           | 
-stats_summary   | {                                           +
-                |     "turnover": {                           +
-                |         "max": 6000000,                     +
-                |         "min": 6000000,                     +
-                |         "sum": 6000000,                     +
-                |         "mean": 6000000.00,                 +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0.00,                     +
-                |         "variance": 0.00,                   +
-                |         "sum_sq_diff": 0.00,                +
-                |         "coefficient_of_variation_pct": 0.00+
-                |     },                                      +
-                |     "employees": {                          +
-                |         "max": 43,                          +
-                |         "min": 43,                          +
-                |         "sum": 43,                          +
-                |         "mean": 43.00,                      +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0.00,                     +
-                |         "variance": 0.00,                   +
-                |         "sum_sq_diff": 0.00,                +
-                |         "coefficient_of_variation_pct": 0.00+
-                |     }                                       +
+stats_summary   | {                                                                                                                +
+                |     "type": "stats_agg",                                                                                         +
+                |     "turnover": {                                                                                                +
+                |         "max": 6000000,                                                                                          +
+                |         "min": 6000000,                                                                                          +
+                |         "sum": 6000000,                                                                                          +
+                |         "mean": 6000000.00,                                                                                      +
+                |         "type": "float_agg",                                                                                     +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     },                                                                                                           +
+                |     "employees": {                                                                                               +
+                |         "max": 43,                                                                                               +
+                |         "min": 43,                                                                                               +
+                |         "sum": 43,                                                                                               +
+                |         "mean": 43.00,                                                                                           +
+                |         "type": "int_agg",                                                                                       +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     }                                                                                                            +
                 | }
--[ RECORD 15 ]--+---------------------------------------------
+-[ RECORD 15 ]--+------------------------------------------------------------------------------------------------------------------
 unit_type       | legal_unit
 name            | POSTEN BRING AS
 external_idents | {"tax_ident": "984661185"}
-stats           | {"turnover": 55000000, "employees": 115}
-stats_summary   | {                                           +
-                |     "turnover": {                           +
-                |         "max": 55000000,                    +
-                |         "min": 55000000,                    +
-                |         "sum": 55000000,                    +
-                |         "mean": 55000000,                   +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0,                        +
-                |         "variance": 0,                      +
-                |         "sum_sq_diff": 0,                   +
-                |         "coefficient_of_variation_pct": 0   +
-                |     },                                      +
-                |     "employees": {                          +
-                |         "max": 115,                         +
-                |         "min": 115,                         +
-                |         "sum": 115,                         +
-                |         "mean": 115,                        +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0,                        +
-                |         "variance": 0,                      +
-                |         "sum_sq_diff": 0,                   +
-                |         "coefficient_of_variation_pct": 0   +
-                |     }                                       +
+stats           | {"type": "stats", "turnover": {"type": "float", "value": 55000000.0}, "employees": {"type": "int", "value": 115}}
+stats_summary   | {                                                                                                                +
+                |     "type": "stats_agg",                                                                                         +
+                |     "turnover": {                                                                                                +
+                |         "max": 55000000,                                                                                         +
+                |         "min": 55000000,                                                                                         +
+                |         "sum": 55000000,                                                                                         +
+                |         "mean": 55000000.00,                                                                                     +
+                |         "type": "float_agg",                                                                                     +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     },                                                                                                           +
+                |     "employees": {                                                                                               +
+                |         "max": 115,                                                                                              +
+                |         "min": 115,                                                                                              +
+                |         "sum": 115,                                                                                              +
+                |         "mean": 115.00,                                                                                          +
+                |         "type": "int_agg",                                                                                       +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     }                                                                                                            +
                 | }
--[ RECORD 16 ]--+---------------------------------------------
+-[ RECORD 16 ]--+------------------------------------------------------------------------------------------------------------------
 unit_type       | enterprise
 name            | POSTEN BRING AS
 external_idents | {"tax_ident": "984661185"}
 stats           | 
-stats_summary   | {                                           +
-                |     "turnover": {                           +
-                |         "max": 55000000,                    +
-                |         "min": 55000000,                    +
-                |         "sum": 55000000,                    +
-                |         "mean": 55000000.00,                +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0.00,                     +
-                |         "variance": 0.00,                   +
-                |         "sum_sq_diff": 0.00,                +
-                |         "coefficient_of_variation_pct": 0.00+
-                |     },                                      +
-                |     "employees": {                          +
-                |         "max": 115,                         +
-                |         "min": 115,                         +
-                |         "sum": 115,                         +
-                |         "mean": 115.00,                     +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0.00,                     +
-                |         "variance": 0.00,                   +
-                |         "sum_sq_diff": 0.00,                +
-                |         "coefficient_of_variation_pct": 0.00+
-                |     }                                       +
+stats_summary   | {                                                                                                                +
+                |     "type": "stats_agg",                                                                                         +
+                |     "turnover": {                                                                                                +
+                |         "max": 55000000,                                                                                         +
+                |         "min": 55000000,                                                                                         +
+                |         "sum": 55000000,                                                                                         +
+                |         "mean": 55000000.00,                                                                                     +
+                |         "type": "float_agg",                                                                                     +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     },                                                                                                           +
+                |     "employees": {                                                                                               +
+                |         "max": 115,                                                                                              +
+                |         "min": 115,                                                                                              +
+                |         "sum": 115,                                                                                              +
+                |         "mean": 115.00,                                                                                          +
+                |         "type": "int_agg",                                                                                       +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     }                                                                                                            +
                 | }
--[ RECORD 17 ]--+---------------------------------------------
+-[ RECORD 17 ]--+------------------------------------------------------------------------------------------------------------------
 unit_type       | legal_unit
 name            | SKAGERAK KRAFT AS
 external_idents | {"tax_ident": "979563531"}
-stats           | {"turnover": 7648900, "employees": 78}
-stats_summary   | {                                           +
-                |     "turnover": {                           +
-                |         "max": 7648900,                     +
-                |         "min": 7648900,                     +
-                |         "sum": 7648900,                     +
-                |         "mean": 7648900,                    +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0,                        +
-                |         "variance": 0,                      +
-                |         "sum_sq_diff": 0,                   +
-                |         "coefficient_of_variation_pct": 0   +
-                |     },                                      +
-                |     "employees": {                          +
-                |         "max": 78,                          +
-                |         "min": 78,                          +
-                |         "sum": 78,                          +
-                |         "mean": 78,                         +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0,                        +
-                |         "variance": 0,                      +
-                |         "sum_sq_diff": 0,                   +
-                |         "coefficient_of_variation_pct": 0   +
-                |     }                                       +
+stats           | {"type": "stats", "turnover": {"type": "float", "value": 7648900.0}, "employees": {"type": "int", "value": 78}}
+stats_summary   | {                                                                                                                +
+                |     "type": "stats_agg",                                                                                         +
+                |     "turnover": {                                                                                                +
+                |         "max": 7648900,                                                                                          +
+                |         "min": 7648900,                                                                                          +
+                |         "sum": 7648900,                                                                                          +
+                |         "mean": 7648900.00,                                                                                      +
+                |         "type": "float_agg",                                                                                     +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     },                                                                                                           +
+                |     "employees": {                                                                                               +
+                |         "max": 78,                                                                                               +
+                |         "min": 78,                                                                                               +
+                |         "sum": 78,                                                                                               +
+                |         "mean": 78.00,                                                                                           +
+                |         "type": "int_agg",                                                                                       +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     }                                                                                                            +
                 | }
--[ RECORD 18 ]--+---------------------------------------------
+-[ RECORD 18 ]--+------------------------------------------------------------------------------------------------------------------
 unit_type       | enterprise
 name            | SKAGERAK KRAFT AS
 external_idents | {"tax_ident": "979563531"}
 stats           | 
-stats_summary   | {                                           +
-                |     "turnover": {                           +
-                |         "max": 7648900,                     +
-                |         "min": 7648900,                     +
-                |         "sum": 7648900,                     +
-                |         "mean": 7648900.00,                 +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0.00,                     +
-                |         "variance": 0.00,                   +
-                |         "sum_sq_diff": 0.00,                +
-                |         "coefficient_of_variation_pct": 0.00+
-                |     },                                      +
-                |     "employees": {                          +
-                |         "max": 78,                          +
-                |         "min": 78,                          +
-                |         "sum": 78,                          +
-                |         "mean": 78.00,                      +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0.00,                     +
-                |         "variance": 0.00,                   +
-                |         "sum_sq_diff": 0.00,                +
-                |         "coefficient_of_variation_pct": 0.00+
-                |     }                                       +
+stats_summary   | {                                                                                                                +
+                |     "type": "stats_agg",                                                                                         +
+                |     "turnover": {                                                                                                +
+                |         "max": 7648900,                                                                                          +
+                |         "min": 7648900,                                                                                          +
+                |         "sum": 7648900,                                                                                          +
+                |         "mean": 7648900.00,                                                                                      +
+                |         "type": "float_agg",                                                                                     +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     },                                                                                                           +
+                |     "employees": {                                                                                               +
+                |         "max": 78,                                                                                               +
+                |         "min": 78,                                                                                               +
+                |         "sum": 78,                                                                                               +
+                |         "mean": 78.00,                                                                                           +
+                |         "type": "int_agg",                                                                                       +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     }                                                                                                            +
                 | }
--[ RECORD 19 ]--+---------------------------------------------
+-[ RECORD 19 ]--+------------------------------------------------------------------------------------------------------------------
 unit_type       | legal_unit
 name            | SUNDØYS AS KONKURSBO
 external_idents | {"tax_ident": "932083787"}
-stats           | {"turnover": 5280000, "employees": 54}
-stats_summary   | {                                           +
-                |     "turnover": {                           +
-                |         "max": 5280000,                     +
-                |         "min": 5280000,                     +
-                |         "sum": 5280000,                     +
-                |         "mean": 5280000,                    +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0,                        +
-                |         "variance": 0,                      +
-                |         "sum_sq_diff": 0,                   +
-                |         "coefficient_of_variation_pct": 0   +
-                |     },                                      +
-                |     "employees": {                          +
-                |         "max": 54,                          +
-                |         "min": 54,                          +
-                |         "sum": 54,                          +
-                |         "mean": 54,                         +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0,                        +
-                |         "variance": 0,                      +
-                |         "sum_sq_diff": 0,                   +
-                |         "coefficient_of_variation_pct": 0   +
-                |     }                                       +
+stats           | {"type": "stats", "turnover": {"type": "float", "value": 5280000.0}, "employees": {"type": "int", "value": 54}}
+stats_summary   | {                                                                                                                +
+                |     "type": "stats_agg",                                                                                         +
+                |     "turnover": {                                                                                                +
+                |         "max": 5280000,                                                                                          +
+                |         "min": 5280000,                                                                                          +
+                |         "sum": 5280000,                                                                                          +
+                |         "mean": 5280000.00,                                                                                      +
+                |         "type": "float_agg",                                                                                     +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     },                                                                                                           +
+                |     "employees": {                                                                                               +
+                |         "max": 54,                                                                                               +
+                |         "min": 54,                                                                                               +
+                |         "sum": 54,                                                                                               +
+                |         "mean": 54.00,                                                                                           +
+                |         "type": "int_agg",                                                                                       +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     }                                                                                                            +
                 | }
--[ RECORD 20 ]--+---------------------------------------------
+-[ RECORD 20 ]--+------------------------------------------------------------------------------------------------------------------
 unit_type       | enterprise
 name            | SUNDØYS AS KONKURSBO
 external_idents | {"tax_ident": "932083787"}
 stats           | 
-stats_summary   | {                                           +
-                |     "turnover": {                           +
-                |         "max": 5280000,                     +
-                |         "min": 5280000,                     +
-                |         "sum": 5280000,                     +
-                |         "mean": 5280000.00,                 +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0.00,                     +
-                |         "variance": 0.00,                   +
-                |         "sum_sq_diff": 0.00,                +
-                |         "coefficient_of_variation_pct": 0.00+
-                |     },                                      +
-                |     "employees": {                          +
-                |         "max": 54,                          +
-                |         "min": 54,                          +
-                |         "sum": 54,                          +
-                |         "mean": 54.00,                      +
-                |         "type": "number",                   +
-                |         "count": 1,                         +
-                |         "stddev": 0.00,                     +
-                |         "variance": 0.00,                   +
-                |         "sum_sq_diff": 0.00,                +
-                |         "coefficient_of_variation_pct": 0.00+
-                |     }                                       +
+stats_summary   | {                                                                                                                +
+                |     "type": "stats_agg",                                                                                         +
+                |     "turnover": {                                                                                                +
+                |         "max": 5280000,                                                                                          +
+                |         "min": 5280000,                                                                                          +
+                |         "sum": 5280000,                                                                                          +
+                |         "mean": 5280000.00,                                                                                      +
+                |         "type": "float_agg",                                                                                     +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     },                                                                                                           +
+                |     "employees": {                                                                                               +
+                |         "max": 54,                                                                                               +
+                |         "min": 54,                                                                                               +
+                |         "sum": 54,                                                                                               +
+                |         "mean": 54.00,                                                                                           +
+                |         "type": "int_agg",                                                                                       +
+                |         "count": 1,                                                                                              +
+                |         "stddev": null,                                                                                          +
+                |         "variance": null,                                                                                        +
+                |         "sum_sq_diff": 0.00,                                                                                     +
+                |         "coefficient_of_variation_pct": null                                                                     +
+                |     }                                                                                                            +
                 | }
 
 \echo "Checking statistics"
@@ -2999,7 +3019,7 @@ stats_summary   | {                                           +
 SELECT unit_type
      , COUNT(DISTINCT unit_id) AS distinct_unit_count
      , jsonb_pretty(jsonb_agg(DISTINCT invalid_codes) FILTER (WHERE invalid_codes IS NOT NULL)) AS invalid_codes
-     , jsonb_pretty(jsonb_stats_summary_merge_agg(stats_summary)) AS stats_summary
+     , jsonb_pretty(jsonb_stats_merge_agg(stats_summary)) AS stats_summary
  FROM statistical_unit
  GROUP BY unit_type;
 -[ RECORD 1 ]-------+-----------------------------------------------
@@ -3007,16 +3027,17 @@ unit_type           | legal_unit
 distinct_unit_count | 10
 invalid_codes       | 
 stats_summary       | {                                             +
+                    |     "type": "stats_agg",                      +
                     |     "turnover": {                             +
                     |         "max": 55000000,                      +
                     |         "min": 43300,                         +
                     |         "sum": 96628100,                      +
                     |         "mean": 9662810.00,                   +
-                    |         "type": "number",                     +
+                    |         "type": "float_agg",                  +
                     |         "count": 10,                          +
                     |         "stddev": 16355236.40,                +
-                    |         "variance": 267493757546663.11,       +
-                    |         "sum_sq_diff": 2407443817919968.00,   +
+                    |         "variance": 267493757546663.06,       +
+                    |         "sum_sq_diff": 2407443817919967.50,   +
                     |         "coefficient_of_variation_pct": 169.26+
                     |     },                                        +
                     |     "employees": {                            +
@@ -3024,7 +3045,7 @@ stats_summary       | {                                             +
                     |         "min": 2,                             +
                     |         "sum": 539,                           +
                     |         "mean": 53.90,                        +
-                    |         "type": "number",                     +
+                    |         "type": "int_agg",                    +
                     |         "count": 10,                          +
                     |         "stddev": 52.93,                      +
                     |         "variance": 2802.10,                  +
@@ -3037,16 +3058,17 @@ unit_type           | enterprise
 distinct_unit_count | 10
 invalid_codes       | 
 stats_summary       | {                                             +
+                    |     "type": "stats_agg",                      +
                     |     "turnover": {                             +
                     |         "max": 55000000,                      +
                     |         "min": 43300,                         +
                     |         "sum": 96628100,                      +
                     |         "mean": 9662810.00,                   +
-                    |         "type": "number",                     +
+                    |         "type": "float_agg",                  +
                     |         "count": 10,                          +
                     |         "stddev": 16355236.40,                +
-                    |         "variance": 267493757546663.11,       +
-                    |         "sum_sq_diff": 2407443817919968.00,   +
+                    |         "variance": 267493757546663.06,       +
+                    |         "sum_sq_diff": 2407443817919967.50,   +
                     |         "coefficient_of_variation_pct": 169.26+
                     |     },                                        +
                     |     "employees": {                            +
@@ -3054,7 +3076,7 @@ stats_summary       | {                                             +
                     |         "min": 2,                             +
                     |         "sum": 539,                           +
                     |         "mean": 53.90,                        +
-                    |         "type": "number",                     +
+                    |         "type": "int_agg",                    +
                     |         "count": 10,                          +
                     |         "stddev": 52.93,                      +
                     |         "variance": 2802.10,                  +

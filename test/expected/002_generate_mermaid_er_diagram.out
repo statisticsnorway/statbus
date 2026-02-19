@@ -596,6 +596,7 @@ erDiagram
 		character_varying(512) edit_comment
 		integer edit_by_user_id
 		timestamp_with_time_zone edit_at
+		jsonb stat
 	}
 	statistical_history["statistical_history"] {
 		history_resolution resolution

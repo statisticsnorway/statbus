@@ -977,6 +977,7 @@ statistical_unit_data | {                                                       
 stats                 | {                                                                      +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg"                                                +
                       | }
 -[ RECORD 2 ]---------+------------------------------------------------------------------------
 valid_from            | 2017-01-01
@@ -1049,6 +1050,7 @@ statistical_unit_data | {                                                       
 stats                 | {                                                                      +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg"                                                +
                       | }
 -[ RECORD 3 ]---------+------------------------------------------------------------------------
 valid_from            | 2018-01-01
@@ -1121,6 +1123,7 @@ statistical_unit_data | {                                                       
 stats                 | {                                                                      +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg"                                                +
                       | }
 -[ RECORD 4 ]---------+------------------------------------------------------------------------
 valid_from            | 2015-01-01
@@ -1193,6 +1196,7 @@ statistical_unit_data | {                                                       
 stats                 | {                                                                      +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg"                                                +
                       | }
 -[ RECORD 5 ]---------+------------------------------------------------------------------------
 valid_from            | 2016-01-01
@@ -1265,6 +1269,7 @@ statistical_unit_data | {                                                       
 stats                 | {                                                                      +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg"                                                +
                       | }
 -[ RECORD 6 ]---------+------------------------------------------------------------------------
 valid_from            | 2015-01-01
@@ -1337,6 +1342,7 @@ statistical_unit_data | {                                                       
 stats                 | {                                                                      +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg"                                                +
                       | }
 -[ RECORD 7 ]---------+------------------------------------------------------------------------
 valid_from            | 2017-01-01
@@ -1409,6 +1415,7 @@ statistical_unit_data | {                                                       
 stats                 | {                                                                      +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg"                                                +
                       | }
 -[ RECORD 8 ]---------+------------------------------------------------------------------------
 valid_from            | 2018-01-01
@@ -1481,6 +1488,7 @@ statistical_unit_data | {                                                       
 stats                 | {                                                                      +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg"                                                +
                       | }
 -[ RECORD 9 ]---------+------------------------------------------------------------------------
 valid_from            | 2016-01-01
@@ -1551,20 +1559,25 @@ statistical_unit_data | {                                                       
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
-                      |     "employees": 6                                                     +
+                      |     "type": "stats",                                                   +
+                      |     "employees": {                                                     +
+                      |         "type": "int",                                                 +
+                      |         "value": 6                                                     +
+                      |     }                                                                  +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg",                                               +
                       |     "employees": {                                                     +
                       |         "max": 6,                                                      +
                       |         "min": 6,                                                      +
                       |         "sum": 6,                                                      +
-                      |         "mean": 6,                                                     +
-                      |         "type": "number",                                              +
+                      |         "mean": 6.00,                                                  +
+                      |         "type": "int_agg",                                             +
                       |         "count": 1,                                                    +
-                      |         "stddev": 0,                                                   +
-                      |         "variance": 0,                                                 +
-                      |         "sum_sq_diff": 0,                                              +
-                      |         "coefficient_of_variation_pct": 0                              +
+                      |         "stddev": null,                                                +
+                      |         "variance": null,                                              +
+                      |         "sum_sq_diff": 0.00,                                           +
+                      |         "coefficient_of_variation_pct": null                           +
                       |     }                                                                  +
                       | }
 -[ RECORD 10 ]--------+------------------------------------------------------------------------
@@ -1636,20 +1649,25 @@ statistical_unit_data | {                                                       
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
-                      |     "employees": 6                                                     +
+                      |     "type": "stats",                                                   +
+                      |     "employees": {                                                     +
+                      |         "type": "int",                                                 +
+                      |         "value": 6                                                     +
+                      |     }                                                                  +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg",                                               +
                       |     "employees": {                                                     +
                       |         "max": 6,                                                      +
                       |         "min": 6,                                                      +
                       |         "sum": 6,                                                      +
-                      |         "mean": 6,                                                     +
-                      |         "type": "number",                                              +
+                      |         "mean": 6.00,                                                  +
+                      |         "type": "int_agg",                                             +
                       |         "count": 1,                                                    +
-                      |         "stddev": 0,                                                   +
-                      |         "variance": 0,                                                 +
-                      |         "sum_sq_diff": 0,                                              +
-                      |         "coefficient_of_variation_pct": 0                              +
+                      |         "stddev": null,                                                +
+                      |         "variance": null,                                              +
+                      |         "sum_sq_diff": 0.00,                                           +
+                      |         "coefficient_of_variation_pct": null                           +
                       |     }                                                                  +
                       | }
 -[ RECORD 11 ]--------+------------------------------------------------------------------------
@@ -1721,20 +1739,25 @@ statistical_unit_data | {                                                       
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
-                      |     "employees": 143                                                   +
+                      |     "type": "stats",                                                   +
+                      |     "employees": {                                                     +
+                      |         "type": "int",                                                 +
+                      |         "value": 143                                                   +
+                      |     }                                                                  +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg",                                               +
                       |     "employees": {                                                     +
                       |         "max": 143,                                                    +
                       |         "min": 143,                                                    +
                       |         "sum": 143,                                                    +
-                      |         "mean": 143,                                                   +
-                      |         "type": "number",                                              +
+                      |         "mean": 143.00,                                                +
+                      |         "type": "int_agg",                                             +
                       |         "count": 1,                                                    +
-                      |         "stddev": 0,                                                   +
-                      |         "variance": 0,                                                 +
-                      |         "sum_sq_diff": 0,                                              +
-                      |         "coefficient_of_variation_pct": 0                              +
+                      |         "stddev": null,                                                +
+                      |         "variance": null,                                              +
+                      |         "sum_sq_diff": 0.00,                                           +
+                      |         "coefficient_of_variation_pct": null                           +
                       |     }                                                                  +
                       | }
 -[ RECORD 12 ]--------+------------------------------------------------------------------------
@@ -1806,20 +1829,25 @@ statistical_unit_data | {                                                       
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
-                      |     "employees": 127                                                   +
+                      |     "type": "stats",                                                   +
+                      |     "employees": {                                                     +
+                      |         "type": "int",                                                 +
+                      |         "value": 127                                                   +
+                      |     }                                                                  +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg",                                               +
                       |     "employees": {                                                     +
                       |         "max": 127,                                                    +
                       |         "min": 127,                                                    +
                       |         "sum": 127,                                                    +
-                      |         "mean": 127,                                                   +
-                      |         "type": "number",                                              +
+                      |         "mean": 127.00,                                                +
+                      |         "type": "int_agg",                                             +
                       |         "count": 1,                                                    +
-                      |         "stddev": 0,                                                   +
-                      |         "variance": 0,                                                 +
-                      |         "sum_sq_diff": 0,                                              +
-                      |         "coefficient_of_variation_pct": 0                              +
+                      |         "stddev": null,                                                +
+                      |         "variance": null,                                              +
+                      |         "sum_sq_diff": 0.00,                                           +
+                      |         "coefficient_of_variation_pct": null                           +
                       |     }                                                                  +
                       | }
 -[ RECORD 13 ]--------+------------------------------------------------------------------------
@@ -1891,20 +1919,25 @@ statistical_unit_data | {                                                       
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
-                      |     "employees": 127                                                   +
+                      |     "type": "stats",                                                   +
+                      |     "employees": {                                                     +
+                      |         "type": "int",                                                 +
+                      |         "value": 127                                                   +
+                      |     }                                                                  +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg",                                               +
                       |     "employees": {                                                     +
                       |         "max": 127,                                                    +
                       |         "min": 127,                                                    +
                       |         "sum": 127,                                                    +
-                      |         "mean": 127,                                                   +
-                      |         "type": "number",                                              +
+                      |         "mean": 127.00,                                                +
+                      |         "type": "int_agg",                                             +
                       |         "count": 1,                                                    +
-                      |         "stddev": 0,                                                   +
-                      |         "variance": 0,                                                 +
-                      |         "sum_sq_diff": 0,                                              +
-                      |         "coefficient_of_variation_pct": 0                              +
+                      |         "stddev": null,                                                +
+                      |         "variance": null,                                              +
+                      |         "sum_sq_diff": 0.00,                                           +
+                      |         "coefficient_of_variation_pct": null                           +
                       |     }                                                                  +
                       | }
 -[ RECORD 14 ]--------+------------------------------------------------------------------------
@@ -1976,20 +2009,25 @@ statistical_unit_data | {                                                       
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
-                      |     "employees": 15                                                    +
+                      |     "type": "stats",                                                   +
+                      |     "employees": {                                                     +
+                      |         "type": "int",                                                 +
+                      |         "value": 15                                                    +
+                      |     }                                                                  +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg",                                               +
                       |     "employees": {                                                     +
                       |         "max": 15,                                                     +
                       |         "min": 15,                                                     +
                       |         "sum": 15,                                                     +
-                      |         "mean": 15,                                                    +
-                      |         "type": "number",                                              +
+                      |         "mean": 15.00,                                                 +
+                      |         "type": "int_agg",                                             +
                       |         "count": 1,                                                    +
-                      |         "stddev": 0,                                                   +
-                      |         "variance": 0,                                                 +
-                      |         "sum_sq_diff": 0,                                              +
-                      |         "coefficient_of_variation_pct": 0                              +
+                      |         "stddev": null,                                                +
+                      |         "variance": null,                                              +
+                      |         "sum_sq_diff": 0.00,                                           +
+                      |         "coefficient_of_variation_pct": null                           +
                       |     }                                                                  +
                       | }
 -[ RECORD 15 ]--------+------------------------------------------------------------------------
@@ -2061,20 +2099,25 @@ statistical_unit_data | {                                                       
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
-                      |     "employees": 30                                                    +
+                      |     "type": "stats",                                                   +
+                      |     "employees": {                                                     +
+                      |         "type": "int",                                                 +
+                      |         "value": 30                                                    +
+                      |     }                                                                  +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg",                                               +
                       |     "employees": {                                                     +
                       |         "max": 30,                                                     +
                       |         "min": 30,                                                     +
                       |         "sum": 30,                                                     +
-                      |         "mean": 30,                                                    +
-                      |         "type": "number",                                              +
+                      |         "mean": 30.00,                                                 +
+                      |         "type": "int_agg",                                             +
                       |         "count": 1,                                                    +
-                      |         "stddev": 0,                                                   +
-                      |         "variance": 0,                                                 +
-                      |         "sum_sq_diff": 0,                                              +
-                      |         "coefficient_of_variation_pct": 0                              +
+                      |         "stddev": null,                                                +
+                      |         "variance": null,                                              +
+                      |         "sum_sq_diff": 0.00,                                           +
+                      |         "coefficient_of_variation_pct": null                           +
                       |     }                                                                  +
                       | }
 -[ RECORD 16 ]--------+------------------------------------------------------------------------
@@ -2147,6 +2190,7 @@ statistical_unit_data | {                                                       
 stats                 | {                                                                      +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg"                                                +
                       | }
 -[ RECORD 17 ]--------+------------------------------------------------------------------------
 valid_from            | 2017-01-01
@@ -2218,6 +2262,7 @@ statistical_unit_data | {                                                       
 stats                 | {                                                                      +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg"                                                +
                       | }
 -[ RECORD 18 ]--------+------------------------------------------------------------------------
 valid_from            | 2018-01-01
@@ -2289,6 +2334,7 @@ statistical_unit_data | {                                                       
 stats                 | {                                                                      +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg"                                                +
                       | }
 -[ RECORD 19 ]--------+------------------------------------------------------------------------
 valid_from            | 2015-01-01
@@ -2360,17 +2406,18 @@ statistical_unit_data | {                                                       
 stats                 | {                                                                      +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg",                                               +
                       |     "employees": {                                                     +
                       |         "max": 143,                                                    +
                       |         "min": 143,                                                    +
                       |         "sum": 143,                                                    +
                       |         "mean": 143.00,                                                +
-                      |         "type": "number",                                              +
+                      |         "type": "int_agg",                                             +
                       |         "count": 1,                                                    +
-                      |         "stddev": 0.00,                                                +
-                      |         "variance": 0.00,                                              +
+                      |         "stddev": null,                                                +
+                      |         "variance": null,                                              +
                       |         "sum_sq_diff": 0.00,                                           +
-                      |         "coefficient_of_variation_pct": 0.00                           +
+                      |         "coefficient_of_variation_pct": null                           +
                       |     }                                                                  +
                       | }
 -[ RECORD 20 ]--------+------------------------------------------------------------------------
@@ -2443,17 +2490,18 @@ statistical_unit_data | {                                                       
 stats                 | {                                                                      +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg",                                               +
                       |     "employees": {                                                     +
                       |         "max": 127,                                                    +
                       |         "min": 127,                                                    +
                       |         "sum": 127,                                                    +
                       |         "mean": 127.00,                                                +
-                      |         "type": "number",                                              +
+                      |         "type": "int_agg",                                             +
                       |         "count": 1,                                                    +
-                      |         "stddev": 0.00,                                                +
-                      |         "variance": 0.00,                                              +
+                      |         "stddev": null,                                                +
+                      |         "variance": null,                                              +
                       |         "sum_sq_diff": 0.00,                                           +
-                      |         "coefficient_of_variation_pct": 0.00                           +
+                      |         "coefficient_of_variation_pct": null                           +
                       |     }                                                                  +
                       | }
 -[ RECORD 21 ]--------+------------------------------------------------------------------------
@@ -2526,17 +2574,18 @@ statistical_unit_data | {                                                       
 stats                 | {                                                                      +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg",                                               +
                       |     "employees": {                                                     +
                       |         "max": 127,                                                    +
                       |         "min": 127,                                                    +
                       |         "sum": 127,                                                    +
                       |         "mean": 127.00,                                                +
-                      |         "type": "number",                                              +
+                      |         "type": "int_agg",                                             +
                       |         "count": 1,                                                    +
-                      |         "stddev": 0.00,                                                +
-                      |         "variance": 0.00,                                              +
+                      |         "stddev": null,                                                +
+                      |         "variance": null,                                              +
                       |         "sum_sq_diff": 0.00,                                           +
-                      |         "coefficient_of_variation_pct": 0.00                           +
+                      |         "coefficient_of_variation_pct": null                           +
                       |     }                                                                  +
                       | }
 -[ RECORD 22 ]--------+------------------------------------------------------------------------
@@ -2609,6 +2658,7 @@ statistical_unit_data | {                                                       
 stats                 | {                                                                      +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg"                                                +
                       | }
 -[ RECORD 23 ]--------+------------------------------------------------------------------------
 valid_from            | 2017-01-01
@@ -2680,6 +2730,7 @@ statistical_unit_data | {                                                       
 stats                 | {                                                                      +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg"                                                +
                       | }
 -[ RECORD 24 ]--------+------------------------------------------------------------------------
 valid_from            | 2018-01-01
@@ -2751,6 +2802,7 @@ statistical_unit_data | {                                                       
 stats                 | {                                                                      +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg"                                                +
                       | }
 -[ RECORD 25 ]--------+------------------------------------------------------------------------
 valid_from            | 2015-01-01
@@ -2822,6 +2874,7 @@ statistical_unit_data | {                                                       
 stats                 | {                                                                      +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg"                                                +
                       | }
 -[ RECORD 26 ]--------+------------------------------------------------------------------------
 valid_from            | 2016-01-01
@@ -2893,6 +2946,7 @@ statistical_unit_data | {                                                       
 stats                 | {                                                                      +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg"                                                +
                       | }
 -[ RECORD 27 ]--------+------------------------------------------------------------------------
 valid_from            | 2016-01-01
@@ -2962,20 +3016,22 @@ statistical_unit_data | {                                                       
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
-                      |     "employees": 6                                                     +
+                      |     "type": "stats",                                                   +
+                      |     "employees": {                                                     +
+                      |         "type": "int",                                                 +
+                      |         "value": 6                                                     +
+                      |     }                                                                  +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg",                                               +
                       |     "employees": {                                                     +
                       |         "max": 6,                                                      +
                       |         "min": 6,                                                      +
                       |         "sum": 12,                                                     +
-                      |         "mean": 6.0000000000000000,                                    +
-                      |         "type": "number",                                              +
+                      |         "mean": 6,                                                     +
+                      |         "type": "int_agg",                                             +
                       |         "count": 2,                                                    +
-                      |         "stddev": 0.00000000000000000000,                              +
-                      |         "variance": 0.00000000000000000000,                            +
-                      |         "sum_sq_diff": 0.00000000000000000000,                         +
-                      |         "coefficient_of_variation_pct": 0.00000000000000000000         +
+                      |         "sum_sq_diff": 0                                               +
                       |     }                                                                  +
                       | }
 -[ RECORD 28 ]--------+------------------------------------------------------------------------
@@ -3046,20 +3102,22 @@ statistical_unit_data | {                                                       
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
-                      |     "employees": 6                                                     +
+                      |     "type": "stats",                                                   +
+                      |     "employees": {                                                     +
+                      |         "type": "int",                                                 +
+                      |         "value": 6                                                     +
+                      |     }                                                                  +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg",                                               +
                       |     "employees": {                                                     +
                       |         "max": 6,                                                      +
                       |         "min": 6,                                                      +
                       |         "sum": 12,                                                     +
-                      |         "mean": 6.0000000000000000,                                    +
-                      |         "type": "number",                                              +
+                      |         "mean": 6,                                                     +
+                      |         "type": "int_agg",                                             +
                       |         "count": 2,                                                    +
-                      |         "stddev": 0.00000000000000000000,                              +
-                      |         "variance": 0.00000000000000000000,                            +
-                      |         "sum_sq_diff": 0.00000000000000000000,                         +
-                      |         "coefficient_of_variation_pct": 0.00000000000000000000         +
+                      |         "sum_sq_diff": 0                                               +
                       |     }                                                                  +
                       | }
 -[ RECORD 29 ]--------+------------------------------------------------------------------------
@@ -3130,20 +3188,22 @@ statistical_unit_data | {                                                       
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
-                      |     "employees": 9                                                     +
+                      |     "type": "stats",                                                   +
+                      |     "employees": {                                                     +
+                      |         "type": "int",                                                 +
+                      |         "value": 9                                                     +
+                      |     }                                                                  +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg",                                               +
                       |     "employees": {                                                     +
                       |         "max": 9,                                                      +
                       |         "min": 6,                                                      +
                       |         "sum": 15,                                                     +
-                      |         "mean": 7.5000000000000000,                                    +
-                      |         "type": "number",                                              +
+                      |         "mean": 7.5,                                                   +
+                      |         "type": "int_agg",                                             +
                       |         "count": 2,                                                    +
-                      |         "stddev": 2.1213203435596426,                                  +
-                      |         "variance": 4.5000000000000000,                                +
-                      |         "sum_sq_diff": 4.5000000000000000,                             +
-                      |         "coefficient_of_variation_pct": 28.28427124746190133300        +
+                      |         "sum_sq_diff": 4.5                                             +
                       |     }                                                                  +
                       | }
 -[ RECORD 30 ]--------+------------------------------------------------------------------------
@@ -3214,20 +3274,22 @@ statistical_unit_data | {                                                       
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
-                      |     "employees": 15                                                    +
+                      |     "type": "stats",                                                   +
+                      |     "employees": {                                                     +
+                      |         "type": "int",                                                 +
+                      |         "value": 15                                                    +
+                      |     }                                                                  +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg",                                               +
                       |     "employees": {                                                     +
                       |         "max": 15,                                                     +
                       |         "min": 15,                                                     +
                       |         "sum": 30,                                                     +
-                      |         "mean": 15.0000000000000000,                                   +
-                      |         "type": "number",                                              +
+                      |         "mean": 15,                                                    +
+                      |         "type": "int_agg",                                             +
                       |         "count": 2,                                                    +
-                      |         "stddev": 0.00000000000000000000,                              +
-                      |         "variance": 0.00000000000000000000,                            +
-                      |         "sum_sq_diff": 0.00000000000000000000,                         +
-                      |         "coefficient_of_variation_pct": 0.00000000000000000000         +
+                      |         "sum_sq_diff": 0                                               +
                       |     }                                                                  +
                       | }
 -[ RECORD 31 ]--------+------------------------------------------------------------------------
@@ -3298,20 +3360,22 @@ statistical_unit_data | {                                                       
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
-                      |     "employees": 30                                                    +
+                      |     "type": "stats",                                                   +
+                      |     "employees": {                                                     +
+                      |         "type": "int",                                                 +
+                      |         "value": 30                                                    +
+                      |     }                                                                  +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg",                                               +
                       |     "employees": {                                                     +
                       |         "max": 30,                                                     +
                       |         "min": 30,                                                     +
                       |         "sum": 60,                                                     +
-                      |         "mean": 30.0000000000000000,                                   +
-                      |         "type": "number",                                              +
+                      |         "mean": 30,                                                    +
+                      |         "type": "int_agg",                                             +
                       |         "count": 2,                                                    +
-                      |         "stddev": 0.00000000000000000000,                              +
-                      |         "variance": 0.00000000000000000000,                            +
-                      |         "sum_sq_diff": 0.00000000000000000000,                         +
-                      |         "coefficient_of_variation_pct": 0.00000000000000000000         +
+                      |         "sum_sq_diff": 0                                               +
                       |     }                                                                  +
                       | }
 -[ RECORD 32 ]--------+------------------------------------------------------------------------
@@ -3382,20 +3446,22 @@ statistical_unit_data | {                                                       
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
-                      |     "employees": 30                                                    +
+                      |     "type": "stats",                                                   +
+                      |     "employees": {                                                     +
+                      |         "type": "int",                                                 +
+                      |         "value": 30                                                    +
+                      |     }                                                                  +
                       | }
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg",                                               +
                       |     "employees": {                                                     +
                       |         "max": 30,                                                     +
                       |         "min": 30,                                                     +
                       |         "sum": 60,                                                     +
-                      |         "mean": 30.0000000000000000,                                   +
-                      |         "type": "number",                                              +
+                      |         "mean": 30,                                                    +
+                      |         "type": "int_agg",                                             +
                       |         "count": 2,                                                    +
-                      |         "stddev": 0.00000000000000000000,                              +
-                      |         "variance": 0.00000000000000000000,                            +
-                      |         "sum_sq_diff": 0.00000000000000000000,                         +
-                      |         "coefficient_of_variation_pct": 0.00000000000000000000         +
+                      |         "sum_sq_diff": 0                                               +
                       |     }                                                                  +
                       | }
 -[ RECORD 33 ]--------+------------------------------------------------------------------------
@@ -3467,6 +3533,7 @@ statistical_unit_data | {                                                       
                       | }
 stats                 | 
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg"                                                +
                       | }
 -[ RECORD 34 ]--------+------------------------------------------------------------------------
 valid_from            | 2017-01-01
@@ -3537,6 +3604,7 @@ statistical_unit_data | {                                                       
                       | }
 stats                 | 
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg"                                                +
                       | }
 -[ RECORD 35 ]--------+------------------------------------------------------------------------
 valid_from            | 2018-01-01
@@ -3607,6 +3675,7 @@ statistical_unit_data | {                                                       
                       | }
 stats                 | 
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg"                                                +
                       | }
 -[ RECORD 36 ]--------+------------------------------------------------------------------------
 valid_from            | 2015-01-01
@@ -3677,17 +3746,18 @@ statistical_unit_data | {                                                       
                       | }
 stats                 | 
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg",                                               +
                       |     "employees": {                                                     +
                       |         "max": 143,                                                    +
                       |         "min": 143,                                                    +
                       |         "sum": 143,                                                    +
                       |         "mean": 143.00,                                                +
-                      |         "type": "number",                                              +
+                      |         "type": "int_agg",                                             +
                       |         "count": 1,                                                    +
-                      |         "stddev": 0.00,                                                +
-                      |         "variance": 0.00,                                              +
+                      |         "stddev": null,                                                +
+                      |         "variance": null,                                              +
                       |         "sum_sq_diff": 0.00,                                           +
-                      |         "coefficient_of_variation_pct": 0.00                           +
+                      |         "coefficient_of_variation_pct": null                           +
                       |     }                                                                  +
                       | }
 -[ RECORD 37 ]--------+------------------------------------------------------------------------
@@ -3759,17 +3829,18 @@ statistical_unit_data | {                                                       
                       | }
 stats                 | 
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg",                                               +
                       |     "employees": {                                                     +
                       |         "max": 127,                                                    +
                       |         "min": 127,                                                    +
                       |         "sum": 127,                                                    +
                       |         "mean": 127.00,                                                +
-                      |         "type": "number",                                              +
+                      |         "type": "int_agg",                                             +
                       |         "count": 1,                                                    +
-                      |         "stddev": 0.00,                                                +
-                      |         "variance": 0.00,                                              +
+                      |         "stddev": null,                                                +
+                      |         "variance": null,                                              +
                       |         "sum_sq_diff": 0.00,                                           +
-                      |         "coefficient_of_variation_pct": 0.00                           +
+                      |         "coefficient_of_variation_pct": null                           +
                       |     }                                                                  +
                       | }
 -[ RECORD 38 ]--------+------------------------------------------------------------------------
@@ -3841,17 +3912,18 @@ statistical_unit_data | {                                                       
                       | }
 stats                 | 
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg",                                               +
                       |     "employees": {                                                     +
                       |         "max": 127,                                                    +
                       |         "min": 127,                                                    +
                       |         "sum": 127,                                                    +
                       |         "mean": 127.00,                                                +
-                      |         "type": "number",                                              +
+                      |         "type": "int_agg",                                             +
                       |         "count": 1,                                                    +
-                      |         "stddev": 0.00,                                                +
-                      |         "variance": 0.00,                                              +
+                      |         "stddev": null,                                                +
+                      |         "variance": null,                                              +
                       |         "sum_sq_diff": 0.00,                                           +
-                      |         "coefficient_of_variation_pct": 0.00                           +
+                      |         "coefficient_of_variation_pct": null                           +
                       |     }                                                                  +
                       | }
 -[ RECORD 39 ]--------+------------------------------------------------------------------------
@@ -3923,6 +3995,7 @@ statistical_unit_data | {                                                       
                       | }
 stats                 | 
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg"                                                +
                       | }
 -[ RECORD 40 ]--------+------------------------------------------------------------------------
 valid_from            | 2017-01-01
@@ -3993,6 +4066,7 @@ statistical_unit_data | {                                                       
                       | }
 stats                 | 
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg"                                                +
                       | }
 -[ RECORD 41 ]--------+------------------------------------------------------------------------
 valid_from            | 2018-01-01
@@ -4063,6 +4137,7 @@ statistical_unit_data | {                                                       
                       | }
 stats                 | 
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg"                                                +
                       | }
 -[ RECORD 42 ]--------+------------------------------------------------------------------------
 valid_from            | 2015-01-01
@@ -4133,6 +4208,7 @@ statistical_unit_data | {                                                       
                       | }
 stats                 | 
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg"                                                +
                       | }
 -[ RECORD 43 ]--------+------------------------------------------------------------------------
 valid_from            | 2016-01-01
@@ -4203,6 +4279,7 @@ statistical_unit_data | {                                                       
                       | }
 stats                 | 
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg"                                                +
                       | }
 -[ RECORD 44 ]--------+------------------------------------------------------------------------
 valid_from            | 2016-01-01
@@ -4273,12 +4350,13 @@ statistical_unit_data | {                                                       
                       | }
 stats                 | 
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg",                                               +
                       |     "employees": {                                                     +
                       |         "max": 6,                                                      +
                       |         "min": 6,                                                      +
                       |         "sum": 12,                                                     +
                       |         "mean": 6.00,                                                  +
-                      |         "type": "number",                                              +
+                      |         "type": "int_agg",                                             +
                       |         "count": 2,                                                    +
                       |         "stddev": 0.00,                                                +
                       |         "variance": 0.00,                                              +
@@ -4355,12 +4433,13 @@ statistical_unit_data | {                                                       
                       | }
 stats                 | 
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg",                                               +
                       |     "employees": {                                                     +
                       |         "max": 6,                                                      +
                       |         "min": 6,                                                      +
                       |         "sum": 12,                                                     +
                       |         "mean": 6.00,                                                  +
-                      |         "type": "number",                                              +
+                      |         "type": "int_agg",                                             +
                       |         "count": 2,                                                    +
                       |         "stddev": 0.00,                                                +
                       |         "variance": 0.00,                                              +
@@ -4437,12 +4516,13 @@ statistical_unit_data | {                                                       
                       | }
 stats                 | 
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg",                                               +
                       |     "employees": {                                                     +
                       |         "max": 9,                                                      +
                       |         "min": 6,                                                      +
                       |         "sum": 15,                                                     +
                       |         "mean": 7.50,                                                  +
-                      |         "type": "number",                                              +
+                      |         "type": "int_agg",                                             +
                       |         "count": 2,                                                    +
                       |         "stddev": 2.12,                                                +
                       |         "variance": 4.50,                                              +
@@ -4519,12 +4599,13 @@ statistical_unit_data | {                                                       
                       | }
 stats                 | 
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg",                                               +
                       |     "employees": {                                                     +
                       |         "max": 15,                                                     +
                       |         "min": 15,                                                     +
                       |         "sum": 30,                                                     +
                       |         "mean": 15.00,                                                 +
-                      |         "type": "number",                                              +
+                      |         "type": "int_agg",                                             +
                       |         "count": 2,                                                    +
                       |         "stddev": 0.00,                                                +
                       |         "variance": 0.00,                                              +
@@ -4601,12 +4682,13 @@ statistical_unit_data | {                                                       
                       | }
 stats                 | 
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg",                                               +
                       |     "employees": {                                                     +
                       |         "max": 30,                                                     +
                       |         "min": 30,                                                     +
                       |         "sum": 60,                                                     +
                       |         "mean": 30.00,                                                 +
-                      |         "type": "number",                                              +
+                      |         "type": "int_agg",                                             +
                       |         "count": 2,                                                    +
                       |         "stddev": 0.00,                                                +
                       |         "variance": 0.00,                                              +
@@ -4683,12 +4765,13 @@ statistical_unit_data | {                                                       
                       | }
 stats                 | 
 stats_summary         | {                                                                      +
+                      |     "type": "stats_agg",                                               +
                       |     "employees": {                                                     +
                       |         "max": 30,                                                     +
                       |         "min": 30,                                                     +
                       |         "sum": 60,                                                     +
                       |         "mean": 30.00,                                                 +
-                      |         "type": "number",                                              +
+                      |         "type": "int_agg",                                             +
                       |         "count": 2,                                                    +
                       |         "stddev": 0.00,                                                +
                       |         "variance": 0.00,                                              +
