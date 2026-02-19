@@ -186,21 +186,26 @@ DECLARE
     view_record record;
 BEGIN
     -- Loop through all views in the public schema and grant permissions
-    FOR view_record IN 
-        SELECT c.relname AS view_name
+    FOR view_record IN
+        SELECT c.relname AS view_name,
+               iv.is_insertable_into = 'YES' AS is_insertable
         FROM pg_catalog.pg_class c
         JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
-        WHERE n.nspname = 'public' 
+        LEFT JOIN information_schema.views iv
+          ON iv.table_schema = 'public' AND iv.table_name = c.relname
+        WHERE n.nspname = 'public'
         AND c.relkind = 'v'
         AND c.relname NOT LIKE '%__for_portion_of_valid'
     LOOP
         -- Grant SELECT to authenticated, regular_user, and admin_user
         EXECUTE format('GRANT SELECT ON public.%I TO authenticated, regular_user, admin_user', view_record.view_name);
-        
-        -- Grant INSERT to authenticated, regular_user, and admin_user
-        EXECUTE format('GRANT INSERT ON public.%I TO authenticated, regular_user, admin_user', view_record.view_name);
+
+        -- Grant INSERT only on insertable views (simple auto-updatable views)
+        IF view_record.is_insertable THEN
+            EXECUTE format('GRANT INSERT ON public.%I TO authenticated, regular_user, admin_user', view_record.view_name);
+        END IF;
     END LOOP;
-    
+
     RAISE NOTICE 'Granted permissions on all public views to appropriate roles';
 END;
 $grant_permissions_on_views$ LANGUAGE plpgsql;
@@ -234,6 +239,7 @@ END;
 $grant_select_on_all_views$ LANGUAGE plpgsql;
 
 -- Function to verify that relevant views have the necessary grants
+-- All views need SELECT; only insertable views also need INSERT.
 CREATE OR REPLACE FUNCTION admin.verify_relevant_views_have_grant()
 RETURNS void AS $verify_relevant_views_have_grant$
 DECLARE
@@ -242,20 +248,30 @@ DECLARE
     role_name text;
     privilege_name text;
     required_roles text[] := ARRAY['authenticated', 'regular_user', 'admin_user'];
-    required_privileges text[] := ARRAY['SELECT', 'INSERT'];
+    required_privileges text[];
 BEGIN
     -- Initialize array to collect views without proper grants
     views_without_grants := ARRAY[]::text[];
-    
-    -- Get all views in the public schema
-    FOR view_record IN 
-        SELECT c.relname AS view_name
+
+    -- Get all views in the public schema with insertability info
+    FOR view_record IN
+        SELECT c.relname AS view_name,
+               iv.is_insertable_into = 'YES' AS is_insertable
         FROM pg_catalog.pg_class c
         JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
-        WHERE n.nspname = 'public' 
+        LEFT JOIN information_schema.views iv
+          ON iv.table_schema = 'public' AND iv.table_name = c.relname
+        WHERE n.nspname = 'public'
         AND c.relkind = 'v'
         AND c.relname NOT LIKE '%__for_portion_of_valid'
     LOOP
+        -- Determine required privileges per view
+        IF view_record.is_insertable THEN
+            required_privileges := ARRAY['SELECT', 'INSERT'];
+        ELSE
+            required_privileges := ARRAY['SELECT'];
+        END IF;
+
         -- For each view, check privileges for each required role
         FOREACH role_name IN ARRAY required_roles
         LOOP
@@ -264,28 +280,28 @@ BEGIN
             LOOP
                 -- Check if the role has the privilege on the view
                 IF NOT EXISTS (
-                    SELECT 1 
+                    SELECT 1
                     FROM pg_catalog.pg_class c
                     JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
                     JOIN pg_catalog.pg_roles r ON r.rolname = role_name
-                    WHERE n.nspname = 'public' 
+                    WHERE n.nspname = 'public'
                     AND c.relname = view_record.view_name
                     AND has_table_privilege(r.oid, c.oid, privilege_name)
                 ) THEN
                     views_without_grants := array_append(
-                        views_without_grants, 
+                        views_without_grants,
                         format('%s (%s for %s)', view_record.view_name, privilege_name, role_name)
                     );
                 END IF;
             END LOOP;
         END LOOP;
     END LOOP;
-    
+
     -- If any views are missing grants, raise an exception
     IF array_length(views_without_grants, 1) > 0 THEN
         RAISE EXCEPTION 'The following views do not have proper grants: %', array_to_string(views_without_grants, ', ');
     END IF;
-    
+
     RAISE NOTICE 'All views in public schema have proper grants for required roles';
 END;
 $verify_relevant_views_have_grant$ LANGUAGE plpgsql;

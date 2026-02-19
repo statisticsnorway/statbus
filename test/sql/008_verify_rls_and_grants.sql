@@ -33,7 +33,7 @@ DECLARE
     v_role_name TEXT;
     v_privilege_name TEXT;
     v_required_roles TEXT[] := ARRAY['authenticated', 'regular_user', 'admin_user'];
-    v_required_privileges TEXT[] := ARRAY['SELECT', 'INSERT'];
+    v_required_privileges TEXT[];  -- Set per-view based on insertability
     -- Tables that are intentionally exempt from RLS because they are internal
     -- staging/working tables not exposed via PostgREST.
     v_exempt_tables TEXT[] := ARRAY[
@@ -286,7 +286,7 @@ each role can see and modify.
     END LOOP;
 
     -- === View Grants ===
-    v_doc := v_doc || E'\n## View Grants\n\nPublic views (excluding `*__for_portion_of_valid`) must have SELECT and INSERT\ngranted to `authenticated`, `regular_user`, and `admin_user`.\n\n';
+    v_doc := v_doc || E'\n## View Grants\n\nPublic views (excluding `*__for_portion_of_valid`) must have SELECT granted to\n`authenticated`, `regular_user`, and `admin_user`. Insertable views (simple\nauto-updatable) also require INSERT.\n\n';
 
     FOR v_rec IN
         SELECT c.relname AS view_name
@@ -425,16 +425,26 @@ each role can see and modify.
     END LOOP;
 
     -- Check 2: Public views without proper grants (excluding exempt views)
+    -- All views need SELECT; only insertable views also need INSERT.
     FOR v_rec IN
-        SELECT c.relname AS view_name
+        SELECT c.relname AS view_name,
+               iv.is_insertable_into = 'YES' AS is_insertable
         FROM pg_catalog.pg_class c
         JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
+        LEFT JOIN information_schema.views iv
+          ON iv.table_schema = 'public' AND iv.table_name = c.relname
         WHERE n.nspname = 'public'
           AND c.relkind = 'v'
           AND c.relname NOT LIKE '%__for_portion_of_valid'
           AND c.relname <> ALL(v_exempt_views)
         ORDER BY c.relname
     LOOP
+        IF v_rec.is_insertable THEN
+            v_required_privileges := ARRAY['SELECT', 'INSERT'];
+        ELSE
+            v_required_privileges := ARRAY['SELECT'];
+        END IF;
+
         FOREACH v_role_name IN ARRAY v_required_roles
         LOOP
             FOREACH v_privilege_name IN ARRAY v_required_privileges

@@ -160,14 +160,15 @@ each role can see and modify.
 
 ## View Grants
 
-Public views (excluding `*__for_portion_of_valid`) must have SELECT and INSERT
-granted to `authenticated`, `regular_user`, and `admin_user`.
+Public views (excluding `*__for_portion_of_valid`) must have SELECT granted to
+`authenticated`, `regular_user`, and `admin_user`. Insertable views (simple
+auto-updatable) also require INSERT.
 
-- **`activity_category_available`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`activity_category_available`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
 - **`activity_category_available_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`activity_category_isic_v4`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`activity_category_nace_v2_1`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`activity_category_used_def`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`activity_category_isic_v4`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
+- **`activity_category_nace_v2_1`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
+- **`activity_category_used_def`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
 - **`api_key`**: admin_user: INSERT, SELECT; authenticated: DELETE, INSERT, SELECT; regular_user: INSERT, SELECT
 - **`country_used_def`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`country_view`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
@@ -176,15 +177,15 @@ granted to `authenticated`, `regular_user`, and `admin_user`.
 - **`data_source_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`data_source_system`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`data_source_used_def`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`enterprise_external_idents`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`enterprise_external_idents`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
 - **`external_ident_type_active`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`external_ident_type_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`foreign_participation_available`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`foreign_participation_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`foreign_participation_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`foreign_participation_system`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`hypopg_hidden_indexes`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`hypopg_list_indexes`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`hypopg_hidden_indexes`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
+- **`hypopg_list_indexes`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
 - **`legal_form_available`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`legal_form_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`legal_form_custom_only`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
@@ -195,29 +196,29 @@ granted to `authenticated`, `regular_user`, and `admin_user`.
 - **`legal_rel_type_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`legal_rel_type_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`legal_rel_type_system`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`legal_relationship_cluster`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`legal_relationship_cluster`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
 - **`legal_reorg_type_available`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`legal_reorg_type_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`legal_reorg_type_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`legal_reorg_type_system`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`legal_unit_power_hierarchy`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`legal_unit_power_hierarchy`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
 - **`person_role_available`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`person_role_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`person_role_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`person_role_system`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`pg_stat_monitor`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`pg_stat_statements`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`pg_stat_statements_info`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`power_group_active`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`power_group_def`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`power_group_membership`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`pg_stat_monitor`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
+- **`pg_stat_statements`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
+- **`pg_stat_statements_info`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
+- **`power_group_active`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
+- **`power_group_def`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
+- **`power_group_membership`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
 - **`power_group_type_available`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`power_group_type_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`power_group_type_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`power_group_type_system`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`region_upload`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`region_used_def`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`relative_period_with_time`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`relative_period_with_time`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
 - **`sector_available`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`sector_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`sector_custom_only`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
@@ -226,14 +227,14 @@ granted to `authenticated`, `regular_user`, and `admin_user`.
 - **`sector_used_def`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`stat_definition_active`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`stat_definition_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`statistical_unit_def`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`statistical_unit_facet_def`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`time_context`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`timeline_enterprise_def`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`timeline_establishment_def`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`timeline_legal_unit_def`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`timesegments_def`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`timesegments_years_def`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`statistical_unit_def`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
+- **`statistical_unit_facet_def`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
+- **`time_context`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
+- **`timeline_enterprise_def`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
+- **`timeline_establishment_def`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
+- **`timeline_legal_unit_def`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
+- **`timesegments_def`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
+- **`timesegments_years_def`**: admin_user: SELECT; authenticated: SELECT; regular_user: SELECT
 - **`unit_size_available`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`unit_size_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`unit_size_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
