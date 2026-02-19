@@ -45,12 +45,6 @@ each role can see and modify.
   - Policies: `data_source_used_admin_user_manage` (ALL → admin_user), `data_source_used_authenticated_read` (SELECT → authenticated), `data_source_used_regular_user_read` (SELECT → regular_user)
 - **`enterprise`** — RLS ON
   - Policies: `enterprise_admin_user_manage` (ALL → admin_user), `enterprise_authenticated_read` (SELECT → authenticated), `enterprise_regular_user_manage` (ALL → regular_user)
-- **`enterprise_group`** — RLS ON
-  - Policies: `enterprise_group_admin_user_manage` (ALL → admin_user), `enterprise_group_authenticated_read` (SELECT → authenticated), `enterprise_group_regular_user_manage` (ALL → regular_user)
-- **`enterprise_group_role`** — RLS ON
-  - Policies: `enterprise_group_role_admin_user_manage` (ALL → admin_user), `enterprise_group_role_authenticated_read` (SELECT → authenticated), `enterprise_group_role_regular_user_read` (SELECT → regular_user)
-- **`enterprise_group_type`** — RLS ON
-  - Policies: `enterprise_group_type_admin_user_manage` (ALL → admin_user), `enterprise_group_type_authenticated_read` (SELECT → authenticated), `enterprise_group_type_regular_user_read` (SELECT → regular_user)
 - **`establishment`** — RLS ON
   - Policies: `establishment_admin_user_manage` (ALL → admin_user), `establishment_authenticated_read` (SELECT → authenticated), `establishment_regular_user_manage` (ALL → regular_user)
 - **`external_ident`** — RLS ON
@@ -79,6 +73,12 @@ each role can see and modify.
   - Policies: `legal_form_admin_user_manage` (ALL → admin_user), `legal_form_authenticated_read` (SELECT → authenticated), `legal_form_regular_user_read` (SELECT → regular_user)
 - **`legal_form_used`** — RLS ON
   - Policies: `legal_form_used_admin_user_manage` (ALL → admin_user), `legal_form_used_authenticated_read` (SELECT → authenticated), `legal_form_used_regular_user_read` (SELECT → regular_user)
+- **`legal_rel_type`** — RLS ON
+  - Policies: `legal_rel_type_admin_user_manage` (ALL → admin_user), `legal_rel_type_authenticated_read` (SELECT → authenticated), `legal_rel_type_regular_user_read` (SELECT → regular_user)
+- **`legal_relationship`** — RLS ON
+  - Policies: `legal_relationship_admin_user_manage` (ALL → admin_user), `legal_relationship_authenticated_read` (SELECT → authenticated), `legal_relationship_regular_user_manage` (ALL → regular_user)
+- **`legal_reorg_type`** — RLS ON
+  - Policies: `legal_reorg_type_admin_user_manage` (ALL → admin_user), `legal_reorg_type_authenticated_read` (SELECT → authenticated), `legal_reorg_type_regular_user_read` (SELECT → regular_user)
 - **`legal_unit`** — RLS ON
   - Policies: `legal_unit_admin_user_manage` (ALL → admin_user), `legal_unit_authenticated_read` (SELECT → authenticated), `legal_unit_regular_user_manage` (ALL → regular_user)
 - **`location`** — RLS ON
@@ -89,6 +89,10 @@ each role can see and modify.
   - Policies: `person_for_unit_admin_user_manage` (ALL → admin_user), `person_for_unit_authenticated_read` (SELECT → authenticated), `person_for_unit_regular_user_manage` (ALL → regular_user)
 - **`person_role`** — RLS ON
   - Policies: `person_role_admin_user_manage` (ALL → admin_user), `person_role_authenticated_read` (SELECT → authenticated), `person_role_regular_user_read` (SELECT → regular_user)
+- **`power_group`** — RLS ON
+  - Policies: `power_group_admin_user_manage` (ALL → admin_user), `power_group_authenticated_read` (SELECT → authenticated), `power_group_regular_user_manage` (ALL → regular_user)
+- **`power_group_type`** — RLS ON
+  - Policies: `power_group_type_admin_user_manage` (ALL → admin_user), `power_group_type_authenticated_read` (SELECT → authenticated), `power_group_type_regular_user_read` (SELECT → regular_user)
 - **`region`** — RLS ON
   - Policies: `region_admin_user_manage` (ALL → admin_user), `region_authenticated_read` (SELECT → authenticated), `region_regular_user_read` (SELECT → regular_user)
 - **`region_access`** — RLS ON
@@ -97,8 +101,6 @@ each role can see and modify.
   - Policies: `region_used_admin_user_manage` (ALL → admin_user), `region_used_authenticated_read` (SELECT → authenticated), `region_used_regular_user_read` (SELECT → regular_user)
 - **`relative_period`** — RLS ON
   - Policies: `relative_period_admin_user_manage` (ALL → admin_user), `relative_period_authenticated_read` (SELECT → authenticated), `relative_period_regular_user_read` (SELECT → regular_user)
-- **`reorg_type`** — RLS ON
-  - Policies: `reorg_type_admin_user_manage` (ALL → admin_user), `reorg_type_authenticated_read` (SELECT → authenticated), `reorg_type_regular_user_read` (SELECT → regular_user)
 - **`sector`** — RLS ON
   - Policies: `sector_admin_user_manage` (ALL → admin_user), `sector_authenticated_read` (SELECT → authenticated), `sector_regular_user_read` (SELECT → regular_user)
 - **`sector_used`** — RLS ON
@@ -175,14 +177,6 @@ granted to `authenticated`, `regular_user`, and `admin_user`.
 - **`data_source_system`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`data_source_used_def`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`enterprise_external_idents`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`enterprise_group_role_available`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`enterprise_group_role_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`enterprise_group_role_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`enterprise_group_role_system`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`enterprise_group_type_available`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`enterprise_group_type_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`enterprise_group_type_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`enterprise_group_type_system`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`external_ident_type_active`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`external_ident_type_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`foreign_participation_available`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
@@ -197,6 +191,16 @@ granted to `authenticated`, `regular_user`, and `admin_user`.
 - **`legal_form_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`legal_form_system`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`legal_form_used_def`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`legal_rel_type_available`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`legal_rel_type_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`legal_rel_type_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`legal_rel_type_system`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`legal_relationship_cluster`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`legal_reorg_type_available`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`legal_reorg_type_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`legal_reorg_type_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`legal_reorg_type_system`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`legal_unit_power_hierarchy`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`person_role_available`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`person_role_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`person_role_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
@@ -204,13 +208,16 @@ granted to `authenticated`, `regular_user`, and `admin_user`.
 - **`pg_stat_monitor`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`pg_stat_statements`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`pg_stat_statements_info`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`power_group_active`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`power_group_def`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`power_group_membership`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`power_group_type_available`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`power_group_type_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`power_group_type_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
+- **`power_group_type_system`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`region_upload`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`region_used_def`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`relative_period_with_time`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`reorg_type_available`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`reorg_type_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`reorg_type_ordered`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
-- **`reorg_type_system`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`sector_available`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`sector_custom`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
 - **`sector_custom_only`**: admin_user: INSERT, SELECT; authenticated: INSERT, SELECT; regular_user: INSERT, SELECT
@@ -277,6 +284,7 @@ Write to RLS-protected tables, DDL, worker orchestration.
 - `worker.command_collect_changes`
 - `worker.command_import_job_cleanup`
 - `worker.command_task_cleanup`
+- `worker.derive_power_groups`
 - `worker.derive_reports`
 - `worker.derive_statistical_history`
 - `worker.derive_statistical_history_facet`
@@ -320,6 +328,9 @@ Access `graphql` schema sequence (no grants to non-postgres).
 Trigger calling DDL procedures.
 
 - `lifecycle_callbacks.cleanup_and_generate`
+- `public.generate_power_ident`
+- `public.legal_relationship_cycle_check`
+- `public.legal_relationship_queue_derive_power_groups`
 
 ### sql_saga
 
