@@ -1,0 +1,11 @@
+valid_from,valid_to,tax_ident,name
+2020-01-01,infinity,100000001,Nordic Holdings ASA
+2020-01-01,infinity,100000002,Nordic Energy AS
+2020-01-01,infinity,100000003,Nordic Maritime AS
+2020-01-01,infinity,100000004,Nordic Wind AS
+2020-01-01,infinity,100000005,Nordic Solar AS
+2020-01-01,infinity,100000006,Nordic Shipping AS
+2020-01-01,infinity,100000007,Nordic Logistics AS
+2020-01-01,infinity,100000008,Baltic Holdings OÜ
+2020-01-01,infinity,100000009,Baltic Transport OÜ
+2020-01-01,infinity,100000010,Baltic Freight OÜ

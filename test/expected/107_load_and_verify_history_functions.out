@@ -17906,12 +17906,121 @@ jsonb_pretty | {                                                              +
              |     ]                                                          +
              | }
 
-\echo "Test public.statistical_history_highcharts - no data case (enterprise_group)"
-"Test public.statistical_history_highcharts - no data case (enterprise_group)"
-SELECT jsonb_pretty(public.statistical_history_highcharts('year', 'enterprise_group'));
-ERROR:  invalid input value for enum statistical_unit_type: "enterprise_group"
-LINE 1: ...tty(public.statistical_history_highcharts('year', 'enterpris...
-                                                             ^
+\echo "Test public.statistical_history_highcharts - no data case (power_group)"
+"Test public.statistical_history_highcharts - no data case (power_group)"
+SELECT jsonb_pretty(public.statistical_history_highcharts('year', 'power_group'));
+-[ RECORD 1 ]+----------------------------------------------------------------
+jsonb_pretty | {                                                              +
+             |     "series": [                                                +
+             |         {                                                      +
+             |             "code": "countable_count",                         +
+             |             "data": [                                          +
+             |             ],                                                 +
+             |             "name": "Unit Count"                               +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "births",                                  +
+             |             "data": [                                          +
+             |             ],                                                 +
+             |             "name": "Births"                                   +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "deaths",                                  +
+             |             "data": [                                          +
+             |             ],                                                 +
+             |             "name": "Deaths"                                   +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "primary_activity_category_change_count",  +
+             |             "data": [                                          +
+             |             ],                                                 +
+             |             "name": "Primary Activity Changes"                 +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "physical_region_change_count",            +
+             |             "data": [                                          +
+             |             ],                                                 +
+             |             "name": "Region Changes"                           +
+             |         }                                                      +
+             |     ],                                                         +
+             |     "unit_type": "power_group",                                +
+             |     "resolution": "year",                                      +
+             |     "filtered_series": [                                       +
+             |         "countable_count",                                     +
+             |         "births",                                              +
+             |         "deaths",                                              +
+             |         "primary_activity_category_change_count",              +
+             |         "physical_region_change_count"                         +
+             |     ],                                                         +
+             |     "available_series": [                                      +
+             |         {                                                      +
+             |             "code": "countable_change",                        +
+             |             "name": "Unit Count Change",                       +
+             |             "priority": 11                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "countable_added_count",                   +
+             |             "name": "Units Added (Countable)",                 +
+             |             "priority": 12                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "countable_removed_count",                 +
+             |             "name": "Units Removed (Countable)",               +
+             |             "priority": 13                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "exists_count",                            +
+             |             "name": "Existing Units",                          +
+             |             "priority": 14                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "exists_change",                           +
+             |             "name": "Existing Units Change",                   +
+             |             "priority": 15                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "exists_added_count",                      +
+             |             "name": "Units Added (Existence)",                 +
+             |             "priority": 16                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "exists_removed_count",                    +
+             |             "name": "Units Removed (Existence)",               +
+             |             "priority": 17                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "name_change_count",                       +
+             |             "name": "Name Changes",                            +
+             |             "priority": 40                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "secondary_activity_category_change_count",+
+             |             "name": "Secondary Activity Changes",              +
+             |             "priority": 60                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "sector_change_count",                     +
+             |             "name": "Sector Changes",                          +
+             |             "priority": 70                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "legal_form_change_count",                 +
+             |             "name": "Legal Form Changes",                      +
+             |             "priority": 80                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "physical_country_change_count",           +
+             |             "name": "Country Changes",                         +
+             |             "priority": 100                                    +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "physical_address_change_count",           +
+             |             "name": "Physical Address Changes",                +
+             |             "priority": 110                                    +
+             |         }                                                      +
+             |     ]                                                          +
+             | }
+
 \echo "Test public.statistical_history_highcharts - with custom series filter"
 "Test public.statistical_history_highcharts - with custom series filter"
 SELECT jsonb_pretty(public.statistical_history_highcharts(
@@ -17919,7 +18028,248 @@ SELECT jsonb_pretty(public.statistical_history_highcharts(
     p_unit_type => 'enterprise',
     p_series_codes => ARRAY['countable_count', 'deaths']
 ));
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+-[ RECORD 1 ]+----------------------------------------------------------------
+jsonb_pretty | {                                                              +
+             |     "series": [                                                +
+             |         {                                                      +
+             |             "code": "countable_count",                         +
+             |             "data": [                                          +
+             |                 [                                              +
+             |                     1262304000000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1293840000000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1325376000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1356998400000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1388534400000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1420070400000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1451606400000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1483228800000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1514764800000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1546300800000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1577836800000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1609459200000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1640995200000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1672531200000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1704067200000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1735689600000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1767225600000,                             +
+             |                     1                                          +
+             |                 ]                                              +
+             |             ],                                                 +
+             |             "name": "Unit Count"                               +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "deaths",                                  +
+             |             "data": [                                          +
+             |                 [                                              +
+             |                     1262304000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1293840000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1325376000000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1356998400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1388534400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1420070400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1451606400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1483228800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1514764800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1546300800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1577836800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1609459200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1640995200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1672531200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1704067200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1735689600000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1767225600000,                             +
+             |                     0                                          +
+             |                 ]                                              +
+             |             ],                                                 +
+             |             "name": "Deaths"                                   +
+             |         }                                                      +
+             |     ],                                                         +
+             |     "unit_type": "enterprise",                                 +
+             |     "resolution": "year",                                      +
+             |     "filtered_series": [                                       +
+             |         "countable_count",                                     +
+             |         "deaths"                                               +
+             |     ],                                                         +
+             |     "available_series": [                                      +
+             |         {                                                      +
+             |             "code": "countable_change",                        +
+             |             "name": "Unit Count Change",                       +
+             |             "priority": 11                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "countable_added_count",                   +
+             |             "name": "Units Added (Countable)",                 +
+             |             "priority": 12                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "countable_removed_count",                 +
+             |             "name": "Units Removed (Countable)",               +
+             |             "priority": 13                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "exists_count",                            +
+             |             "name": "Existing Units",                          +
+             |             "priority": 14                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "exists_change",                           +
+             |             "name": "Existing Units Change",                   +
+             |             "priority": 15                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "exists_added_count",                      +
+             |             "name": "Units Added (Existence)",                 +
+             |             "priority": 16                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "exists_removed_count",                    +
+             |             "name": "Units Removed (Existence)",               +
+             |             "priority": 17                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "births",                                  +
+             |             "name": "Births",                                  +
+             |             "priority": 20                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "name_change_count",                       +
+             |             "name": "Name Changes",                            +
+             |             "priority": 40                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "primary_activity_category_change_count",  +
+             |             "name": "Primary Activity Changes",                +
+             |             "priority": 50                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "secondary_activity_category_change_count",+
+             |             "name": "Secondary Activity Changes",              +
+             |             "priority": 60                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "sector_change_count",                     +
+             |             "name": "Sector Changes",                          +
+             |             "priority": 70                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "legal_form_change_count",                 +
+             |             "name": "Legal Form Changes",                      +
+             |             "priority": 80                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "physical_region_change_count",            +
+             |             "name": "Region Changes",                          +
+             |             "priority": 90                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "physical_country_change_count",           +
+             |             "name": "Country Changes",                         +
+             |             "priority": 100                                    +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "physical_address_change_count",           +
+             |             "name": "Physical Address Changes",                +
+             |             "priority": 110                                    +
+             |         }                                                      +
+             |     ]                                                          +
+             | }
+
 \echo "Test public.statistical_history_highcharts - with empty series filter (should use default)"
 "Test public.statistical_history_highcharts - with empty series filter (should use default)"
 SELECT jsonb_pretty(public.statistical_history_highcharts(
@@ -17927,7 +18277,458 @@ SELECT jsonb_pretty(public.statistical_history_highcharts(
     p_unit_type => 'enterprise',
     p_series_codes => ARRAY[]::text[]
 ));
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+-[ RECORD 1 ]+----------------------------------------------------------------
+jsonb_pretty | {                                                              +
+             |     "series": [                                                +
+             |         {                                                      +
+             |             "code": "countable_count",                         +
+             |             "data": [                                          +
+             |                 [                                              +
+             |                     1262304000000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1293840000000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1325376000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1356998400000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1388534400000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1420070400000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1451606400000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1483228800000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1514764800000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1546300800000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1577836800000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1609459200000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1640995200000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1672531200000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1704067200000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1735689600000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1767225600000,                             +
+             |                     1                                          +
+             |                 ]                                              +
+             |             ],                                                 +
+             |             "name": "Unit Count"                               +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "births",                                  +
+             |             "data": [                                          +
+             |                 [                                              +
+             |                     1262304000000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1293840000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1325376000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1356998400000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1388534400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1420070400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1451606400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1483228800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1514764800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1546300800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1577836800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1609459200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1640995200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1672531200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1704067200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1735689600000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1767225600000,                             +
+             |                     0                                          +
+             |                 ]                                              +
+             |             ],                                                 +
+             |             "name": "Births"                                   +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "deaths",                                  +
+             |             "data": [                                          +
+             |                 [                                              +
+             |                     1262304000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1293840000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1325376000000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1356998400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1388534400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1420070400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1451606400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1483228800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1514764800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1546300800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1577836800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1609459200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1640995200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1672531200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1704067200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1735689600000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1767225600000,                             +
+             |                     0                                          +
+             |                 ]                                              +
+             |             ],                                                 +
+             |             "name": "Deaths"                                   +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "primary_activity_category_change_count",  +
+             |             "data": [                                          +
+             |                 [                                              +
+             |                     1262304000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1293840000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1325376000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1356998400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1388534400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1420070400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1451606400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1483228800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1514764800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1546300800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1577836800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1609459200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1640995200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1672531200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1704067200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1735689600000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1767225600000,                             +
+             |                     0                                          +
+             |                 ]                                              +
+             |             ],                                                 +
+             |             "name": "Primary Activity Changes"                 +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "physical_region_change_count",            +
+             |             "data": [                                          +
+             |                 [                                              +
+             |                     1262304000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1293840000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1325376000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1356998400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1388534400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1420070400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1451606400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1483228800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1514764800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1546300800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1577836800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1609459200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1640995200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1672531200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1704067200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1735689600000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1767225600000,                             +
+             |                     0                                          +
+             |                 ]                                              +
+             |             ],                                                 +
+             |             "name": "Region Changes"                           +
+             |         }                                                      +
+             |     ],                                                         +
+             |     "unit_type": "enterprise",                                 +
+             |     "resolution": "year",                                      +
+             |     "filtered_series": [                                       +
+             |         "countable_count",                                     +
+             |         "births",                                              +
+             |         "deaths",                                              +
+             |         "primary_activity_category_change_count",              +
+             |         "physical_region_change_count"                         +
+             |     ],                                                         +
+             |     "available_series": [                                      +
+             |         {                                                      +
+             |             "code": "countable_change",                        +
+             |             "name": "Unit Count Change",                       +
+             |             "priority": 11                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "countable_added_count",                   +
+             |             "name": "Units Added (Countable)",                 +
+             |             "priority": 12                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "countable_removed_count",                 +
+             |             "name": "Units Removed (Countable)",               +
+             |             "priority": 13                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "exists_count",                            +
+             |             "name": "Existing Units",                          +
+             |             "priority": 14                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "exists_change",                           +
+             |             "name": "Existing Units Change",                   +
+             |             "priority": 15                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "exists_added_count",                      +
+             |             "name": "Units Added (Existence)",                 +
+             |             "priority": 16                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "exists_removed_count",                    +
+             |             "name": "Units Removed (Existence)",               +
+             |             "priority": 17                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "name_change_count",                       +
+             |             "name": "Name Changes",                            +
+             |             "priority": 40                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "secondary_activity_category_change_count",+
+             |             "name": "Secondary Activity Changes",              +
+             |             "priority": 60                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "sector_change_count",                     +
+             |             "name": "Sector Changes",                          +
+             |             "priority": 70                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "legal_form_change_count",                 +
+             |             "name": "Legal Form Changes",                      +
+             |             "priority": 80                                     +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "physical_country_change_count",           +
+             |             "name": "Country Changes",                         +
+             |             "priority": 100                                    +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "physical_address_change_count",           +
+             |             "name": "Physical Address Changes",                +
+             |             "priority": 110                                    +
+             |         }                                                      +
+             |     ]                                                          +
+             | }
+
 \echo "Test public.statistical_history_highcharts - with all series specified"
 "Test public.statistical_history_highcharts - with all series specified"
 SELECT jsonb_pretty(public.statistical_history_highcharts(
@@ -17954,7 +18755,1366 @@ SELECT jsonb_pretty(public.statistical_history_highcharts(
         'physical_address_change_count'
     ]
 ));
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+-[ RECORD 1 ]+----------------------------------------------------------------
+jsonb_pretty | {                                                              +
+             |     "series": [                                                +
+             |         {                                                      +
+             |             "code": "countable_count",                         +
+             |             "data": [                                          +
+             |                 [                                              +
+             |                     1262304000000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1293840000000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1325376000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1356998400000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1388534400000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1420070400000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1451606400000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1483228800000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1514764800000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1546300800000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1577836800000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1609459200000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1640995200000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1672531200000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1704067200000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1735689600000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1767225600000,                             +
+             |                     1                                          +
+             |                 ]                                              +
+             |             ],                                                 +
+             |             "name": "Unit Count"                               +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "countable_change",                        +
+             |             "data": [                                          +
+             |                 [                                              +
+             |                     1262304000000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1293840000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1325376000000,                             +
+             |                     -1                                         +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1356998400000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1388534400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1420070400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1451606400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1483228800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1514764800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1546300800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1577836800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1609459200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1640995200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1672531200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1704067200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1735689600000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1767225600000,                             +
+             |                     0                                          +
+             |                 ]                                              +
+             |             ],                                                 +
+             |             "name": "Unit Count Change"                        +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "countable_added_count",                   +
+             |             "data": [                                          +
+             |                 [                                              +
+             |                     1262304000000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1293840000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1325376000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1356998400000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1388534400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1420070400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1451606400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1483228800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1514764800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1546300800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1577836800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1609459200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1640995200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1672531200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1704067200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1735689600000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1767225600000,                             +
+             |                     0                                          +
+             |                 ]                                              +
+             |             ],                                                 +
+             |             "name": "Units Added (Countable)"                  +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "countable_removed_count",                 +
+             |             "data": [                                          +
+             |                 [                                              +
+             |                     1262304000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1293840000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1325376000000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1356998400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1388534400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1420070400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1451606400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1483228800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1514764800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1546300800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1577836800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1609459200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1640995200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1672531200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1704067200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1735689600000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1767225600000,                             +
+             |                     0                                          +
+             |                 ]                                              +
+             |             ],                                                 +
+             |             "name": "Units Removed (Countable)"                +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "exists_count",                            +
+             |             "data": [                                          +
+             |                 [                                              +
+             |                     1262304000000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1293840000000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1325376000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1356998400000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1388534400000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1420070400000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1451606400000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1483228800000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1514764800000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1546300800000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1577836800000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1609459200000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1640995200000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1672531200000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1704067200000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1735689600000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1767225600000,                             +
+             |                     1                                          +
+             |                 ]                                              +
+             |             ],                                                 +
+             |             "name": "Existing Units"                           +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "exists_change",                           +
+             |             "data": [                                          +
+             |                 [                                              +
+             |                     1262304000000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1293840000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1325376000000,                             +
+             |                     -1                                         +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1356998400000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1388534400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1420070400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1451606400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1483228800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1514764800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1546300800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1577836800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1609459200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1640995200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1672531200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1704067200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1735689600000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1767225600000,                             +
+             |                     0                                          +
+             |                 ]                                              +
+             |             ],                                                 +
+             |             "name": "Existing Units Change"                    +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "exists_added_count",                      +
+             |             "data": [                                          +
+             |                 [                                              +
+             |                     1262304000000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1293840000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1325376000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1356998400000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1388534400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1420070400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1451606400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1483228800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1514764800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1546300800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1577836800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1609459200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1640995200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1672531200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1704067200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1735689600000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1767225600000,                             +
+             |                     0                                          +
+             |                 ]                                              +
+             |             ],                                                 +
+             |             "name": "Units Added (Existence)"                  +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "exists_removed_count",                    +
+             |             "data": [                                          +
+             |                 [                                              +
+             |                     1262304000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1293840000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1325376000000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1356998400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1388534400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1420070400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1451606400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1483228800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1514764800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1546300800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1577836800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1609459200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1640995200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1672531200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1704067200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1735689600000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1767225600000,                             +
+             |                     0                                          +
+             |                 ]                                              +
+             |             ],                                                 +
+             |             "name": "Units Removed (Existence)"                +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "births",                                  +
+             |             "data": [                                          +
+             |                 [                                              +
+             |                     1262304000000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1293840000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1325376000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1356998400000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1388534400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1420070400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1451606400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1483228800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1514764800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1546300800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1577836800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1609459200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1640995200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1672531200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1704067200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1735689600000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1767225600000,                             +
+             |                     0                                          +
+             |                 ]                                              +
+             |             ],                                                 +
+             |             "name": "Births"                                   +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "deaths",                                  +
+             |             "data": [                                          +
+             |                 [                                              +
+             |                     1262304000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1293840000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1325376000000,                             +
+             |                     1                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1356998400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1388534400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1420070400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1451606400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1483228800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1514764800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1546300800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1577836800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1609459200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1640995200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1672531200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1704067200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1735689600000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1767225600000,                             +
+             |                     0                                          +
+             |                 ]                                              +
+             |             ],                                                 +
+             |             "name": "Deaths"                                   +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "name_change_count",                       +
+             |             "data": [                                          +
+             |                 [                                              +
+             |                     1262304000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1293840000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1325376000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1356998400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1388534400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1420070400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1451606400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1483228800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1514764800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1546300800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1577836800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1609459200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1640995200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1672531200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1704067200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1735689600000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1767225600000,                             +
+             |                     0                                          +
+             |                 ]                                              +
+             |             ],                                                 +
+             |             "name": "Name Changes"                             +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "primary_activity_category_change_count",  +
+             |             "data": [                                          +
+             |                 [                                              +
+             |                     1262304000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1293840000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1325376000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1356998400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1388534400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1420070400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1451606400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1483228800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1514764800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1546300800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1577836800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1609459200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1640995200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1672531200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1704067200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1735689600000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1767225600000,                             +
+             |                     0                                          +
+             |                 ]                                              +
+             |             ],                                                 +
+             |             "name": "Primary Activity Changes"                 +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "secondary_activity_category_change_count",+
+             |             "data": [                                          +
+             |                 [                                              +
+             |                     1262304000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1293840000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1325376000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1356998400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1388534400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1420070400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1451606400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1483228800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1514764800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1546300800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1577836800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1609459200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1640995200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1672531200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1704067200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1735689600000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1767225600000,                             +
+             |                     0                                          +
+             |                 ]                                              +
+             |             ],                                                 +
+             |             "name": "Secondary Activity Changes"               +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "sector_change_count",                     +
+             |             "data": [                                          +
+             |                 [                                              +
+             |                     1262304000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1293840000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1325376000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1356998400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1388534400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1420070400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1451606400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1483228800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1514764800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1546300800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1577836800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1609459200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1640995200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1672531200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1704067200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1735689600000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1767225600000,                             +
+             |                     0                                          +
+             |                 ]                                              +
+             |             ],                                                 +
+             |             "name": "Sector Changes"                           +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "legal_form_change_count",                 +
+             |             "data": [                                          +
+             |                 [                                              +
+             |                     1262304000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1293840000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1325376000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1356998400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1388534400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1420070400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1451606400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1483228800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1514764800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1546300800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1577836800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1609459200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1640995200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1672531200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1704067200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1735689600000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1767225600000,                             +
+             |                     0                                          +
+             |                 ]                                              +
+             |             ],                                                 +
+             |             "name": "Legal Form Changes"                       +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "physical_region_change_count",            +
+             |             "data": [                                          +
+             |                 [                                              +
+             |                     1262304000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1293840000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1325376000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1356998400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1388534400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1420070400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1451606400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1483228800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1514764800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1546300800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1577836800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1609459200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1640995200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1672531200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1704067200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1735689600000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1767225600000,                             +
+             |                     0                                          +
+             |                 ]                                              +
+             |             ],                                                 +
+             |             "name": "Region Changes"                           +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "physical_country_change_count",           +
+             |             "data": [                                          +
+             |                 [                                              +
+             |                     1262304000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1293840000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1325376000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1356998400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1388534400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1420070400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1451606400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1483228800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1514764800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1546300800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1577836800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1609459200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1640995200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1672531200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1704067200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1735689600000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1767225600000,                             +
+             |                     0                                          +
+             |                 ]                                              +
+             |             ],                                                 +
+             |             "name": "Country Changes"                          +
+             |         },                                                     +
+             |         {                                                      +
+             |             "code": "physical_address_change_count",           +
+             |             "data": [                                          +
+             |                 [                                              +
+             |                     1262304000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1293840000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1325376000000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1356998400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1388534400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1420070400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1451606400000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1483228800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1514764800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1546300800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1577836800000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1609459200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1640995200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1672531200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1704067200000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1735689600000,                             +
+             |                     0                                          +
+             |                 ],                                             +
+             |                 [                                              +
+             |                     1767225600000,                             +
+             |                     0                                          +
+             |                 ]                                              +
+             |             ],                                                 +
+             |             "name": "Physical Address Changes"                 +
+             |         }                                                      +
+             |     ],                                                         +
+             |     "unit_type": "enterprise",                                 +
+             |     "resolution": "year",                                      +
+             |     "filtered_series": [                                       +
+             |         "countable_count",                                     +
+             |         "countable_change",                                    +
+             |         "countable_added_count",                               +
+             |         "countable_removed_count",                             +
+             |         "exists_count",                                        +
+             |         "exists_change",                                       +
+             |         "exists_added_count",                                  +
+             |         "exists_removed_count",                                +
+             |         "births",                                              +
+             |         "deaths",                                              +
+             |         "name_change_count",                                   +
+             |         "primary_activity_category_change_count",              +
+             |         "secondary_activity_category_change_count",            +
+             |         "sector_change_count",                                 +
+             |         "legal_form_change_count",                             +
+             |         "physical_region_change_count",                        +
+             |         "physical_country_change_count",                       +
+             |         "physical_address_change_count"                        +
+             |     ]                                                          +
+             | }
+
 \echo "Test public.statistical_history_highcharts - with an invalid series code"
 "Test public.statistical_history_highcharts - with an invalid series code"
 SELECT jsonb_pretty(public.statistical_history_highcharts(
@@ -17962,7 +20122,8 @@ SELECT jsonb_pretty(public.statistical_history_highcharts(
     p_unit_type => 'enterprise',
     p_series_codes => ARRAY['countable_count', 'invalid_code', 'deaths']
 ));
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ERROR:  Invalid series code(s) provided: invalid_code
+CONTEXT:  PL/pgSQL function statistical_history_highcharts(history_resolution,statistical_unit_type,integer,text[]) line 39 at RAISE
 \i test/rollback_unless_persist_is_specified.sql
 \echo -- test/rollback_unless_persist_is_specified.sql output suppressed
 -- test/rollback_unless_persist_is_specified.sql output suppressed

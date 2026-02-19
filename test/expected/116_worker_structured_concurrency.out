@@ -391,12 +391,13 @@ ORDER BY indexname;
 ---------------------------------------------------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
  idx_tasks_derive_dedup                                  | CREATE UNIQUE INDEX idx_tasks_derive_dedup ON worker.tasks USING btree (command) WHERE ((command = 'derive_statistical_unit'::text) AND (state = 'pending'::worker.task_state))
  idx_tasks_derive_history_facet_period_dedup             | CREATE UNIQUE INDEX idx_tasks_derive_history_facet_period_dedup ON worker.tasks USING btree (command, ((payload ->> 'resolution'::text)), ((payload ->> 'year'::text)), ((payload ->> 'month'::text)), (((payload ->> 'partition_seq'::text))::integer)) WHERE ((command = 'derive_statistical_history_facet_period'::text) AND (state = 'pending'::worker.task_state))
+ idx_tasks_derive_power_groups_dedup                     | CREATE UNIQUE INDEX idx_tasks_derive_power_groups_dedup ON worker.tasks USING btree (command) WHERE ((command = 'derive_power_groups'::text) AND (state = 'pending'::worker.task_state))
  idx_tasks_derive_reports_dedup                          | CREATE UNIQUE INDEX idx_tasks_derive_reports_dedup ON worker.tasks USING btree (command) WHERE ((command = 'derive_reports'::text) AND (state = 'pending'::worker.task_state))
  idx_tasks_derive_statistical_history_dedup              | CREATE UNIQUE INDEX idx_tasks_derive_statistical_history_dedup ON worker.tasks USING btree (command) WHERE ((command = 'derive_statistical_history'::text) AND (state = 'pending'::worker.task_state))
  idx_tasks_derive_statistical_history_facet_dedup        | CREATE UNIQUE INDEX idx_tasks_derive_statistical_history_facet_dedup ON worker.tasks USING btree (command) WHERE ((command = 'derive_statistical_history_facet'::text) AND (state = 'pending'::worker.task_state))
  idx_tasks_derive_statistical_unit_facet_dedup           | CREATE UNIQUE INDEX idx_tasks_derive_statistical_unit_facet_dedup ON worker.tasks USING btree (command) WHERE ((command = 'derive_statistical_unit_facet'::text) AND (state = 'pending'::worker.task_state))
  idx_tasks_derive_statistical_unit_facet_partition_dedup | CREATE UNIQUE INDEX idx_tasks_derive_statistical_unit_facet_partition_dedup ON worker.tasks USING btree (command, (((payload ->> 'partition_seq'::text))::integer)) WHERE ((command = 'derive_statistical_unit_facet_partition'::text) AND (state = 'pending'::worker.task_state))
-(7 rows)
+(8 rows)
 
 \echo "=== 21. Test derive_statistical_unit deduplication (pending only) ==="
 "=== 21. Test derive_statistical_unit deduplication (pending only) ==="
