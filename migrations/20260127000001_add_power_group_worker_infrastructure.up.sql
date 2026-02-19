@@ -402,12 +402,13 @@ COMMENT ON VIEW public.power_group_membership IS
 -- PART 8: Grant permissions
 --------------------------------------------------------------------------------
 
--- Views: SELECT and INSERT for authenticated, regular_user, admin_user
-GRANT SELECT, INSERT ON public.legal_unit_power_hierarchy TO authenticated, regular_user, admin_user;
-GRANT SELECT, INSERT ON public.power_group_def TO authenticated, regular_user, admin_user;
-GRANT SELECT, INSERT ON public.legal_relationship_cluster TO authenticated, regular_user, admin_user;
-GRANT SELECT, INSERT ON public.power_group_active TO authenticated, regular_user, admin_user;
-GRANT SELECT, INSERT ON public.power_group_membership TO authenticated, regular_user, admin_user;
+-- Views: SELECT for authenticated, regular_user, admin_user
+-- These are read-only aggregation views (not auto-updatable), so only SELECT is needed.
+GRANT SELECT ON public.legal_unit_power_hierarchy TO authenticated, regular_user, admin_user;
+GRANT SELECT ON public.power_group_def TO authenticated, regular_user, admin_user;
+GRANT SELECT ON public.legal_relationship_cluster TO authenticated, regular_user, admin_user;
+GRANT SELECT ON public.power_group_active TO authenticated, regular_user, admin_user;
+GRANT SELECT ON public.power_group_membership TO authenticated, regular_user, admin_user;
 
 -- Tables
 GRANT SELECT ON public.legal_relationship TO authenticated;
