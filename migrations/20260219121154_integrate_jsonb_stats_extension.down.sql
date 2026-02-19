@@ -3170,6 +3170,15 @@ BEGIN
 END;
 $procedure$;
 
+-- Restore security_invoker on views (CREATE OR REPLACE VIEW resets reloptions)
+ALTER VIEW public.timeline_establishment_def SET (security_invoker = on);
+ALTER VIEW public.timeline_legal_unit_def SET (security_invoker = on);
+ALTER VIEW public.timeline_enterprise_def SET (security_invoker = on);
+
+-- Restore search_path on SECURITY DEFINER functions (CREATE OR REPLACE FUNCTION resets proconfig)
+ALTER FUNCTION public.statistical_history_drilldown(statistical_unit_type, history_resolution, integer, ltree, ltree, ltree, integer, integer, integer, integer, integer) SET search_path = public, pg_temp;
+ALTER FUNCTION public.statistical_unit_facet_drilldown(statistical_unit_type, ltree, ltree, ltree, integer, integer, integer, date) SET search_path = public, pg_temp;
+
 -- 3. Drop the generated stat column
 ALTER TABLE public.stat_for_unit DROP COLUMN IF EXISTS stat;
 
