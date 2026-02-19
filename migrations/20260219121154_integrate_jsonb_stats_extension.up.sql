@@ -680,7 +680,7 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def AS
             array_distinct_concat(tlu.related_legal_unit_ids) AS related_legal_unit_ids,
             array_distinct_concat(tlu.excluded_legal_unit_ids) AS excluded_legal_unit_ids,
             array_distinct_concat(tlu.included_legal_unit_ids) AS included_legal_unit_ids,
-            COALESCE(jsonb_stats_merge_agg(COALESCE(jsonb_stats_merge(tlu.stats_summary, tes.stats_summary), tlu.stats_summary, tes.stats_summary, '{}'::jsonb)), '{}'::jsonb) AS stats_summary
+            COALESCE(jsonb_stats_merge_agg(COALESCE(jsonb_stats_merge(tlu.stats_summary, tes.stats_summary), tlu.stats_summary, tes.stats_summary)), '{}'::jsonb) AS stats_summary
            FROM ( SELECT t.unit_type,
                     t.unit_id,
                     t.valid_from,
@@ -1257,7 +1257,7 @@ BEGIN
                 public.array_distinct_concat(tlu.related_legal_unit_ids) AS related_legal_unit_ids,
                 public.array_distinct_concat(tlu.excluded_legal_unit_ids) AS excluded_legal_unit_ids,
                 public.array_distinct_concat(tlu.included_legal_unit_ids) AS included_legal_unit_ids,
-                COALESCE(public.jsonb_stats_merge_agg(COALESCE(public.jsonb_stats_merge(tlu.stats_summary, tes.stats_summary), tlu.stats_summary, tes.stats_summary, '{}'::jsonb)), '{}'::jsonb) AS stats_summary
+                COALESCE(public.jsonb_stats_merge_agg(COALESCE(public.jsonb_stats_merge(tlu.stats_summary, tes.stats_summary), tlu.stats_summary, tes.stats_summary)), '{}'::jsonb) AS stats_summary
             FROM (
                 SELECT t.unit_type,
                     t.unit_id,

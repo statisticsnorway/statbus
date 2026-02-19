@@ -415,40 +415,40 @@ AND unit_type = 'legal_unit';
  resolution | year | month | unit_type  | count | births | deaths 
 ------------+------+-------+------------+-------+--------+--------
  year-month | 2010 |     1 | legal_unit |     1 |      1 |      0
- year-month | 2011 |     1 | legal_unit |     2 |      1 |      0
- year-month | 2012 |     1 | legal_unit |     2 |      0 |      0
  year-month | 2010 |     2 | legal_unit |     1 |      0 |      0
- year-month | 2011 |     2 | legal_unit |     2 |      0 |      0
- year-month | 2012 |     2 | legal_unit |     2 |      0 |      0
  year-month | 2010 |     3 | legal_unit |     1 |      0 |      0
- year-month | 2011 |     3 | legal_unit |     2 |      0 |      0
- year-month | 2012 |     3 | legal_unit |     2 |      0 |      0
  year-month | 2010 |     4 | legal_unit |     1 |      0 |      0
- year-month | 2011 |     4 | legal_unit |     2 |      0 |      0
- year-month | 2012 |     4 | legal_unit |     2 |      0 |      0
  year-month | 2010 |     5 | legal_unit |     1 |      0 |      0
- year-month | 2011 |     5 | legal_unit |     2 |      0 |      0
- year-month | 2012 |     5 | legal_unit |     2 |      0 |      0
  year-month | 2010 |     6 | legal_unit |     1 |      0 |      0
- year-month | 2011 |     6 | legal_unit |     2 |      0 |      0
- year-month | 2012 |     6 | legal_unit |     2 |      0 |      0
  year-month | 2010 |     7 | legal_unit |     1 |      0 |      0
- year-month | 2011 |     7 | legal_unit |     2 |      0 |      0
- year-month | 2012 |     7 | legal_unit |     2 |      0 |      0
  year-month | 2010 |     8 | legal_unit |     1 |      0 |      0
- year-month | 2011 |     8 | legal_unit |     2 |      0 |      0
- year-month | 2012 |     8 | legal_unit |     2 |      0 |      0
  year-month | 2010 |     9 | legal_unit |     1 |      0 |      0
- year-month | 2011 |     9 | legal_unit |     2 |      0 |      0
- year-month | 2012 |     9 | legal_unit |     2 |      0 |      0
  year-month | 2010 |    10 | legal_unit |     1 |      0 |      0
- year-month | 2011 |    10 | legal_unit |     2 |      0 |      0
- year-month | 2012 |    10 | legal_unit |     2 |      0 |      0
  year-month | 2010 |    11 | legal_unit |     1 |      0 |      0
- year-month | 2011 |    11 | legal_unit |     2 |      0 |      0
- year-month | 2012 |    11 | legal_unit |     2 |      0 |      0
  year-month | 2010 |    12 | legal_unit |     1 |      0 |      0
+ year-month | 2011 |     1 | legal_unit |     2 |      1 |      0
+ year-month | 2011 |     2 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |     3 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |     4 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |     5 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |     6 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |     7 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |     8 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |     9 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |    10 | legal_unit |     2 |      0 |      0
+ year-month | 2011 |    11 | legal_unit |     2 |      0 |      0
  year-month | 2011 |    12 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     1 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     2 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     3 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     4 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     5 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     6 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     7 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     8 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |     9 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |    10 | legal_unit |     2 |      0 |      0
+ year-month | 2012 |    11 | legal_unit |     2 |      0 |      0
  year-month | 2012 |    12 | legal_unit |     2 |      0 |      0
 (36 rows)
 
