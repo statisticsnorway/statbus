@@ -151,8 +151,7 @@ SELECT
     su.unit_type,
     su.name,
     sd.code AS stat_code,
-    sfu.value_int,
-    sfu.value_float,
+    sfu.stat,
     sfu.valid_from,
     sfu.valid_to
 FROM public.stat_for_unit AS sfu
@@ -161,22 +160,22 @@ JOIN public.statistical_unit AS su ON
     (sfu.legal_unit_id = su.unit_id AND su.unit_type = 'legal_unit')
 JOIN public.stat_definition AS sd ON sfu.stat_definition_id = sd.id
 ORDER BY su.unit_type, su.name, sd.code;
-   unit_type   |           name           | stat_code | value_int | value_float | valid_from | valid_to 
----------------+--------------------------+-----------+-----------+-------------+------------+----------
- establishment | EQUATOR GLOBE SOLUTIONS  | employees |         0 |             | 2024-01-01 | infinity
- establishment | EQUATOR GLOBE SOLUTIONS  | turnover  |           |           0 | 2024-01-01 | infinity
- establishment | NILE PEARL WATER         | employees |         5 |             | 2024-01-01 | infinity
- establishment | NILE PEARL WATER         | turnover  |           |     5000000 | 2024-01-01 | infinity
- establishment | NILE TEXTILES            | employees |        10 |             | 2024-01-01 | infinity
- establishment | NILE TEXTILES            | turnover  |           |    10000000 | 2024-01-01 | infinity
- establishment | THE MARINE SERVICES      | employees |        75 |             | 2024-01-01 | infinity
- establishment | THE MARINE SERVICES      | turnover  |           |     4400000 | 2024-01-01 | infinity
- establishment | THE VICTORIA FRESH FARMS | employees |        80 |             | 2024-01-01 | infinity
- establishment | THE VICTORIA FRESH FARMS | turnover  |           |     1200000 | 2024-01-01 | infinity
- legal_unit    | EQUATOR GLOBE SOLUTIONS  | employees |         2 |             | 2024-01-01 | infinity
- legal_unit    | EQUATOR GLOBE SOLUTIONS  | turnover  |           |     2400000 | 2024-01-01 | infinity
- legal_unit    | NILE PEARL WATER         | employees |         0 |             | 2024-01-01 | infinity
- legal_unit    | NILE PEARL WATER         | turnover  |           |           0 | 2024-01-01 | infinity
+   unit_type   |           name           | stat_code |                  stat                  | valid_from | valid_to 
+---------------+--------------------------+-----------+----------------------------------------+------------+----------
+ establishment | EQUATOR GLOBE SOLUTIONS  | employees | {"type": "int", "value": 0}            | 2024-01-01 | infinity
+ establishment | EQUATOR GLOBE SOLUTIONS  | turnover  | {"type": "float", "value": 0.0}        | 2024-01-01 | infinity
+ establishment | NILE PEARL WATER         | employees | {"type": "int", "value": 5}            | 2024-01-01 | infinity
+ establishment | NILE PEARL WATER         | turnover  | {"type": "float", "value": 5000000.0}  | 2024-01-01 | infinity
+ establishment | NILE TEXTILES            | employees | {"type": "int", "value": 10}           | 2024-01-01 | infinity
+ establishment | NILE TEXTILES            | turnover  | {"type": "float", "value": 10000000.0} | 2024-01-01 | infinity
+ establishment | THE MARINE SERVICES      | employees | {"type": "int", "value": 75}           | 2024-01-01 | infinity
+ establishment | THE MARINE SERVICES      | turnover  | {"type": "float", "value": 4400000.0}  | 2024-01-01 | infinity
+ establishment | THE VICTORIA FRESH FARMS | employees | {"type": "int", "value": 80}           | 2024-01-01 | infinity
+ establishment | THE VICTORIA FRESH FARMS | turnover  | {"type": "float", "value": 1200000.0}  | 2024-01-01 | infinity
+ legal_unit    | EQUATOR GLOBE SOLUTIONS  | employees | {"type": "int", "value": 2}            | 2024-01-01 | infinity
+ legal_unit    | EQUATOR GLOBE SOLUTIONS  | turnover  | {"type": "float", "value": 2400000.0}  | 2024-01-01 | infinity
+ legal_unit    | NILE PEARL WATER         | employees | {"type": "int", "value": 0}            | 2024-01-01 | infinity
+ legal_unit    | NILE PEARL WATER         | turnover  | {"type": "float", "value": 0.0}        | 2024-01-01 | infinity
 (14 rows)
 
 \echo "Checking aggregated stats in statistical_unit"

@@ -28,18 +28,18 @@
                                                                      Disabled: true
                                                                      ->  Hash Left Join
                                                                            Hash Cond: ((t.unit_id = lu_stats.unit_id) AND (t.valid_from = lu_stats.valid_from))
-                                                                           ->  Hash Right Join
-                                                                                 Hash Cond: (lf.id = lu_1.legal_form_id)
-                                                                                 ->  Seq Scan on legal_form lf
-                                                                                 ->  Hash
-                                                                                       ->  Hash Left Join
-                                                                                             Hash Cond: (lu_1.unit_size_id = us.id)
-                                                                                             ->  Hash Right Join
-                                                                                                   Hash Cond: (s.id = lu_1.sector_id)
-                                                                                                   ->  Seq Scan on sector s
-                                                                                                   ->  Hash
-                                                                                                         ->  Hash Left Join
-                                                                                                               Hash Cond: (lu_1.status_id = st.id)
+                                                                           ->  Hash Left Join
+                                                                                 Hash Cond: (lu_1.unit_size_id = us.id)
+                                                                                 ->  Hash Right Join
+                                                                                       Hash Cond: (s.id = lu_1.sector_id)
+                                                                                       ->  Seq Scan on sector s
+                                                                                       ->  Hash
+                                                                                             ->  Hash Left Join
+                                                                                                   Hash Cond: (lu_1.status_id = st.id)
+                                                                                                   ->  Hash Right Join
+                                                                                                         Hash Cond: (lf.id = lu_1.legal_form_id)
+                                                                                                         ->  Seq Scan on legal_form lf
+                                                                                                         ->  Hash
                                                                                                                ->  Nested Loop
                                                                                                                      Disabled: true
                                                                                                                      ->  Nested Loop
@@ -53,10 +53,10 @@
                                                                                                                                  Sort Key: lu_1.valid_from DESC
                                                                                                                                  ->  Seq Scan on legal_unit lu_1
                                                                                                                                        Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (id = t.unit_id))
-                                                                                                               ->  Hash
-                                                                                                                     ->  Seq Scan on status st
-                                                                                             ->  Hash
-                                                                                                   ->  Seq Scan on unit_size us
+                                                                                                   ->  Hash
+                                                                                                         ->  Seq Scan on status st
+                                                                                 ->  Hash
+                                                                                       ->  Seq Scan on unit_size us
                                                                            ->  Hash
                                                                                  ->  Subquery Scan on lu_stats
                                                                                        ->  GroupAggregate
@@ -65,17 +65,17 @@
                                                                                                    Sort Key: t_1.unit_id, t_1.valid_from
                                                                                                    ->  Hash Join
                                                                                                          Hash Cond: (sfu.stat_definition_id = sd.id)
-                                                                                                         ->  Nested Loop
-                                                                                                               Disabled: true
-                                                                                                               Join Filter: ((f_1.ids IS NULL) OR (t_1.unit_id = ANY (f_1.ids)))
-                                                                                                               ->  Hash Join
-                                                                                                                     Hash Cond: (t_1.unit_id = sfu.legal_unit_id)
-                                                                                                                     Join Filter: ((t_1.valid_from < sfu.valid_until) AND (sfu.valid_from < t_1.valid_until))
-                                                                                                                     ->  Seq Scan on timesegments t_1
-                                                                                                                           Filter: (unit_type = 'legal_unit'::statistical_unit_type)
-                                                                                                                     ->  Hash
-                                                                                                                           ->  Seq Scan on stat_for_unit sfu
-                                                                                                               ->  CTE Scan on filter_ids f_1
+                                                                                                         ->  Hash Join
+                                                                                                               Hash Cond: (sfu.legal_unit_id = t_1.unit_id)
+                                                                                                               Join Filter: ((t_1.valid_from < sfu.valid_until) AND (sfu.valid_from < t_1.valid_until))
+                                                                                                               ->  Seq Scan on stat_for_unit sfu
+                                                                                                               ->  Hash
+                                                                                                                     ->  Nested Loop
+                                                                                                                           Disabled: true
+                                                                                                                           Join Filter: ((f_1.ids IS NULL) OR (t_1.unit_id = ANY (f_1.ids)))
+                                                                                                                           ->  CTE Scan on filter_ids f_1
+                                                                                                                           ->  Seq Scan on timesegments t_1
+                                                                                                                                 Filter: (unit_type = 'legal_unit'::statistical_unit_type)
                                                                                                          ->  Hash
                                                                                                                ->  Seq Scan on stat_definition sd
                                                                      ->  Hash Right Join
@@ -99,12 +99,12 @@
                                                                                              ->  Seq Scan on activity a_1
                                                                                                    Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (legal_unit_id = lu_1.id) AND (type = 'secondary'::activity_type))
                                                          ->  Hash Right Join
-                                                               Hash Cond: (phc.id = phl.country_id)
-                                                               ->  Seq Scan on country phc
+                                                               Hash Cond: (phr.id = phl.region_id)
+                                                               ->  Seq Scan on region phr
                                                                ->  Hash
                                                                      ->  Hash Right Join
-                                                                           Hash Cond: (phr.id = phl.region_id)
-                                                                           ->  Seq Scan on region phr
+                                                                           Hash Cond: (phc.id = phl.country_id)
+                                                                           ->  Seq Scan on country phc
                                                                            ->  Hash
                                                                                  ->  Subquery Scan on phl
                                                                                        ->  Limit
@@ -136,13 +136,19 @@
                                        ->  Aggregate
                                              ->  Sort
                                                    Sort Key: sfu_1.data_source_id
-                                                   ->  Seq Scan on stat_for_unit sfu_1
-                                                         Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (legal_unit_id = lu_1.id))
+                                                   ->  Bitmap Heap Scan on stat_for_unit sfu_1
+                                                         Recheck Cond: (legal_unit_id = lu_1.id)
+                                                         Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until))
+                                                         ->  Bitmap Index Scan on stat_for_unit_natural_key_valid
+                                                               Index Cond: (legal_unit_id = lu_1.id)
                                  ->  Limit
                                        ->  Sort
                                              Sort Key: sfu_2.edit_at DESC
-                                             ->  Seq Scan on stat_for_unit sfu_2
-                                                   Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (legal_unit_id = lu_1.id))
+                                             ->  Bitmap Heap Scan on stat_for_unit sfu_2
+                                                   Recheck Cond: (legal_unit_id = lu_1.id)
+                                                   Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until))
+                                                   ->  Bitmap Index Scan on stat_for_unit_natural_key_valid
+                                                         Index Cond: (legal_unit_id = lu_1.id)
                            ->  Aggregate
                                  ->  Seq Scan on data_source ds_1
                                        Filter: (COALESCE((id = lu_1.data_source_id), false) OR COALESCE((id = pa.data_source_id), false) OR COALESCE((id = sa.data_source_id), false) OR COALESCE((id = phl.data_source_id), false) OR COALESCE((id = pol.data_source_id), false) OR COALESCE((id = ANY ((array_agg(DISTINCT sfu_1.data_source_id) FILTER (WHERE (sfu_1.data_source_id IS NOT NULL))))), false))
@@ -187,5 +193,5 @@
                                    ->  Result
                              ->  ProjectSet
                                    ->  Result
-(187 rows)
+(193 rows)
 
