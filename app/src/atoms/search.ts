@@ -233,39 +233,9 @@ export const resetSearchInitializationAtom = atom(
 // SELECTION ATOMS - Replace SelectionContext
 // ============================================================================
 
-interface ExternalIdents {
-  [key: string]: string;
-}
-
-// Define the structure for metrics within stats_summary
-interface BaseStatMetric {
-  type: "array" | "number" | "string" | "boolean";
-}
-
-export interface NumberStatMetric extends BaseStatMetric {
-  type: "number";
-  max?: number;
-  min?: number;
-  sum?: number; // If present, this is always a number
-  mean?: number;
-  count?: number;
-  stddev?: number;
-  variance?: number;
-  sum_sq_diff?: number;
-  coefficient_of_variation_pct?: number;
-}
-
-export interface CountsStatMetric extends BaseStatMetric {
-  type: "array" | "string" | "boolean";
-  counts: { [key: string]: number };
-}
-
-export type StatMetric = NumberStatMetric | CountsStatMetric;
-
-// Refined StatsSummary: Each key is a stat_code, value is its metric object or undefined
-interface StatsSummary {
-  [statCode: string]: StatMetric | undefined;
-}
+// Re-export discriminated union types from app/types.d.ts for use in search components
+export type { NumericStatAgg, CategoricalStatAgg, ArrayStatAgg, DateStatAgg, StatAgg } from '@/app/types';
+import type { StatsSummary, ExternalIdents } from '@/app/types';
 
 export type StatisticalUnit = Omit<Tables<"statistical_unit">, 'external_idents' | 'stats_summary'> & {
   external_idents: ExternalIdents;

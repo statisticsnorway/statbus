@@ -379,13 +379,10 @@ export const StatisticalUnitTableRow = ({
                     const metric = unit.stats_summary[column.stat_code];
                     let valueToDisplay: number | string | null = null;
 
-                    if (metric && metric.type === "number") {
-                      // metric is NumberStatMetric, sum is number | undefined
+                    if (metric && ("sum" in metric)) {
                       valueToDisplay = metric.sum !== undefined ? metric.sum : null;
                     } else {
-                      // For other types or if metric is undefined, display a placeholder
-                      // as we are only asked to display 'sum' from 'number' type metrics.
-                      valueToDisplay = "-"; // Or null for an empty cell
+                      valueToDisplay = "-";
                     }
                     return thousandSeparator(valueToDisplay);
                   })()}

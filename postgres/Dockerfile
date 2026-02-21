@@ -23,6 +23,7 @@ ARG hypopg_release=1.4.1
 ARG index_advisor_release=v0.2.0
 ARG pgjwt_release=f3d82fd
 ARG pg_graphql_release=9cf4882b3b73e5f15cdcad8f0535ccb7c41db86b
+ARG jsonb_stats_release=fd95398
 
 ####################
 # Setup Postgres PPA
@@ -268,14 +269,12 @@ RUN git clone https://github.com/michelp/pgjwt.git && \
   make DESTDIR=/tmp/pgjwt-dist install
 
 ####################
-# Build pg_graphql
+# Shared Rust/pgrx builder (used by pg_graphql and jsonb_stats)
 ####################
-FROM builder as pg_graphql-builder
-ARG pg_graphql_release
+FROM builder as pgrx-builder
 ARG postgresql_major
 WORKDIR /tmp
 
-# Install Rust and cargo
 RUN apt-get update && apt-get install -y --no-install-recommends \
   curl \
   pkg-config \
@@ -283,29 +282,50 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && rm -rf /var/lib/apt/lists/* \
   && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
-# Add cargo to PATH
 ENV PATH="/root/.cargo/bin:${PATH}"
 
-# Install cargo-pgrx with a compatible version
+RUN cargo install --locked cargo-pgrx@0.16.1
+RUN cargo pgrx init --pg18=$(which pg_config)
+
+####################
+# Build pg_graphql
+####################
+FROM pgrx-builder as pg_graphql-builder
+ARG pg_graphql_release
+ARG postgresql_major
+WORKDIR /tmp
+
 RUN git clone https://github.com/supabase/pg_graphql.git && \
   cd pg_graphql && \
   git checkout ${pg_graphql_release} && \
-  # Install a known compatible version of cargo-pgrx
-  cargo install --locked cargo-pgrx@0.16.1
-
-# Build pg_graphql with PostgreSQL 18 support
-RUN cd /tmp/pg_graphql && \
-  cargo pgrx init --pg18=$(which pg_config) && \
   cargo pgrx install --release --features pg18
 
 # Prepare files for installation
 RUN mkdir -p /tmp/pg_graphql-dist/usr/lib/postgresql/${postgresql_major}/lib && \
   mkdir -p /tmp/pg_graphql-dist/usr/share/postgresql/${postgresql_major}/extension && \
-  # Copy the built library for PostgreSQL 18
   cp /usr/lib/postgresql/18/lib/pg_graphql.so /tmp/pg_graphql-dist/usr/lib/postgresql/${postgresql_major}/lib/ && \
-  # Copy the control file and SQL files from the correct location
   find / -name "pg_graphql.control" -exec cp {} /tmp/pg_graphql-dist/usr/share/postgresql/${postgresql_major}/extension/ \; && \
   find / -name "pg_graphql--*.sql" -exec cp {} /tmp/pg_graphql-dist/usr/share/postgresql/${postgresql_major}/extension/ \;
+
+####################
+# Build jsonb_stats
+####################
+FROM pgrx-builder as jsonb_stats-builder
+ARG jsonb_stats_release
+ARG postgresql_major
+WORKDIR /tmp
+
+RUN git clone https://github.com/veridit/jsonb_stats.git && \
+  cd jsonb_stats && \
+  git checkout ${jsonb_stats_release} && \
+  cargo pgrx install --release --features pg18
+
+# Prepare files for installation
+RUN mkdir -p /tmp/jsonb_stats-dist/usr/lib/postgresql/${postgresql_major}/lib && \
+  mkdir -p /tmp/jsonb_stats-dist/usr/share/postgresql/${postgresql_major}/extension && \
+  cp /usr/lib/postgresql/${postgresql_major}/lib/jsonb_stats.so /tmp/jsonb_stats-dist/usr/lib/postgresql/${postgresql_major}/lib/ && \
+  find / -name "jsonb_stats.control" -exec cp {} /tmp/jsonb_stats-dist/usr/share/postgresql/${postgresql_major}/extension/ \; && \
+  find / -name "jsonb_stats--*.sql" -exec cp {} /tmp/jsonb_stats-dist/usr/share/postgresql/${postgresql_major}/extension/ \;
 
 ####################
 # Final image
@@ -327,6 +347,7 @@ COPY --from=hypopg-builder /tmp/hypopg-dist/ /
 COPY --from=index_advisor-builder /tmp/index_advisor-dist/ /
 COPY --from=pgjwt-builder /tmp/pgjwt-dist/ /
 COPY --from=pg_graphql-builder /tmp/pg_graphql-dist/ /
+COPY --from=jsonb_stats-builder /tmp/jsonb_stats-dist/ /
 
 # Add initialization script
 COPY init-db.sh /docker-entrypoint-initdb.d/init-db.sh

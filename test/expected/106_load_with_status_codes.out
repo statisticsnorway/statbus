@@ -145,81 +145,84 @@ ORDER BY unit_type, valid_from;
  valid_from | valid_to |       name       |   unit_type   |                stats_summary                 | status_code | used_for_counting 
 ------------+----------+------------------+---------------+----------------------------------------------+-------------+-------------------
  2010-01-01 | infinity | Kranløft Oslo    | establishment | {                                           +| active      | t
+            |          |                  |               |     "type": "stats_agg",                    +|             | 
             |          |                  |               |     "turnover": {                           +|             | 
             |          |                  |               |         "max": 25000000,                    +|             | 
             |          |                  |               |         "min": 25000000,                    +|             | 
             |          |                  |               |         "sum": 25000000,                    +|             | 
-            |          |                  |               |         "mean": 25000000,                   +|             | 
-            |          |                  |               |         "type": "number",                   +|             | 
+            |          |                  |               |         "mean": 25000000.00,                +|             | 
+            |          |                  |               |         "type": "float_agg",                +|             | 
             |          |                  |               |         "count": 1,                         +|             | 
-            |          |                  |               |         "stddev": 0,                        +|             | 
-            |          |                  |               |         "variance": 0,                      +|             | 
-            |          |                  |               |         "sum_sq_diff": 0,                   +|             | 
-            |          |                  |               |         "coefficient_of_variation_pct": 0   +|             | 
+            |          |                  |               |         "stddev": null,                     +|             | 
+            |          |                  |               |         "variance": null,                   +|             | 
+            |          |                  |               |         "sum_sq_diff": 0.00,                +|             | 
+            |          |                  |               |         "coefficient_of_variation_pct": null+|             | 
             |          |                  |               |     },                                      +|             | 
             |          |                  |               |     "employees": {                          +|             | 
             |          |                  |               |         "max": 10,                          +|             | 
             |          |                  |               |         "min": 10,                          +|             | 
             |          |                  |               |         "sum": 10,                          +|             | 
-            |          |                  |               |         "mean": 10,                         +|             | 
-            |          |                  |               |         "type": "number",                   +|             | 
+            |          |                  |               |         "mean": 10.00,                      +|             | 
+            |          |                  |               |         "type": "int_agg",                  +|             | 
             |          |                  |               |         "count": 1,                         +|             | 
-            |          |                  |               |         "stddev": 0,                        +|             | 
-            |          |                  |               |         "variance": 0,                      +|             | 
-            |          |                  |               |         "sum_sq_diff": 0,                   +|             | 
-            |          |                  |               |         "coefficient_of_variation_pct": 0   +|             | 
+            |          |                  |               |         "stddev": null,                     +|             | 
+            |          |                  |               |         "variance": null,                   +|             | 
+            |          |                  |               |         "sum_sq_diff": 0.00,                +|             | 
+            |          |                  |               |         "coefficient_of_variation_pct": null+|             | 
             |          |                  |               |     }                                       +|             | 
             |          |                  |               | }                                            |             | 
  2011-01-01 | infinity | Kranløft Østland | legal_unit    | {                                           +| active      | t
+            |          |                  |               |     "type": "stats_agg",                    +|             | 
             |          |                  |               |     "turnover": {                           +|             | 
             |          |                  |               |         "max": 25000000,                    +|             | 
             |          |                  |               |         "min": 25000000,                    +|             | 
             |          |                  |               |         "sum": 25000000,                    +|             | 
             |          |                  |               |         "mean": 25000000.00,                +|             | 
-            |          |                  |               |         "type": "number",                   +|             | 
+            |          |                  |               |         "type": "float_agg",                +|             | 
             |          |                  |               |         "count": 1,                         +|             | 
-            |          |                  |               |         "stddev": 0.00,                     +|             | 
-            |          |                  |               |         "variance": 0.00,                   +|             | 
+            |          |                  |               |         "stddev": null,                     +|             | 
+            |          |                  |               |         "variance": null,                   +|             | 
             |          |                  |               |         "sum_sq_diff": 0.00,                +|             | 
-            |          |                  |               |         "coefficient_of_variation_pct": 0.00+|             | 
+            |          |                  |               |         "coefficient_of_variation_pct": null+|             | 
             |          |                  |               |     },                                      +|             | 
             |          |                  |               |     "employees": {                          +|             | 
             |          |                  |               |         "max": 10,                          +|             | 
             |          |                  |               |         "min": 10,                          +|             | 
             |          |                  |               |         "sum": 10,                          +|             | 
             |          |                  |               |         "mean": 10.00,                      +|             | 
-            |          |                  |               |         "type": "number",                   +|             | 
+            |          |                  |               |         "type": "int_agg",                  +|             | 
             |          |                  |               |         "count": 1,                         +|             | 
-            |          |                  |               |         "stddev": 0.00,                     +|             | 
-            |          |                  |               |         "variance": 0.00,                   +|             | 
+            |          |                  |               |         "stddev": null,                     +|             | 
+            |          |                  |               |         "variance": null,                   +|             | 
             |          |                  |               |         "sum_sq_diff": 0.00,                +|             | 
-            |          |                  |               |         "coefficient_of_variation_pct": 0.00+|             | 
+            |          |                  |               |         "coefficient_of_variation_pct": null+|             | 
             |          |                  |               |     }                                       +|             | 
             |          |                  |               | }                                            |             | 
  2011-01-01 | infinity | Kranløft Østland | enterprise    | {                                           +| active      | t
+            |          |                  |               |     "type": "stats_agg",                    +|             | 
             |          |                  |               |     "turnover": {                           +|             | 
             |          |                  |               |         "max": 25000000,                    +|             | 
             |          |                  |               |         "min": 25000000,                    +|             | 
             |          |                  |               |         "sum": 25000000,                    +|             | 
             |          |                  |               |         "mean": 25000000.00,                +|             | 
-            |          |                  |               |         "type": "number",                   +|             | 
+            |          |                  |               |         "type": "float_agg",                +|             | 
             |          |                  |               |         "count": 1,                         +|             | 
-            |          |                  |               |         "stddev": 0.00,                     +|             | 
-            |          |                  |               |         "variance": 0.00,                   +|             | 
+            |          |                  |               |         "stddev": null,                     +|             | 
+            |          |                  |               |         "variance": null,                   +|             | 
             |          |                  |               |         "sum_sq_diff": 0.00,                +|             | 
-            |          |                  |               |         "coefficient_of_variation_pct": 0.00+|             | 
+            |          |                  |               |         "coefficient_of_variation_pct": null+|             | 
             |          |                  |               |     },                                      +|             | 
             |          |                  |               |     "employees": {                          +|             | 
             |          |                  |               |         "max": 10,                          +|             | 
             |          |                  |               |         "min": 10,                          +|             | 
             |          |                  |               |         "sum": 10,                          +|             | 
             |          |                  |               |         "mean": 10.00,                      +|             | 
-            |          |                  |               |         "type": "number",                   +|             | 
+            |          |                  |               |         "type": "int_agg",                  +|             | 
             |          |                  |               |         "count": 1,                         +|             | 
-            |          |                  |               |         "stddev": 0.00,                     +|             | 
-            |          |                  |               |         "variance": 0.00,                   +|             | 
+            |          |                  |               |         "stddev": null,                     +|             | 
+            |          |                  |               |         "variance": null,                   +|             | 
             |          |                  |               |         "sum_sq_diff": 0.00,                +|             | 
-            |          |                  |               |         "coefficient_of_variation_pct": 0.00+|             | 
+            |          |                  |               |         "coefficient_of_variation_pct": null+|             | 
             |          |                  |               |     }                                       +|             | 
             |          |                  |               | }                                            |             | 
 (3 rows)
@@ -236,29 +239,30 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
      "stats": {                                              +
          "count": 1,                                         +
          "stats_summary": {                                  +
+             "type": "stats_agg",                            +
              "turnover": {                                   +
                  "max": 25000000,                            +
                  "min": 25000000,                            +
                  "sum": 25000000,                            +
                  "mean": 25000000.00,                        +
-                 "type": "number",                           +
+                 "type": "float_agg",                        +
                  "count": 1,                                 +
-                 "stddev": 0.00,                             +
-                 "variance": 0.00,                           +
+                 "stddev": null,                             +
+                 "variance": null,                           +
                  "sum_sq_diff": 0.00,                        +
-                 "coefficient_of_variation_pct": 0.00        +
+                 "coefficient_of_variation_pct": null        +
              },                                              +
              "employees": {                                  +
                  "max": 10,                                  +
                  "min": 10,                                  +
                  "sum": 10,                                  +
                  "mean": 10.00,                              +
-                 "type": "number",                           +
+                 "type": "int_agg",                          +
                  "count": 1,                                 +
-                 "stddev": 0.00,                             +
-                 "variance": 0.00,                           +
+                 "stddev": null,                             +
+                 "variance": null,                           +
                  "sum_sq_diff": 0.00,                        +
-                 "coefficient_of_variation_pct": 0.00        +
+                 "coefficient_of_variation_pct": null        +
              }                                               +
          }                                                   +
      },                                                      +
@@ -279,29 +283,30 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
                  "label": "11",                              +
                  "has_children": true,                       +
                  "stats_summary": {                          +
+                     "type": "stats_agg",                    +
                      "turnover": {                           +
                          "max": 25000000,                    +
                          "min": 25000000,                    +
                          "sum": 25000000,                    +
                          "mean": 25000000.00,                +
-                         "type": "number",                   +
+                         "type": "float_agg",                +
                          "count": 1,                         +
-                         "stddev": 0.00,                     +
-                         "variance": 0.00,                   +
+                         "stddev": null,                     +
+                         "variance": null,                   +
                          "sum_sq_diff": 0.00,                +
-                         "coefficient_of_variation_pct": 0.00+
+                         "coefficient_of_variation_pct": null+
                      },                                      +
                      "employees": {                          +
                          "max": 10,                          +
                          "min": 10,                          +
                          "sum": 10,                          +
                          "mean": 10.00,                      +
-                         "type": "number",                   +
+                         "type": "int_agg",                  +
                          "count": 1,                         +
-                         "stddev": 0.00,                     +
-                         "variance": 0.00,                   +
+                         "stddev": null,                     +
+                         "variance": null,                   +
                          "sum_sq_diff": 0.00,                +
-                         "coefficient_of_variation_pct": 0.00+
+                         "coefficient_of_variation_pct": null+
                      }                                       +
                  }                                           +
              }                                               +
@@ -315,29 +320,30 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
                  "label": "innl",                            +
                  "has_children": true,                       +
                  "stats_summary": {                          +
+                     "type": "stats_agg",                    +
                      "turnover": {                           +
                          "max": 25000000,                    +
                          "min": 25000000,                    +
                          "sum": 25000000,                    +
                          "mean": 25000000.00,                +
-                         "type": "number",                   +
+                         "type": "float_agg",                +
                          "count": 1,                         +
-                         "stddev": 0.00,                     +
-                         "variance": 0.00,                   +
+                         "stddev": null,                     +
+                         "variance": null,                   +
                          "sum_sq_diff": 0.00,                +
-                         "coefficient_of_variation_pct": 0.00+
+                         "coefficient_of_variation_pct": null+
                      },                                      +
                      "employees": {                          +
                          "max": 10,                          +
                          "min": 10,                          +
                          "sum": 10,                          +
                          "mean": 10.00,                      +
-                         "type": "number",                   +
+                         "type": "int_agg",                  +
                          "count": 1,                         +
-                         "stddev": 0.00,                     +
-                         "variance": 0.00,                   +
+                         "stddev": null,                     +
+                         "variance": null,                   +
                          "sum_sq_diff": 0.00,                +
-                         "coefficient_of_variation_pct": 0.00+
+                         "coefficient_of_variation_pct": null+
                      }                                       +
                  }                                           +
              }                                               +
@@ -349,29 +355,30 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
                  "count": 1,                                 +
                  "has_children": false,                      +
                  "stats_summary": {                          +
+                     "type": "stats_agg",                    +
                      "turnover": {                           +
                          "max": 25000000,                    +
                          "min": 25000000,                    +
                          "sum": 25000000,                    +
                          "mean": 25000000.00,                +
-                         "type": "number",                   +
+                         "type": "float_agg",                +
                          "count": 1,                         +
-                         "stddev": 0.00,                     +
-                         "variance": 0.00,                   +
+                         "stddev": null,                     +
+                         "variance": null,                   +
                          "sum_sq_diff": 0.00,                +
-                         "coefficient_of_variation_pct": 0.00+
+                         "coefficient_of_variation_pct": null+
                      },                                      +
                      "employees": {                          +
                          "max": 10,                          +
                          "min": 10,                          +
                          "sum": 10,                          +
                          "mean": 10.00,                      +
-                         "type": "number",                   +
+                         "type": "int_agg",                  +
                          "count": 1,                         +
-                         "stddev": 0.00,                     +
-                         "variance": 0.00,                   +
+                         "stddev": null,                     +
+                         "variance": null,                   +
                          "sum_sq_diff": 0.00,                +
-                         "coefficient_of_variation_pct": 0.00+
+                         "coefficient_of_variation_pct": null+
                      }                                       +
                  }                                           +
              }                                               +
@@ -383,29 +390,30 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
                  "iso_2": "NO",                              +
                  "has_children": false,                      +
                  "stats_summary": {                          +
+                     "type": "stats_agg",                    +
                      "turnover": {                           +
                          "max": 25000000,                    +
                          "min": 25000000,                    +
                          "sum": 25000000,                    +
                          "mean": 25000000.00,                +
-                         "type": "number",                   +
+                         "type": "float_agg",                +
                          "count": 1,                         +
-                         "stddev": 0.00,                     +
-                         "variance": 0.00,                   +
+                         "stddev": null,                     +
+                         "variance": null,                   +
                          "sum_sq_diff": 0.00,                +
-                         "coefficient_of_variation_pct": 0.00+
+                         "coefficient_of_variation_pct": null+
                      },                                      +
                      "employees": {                          +
                          "max": 10,                          +
                          "min": 10,                          +
                          "sum": 10,                          +
                          "mean": 10.00,                      +
-                         "type": "number",                   +
+                         "type": "int_agg",                  +
                          "count": 1,                         +
-                         "stddev": 0.00,                     +
-                         "variance": 0.00,                   +
+                         "stddev": null,                     +
+                         "variance": null,                   +
                          "sum_sq_diff": 0.00,                +
-                         "coefficient_of_variation_pct": 0.00+
+                         "coefficient_of_variation_pct": null+
                      }                                       +
                  }                                           +
              }                                               +
@@ -417,29 +425,30 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
                  "count": 1,                                 +
                  "has_children": false,                      +
                  "stats_summary": {                          +
+                     "type": "stats_agg",                    +
                      "turnover": {                           +
                          "max": 25000000,                    +
                          "min": 25000000,                    +
                          "sum": 25000000,                    +
                          "mean": 25000000.00,                +
-                         "type": "number",                   +
+                         "type": "float_agg",                +
                          "count": 1,                         +
-                         "stddev": 0.00,                     +
-                         "variance": 0.00,                   +
+                         "stddev": null,                     +
+                         "variance": null,                   +
                          "sum_sq_diff": 0.00,                +
-                         "coefficient_of_variation_pct": 0.00+
+                         "coefficient_of_variation_pct": null+
                      },                                      +
                      "employees": {                          +
                          "max": 10,                          +
                          "min": 10,                          +
                          "sum": 10,                          +
                          "mean": 10.00,                      +
-                         "type": "number",                   +
+                         "type": "int_agg",                  +
                          "count": 1,                         +
-                         "stddev": 0.00,                     +
-                         "variance": 0.00,                   +
+                         "stddev": null,                     +
+                         "variance": null,                   +
                          "sum_sq_diff": 0.00,                +
-                         "coefficient_of_variation_pct": 0.00+
+                         "coefficient_of_variation_pct": null+
                      }                                       +
                  }                                           +
              }                                               +
@@ -453,29 +462,30 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
                  "label": "H",                               +
                  "has_children": true,                       +
                  "stats_summary": {                          +
+                     "type": "stats_agg",                    +
                      "turnover": {                           +
                          "max": 25000000,                    +
                          "min": 25000000,                    +
                          "sum": 25000000,                    +
                          "mean": 25000000.00,                +
-                         "type": "number",                   +
+                         "type": "float_agg",                +
                          "count": 1,                         +
-                         "stddev": 0.00,                     +
-                         "variance": 0.00,                   +
+                         "stddev": null,                     +
+                         "variance": null,                   +
                          "sum_sq_diff": 0.00,                +
-                         "coefficient_of_variation_pct": 0.00+
+                         "coefficient_of_variation_pct": null+
                      },                                      +
                      "employees": {                          +
                          "max": 10,                          +
                          "min": 10,                          +
                          "sum": 10,                          +
                          "mean": 10.00,                      +
-                         "type": "number",                   +
+                         "type": "int_agg",                  +
                          "count": 1,                         +
-                         "stddev": 0.00,                     +
-                         "variance": 0.00,                   +
+                         "stddev": null,                     +
+                         "variance": null,                   +
                          "sum_sq_diff": 0.00,                +
-                         "coefficient_of_variation_pct": 0.00+
+                         "coefficient_of_variation_pct": null+
                      }                                       +
                  }                                           +
              }                                               +
@@ -554,12 +564,13 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
              "exists_count": 2,                           +
              "exists_change": 2,                          +
              "stats_summary": {                           +
+                 "type": "stats_agg",                     +
                  "turnover": {                            +
                      "max": 25000000,                     +
                      "min": 12000000,                     +
                      "sum": 37000000,                     +
                      "mean": 18500000.00,                 +
-                     "type": "number",                    +
+                     "type": "float_agg",                 +
                      "count": 2,                          +
                      "stddev": 9192388.16,                +
                      "variance": 84500000000000.00,       +
@@ -571,7 +582,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
                      "min": 7,                            +
                      "sum": 17,                           +
                      "mean": 8.50,                        +
-                     "type": "number",                    +
+                     "type": "int_agg",                   +
                      "count": 2,                          +
                      "stddev": 2.12,                      +
                      "variance": 4.50,                    +
@@ -604,29 +615,30 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
              "exists_count": 2,                           +
              "exists_change": 0,                          +
              "stats_summary": {                           +
+                 "type": "stats_agg",                     +
                  "turnover": {                            +
                      "max": 25000000,                     +
                      "min": 25000000,                     +
                      "sum": 25000000,                     +
                      "mean": 25000000.00,                 +
-                     "type": "number",                    +
+                     "type": "float_agg",                 +
                      "count": 1,                          +
-                     "stddev": 0.00,                      +
-                     "variance": 0.00,                    +
+                     "stddev": null,                      +
+                     "variance": null,                    +
                      "sum_sq_diff": 0.00,                 +
-                     "coefficient_of_variation_pct": 0.00 +
+                     "coefficient_of_variation_pct": null +
                  },                                       +
                  "employees": {                           +
                      "max": 10,                           +
                      "min": 10,                           +
                      "sum": 10,                           +
                      "mean": 10.00,                       +
-                     "type": "number",                    +
+                     "type": "int_agg",                   +
                      "count": 1,                          +
-                     "stddev": 0.00,                      +
-                     "variance": 0.00,                    +
+                     "stddev": null,                      +
+                     "variance": null,                    +
                      "sum_sq_diff": 0.00,                 +
-                     "coefficient_of_variation_pct": 0.00 +
+                     "coefficient_of_variation_pct": null +
                  }                                        +
              },                                           +
              "countable_count": 1,                        +
@@ -751,12 +763,13 @@ SELECT jsonb_pretty(
              "exists_count": 2,                           +
              "exists_change": 2,                          +
              "stats_summary": {                           +
+                 "type": "stats_agg",                     +
                  "turnover": {                            +
                      "max": 25000000,                     +
                      "min": 12000000,                     +
                      "sum": 37000000,                     +
                      "mean": 18500000.00,                 +
-                     "type": "number",                    +
+                     "type": "float_agg",                 +
                      "count": 2,                          +
                      "stddev": 9192388.16,                +
                      "variance": 84500000000000.00,       +
@@ -768,7 +781,7 @@ SELECT jsonb_pretty(
                      "min": 7,                            +
                      "sum": 17,                           +
                      "mean": 8.50,                        +
-                     "type": "number",                    +
+                     "type": "int_agg",                   +
                      "count": 2,                          +
                      "stddev": 2.12,                      +
                      "variance": 4.50,                    +
@@ -801,29 +814,30 @@ SELECT jsonb_pretty(
              "exists_count": 2,                           +
              "exists_change": 0,                          +
              "stats_summary": {                           +
+                 "type": "stats_agg",                     +
                  "turnover": {                            +
                      "max": 25000000,                     +
                      "min": 25000000,                     +
                      "sum": 25000000,                     +
                      "mean": 25000000.00,                 +
-                     "type": "number",                    +
+                     "type": "float_agg",                 +
                      "count": 1,                          +
-                     "stddev": 0.00,                      +
-                     "variance": 0.00,                    +
+                     "stddev": null,                      +
+                     "variance": null,                    +
                      "sum_sq_diff": 0.00,                 +
-                     "coefficient_of_variation_pct": 0.00 +
+                     "coefficient_of_variation_pct": null +
                  },                                       +
                  "employees": {                           +
                      "max": 10,                           +
                      "min": 10,                           +
                      "sum": 10,                           +
                      "mean": 10.00,                       +
-                     "type": "number",                    +
+                     "type": "int_agg",                   +
                      "count": 1,                          +
-                     "stddev": 0.00,                      +
-                     "variance": 0.00,                    +
+                     "stddev": null,                      +
+                     "variance": null,                    +
                      "sum_sq_diff": 0.00,                 +
-                     "coefficient_of_variation_pct": 0.00 +
+                     "coefficient_of_variation_pct": null +
                  }                                        +
              },                                           +
              "countable_count": 1,                        +
@@ -851,29 +865,30 @@ SELECT jsonb_pretty(
              "exists_count": 2,                           +
              "exists_change": 0,                          +
              "stats_summary": {                           +
+                 "type": "stats_agg",                     +
                  "turnover": {                            +
                      "max": 25000000,                     +
                      "min": 25000000,                     +
                      "sum": 25000000,                     +
                      "mean": 25000000.00,                 +
-                     "type": "number",                    +
+                     "type": "float_agg",                 +
                      "count": 1,                          +
-                     "stddev": 0.00,                      +
-                     "variance": 0.00,                    +
+                     "stddev": null,                      +
+                     "variance": null,                    +
                      "sum_sq_diff": 0.00,                 +
-                     "coefficient_of_variation_pct": 0.00 +
+                     "coefficient_of_variation_pct": null +
                  },                                       +
                  "employees": {                           +
                      "max": 10,                           +
                      "min": 10,                           +
                      "sum": 10,                           +
                      "mean": 10.00,                       +
-                     "type": "number",                    +
+                     "type": "int_agg",                   +
                      "count": 1,                          +
-                     "stddev": 0.00,                      +
-                     "variance": 0.00,                    +
+                     "stddev": null,                      +
+                     "variance": null,                    +
                      "sum_sq_diff": 0.00,                 +
-                     "coefficient_of_variation_pct": 0.00 +
+                     "coefficient_of_variation_pct": null +
                  }                                        +
              },                                           +
              "countable_count": 1,                        +
@@ -998,12 +1013,13 @@ SELECT jsonb_pretty(
              "exists_count": 2,                           +
              "exists_change": 2,                          +
              "stats_summary": {                           +
+                 "type": "stats_agg",                     +
                  "turnover": {                            +
                      "max": 25000000,                     +
                      "min": 12000000,                     +
                      "sum": 37000000,                     +
                      "mean": 18500000.00,                 +
-                     "type": "number",                    +
+                     "type": "float_agg",                 +
                      "count": 2,                          +
                      "stddev": 9192388.16,                +
                      "variance": 84500000000000.00,       +
@@ -1015,7 +1031,7 @@ SELECT jsonb_pretty(
                      "min": 7,                            +
                      "sum": 17,                           +
                      "mean": 8.50,                        +
-                     "type": "number",                    +
+                     "type": "int_agg",                   +
                      "count": 2,                          +
                      "stddev": 2.12,                      +
                      "variance": 4.50,                    +
@@ -1048,29 +1064,30 @@ SELECT jsonb_pretty(
              "exists_count": 2,                           +
              "exists_change": 0,                          +
              "stats_summary": {                           +
+                 "type": "stats_agg",                     +
                  "turnover": {                            +
                      "max": 25000000,                     +
                      "min": 25000000,                     +
                      "sum": 25000000,                     +
                      "mean": 25000000.00,                 +
-                     "type": "number",                    +
+                     "type": "float_agg",                 +
                      "count": 1,                          +
-                     "stddev": 0.00,                      +
-                     "variance": 0.00,                    +
+                     "stddev": null,                      +
+                     "variance": null,                    +
                      "sum_sq_diff": 0.00,                 +
-                     "coefficient_of_variation_pct": 0.00 +
+                     "coefficient_of_variation_pct": null +
                  },                                       +
                  "employees": {                           +
                      "max": 10,                           +
                      "min": 10,                           +
                      "sum": 10,                           +
                      "mean": 10.00,                       +
-                     "type": "number",                    +
+                     "type": "int_agg",                   +
                      "count": 1,                          +
-                     "stddev": 0.00,                      +
-                     "variance": 0.00,                    +
+                     "stddev": null,                      +
+                     "variance": null,                    +
                      "sum_sq_diff": 0.00,                 +
-                     "coefficient_of_variation_pct": 0.00 +
+                     "coefficient_of_variation_pct": null +
                  }                                        +
              },                                           +
              "countable_count": 1,                        +
@@ -1098,29 +1115,30 @@ SELECT jsonb_pretty(
              "exists_count": 2,                           +
              "exists_change": 0,                          +
              "stats_summary": {                           +
+                 "type": "stats_agg",                     +
                  "turnover": {                            +
                      "max": 25000000,                     +
                      "min": 25000000,                     +
                      "sum": 25000000,                     +
                      "mean": 25000000.00,                 +
-                     "type": "number",                    +
+                     "type": "float_agg",                 +
                      "count": 1,                          +
-                     "stddev": 0.00,                      +
-                     "variance": 0.00,                    +
+                     "stddev": null,                      +
+                     "variance": null,                    +
                      "sum_sq_diff": 0.00,                 +
-                     "coefficient_of_variation_pct": 0.00 +
+                     "coefficient_of_variation_pct": null +
                  },                                       +
                  "employees": {                           +
                      "max": 10,                           +
                      "min": 10,                           +
                      "sum": 10,                           +
                      "mean": 10.00,                       +
-                     "type": "number",                    +
+                     "type": "int_agg",                   +
                      "count": 1,                          +
-                     "stddev": 0.00,                      +
-                     "variance": 0.00,                    +
+                     "stddev": null,                      +
+                     "variance": null,                    +
                      "sum_sq_diff": 0.00,                 +
-                     "coefficient_of_variation_pct": 0.00 +
+                     "coefficient_of_variation_pct": null +
                  }                                        +
              },                                           +
              "countable_count": 1,                        +
@@ -1245,12 +1263,13 @@ SELECT jsonb_pretty(
              "exists_count": 3,                           +
              "exists_change": 3,                          +
              "stats_summary": {                           +
+                 "type": "stats_agg",                     +
                  "turnover": {                            +
                      "max": 25000000,                     +
                      "min": 12000000,                     +
                      "sum": 37000000,                     +
                      "mean": 18500000.00,                 +
-                     "type": "number",                    +
+                     "type": "float_agg",                 +
                      "count": 2,                          +
                      "stddev": 9192388.16,                +
                      "variance": 84500000000000.00,       +
@@ -1262,7 +1281,7 @@ SELECT jsonb_pretty(
                      "min": 7,                            +
                      "sum": 17,                           +
                      "mean": 8.50,                        +
-                     "type": "number",                    +
+                     "type": "int_agg",                   +
                      "count": 2,                          +
                      "stddev": 2.12,                      +
                      "variance": 4.50,                    +
@@ -1295,29 +1314,30 @@ SELECT jsonb_pretty(
              "exists_count": 3,                           +
              "exists_change": 0,                          +
              "stats_summary": {                           +
+                 "type": "stats_agg",                     +
                  "turnover": {                            +
                      "max": 25000000,                     +
                      "min": 25000000,                     +
                      "sum": 25000000,                     +
                      "mean": 25000000.00,                 +
-                     "type": "number",                    +
+                     "type": "float_agg",                 +
                      "count": 1,                          +
-                     "stddev": 0.00,                      +
-                     "variance": 0.00,                    +
+                     "stddev": null,                      +
+                     "variance": null,                    +
                      "sum_sq_diff": 0.00,                 +
-                     "coefficient_of_variation_pct": 0.00 +
+                     "coefficient_of_variation_pct": null +
                  },                                       +
                  "employees": {                           +
                      "max": 10,                           +
                      "min": 10,                           +
                      "sum": 10,                           +
                      "mean": 10.00,                       +
-                     "type": "number",                    +
+                     "type": "int_agg",                   +
                      "count": 1,                          +
-                     "stddev": 0.00,                      +
-                     "variance": 0.00,                    +
+                     "stddev": null,                      +
+                     "variance": null,                    +
                      "sum_sq_diff": 0.00,                 +
-                     "coefficient_of_variation_pct": 0.00 +
+                     "coefficient_of_variation_pct": null +
                  }                                        +
              },                                           +
              "countable_count": 1,                        +
@@ -1345,29 +1365,30 @@ SELECT jsonb_pretty(
              "exists_count": 3,                           +
              "exists_change": 0,                          +
              "stats_summary": {                           +
+                 "type": "stats_agg",                     +
                  "turnover": {                            +
                      "max": 25000000,                     +
                      "min": 25000000,                     +
                      "sum": 25000000,                     +
                      "mean": 25000000.00,                 +
-                     "type": "number",                    +
+                     "type": "float_agg",                 +
                      "count": 1,                          +
-                     "stddev": 0.00,                      +
-                     "variance": 0.00,                    +
+                     "stddev": null,                      +
+                     "variance": null,                    +
                      "sum_sq_diff": 0.00,                 +
-                     "coefficient_of_variation_pct": 0.00 +
+                     "coefficient_of_variation_pct": null +
                  },                                       +
                  "employees": {                           +
                      "max": 10,                           +
                      "min": 10,                           +
                      "sum": 10,                           +
                      "mean": 10.00,                       +
-                     "type": "number",                    +
+                     "type": "int_agg",                   +
                      "count": 1,                          +
-                     "stddev": 0.00,                      +
-                     "variance": 0.00,                    +
+                     "stddev": null,                      +
+                     "variance": null,                    +
                      "sum_sq_diff": 0.00,                 +
-                     "coefficient_of_variation_pct": 0.00 +
+                     "coefficient_of_variation_pct": null +
                  }                                        +
              },                                           +
              "countable_count": 1,                        +

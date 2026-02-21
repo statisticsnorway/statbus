@@ -266,7 +266,7 @@ declare interface StatisticalUnitStats {
   unit_id: number;
   valid_from: string;
   valid_to: string;
-  stats: { [key: string]: number | string };
+  stats: { type: "stats"; [statCode: string]: { type: string; value: number | string | boolean } | string };
   stats_summary: StatsSummary;
 };
 

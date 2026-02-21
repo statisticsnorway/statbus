@@ -110,8 +110,8 @@ export function TopologyItem({
               />
               {statDefinitions.map(
                 (statDefinition: Tables<"stat_definition_active">) => {
-                  const statsSum =
-                    stats?.stats_summary?.[statDefinition.code]?.sum;
+                  const metric = stats?.stats_summary?.[statDefinition.code];
+                  const statsSum = metric && "sum" in metric ? metric.sum : undefined;
                   const stat = unit.stat_for_unit?.find(
                     (s) => s.stat_definition_id === statDefinition.id
                   );

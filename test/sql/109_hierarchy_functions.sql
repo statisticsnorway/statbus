@@ -79,8 +79,7 @@ SELECT
     su.unit_type,
     su.name,
     sd.code AS stat_code,
-    sfu.value_int,
-    sfu.value_float,
+    sfu.stat,
     sfu.valid_from,
     sfu.valid_to
 FROM public.stat_for_unit AS sfu

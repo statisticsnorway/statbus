@@ -428,11 +428,11 @@ SELECT
 FROM public.statistical_unit su
 WHERE su.unit_type = 'legal_unit' AND su.external_idents->>'tax_ident' = '69A000001'
 ORDER BY su.valid_from, su.valid_to;
-             name             | valid_from |  valid_to  | physical_address_part1 | physical_postcode | physical_region_code | primary_activity_category_code | sector_code | legal_form_code |        email_address         | employees |            tag_paths            
-------------------------------+------------+------------+------------------------+-------------------+----------------------+--------------------------------+-------------+-----------------+------------------------------+-----------+---------------------------------
- LU-69A Period 1              | 2023-01-01 | 2023-03-31 | Addr 1 LU-69A          | 1001              | 0301                 | 01.110                         |             | AS              | lu69a_p1@example.com         | 10        | {TestTag.LU,TestTag.LU.Updated}
- LU-69A Period 2 Updated Name | 2023-04-01 | 2023-06-30 | Addr 2 LU-69A Updated  | 1002              | 0301                 | 01.120                         |             | AS              | lu69a_p1@example.com         | 10        | {TestTag.LU,TestTag.LU.Updated}
- LU-69A Period 2 Updated Name | 2023-07-01 | 2023-09-30 | Addr 2 LU-69A Updated  | 1002              | 0301                 | 01.120                         | 2100        | AS              | lu69a_p3_updated@example.com | 15        | {TestTag.LU,TestTag.LU.Updated}
+             name             | valid_from |  valid_to  | physical_address_part1 | physical_postcode | physical_region_code | primary_activity_category_code | sector_code | legal_form_code |        email_address         |          employees           |            tag_paths            
+------------------------------+------------+------------+------------------------+-------------------+----------------------+--------------------------------+-------------+-----------------+------------------------------+------------------------------+---------------------------------
+ LU-69A Period 1              | 2023-01-01 | 2023-03-31 | Addr 1 LU-69A          | 1001              | 0301                 | 01.110                         |             | AS              | lu69a_p1@example.com         | {"type": "int", "value": 10} | {TestTag.LU,TestTag.LU.Updated}
+ LU-69A Period 2 Updated Name | 2023-04-01 | 2023-06-30 | Addr 2 LU-69A Updated  | 1002              | 0301                 | 01.120                         |             | AS              | lu69a_p1@example.com         | {"type": "int", "value": 10} | {TestTag.LU,TestTag.LU.Updated}
+ LU-69A Period 2 Updated Name | 2023-07-01 | 2023-09-30 | Addr 2 LU-69A Updated  | 1002              | 0301                 | 01.120                         | 2100        | AS              | lu69a_p3_updated@example.com | {"type": "int", "value": 15} | {TestTag.LU,TestTag.LU.Updated}
 (3 rows)
 
 ROLLBACK TO scenario_69_a_lu_lifecycle;
@@ -828,11 +828,11 @@ SELECT
 FROM public.statistical_unit su
 WHERE su.unit_type = 'establishment' AND su.external_idents->>'tax_ident' = 'E69B00001'
 ORDER BY su.valid_from, su.valid_to;
-             name             | valid_from |  valid_to  | physical_address_part1 | physical_postcode | physical_region_code | primary_activity_category_code |        email_address         | employees |                   tag_paths                   | legal_unit_tax_ident 
-------------------------------+------------+------------+------------------------+-------------------+----------------------+--------------------------------+------------------------------+-----------+-----------------------------------------------+----------------------
- ES-69B Period 1              | 2023-01-01 | 2023-03-31 | Addr 1 ES-69B          | 2001              | 0301                 |                                | es69b_p1@example.com         | 5         | {TestTag.ES.Formal,TestTag.ES.Formal.Updated} | 
- ES-69B Period 2 Updated Name | 2023-04-01 | 2023-06-30 | Addr 2 ES-69B Updated  | 2002              | 0301                 |                                | es69b_p1@example.com         | 5         | {TestTag.ES.Formal,TestTag.ES.Formal.Updated} | 
- ES-69B Period 2 Updated Name | 2023-07-01 | 2023-09-30 | Addr 2 ES-69B Updated  | 2002              | 0301                 |                                | es69b_p3_updated@example.com | 7         | {TestTag.ES.Formal,TestTag.ES.Formal.Updated} | 
+             name             | valid_from |  valid_to  | physical_address_part1 | physical_postcode | physical_region_code | primary_activity_category_code |        email_address         |          employees          |                   tag_paths                   | legal_unit_tax_ident 
+------------------------------+------------+------------+------------------------+-------------------+----------------------+--------------------------------+------------------------------+-----------------------------+-----------------------------------------------+----------------------
+ ES-69B Period 1              | 2023-01-01 | 2023-03-31 | Addr 1 ES-69B          | 2001              | 0301                 |                                | es69b_p1@example.com         | {"type": "int", "value": 5} | {TestTag.ES.Formal,TestTag.ES.Formal.Updated} | 
+ ES-69B Period 2 Updated Name | 2023-04-01 | 2023-06-30 | Addr 2 ES-69B Updated  | 2002              | 0301                 |                                | es69b_p1@example.com         | {"type": "int", "value": 5} | {TestTag.ES.Formal,TestTag.ES.Formal.Updated} | 
+ ES-69B Period 2 Updated Name | 2023-07-01 | 2023-09-30 | Addr 2 ES-69B Updated  | 2002              | 0301                 |                                | es69b_p3_updated@example.com | {"type": "int", "value": 7} | {TestTag.ES.Formal,TestTag.ES.Formal.Updated} | 
 (3 rows)
 
 ROLLBACK TO scenario_69_b_formal_es_lifecycle;
@@ -1192,11 +1192,11 @@ SELECT
 FROM public.statistical_unit su
 WHERE su.unit_type = 'establishment' AND su.external_idents->>'tax_ident' = 'E69C00001'
 ORDER BY su.valid_from, su.valid_to;
-             name             | valid_from |  valid_to  | physical_address_part1 | physical_postcode | physical_region_code | primary_activity_category_code |        email_address         | employees |                     tag_paths                     
-------------------------------+------------+------------+------------------------+-------------------+----------------------+--------------------------------+------------------------------+-----------+---------------------------------------------------
- ES-69C Period 1              | 2023-01-01 | 2023-03-31 | Addr 1 ES-69C          | 3001              | 0301                 |                                | es69c_p1@example.com         | 2         | {TestTag.ES.Informal,TestTag.ES.Informal.Updated}
- ES-69C Period 2 Updated Name | 2023-04-01 | 2023-06-30 | Addr 2 ES-69C Updated  | 3002              | 0301                 | 03.120                         | es69c_p1@example.com         | 2         | {TestTag.ES.Informal,TestTag.ES.Informal.Updated}
- ES-69C Period 2 Updated Name | 2023-07-01 | 2023-09-30 | Addr 2 ES-69C Updated  | 3002              | 0301                 | 03.120                         | es69c_p3_updated@example.com | 3         | {TestTag.ES.Informal,TestTag.ES.Informal.Updated}
+             name             | valid_from |  valid_to  | physical_address_part1 | physical_postcode | physical_region_code | primary_activity_category_code |        email_address         |          employees          |                     tag_paths                     
+------------------------------+------------+------------+------------------------+-------------------+----------------------+--------------------------------+------------------------------+-----------------------------+---------------------------------------------------
+ ES-69C Period 1              | 2023-01-01 | 2023-03-31 | Addr 1 ES-69C          | 3001              | 0301                 |                                | es69c_p1@example.com         | {"type": "int", "value": 2} | {TestTag.ES.Informal,TestTag.ES.Informal.Updated}
+ ES-69C Period 2 Updated Name | 2023-04-01 | 2023-06-30 | Addr 2 ES-69C Updated  | 3002              | 0301                 | 03.120                         | es69c_p1@example.com         | {"type": "int", "value": 2} | {TestTag.ES.Informal,TestTag.ES.Informal.Updated}
+ ES-69C Period 2 Updated Name | 2023-07-01 | 2023-09-30 | Addr 2 ES-69C Updated  | 3002              | 0301                 | 03.120                         | es69c_p3_updated@example.com | {"type": "int", "value": 3} | {TestTag.ES.Informal,TestTag.ES.Informal.Updated}
 (3 rows)
 
 ROLLBACK TO scenario_69_c_informal_es_lifecycle;

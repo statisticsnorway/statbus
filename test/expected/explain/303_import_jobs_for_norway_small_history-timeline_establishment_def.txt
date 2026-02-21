@@ -103,7 +103,7 @@
                                                                            ->  Limit
                                                                                  ->  Sort
                                                                                        Sort Key: l.id DESC
-                                                                                       ->  Index Scan using location_type_establishment_id_legal_unit_id_idx on location l
+                                                                                       ->  Index Scan using location_type_establishment_id_valid on location l
                                                                                              Index Cond: ((type = 'physical'::location_type) AND (establishment_id = es.id))
                                                                                              Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until))
                                                          ->  Hash
@@ -122,7 +122,7 @@
                                                                            ->  Limit
                                                                                  ->  Sort
                                                                                        Sort Key: l_1.id DESC
-                                                                                       ->  Index Scan using location_type_establishment_id_legal_unit_id_idx on location l_1
+                                                                                       ->  Index Scan using location_type_establishment_id_valid on location l_1
                                                                                              Index Cond: ((type = 'postal'::location_type) AND (establishment_id = es.id))
                                                                                              Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until))
                                        ->  Memoize
@@ -140,21 +140,23 @@
                                        ->  Aggregate
                                              ->  Sort
                                                    Sort Key: sfu_1.data_source_id
-                                                   ->  Seq Scan on stat_for_unit sfu_1
-                                                         Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (establishment_id = es.id))
+                                                   ->  Index Scan using ix_stat_for_unit_establishment_id on stat_for_unit sfu_1
+                                                         Index Cond: (establishment_id = es.id)
+                                                         Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until))
                            ->  Memoize
                                  Cache Key: es.id, t.valid_from, t.valid_until
                                  Cache Mode: binary
                                  ->  Limit
                                        ->  Sort
                                              Sort Key: sfu_2.edit_at DESC
-                                             ->  Seq Scan on stat_for_unit sfu_2
-                                                   Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until) AND (establishment_id = es.id))
+                                             ->  Index Scan using ix_stat_for_unit_establishment_id on stat_for_unit sfu_2
+                                                   Index Cond: (establishment_id = es.id)
+                                                   Filter: ((t.valid_from < valid_until) AND (valid_from < t.valid_until))
                      ->  Memoize
                            Cache Key: es.data_source_id, pa.data_source_id, sa.data_source_id, phl.data_source_id, pol.data_source_id, (array_agg(DISTINCT sfu_1.data_source_id) FILTER (WHERE (sfu_1.data_source_id IS NOT NULL)))
                            Cache Mode: binary
                            ->  Aggregate
-                                 ->  Seq Scan on data_source ds
+                                 ->  Seq Scan on data_source ds_1
                                        Filter: (COALESCE((id = es.data_source_id), false) OR COALESCE((id = pa.data_source_id), false) OR COALESCE((id = sa.data_source_id), false) OR COALESCE((id = phl.data_source_id), false) OR COALESCE((id = pol.data_source_id), false) OR COALESCE((id = ANY ((array_agg(DISTINCT sfu_1.data_source_id) FILTER (WHERE (sfu_1.data_source_id IS NOT NULL))))), false))
                ->  Memoize
                      Cache Key: es.edit_comment, es.edit_by_user_id, es.edit_at, pa.edit_comment, pa.edit_by_user_id, pa.edit_at, sa.edit_comment, sa.edit_by_user_id, sa.edit_at, phl.edit_comment, phl.edit_by_user_id, phl.edit_at, pol.edit_comment, pol.edit_by_user_id, pol.edit_at, c.edit_comment, c.edit_by_user_id, c.edit_at, sfu_2.edit_comment, sfu_2.edit_by_user_id, sfu_2.edit_at
@@ -164,5 +166,5 @@
                                  Sort Key: "*VALUES*".column3 DESC
                                  ->  Values Scan on "*VALUES*"
                                        Filter: (column3 IS NOT NULL)
-(164 rows)
+(166 rows)
 

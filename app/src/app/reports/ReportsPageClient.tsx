@@ -65,7 +65,7 @@ export default function ReportsPageClient({
             ...(drillDown.available.region?.map((point) =>
               value === "count"
                 ? point.count
-                : ((point.stats_summary?.[value]?.sum as number) ?? 0)
+                : (() => { const m = point.stats_summary?.[value]; return m && "sum" in m ? (m.sum as number) : 0; })()
             ) || [])
           );
           const categoryMax = Math.max(
@@ -73,7 +73,7 @@ export default function ReportsPageClient({
             ...(drillDown.available.activity_category?.map((point) =>
               value === "count"
                 ? point.count
-                : ((point.stats_summary?.[value]?.sum as number) ?? 0)
+                : (() => { const m = point.stats_summary?.[value]; return m && "sum" in m ? (m.sum as number) : 0; })()
             ) || [])
           );
 

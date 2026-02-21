@@ -1,206 +1,165 @@
--- Test Setup
+-- Test: jsonb_stats extension functions
+-- Tests the full pipeline used by timeline views for statistical aggregation
 
--- Create a temporary table for testing
-CREATE TEMPORARY TABLE test_stats (
+-- Create test table mirroring stat_for_unit's typed columns
+CREATE TEMPORARY TABLE test_stat_rows (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     test_case integer,
-    stats jsonb
+    entity_id integer,
+    code text,
+    value_int integer,
+    value_float double precision,
+    value_string text,
+    value_bool boolean,
+    stat JSONB GENERATED ALWAYS AS (
+        COALESCE(stat(value_int), stat(value_float), stat(value_string), stat(value_bool))
+    ) STORED
 );
 
--- Insert test cases into the temporary table
-INSERT INTO test_stats (test_case, stats)
-VALUES
-    (1, '{"num": 1, "str": "a", "bool": true}'::jsonb),
-    (1, '{"num": 2, "str": "a", "bool": false}'::jsonb),
-    (1, '{"num": 3, "str": "b", "bool": true}'::jsonb),
-    (2, '{"num": 0, "str": "a", "bool": true}'::jsonb),
-    (2, '{"num": 100, "str": "b", "bool": false}'::jsonb),
-    (2, '{"num": 200, "str": "b", "bool": true}'::jsonb),
-    (2, '{"num": 300, "str": "c", "bool": true}'::jsonb),
-    (2, '{"num": 400, "str": "c", "bool": false}'::jsonb),
-    (2, '{"num": 500, "str": "c", "bool": true}'::jsonb),
-    (2, '{"num": 600, "str": "d", "bool": true}'::jsonb),
-    (2, '{"num": 700, "str": "d", "bool": true}'::jsonb),
-    (2, '{"num": 800, "str": "d", "bool": false}'::jsonb),
-    (2, '{"num": 900, "str": "d", "bool": false}'::jsonb),
-    (3, '{"a": 1}'::jsonb),
-    (3, '{"a": "1"}'::jsonb),
-    (4, '{"arr": [1, 2]}'::jsonb),
-    (4, '{"arr": [2, 3]}'::jsonb),
-    (5, '{"arr": ["a", "b"]}'::jsonb),
-    (5, '{"arr": ["b", "c"]}'::jsonb),
-    (6, '{"arr": [1, 2, "a"]}'::jsonb),
-    (6, '{"arr": ["a", "b", "c"]}'::jsonb),
-    (7, '{"num": 0  , "str": "a", "bool": true , "arr": [1]}'::jsonb),
-    (7, '{"num": 100, "str": "b", "bool": false, "arr": [2,3]}'::jsonb),
-    (7, '{"num": 200, "str": "b", "bool": true , "arr": [3,4,5]}'::jsonb),
-    (7, '{"num": 300, "str": "c", "bool": true , "arr": [4,5]}'::jsonb),
-    (7, '{"num": 400, "str": "c", "bool": false, "arr": [5]}'::jsonb),
-    (7, '{"num": 500, "str": "c", "bool": true , "arr": ["1"]}'::jsonb),
-    (7, '{"num": 600, "str": "d", "bool": true , "arr": ["2","3"]}'::jsonb),
-    (7, '{"num": 700, "str": "d", "bool": true , "arr": ["3","4","5"]}'::jsonb),
-    (7, '{"num": 800, "str": "d", "bool": false, "arr": ["4","5"]}'::jsonb),
-    (7, '{"num": 900, "str": "d", "bool": false, "arr": ["5"]}'::jsonb);
+-- Test case 1: 3 entities, each with (num, str, bool) stats
+-- Entity 1: num=1, str='a', bool=true
+-- Entity 2: num=2, str='a', bool=false
+-- Entity 3: num=3, str='b', bool=true
+INSERT INTO test_stat_rows (test_case, entity_id, code, value_int) VALUES
+    (1, 1, 'num', 1), (1, 2, 'num', 2), (1, 3, 'num', 3);
+INSERT INTO test_stat_rows (test_case, entity_id, code, value_string) VALUES
+    (1, 1, 'str', 'a'), (1, 2, 'str', 'a'), (1, 3, 'str', 'b');
+INSERT INTO test_stat_rows (test_case, entity_id, code, value_bool) VALUES
+    (1, 1, 'bool', true), (1, 2, 'bool', false), (1, 3, 'bool', true);
 
+-- Test case 2: 10 entities for numeric accuracy testing
+INSERT INTO test_stat_rows (test_case, entity_id, code, value_int) VALUES
+    (2, 1, 'num', 0), (2, 2, 'num', 100), (2, 3, 'num', 200), (2, 4, 'num', 300), (2, 5, 'num', 400),
+    (2, 6, 'num', 500), (2, 7, 'num', 600), (2, 8, 'num', 700), (2, 9, 'num', 800), (2, 10, 'num', 900);
+INSERT INTO test_stat_rows (test_case, entity_id, code, value_string) VALUES
+    (2, 1, 'str', 'a'), (2, 2, 'str', 'b'), (2, 3, 'str', 'b'), (2, 4, 'str', 'c'), (2, 5, 'str', 'c'),
+    (2, 6, 'str', 'c'), (2, 7, 'str', 'd'), (2, 8, 'str', 'd'), (2, 9, 'str', 'd'), (2, 10, 'str', 'd');
+INSERT INTO test_stat_rows (test_case, entity_id, code, value_bool) VALUES
+    (2, 1, 'bool', true), (2, 2, 'bool', false), (2, 3, 'bool', true), (2, 4, 'bool', true), (2, 5, 'bool', false),
+    (2, 6, 'bool', true), (2, 7, 'bool', true), (2, 8, 'bool', true), (2, 9, 'bool', false), (2, 10, 'bool', false);
 
--- Output reference numbers using sql, to validate the implementation.
+-- Reference view for SQL-native aggregation (for verification)
 CREATE TEMPORARY VIEW reference AS
 SELECT
     test_case,
-    SUM((stats->'num')::integer) AS num_sum,
-    COUNT((stats->'num')::integer) AS num_count,
-    MIN((stats->'num')::integer) AS num_min,
-    MAX((stats->'num')::integer) AS num_max,
-    AVG((stats->'num')::integer) AS num_mean,
-    VARIANCE((stats->'num')::integer) AS num_variance,
-    -- Calculate Standard Deviation
-    CASE WHEN COUNT((stats->'num')::integer) > 1
-         THEN SQRT(VARIANCE((stats->'num')::integer))
-         ELSE NULL END AS num_stddev,
-    -- Calculate Coefficient of Variation (CV)
-    CASE WHEN AVG((stats->'num')::integer) <> 0 THEN
-        (CASE WHEN COUNT((stats->'num')::integer) > 1 THEN
-            SQRT(VARIANCE((stats->'num')::integer)) / AVG((stats->'num')::integer)
-        ELSE NULL END)
-    ELSE NULL END AS num_coefficient_of_variation,
-    -- Calculate Rate of Change
-    CASE WHEN MIN((stats->'num')::integer) <> 0 THEN
-        (MAX((stats->'num')::integer) - MIN((stats->'num')::integer)) / MIN((stats->'num')::integer) 
-    ELSE NULL END AS num_rate_of_change,
-    SUM(CASE WHEN (stats->>'bool')::boolean THEN 1 ELSE 0 END) AS bool_true_count,
-    SUM(CASE WHEN NOT (stats->>'bool')::boolean THEN 1 ELSE 0 END) AS bool_false_count,
-    -- Use a lateral join to unnest array elements and count distinct items
-    COALESCE(SUM((SELECT COUNT(*)
-                  FROM jsonb_array_elements_text(stats->'arr') AS element
-                  WHERE element = '1')), 0) AS arr_1_count,
-    COALESCE(SUM((SELECT COUNT(*)
-                  FROM jsonb_array_elements_text(stats->'arr') AS element
-                  WHERE element = '2')), 0) AS arr_2_count,
-    COALESCE(SUM((SELECT COUNT(*)
-                  FROM jsonb_array_elements_text(stats->'arr') AS element
-                  WHERE element = '3')), 0) AS arr_3_count,
-    COALESCE(SUM((SELECT COUNT(*)
-                  FROM jsonb_array_elements_text(stats->'arr') AS element
-                  WHERE element = 'a')), 0) AS arr_a_count,
-    COALESCE(SUM((SELECT COUNT(*)
-                  FROM jsonb_array_elements_text(stats->'arr') AS element
-                  WHERE element = 'b')), 0) AS arr_b_count,
-    COALESCE(SUM((SELECT COUNT(*)
-                  FROM jsonb_array_elements_text(stats->'arr') AS element
-                  WHERE element = 'c')), 0) AS arr_c_count,
-    COUNT(*) FILTER (WHERE stats->>'str' = 'a') AS str_a_count,
-    COUNT(*) FILTER (WHERE stats->>'str' = 'b') AS str_b_count,
-    COUNT(*) FILTER (WHERE stats->>'str' = 'c') AS str_c_count,
-    COUNT(*) FILTER (WHERE stats->>'str' = 'd') AS str_d_count
-FROM test_stats
+    SUM(value_int) AS num_sum,
+    COUNT(value_int) AS num_count,
+    MIN(value_int) AS num_min,
+    MAX(value_int) AS num_max,
+    ROUND(AVG(value_int), 2) AS num_mean,
+    SUM(CASE WHEN value_bool THEN 1 ELSE 0 END) AS bool_true_count,
+    SUM(CASE WHEN NOT value_bool THEN 1 ELSE 0 END) AS bool_false_count,
+    COUNT(*) FILTER (WHERE value_string = 'a') AS str_a_count,
+    COUNT(*) FILTER (WHERE value_string = 'b') AS str_b_count,
+    COUNT(*) FILTER (WHERE value_string = 'c') AS str_c_count,
+    COUNT(*) FILTER (WHERE value_string = 'd') AS str_d_count
+FROM test_stat_rows
 GROUP BY test_case
 ORDER BY test_case;
 
--- Test cases
--- Show results suitable for jsonb_pretty for easy diffing.
 \t
 \a
 
--- Test 1: Each supported data type iterative case
-SELECT jsonb_pretty(jsonb_stats_to_summary_agg(stats)) AS computed_stats
-FROM test_stats
-WHERE test_case = 1;
+-- Test 1: stat() constructors
+SELECT '## stat() constructors' AS test;
+SELECT stat(42);
+SELECT stat(3.14::float8);
+SELECT stat('hello'::text);
+SELECT stat(true);
+
+-- Test 2: jsonb_stats_agg(code, stat) - builds stats per entity
+-- This is Level 1: build one stats object per entity (like establishment_stats CTE)
+SELECT '## Level 1: stats per entity (test_case=1, entity_id=1)' AS test;
+SELECT jsonb_pretty(jsonb_stats_agg(code, stat)) AS stats
+FROM test_stat_rows
+WHERE test_case = 1 AND entity_id = 1;
+
+-- Test 3: jsonb_stats_to_agg - convert single entity stats to stats_agg
+-- This is Level 2: convert per-entity stats to stats_agg (like stats_summary in timeline views)
+SELECT '## Level 2: stats_agg per entity (test_case=1, entity_id=1)' AS test;
+WITH entity_stats AS (
+    SELECT jsonb_stats_agg(code, stat) AS stats
+    FROM test_stat_rows
+    WHERE test_case = 1 AND entity_id = 1
+)
+SELECT jsonb_pretty(jsonb_stats_to_agg(stats)) AS stats_agg
+FROM entity_stats;
+
+-- Test 4: Full pipeline - build per-entity stats_agg, then merge across entities
+-- This is Level 3: merge multiple entities' stats_agg (like establishment_aggs CTE)
+SELECT '## Level 3: merged stats_agg across all entities (test_case=1)' AS test;
+WITH entity_stats AS (
+    SELECT entity_id,
+           jsonb_stats_to_agg(jsonb_stats_agg(code, stat)) AS stats_agg
+    FROM test_stat_rows
+    WHERE test_case = 1
+    GROUP BY entity_id
+)
+SELECT jsonb_pretty(jsonb_stats_merge_agg(stats_agg)) AS merged
+FROM entity_stats;
+
 \x
 \a
 SELECT * FROM reference WHERE test_case = 1;
 \a
 \x
 
--- Test 2: Algorithms for many data points
-SELECT jsonb_pretty(jsonb_stats_to_summary_agg(stats)) AS computed_stats
-FROM test_stats
-WHERE test_case = 2;
+-- Test 5: Full pipeline with 10 entities
+SELECT '## Level 3: merged stats_agg (test_case=2)' AS test;
+WITH entity_stats AS (
+    SELECT entity_id,
+           jsonb_stats_to_agg(jsonb_stats_agg(code, stat)) AS stats_agg
+    FROM test_stat_rows
+    WHERE test_case = 2
+    GROUP BY entity_id
+)
+SELECT jsonb_pretty(jsonb_stats_merge_agg(stats_agg)) AS merged
+FROM entity_stats;
+
 \x
 \a
 SELECT * FROM reference WHERE test_case = 2;
 \a
 \x
 
--- Test 3: Type mismatch
-SELECT jsonb_pretty(jsonb_stats_to_summary_agg(stats)) AS computed_stats
-FROM test_stats
-WHERE test_case = 3;
--- Expected output: ERROR: Type mismatch for key "a": number vs string
-
--- Test 4: Array of numeric values
-SELECT jsonb_pretty(jsonb_stats_to_summary_agg(stats)) AS computed_stats
-FROM test_stats
-WHERE test_case = 4;
-\x
-\a
-SELECT * FROM reference WHERE test_case = 4;
-\a
-\x
-
--- Test 5: Array of string values
-SELECT jsonb_pretty(jsonb_stats_to_summary_agg(stats)) AS computed_stats
-FROM test_stats
-WHERE test_case = 5;
-\x
-\a
-SELECT * FROM reference WHERE test_case = 5;
-\a
-\x
-
--- Test 6: Array with type mismatch, each occurrence is just counted
-SELECT jsonb_pretty(jsonb_stats_to_summary_agg(stats)) AS computed_stats
-FROM test_stats
-WHERE test_case = 6;
-\x
-\a
-SELECT * FROM reference WHERE test_case = 6;
-\a
-\x
-
--- Additional tests for jsonb_stats_summary_merge function
-
--- Test 7: Merging two JSONB objects with different keys
-WITH ordered_data AS (
-    SELECT
-        ROW_NUMBER() OVER (ORDER BY id) AS row_num,
-        stats
-    FROM test_stats
-    WHERE test_case = 7
+-- Test 6: Split-merge test
+-- Split entities into two halves, merge separately, then merge the halves
+-- Verifies merge associativity: merge(merge(A), merge(B)) == merge(A ∪ B)
+SELECT '## Split-merge test' AS test;
+WITH entity_stats AS (
+    SELECT entity_id,
+           jsonb_stats_to_agg(jsonb_stats_agg(code, stat)) AS stats_agg
+    FROM test_stat_rows
+    WHERE test_case = 2
+    GROUP BY entity_id
 ),
-total_count AS (
-    SELECT COUNT(*) AS total FROM ordered_data
+first_half AS (
+    SELECT jsonb_stats_merge_agg(stats_agg) AS agg
+    FROM entity_stats
+    WHERE entity_id <= 5
 ),
-grouped_data AS (
-    SELECT
-        jsonb_stats_to_summary_agg(stats) FILTER (WHERE row_num <= total.total / 2) AS first_summary,
-        jsonb_stats_to_summary_agg(stats) FILTER (WHERE row_num > total.total / 2) AS last_summary
-    FROM ordered_data, total_count total
+second_half AS (
+    SELECT jsonb_stats_merge_agg(stats_agg) AS agg
+    FROM entity_stats
+    WHERE entity_id > 5
 ),
 ordered_groups AS (
-    SELECT first_summary AS stats_summary FROM grouped_data
+    SELECT agg AS stats_summary FROM first_half
     UNION ALL
-    SELECT last_summary  AS stats_summary FROM grouped_data
+    SELECT agg AS stats_summary FROM second_half
 )
-SELECT '## first_summary' AS stats_summary
+SELECT '## first_half' AS stats_summary
 UNION ALL
-SELECT jsonb_pretty(first_summary) AS stats_summary FROM grouped_data
+SELECT jsonb_pretty(agg) FROM first_half
 UNION ALL
-SELECT '## last_summary' AS stats_summary
+SELECT '## second_half' AS stats_summary
 UNION ALL
-SELECT jsonb_pretty(last_summary) AS stats_summary FROM grouped_data
+SELECT jsonb_pretty(agg) FROM second_half
 UNION ALL
-SELECT '## jsonb_stats_summary_merge_agg' AS stats_summary
+SELECT '## jsonb_stats_merge_agg'
 UNION ALL
-SELECT jsonb_pretty(jsonb_stats_summary_merge_agg(stats_summary)) AS stats_summary
-FROM ordered_groups
+SELECT jsonb_pretty(jsonb_stats_merge_agg(stats_summary)) FROM ordered_groups
 UNION ALL
-SELECT '## jsonb_stats_summary_merge' AS stats_summary
+SELECT '## jsonb_stats_merge'
 UNION ALL
-SELECT jsonb_pretty(jsonb_stats_summary_merge(first_summary, last_summary)) AS stats_summary
-FROM grouped_data
-UNION ALL
-SELECT '## jsonb_stats_to_summary_agg' AS stats_summary
-UNION ALL
-SELECT jsonb_pretty(jsonb_stats_to_summary_agg(stats)) AS stats_summary
-FROM ordered_data;
-
+SELECT jsonb_pretty(jsonb_stats_merge(f.agg, s.agg)) FROM first_half f, second_half s;

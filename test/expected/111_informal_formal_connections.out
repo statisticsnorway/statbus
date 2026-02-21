@@ -410,6 +410,10 @@ SELECT jsonb_pretty(
                          "invalid_codes": null,                                                                                   +
                          "stat_for_unit": [                                                                                       +
                              {                                                                                                    +
+                                 "stat": {                                                                                        +
+                                     "type": "int",                                                                               +
+                                     "value": 0                                                                                   +
+                                 },                                                                                               +
                                  "valid_to": "infinity",                                                                          +
                                  "value_int": 0,                                                                                  +
                                  "valid_from": "2024-01-01",                                                                      +
@@ -436,6 +440,10 @@ SELECT jsonb_pretty(
                                  }                                                                                                +
                              },                                                                                                   +
                              {                                                                                                    +
+                                 "stat": {                                                                                        +
+                                     "type": "float",                                                                             +
+                                     "value": 0.0                                                                                 +
+                                 },                                                                                               +
                                  "valid_to": "infinity",                                                                          +
                                  "value_int": null,                                                                               +
                                  "valid_from": "2024-01-01",                                                                      +
@@ -474,6 +482,10 @@ SELECT jsonb_pretty(
                  "invalid_codes": null,                                                                                           +
                  "stat_for_unit": [                                                                                               +
                      {                                                                                                            +
+                         "stat": {                                                                                                +
+                             "type": "int",                                                                                       +
+                             "value": 2                                                                                           +
+                         },                                                                                                       +
                          "valid_to": "infinity",                                                                                  +
                          "value_int": 2,                                                                                          +
                          "valid_from": "2024-01-01",                                                                              +
@@ -500,6 +512,10 @@ SELECT jsonb_pretty(
                          }                                                                                                        +
                      },                                                                                                           +
                      {                                                                                                            +
+                         "stat": {                                                                                                +
+                             "type": "float",                                                                                     +
+                             "value": 9000000.0                                                                                   +
+                         },                                                                                                       +
                          "valid_to": "infinity",                                                                                  +
                          "value_int": null,                                                                                       +
                          "valid_from": "2024-01-01",                                                                              +
@@ -669,6 +685,10 @@ SELECT jsonb_pretty(
                  "invalid_codes": null,                                                                                   +
                  "stat_for_unit": [                                                                                       +
                      {                                                                                                    +
+                         "stat": {                                                                                        +
+                             "type": "int",                                                                               +
+                             "value": 2                                                                                   +
+                         },                                                                                               +
                          "valid_to": "infinity",                                                                          +
                          "value_int": 2,                                                                                  +
                          "valid_from": "2024-01-01",                                                                      +
@@ -695,6 +715,10 @@ SELECT jsonb_pretty(
                          }                                                                                                +
                      },                                                                                                   +
                      {                                                                                                    +
+                         "stat": {                                                                                        +
+                             "type": "float",                                                                             +
+                             "value": 4400.0                                                                              +
+                         },                                                                                               +
                          "valid_to": "infinity",                                                                          +
                          "value_int": null,                                                                               +
                          "valid_from": "2024-01-01",                                                                      +
@@ -1067,6 +1091,10 @@ SELECT jsonb_pretty(
                          "invalid_codes": null,                                                                                   +
                          "stat_for_unit": [                                                                                       +
                              {                                                                                                    +
+                                 "stat": {                                                                                        +
+                                     "type": "int",                                                                               +
+                                     "value": 0                                                                                   +
+                                 },                                                                                               +
                                  "valid_to": "infinity",                                                                          +
                                  "value_int": 0,                                                                                  +
                                  "valid_from": "2024-01-01",                                                                      +
@@ -1093,6 +1121,10 @@ SELECT jsonb_pretty(
                                  }                                                                                                +
                              },                                                                                                   +
                              {                                                                                                    +
+                                 "stat": {                                                                                        +
+                                     "type": "float",                                                                             +
+                                     "value": 0.0                                                                                 +
+                                 },                                                                                               +
                                  "valid_to": "infinity",                                                                          +
                                  "value_int": null,                                                                               +
                                  "valid_from": "2024-01-01",                                                                      +
@@ -1131,6 +1163,10 @@ SELECT jsonb_pretty(
                  "invalid_codes": null,                                                                                           +
                  "stat_for_unit": [                                                                                               +
                      {                                                                                                            +
+                         "stat": {                                                                                                +
+                             "type": "int",                                                                                       +
+                             "value": 2                                                                                           +
+                         },                                                                                                       +
                          "valid_to": "infinity",                                                                                  +
                          "value_int": 2,                                                                                          +
                          "valid_from": "2024-01-01",                                                                              +
@@ -1157,6 +1193,10 @@ SELECT jsonb_pretty(
                          }                                                                                                        +
                      },                                                                                                           +
                      {                                                                                                            +
+                         "stat": {                                                                                                +
+                             "type": "float",                                                                                     +
+                             "value": 9000000.0                                                                                   +
+                         },                                                                                                       +
                          "valid_to": "infinity",                                                                                  +
                          "value_int": null,                                                                                       +
                          "valid_from": "2024-01-01",                                                                              +
@@ -1297,6 +1337,10 @@ SELECT jsonb_pretty(
                  "invalid_codes": null,                                                                                           +
                  "stat_for_unit": [                                                                                               +
                      {                                                                                                            +
+                         "stat": {                                                                                                +
+                             "type": "int",                                                                                       +
+                             "value": 2                                                                                           +
+                         },                                                                                                       +
                          "valid_to": "infinity",                                                                                  +
                          "value_int": 2,                                                                                          +
                          "valid_from": "2024-01-01",                                                                              +
@@ -1323,6 +1367,10 @@ SELECT jsonb_pretty(
                          }                                                                                                        +
                      },                                                                                                           +
                      {                                                                                                            +
+                         "stat": {                                                                                                +
+                             "type": "float",                                                                                     +
+                             "value": 4400.0                                                                                      +
+                         },                                                                                                       +
                          "valid_to": "infinity",                                                                                  +
                          "value_int": null,                                                                                       +
                          "valid_from": "2024-01-01",                                                                              +
@@ -1605,6 +1653,10 @@ SELECT jsonb_pretty(
                          "invalid_codes": null,                                                                                   +
                          "stat_for_unit": [                                                                                       +
                              {                                                                                                    +
+                                 "stat": {                                                                                        +
+                                     "type": "int",                                                                               +
+                                     "value": 0                                                                                   +
+                                 },                                                                                               +
                                  "valid_to": "infinity",                                                                          +
                                  "value_int": 0,                                                                                  +
                                  "valid_from": "2024-01-01",                                                                      +
@@ -1631,6 +1683,10 @@ SELECT jsonb_pretty(
                                  }                                                                                                +
                              },                                                                                                   +
                              {                                                                                                    +
+                                 "stat": {                                                                                        +
+                                     "type": "float",                                                                             +
+                                     "value": 0.0                                                                                 +
+                                 },                                                                                               +
                                  "valid_to": "infinity",                                                                          +
                                  "value_int": null,                                                                               +
                                  "valid_from": "2024-01-01",                                                                      +
@@ -1669,6 +1725,10 @@ SELECT jsonb_pretty(
                  "invalid_codes": null,                                                                                           +
                  "stat_for_unit": [                                                                                               +
                      {                                                                                                            +
+                         "stat": {                                                                                                +
+                             "type": "int",                                                                                       +
+                             "value": 2                                                                                           +
+                         },                                                                                                       +
                          "valid_to": "infinity",                                                                                  +
                          "value_int": 2,                                                                                          +
                          "valid_from": "2024-01-01",                                                                              +
@@ -1695,6 +1755,10 @@ SELECT jsonb_pretty(
                          }                                                                                                        +
                      },                                                                                                           +
                      {                                                                                                            +
+                         "stat": {                                                                                                +
+                             "type": "float",                                                                                     +
+                             "value": 9000000.0                                                                                   +
+                         },                                                                                                       +
                          "valid_to": "infinity",                                                                                  +
                          "value_int": null,                                                                                       +
                          "valid_from": "2024-01-01",                                                                              +
@@ -1835,6 +1899,10 @@ SELECT jsonb_pretty(
                  "invalid_codes": null,                                                                                           +
                  "stat_for_unit": [                                                                                               +
                      {                                                                                                            +
+                         "stat": {                                                                                                +
+                             "type": "int",                                                                                       +
+                             "value": 2                                                                                           +
+                         },                                                                                                       +
                          "valid_to": "infinity",                                                                                  +
                          "value_int": 2,                                                                                          +
                          "valid_from": "2024-01-01",                                                                              +
@@ -1861,6 +1929,10 @@ SELECT jsonb_pretty(
                          }                                                                                                        +
                      },                                                                                                           +
                      {                                                                                                            +
+                         "stat": {                                                                                                +
+                             "type": "float",                                                                                     +
+                             "value": 4400.0                                                                                      +
+                         },                                                                                                       +
                          "valid_to": "infinity",                                                                                  +
                          "value_int": null,                                                                                       +
                          "valid_from": "2024-01-01",                                                                              +
@@ -2143,6 +2215,10 @@ SELECT jsonb_pretty(
                          "invalid_codes": null,                                                                                   +
                          "stat_for_unit": [                                                                                       +
                              {                                                                                                    +
+                                 "stat": {                                                                                        +
+                                     "type": "int",                                                                               +
+                                     "value": 0                                                                                   +
+                                 },                                                                                               +
                                  "valid_to": "infinity",                                                                          +
                                  "value_int": 0,                                                                                  +
                                  "valid_from": "2024-01-01",                                                                      +
@@ -2169,6 +2245,10 @@ SELECT jsonb_pretty(
                                  }                                                                                                +
                              },                                                                                                   +
                              {                                                                                                    +
+                                 "stat": {                                                                                        +
+                                     "type": "float",                                                                             +
+                                     "value": 0.0                                                                                 +
+                                 },                                                                                               +
                                  "valid_to": "infinity",                                                                          +
                                  "value_int": null,                                                                               +
                                  "valid_from": "2024-01-01",                                                                      +
@@ -2207,6 +2287,10 @@ SELECT jsonb_pretty(
                  "invalid_codes": null,                                                                                           +
                  "stat_for_unit": [                                                                                               +
                      {                                                                                                            +
+                         "stat": {                                                                                                +
+                             "type": "int",                                                                                       +
+                             "value": 2                                                                                           +
+                         },                                                                                                       +
                          "valid_to": "infinity",                                                                                  +
                          "value_int": 2,                                                                                          +
                          "valid_from": "2024-01-01",                                                                              +
@@ -2233,6 +2317,10 @@ SELECT jsonb_pretty(
                          }                                                                                                        +
                      },                                                                                                           +
                      {                                                                                                            +
+                         "stat": {                                                                                                +
+                             "type": "float",                                                                                     +
+                             "value": 9000000.0                                                                                   +
+                         },                                                                                                       +
                          "valid_to": "infinity",                                                                                  +
                          "value_int": null,                                                                                       +
                          "valid_from": "2024-01-01",                                                                              +
@@ -2373,6 +2461,10 @@ SELECT jsonb_pretty(
                  "invalid_codes": null,                                                                                           +
                  "stat_for_unit": [                                                                                               +
                      {                                                                                                            +
+                         "stat": {                                                                                                +
+                             "type": "int",                                                                                       +
+                             "value": 2                                                                                           +
+                         },                                                                                                       +
                          "valid_to": "infinity",                                                                                  +
                          "value_int": 2,                                                                                          +
                          "valid_from": "2024-01-01",                                                                              +
@@ -2399,6 +2491,10 @@ SELECT jsonb_pretty(
                          }                                                                                                        +
                      },                                                                                                           +
                      {                                                                                                            +
+                         "stat": {                                                                                                +
+                             "type": "float",                                                                                     +
+                             "value": 4400.0                                                                                      +
+                         },                                                                                                       +
                          "valid_to": "infinity",                                                                                  +
                          "value_int": null,                                                                                       +
                          "valid_from": "2024-01-01",                                                                              +

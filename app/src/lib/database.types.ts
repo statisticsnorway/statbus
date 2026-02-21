@@ -2929,6 +2929,7 @@ export type Database = {
           establishment_id: number | null
           id: number
           legal_unit_id: number | null
+          stat: Json | null
           stat_definition_id: number
           valid_from: string
           valid_range: string
@@ -2947,6 +2948,7 @@ export type Database = {
           establishment_id?: number | null
           id?: number
           legal_unit_id?: number | null
+          stat?: Json | null
           stat_definition_id: number
           valid_from: string
           valid_range: string
@@ -2965,6 +2967,7 @@ export type Database = {
           establishment_id?: number | null
           id?: number
           legal_unit_id?: number | null
+          stat?: Json | null
           stat_definition_id?: number
           valid_from?: string
           valid_range?: string
@@ -12040,23 +12043,77 @@ export type Database = {
         Args: never
         Returns: boolean
       },
-      jsonb_stats_summary_merge: {
-        Args: {
-          a?: Json
-          b?: Json
-        }
-        Returns: Json
-      },
-      jsonb_stats_to_summary: {
+      jsonb_stats_accum: {
         Args: {
           state?: Json
           stats?: Json
         }
         Returns: Json
       },
-      jsonb_stats_to_summary_round: {
+      jsonb_stats_accum_sfunc: {
+        Args: {
+          internal?: unknown
+          stats?: Json
+        }
+        Returns: unknown
+      },
+      jsonb_stats_combine: {
+        Args: {
+          state1?: unknown
+          state2?: unknown
+        }
+        Returns: unknown
+      },
+      jsonb_stats_deserial: {
+        Args: {
+          bytes?: string
+          _internal?: unknown
+        }
+        Returns: unknown
+      },
+      jsonb_stats_final: {
         Args: {
           state?: Json
+        }
+        Returns: Json
+      },
+      jsonb_stats_final_internal: {
+        Args: {
+          internal?: unknown
+        }
+        Returns: Json
+      },
+      jsonb_stats_merge: {
+        Args: {
+          a?: Json
+          b?: Json
+        }
+        Returns: Json
+      },
+      jsonb_stats_merge_sfunc: {
+        Args: {
+          internal?: unknown
+          agg?: Json
+        }
+        Returns: unknown
+      },
+      jsonb_stats_serial: {
+        Args: {
+          internal?: unknown
+        }
+        Returns: string
+      },
+      jsonb_stats_sfunc: {
+        Args: {
+          state?: Json
+          code?: string
+          stat_val?: Json
+        }
+        Returns: Json
+      },
+      jsonb_stats_to_agg: {
+        Args: {
+          stats?: Json
         }
         Returns: Json
       },
@@ -12810,6 +12867,12 @@ export type Database = {
         }
         Returns: string
       },
+      stat: {
+        Args: {
+          value?: unknown
+        }
+        Returns: Json
+      },
       stat_for_unit_hierarchy: {
         Args: {
           parent_establishment_id?: number
@@ -12941,6 +13004,19 @@ export type Database = {
           unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
           unit_id?: number
           valid_on?: string
+        }
+        Returns: Json
+      },
+      stats: {
+        Args: {
+          input?: Json
+        }
+        Returns: Json
+      }
+        | {
+        Args: {
+          code?: string
+          val?: unknown
         }
         Returns: Json
       },
