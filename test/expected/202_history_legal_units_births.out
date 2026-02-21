@@ -84,7 +84,7 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |  1703
+ analytics | completed |  1280
  import    | completed |    47
 (2 rows)
 
@@ -116,7 +116,8 @@ SELECT resolution, year, month, unit_type, countable_count AS count, births, dea
 FROM public.statistical_history
 WHERE resolution = 'year'
 AND year < 2013
-AND unit_type = 'legal_unit';
+AND unit_type = 'legal_unit'
+ORDER BY year, unit_type;
  resolution | year | month | unit_type  | count | births | deaths 
 ------------+------+-------+------------+-------+--------+--------
  year       | 2010 |       | legal_unit |     1 |      1 |      0
@@ -130,7 +131,8 @@ SELECT resolution, year, month, unit_type, countable_count AS count, births, dea
 FROM public.statistical_history
 WHERE resolution = 'year-month'
 AND year < 2013
-AND unit_type = 'legal_unit';
+AND unit_type = 'legal_unit'
+ORDER BY year, month, unit_type;
  resolution | year | month | unit_type  | count | births | deaths 
 ------------+------+-------+------------+-------+--------+--------
  year-month | 2010 |     1 | legal_unit |     1 |      1 |      0
@@ -226,7 +228,7 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |  1695
+ analytics | completed |   853
  import    | completed |    47
 (2 rows)
 
@@ -257,7 +259,8 @@ SELECT resolution, year, month, unit_type, countable_count AS count, births, dea
 FROM public.statistical_history
 WHERE resolution = 'year'
 AND year < 2013
-AND unit_type = 'legal_unit';
+AND unit_type = 'legal_unit'
+ORDER BY year, unit_type;
  resolution | year | month | unit_type  | count | births | deaths 
 ------------+------+-------+------------+-------+--------+--------
  year       | 2010 |       | legal_unit |     1 |      1 |      0
@@ -271,7 +274,8 @@ SELECT resolution, year, month, unit_type, countable_count AS count, births, dea
 FROM public.statistical_history
 WHERE resolution = 'year-month'
 AND year < 2013
-AND unit_type = 'legal_unit';
+AND unit_type = 'legal_unit'
+ORDER BY year, month, unit_type;
  resolution | year | month | unit_type  | count | births | deaths 
 ------------+------+-------+------------+-------+--------+--------
  year-month | 2010 |     2 | legal_unit |     1 |      1 |      0
@@ -397,7 +401,8 @@ SELECT resolution, year, month, unit_type, countable_count AS count, births, dea
 FROM public.statistical_history
 WHERE resolution = 'year'
 AND year < 2013
-AND unit_type = 'legal_unit';
+AND unit_type = 'legal_unit'
+ORDER BY year, unit_type;
  resolution | year | month | unit_type  | count | births | deaths 
 ------------+------+-------+------------+-------+--------+--------
  year       | 2010 |       | legal_unit |     1 |      1 |      0
@@ -411,7 +416,8 @@ SELECT resolution, year, month, unit_type, countable_count AS count, births, dea
 FROM public.statistical_history
 WHERE resolution = 'year-month'
 AND year < 2013
-AND unit_type = 'legal_unit';
+AND unit_type = 'legal_unit'
+ORDER BY year, month, unit_type;
  resolution | year | month | unit_type  | count | births | deaths 
 ------------+------+-------+------------+-------+--------+--------
  year-month | 2010 |     1 | legal_unit |     1 |      1 |      0

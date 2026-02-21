@@ -27,9 +27,11 @@
                                                    ->  GroupAggregate
                                                          ->  Sort
                                                                Sort Key: timeline_legal_unit.legal_unit_id
-                                                               ->  Index Scan using idx_timeline_legal_unit_valid_period on timeline_legal_unit
-                                                                     Index Cond: ((valid_from < t_1.valid_until) AND (valid_until > t_1.valid_from))
+                                                               ->  Bitmap Heap Scan on timeline_legal_unit
+                                                                     Recheck Cond: ((valid_from < t_1.valid_until) AND (t_1.valid_from < valid_until))
                                                                      Filter: (enterprise_id = en_1.id)
+                                                                     ->  Bitmap Index Scan on idx_timeline_legal_unit_valid_period
+                                                                           Index Cond: ((valid_from < t_1.valid_until) AND (valid_until > t_1.valid_from))
                                              ->  GroupAggregate
                                                    ->  Sort
                                                          Sort Key: timeline_establishment.establishment_id
@@ -44,12 +46,13 @@
                                        ->  Hash
                                              ->  Seq Scan on enterprise en
                      ->  Limit
-                           ->  Incremental Sort
+                           ->  Sort
                                  Sort Key: enplu_1.valid_from DESC, enplu_1.legal_unit_id DESC
-                                 Presorted Key: enplu_1.valid_from
-                                 ->  Index Scan Backward using idx_timeline_legal_unit_valid_period on timeline_legal_unit enplu_1
-                                       Index Cond: ((valid_from < t.valid_until) AND (valid_until > t.valid_from))
+                                 ->  Bitmap Heap Scan on timeline_legal_unit enplu_1
+                                       Recheck Cond: ((valid_from < t.valid_until) AND (t.valid_from < valid_until))
                                        Filter: (primary_for_enterprise AND (enterprise_id = en.id))
+                                       ->  Bitmap Index Scan on idx_timeline_legal_unit_valid_period
+                                             Index Cond: ((valid_from < t.valid_until) AND (valid_until > t.valid_from))
                ->  Limit
                      ->  Sort
                            Sort Key: enpes_1.valid_from DESC, enpes_1.establishment_id DESC
@@ -106,5 +109,5 @@
                                    ->  Result
                              ->  ProjectSet
                                    ->  Result
-(106 rows)
+(109 rows)
 

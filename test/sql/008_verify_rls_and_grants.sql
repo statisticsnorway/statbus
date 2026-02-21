@@ -105,6 +105,12 @@ DECLARE
         'worker.statistical_unit_refresh_batch'
     ];
 
+    -- Settings/Partition Management: Write to RLS-protected tables on settings change
+    v_settings_funcs TEXT[] := ARRAY[
+        'admin.adjust_analytics_partition_count',
+        'admin.propagate_partition_count_change'
+    ];
+
     -- Derived Table Refresh: Bulk DELETE+INSERT on RLS-protected tables
     v_derive_funcs TEXT[] := ARRAY[
         'public.activity_category_used_derive',
@@ -149,6 +155,7 @@ BEGIN
         v_auth_session_funcs ||
         v_import_funcs ||
         v_worker_funcs ||
+        v_settings_funcs ||
         v_derive_funcs ||
         v_drilldown_funcs ||
         v_graphql_funcs ||
@@ -348,6 +355,13 @@ each role can see and modify.
     v_doc := v_doc || E'\n### Worker/Derive Pipeline\n\nWrite to RLS-protected tables, DDL, worker orchestration.\n\n';
     FOR v_rec IN
         SELECT unnest(v_worker_funcs) AS func_name ORDER BY 1
+    LOOP
+        v_doc := v_doc || format(E'- `%s`\n', v_rec.func_name);
+    END LOOP;
+
+    v_doc := v_doc || E'\n### Settings/Partition Management\n\nWrite to RLS-protected tables on settings change.\n\n';
+    FOR v_rec IN
+        SELECT unnest(v_settings_funcs) AS func_name ORDER BY 1
     LOOP
         v_doc := v_doc || format(E'- `%s`\n', v_rec.func_name);
     END LOOP;

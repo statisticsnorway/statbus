@@ -213,7 +213,7 @@ Handles background processing. A long-running worker process calls `worker.proce
 - `refresh_session(id, user_id, created_at, last_used_at, expires_at, jti, refresh_version, user_agent, ip_address)`
   - Key FKs: user_id.
 - `secrets(value, created_at, updated_at, key, description)`
-- `settings(id, activity_category_standard_id, country_id, only_one_setting, report_partition_count)`
+- `settings(id, activity_category_standard_id, country_id, only_one_setting, analytics_partition_count)`
   - Key FKs: activity_category_standard_id, country_id.
 - `region_access(id, user_id, region_id)`
   - Key FKs: region_id, user_id.

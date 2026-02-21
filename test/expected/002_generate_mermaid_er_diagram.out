@@ -567,7 +567,7 @@ erDiagram
 		integer activity_category_standard_id
 		integer country_id
 		boolean only_one_setting
-		integer report_partition_count
+		integer analytics_partition_count
 	}
 	stat_definition["stat_definition"] {
 		integer id
