@@ -27,7 +27,8 @@ export default function StatisticalVariablesForm({
   return (
     <form className="space-y-4">
       {statDefinitions.map((statDefinition) => {
-        const value = data?.stats_summary?.[statDefinition.code]?.sum;
+        const metric = data?.stats_summary?.[statDefinition.code];
+        const value = metric && "sum" in metric ? metric.sum : undefined;
         return (
           <DisplayFormField
             key={statDefinition.code}

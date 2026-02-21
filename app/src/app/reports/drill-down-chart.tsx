@@ -131,10 +131,11 @@ export const DrillDownChart = ({
   return <div ref={chartContainerRef} />;
 };
 
-const getStatValue = (point: DrillDownPoint, variable: string): number =>
-  variable === "count"
-    ? point.count
-    : ((point.stats_summary?.[variable]?.sum as number) ?? 0);
+const getStatValue = (point: DrillDownPoint, variable: string): number => {
+  if (variable === "count") return point.count;
+  const metric = point.stats_summary?.[variable];
+  return metric && "sum" in metric ? (metric.sum as number) : 0;
+};
 
 const toPointOptionObject = (point: DrillDownPoint, variable: string) => ({
   name: `${point.path} - ${point.name}`,
