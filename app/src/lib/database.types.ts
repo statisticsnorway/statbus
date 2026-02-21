@@ -2823,24 +2823,24 @@ export type Database = {
       settings: {
         Row: {
           activity_category_standard_id: number
+          analytics_partition_count: number
           country_id: number
           id: number
           only_one_setting: boolean | null
-          report_partition_count: number
         },
         Insert: {
           activity_category_standard_id: number
+          analytics_partition_count?: number
           country_id: number
           id?: never
           only_one_setting?: boolean | null
-          report_partition_count?: number
         },
         Update: {
           activity_category_standard_id?: number
+          analytics_partition_count?: number
           country_id?: number
           id?: never
           only_one_setting?: boolean | null
-          report_partition_count?: number
         },
         Relationships: [
           {
@@ -12827,6 +12827,10 @@ export type Database = {
           valid_to_param?: string
         }
         Returns: Json
+      },
+      set_report_partition_seq: {
+        Args: never
+        Returns: unknown
       },
       show_limit: {
         Args: never

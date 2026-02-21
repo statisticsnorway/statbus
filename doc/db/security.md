@@ -292,6 +292,13 @@ Write to RLS-protected tables, DDL, worker orchestration.
 - `worker.statistical_unit_flush_staging`
 - `worker.statistical_unit_refresh_batch`
 
+### Settings/Partition Management
+
+Write to RLS-protected tables on settings change.
+
+- `admin.adjust_analytics_partition_count`
+- `admin.propagate_partition_count_change`
+
 ### Derived Table Refresh
 
 Bulk DELETE+INSERT on RLS-protected tables.
