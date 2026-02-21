@@ -137,7 +137,7 @@ CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |  2972
+ analytics | completed |  1280
  import    | completed |    94
 (2 rows)
 
@@ -1688,7 +1688,7 @@ Run worker processing for analytics tasks (after manual connections)
   SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
    queue   |   state   | count 
 -----------+-----------+-------
- analytics | completed |  5733
+ analytics | completed |  2560
  import    | completed |    94
 (2 rows)
 
