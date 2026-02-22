@@ -62,6 +62,7 @@ import {
   setWorkerStatusAtom,
   workerStatusAtom,
   type WorkerStatusType,
+  type WorkerStatusSSEPayload,
 } from './worker_status';
 import { AuthCrossTabSyncer } from './AuthCrossTabSyncer';
 import { NavigationManager } from './NavigationManager';
@@ -308,7 +309,9 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
         eventSource.onmessage = (event) => {
           try {
             const payload = JSON.parse(event.data);
-            if (payload.type && typeof payload.status === 'boolean') {
+            if (payload.type === 'pipeline_progress' && Array.isArray(payload.steps)) {
+              setWorkerStatus(payload as WorkerStatusSSEPayload);
+            } else if (payload.type && typeof payload.status === 'boolean') {
               setWorkerStatus({ type: payload.type as WorkerStatusType, status: payload.status });
             } else {
               console.warn("Received SSE message with unexpected payload format:", payload);

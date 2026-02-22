@@ -90,7 +90,9 @@ export function getDbHostPort() {
 }
 
 // Define specific payload types for each channel
-export type WorkerStatusPayload = { type: string; status: boolean };
+export type WorkerStatusPayload =
+  | { type: string; status: boolean }
+  | { type: 'pipeline_progress'; steps: Array<{ step: string; total: number; completed: number }> };
 
 // Minimal payload from pg_notify
 export type MinimalImportJobNotificationPayload = {
