@@ -898,7 +898,6 @@ export type Database = {
           free_econ_zone: boolean | null
           id: number
           image_id: number | null
-          invalid_codes: Json | null
           legal_unit_id: number | null
           name: string
           primary_for_enterprise: boolean | null
@@ -923,7 +922,6 @@ export type Database = {
           free_econ_zone?: boolean | null
           id?: number
           image_id?: number | null
-          invalid_codes?: Json | null
           legal_unit_id?: number | null
           name: string
           primary_for_enterprise?: boolean | null
@@ -948,7 +946,6 @@ export type Database = {
           free_econ_zone?: boolean | null
           id?: number
           image_id?: number | null
-          invalid_codes?: Json | null
           legal_unit_id?: number | null
           name?: string
           primary_for_enterprise?: boolean | null
@@ -1852,7 +1849,6 @@ export type Database = {
           free_econ_zone: boolean | null
           id: number
           image_id: number | null
-          invalid_codes: Json | null
           legal_form_id: number | null
           name: string
           primary_for_enterprise: boolean
@@ -1877,7 +1873,6 @@ export type Database = {
           free_econ_zone?: boolean | null
           id?: number
           image_id?: number | null
-          invalid_codes?: Json | null
           legal_form_id?: number | null
           name: string
           primary_for_enterprise: boolean
@@ -1902,7 +1897,6 @@ export type Database = {
           free_econ_zone?: boolean | null
           id?: number
           image_id?: number | null
-          invalid_codes?: Json | null
           legal_form_id?: number | null
           name?: string
           primary_for_enterprise?: boolean
@@ -3400,7 +3394,6 @@ export type Database = {
           included_establishment_ids: number[] | null
           included_legal_unit_count: number | null
           included_legal_unit_ids: number[] | null
-          invalid_codes: Json | null
           landline: string | null
           last_edit_at: string | null
           last_edit_by_user_id: number | null
@@ -3488,7 +3481,6 @@ export type Database = {
           included_establishment_ids?: number[] | null
           included_legal_unit_count?: number | null
           included_legal_unit_ids?: number[] | null
-          invalid_codes?: Json | null
           landline?: string | null
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
@@ -3576,7 +3568,6 @@ export type Database = {
           included_establishment_ids?: number[] | null
           included_legal_unit_count?: number | null
           included_legal_unit_ids?: number[] | null
-          invalid_codes?: Json | null
           landline?: string | null
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
@@ -3772,7 +3763,6 @@ export type Database = {
           included_establishment_ids: number[] | null
           included_legal_unit_count: number | null
           included_legal_unit_ids: number[] | null
-          invalid_codes: Json | null
           landline: string | null
           last_edit_at: string | null
           last_edit_by_user_id: number | null
@@ -3859,7 +3849,6 @@ export type Database = {
           included_establishment_ids?: number[] | null
           included_legal_unit_count?: number | null
           included_legal_unit_ids?: number[] | null
-          invalid_codes?: Json | null
           landline?: string | null
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
@@ -3946,7 +3935,6 @@ export type Database = {
           included_establishment_ids?: number[] | null
           included_legal_unit_count?: number | null
           included_legal_unit_ids?: number[] | null
-          invalid_codes?: Json | null
           landline?: string | null
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
@@ -4205,7 +4193,6 @@ export type Database = {
           included_enterprise_ids: number[] | null
           included_establishment_ids: number[] | null
           included_legal_unit_ids: number[] | null
-          invalid_codes: Json | null
           landline: string | null
           last_edit_at: string | null
           last_edit_by_user_id: number | null
@@ -4288,7 +4275,6 @@ export type Database = {
           included_enterprise_ids?: number[] | null
           included_establishment_ids?: number[] | null
           included_legal_unit_ids?: number[] | null
-          invalid_codes?: Json | null
           landline?: string | null
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
@@ -4371,7 +4357,6 @@ export type Database = {
           included_enterprise_ids?: number[] | null
           included_establishment_ids?: number[] | null
           included_legal_unit_ids?: number[] | null
-          invalid_codes?: Json | null
           landline?: string | null
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
@@ -4458,7 +4443,6 @@ export type Database = {
           included_enterprise_ids: number[] | null
           included_establishment_ids: number[] | null
           included_legal_unit_ids: number[] | null
-          invalid_codes: Json | null
           landline: string | null
           last_edit_at: string | null
           last_edit_by_user_id: number | null
@@ -4544,7 +4528,6 @@ export type Database = {
           included_enterprise_ids?: number[] | null
           included_establishment_ids?: number[] | null
           included_legal_unit_ids?: number[] | null
-          invalid_codes?: Json | null
           landline?: string | null
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
@@ -4630,7 +4613,6 @@ export type Database = {
           included_enterprise_ids?: number[] | null
           included_establishment_ids?: number[] | null
           included_legal_unit_ids?: number[] | null
-          invalid_codes?: Json | null
           landline?: string | null
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
@@ -4718,7 +4700,6 @@ export type Database = {
           included_enterprise_ids: number[] | null
           included_establishment_ids: number[] | null
           included_legal_unit_ids: number[] | null
-          invalid_codes: Json | null
           landline: string | null
           last_edit_at: string | null
           last_edit_by_user_id: number | null
@@ -4802,7 +4783,6 @@ export type Database = {
           included_enterprise_ids?: number[] | null
           included_establishment_ids?: number[] | null
           included_legal_unit_ids?: number[] | null
-          invalid_codes?: Json | null
           landline?: string | null
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
@@ -4886,7 +4866,6 @@ export type Database = {
           included_enterprise_ids?: number[] | null
           included_establishment_ids?: number[] | null
           included_legal_unit_ids?: number[] | null
-          invalid_codes?: Json | null
           landline?: string | null
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
@@ -6138,7 +6117,6 @@ export type Database = {
           free_econ_zone: boolean | null
           id: number | null
           image_id: number | null
-          invalid_codes: Json | null
           legal_unit_id: number | null
           name: string | null
           primary_for_enterprise: boolean | null
@@ -6163,7 +6141,6 @@ export type Database = {
           free_econ_zone?: boolean | null
           id?: number | null
           image_id?: number | null
-          invalid_codes?: Json | null
           legal_unit_id?: number | null
           name?: string | null
           primary_for_enterprise?: boolean | null
@@ -6188,7 +6165,6 @@ export type Database = {
           free_econ_zone?: boolean | null
           id?: number | null
           image_id?: number | null
-          invalid_codes?: Json | null
           legal_unit_id?: number | null
           name?: string | null
           primary_for_enterprise?: boolean | null
@@ -6723,7 +6699,6 @@ export type Database = {
           free_econ_zone: boolean | null
           id: number | null
           image_id: number | null
-          invalid_codes: Json | null
           legal_form_id: number | null
           name: string | null
           primary_for_enterprise: boolean | null
@@ -6748,7 +6723,6 @@ export type Database = {
           free_econ_zone?: boolean | null
           id?: number | null
           image_id?: number | null
-          invalid_codes?: Json | null
           legal_form_id?: number | null
           name?: string | null
           primary_for_enterprise?: boolean | null
@@ -6773,7 +6747,6 @@ export type Database = {
           free_econ_zone?: boolean | null
           id?: number | null
           image_id?: number | null
-          invalid_codes?: Json | null
           legal_form_id?: number | null
           name?: string | null
           primary_for_enterprise?: boolean | null
@@ -8025,7 +7998,6 @@ export type Database = {
           included_establishment_ids: number[] | null
           included_legal_unit_count: number | null
           included_legal_unit_ids: number[] | null
-          invalid_codes: Json | null
           landline: string | null
           last_edit_at: string | null
           last_edit_by_user_id: number | null
@@ -8111,7 +8083,6 @@ export type Database = {
           included_establishment_ids?: number[] | null
           included_legal_unit_count?: number | null
           included_legal_unit_ids?: number[] | null
-          invalid_codes?: Json | null
           landline?: string | null
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
@@ -8197,7 +8168,6 @@ export type Database = {
           included_establishment_ids?: number[] | null
           included_legal_unit_count?: number | null
           included_legal_unit_ids?: number[] | null
-          invalid_codes?: Json | null
           landline?: string | null
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
@@ -8367,7 +8337,6 @@ export type Database = {
           included_enterprise_ids: number[] | null
           included_establishment_ids: number[] | null
           included_legal_unit_ids: number[] | null
-          invalid_codes: Json | null
           landline: string | null
           last_edit_at: string | null
           last_edit_by_user_id: number | null
@@ -8450,7 +8419,6 @@ export type Database = {
           included_enterprise_ids?: number[] | null
           included_establishment_ids?: number[] | null
           included_legal_unit_ids?: number[] | null
-          invalid_codes?: Json | null
           landline?: string | null
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
@@ -8533,7 +8501,6 @@ export type Database = {
           included_enterprise_ids?: number[] | null
           included_establishment_ids?: number[] | null
           included_legal_unit_ids?: number[] | null
-          invalid_codes?: Json | null
           landline?: string | null
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
@@ -8620,7 +8587,6 @@ export type Database = {
           included_enterprise_ids: number[] | null
           included_establishment_ids: number[] | null
           included_legal_unit_ids: number[] | null
-          invalid_codes: Json | null
           landline: string | null
           last_edit_at: string | null
           last_edit_by_user_id: number | null
@@ -8706,7 +8672,6 @@ export type Database = {
           included_enterprise_ids?: number[] | null
           included_establishment_ids?: number[] | null
           included_legal_unit_ids?: number[] | null
-          invalid_codes?: Json | null
           landline?: string | null
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
@@ -8792,7 +8757,6 @@ export type Database = {
           included_enterprise_ids?: number[] | null
           included_establishment_ids?: number[] | null
           included_legal_unit_ids?: number[] | null
-          invalid_codes?: Json | null
           landline?: string | null
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
@@ -8993,7 +8957,6 @@ export type Database = {
           included_enterprise_ids: number[] | null
           included_establishment_ids: number[] | null
           included_legal_unit_ids: number[] | null
-          invalid_codes: Json | null
           landline: string | null
           last_edit_at: string | null
           last_edit_by_user_id: number | null
@@ -9077,7 +9040,6 @@ export type Database = {
           included_enterprise_ids?: number[] | null
           included_establishment_ids?: number[] | null
           included_legal_unit_ids?: number[] | null
-          invalid_codes?: Json | null
           landline?: string | null
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null
@@ -9161,7 +9123,6 @@ export type Database = {
           included_enterprise_ids?: number[] | null
           included_establishment_ids?: number[] | null
           included_legal_unit_ids?: number[] | null
-          invalid_codes?: Json | null
           landline?: string | null
           last_edit_at?: string | null
           last_edit_by_user_id?: number | null

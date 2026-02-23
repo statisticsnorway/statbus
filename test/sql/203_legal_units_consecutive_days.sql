@@ -65,7 +65,6 @@ SELECT unit_type
      , legal_form_name
      , physical_region_path
      , physical_country_iso_2
-     , invalid_codes
 FROM public.timeline_legal_unit
 ORDER BY unit_type, unit_id, valid_from, valid_to;
 
@@ -118,7 +117,6 @@ SELECT unit_type
      , legal_form_name
      , physical_region_path
      , physical_country_iso_2
-     , invalid_codes
 FROM public.timeline_legal_unit
 ORDER BY unit_type, unit_id, valid_from, valid_to;
 
@@ -171,7 +169,6 @@ SELECT unit_type
      , legal_form_name
      , physical_region_path
      , physical_country_iso_2
-     , invalid_codes
 FROM public.timeline_legal_unit
 ORDER BY unit_type, unit_id, valid_from, valid_to;
 
@@ -251,7 +248,6 @@ SELECT unit_type
      , legal_form_name
      , physical_region_path
      , physical_country_iso_2
-     , invalid_codes
 FROM public.timeline_legal_unit
 ORDER BY unit_type, unit_id, valid_from, valid_to;
 
@@ -304,7 +300,6 @@ SELECT unit_type
      , legal_form_name
      , physical_region_path
      , physical_country_iso_2
-     , invalid_codes
 FROM public.timeline_legal_unit
 ORDER BY unit_type, unit_id, valid_from, valid_to;
 

@@ -14,7 +14,6 @@ import {
   dataSourceDeriveStateUpdateFromSearchParams,
   externalIdentDeriveStateUpdateFromSearchParams,
   fullTextSearchDeriveStateUpdateFromSearchParams,
-  invalidCodesDeriveStateUpdateFromSearchParams,
   legalFormDeriveStateUpdateFromSearchParams,
   regionDeriveStateUpdateFromSearchParams,
   sectorDeriveStateUpdateFromSearchParams,
@@ -50,7 +49,6 @@ const deriveStateFromUrl = (
 
   const ftsAction = fullTextSearchDeriveStateUpdateFromSearchParams(urlSearchParams);
   const unitTypeAction = unitTypeDeriveStateUpdateFromSearchParams(urlSearchParams);
-  const invalidCodesAction = invalidCodesDeriveStateUpdateFromSearchParams(urlSearchParams);
   const legalFormAction = legalFormDeriveStateUpdateFromSearchParams(urlSearchParams);
   const regionAction = regionDeriveStateUpdateFromSearchParams(urlSearchParams);
   const sectorAction = sectorDeriveStateUpdateFromSearchParams(urlSearchParams);
@@ -75,7 +73,6 @@ const deriveStateFromUrl = (
   const allActions = [
     ftsAction,
     unitTypeAction,
-    invalidCodesAction,
     legalFormAction,
     regionAction,
     sectorAction,

@@ -931,7 +931,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -1004,7 +1003,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -1077,7 +1075,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -1150,7 +1147,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -1223,7 +1219,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -1296,7 +1291,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -1369,7 +1363,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -1442,7 +1435,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -1515,7 +1507,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -1605,7 +1596,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -1695,7 +1685,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -1785,7 +1774,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -1875,7 +1863,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -1965,7 +1952,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -2055,7 +2041,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -2145,7 +2130,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -2217,7 +2201,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -2289,7 +2272,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -2361,7 +2343,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -2445,7 +2426,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -2529,7 +2509,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -2613,7 +2592,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -2685,7 +2663,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -2757,7 +2734,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -2829,7 +2805,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -2901,7 +2876,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -2973,7 +2947,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -3059,7 +3032,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -3145,7 +3117,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -3231,7 +3202,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -3317,7 +3287,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -3403,7 +3372,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -3489,7 +3457,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -3560,7 +3527,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -3631,7 +3597,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -3702,7 +3667,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -3785,7 +3749,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -3868,7 +3831,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -3951,7 +3913,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -4022,7 +3983,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -4093,7 +4053,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -4164,7 +4123,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -4235,7 +4193,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -4306,7 +4263,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -4389,7 +4345,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -4472,7 +4427,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -4555,7 +4509,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -4638,7 +4591,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
@@ -4721,7 +4673,6 @@ statistical_unit_data | {                                                       
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +

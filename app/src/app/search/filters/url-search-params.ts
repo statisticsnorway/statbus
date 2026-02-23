@@ -72,26 +72,6 @@ export function unitTypeDeriveStateUpdateFromValues(values: (string | null)[]): 
 }
 
 
-export const INVALID_CODES = "invalid_codes";
-
-export function invalidCodesDeriveStateUpdateFromSearchParams(urlSearchParams: URLSearchParams): SearchAction {
-  const initialValue = urlSearchParams.get(INVALID_CODES);
-  return invalidCodesDeriveStateUpdateFromValues(initialValue);
-}
-
-export function invalidCodesDeriveStateUpdateFromValues(value: (string | null)): SearchAction {
-  let result = {
-    type: "set_query",
-    payload: {
-      app_param_name: INVALID_CODES,
-      api_param_name: INVALID_CODES,
-      api_param_value: value === "yes" ? `not.is.null` : null,
-      app_param_values: value !== null ? [value] : [],
-    },
-  } as SearchAction;
-  return result;
-}
-
 
 export const LEGAL_FORM = "legal_form_code";
 export function legalFormDeriveStateUpdateFromSearchParams(urlSearchParams: URLSearchParams): SearchAction {

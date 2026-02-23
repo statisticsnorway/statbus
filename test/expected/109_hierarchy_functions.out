@@ -476,7 +476,6 @@ SELECT jsonb_pretty(
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
                          "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                           +
-                         "invalid_codes": null,                                                                                   +
                          "stat_for_unit": [                                                                                       +
                              {                                                                                                    +
                                  "stat": {                                                                                        +
@@ -647,7 +646,6 @@ SELECT jsonb_pretty(
                          "valid_range": "[2024-01-01,infinity)",                                                                  +
                          "valid_until": "infinity",                                                                               +
                          "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                           +
-                         "invalid_codes": null,                                                                                   +
                          "stat_for_unit": [                                                                                       +
                              {                                                                                                    +
                                  "stat": {                                                                                        +
@@ -719,7 +717,6 @@ SELECT jsonb_pretty(
                          "primary_for_legal_unit": false                                                                          +
                      }                                                                                                            +
                  ],                                                                                                               +
-                 "invalid_codes": null,                                                                                           +
                  "stat_for_unit": [                                                                                               +
                      {                                                                                                            +
                          "stat": {                                                                                                +
@@ -935,7 +932,6 @@ SELECT jsonb_pretty(
                  "valid_range": "[2024-01-01,infinity)",                                                                  +
                  "valid_until": "infinity",                                                                               +
                  "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                           +
-                 "invalid_codes": null,                                                                                   +
                  "stat_for_unit": [                                                                                       +
                      {                                                                                                    +
                          "stat": {                                                                                        +
@@ -1205,7 +1201,6 @@ SELECT jsonb_pretty(
                          "valid_range": "[2024-01-01,infinity)",                                               +
                          "valid_until": "infinity",                                                            +
                          "edit_comment": "Test data load (34_hierarchy_functions.sql)",                        +
-                         "invalid_codes": null,                                                                +
                          "free_econ_zone": null,                                                               +
                          "external_idents": {                                                                  +
                              "tax_ident": "92212760144",                                                       +
@@ -1299,7 +1294,6 @@ SELECT jsonb_pretty(
                          "valid_range": "[2024-01-01,infinity)",                                               +
                          "valid_until": "infinity",                                                            +
                          "edit_comment": "Test data load (34_hierarchy_functions.sql)",                        +
-                         "invalid_codes": null,                                                                +
                          "free_econ_zone": null,                                                               +
                          "external_idents": {                                                                  +
                              "tax_ident": "82612760118",                                                       +
@@ -1309,7 +1303,6 @@ SELECT jsonb_pretty(
                          "primary_for_legal_unit": false                                                       +
                      }                                                                                         +
                  ],                                                                                            +
-                 "invalid_codes": null,                                                                        +
                  "free_econ_zone": null,                                                                       +
                  "external_idents": {                                                                          +
                      "tax_ident": "2212760144",                                                                +
@@ -1473,7 +1466,6 @@ SELECT jsonb_pretty(
              "valid_range": "[2024-01-01,infinity)",                                                                  +
              "valid_until": "infinity",                                                                               +
              "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                           +
-             "invalid_codes": null,                                                                                   +
              "stat_for_unit": [                                                                                       +
                  {                                                                                                    +
                      "stat": {                                                                                        +

@@ -21,7 +21,6 @@ import { getStatisticalUnitsData, getStatisticalUnitsCount } from '../app/search
 import {
   fullTextSearchDeriveStateUpdateFromValue,
   unitTypeDeriveStateUpdateFromValues,
-  invalidCodesDeriveStateUpdateFromValues,
   legalFormDeriveStateUpdateFromValues,
   regionDeriveStateUpdateFromValues,
   sectorDeriveStateUpdateFromValues,
@@ -36,7 +35,6 @@ import {
   statisticalVariableParse,
   SEARCH,
   UNIT_TYPE,
-  INVALID_CODES,
   LEGAL_FORM,
   REGION,
   SECTOR,
@@ -809,20 +807,6 @@ const derivedApiSearchParamsAtomUnstable = atom((get) => {
           unitTypeDeriveStateUpdateFromValues(unitTypeValues);
         if (unitTypeAction.type === "set_query")
           actionPayloadPart = unitTypeAction.payload;
-        break;
-      case INVALID_CODES:
-        // appParamValue is ["yes"] or [] from searchState.filters
-        // invalidCodesDeriveStateUpdateFromValues expects "yes" or null.
-        const invalidCodesValue =
-          Array.isArray(appParamValue) &&
-          appParamValue.length > 0 &&
-          appParamValue[0] === "yes"
-            ? "yes"
-            : null;
-        const invalidCodesAction =
-          invalidCodesDeriveStateUpdateFromValues(invalidCodesValue);
-        if (invalidCodesAction.type === "set_query")
-          actionPayloadPart = invalidCodesAction.payload;
         break;
       case DOMESTIC:
        const domesticValue =

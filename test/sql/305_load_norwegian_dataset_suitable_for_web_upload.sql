@@ -146,7 +146,6 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 \x
 SELECT unit_type
      , COUNT(DISTINCT unit_id)
-     , jsonb_agg(DISTINCT invalid_codes) FILTER (WHERE invalid_codes IS NOT NULL AND invalid_codes <> '{}'::JSONB) AS invalid_codes
      , jsonb_pretty(jsonb_stats_merge_agg(stats_summary)) AS stats_summary
  FROM statistical_unit
  WHERE valid_from <= CURRENT_DATE AND CURRENT_DATE < valid_until

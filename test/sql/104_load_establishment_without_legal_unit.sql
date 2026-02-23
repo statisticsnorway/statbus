@@ -80,7 +80,6 @@ FROM statistical_unit ORDER BY name, unit_type;
 \echo "Checking statistics"
 SELECT unit_type
      , COUNT(DISTINCT unit_id) AS distinct_unit_count
-     , jsonb_pretty(jsonb_agg(DISTINCT invalid_codes) FILTER (WHERE invalid_codes IS NOT NULL)) AS invalid_codes
      , jsonb_pretty(jsonb_stats_merge_agg(stats_summary)) AS stats_summary
  FROM statistical_unit
  GROUP BY unit_type;

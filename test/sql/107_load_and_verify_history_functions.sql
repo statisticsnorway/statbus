@@ -279,7 +279,6 @@ SELECT tet.unit_type
      , tet.postal_postplace
      , tet.postal_region_path
      , tet.postal_country_iso_2
-     , tet.invalid_codes
 FROM timeline_establishment_with_tax_ident AS tet
 ORDER BY tet.unit_type, tet.tax_ident, tet.valid_from, tet.valid_until;
 
@@ -337,7 +336,6 @@ SELECT tlut.unit_type
      , postal_postplace
      , tlut.postal_region_path
      , tlut.postal_country_iso_2
-     , tlut.invalid_codes
 FROM timeline_legal_unit_with_tax_ident AS tlut
 ORDER BY tlut.unit_type, tlut.tax_ident, tlut.valid_from, tlut.valid_until;
 
@@ -405,7 +403,6 @@ SELECT te.unit_type
      , te.postal_postplace
      , te.postal_region_path
      , te.postal_country_iso_2
-     , te.invalid_codes
 FROM timeline_enterprise_with_tax_ident AS te
 ORDER BY te.unit_type, te.tax_ident, te.valid_from, te.valid_until;
 
@@ -467,7 +464,6 @@ SELECT valid_from
 \echo "Checking statistical_unit totals"
 SELECT unit_type
      , COUNT(DISTINCT unit_id) AS distinct_unit_count
-     , jsonb_agg(DISTINCT invalid_codes) FILTER (WHERE invalid_codes IS NOT NULL) AS invalid_codes
      , jsonb_pretty(jsonb_stats_merge_agg(stats_summary)) AS stats_summary
  FROM statistical_unit
  GROUP BY unit_type;

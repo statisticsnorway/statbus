@@ -2968,67 +2968,63 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 \x
 SELECT unit_type
      , COUNT(DISTINCT unit_id)
-     , jsonb_agg(DISTINCT invalid_codes) FILTER (WHERE invalid_codes IS NOT NULL AND invalid_codes <> '{}'::JSONB) AS invalid_codes
      , jsonb_pretty(jsonb_stats_merge_agg(stats_summary)) AS stats_summary
  FROM statistical_unit
  WHERE valid_from <= CURRENT_DATE AND CURRENT_DATE < valid_until
  GROUP BY unit_type;
--[ RECORD 1 ]-+---------------------------------------------------
+-[ RECORD 1 ]-+-----------------------------------------------
 unit_type     | establishment
 count         | 1305
-invalid_codes | [{"primary_activity_category_code_raw": "00.000"}]
-stats_summary | {                                                 +
-              |     "type": "stats_agg",                          +
-              |     "employees": {                                +
-              |         "max": 1840,                              +
-              |         "min": 5,                                 +
-              |         "sum": 23800,                             +
-              |         "mean": 67.81,                            +
-              |         "type": "int_agg",                        +
-              |         "count": 351,                             +
-              |         "stddev": 166.99,                         +
-              |         "variance": 27884.99,                     +
-              |         "sum_sq_diff": 9759746.83,                +
-              |         "coefficient_of_variation_pct": 246.27    +
-              |     }                                             +
+stats_summary | {                                             +
+              |     "type": "stats_agg",                      +
+              |     "employees": {                            +
+              |         "max": 1840,                          +
+              |         "min": 5,                             +
+              |         "sum": 23800,                         +
+              |         "mean": 67.81,                        +
+              |         "type": "int_agg",                    +
+              |         "count": 351,                         +
+              |         "stddev": 166.99,                     +
+              |         "variance": 27884.99,                 +
+              |         "sum_sq_diff": 9759746.83,            +
+              |         "coefficient_of_variation_pct": 246.27+
+              |     }                                         +
               | }
--[ RECORD 2 ]-+---------------------------------------------------
+-[ RECORD 2 ]-+-----------------------------------------------
 unit_type     | legal_unit
 count         | 100
-invalid_codes | [{"primary_activity_category_code_raw": "00.000"}]
-stats_summary | {                                                 +
-              |     "type": "stats_agg",                          +
-              |     "employees": {                                +
-              |         "max": 1840,                              +
-              |         "min": 5,                                 +
-              |         "sum": 23800,                             +
-              |         "mean": 67.81,                            +
-              |         "type": "int_agg",                        +
-              |         "count": 351,                             +
-              |         "stddev": 166.99,                         +
-              |         "variance": 27884.95,                     +
-              |         "sum_sq_diff": 9759731.86,                +
-              |         "coefficient_of_variation_pct": 246.26    +
-              |     }                                             +
+stats_summary | {                                             +
+              |     "type": "stats_agg",                      +
+              |     "employees": {                            +
+              |         "max": 1840,                          +
+              |         "min": 5,                             +
+              |         "sum": 23800,                         +
+              |         "mean": 67.81,                        +
+              |         "type": "int_agg",                    +
+              |         "count": 351,                         +
+              |         "stddev": 166.99,                     +
+              |         "variance": 27884.95,                 +
+              |         "sum_sq_diff": 9759731.86,            +
+              |         "coefficient_of_variation_pct": 246.26+
+              |     }                                         +
               | }
--[ RECORD 3 ]-+---------------------------------------------------
+-[ RECORD 3 ]-+-----------------------------------------------
 unit_type     | enterprise
 count         | 100
-invalid_codes | [{"primary_activity_category_code_raw": "00.000"}]
-stats_summary | {                                                 +
-              |     "type": "stats_agg",                          +
-              |     "employees": {                                +
-              |         "max": 1840,                              +
-              |         "min": 5,                                 +
-              |         "sum": 23800,                             +
-              |         "mean": 67.81,                            +
-              |         "type": "int_agg",                        +
-              |         "count": 351,                             +
-              |         "stddev": 166.99,                         +
-              |         "variance": 27884.95,                     +
-              |         "sum_sq_diff": 9759731.86,                +
-              |         "coefficient_of_variation_pct": 246.26    +
-              |     }                                             +
+stats_summary | {                                             +
+              |     "type": "stats_agg",                      +
+              |     "employees": {                            +
+              |         "max": 1840,                          +
+              |         "min": 5,                             +
+              |         "sum": 23800,                         +
+              |         "mean": 67.81,                        +
+              |         "type": "int_agg",                    +
+              |         "count": 351,                         +
+              |         "stddev": 166.99,                     +
+              |         "variance": 27884.95,                 +
+              |         "sum_sq_diff": 9759731.86,            +
+              |         "coefficient_of_variation_pct": 246.26+
+              |     }                                         +
               | }
 
 \x

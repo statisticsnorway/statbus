@@ -8,7 +8,6 @@ import RegionFilter from "@/app/search/filters/region/region-filter";
 import LegalFormFilter from "@/app/search/filters/legal-form/legal-form-filter";
 import ActivityCategoryFilter from "@/app/search/filters/activity-category/activity-category-filter";
 import StatisticalVariablesFilter from "@/app/search/filters/statistical-variables/statistical-variables-filter";
-import InvalidCodesFilter from "@/app/search/filters/invalid-codes-filter";
 import { ResetFilterButton } from "@/app/search/components/reset-filter-button";
 import { FilterWrapper } from "./filter-wrapper";
 import DataSourceFilter from "../filters/data-source/data-source-filter";
@@ -54,7 +53,6 @@ export default function TableToolbar() {
         <LastEditByUserFilter />
       </FilterWrapper>
       <StatisticalVariablesFilter />
-      <InvalidCodesFilter />
       <ResetFilterButton />
       <ColumnSelectorButton />
     </div>
