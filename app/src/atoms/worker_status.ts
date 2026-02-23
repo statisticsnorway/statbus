@@ -189,8 +189,13 @@ export const setWorkerStatusAtom = atom(
 
     if (type === 'is_importing') {
       updatedStatus.isImporting = status;
-      // Clear stale jobs from previous imports when a new import starts
-      updatedStatus.importing = { active: status, jobs: status ? [] : [] };
+      if (!status) {
+        // Import completed — clear jobs
+        updatedStatus.importing = { active: false, jobs: [] };
+      } else if (!prevStatus.importing?.active) {
+        // New import starting — mark active, keep any jobs from initial RPC
+        updatedStatus.importing = { active: true, jobs: prevStatus.importing?.jobs ?? [] };
+      }
     } else if (type === 'is_deriving_statistical_units') {
       updatedStatus.isDerivingUnits = status;
       if (!status) {
