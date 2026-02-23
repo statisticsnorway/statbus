@@ -60,9 +60,20 @@ export interface WorkerStatus {
 }
 
 // SSE payload types
+export type ImportJobProgressSSE = {
+  type: 'import_job_progress';
+  job_id: number;
+  state: string;
+  total_rows: number | null;
+  analysis_completed_pct: number;
+  imported_rows: number;
+  import_completed_pct: number;
+};
+
 export type WorkerStatusSSEPayload =
   | { type: WorkerStatusType; status: boolean }
-  | { type: 'pipeline_progress'; steps: PipelineStep[] };
+  | { type: 'pipeline_progress'; steps: PipelineStep[] }
+  | ImportJobProgressSSE;
 
 // ============================================================================
 // WORKER STATUS ATOMS
@@ -114,6 +125,40 @@ export const setWorkerStatusAtom = atom(
   (get, set, payload: WorkerStatusSSEPayload) => {
     const prevStatus = get(workerStatusAtom);
 
+    if (payload.type === 'import_job_progress') {
+      // Real-time import job progress from import_job_progress pg_notify
+      const { job_id, state, total_rows, analysis_completed_pct, imported_rows, import_completed_pct } = payload;
+      const currentJobs = prevStatus.importing?.jobs ?? [];
+      const updatedJob: ImportJobProgress = {
+        id: job_id,
+        state,
+        total_rows,
+        imported_rows,
+        analysis_completed_pct,
+        import_completed_pct,
+      };
+
+      const newJobs = [...currentJobs];
+      const existingIdx = newJobs.findIndex(j => j.id === job_id);
+      if (existingIdx >= 0) {
+        newJobs[existingIdx] = updatedJob;
+      } else {
+        newJobs.push(updatedJob);
+      }
+
+      // Only keep actively importing jobs
+      const activeJobs = newJobs.filter(j => j.state === 'analysing_data' || j.state === 'processing_data');
+
+      set(workerStatusAtom, {
+        ...prevStatus,
+        loading: false,
+        error: null,
+        isImporting: activeJobs.length > 0 ? true : prevStatus.isImporting,
+        importing: { active: activeJobs.length > 0, jobs: activeJobs },
+      });
+      return;
+    }
+
     if (payload.type === 'pipeline_progress') {
       // Update progress data from pipeline_progress notification
       const steps = payload.steps;
@@ -144,9 +189,8 @@ export const setWorkerStatusAtom = atom(
 
     if (type === 'is_importing') {
       updatedStatus.isImporting = status;
-      if (!status) {
-        updatedStatus.importing = { active: false, jobs: [] };
-      }
+      // Clear stale jobs from previous imports when a new import starts
+      updatedStatus.importing = { active: status, jobs: status ? [] : [] };
     } else if (type === 'is_deriving_statistical_units') {
       updatedStatus.isDerivingUnits = status;
       if (!status) {
