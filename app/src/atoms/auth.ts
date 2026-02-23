@@ -21,15 +21,17 @@ import {
   initialImportState,
   unitCountsAtom,
 } from './import'
-import { refreshBaseDataAtom } from './base-data'
+import { refreshBaseDataAtom, invalidateHasStatisticalUnitsCache } from './base-data'
 import { gettingStartedUIStateAtom } from './getting-started'
 import {
   searchResultAtom,
+  searchPageDataReadyAtom,
   selectedUnitsAtom,
   tableColumnsAtom,
   resetSearchStateAtom,
 } from './search'
 import { refreshWorkerStatusAtom } from './worker_status'
+import { invalidateExactCountsCache, exactCountCacheGenerationAtom } from '@/components/estimated-count'
 import { restClientAtom } from './rest-client'
 
 // ============================================================================
@@ -260,6 +262,10 @@ export const lastKnownPathBeforeAuthChangeAtom = atomWithStorage<string | null>(
 // Dev Tools State, moved from app.ts to break circular dependency
 export const isTokenManuallyExpiredAtom = atom(false);
 
+// Tracks whether app data initialization has run in this SPA session.
+// Must be reset on logout so re-login triggers re-initialization.
+export const appDataInitializedAtom = atom(false);
+
 
 // ============================================================================
 // ASYNC AUTH ACTION ATOMS
@@ -345,6 +351,7 @@ export const logoutEffectAtom = atomEffect((get, set) => {
     // self-contained and not produce side-effects that impact other atoms' storage.
     // The previous bug where the journal was cleared was caused by a faulty
     // side-effect in the definition of one of these reset atoms.
+    set(appDataInitializedAtom, false);
     set(refreshWorkerStatusAtom);
     set(resetSearchStateAtom);
     set(selectedUnitsAtom, []);
@@ -353,12 +360,43 @@ export const logoutEffectAtom = atomEffect((get, set) => {
     set(importStateAtom, initialImportState);
     set(unitCountsAtom, { legalUnits: null, establishmentsWithLegalUnit: null, establishmentsWithoutLegalUnit: null });
     set(lastKnownPathBeforeAuthChangeAtom, null);
+    invalidateHasStatisticalUnitsCache();
+    invalidateExactCountsCache();
+    set(exactCountCacheGenerationAtom, (n) => n + 1);
 
     // Acknowledge that cleanup is done so we don't run it again.
     set(authMachineAtom, { type: 'ACK_LOGOUT_CLEANUP' });
   }
 });
 
+
+// Tracks whether the auth machine was recently in `background_refreshing` state.
+// Used by `postRefreshCacheInvalidationEffectAtom` to detect the
+// `background_refreshing → stable` transition.
+const wasBackgroundRefreshingAtom = atom(false);
+
+// Invalidates stale caches after a dormant session resumes.
+// `background_refreshing` only fires when the token was expired (dormant session),
+// meaning SSE events may have been missed. A valid token (CHECK → stable) means
+// the session was live — no invalidation needed.
+export const postRefreshCacheInvalidationEffectAtom = atomEffect((get, set) => {
+  const machine = get(authMachineAtom);
+
+  if (machine.matches({ idle_authenticated: 'background_refreshing' })) {
+    if (!get(wasBackgroundRefreshingAtom)) set(wasBackgroundRefreshingAtom, true);
+    return;
+  }
+
+  if (get(wasBackgroundRefreshingAtom) && machine.matches({ idle_authenticated: 'stable' })) {
+    set(wasBackgroundRefreshingAtom, false);
+    // Token was expired → session was dormant → invalidate stale caches
+    invalidateHasStatisticalUnitsCache();
+    invalidateExactCountsCache();
+    set(exactCountCacheGenerationAtom, (n) => n + 1);
+    set(searchPageDataReadyAtom, false);
+    set(refreshWorkerStatusAtom);
+  }
+});
 
 export const logoutAtom = atom(
   null,

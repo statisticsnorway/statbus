@@ -12033,15 +12033,15 @@ export type Database = {
       },
       is_deriving_reports: {
         Args: never
-        Returns: boolean
+        Returns: Json
       },
       is_deriving_statistical_units: {
         Args: never
-        Returns: boolean
+        Returns: Json
       },
       is_importing: {
         Args: never
-        Returns: boolean
+        Returns: Json
       },
       jsonb_stats_accum: {
         Args: {

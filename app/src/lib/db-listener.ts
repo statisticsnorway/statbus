@@ -90,7 +90,20 @@ export function getDbHostPort() {
 }
 
 // Define specific payload types for each channel
-export type WorkerStatusPayload = { type: string; status: boolean };
+export type ImportJobProgressPayload = {
+  type: 'import_job_progress';
+  job_id: number;
+  state: string;
+  total_rows: number | null;
+  analysis_completed_pct: number;
+  imported_rows: number;
+  import_completed_pct: number;
+};
+
+export type WorkerStatusPayload =
+  | { type: string; status: boolean }
+  | { type: 'pipeline_progress'; steps: Array<{ step: string; total: number; completed: number }> }
+  | ImportJobProgressPayload;
 
 // Minimal payload from pg_notify
 export type MinimalImportJobNotificationPayload = {
@@ -162,6 +175,32 @@ function handleWorkerStatusNotification(payload: WorkerStatusPayload) {
   }, DEBOUNCE_DELAY_MS);
 }
 
+function handleImportJobProgressNotification(rawPayload: Record<string, unknown>) {
+  const payload: ImportJobProgressPayload = {
+    type: 'import_job_progress',
+    job_id: rawPayload.job_id as number,
+    state: rawPayload.state as string,
+    total_rows: rawPayload.total_rows as number | null,
+    analysis_completed_pct: rawPayload.analysis_completed_pct as number,
+    imported_rows: rawPayload.imported_rows as number,
+    import_completed_pct: rawPayload.import_completed_pct as number,
+  };
+
+  // Debounce per job_id to avoid flooding during rapid progress updates
+  const debounceKey = `import_job_progress_${payload.job_id}`;
+  if (debounceTimers[debounceKey]) {
+    clearTimeout(debounceTimers[debounceKey]);
+  }
+
+  debounceTimers[debounceKey] = setTimeout(() => {
+    const data: NotificationData = {
+      channel: 'worker_status',
+      payload,
+    };
+    channelCallbacks.get('worker_status')?.forEach(callback => callback(data));
+    delete debounceTimers[debounceKey];
+  }, DEBOUNCE_DELAY_MS);
+}
 
 // Update global references when these variables change
 function updateGlobalClient(client: Client | null) {
@@ -242,6 +281,13 @@ async function connectAndListen() {
         } catch (e) {
           console.error({ error: e, payload: msg.payload }, "DB Listener: Error parsing worker_status notification");
         }
+      } else if (msg.channel === 'import_job_progress') {
+        try {
+          const payload = JSON.parse(msg.payload);
+          handleImportJobProgressNotification(payload);
+        } catch (e) {
+          console.error({ error: e, payload: msg.payload }, "DB Listener: Error parsing import_job_progress notification");
+        }
       } else if (msg.channel === 'import_job') {
         // Asynchronously handle enrichment
         handleImportJobNotification(msg.payload);
@@ -261,10 +307,11 @@ async function connectAndListen() {
     });
 
     await newClient.connect();
-    await newClient.query('LISTEN "worker_status";'); // Listen to the new "worker_status" channel
-    await newClient.query('LISTEN "import_job";'); // Listen to the "import_job" channel
+    await newClient.query('LISTEN "worker_status";');
+    await newClient.query('LISTEN "import_job";');
+    await newClient.query('LISTEN "import_job_progress";');
     updateGlobalConnecting(false);
-    console.log(`DB Listener: Connected to ${dbHost}:${dbPort}/${dbName} as ${dbUser} and listening on "worker_status" and "import_job" channels`);
+    console.log(`DB Listener: Connected to ${dbHost}:${dbPort}/${dbName} as ${dbUser} and listening on "worker_status", "import_job", and "import_job_progress" channels`);
 
     // On successful connection, reset the reconnect delay
     updateGlobalReconnectDelay(INITIAL_RECONNECT_DELAY_MS);
