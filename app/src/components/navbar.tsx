@@ -154,11 +154,16 @@ function NavLink({
         <Icon size={16} />
         <span>{label}</span>
       </Link>
-      {isActive && popoverContent && (
+      {popoverContent ? (
         <Popover>
           <PopoverTrigger asChild>
             <button
-              className="ml-0.5 p-0.5 rounded hover:bg-white/20 text-yellow-400"
+              className={cn(
+                "ml-0.5 p-0.5 rounded",
+                isActive
+                  ? "text-yellow-400 hover:bg-white/20"
+                  : "invisible"
+              )}
               aria-label={`${label} progress details`}
             >
               <Info size={14} />
@@ -169,6 +174,8 @@ function NavLink({
             {popoverContent}
           </PopoverContent>
         </Popover>
+      ) : (
+        <span className="ml-0.5 p-0.5 invisible"><Info size={14} /></span>
       )}
     </div>
   );
