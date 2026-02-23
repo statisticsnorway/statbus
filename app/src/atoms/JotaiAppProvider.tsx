@@ -46,6 +46,7 @@ import {
   logoutEffectAtom,
   postRefreshCacheInvalidationEffectAtom,
   appDataInitializedAtom,
+  tokenExpiresAtAtom,
 } from './auth';
 import {
   baseDataAtom,
@@ -293,6 +294,7 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
   const refreshInitialWorkerStatus = useSetAtom(refreshWorkerStatusAtom)
   const setWorkerStatus = useSetAtom(setWorkerStatusAtom);
   const [, sendAuth] = useAtom(authMachineAtom);
+  const tokenExpiresAt = useAtomValue(tokenExpiresAtAtom);
 
   // SSE connection with heartbeat monitoring
   useGuardedEffect(() => {
@@ -406,6 +408,34 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
       }
     }
   }, [isAuthenticated, refreshInitialWorkerStatus, setWorkerStatus, sendAuth], 'JotaiAppProvider.tsx:SSEConnectionManager:connect')
+
+  // Proactive token refresh: schedule a REFRESH at 80% of the token's remaining lifetime.
+  // This ensures the token is renewed before it expires, keeping SSE connections alive.
+  useGuardedEffect(() => {
+    if (!isAuthenticated || !tokenExpiresAt) return;
+
+    const expiresAtMs = new Date(tokenExpiresAt).getTime();
+    const now = Date.now();
+    const remainingMs = expiresAtMs - now;
+
+    // If the token is already expired or about to expire in <10s, refresh immediately
+    if (remainingMs < 10000) {
+      sendAuth({ type: 'REFRESH' });
+      return;
+    }
+
+    // Schedule refresh at 80% of remaining lifetime
+    const refreshDelay = Math.round(remainingMs * 0.8);
+    const refreshAt = new Date(now + refreshDelay);
+    console.log(`SSE: Token expires at ${new Date(expiresAtMs).toISOString()}, scheduling refresh in ${Math.round(refreshDelay / 1000)}s (at ${refreshAt.toISOString()})`);
+
+    const refreshTimer = setTimeout(() => {
+      console.log('SSE: Proactive token refresh triggered');
+      sendAuth({ type: 'REFRESH' });
+    }, refreshDelay);
+
+    return () => clearTimeout(refreshTimer);
+  }, [isAuthenticated, tokenExpiresAt, sendAuth], 'JotaiAppProvider.tsx:SSEConnectionManager:proactiveRefresh')
 
   return <>{children}</>
 }
