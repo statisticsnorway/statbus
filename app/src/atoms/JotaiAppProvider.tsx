@@ -43,6 +43,9 @@ import {
   fetchAuthStatusAtom,
   authMachineAtom,
   isAuthActionInProgressAtom,
+  logoutEffectAtom,
+  postRefreshCacheInvalidationEffectAtom,
+  appDataInitializedAtom,
 } from './auth';
 import {
   baseDataAtom,
@@ -87,6 +90,11 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   
   // Activate table columns hydration detection effect
   useAtomValue(tableColumnsHydrationEffectAtom);
+
+  // Activate logout cleanup effect (resets app state on logout)
+  useAtomValue(logoutEffectAtom);
+  // Activate cache invalidation after dormant session resumes
+  useAtomValue(postRefreshCacheInvalidationEffectAtom);
 
   const authStatusDetails = useAtomValue(authStatusDetailsAtom);
   const isAuthenticated = useAtomValue(isUserConsideredAuthenticatedForUIAtom);
@@ -193,7 +201,7 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   // The useEffect that previously set authStatusInitiallyCheckedAtom is removed.
   // Its logic is now handled by initialAuthCheckDoneEffect from jotai-effect.
   
-  const [appDataInitialized, setAppDataInitialized] = useState(false);
+  const [appDataInitialized, setAppDataInitialized] = useAtom(appDataInitializedAtom);
 
   // Initialize app data when authenticated, not loading, and client is ready
   useGuardedEffect(() => {
@@ -284,28 +292,29 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
   const isAuthenticated = useAtomValue(isAuthenticatedStrictAtom);
   const refreshInitialWorkerStatus = useSetAtom(refreshWorkerStatusAtom)
   const setWorkerStatus = useSetAtom(setWorkerStatusAtom);
-  
+  const [, sendAuth] = useAtom(authMachineAtom);
+
   useGuardedEffect(() => {
     // Connect SSE only when the user is in a strict, stable authenticated state.
     // Using the strict `isAuthenticatedAtom` (which is false during token refresh)
     // prevents the connection from being established with an expired token,
     // which would then be immediately cancelled.
     if (!isAuthenticated) return
-    
+
     let eventSource: EventSource | null = null
     let reconnectTimeout: NodeJS.Timeout | null = null
     let reconnectAttempts = 0
     const maxReconnectAttempts = 5
-    
+
     const connect = () => {
       try {
         // Connect to the specific SSE endpoint for worker status checks
         eventSource = new EventSource('/api/sse/worker_status')
-        
+
         eventSource.onopen = () => {
           reconnectAttempts = 0
         }
-        
+
         eventSource.onmessage = (event) => {
           try {
             const payload = JSON.parse(event.data);
@@ -325,12 +334,12 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
           // Trigger an initial full refresh of worker status upon connection
           refreshInitialWorkerStatus();
         });
-        
+
         eventSource.onerror = (event) => {
           console.error(`SSE connection error. Attempting to reconnect...`, event);
-          
+
           eventSource?.close();
-          
+
           if (reconnectAttempts < maxReconnectAttempts) {
             const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
             reconnectTimeout = setTimeout(() => {
@@ -341,15 +350,31 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
             console.error(`SSE: Max reconnect attempts (${maxReconnectAttempts}) reached. Giving up.`);
           }
         }
-        
+
       } catch (error) {
         console.error('SSE: Failed to establish initial SSE connection:', error);
       }
     }
-    
+
     connect()
-    
+
+    // When the tab regains focus, revalidate auth and reconnect SSE if closed.
+    // If the token expired while backgrounded, the CHECK will trigger
+    // background_refreshing → stable, and postRefreshCacheInvalidationEffectAtom
+    // handles cache invalidation. If the token is still valid, CHECK returns
+    // directly to stable with no side effects.
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        sendAuth({ type: 'CHECK' });
+        if (eventSource?.readyState === EventSource.CLOSED) {
+          connect();
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (reconnectTimeout) {
         clearTimeout(reconnectTimeout)
       }
@@ -357,7 +382,7 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
         eventSource.close()
       }
     }
-  }, [isAuthenticated, refreshInitialWorkerStatus, setWorkerStatus], 'JotaiAppProvider.tsx:SSEConnectionManager:connect')
+  }, [isAuthenticated, refreshInitialWorkerStatus, setWorkerStatus, sendAuth], 'JotaiAppProvider.tsx:SSEConnectionManager:connect')
   
   return <>{children}</>
 }
