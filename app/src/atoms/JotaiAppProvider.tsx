@@ -294,6 +294,7 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
   const setWorkerStatus = useSetAtom(setWorkerStatusAtom);
   const [, sendAuth] = useAtom(authMachineAtom);
 
+  // SSE connection with heartbeat monitoring
   useGuardedEffect(() => {
     // Connect SSE only when the user is in a strict, stable authenticated state.
     // Using the strict `isAuthenticatedAtom` (which is false during token refresh)
@@ -305,6 +306,8 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
     let reconnectTimeout: NodeJS.Timeout | null = null
     let reconnectAttempts = 0
     const maxReconnectAttempts = 5
+    let lastHeartbeat = Date.now();
+    let heartbeatCheckInterval: NodeJS.Timeout | null = null;
 
     const connect = () => {
       try {
@@ -313,6 +316,7 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
 
         eventSource.onopen = () => {
           reconnectAttempts = 0
+          lastHeartbeat = Date.now();
         }
 
         eventSource.onmessage = (event) => {
@@ -329,6 +333,11 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
             console.error("Failed to parse SSE message data:", event.data, e);
           }
         };
+
+        // Track heartbeat events from server
+        eventSource.addEventListener('heartbeat', () => {
+          lastHeartbeat = Date.now();
+        });
 
         eventSource.addEventListener('connected', (event) => {
           // Trigger an initial full refresh of worker status upon connection
@@ -358,9 +367,20 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
 
     connect()
 
+    // Monitor heartbeats: if no heartbeat in 90s (3x the 30s interval), reconnect
+    heartbeatCheckInterval = setInterval(() => {
+      const elapsed = Date.now() - lastHeartbeat;
+      if (elapsed > 90000) {
+        console.warn(`SSE: No heartbeat in ${Math.round(elapsed / 1000)}s, reconnecting...`);
+        eventSource?.close();
+        reconnectAttempts = 0;
+        connect();
+      }
+    }, 30000);
+
     // When the tab regains focus, revalidate auth and reconnect SSE if closed.
     // If the token expired while backgrounded, the CHECK will trigger
-    // background_refreshing → stable, and postRefreshCacheInvalidationEffectAtom
+    // background_refreshing -> stable, and postRefreshCacheInvalidationEffectAtom
     // handles cache invalidation. If the token is still valid, CHECK returns
     // directly to stable with no side effects.
     const handleVisibilityChange = () => {
@@ -375,6 +395,9 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (heartbeatCheckInterval) {
+        clearInterval(heartbeatCheckInterval);
+      }
       if (reconnectTimeout) {
         clearTimeout(reconnectTimeout)
       }
@@ -383,7 +406,7 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
       }
     }
   }, [isAuthenticated, refreshInitialWorkerStatus, setWorkerStatus, sendAuth], 'JotaiAppProvider.tsx:SSEConnectionManager:connect')
-  
+
   return <>{children}</>
 }
 

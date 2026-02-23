@@ -42,8 +42,37 @@ export async function GET(request: Request) {
         console.error(`SSE Route: Error sending initial connected event for client ${connectionId}:`, e);
       }
 
+      // Keep connection alive with heartbeat and connection status monitoring
+      let missedHeartbeats = 0;
+      const heartbeat = setInterval(() => {
+        try {
+          if (!request.signal.aborted) {
+            controller.enqueue(encoder.encode(
+              "event: heartbeat\n" +
+              `data: ${JSON.stringify({
+                type: "heartbeat",
+                timestamp: new Date().toISOString(),
+              })}\n\n`
+            ));
+            missedHeartbeats = 0;
+          } else {
+            clearInterval(heartbeat);
+          }
+        } catch (err) {
+          console.error(`SSE Route: Heartbeat failed for client ${connectionId}:`, err);
+          missedHeartbeats++;
+          if (missedHeartbeats >= 3) {
+            console.warn(`SSE Route: Too many missed heartbeats for client ${connectionId}, closing connection`);
+            clearInterval(heartbeat);
+            try { controller.close(); } catch {}
+            removeClientCallback('worker_status', handleNotification);
+          }
+        }
+      }, 30000); // Heartbeats every 30 seconds
+
       // Handle client disconnection
       request.signal.addEventListener('abort', () => {
+        clearInterval(heartbeat);
         removeClientCallback('worker_status', handleNotification);
         console.log(`SSE: Client ${connectionId} disconnected.`);
         try {
