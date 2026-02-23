@@ -11,7 +11,7 @@ import TimeContextSelector from "@/components/time-context-selector";
 import { useGuardedEffect } from "@/hooks/use-guarded-effect";
 import { useAuth, isAuthenticatedStrictAtom, currentUserAtom } from "@/atoms/auth";
 import { useBaseData } from "@/atoms/base-data";
-import { useWorkerStatus, COMMAND_LABELS, type ImportStatus, type PhaseStatus, type PipelineStep } from "@/atoms/worker_status";
+import { useWorkerStatus, COMMAND_LABELS, type ImportStatus, type ImportJobProgress, type PhaseStatus, type PipelineStep } from "@/atoms/worker_status";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { useAtomValue } from "jotai";
@@ -39,16 +39,28 @@ function computePhaseProgress(progress: PipelineStep[]): number | null {
   return Math.round((completedSum / totalSum) * 100);
 }
 
+// Analysis is ~25% of total import time, processing ~75% (measured on real jobs).
+const ANALYSIS_WEIGHT = 0.25;
+const PROCESSING_WEIGHT = 1 - ANALYSIS_WEIGHT;
+
 /**
- * Compute import progress from active jobs.
+ * Compute unified import progress for a single job.
+ * Analysis maps to 0–25%, processing maps to 25–100%.
+ */
+function computeJobProgress(job: ImportJobProgress): number {
+  const isAnalysing = job.state === 'analysing_data';
+  if (isAnalysing) {
+    return Math.round((job.analysis_completed_pct ?? 0) * ANALYSIS_WEIGHT);
+  }
+  return Math.round(ANALYSIS_WEIGHT * 100 + (job.import_completed_pct ?? 0) * PROCESSING_WEIGHT);
+}
+
+/**
+ * Compute import progress from active jobs (average across all).
  */
 function computeImportProgress(jobs: ImportStatus['jobs']): number | null {
   if (jobs.length === 0) return null;
-  // Use the average of import_completed_pct and analysis_completed_pct across active jobs
-  const total = jobs.reduce((acc, j) => {
-    const pct = j.import_completed_pct > 0 ? j.import_completed_pct : j.analysis_completed_pct;
-    return acc + (pct ?? 0);
-  }, 0);
+  const total = jobs.reduce((acc, j) => acc + computeJobProgress(j), 0);
   return Math.round(total / jobs.length);
 }
 
@@ -63,19 +75,19 @@ function ImportProgressPopover({ importing }: { importing: ImportStatus }) {
     <div className="space-y-3">
       {importing.jobs.map((job) => {
         const isAnalysing = job.state === 'analysing_data';
-        const pct = isAnalysing ? job.analysis_completed_pct : job.import_completed_pct;
         const label = isAnalysing ? 'Analysing' : 'Processing';
-        const rowInfo = job.total_rows
+        const pct = computeJobProgress(job);
+        const rowInfo = !isAnalysing && job.total_rows
           ? `${(job.imported_rows ?? 0).toLocaleString()} / ${job.total_rows.toLocaleString()} rows`
           : null;
         return (
           <div key={job.id}>
             <div className="flex justify-between text-sm mb-1">
               <span>Job #{job.id} - {label}</span>
-              <span>{pct ?? 0}%</span>
+              <span>{pct}%</span>
             </div>
             {rowInfo && <p className="text-xs text-gray-500 mb-1">{rowInfo}</p>}
-            <Progress value={pct ?? 0} className="h-2" />
+            <Progress value={pct} className="h-2" />
           </div>
         );
       })}
