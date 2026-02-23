@@ -39,7 +39,7 @@ import {
 // Feature state atoms
 import { baseDataAtom, invalidateHasStatisticalUnitsCache } from '@/atoms/base-data';
 import { workerStatusAtom } from '@/atoms/worker_status';
-import { invalidateExactCountsCache } from '@/components/estimated-count';
+import { invalidateExactCountsCache, exactCountCacheGenerationAtom } from '@/components/estimated-count';
 import { queryAtom, filtersAtom, searchResultAtom, selectedUnitsAtom, paginationAtom, sortingAtom, resetSearchInitializationAtom } from '@/atoms/search';
 import { redirectRelevantStateAtom } from '@/atoms/app-derived';
 import { navigationMachineAtom } from '@/atoms/navigation-machine';
@@ -162,6 +162,7 @@ export const DebugInspector = () => {
   const [stateHistory, setStateHistory] = React.useState<any[]>([]);
   const [diffs, setDiffs] = React.useState<any[]>([]);
   const [isTokenManuallyExpired, setIsTokenManuallyExpired] = useAtom(isTokenManuallyExpiredAtom);
+  const bumpCacheGeneration = useSetAtom(exactCountCacheGenerationAtom);
   const journal = useAtomValue(combinedJournalViewAtom);
   const addJournalEntry = useSetAtom(addEventJournalEntryAtom);
   const clearAndMarkJournal = useSetAtom(clearAndMarkJournalAtom);
@@ -456,6 +457,7 @@ export const DebugInspector = () => {
   const handleClearCaches = () => {
     invalidateHasStatisticalUnitsCache();
     invalidateExactCountsCache();
+    bumpCacheGeneration((n) => n + 1);
     resetSearchInitialization(); // Reset search page data ready state for testing race conditions
     setCacheClearStatus('Cleared!');
     setTimeout(() => setCacheClearStatus(''), 2000);

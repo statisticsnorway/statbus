@@ -1,9 +1,16 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, MouseEvent } from "react";
+import { useGuardedEffect } from '@/hooks/use-guarded-effect';
+import { atom } from 'jotai';
+import { useAtomValue } from 'jotai';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Info, Loader2 } from "lucide-react";
+
+// Generation counter — incremented when caches are invalidated.
+// EstimatedCount components subscribe to this to reset their React state.
+export const exactCountCacheGenerationAtom = atom(0);
 
 // ============================================================================
 // LOCALSTORAGE CACHING FOR EXACT COUNTS
@@ -78,13 +85,27 @@ export function EstimatedCount({
   autoFetchDelay = 10000,
   className,
 }: EstimatedCountProps) {
+  // Subscribe to cache generation — when it changes, reset exactCount
+  const cacheGeneration = useAtomValue(exactCountCacheGenerationAtom);
+
   // Check localStorage cache first
   const cachedCount = cacheKey ? getCachedExactCount(cacheKey) : null;
-  
+
   const [exactCount, setExactCount] = useState<number | null>(cachedCount);
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
+
+  // When the cache generation changes, re-check localStorage.
+  // If the cache was cleared, reset React state so the component re-fetches.
+  useGuardedEffect(() => {
+    if (cacheKey) {
+      const currentCache = getCachedExactCount(cacheKey);
+      if (currentCache === null && exactCount !== null) {
+        setExactCount(null);
+      }
+    }
+  }, [cacheGeneration, cacheKey], 'EstimatedCount:cacheInvalidation'); // eslint-disable-line react-hooks/exhaustive-deps
   
   // Refs for cleanup
   const abortControllerRef = useRef<AbortController | null>(null);

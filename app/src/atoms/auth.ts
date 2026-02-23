@@ -31,7 +31,7 @@ import {
   resetSearchStateAtom,
 } from './search'
 import { refreshWorkerStatusAtom } from './worker_status'
-import { invalidateExactCountsCache } from '@/components/estimated-count'
+import { invalidateExactCountsCache, exactCountCacheGenerationAtom } from '@/components/estimated-count'
 import { restClientAtom } from './rest-client'
 
 // ============================================================================
@@ -362,6 +362,7 @@ export const logoutEffectAtom = atomEffect((get, set) => {
     set(lastKnownPathBeforeAuthChangeAtom, null);
     invalidateHasStatisticalUnitsCache();
     invalidateExactCountsCache();
+    set(exactCountCacheGenerationAtom, (n) => n + 1);
 
     // Acknowledge that cleanup is done so we don't run it again.
     set(authMachineAtom, { type: 'ACK_LOGOUT_CLEANUP' });
@@ -391,6 +392,7 @@ export const postRefreshCacheInvalidationEffectAtom = atomEffect((get, set) => {
     // Token was expired → session was dormant → invalidate stale caches
     invalidateHasStatisticalUnitsCache();
     invalidateExactCountsCache();
+    set(exactCountCacheGenerationAtom, (n) => n + 1);
     set(searchPageDataReadyAtom, false);
     set(refreshWorkerStatusAtom);
   }
