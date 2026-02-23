@@ -148,6 +148,11 @@ export const NavigationManager = () => {
           console.error('[performSideEffects] router.push THREW ERROR', err);
         }
       }, 0);
+    } else if (action === 'hardNavigate' && targetPath) {
+      // FALLBACK: router.push() timed out. Use window.location.href which always
+      // works and causes a full page reload, breaking any navigation loop.
+      console.warn('[performSideEffects] HARD NAVIGATE fallback after router.push timeout', { targetPath, pathname });
+      window.location.href = targetPath;
     } else if (action === 'revalidateAuth') {
       if (debug) {
         console.log('[performSideEffects] EXECUTING revalidateAuth');

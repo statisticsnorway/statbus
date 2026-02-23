@@ -33,7 +33,7 @@ export interface NavigationContext {
   setupPath: string | null;
   lastKnownPath: string | null;
   sideEffect?: {
-    action: 'savePath' | 'clearLastKnownPath' | 'revalidateAuth' | 'navigateAndSaveJournal';
+    action: 'savePath' | 'clearLastKnownPath' | 'revalidateAuth' | 'navigateAndSaveJournal' | 'hardNavigate';
     targetPath?: string;
   };
   // Timing fields for robust navigation polling (declarative state, not mutable refs)
@@ -257,21 +257,19 @@ export const navigationMachine = setup({
        ],
        on: {
           CONTEXT_UPDATED: {
-            actions: assign(( { context, event } ) => 
-              // TOO SLOW DETECTION: Apply timeout handling for redirectingToLogin
+            actions: assign(( { context, event } ) =>
               handleSideEffectTimeout(context, event, 'redirectingToLogin')
             ),
           },
           CLEAR_SIDE_EFFECT: [
             {
-              // TIMEOUT RECOVERY: Transition to evaluating to retry navigation.
-              target: 'evaluating',
+              // TIMEOUT RECOVERY: router.push() failed. Fall back to hard navigation.
               guard: ({ event }) => event.reason === 'timeout',
               actions: assign(({ context }) => ({
                 ...context,
-                sideEffect: undefined,
-                sideEffectStartTime: undefined,
-                sideEffectStartPathname: undefined,
+                sideEffect: { action: 'hardNavigate', targetPath: '/login' },
+                sideEffectStartTime: Date.now(),
+                sideEffectStartPathname: context.pathname,
               })),
             },
             {
@@ -317,21 +315,19 @@ export const navigationMachine = setup({
        ],
        on: {
           CONTEXT_UPDATED: {
-            actions: assign(( { context, event } ) => 
-              // TOO SLOW DETECTION: Apply timeout handling for redirectingToSetup
+            actions: assign(( { context, event } ) =>
               handleSideEffectTimeout(context, event, 'redirectingToSetup')
             ),
           },
           CLEAR_SIDE_EFFECT: [
             {
-              // TIMEOUT RECOVERY: Transition to evaluating to retry navigation.
-              target: 'evaluating',
+              // TIMEOUT RECOVERY: router.push() failed. Fall back to hard navigation.
               guard: ({ event }) => event.reason === 'timeout',
               actions: assign(({ context }) => ({
                 ...context,
-                sideEffect: undefined,
-                sideEffectStartTime: undefined,
-                sideEffectStartPathname: undefined,
+                sideEffect: { action: 'hardNavigate', targetPath: context.setupPath! },
+                sideEffectStartTime: Date.now(),
+                sideEffectStartPathname: context.pathname,
               })),
             },
             {
@@ -496,24 +492,24 @@ export const navigationMachine = setup({
       ],
       on: {
         CONTEXT_UPDATED: {
-          actions: assign(({ context, event }) => 
-            // Standard timeout handling - auth has already been verified
+          actions: assign(({ context, event }) =>
             handleSideEffectTimeout(context, event, 'redirectingFromLogin')
           ),
         },
         CLEAR_SIDE_EFFECT: [
           {
-            // TIMEOUT RECOVERY: If navigation timed out, transition to evaluating to retry.
-            // This prevents the machine from getting stuck when router.push() succeeds
-            // but the pathname doesn't update (e.g., due to Next.js App Router issues).
-            target: 'evaluating',
+            // TIMEOUT RECOVERY: router.push() failed. Fall back to hard navigation
+            // (window.location.href) which always works and breaks the loop.
             guard: ({ event }) => event.reason === 'timeout',
-            actions: assign(({ context }) => ({
-              ...context,
-              sideEffect: undefined,
-              sideEffectStartTime: undefined,
-              sideEffectStartPathname: undefined,
-            })),
+            actions: assign(({ context }) => {
+              const targetPath = context.sideEffect?.targetPath || '/';
+              return {
+                ...context,
+                sideEffect: { action: 'hardNavigate', targetPath },
+                sideEffectStartTime: Date.now(),
+                sideEffectStartPathname: context.pathname,
+              };
+            }),
           },
           {
             // FAST DETECTION: Navigation completed quickly, just clear sideEffect.
