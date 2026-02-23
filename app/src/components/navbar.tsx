@@ -111,7 +111,7 @@ function PhaseProgressPopover({ phase }: { phase: PhaseStatus }) {
           <div key={step.step}>
             <div className="flex justify-between text-sm mb-1">
               <span>{label}</span>
-              <span>{step.completed}/{step.total}</span>
+              <span>{pct}%</span>
             </div>
             <Progress value={pct} className="h-2" />
           </div>

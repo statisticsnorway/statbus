@@ -21,7 +21,7 @@ function PhaseProgressBar({ phase }: { phase: PhaseStatus | null }) {
           <div key={step.step}>
             <div className="flex justify-between text-xs text-gray-500 mb-0.5">
               <span>{label}</span>
-              <span>{step.completed}/{step.total} ({pct}%)</span>
+              <span>{pct}%</span>
             </div>
             <Progress value={pct} className="h-1.5" />
           </div>
