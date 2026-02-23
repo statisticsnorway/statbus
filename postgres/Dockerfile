@@ -23,7 +23,7 @@ ARG hypopg_release=1.4.1
 ARG index_advisor_release=v0.2.0
 ARG pgjwt_release=f3d82fd
 ARG pg_graphql_release=9cf4882b3b73e5f15cdcad8f0535ccb7c41db86b
-ARG jsonb_stats_release=fd95398
+ARG jsonb_stats_release=c4a2595
 
 ####################
 # Setup Postgres PPA
