@@ -33,6 +33,7 @@ class AuthStore {
     user: null,
     expired_access_token_call_refresh: false,
     error_code: null,
+    token_expires_at: null,
   };
   private fetchStatus: FetchStatus = "idle";
   private fetchPromise: Promise<AuthStatus> | null = null;
@@ -80,7 +81,7 @@ class AuthStore {
       }
 
       // Always return a fresh unauthenticated state on error
-      return { isAuthenticated: false, user: null, expired_access_token_call_refresh: false, error_code: 'AUTH_STORE_FETCH_ERROR' };
+      return { isAuthenticated: false, user: null, expired_access_token_call_refresh: false, error_code: 'AUTH_STORE_FETCH_ERROR', token_expires_at: null };
     }
   }
 
@@ -109,6 +110,7 @@ class AuthStore {
       user: null,
       expired_access_token_call_refresh: false,
       error_code: null,
+      token_expires_at: null,
     };
     this.fetchStatus = "idle";
     this.lastFetchTime = 0;
@@ -291,7 +293,7 @@ class AuthStore {
 
         if (!response.ok) {
           console.error("AuthStore.fetchAuthStatus: Direct fetch for auth status failed:", { status: response.status, data });
-          return { isAuthenticated: false, user: null, expired_access_token_call_refresh: false, error_code: 'RPC_ERROR' };
+          return { isAuthenticated: false, user: null, expired_access_token_call_refresh: false, error_code: 'RPC_ERROR', token_expires_at: null };
         }
         
         return _parseAuthStatusRpcResponseToAuthStatus(data);
@@ -303,7 +305,7 @@ class AuthStore {
         
         if (!client) {
           console.error("AuthStore.fetchAuthStatus: Failed to get a valid REST client.");
-          return { isAuthenticated: false, user: null, expired_access_token_call_refresh: false, error_code: 'CLIENT_INIT_ERROR' };
+          return { isAuthenticated: false, user: null, expired_access_token_call_refresh: false, error_code: 'CLIENT_INIT_ERROR', token_expires_at: null };
         }
         
         // Using POST for auth_status, which is the default for RPCs.
@@ -311,7 +313,7 @@ class AuthStore {
         
         if (error) {
           console.error("AuthStore.fetchAuthStatus: Auth status check RPC failed:", { status, statusText, error });
-          return { isAuthenticated: false, user: null, expired_access_token_call_refresh: false, error_code: 'RPC_ERROR' };
+          return { isAuthenticated: false, user: null, expired_access_token_call_refresh: false, error_code: 'RPC_ERROR', token_expires_at: null };
         }
       
         return _parseAuthStatusRpcResponseToAuthStatus(data);
@@ -325,7 +327,7 @@ class AuthStore {
           stack: error.stack,
         });
       }
-      return { isAuthenticated: false, user: null, expired_access_token_call_refresh: false, error_code: 'FETCH_EXCEPTION' };
+      return { isAuthenticated: false, user: null, expired_access_token_call_refresh: false, error_code: 'FETCH_EXCEPTION', token_expires_at: null };
     }
   }
   

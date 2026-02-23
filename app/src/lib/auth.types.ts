@@ -24,6 +24,7 @@ export interface AuthStatus {
   expired_access_token_call_refresh: boolean;
   user: User | null;
   error_code: string | null;
+  token_expires_at: string | null;
 }
 
 /**
@@ -40,6 +41,7 @@ export const _parseAuthStatusRpcResponseToAuthStatus = (rpcResponse: any): AuthS
       user: null,
       expired_access_token_call_refresh: false,
       error_code: 'NULL_RPC_RESPONSE',
+      token_expires_at: null,
     };
   }
 
@@ -62,5 +64,6 @@ export const _parseAuthStatusRpcResponseToAuthStatus = (rpcResponse: any): AuthS
     user,
     expired_access_token_call_refresh: rpcResponse.expired_access_token_call_refresh === true,
     error_code: rpcResponse.error_code || null,
+    token_expires_at: rpcResponse.token_expires_at || null,
   };
 };

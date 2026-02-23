@@ -101,6 +101,7 @@ function areClientAuthStatusesEqual(a: ClientAuthStatus, b: ClientAuthStatus): b
   if (a.error_code !== b.error_code) return false;
   if (a.user?.uid !== b.user?.uid) return false;
   if (a.user?.last_sign_in_at !== b.user?.last_sign_in_at) return false;
+  if (a.token_expires_at !== b.token_expires_at) return false;
   return true;
 }
 
@@ -210,6 +211,15 @@ export const authStatusAtom = atom((get) => {
   };
 });
 export const currentUserAtom = atom((get) => get(authStatusUnstableDetailsAtom).user);
+
+/**
+ * A derived atom exposing the token expiration time from the auth machine context.
+ * Used by SSEConnectionManager to schedule proactive token refresh.
+ */
+export const tokenExpiresAtAtom = atom((get) => {
+  const machine = get(authMachineAtom);
+  return machine.context.token_expires_at as string | null;
+});
 
 /**
  * A derived boolean atom that is `true` if the server has indicated that the

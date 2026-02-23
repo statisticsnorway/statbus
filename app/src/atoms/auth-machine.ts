@@ -184,6 +184,7 @@ const authMachine = setup({
     user: null,
     expired_access_token_call_refresh: false,
     error_code: null,
+    token_expires_at: null,
     justLoggedOut: false,
     authApiResponseLog: {},
   },
