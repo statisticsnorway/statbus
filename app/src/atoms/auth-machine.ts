@@ -338,6 +338,7 @@ const authMachine = setup({
                   return {
                     ...event.output.status,
                     client: context.client,
+                    justLoggedOut: true,
                     authApiResponseLog: addAndPurgeLog(context.authApiResponseLog, 'auth_status', event.output.rawResponse, now),
                   }
                 }),
@@ -345,7 +346,7 @@ const authMachine = setup({
             ],
             onError: {
               target: '#auth.idle_unauthenticated',
-              actions: assign({ error_code: 'RPC_ERROR' })
+              actions: assign({ error_code: 'RPC_ERROR', justLoggedOut: true })
             }
           }
         },
@@ -380,6 +381,7 @@ const authMachine = setup({
                   return {
                     ...event.output.parsedStatus,
                     client: context.client,
+                    justLoggedOut: true,
                     authApiResponseLog: log,
                   }
                 }),
@@ -395,6 +397,7 @@ const authMachine = setup({
                 return {
                   ...parsedStatus,
                   client: context.client,
+                  justLoggedOut: true,
                   authApiResponseLog: addAndPurgeLog(context.authApiResponseLog, 'background_refresh_error', rawResponseWithTimestamp, now),
                   error_code: 'BACKGROUND_REFRESH_FAILED'
                 };
