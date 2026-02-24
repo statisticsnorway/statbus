@@ -43,6 +43,9 @@ const nextConfig = {
   reactStrictMode: true,
   // output: 'standalone' is primarily for production builds.
   // Set it conditionally to avoid potential interference with dev server features like proxying.
+  ...(isDevelopment && {
+    allowedDevOrigins: ['local.statbus.org'],
+  }),
 };
 
 if (!isDevelopment) {
