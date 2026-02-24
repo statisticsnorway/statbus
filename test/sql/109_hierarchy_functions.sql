@@ -202,5 +202,57 @@ FROM public.statistical_unit_stats(
     );
 \x
 
+-- ============================================================================
+-- BENCHMARK: Write EXPLAIN ANALYZE output to perf file (variable timing, not diff-checked)
+-- ============================================================================
+-- Capture unit_ids into psql variables for use in EXPLAIN ANALYZE
+SELECT unit_id AS lu_unit_id FROM public.statistical_unit
+WHERE external_idents ->> 'stat_ident' = '1000'
+  AND unit_type = 'legal_unit'
+LIMIT 1 \gset
+
+SELECT unit_id AS ent_unit_id FROM public.statistical_unit
+WHERE external_idents ->> 'stat_ident' = '3001'
+  AND unit_type = 'enterprise'
+LIMIT 1 \gset
+
+\set perf_file test/expected/performance/109_hierarchy_functions.perf
+\pset tuples_only on
+\pset footer off
+\o :perf_file
+
+SELECT '# Benchmark: statistical_unit_stats and relevant_statistical_units';
+SELECT '# Date: ' || now()::text;
+SELECT '';
+
+SELECT '## EXPLAIN ANALYZE: statistical_unit_stats (legal_unit, stat_ident=1000)';
+\pset tuples_only off
+EXPLAIN ANALYZE
+SELECT * FROM public.statistical_unit_stats('legal_unit', :lu_unit_id, '2024-01-01'::DATE);
+
+\pset tuples_only on
+SELECT '';
+SELECT '## EXPLAIN ANALYZE: statistical_unit_stats (enterprise, stat_ident=3001)';
+\pset tuples_only off
+EXPLAIN ANALYZE
+SELECT * FROM public.statistical_unit_stats('enterprise', :ent_unit_id, '2024-01-01'::DATE);
+
+\pset tuples_only on
+SELECT '';
+SELECT '## EXPLAIN ANALYZE: relevant_statistical_units (legal_unit, stat_ident=1000)';
+\pset tuples_only off
+EXPLAIN ANALYZE
+SELECT * FROM public.relevant_statistical_units('legal_unit', :lu_unit_id, '2024-01-01'::DATE);
+
+\pset tuples_only on
+SELECT '';
+SELECT '## EXPLAIN ANALYZE: relevant_statistical_units (enterprise, stat_ident=3001)';
+\pset tuples_only off
+EXPLAIN ANALYZE
+SELECT * FROM public.relevant_statistical_units('enterprise', :ent_unit_id, '2024-01-01'::DATE);
+
+\o
+\pset tuples_only off
+\pset footer on
 
 ROLLBACK;
