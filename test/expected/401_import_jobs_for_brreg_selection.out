@@ -10,6 +10,7 @@
 --
 -- Performance benchmark data is written to:
 --   test/expected/performance/401_import_benchmark.perf
+--   test/expected/performance/401_hierarchy_benchmark.perf
 --
 -- ============================================================================
 -- PHASE 0: SETUP
@@ -841,6 +842,57 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 (2 rows)
 
 COMMIT;
+-- ============================================================================
+-- PHASE 3C: HIERARCHY FUNCTION BENCHMARKS (~29K rows scale)
+-- ============================================================================
+BEGIN;
+-- Pick the enterprise with the most establishments (deepest hierarchy)
+SELECT su.unit_id AS ent_unit_id
+FROM public.statistical_unit AS su
+WHERE su.unit_type = 'enterprise'
+  AND su.valid_from <= '2025-01-01' AND '2025-01-01' < su.valid_until
+ORDER BY su.stats -> 'establishment_count' -> 'count' DESC NULLS LAST
+LIMIT 1 \gset
+-- Pick a legal_unit with the most establishments
+SELECT su.unit_id AS lu_unit_id
+FROM public.statistical_unit AS su
+WHERE su.unit_type = 'legal_unit'
+  AND su.valid_from <= '2025-01-01' AND '2025-01-01' < su.valid_until
+ORDER BY su.stats -> 'establishment_count' -> 'count' DESC NULLS LAST
+LIMIT 1 \gset
+\set perf_file test/expected/performance/401_hierarchy_benchmark.perf
+\pset tuples_only on
+\pset footer off
+\o :perf_file
+SELECT '# Benchmark: statistical_unit_stats and relevant_statistical_units (~29K rows)';
+SELECT '# Date: ' || now()::text;
+SELECT '';
+SELECT '## EXPLAIN ANALYZE: statistical_unit_stats (legal_unit)';
+\pset tuples_only off
+EXPLAIN ANALYZE
+SELECT * FROM public.statistical_unit_stats('legal_unit', :lu_unit_id, '2025-01-01'::DATE);
+\pset tuples_only on
+SELECT '';
+SELECT '## EXPLAIN ANALYZE: statistical_unit_stats (enterprise)';
+\pset tuples_only off
+EXPLAIN ANALYZE
+SELECT * FROM public.statistical_unit_stats('enterprise', :ent_unit_id, '2025-01-01'::DATE);
+\pset tuples_only on
+SELECT '';
+SELECT '## EXPLAIN ANALYZE: relevant_statistical_units (legal_unit)';
+\pset tuples_only off
+EXPLAIN ANALYZE
+SELECT * FROM public.relevant_statistical_units('legal_unit', :lu_unit_id, '2025-01-01'::DATE);
+\pset tuples_only on
+SELECT '';
+SELECT '## EXPLAIN ANALYZE: relevant_statistical_units (enterprise)';
+\pset tuples_only off
+EXPLAIN ANALYZE
+SELECT * FROM public.relevant_statistical_units('enterprise', :ent_unit_id, '2025-01-01'::DATE);
+\o
+\pset tuples_only off
+\pset footer on
+ROLLBACK;
 -- ============================================================================
 -- PHASE 4: CLEANUP
 -- ============================================================================
