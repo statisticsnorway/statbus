@@ -64,6 +64,73 @@ function computeImportProgress(jobs: ImportStatus['jobs']): number | null {
   return Math.round(total / jobs.length);
 }
 
+// Step weights derived from production wall-clock times (no.statbus.org, 2026-02-24).
+// Dataset: 1.1M legal units + 826K establishments, analytics_partition_count=128.
+//
+// Threading model: Analytics queue has 1 top fiber (sequential) + 4 child fibers (parallel).
+// Top-level tasks execute strictly one at a time. PARENT tasks spawn children processed
+// by the 4 child fibers; the top fiber blocks until all children complete.
+// Serial tasks run synchronously on the top fiber.
+//
+// Phase 1 — Statistical Units (total ~163 min):
+//   derive_statistical_unit:        8,414s wall (2394 children / 4 fibers) → 86%
+//   statistical_unit_flush_staging: 1,355s (serial, duration_ms)           → 14%
+//
+const PHASE1_STEP_WEIGHTS = [
+  { step: 'derive_statistical_unit', weight: 86 },
+  { step: 'statistical_unit_flush_staging', weight: 14 },
+];
+
+// Phase 2 — Reports (total ~28 min per iteration):
+//   derive_reports:                    12s (serial, enqueues children)         →  1%
+//   derive_statistical_history:        35s wall (384 period children / 4)      →  2%
+//   derive_statistical_unit_facet:     27s wall (128 partition children / 4)   →  2%
+//   statistical_unit_facet_reduce:     51s (serial, merges partitions)         →  3%
+//   derive_statistical_history_facet: 1,401s wall (384 period children / 4)   → 84%
+//   statistical_history_facet_reduce:  149s (serial, merges partitions)        →  9%
+//
+const PHASE2_STEP_WEIGHTS = [
+  { step: 'derive_reports', weight: 1 },
+  { step: 'derive_statistical_history', weight: 2 },
+  { step: 'derive_statistical_unit_facet', weight: 2 },
+  { step: 'statistical_unit_facet_reduce', weight: 3 },
+  { step: 'derive_statistical_history_facet', weight: 84 },
+  { step: 'statistical_history_facet_reduce', weight: 9 },
+];
+
+/**
+ * Compute weighted progress for a phase using step weights and seenSteps tracking.
+ *
+ * Steps in pipeline_progress (with total > 0) are in-progress: weight * (completed / total).
+ * Steps in seenSteps but not in pipeline_progress have completed: full weight.
+ * Steps not yet seen: 0.
+ */
+function computeWeightedPhaseProgress(
+  phase: PhaseStatus,
+  stepWeights: { step: string; weight: number }[],
+): number | null {
+  const totalWeight = stepWeights.reduce((acc, sw) => acc + sw.weight, 0);
+  if (totalWeight === 0) return null;
+
+  const progressByStep = new Map(phase.progress.map(s => [s.step, s]));
+  const seenSet = new Set(phase.seenSteps);
+
+  let earned = 0;
+  for (const { step, weight } of stepWeights) {
+    const prog = progressByStep.get(step);
+    if (prog && prog.total > 0) {
+      // Currently in pipeline_progress — partially done
+      earned += weight * (prog.completed / prog.total);
+    } else if (seenSet.has(step)) {
+      // Was seen but no longer in pipeline_progress — completed
+      earned += weight;
+    }
+    // else: not started yet — contributes 0
+  }
+
+  return Math.round((earned / totalWeight) * 100);
+}
+
 /**
  * Import progress popover content.
  */
@@ -232,8 +299,8 @@ export default function Navbar() {
 
   // Compute progress percentages
   const importPct = importing ? computeImportProgress(importing.jobs) : null;
-  const unitsPct = derivingUnits ? computePhaseProgress(derivingUnits.progress) : null;
-  const reportsPct = derivingReports ? computePhaseProgress(derivingReports.progress) : null;
+  const unitsPct = derivingUnits ? computeWeightedPhaseProgress(derivingUnits, PHASE1_STEP_WEIGHTS) : null;
+  const reportsPct = derivingReports ? computeWeightedPhaseProgress(derivingReports, PHASE2_STEP_WEIGHTS) : null;
 
   return (
     <header className="bg-ssb-dark text-white">
@@ -260,7 +327,11 @@ export default function Navbar() {
                 isActive={isImporting}
                 isCurrent={pathname.startsWith("/import")}
                 progressPct={importPct}
-                popoverContent={importing && importing.active ? <ImportProgressPopover importing={importing} /> : null}
+                popoverContent={isImporting
+                  ? (importing?.active && importing.jobs.length > 0
+                    ? <ImportProgressPopover importing={importing} />
+                    : <p className="text-sm text-gray-500">Import is active...</p>)
+                  : null}
               />
 
               {hasStatisticalUnits && (
@@ -273,7 +344,11 @@ export default function Navbar() {
                     isActive={isDerivingUnits}
                     isCurrent={pathname.startsWith("/search")}
                     progressPct={unitsPct}
-                    popoverContent={derivingUnits && derivingUnits.active ? <PhaseProgressPopover phase={derivingUnits} /> : null}
+                    popoverContent={isDerivingUnits
+                      ? (derivingUnits?.active && derivingUnits.progress.length > 0
+                        ? <PhaseProgressPopover phase={derivingUnits} />
+                        : <p className="text-sm text-gray-500">Deriving statistical units...</p>)
+                      : null}
                   />
                   {/* Reports Link */}
                   <NavLink
@@ -283,7 +358,11 @@ export default function Navbar() {
                     isActive={isDerivingReports}
                     isCurrent={pathname.startsWith("/reports")}
                     progressPct={reportsPct}
-                    popoverContent={derivingReports && derivingReports.active ? <PhaseProgressPopover phase={derivingReports} /> : null}
+                    popoverContent={isDerivingReports
+                      ? (derivingReports?.active && derivingReports.progress.length > 0
+                        ? <PhaseProgressPopover phase={derivingReports} />
+                        : <p className="text-sm text-gray-500">Deriving reports...</p>)
+                      : null}
                   />
                 </>
               )}

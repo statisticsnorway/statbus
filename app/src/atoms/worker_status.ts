@@ -44,6 +44,7 @@ export interface ImportStatus {
 export interface PhaseStatus {
   active: boolean;
   progress: PipelineStep[];
+  seenSteps: string[];
 }
 
 export interface WorkerStatus {
@@ -165,15 +166,48 @@ export const setWorkerStatusAtom = atom(
       const phase1Steps = steps.filter(s => PHASE1_STEPS.has(s.step));
       const phase2Steps = steps.filter(s => PHASE2_STEPS.has(s.step));
 
+      // Track seenSteps: remember which top-level steps we've observed.
+      // If a step reappears that was already seen (and is not currently in
+      // pipeline_progress), it means a new iteration started — reset seenSteps.
+      const mergeSeenSteps = (
+        currentSteps: PipelineStep[],
+        prevPhase: PhaseStatus | null,
+      ): string[] => {
+        const incomingNames = currentSteps.map(s => s.step);
+        const prevSeen = prevPhase?.seenSteps ?? [];
+        // Detect new iteration: a step that was previously seen and completed
+        // (no longer in pipeline_progress) is now back in pipeline_progress.
+        // Since pipeline_progress entries are deleted when parent completes,
+        // a step being in both prevSeen and incomingNames means it restarted.
+        const restarted = incomingNames.some(name =>
+          prevSeen.includes(name) &&
+          !prevPhase?.progress.some(s => s.step === name)
+        );
+        if (restarted) {
+          // New iteration — start fresh with only current steps
+          return [...new Set(incomingNames)];
+        }
+        // Merge new step names into existing seenSteps
+        return [...new Set([...prevSeen, ...incomingNames])];
+      };
+
       const newStatus: WorkerStatus = {
         ...prevStatus,
         loading: false,
         error: null,
         derivingUnits: phase1Steps.length > 0
-          ? { active: true, progress: phase1Steps.filter(s => s.total > 1) }
+          ? {
+              active: true,
+              progress: phase1Steps.filter(s => s.total > 1),
+              seenSteps: mergeSeenSteps(phase1Steps, prevStatus.derivingUnits),
+            }
           : prevStatus.derivingUnits,
         derivingReports: phase2Steps.length > 0
-          ? { active: true, progress: phase2Steps.filter(s => s.total > 1) }
+          ? {
+              active: true,
+              progress: phase2Steps.filter(s => s.total > 1),
+              seenSteps: mergeSeenSteps(phase2Steps, prevStatus.derivingReports),
+            }
           : prevStatus.derivingReports,
         // Keep boolean fields in sync
         isDerivingUnits: phase1Steps.length > 0 ? true : prevStatus.isDerivingUnits,
@@ -199,12 +233,12 @@ export const setWorkerStatusAtom = atom(
     } else if (type === 'is_deriving_statistical_units') {
       updatedStatus.isDerivingUnits = status;
       if (!status) {
-        updatedStatus.derivingUnits = { active: false, progress: [] };
+        updatedStatus.derivingUnits = { active: false, progress: [], seenSteps: [] };
       }
     } else if (type === 'is_deriving_reports') {
       updatedStatus.isDerivingReports = status;
       if (!status) {
-        updatedStatus.derivingReports = { active: false, progress: [] };
+        updatedStatus.derivingReports = { active: false, progress: [], seenSteps: [] };
       }
     }
 
@@ -284,16 +318,16 @@ export const refreshWorkerStatusAtom = atom(
 
       // Parse JSONB responses - PostgREST types still say boolean but DB returns jsonb objects
       const importData = importingRes.data as unknown as ImportStatus | null;
-      const unitsData = derivingUnitsRes.data as unknown as PhaseStatus | null;
-      const reportsData = derivingReportsRes.data as unknown as PhaseStatus | null;
+      const unitsData = derivingUnitsRes.data as unknown as Omit<PhaseStatus, 'seenSteps'> | null;
+      const reportsData = derivingReportsRes.data as unknown as Omit<PhaseStatus, 'seenSteps'> | null;
 
       set(workerStatusAtom, {
         isImporting: importData?.active ?? null,
         isDerivingUnits: unitsData?.active ?? null,
         isDerivingReports: reportsData?.active ?? null,
         importing: importData,
-        derivingUnits: unitsData,
-        derivingReports: reportsData,
+        derivingUnits: unitsData ? { ...unitsData, seenSteps: [] } : null,
+        derivingReports: reportsData ? { ...reportsData, seenSteps: [] } : null,
         loading: false,
         error: null,
       });
