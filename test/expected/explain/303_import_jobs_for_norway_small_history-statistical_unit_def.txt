@@ -20,14 +20,14 @@
                              ->  Seq Scan on external_ident_type eit_1
                  ->  Hash Join
                        Hash Cond: (ei_2.type_id = eit_2.id)
-                       ->  Index Scan using external_ident_enterprise_id_idx on external_ident ei_2
-                             Index Cond: (enterprise_id IS NOT NULL)
+                       ->  Seq Scan on external_ident ei_2
+                             Filter: (enterprise_id IS NOT NULL)
                        ->  Hash
                              ->  Seq Scan on external_ident_type eit_2
                  ->  Hash Join
                        Hash Cond: (ei_3.type_id = eit_3.id)
-                       ->  Index Scan using external_ident_enterprise_group_id_idx on external_ident ei_3
-                             Index Cond: (enterprise_group_id IS NOT NULL)
+                       ->  Seq Scan on external_ident ei_3
+                             Filter: (enterprise_group_id IS NOT NULL)
                        ->  Hash
                              ->  Seq Scan on external_ident_type eit_3
    ->  Hash Left Join
