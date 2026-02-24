@@ -17,6 +17,7 @@ export default function ReportsPageClient({
   const [maxStatValuesNoFiltering, setMaxStatValuesNoFiltering] = useState<Record<string, { region: number, activity: number }>>({});
   const {
     drillDown,
+    isLoading,
     region,
     setRegion,
     activityCategory,
@@ -120,7 +121,7 @@ export default function ReportsPageClient({
               className="space-y-8"
             >
               <div className="space-y-6 bg-gray-50 p-4">
-                {drillDown && (
+                {drillDown ? (
                   <>
                     <BreadCrumb
                       topLevelText="All Regions"
@@ -140,10 +141,15 @@ export default function ReportsPageClient({
                       <Skeleton className="w-full h-[200px]" />
                     )}
                   </>
-                )}
+                ) : isLoading ? (
+                  <div className="space-y-3">
+                    <Skeleton className="h-5 w-32" />
+                    <Skeleton className="w-full h-[200px]" />
+                  </div>
+                ) : null}
               </div>
               <div className="bg-gray-50 p-6">
-                {drillDown && (
+                {drillDown ? (
                   <>
                     <BreadCrumb
                       topLevelText="All Activity Categories"
@@ -163,7 +169,12 @@ export default function ReportsPageClient({
                       <Skeleton className="w-full h-[200px]" />
                     )}
                   </>
-                )}
+                ) : isLoading ? (
+                  <div className="space-y-3">
+                    <Skeleton className="h-5 w-48" />
+                    <Skeleton className="w-full h-[200px]" />
+                  </div>
+                ) : null}
               </div>
             </TabsContent>
           ))}
