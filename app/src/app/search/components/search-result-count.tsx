@@ -27,9 +27,9 @@ export const SearchResultCount = ({
       : (pagination.page - 1) * pagination.pageSize + searchResult.data.length
     : 0;
 
-  // Format total with thousand separators
-  const formattedTotal = hasTotal 
-    ? searchResult.total!.toLocaleString()
+  // Format total with thousand separators, ~ prefix for estimates
+  const formattedTotal = hasTotal
+    ? `${searchResult.countIsEstimate ? '~' : ''}${searchResult.total!.toLocaleString()}`
     : null;
 
   return (
