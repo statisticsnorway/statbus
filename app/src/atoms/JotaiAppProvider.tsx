@@ -326,6 +326,8 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
             const payload = JSON.parse(event.data);
             if (payload.type === 'pipeline_progress' && Array.isArray(payload.steps)) {
               setWorkerStatus(payload as WorkerStatusSSEPayload);
+            } else if (payload.type === 'import_job_progress') {
+              setWorkerStatus(payload as WorkerStatusSSEPayload);
             } else if (payload.type && typeof payload.status === 'boolean') {
               setWorkerStatus({ type: payload.type as WorkerStatusType, status: payload.status });
             } else {
