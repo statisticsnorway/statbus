@@ -17,7 +17,7 @@ import { isEqual } from 'moderndash'
 
 import type { Database, Tables } from '@/lib/database.types'
 import type { TableColumn, AdaptableTableColumn, ColumnProfile, SearchResult as ApiSearchResultType, SearchAction, SetQuery } from '../app/search/search.d'
-import { getStatisticalUnitsData, getStatisticalUnitsCount } from '../app/search/search-requests'
+import { getStatisticalUnitsData, getStatisticalUnitsExactCount } from '../app/search/search-requests'
 import {
   fullTextSearchDeriveStateUpdateFromValue,
   unitTypeDeriveStateUpdateFromValues,
@@ -91,6 +91,7 @@ export interface SearchResult {
   total: number | null  // null means count not yet fetched
   loading: boolean      // true while fetching data
   countLoading: boolean // true while fetching count in background
+  countIsEstimate: boolean // true when total is from count=estimated
   error: string | null
 }
 
@@ -99,6 +100,7 @@ export const searchResultAtom = atom<SearchResult>({
   total: null,
   loading: false,
   countLoading: false,
+  countIsEstimate: false,
   error: null,
 })
 
@@ -326,11 +328,65 @@ export const clearSelectionAtom = atom(null, (get, set) => {
   set(selectedUnitsAtom, []);
 });
 
+/**
+ * Flip a PostgREST sort direction for last-page reversal.
+ * e.g. "asc" → "desc", "desc.nullslast" → "asc"
+ */
+function flipDirection(dir: string): string {
+  if (dir.startsWith('desc')) return 'asc';
+  return 'desc';
+}
+
+/**
+ * Create reversed API params for last-page optimization.
+ * Flips sort direction and sets offset=0 so the DB walks the index from
+ * the opposite end (fast) instead of walking OFFSET N rows (slow).
+ */
+function reverseParamsForLastPage(
+  params: URLSearchParams,
+  total: number,
+  pageSize: number
+): URLSearchParams {
+  const reversed = new URLSearchParams(params);
+
+  // Flip sort direction for each order clause
+  const order = reversed.get('order');
+  if (order) {
+    const flipped = order.split(',').map(clause => {
+      const parts = clause.split('.');
+      // Find and flip the direction part (asc/desc/desc.nullslast etc)
+      // PostgREST format: field.direction or field.direction.nullslast
+      if (parts.length >= 2) {
+        const dirIdx = parts.findIndex(p => p === 'asc' || p === 'desc');
+        if (dirIdx >= 0) {
+          parts[dirIdx] = flipDirection(parts[dirIdx]);
+          // Remove nullslast/nullsfirst modifiers since reversed order handles it
+          return parts.filter(p => p !== 'nullslast' && p !== 'nullsfirst').join('.');
+        }
+      }
+      return clause;
+    }).join(',');
+    reversed.set('order', flipped);
+  }
+
+  // Calculate how many items are on the last page
+  const remainder = total % pageSize;
+  const lastPageSize = remainder === 0 ? pageSize : remainder;
+
+  // Fetch from the start of the reversed order (offset=0),
+  // but only fetch exactly as many items as the last page needs
+  reversed.set('offset', '0');
+  reversed.set('limit', `${lastPageSize}`);
+
+  return reversed;
+}
+
 // Search actions
 export const performSearchAtom = atom(null, async (get, set) => {
-  // Make the writer async
   const postgrestClient = get(restClientAtom);
   const derivedApiParams = get(derivedApiSearchParamsAtom);
+  const pagination = get(paginationAtom);
+  const prevResult = get(searchResultAtom);
 
   if (!postgrestClient) {
     console.error("performSearchAtom: REST client not available.");
@@ -339,37 +395,61 @@ export const performSearchAtom = atom(null, async (get, set) => {
       total: null,
       loading: false,
       countLoading: false,
+      countIsEstimate: false,
       error: "Search client not initialized.",
     });
     return;
   }
 
-  // Set loading state - data loading, count will load after
+  // Detect last-page condition: we have a total from previous search and
+  // user navigated to the last page. Use reversed query for speed.
+  const prevTotal = prevResult.total;
+  const isLastPage = prevTotal !== null && prevTotal > 0 &&
+    pagination.page === Math.ceil(prevTotal / pagination.pageSize) &&
+    pagination.page > 1;
+
+  const fetchParams = isLastPage
+    ? reverseParamsForLastPage(derivedApiParams, prevTotal, pagination.pageSize)
+    : derivedApiParams;
+
+  // Set loading state
   set(searchResultAtom, (prev) => ({
     ...prev,
     loading: true,
     countLoading: true,
+    countIsEstimate: false,
     error: null,
   }));
 
   try {
-    // Step 1: Fetch data without count (fastest - ~950ms vs ~1400ms with count)
+    // Step 1: Fetch data + estimated count (single request, fast)
     const dataResponse = await getStatisticalUnitsData(
       postgrestClient,
-      derivedApiParams
+      fetchParams
     );
 
-    // Update with data immediately - table renders now, count shows "counting..."
+    // If last-page reversal was used, reverse the data back to original order
+    const data = isLastPage
+      ? [...dataResponse.statisticalUnits].reverse()
+      : dataResponse.statisticalUnits;
+
+    // For last-page reversal, keep the previous total rather than the estimated
+    // count from the reversed query (which would be the same estimate anyway)
+    const estimatedCount = isLastPage ? prevTotal : dataResponse.estimatedCount;
+
+    // Update with data + estimated count immediately
     set(searchResultAtom, (prev) => ({
       ...prev,
-      data: dataResponse.statisticalUnits,
+      data,
+      total: estimatedCount,
       loading: false,
-      // Keep countLoading: true, total stays null or previous value
+      countIsEstimate: true,
+      // countLoading stays true - exact count still pending
     }));
 
-    // Step 2: Fetch exact count in background
+    // Step 2: Fetch exact count in background (always use original params)
     try {
-      const exactCount = await getStatisticalUnitsCount(
+      const exactCount = await getStatisticalUnitsExactCount(
         postgrestClient,
         derivedApiParams
       );
@@ -378,13 +458,15 @@ export const performSearchAtom = atom(null, async (get, set) => {
         ...prev,
         total: exactCount,
         countLoading: false,
+        countIsEstimate: false,
       }));
     } catch (countError) {
-      console.warn("Failed to fetch search count:", countError);
+      console.warn("Failed to fetch exact count:", countError);
+      // Keep estimated count as fallback
       set(searchResultAtom, (prev) => ({
         ...prev,
-        total: null,
         countLoading: false,
+        // Keep countIsEstimate: true and existing estimated total
       }));
     }
   } catch (error) {
@@ -393,9 +475,10 @@ export const performSearchAtom = atom(null, async (get, set) => {
       ...prev,
       loading: false,
       countLoading: false,
+      countIsEstimate: false,
       error: error instanceof Error ? error.message : "Search operation failed",
     }));
-    throw error; // Let the caller handle it
+    throw error;
   }
 });
 
