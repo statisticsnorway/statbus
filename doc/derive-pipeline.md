@@ -310,11 +310,77 @@ All commands and their queue assignments:
 | maintenance | `import_job_cleanup`                      | top-level   | Clean expired imports        |
 
 
+## Round-Based Priority
+
+All tasks in a pipeline round share the **same priority** — the priority of
+the `collect_changes` task that started the round. This prevents interleaving
+of stages from different rounds.
+
+### How it works
+
+1. `collect_changes` reads its own `priority` from `worker.tasks` as
+   `round_priority_base`.
+2. Every downstream enqueue/spawn call receives `round_priority_base` and uses
+   it as the task priority. The value is also stored in the payload so handlers
+   can read and propagate it further.
+
+No sequence reservation is needed: the priority sequence is monotonically
+increasing, so any *new* `collect_changes` triggered during this round
+naturally gets a higher priority number (= runs later).
+
+### ORDER BY priority ASC, id invariant
+
+`process_tasks` picks tasks with:
+```sql
+ORDER BY t.priority ASC NULLS LAST, t.id
+```
+
+With all tasks in a round sharing the same priority, the tiebreaker is `t.id`
+(BIGSERIAL, monotonically increasing). Since each stage creates the next
+sequentially, **creation order = pipeline order = id order**. This means:
+
+- **Between rounds:** Round 1 (priority P) runs entirely before Round 2
+  (priority Q > P).
+- **Within a round:** Stages run in creation order (ascending `t.id`).
+
+### Uncle-before-children safety
+
+Some handlers enqueue "uncle" tasks (e.g., `statistical_unit_facet_reduce`)
+**before** spawning children. The uncle gets a lower `t.id` than the children.
+This is safe because:
+
+1. The uncle is a top-level task (`parent_id IS NULL`).
+2. The parent enters `waiting` state after spawning children.
+3. The top fiber sees the waiting parent and **blocks** — it will NOT pick the
+   uncle task.
+4. Only child fibers run, processing children of the waiting parent.
+5. After all children complete, the parent completes, and THEN the top fiber
+   picks the uncle.
+
+### ON CONFLICT priority merging
+
+When a later round re-enqueues a task that is still `pending` from an earlier
+round (e.g., widening a date range), the `ON CONFLICT` clause uses
+`LEAST(t.priority, EXCLUDED.priority)` to keep the **earlier** round's
+priority. This ensures the task stays in the earlier round's execution window.
+
+### Why this must not be changed
+
+Breaking the same-priority invariant re-introduces interleaving. Observed on
+`no.statbus.org` (2026-02-24): with independent `nextval()` calls per stage,
+tasks from 3+ rounds mixed together — `statistical_unit_facet_reduce` ran as
+a no-op (8ms) before its children populated the staging table, leaving
+`statistical_unit_facet` with 0 rows.
+
+
 ## Frontend Status Detection
 
 The frontend polls `is_deriving_statistical_units()` and
 `is_deriving_reports()` to detect when derivation is active. These functions
-check for tasks in `'pending'`, `'processing'`, or `'waiting'` states.
+check **both** `worker.pipeline_progress` (for in-progress step details) and
+`worker.tasks` (for pending/processing/waiting analytics tasks). The `active`
+flag is the union of both sources — a task in `pending` state is enough to
+report `active: true`, even before `pipeline_progress` rows are created.
 
 When the function transitions from `true` → `false`, the frontend invalidates
 its caches (search results, base data) to pick up the newly derived data.
