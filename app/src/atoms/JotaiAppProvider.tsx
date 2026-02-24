@@ -310,6 +310,7 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
     const maxReconnectAttempts = 5
     let lastHeartbeat = Date.now();
     let heartbeatCheckInterval: NodeJS.Timeout | null = null;
+    const isDebug = process.env.NEXT_PUBLIC_DEBUG === 'true';
 
     const connect = () => {
       try {
@@ -330,11 +331,13 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
               setWorkerStatus(payload as WorkerStatusSSEPayload);
             } else if (payload.type && typeof payload.status === 'boolean') {
               setWorkerStatus({ type: payload.type as WorkerStatusType, status: payload.status });
-            } else {
-              console.warn("Received SSE message with unexpected payload format:", payload);
+            } else if (isDebug) {
+              console.warn("SSE: Unexpected payload format:", payload);
             }
           } catch (e) {
-            console.error("Failed to parse SSE message data:", event.data, e);
+            if (isDebug) {
+              console.error("SSE: Failed to parse message data:", event.data, e);
+            }
           }
         };
 
@@ -349,7 +352,9 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
         });
 
         eventSource.onerror = (event) => {
-          console.error(`SSE connection error. Attempting to reconnect...`, event);
+          if (isDebug) {
+            console.warn(`SSE: Connection error, attempting to reconnect...`);
+          }
 
           eventSource?.close();
 
@@ -375,7 +380,9 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
     heartbeatCheckInterval = setInterval(() => {
       const elapsed = Date.now() - lastHeartbeat;
       if (elapsed > 90000) {
-        console.warn(`SSE: No heartbeat in ${Math.round(elapsed / 1000)}s, reconnecting...`);
+        if (isDebug) {
+          console.warn(`SSE: No heartbeat in ${Math.round(elapsed / 1000)}s, reconnecting...`);
+        }
         eventSource?.close();
         reconnectAttempts = 0;
         connect();
@@ -428,11 +435,15 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
 
     // Schedule refresh at 80% of remaining lifetime
     const refreshDelay = Math.round(remainingMs * 0.8);
-    const refreshAt = new Date(now + refreshDelay);
-    console.log(`SSE: Token expires at ${new Date(expiresAtMs).toISOString()}, scheduling refresh in ${Math.round(refreshDelay / 1000)}s (at ${refreshAt.toISOString()})`);
+    if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+      const refreshAt = new Date(now + refreshDelay);
+      console.log(`SSE: Token expires at ${new Date(expiresAtMs).toISOString()}, scheduling refresh in ${Math.round(refreshDelay / 1000)}s (at ${refreshAt.toISOString()})`);
+    }
 
     const refreshTimer = setTimeout(() => {
-      console.log('SSE: Proactive token refresh triggered');
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.log('SSE: Proactive token refresh triggered');
+      }
       sendAuth({ type: 'REFRESH' });
     }, refreshDelay);
 
